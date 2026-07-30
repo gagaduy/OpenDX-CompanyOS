@@ -14,7 +14,7 @@ Phase 2: Company Operating Core
 | Phase | Status | Active Spec | Active Plan | Exit Decision |
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
-| Phase 2: Company Operating Core | Implemented, validation pending | `docs/superpowers/specs/2026-07-31-company-operating-core-design.md` | `docs/superpowers/plans/2026-07-31-company-operating-core.md` | Not decided |
+| Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-07-31-company-operating-core-design.md` | `docs/superpowers/plans/2026-07-31-company-operating-core.md` | Complete after validation |
 | Phase 3: iPaaS and Workflow | Not started | Not created | Not created | Not decided |
 | Phase 4: Digital Workforce | Not started | Not created | Not created | Not decided |
 | Phase 5: GraphRAG | Not started | Not created | Not created | Not decided |
@@ -29,7 +29,7 @@ Phase 2: Company Operating Core
 - Phase 1 validation: `git diff --check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:py`, `pnpm audit:repo`, and Docker Compose config all passed.
 - Phase 2 spec drafted for backend/domain-first Company Operating Core.
 - Phase 2 implementation plan drafted for domain contracts, in-memory repository, read-only API routes, documentation, and full validation.
-- Phase 2 domain contracts, in-memory repository, read-only API routes, and API documentation implemented. Full root validation is pending.
+- Phase 2 validation: domain tests, API tests, root TypeScript validation, Python tests, repository audit, Docker Compose config validation, and full `pnpm check` passed.
 
 ## Open Risks
 
