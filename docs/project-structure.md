@@ -50,6 +50,8 @@ docs/
 
 `.agents/skills` contains repo-local skill instructions for AI coding agents.
 
+`.agents/checklists` contains short review checklists for open-source readiness, product architecture, frontend design, and agent safety.
+
 `.github` contains issue and pull request templates for public collaboration.
 
 ## Future Modules
