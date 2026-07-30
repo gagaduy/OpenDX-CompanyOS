@@ -6,11 +6,5 @@ export const SERVICE_NAMES = {
   aiRuntime: "opendx-ai-runtime",
 } as const;
 
-export type CompanyId = `company_${string}`;
-
-export function makeCompanyScopedId(
-  companyId: string,
-  resourceId: string,
-): string {
-  return `${companyId}:${resourceId}`;
-}
+export * from "./ids";
+export * from "./company-core";
