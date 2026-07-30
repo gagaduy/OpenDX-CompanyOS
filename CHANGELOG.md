@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Add initial repository governance files for the OpenDX CompanyOS open-source project.
 - Add the master MVP roadmap spec and plan for phase-gated delivery.
+- Add the MVP status tracker for roadmap progress.
 - Add product, architecture, design, and agent implementation documentation foundation.
 - Add SPDX headers to GitHub pull request and issue templates.
 - Document frontend design constraints and mandatory AI coding agent guardrails.
