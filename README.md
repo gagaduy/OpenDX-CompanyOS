@@ -49,7 +49,43 @@ See:
 
 ## Development
 
-Application setup commands will be added when the runtime workspace is scaffolded.
+OpenDX CompanyOS uses a pnpm workspace for TypeScript apps and packages, plus a Python FastAPI service for AI runtime support.
+
+### Prerequisites
+
+- Node.js 22 or newer
+- Corepack
+- Python 3.13 or newer
+- Docker
+
+### Install
+
+```bash
+corepack enable
+corepack prepare pnpm@11.18.0 --activate
+pnpm install
+cd services/ai-runtime && python3 -m pip install -e ".[dev]"
+```
+
+### Run Validation
+
+```bash
+pnpm check
+```
+
+### Run Services
+
+```bash
+pnpm --filter @opendx/console dev
+pnpm --filter @opendx/api dev
+docker compose -f infra/docker/docker-compose.yml up -d
+```
+
+AI runtime can be served from `services/ai-runtime` with:
+
+```bash
+python3 -m uvicorn app.main:app --reload --port 8000
+```
 
 ## Contributing
 

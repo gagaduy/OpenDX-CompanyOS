@@ -25,10 +25,11 @@ Phase 1: Foundation
 
 - Repository audit: run before each handoff.
 - Runtime validation: begins in Phase 1 after application scaffolding exists.
+- Phase 1 plan created; implementation validation begins after scaffold execution.
 
 ## Open Risks
 
-- Runtime package manager is not selected.
-- Monorepo tool is not selected.
-- First UI shell is not implemented.
-- Local infrastructure bootstrap is not implemented.
+- Phase 1 final validation has not been recorded.
+- Company Core models are not implemented.
+- Real SSO login flow is not implemented.
+- Workflow, agent runtime, and GraphRAG behavior are not implemented.

@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the FastAPI AI runtime shell with deterministic health endpoint tests.
 - Add local Docker infrastructure and shared audit/check scripts.
 - Add the Next.js console shell using the approved dark operational product canvas.
+- Document verified Phase 1 development commands and roadmap status.
 - Add SPDX headers to GitHub pull request and issue templates.
 - Clarify that phase sub-specs and sub-plans are created only at explicit phase kickoff.
 - Document frontend design constraints and mandatory AI coding agent guardrails.
