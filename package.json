@@ -1,0 +1,23 @@
+{
+  "name": "opendx-companyos",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "audit:repo": "bash scripts/audit/repo.sh",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:ts": "pnpm --filter './packages/**' --filter './apps/**' test",
+    "test:py": "cd services/ai-runtime && python3 -m pytest",
+    "check": "bash scripts/dev/check.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
