@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the Phase 1 app foundation implementation plan.
 - Add the pnpm workspace and initial shared packages for configuration, domain contracts, and UI tokens.
 - Add Company Operating Core domain contracts and deterministic validation helpers.
+- Add NovaCommerce Company Operating Core seed data and in-memory repository.
 - Add product, architecture, design, and agent implementation documentation foundation.
 - Add the Express API shell with deterministic health endpoint tests.
 - Add the FastAPI AI runtime shell with deterministic health endpoint tests.
