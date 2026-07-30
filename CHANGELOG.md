@@ -15,4 +15,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Add initial repository governance files for the OpenDX CompanyOS open-source project.
 - Add product, architecture, design, and agent implementation documentation foundation.
+- Add SPDX headers to GitHub pull request and issue templates.
 - Document the OpenDX CompanyOS product vision, MVP scope, non-goals, and acceptance chain.
