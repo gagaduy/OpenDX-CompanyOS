@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the master MVP roadmap spec and plan for phase-gated delivery.
 - Add the MVP status tracker for roadmap progress.
 - Add the Phase 1 app foundation design spec.
+- Add the Phase 1 app foundation implementation plan.
 - Add product, architecture, design, and agent implementation documentation foundation.
 - Add SPDX headers to GitHub pull request and issue templates.
 - Clarify that phase sub-specs and sub-plans are created only at explicit phase kickoff.
