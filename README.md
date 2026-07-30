@@ -46,10 +46,14 @@ See:
 - `docs/architecture/mvp-phases.md`
 - `docs/design/linear-product-canvas.md`
 - `docs/agent-guidelines/implementation-guardrails.md`
+- `docs/project-structure.md`
+- `docs/dependencies.md`
 
 ## Development
 
 OpenDX CompanyOS uses a pnpm workspace for TypeScript apps and packages, plus a Python FastAPI service for AI runtime support.
+
+Full source-build instructions are maintained in `docs/build-from-source.md`.
 
 ### Prerequisites
 

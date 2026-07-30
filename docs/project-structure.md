@@ -1,0 +1,78 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Project Structure
+
+OpenDX CompanyOS is a monorepo. Branches contain the full repository; work is scoped by file changes, not by partial branch contents.
+
+## Current Top-Level Layout
+
+```text
+apps/
+services/
+packages/
+infra/
+scripts/
+docs/
+.agents/
+.github/
+```
+
+## Applications
+
+`apps/console` contains the Next.js product console. It owns the Mission Control-style frontend shell and future product UI surfaces.
+
+`apps/api` contains the Express + TypeScript API entrypoint for the future modular monolith.
+
+## Services
+
+`services/ai-runtime` contains the Python FastAPI shell for future document parsing, extraction, embeddings, reranking, and GraphRAG support.
+
+## Shared Packages
+
+`packages/config` contains shared configuration helpers.
+
+`packages/domain` contains minimal shared contracts such as service names and ID helpers. Full Company Core entities should not be added here by default.
+
+`packages/ui` contains design tokens and shared frontend primitives.
+
+## Infrastructure and Scripts
+
+`infra/docker` contains local Docker Compose infrastructure.
+
+`scripts/audit` contains repository governance audit helpers.
+
+`scripts/dev` contains developer validation scripts.
+
+`docs` contains product, architecture, design, roadmap, build, dependency, and planning documentation.
+
+`.agents/skills` contains repo-local skill instructions for AI coding agents.
+
+`.github` contains issue and pull request templates for public collaboration.
+
+## Future Modules
+
+Do not create empty `modules/*` directories. Create module directories only when the relevant phase has approved specs, plans, code, and tests.
+
+Expected future module areas include:
+
+- `modules/company`
+- `modules/organization`
+- `modules/workflow`
+- `modules/agent`
+- `modules/skill`
+- `modules/policy`
+- `modules/approval`
+- `modules/graph`
+- `modules/integration`
+- `modules/audit`
+
+## Branching Model
+
+- `main` is the stable branch.
+- `develop` is the integration branch.
+- Feature branches should branch from `develop`.
+- Merge completed feature work back into `develop`.
+- Merge `develop` into `main` only at stable milestones.
