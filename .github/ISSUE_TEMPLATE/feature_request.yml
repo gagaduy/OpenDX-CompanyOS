@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a capability for OpenDX CompanyOS.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What company workflow, governance gap, or user need does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the smallest useful solution.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List concrete outcomes that must be true when this is complete.
+    validations:
+      required: true
+  - type: dropdown
+    id: demo
+    attributes:
+      label: Demo alignment
+      options:
+        - Lead-to-Cash
+        - Complaint-to-Resolution
+        - Hire-to-Onboard
+        - Foundation or cross-cutting
+    validations:
+      required: true
