@@ -121,140 +121,99 @@ git commit -m "docs(roadmap): add mvp status tracker"
 
 Expected: one atomic commit with status tracker and changelog update.
 
-### Task 2: Phase 1 Foundation Sub-Spec
+### Task 2: Phase Kickoff Protocol
 
 **Files:**
-- Create: `docs/superpowers/specs/2026-07-30-app-foundation-design.md`
 - Modify: `docs/roadmap/mvp-status.md`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
-- Consumes: master roadmap spec and current repository foundation.
-- Produces: approved Phase 1 design spec for app scaffold, local infrastructure, and validation baseline.
+- Consumes: master roadmap spec, MVP status tracker, and the user's explicit instruction to start a phase.
+- Produces: an approved phase sub-spec only when that phase actually starts.
 
-- [ ] **Step 1: Brainstorm Phase 1 scope**
+- [ ] **Step 1: Wait for explicit phase kickoff**
 
-Use `superpowers:brainstorming`. Present and get user approval for these choices:
+Do not create sub-specs or sub-plans for a phase until the user explicitly starts that phase or asks to work on a module inside that phase.
+
+Expected: the next phase remains `Not started` in `docs/roadmap/mvp-status.md` until kickoff is explicit.
+
+- [ ] **Step 2: Identify phase and scope**
+
+When kickoff is explicit, identify the phase from `docs/superpowers/specs/2026-07-30-master-roadmap-design.md`.
+
+Use this routing table:
 
 ```text
-Recommended Phase 1 stack:
-- Package manager: pnpm workspace.
-- Frontend: Next.js App Router + TypeScript.
-- Backend: Express + TypeScript.
-- AI service: Python FastAPI shell.
-- Database: PostgreSQL with pgvector extension target.
-- Identity: Keycloak container.
-- Workflow: Temporal container.
-- Object storage: MinIO container.
-- Validation: lint, typecheck, tests, repository audit.
+Phase 1: Foundation
+Phase 2: Company Operating Core
+Phase 3: iPaaS and Workflow
+Phase 4: Digital Workforce
+Phase 5: GraphRAG
+Phase 6: Cross-Department Demo
+Phase 7: Hardening
 ```
 
-Expected: user approves Phase 1 scope before writing the spec.
+Expected: the phase and initial module scope are stated back to the user before writing any sub-spec.
 
-- [ ] **Step 2: Write Phase 1 spec**
+- [ ] **Step 3: Brainstorm the sub-spec**
 
-Create `docs/superpowers/specs/2026-07-30-app-foundation-design.md` with sections:
+Use `superpowers:brainstorming` for the phase or module. Present the design and get user approval before writing a sub-spec.
 
-```markdown
-# App Foundation Design
+Expected: user approval exists before any sub-spec file is created.
 
-## Purpose
+- [ ] **Step 4: Write and commit the approved sub-spec**
 
-## Scope
+Create the sub-spec in:
 
-## Workspace Structure
-
-## Frontend Shell
-
-## Backend Shell
-
-## AI Service Shell
-
-## Local Infrastructure
-
-## Configuration and Secrets Policy
-
-## Validation Commands
-
-## Exit Criteria
+```text
+docs/superpowers/specs/<date>-<topic>-design.md
 ```
 
-Fill each section with concrete decisions approved in Step 1.
+Update the phase row in `docs/roadmap/mvp-status.md` from `Not started` to `In progress` only after the sub-spec is written.
 
-- [ ] **Step 3: Update roadmap status and changelog**
+Add a changelog entry describing the sub-spec.
 
-Set Phase 1 row in `docs/roadmap/mvp-status.md`:
-
-```markdown
-| Phase 1: Foundation | In progress | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | Not created | Not decided |
-```
-
-Add changelog entry:
-
-```markdown
-- Add the Phase 1 app foundation design spec.
-```
-
-- [ ] **Step 4: Validate and commit**
-
-Run:
+Validate:
 
 ```bash
 git diff --check
 python3 /home/duy/Olympic/TraceGuard/.agents/skills/build-open-source-repository/scripts/audit_repo.py . --spdx-id Apache-2.0
 ```
 
-Then commit:
+Commit:
 
 ```bash
-git add docs/superpowers/specs/2026-07-30-app-foundation-design.md docs/roadmap/mvp-status.md CHANGELOG.md
-git commit -m "docs(spec): define app foundation"
+git add docs/superpowers/specs/<date>-<topic>-design.md docs/roadmap/mvp-status.md CHANGELOG.md
+git commit -m "docs(spec): define <topic>"
 ```
 
-Expected: one atomic commit containing the Phase 1 spec, roadmap status update, and changelog entry.
+Expected: one atomic commit containing the approved sub-spec, roadmap status update, and changelog entry.
 
-### Task 3: Phase 1 Foundation Sub-Plan
+### Task 3: Phase Sub-Plan Protocol
 
 **Files:**
-- Create: `docs/superpowers/plans/2026-07-30-app-foundation.md`
 - Modify: `docs/roadmap/mvp-status.md`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
-- Consumes: approved Phase 1 app foundation spec.
-- Produces: executable plan for scaffolding the application foundation.
+- Consumes: approved phase or module sub-spec.
+- Produces: executable sub-plan only for the active phase or module.
 
 - [ ] **Step 1: Write implementation plan**
 
-Use `superpowers:writing-plans`. The Phase 1 plan must include these task groups:
+Use `superpowers:writing-plans` after the sub-spec is approved.
 
-```text
-1. Workspace and package manager scaffold.
-2. Frontend shell.
-3. Backend shell.
-4. AI service shell.
-5. Docker Compose infrastructure.
-6. Configuration examples.
-7. Shared validation commands.
-8. README development instructions.
-9. Final audit and push decision.
-```
-
-Each task must contain exact files, commands, validation steps, and commit commands.
+Expected: the sub-plan contains exact files, commands, validation steps, and commit commands for that phase or module.
 
 - [ ] **Step 2: Update roadmap status and changelog**
 
-Set Phase 1 row in `docs/roadmap/mvp-status.md`:
+Set the active phase row in `docs/roadmap/mvp-status.md` to include the new sub-plan path:
 
 ```markdown
-| Phase 1: Foundation | In progress | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Not decided |
+| <Phase> | In progress | `docs/superpowers/specs/<date>-<topic>-design.md` | `docs/superpowers/plans/<date>-<topic>.md` | Not decided |
 ```
 
-Add changelog entry:
-
-```markdown
-- Add the Phase 1 app foundation implementation plan.
-```
+Add a changelog entry describing the sub-plan.
 
 - [ ] **Step 3: Validate and commit**
 
@@ -268,24 +227,24 @@ python3 /home/duy/Olympic/TraceGuard/.agents/skills/build-open-source-repository
 Then commit:
 
 ```bash
-git add docs/superpowers/plans/2026-07-30-app-foundation.md docs/roadmap/mvp-status.md CHANGELOG.md
-git commit -m "docs(plan): add app foundation plan"
+git add docs/superpowers/plans/<date>-<topic>.md docs/roadmap/mvp-status.md CHANGELOG.md
+git commit -m "docs(plan): add <topic> plan"
 ```
 
-Expected: one atomic commit containing the Phase 1 plan, roadmap status update, and changelog entry.
+Expected: one atomic commit containing the sub-plan, roadmap status update, and changelog entry.
 
-### Task 4: Execute Phase 1 Foundation
+### Task 4: Phase Execution Protocol
 
 **Files:**
-- Modify: files named by `docs/superpowers/plans/2026-07-30-app-foundation.md`
+- Modify: files named by the active sub-plan.
 - Modify: `docs/roadmap/mvp-status.md`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
-- Consumes: Phase 1 app foundation plan.
-- Produces: validated application foundation ready for Company Operating Core work.
+- Consumes: active phase or module sub-plan.
+- Produces: validated implementation for that phase or module.
 
-- [ ] **Step 1: Execute the approved Phase 1 plan**
+- [ ] **Step 1: Execute the approved sub-plan**
 
 Use either:
 
@@ -299,25 +258,25 @@ or:
 superpowers:executing-plans
 ```
 
-Expected: every task in the Phase 1 plan is implemented, validated, and committed atomically.
+Expected: every task in the active sub-plan is implemented, validated, and committed atomically.
 
-- [ ] **Step 2: Run Phase 1 exit validation**
+- [ ] **Step 2: Run phase exit validation**
 
-Run the commands defined in the Phase 1 plan. At minimum, Phase 1 must provide successful commands for:
+Run the commands defined in the active sub-plan. At minimum, every phase must provide successful commands for:
 
 ```bash
 git diff --check
 python3 /home/duy/Olympic/TraceGuard/.agents/skills/build-open-source-repository/scripts/audit_repo.py . --spdx-id Apache-2.0
 ```
 
-Expected: all Phase 1 validation commands exit `0`.
+Expected: all active phase validation commands exit `0`.
 
-- [ ] **Step 3: Update roadmap status**
+- [ ] **Step 3: Update roadmap status when the phase exits**
 
-Set Phase 1 status to `Complete` only after validation evidence exists:
+Set phase status to `Complete` only after validation evidence exists:
 
 ```markdown
-| Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
+| <Phase> | Complete | `docs/superpowers/specs/<date>-<topic>-design.md` | `docs/superpowers/plans/<date>-<topic>.md` | Complete after validation |
 ```
 
 Add validation evidence under `Latest Validation Evidence`.
@@ -328,12 +287,12 @@ Run:
 
 ```bash
 git add docs/roadmap/mvp-status.md CHANGELOG.md
-git commit -m "docs(roadmap): mark foundation phase complete"
+git commit -m "docs(roadmap): mark <phase> complete"
 ```
 
-Expected: one atomic commit recording Phase 1 completion.
+Expected: one atomic commit recording phase completion.
 
-### Task 5: Repeat Phase Gates for Phases 2 Through 7
+### Task 5: Phase Scope Reference
 
 **Files:**
 - Create: future sub-specs in `docs/superpowers/specs/`
