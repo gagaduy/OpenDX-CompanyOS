@@ -48,6 +48,7 @@ See:
 - `docs/agent-guidelines/implementation-guardrails.md`
 - `docs/project-structure.md`
 - `docs/dependencies.md`
+- `docs/api/company-operating-core.md`
 
 ## Development
 
