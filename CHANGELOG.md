@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the pnpm workspace and initial shared packages for configuration, domain contracts, and UI tokens.
 - Add product, architecture, design, and agent implementation documentation foundation.
 - Add the Express API shell with deterministic health endpoint tests.
+- Add the FastAPI AI runtime shell with deterministic health endpoint tests.
 - Add SPDX headers to GitHub pull request and issue templates.
 - Clarify that phase sub-specs and sub-plans are created only at explicit phase kickoff.
 - Document frontend design constraints and mandatory AI coding agent guardrails.
