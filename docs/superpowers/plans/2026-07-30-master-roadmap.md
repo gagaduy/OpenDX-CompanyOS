@@ -5,6 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Master Roadmap Implementation Plan
 
+> **Historical:** Superseded on 2026-08-04 by the NovaCommerce Commerce
+> Platform master design and its successor implementation plan. Retained for
+> decision history; do not execute its remaining generic CompanyOS phases.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Operate the OpenDX CompanyOS project from current foundation state to a complete MVP demo through phase-gated sub-specs, sub-plans, implementation units, and verification gates.

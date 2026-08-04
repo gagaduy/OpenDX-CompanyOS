@@ -7,31 +7,39 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Product Statement
 
-OpenDX CompanyOS is an open-source platform that helps businesses model their organization, data, workflows, human employees, and digital employees in one governed operating system.
+DX-OS is the open-source operating platform for NovaCommerce, a B2C
+single-store commerce business. It combines a public storefront, commerce
+operations, customer relationships, staff governance, and later digital
+workforce capabilities in one system.
 
 ## Core Formula
 
 ```text
-Company Blueprint
-+ Organization Graph
-+ Human Employees
-+ Digital Employees
-+ Skills
-+ iPaaS
-+ Workflow Engine
-+ SSO
-+ Policy Engine
-+ GraphRAG
-+ Shared Memory
-+ Mission Control
-= OpenDX CompanyOS
+NovaCommerce Company Core
++ Storefront
++ Catalog and Inventory
++ Customer and Cart
++ Checkout, Order, and SePay
++ Operational CRM and Support
++ Commerce Dashboard
++ Staff Identity and Governance
+= DX-OS Commerce Foundation
+
+DX-OS Commerce Foundation
++ Workflow and Digital Employees
++ GraphRAG and Company Memory
+= Future Intelligent CompanyOS
 ```
 
 ## Product Positioning
 
-OpenDX CompanyOS is the operating layer above business data, applications, workflows, and AI agents.
+DX-OS first owns NovaCommerce's commerce source-of-truth workflows and product
+surfaces. Workflow automation, AI agents, and GraphRAG are later operating
+capabilities built on top of stable commerce data and contracts.
 
-It is not a chatbot, a simple agent builder, a RAG-only document Q&A tool, a generic n8n clone, a full ERP, a full CRM, a full HRM, or an autonomous company that removes human accountability.
+It is not a chatbot, marketplace, multi-store SaaS, generic workflow builder,
+full ERP, full marketing CRM, shipping platform, or autonomous company that
+removes human accountability.
 
 ## Design Principles
 
@@ -47,7 +55,10 @@ It is not a chatbot, a simple agent builder, a RAG-only document Q&A tool, a gen
 
 ## MVP Scope
 
-The MVP must include Company Core, Identity, Workflow and iPaaS, Agent Runtime, GraphRAG, Mission Control, and NovaCommerce demo data.
+The active MVP is the NovaCommerce Commerce Foundation: two frontend surfaces,
+PostgreSQL-backed catalog and one-location inventory, guest and registered
+customers, cart, checkout, orders, SePay payments, Operational CRM, support,
+dashboard, staff identity, authorization, and audit.
 
 ## Company Model
 
@@ -58,21 +69,25 @@ resource, action, data classification, workflow context, and risk.
 
 ## MVP Non-Goals
 
-The MVP will not build full ERP, payroll, accounting, Salesforce-class CRM, Workday-class HRM, mobile apps, Kubernetes, broad connector marketplace, or uncontrolled agent self-creation.
+The active MVP will not build marketplace behavior, multiple warehouses,
+shipping-provider integration, refunds, returns, electronic invoices,
+subscriptions, marketing automation, multiple currencies, mobile apps,
+Kubernetes, Workflow Builder, Digital Employee execution, or GraphRAG.
 
 ## Acceptance Chain
 
-1. User logs in through SSO.
-2. System loads the configured company and resolves department and role.
-3. Business event triggers a workflow.
-4. Workflow assigns work to a Digital Employee.
-5. Agent uses an authorized skill and data scope.
-6. GraphRAG provides cited context.
-7. Agent calls connectors only through Tool Registry.
-8. Policy Engine detects approval requirements.
-9. Workflow waits for the correct approver.
-10. Approval resumes the workflow.
-11. Business data is updated.
-12. Graph and memory are updated.
-13. Mission Control shows status.
-14. Audit Log records the process.
+1. Staff signs in through Keycloak with backoffice permissions.
+2. Staff publishes a product and records stock for its SKU.
+3. A guest discovers the product and adds it to a cart.
+4. Checkout validates customer, address, pricing, promotion, and availability.
+5. PostgreSQL transaction reserves inventory and creates a pending order.
+6. Backend initiates a signed SePay checkout.
+7. Authenticated SePay IPN confirms the payment exactly once.
+8. Order becomes paid and inventory reservation is consumed.
+9. CRM receives the customer, order, and interaction timeline.
+10. Staff completes internal order processing.
+11. Dashboard metrics include the paid order.
+12. Audit records every important staff, inventory, payment, and order action.
+
+The complete commerce design and 15-step acceptance chain are defined in
+`docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`.

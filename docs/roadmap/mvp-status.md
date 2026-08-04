@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 2 is complete. Phase 3 has not started.
+Phase 2 is complete. Phase 3 Commerce Data Foundation is in design; its focused
+implementation spec and plan have not started.
 
 ## Phase Status
 
@@ -15,11 +16,12 @@ Phase 2 is complete. Phase 3 has not started.
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
-| Phase 3: iPaaS and Workflow | Not started | Not created | Not created | Not decided |
-| Phase 4: Digital Workforce | Not started | Not created | Not created | Not decided |
-| Phase 5: GraphRAG | Not started | Not created | Not created | Not decided |
-| Phase 6: Cross-Department Demo | Not started | Not created | Not created | Not decided |
-| Phase 7: Hardening | Not started | Not created | Not created | Not decided |
+| Phase 3: Commerce Data Foundation | Master design pending review | `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md` | Not created | Pending master-design review |
+| Phase 4: Catalog and Inventory | Not started | Master design only | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
+| Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
+| Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
+| Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
 ## Latest Validation Evidence
 
@@ -33,9 +35,18 @@ Phase 2 is complete. Phase 3 has not started.
 - Clean Architecture follow-up validation removed Company IDs, moved the
   NovaCommerce seed under production infrastructure ownership, and preserved
   the single-company API contracts.
+- NovaCommerce Commerce Platform master design written for B2C storefront,
+  one-location inventory, SePay payments, Operational CRM, and dashboard; user
+  review remains pending.
 
 ## Open Risks
 
 - Company Core persistence is not implemented.
 - Real SSO login flow is not implemented.
-- Workflow, agent runtime, and GraphRAG behavior are not implemented.
+- Commerce bounded contexts and public storefront are not implemented.
+- SePay production requires a hosted public HTTPS endpoint and production
+  merchant credentials; local development uses sandbox.
+- Shipping, refunds, returns, and electronic invoices are outside the current
+  roadmap.
+- Workflow, agent runtime, and GraphRAG are deferred until commerce Phase 8 is
+  complete.

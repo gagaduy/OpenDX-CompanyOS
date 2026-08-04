@@ -32,6 +32,10 @@ surface, and `src/shared` contains only genuinely shared frontend concerns.
 infrastructure, the configured NovaCommerce seed, presentation, and integration
 tests.
 
+`apps/storefront` is the approved future public commerce frontend. It will be
+created in the Storefront phase with its first source and tests, not as an empty
+placeholder.
+
 ## Services
 
 `services/ai-runtime` contains the Python FastAPI shell for future document
@@ -84,17 +88,24 @@ only when the relevant phase has approved its spec, plan, source, and tests.
 
 ## Planned Business Areas
 
-Expected future module areas include:
+Approved commerce module areas include:
 
-- `modules/organization`
-- `modules/workflow`
-- `modules/agent`
-- `modules/skill`
-- `modules/policy`
-- `modules/approval`
-- `modules/graph`
-- `modules/integration`
+- `modules/identity`
+- `modules/catalog`
+- `modules/inventory`
+- `modules/customer`
+- `modules/cart`
+- `modules/promotion`
+- `modules/checkout`
+- `modules/order`
+- `modules/payment`
+- `modules/crm`
+- `modules/support`
+- `modules/reporting`
 - `modules/audit`
+
+Workflow, Agent, Skill, Policy, Graph, and broad Integration modules move to the
+post-commerce roadmap.
 
 ## Branching Model
 

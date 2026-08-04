@@ -73,6 +73,16 @@ Preserve these properties:
 ## Product Guardrails
 
 - Company is the center of the system, not an agent or chatbot.
+- The active delivery target is the NovaCommerce B2C single-store Commerce
+  Platform defined in
+  `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`.
+- Do not add marketplace, multi-warehouse, shipping-provider, refund, return,
+  electronic-invoice, workflow, agent, or GraphRAG behavior to the Commerce
+  Foundation without a separately approved design.
+- Storefront price, promotion, inventory, order, and payment truth must be
+  recalculated and enforced by the backend.
+- Browser redirects never prove payment; only authenticated provider events or
+  successful reconciliation may confirm payment.
 - Authorization must be enforced in backend/runtime layers, not only the frontend.
 - Agents must not share credentials or decide their own permissions.
 - Risky actions require human approval.

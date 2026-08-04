@@ -9,26 +9,30 @@ SPDX-License-Identifier: Apache-2.0
 
 OpenDX CompanyOS has six functional layers:
 
-- Experience Layer.
+- Commerce Experience Layer: public storefront and staff console.
+- Commerce Core: catalog, inventory, customer, cart, promotion, checkout, order,
+  payment, CRM, support, and reporting.
 - Identity Plane.
 - Company Operating Core.
-- iPaaS and Workflow Engine.
-- Agent Runtime.
-- Company Graph and GraphRAG.
+- Audit and Governance.
+- Future Intelligence Layer: workflow, agents, and GraphRAG after commerce.
 
 ## MVP Deployment
 
-- Frontend: React + TypeScript with Vite.
+- Frontends: React + TypeScript with Vite for `apps/storefront` and
+  `apps/console`.
 - Backend: Express + TypeScript modular monolith.
-- Durable workflow: Temporal.
 - Identity provider: Keycloak.
 - Operational database: PostgreSQL.
-- Vector search: pgvector.
-- Graph storage: PostgreSQL graph projection tables.
 - Object storage: MinIO.
 - AI service: Python.
 - Observability: structured logs, OpenTelemetry, metrics.
 - Deployment: Docker Compose.
+- Payments: SePay Payment Gateway, sandbox locally and production on hosted
+  HTTPS.
+
+Temporal, pgvector, graph projection storage, and Python AI capabilities remain
+available architecture directions but do not block the commerce foundation.
 
 ## Single-Company Boundary
 
@@ -40,34 +44,43 @@ risk level.
 
 ## Backend Modules
 
-- Company.
-- Organization.
-- Identity adapter.
-- Workflow.
-- Agent.
-- Skill.
-- Policy.
-- Approval.
-- Graph.
-- Integration.
-- Audit.
+- Existing: Company Operating Core.
+- Commerce foundation: Identity, Catalog, Inventory, Customer, Cart, Promotion,
+  Checkout, Order, Payment, CRM, Support, Reporting, and Audit.
+- Post-commerce: Workflow, Agent, Skill, Policy, Graph, and Integration.
 
 ## Core Entity Families
 
 - Company, Department, Position, User, HumanEmployee, DigitalEmployee.
 - Role, Permission, Policy.
 - Goal, KPI, Task, Decision.
-- SkillDefinition, SkillVersion.
-- AgentRun, AgentHandoff, ToolDefinition, ToolCall.
-- WorkflowDefinition, WorkflowVersion, WorkflowRun, WorkflowNodeRun.
-- ConnectorDefinition, ConnectorConnection, CredentialReference.
+- Product, Category, ProductVariant, SKU, ProductMedia, Price.
+- InventoryItem, InventoryReservation, StockMovement.
+- CustomerProfile, CustomerAccount, GuestIdentity, CustomerAddress.
+- Cart, CartItem, CheckoutSession, Promotion, PromotionRedemption.
+- Order, OrderLine, Payment, PaymentAttempt, PaymentEvent,
+  PaymentReconciliation.
+- CustomerNote, CustomerSegment, FollowUpTask, InteractionEvent, SupportTicket.
 - BusinessEvent, ApprovalRequest, AuditEvent, Notification.
-- Document, DocumentChunk, KnowledgeEntity, KnowledgeRelationship, GraphSource, MemoryEntry.
 
 ## Durable Workflow Boundary
 
-Temporal owns durable state, retry, timers, signals, and resume after crash. OpenDX owns the workflow DSL, node model, connector registry, agent node, skill node, approval node, company event integration, and permission enforcement.
+Temporal is reserved for the post-commerce workflow roadmap. Commerce payment,
+inventory, and order correctness is implemented first through PostgreSQL
+transactions, idempotency, state machines, reconciliation, and an outbox where
+asynchronous processing is required.
 
 ## GraphRAG Boundary
 
-Operational graph is a projection of source-of-truth database records. Semantic graph is extracted from authorized documents and events with provenance. Retrieval must apply permission filters before context reaches an LLM.
+GraphRAG is post-commerce. PostgreSQL commerce records remain source of truth;
+future graph projections and model context may only derive from authorized,
+provenance-bearing records.
+
+## Commerce Boundaries
+
+- One B2C store, physical goods, one inventory location, and VND only.
+- Guest checkout plus optional customer accounts.
+- Keycloak authenticates staff; customer authentication remains in Commerce.
+- No shipping-provider integration, refunds, returns, or electronic invoices.
+- Browser redirects never prove payment; authenticated SePay IPN or successful
+  reconciliation is required.

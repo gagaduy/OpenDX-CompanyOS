@@ -5,17 +5,25 @@ SPDX-License-Identifier: Apache-2.0
 
 # OpenDX CompanyOS
 
-OpenDX CompanyOS is an open-source Company-first operating platform for modeling and running a digital company.
+DX-OS is an open-source, Company-first commerce operating platform for running
+NovaCommerce as a B2C single-store business.
 
 ## Status
 
-OpenDX CompanyOS is in early foundation work. Runtime application code is being scaffolded after the repository, product, architecture, and design constraints are committed.
+The repository and Company Operating Core foundations are complete. The active
+roadmap now builds the NovaCommerce commerce platform through PostgreSQL-backed
+catalog, inventory, storefront, customer, cart, checkout, SePay payment,
+Operational CRM, support, dashboard, and production hardening phases.
 
 ## What It Is
 
-OpenDX CompanyOS models a company, its organization, people, digital employees, workflows, policies, business data, knowledge graph, integrations, approvals, and audit trail in one operating layer.
+DX-OS models NovaCommerce's organization and commerce operations in one governed
+system. The commerce foundation is delivered before Digital Employees,
+workflow automation, and GraphRAG.
 
-AI agents are represented as Digital Employees inside the company. They are governed by role, skill, tools, data scope, permissions, policies, and human approval.
+Future AI agents will be represented as Digital Employees inside the company.
+They will be governed by role, skill, tools, data scope, permissions, policies,
+and human approval after the commerce foundation is complete.
 
 ## What It Is Not
 
@@ -25,23 +33,28 @@ AI agents are represented as Digital Employees inside the company. They are gove
 - Not a full ERP, CRM, HRM, payroll, or accounting suite.
 - Not a system that lets AI perform risky financial or legal actions without human approval.
 
-## MVP Direction
+## Active Commerce Direction
 
-The MVP is organized around:
+The active MVP is organized around:
 
 - Company Core.
-- Identity and RBAC.
-- Workflow and iPaaS.
-- Agent Runtime.
-- GraphRAG.
-- Mission Control.
-- NovaCommerce cross-department demo data.
+- Public storefront and staff console.
+- Catalog and one-location inventory.
+- Guest/customer identity, cart, and checkout.
+- Order and SePay Payment Gateway.
+- Operational CRM, support, and dashboard.
+- Staff identity, authorization, audit, and production hardening.
+
+Shipping-provider integration, refunds, returns, electronic invoices,
+marketplace behavior, Digital Employees, and GraphRAG are not part of the
+commerce foundation.
 
 ## Architecture
 
 See:
 
 - `docs/product/vision.md`
+- `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`
 - `docs/architecture/system-baseline.md`
 - `docs/architecture/mvp-phases.md`
 - `docs/design/linear-product-canvas.md`

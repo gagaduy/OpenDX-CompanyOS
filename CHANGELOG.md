@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Refocus the active master roadmap on the NovaCommerce B2C Commerce Platform,
+  including separate storefront and console surfaces, one-location inventory,
+  SePay payments, Operational CRM, support, dashboard, and hosting readiness.
+- Defer shipping, refunds, returns, electronic invoices, workflow, Digital
+  Employees, and GraphRAG until separately approved post-commerce work.
 - Migrate the product console from Next.js to React + TypeScript with Vite,
   Vitest, and a feature-first `company-overview` structure.
 - Isolate the FastAPI application factory and typed technical health endpoint

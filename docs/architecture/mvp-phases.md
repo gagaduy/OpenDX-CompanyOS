@@ -13,22 +13,40 @@ Repository, Docker Compose, PostgreSQL, Keycloak, Company model, Department, Hum
 
 Organization Graph, Goal, KPI, Task, Event, Decision, and Approval.
 
-## Phase 3: iPaaS and Workflow
+## Phase 3: Commerce Data Foundation
 
-Workflow DSL, Temporal, Workflow Builder, triggers, conditions, transforms, connectors, approvals, and execution UI.
+Commerce data foundation: PostgreSQL persistence, migrations, API conventions,
+Money and pagination primitives, audit persistence, staff OIDC, and test
+infrastructure.
 
-## Phase 4: Digital Workforce
+## Phase 4: Catalog and Inventory
 
-Digital Employee, Skill Registry, Tool Registry, Agent Harness, handoff, quality gate, and Agent Activity UI.
+Catalog, categories, variants, SKU, media, VND pricing, publication, one-location
+inventory, stock movements, reservations, and staff workspaces.
 
-## Phase 5: GraphRAG
+## Phase 5: Storefront, Customer, and Cart
 
-Document ingestion, operational graph, semantic graph, hybrid retrieval, permission-aware query, citation, and Graph Explorer.
+Public storefront, discovery, product detail, guest identity, optional customer
+accounts, CRM profile baseline, address book, and cart.
 
-## Phase 6: Cross-Department Demo
+## Phase 6: Checkout, Order, and SePay
 
-NovaCommerce seed data, Lead-to-Cash, Complaint-to-Resolution, Hire-to-Onboard, Simulation Mode, and AI War Room.
+Promotion rules, checkout snapshots, order state machine, transactional
+inventory reservation, SePay sandbox checkout, authenticated IPN, payment
+reconciliation, and order operations.
 
-## Phase 7: Hardening
+## Phase 7: Operational CRM, Support, and Dashboard
 
-Security tests, actor and department permission tests, workflow recovery tests, GraphRAG leakage tests, observability, documentation, seed/reset scripts, and clean installation.
+Customer 360, segments, notes, follow-up tasks, support tickets, interaction
+timeline, reporting read models, and commerce dashboard.
+
+## Phase 8: Production Hardening and Hosting Readiness
+
+Security and authorization tests, payment idempotency, inventory concurrency,
+backup/restore, observability, accessibility, performance, deterministic
+seed/reset, production SePay readiness, and hosted HTTPS documentation.
+
+## Post-Commerce
+
+Workflow/iPaaS, Digital Employees, Skill and Tool registries, GraphRAG, company
+memory, and AI-assisted operations receive a new master design after Phase 8.

@@ -5,6 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Master Roadmap Design
 
+> **Historical:** Superseded on 2026-08-04 by
+> `2026-08-04-novacommerce-commerce-platform-design.md`. Retained for decision
+> history; do not use it to start new implementation work.
+
 ## Purpose
 
 This document defines the end-to-end roadmap for delivering the OpenDX CompanyOS MVP demo. It is a coordination spec, not an implementation spec. It exists to keep future sub-specs, sub-plans, commits, validation, and demo work aligned with the Company-first product vision.

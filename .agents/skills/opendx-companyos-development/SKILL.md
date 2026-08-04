@@ -34,6 +34,16 @@ Read the smallest relevant set before acting:
 ## Product Rules
 
 - Keep `Company` as the center of the system. Do not turn the product into a chatbot or agent persona playground.
+- Treat the NovaCommerce Commerce Platform master design as the active delivery
+  target until its commerce phases are complete.
+- Keep the active commerce boundary to B2C single-store, physical goods, one
+  inventory location, VND, guest checkout, optional customer accounts, SePay,
+  Operational CRM, support, and dashboard.
+- Do not add shipping providers, refunds, returns, electronic invoices,
+  marketplace, multi-warehouse, workflow, Digital Employee, or GraphRAG
+  implementation without a new approved design.
+- Keep pricing, promotions, inventory, order transitions, payment confirmation,
+  and reporting metrics authoritative in backend code and PostgreSQL.
 - Treat Digital Employees as governed company workers with identity, role, skills, tools, memory scope, permissions, budget, audit, and approval rules.
 - Put authorization in backend/runtime layers. Frontend checks are only UX helpers.
 - Require human approval for risky financial, legal, production, publishing, or permission-changing actions.
