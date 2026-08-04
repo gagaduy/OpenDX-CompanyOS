@@ -44,6 +44,8 @@ there is no Company ID, company selector, or multi-tenant routing.
 - Build `apps/storefront` separately from the staff-facing `apps/console`.
 - Use PostgreSQL as the commerce foundation's only operational relational
   database and source of truth.
+- Provide a root `Makefile` as the contributor-facing command interface while
+  keeping pnpm, Python, and Docker Compose scripts independently runnable.
 - Use SePay Payment Gateway for checkout.
 - Use SePay sandbox in local development and production credentials only on a
   hosted HTTPS deployment.
@@ -458,6 +460,25 @@ Docker Compose remains the source development environment for PostgreSQL,
 Keycloak, MinIO, and supporting infrastructure. Applications can run in
 containers or local watch mode. SePay uses sandbox credentials locally.
 
+The repository root exposes discoverable `make` targets for setup, validation,
+development, Docker lifecycle, logs, migrations, seed/reset, and cleanup. The
+`Makefile` delegates to documented repository commands; it does not hide
+business logic or become the only supported way to operate the project.
+
+Docker documentation must include:
+
+- A service, image, port, dependency, health-check, and persistent-volume
+  matrix.
+- Environment-variable setup with safe local defaults and secret boundaries.
+- Exact commands for build, start, stop, status, logs, migrations, seed, reset,
+  backup, restore, and removal of local data.
+- Local watch-mode and full-container workflows.
+- Readiness checks and expected healthy output.
+- Troubleshooting for port conflicts, stale volumes, failed migrations,
+  Keycloak bootstrap, PostgreSQL connectivity, and MinIO connectivity.
+- A clear distinction between disposable local configuration and hosted
+  production requirements.
+
 ### Hosted Production Later
 
 The hosting profile must provide:
@@ -488,7 +509,8 @@ and audit seed baseline.
 ### Phase 3: Commerce Data Foundation
 
 PostgreSQL adapter, migrations, API/error conventions, Money and pagination
-primitives, audit persistence, staff OIDC boundary, and test infrastructure.
+primitives, audit persistence, staff OIDC boundary, test infrastructure, root
+`Makefile`, and a documented Docker development workflow.
 
 ### Phase 4: Catalog and Inventory
 
@@ -573,6 +595,12 @@ The commerce foundation is complete only when all steps can be demonstrated:
 - `.env.example` contains names and safe placeholders, never real credentials.
 - Build-from-source documentation covers both frontends, API, AI runtime, and
   Docker services.
+- The detailed implementation plan contains checklist tasks for the root
+  `Makefile`, Docker Compose topology, health checks, volumes, environment
+  contract, migrations, seed/reset, and contributor-facing Docker
+  documentation.
+- Every root `Makefile` target maps to a documented direct command so
+  contributors can work without treating GNU Make as hidden infrastructure.
 - API, migration, seed/reset, backup/restore, and payment setup documentation
   evolves with implementation.
 - Every phase updates `CHANGELOG.md`, roadmap status, and validation evidence.

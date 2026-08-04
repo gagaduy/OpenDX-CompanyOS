@@ -69,6 +69,10 @@ Read the smallest relevant set before acting:
 - Do not treat approval of a directory map or architecture document as approval
   to migrate existing code. Obtain a focused implementation spec and plan.
 - Do not create a release until a stable, demonstrable milestone is complete.
+- Keep the root `Makefile` as a discoverable contributor interface over direct
+  pnpm, Python, and Docker Compose commands; do not hide business logic in it.
+- Commerce phase plans must explicitly cover Docker topology, health checks,
+  volumes, environment setup, migrations, seed/reset, and Docker documentation.
 
 ## Clean Architecture Workflow
 

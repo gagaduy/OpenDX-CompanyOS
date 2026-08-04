@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   SePay payments, Operational CRM, support, dashboard, and hosting readiness.
 - Defer shipping, refunds, returns, electronic invoices, workflow, Digital
   Employees, and GraphRAG until separately approved post-commerce work.
+- Require a root `Makefile` and contributor-facing Docker operations
+  documentation in the commerce foundation plan.
 - Migrate the product console from Next.js to React + TypeScript with Vite,
   Vitest, and a feature-first `company-overview` structure.
 - Isolate the FastAPI application factory and typed technical health endpoint
