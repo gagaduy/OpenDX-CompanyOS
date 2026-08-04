@@ -13,16 +13,16 @@ Repository, Docker Compose, PostgreSQL, Keycloak, Company model, Department, Hum
 
 Organization Graph, Goal, KPI, Task, Event, Decision, and Approval.
 
-## Phase 3: Commerce Data Foundation
+## Phase 3: Commerce Product Foundation
 
-Commerce data foundation: PostgreSQL persistence, migrations, API conventions,
-Money and pagination primitives, audit persistence, staff OIDC, and test
-infrastructure.
+Full-container local environment, PostgreSQL persistence and migrations, staff
+OIDC, API conventions, root Makefile, general-merchandise catalog, variants,
+SKU, VND prices, MinIO media, audit, and Catalog staff workspace.
 
-## Phase 4: Catalog and Inventory
+## Phase 4: Inventory and Product Publication
 
-Catalog, categories, variants, SKU, media, VND pricing, publication, one-location
-inventory, stock movements, reservations, and staff workspaces.
+One-location inventory, stock movements, reservations, product publication,
+public product read contracts, and Inventory staff workspace.
 
 ## Phase 5: Storefront, Customer, and Cart
 

@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the Phase 3 Commerce Product Foundation design for a PostgreSQL-backed
+  general-merchandise catalog, full-container local stack, focused Makefile,
+  Keycloak staff access, MinIO media, and audit.
+- Refocus Phase 3 on a usable product-management workflow and move inventory
+  plus publication to Phase 4 instead of migrating Company Core persistence.
 - Refocus the active master roadmap on the NovaCommerce B2C Commerce Platform,
   including separate storefront and console surfaces, one-location inventory,
   SePay payments, Operational CRM, support, dashboard, and hosting readiness.

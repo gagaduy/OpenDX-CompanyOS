@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 2 is complete. The commerce master design and plan are approved. Phase 3
-Commerce Data Foundation is next; its focused implementation spec and plan have
-not started.
+Phase 2 is complete. Phase 3 Commerce Product Foundation focused design is
+written and pending user review; its implementation plan has not started.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -20,8 +19,8 @@ Active commerce master plan:
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
-| Phase 3: Commerce Data Foundation | Master roadmap approved; focused design not started | `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md` | Master plan: `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md` | Pending focused phase kickoff |
-| Phase 4: Catalog and Inventory | Not started | Master design only | Not created | Not decided |
+| Phase 3: Commerce Product Foundation | Focused design pending review | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | Master plan only | Pending focused-spec review |
+| Phase 4: Inventory and Product Publication | Not started | Master design only | Not created | Not decided |
 | Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
@@ -39,15 +38,17 @@ Active commerce master plan:
 - Clean Architecture follow-up validation removed Company IDs, moved the
   NovaCommerce seed under production infrastructure ownership, and preserved
   the single-company API contracts.
-- NovaCommerce Commerce Platform master design written for B2C storefront,
-  one-location inventory, SePay payments, Operational CRM, and dashboard; user
-  review remains pending.
+- NovaCommerce Commerce Platform master design and plan approved for B2C
+  storefront, one-location inventory, SePay payments, Operational CRM, and
+  dashboard.
+- Phase 3 focused design approved conceptually for a PostgreSQL-backed general-
+  merchandise catalog; written-spec review remains pending.
 
 ## Open Risks
 
-- Company Core persistence is not implemented.
 - Real SSO login flow is not implemented.
-- Commerce bounded contexts and public storefront are not implemented.
+- Product catalog, commerce persistence, and public storefront are not
+  implemented.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
 - Shipping, refunds, returns, and electronic invoices are outside the current

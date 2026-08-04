@@ -457,8 +457,8 @@ No LLM calculates financial or operational metrics.
 ### Local First
 
 Docker Compose remains the source development environment for PostgreSQL,
-Keycloak, MinIO, and supporting infrastructure. Applications can run in
-containers or local watch mode. SePay uses sandbox credentials locally.
+Keycloak, MinIO, applications, and supporting infrastructure. The supported
+local workflow is full-container mode. SePay uses sandbox credentials locally.
 
 The repository root exposes discoverable `make` targets for setup, validation,
 development, Docker lifecycle, logs, migrations, seed/reset, and cleanup. The
@@ -472,7 +472,7 @@ Docker documentation must include:
 - Environment-variable setup with safe local defaults and secret boundaries.
 - Exact commands for build, start, stop, status, logs, migrations, seed, reset,
   backup, restore, and removal of local data.
-- Local watch-mode and full-container workflows.
+- Full-container startup, shutdown, logs, rebuild, and health workflows.
 - Readiness checks and expected healthy output.
 - Troubleshooting for port conflicts, stale volumes, failed migrations,
   Keycloak bootstrap, PostgreSQL connectivity, and MinIO connectivity.
@@ -506,16 +506,16 @@ governance.
 Single-company organization, goals, KPI, tasks, events, decisions, approvals,
 and audit seed baseline.
 
-### Phase 3: Commerce Data Foundation
+### Phase 3: Commerce Product Foundation
 
-PostgreSQL adapter, migrations, API/error conventions, Money and pagination
-primitives, audit persistence, staff OIDC boundary, test infrastructure, root
-`Makefile`, and a documented Docker development workflow.
+Full-container local stack, PostgreSQL adapter and migrations, staff OIDC,
+API/error conventions, root `Makefile`, general-merchandise catalog, variants,
+SKU, VND prices, MinIO product media, audit, and Catalog console workspace.
 
-### Phase 4: Catalog and Inventory
+### Phase 4: Inventory and Product Publication
 
-Catalog and one-location inventory backend, staff workspaces, product media,
-publication, stock movements, and reservation invariants.
+One-location inventory, stock movements, reservations, product publication,
+public product read contracts, and staff inventory workspace.
 
 ### Phase 5: Storefront, Customer, and Cart
 

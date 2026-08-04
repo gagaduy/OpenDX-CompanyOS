@@ -86,8 +86,8 @@ For each phase:
 ## Dependency Order
 
 ```text
-Phase 3: Commerce Data Foundation
-  -> Phase 4: Catalog and Inventory
+Phase 3: Commerce Product Foundation
+  -> Phase 4: Inventory and Product Publication
     -> Phase 5: Storefront, Customer, and Cart
       -> Phase 6: Checkout, Order, and SePay
         -> Phase 7: Operational CRM, Support, and Dashboard
@@ -119,167 +119,112 @@ contracts without updating and re-approving the master design:
 
 ---
 
-### Task 1: Phase 3 - Commerce Data Foundation
+### Task 1: Phase 3 - Commerce Product Foundation
 
-**Purpose:** Replace foundation-only in-memory persistence with a reliable
-PostgreSQL development baseline and establish the conventions every commerce
-slice must use.
+**Purpose:** Deliver the first PostgreSQL-backed commerce workflow: authorized
+staff manage a general-merchandise product catalog with variants, SKU, VND
+prices, media, and audit through a full-container local stack.
 
-**Focused planning files:** Create a dated design and plan under
-`docs/superpowers/specs/` and `docs/superpowers/plans/` using the topic slug
-`commerce-data-foundation` at Phase 3 kickoff.
+**Focused design:**
+`docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md`.
+The dated implementation plan is created after focused-spec review.
 
 **Primary implementation areas:**
 
 - Create: `Makefile`
-- Modify: `.env.example`
-- Modify: `package.json`
-- Modify: `pnpm-workspace.yaml` only if a real workspace is added
-- Modify: `apps/api/package.json`
-- Create: `apps/api/Dockerfile`
-- Create: `apps/console/Dockerfile`
-- Modify: `infra/docker/docker-compose.yml`
-- Modify: `infra/docker/README.md`
-- Create: `apps/api/src/shared/config/`
-- Create: `apps/api/src/shared/database/`
-- Create: `apps/api/src/shared/http/`
-- Create: `apps/api/src/modules/identity/`
-- Create: `apps/api/src/modules/audit/` with its first migration-backed use case
+- Modify: `.env.example`, root/package manifests, and lockfile
+- Create: `apps/api/Dockerfile` and `apps/console/Dockerfile`
+- Modify: `infra/docker/docker-compose.yml` and `infra/docker/README.md`
 - Create: `infra/keycloak/realm-export.json`
-- Modify: `apps/api/src/app.ts`
-- Modify: `apps/api/src/server.ts`
-- Create: `scripts/db/` only for migration, seed, backup, restore, or reset
-  commands that cannot remain package-manager scripts
-- Modify: `docs/build-from-source.md`
-- Modify: `docs/dependencies.md`
-- Modify: `docs/project-structure.md`
-- Modify: `docs/roadmap/mvp-status.md`
-- Modify: `CHANGELOG.md`
+- Create: API shared config, PostgreSQL, HTTP, and staff-auth boundaries
+- Create: `apps/api/src/modules/catalog/`
+- Create: `apps/console/src/features/catalog/`
+- Create: catalog/audit migrations, database scripts, and seed assets
+- Update: build, dependency, API, structure, roadmap, and changelog docs
 
 **Interfaces produced for later phases:**
 
-- A typed configuration loader that fails startup on invalid required values.
-- A PostgreSQL connection/pool boundary owned by infrastructure.
-- A selected migration tool and deterministic `migrate`, `rollback`, `seed`,
-  and test-database workflow.
-- Shared request correlation, API response, pagination, error mapping, and
-  centralized Express error middleware.
-- A staff OIDC authentication boundary and backend authorization hook.
-- A deterministic local Keycloak realm, staff clients, roles, and development
-  users that contain no production credentials.
-- A persisted audit append port usable by all commerce modules.
-- Health and readiness endpoints that distinguish process liveness from
-  PostgreSQL/Keycloak/MinIO dependency readiness.
+- Typed configuration and PostgreSQL transaction boundaries.
+- Versioned migration, rollback, seed, integration-test, backup, and restore
+  workflows using `pg` and `node-pg-migrate`.
+- Staff OIDC authentication and backend role authorization.
+- Standard API envelopes, correlation IDs, error mapping, liveness, and
+  dependency-aware readiness.
+- Category, draft product, variant, SKU, current/history VND price, media, and
+  catalog audit contracts.
+- MinIO-backed product media without browser-visible storage credentials.
 
 **Checklist:**
 
-- [ ] Decide the PostgreSQL driver, migration tool, schema naming, transaction
-  API, and test isolation strategy in the focused design.
-- [ ] Add migration and database dependencies only after license and maintenance
-  review; lock versions and update `docs/dependencies.md`.
-- [ ] Define environment variables for PostgreSQL, Keycloak, MinIO, API origins,
-  cookies, and local ports in `.env.example` with non-secret local values.
-- [ ] Add a version-controlled local Keycloak realm import with staff clients,
-  redirect URIs, role claims, and deterministic development users.
-- [ ] Remove Temporal from the active commerce Compose topology; preserve its
-  history only in post-commerce documentation.
-- [ ] Pin every non-development-only container image to a reviewed version; do
-  not leave production guidance on `latest` tags.
-- [ ] Add Compose health checks and dependency readiness for PostgreSQL,
-  Keycloak, MinIO, API, and console where containerized.
-- [ ] Add persistent named volumes and document which reset command destroys
-  local data.
-- [ ] Add a root `Makefile` with self-documenting `help`, `setup`, `check`,
-  `docker-config`, `docker-up`, `docker-down`, `docker-status`, `docker-logs`,
-  `db-migrate`, `db-seed`, `db-reset`, `db-backup`, `db-restore`, and `clean`
-  targets.
-- [ ] Keep each Make target as a thin delegate and document its direct command
-  equivalent in `docs/build-from-source.md` or `infra/docker/README.md`.
-- [ ] Add Docker documentation containing the service/image/port/dependency/
-  health/volume matrix, watch-mode workflow, full-container workflow,
-  readiness checks, migration/seed/reset/backup/restore commands, data-loss
-  warnings, and troubleshooting.
-- [ ] Add versioned initial commerce/audit migrations without pre-creating
-  tables for later unapproved modules.
-- [ ] Replace the Company Core in-memory adapter with a PostgreSQL repository
-  while preserving its current API behavior and regression tests.
-- [ ] Add integration tests against an isolated PostgreSQL test database.
-- [ ] Add authentication tests for missing, malformed, expired, and wrong-
-  audience staff tokens.
-- [ ] Add API contract tests for validation errors, unknown errors, correlation
-  IDs, and response envelopes.
-- [ ] Verify `make docker-up`, readiness, migrations, seed, API health, console
-  load, `make docker-down`, and restart persistence from a clean checkout.
-- [ ] Run `make check` and verify it delegates to the repository-wide gate.
+- [ ] Implement the approved focused design and its file-level TDD plan.
+- [ ] Run PostgreSQL, Keycloak, MinIO, API, and console in full-container mode;
+  remove Temporal from the active commerce Compose topology.
+- [ ] Add only `make help`, `up`, `down`, `logs`, `check`, `db-migrate`,
+  `db-rollback`, `db-seed`, `db-backup`, and `db-restore` targets.
+- [ ] Pin images, add health checks and persistent volumes, import the local
+  Keycloak realm, and bootstrap the MinIO product-media bucket idempotently.
+- [ ] Implement category, product, variant, SKU, price-history, media, and audit
+  migrations without `company_id`.
+- [ ] Implement authorized admin APIs and the Catalog console workspace.
+- [ ] Add deterministic general-merchandise seed data across four categories.
+- [ ] Test domain rules, PostgreSQL repositories/constraints, authentication,
+  authorization, API contracts, MinIO compensation, console states, Docker
+  smoke behavior, and backup/restore.
+- [ ] Leave Company Core persistence and functionality unchanged.
+- [ ] Demonstrate the focused spec acceptance chain from a clean checkout.
 
-**Exit gate:** A new contributor can clone the repository, configure local
-environment values, start the documented Docker topology, migrate and seed
-PostgreSQL, run the API and console, inspect health, run all checks, stop the
-stack, and recover from a documented reset without reading source code.
+**Exit gate:** `make up` starts a healthy full stack; a Catalog Manager signs
+in, manages a PostgreSQL-backed draft product with SKU, VND price and MinIO
+media, sees its audit history, backs up/restores the catalog, passes
+`make check`, and stops the stack without data loss.
 
 ---
 
-### Task 2: Phase 4 - Catalog and One-Location Inventory
+### Task 2: Phase 4 - Inventory and Product Publication
 
-**Purpose:** Give NovaCommerce staff an authoritative product catalog and
-oversell-safe stock model before exposing products publicly.
+**Purpose:** Add oversell-safe one-location inventory and publish complete,
+available products for storefront consumption.
 
 **Focused planning files:** Create a dated design and plan under
 `docs/superpowers/specs/` and `docs/superpowers/plans/` using the topic slug
-`catalog-inventory` at Phase 4 kickoff.
+`inventory-product-publication` at Phase 4 kickoff.
 
 **Primary implementation areas:**
 
-- Create: `apps/api/src/modules/catalog/`
 - Create: `apps/api/src/modules/inventory/`
-- Create: `apps/console/src/features/catalog/`
+- Extend: `apps/api/src/modules/catalog/` through its public contracts
 - Create: `apps/console/src/features/inventory/`
-- Extend: `packages/ui/src/` only with primitives used by both current screens
-- Create: versioned catalog and inventory migrations in the Phase 3 migration
-  location
-- Add: catalog, inventory, media, and publication API documentation
-- Modify: `Makefile`, Docker docs, seed/reset, roadmap, and changelog as needed
+- Extend: `apps/console/src/features/catalog/` with publication controls
+- Create: inventory, stock movement, reservation, and publication migrations
+- Add: inventory, availability, and publication API documentation
+- Modify: seed, Make/Docker docs, roadmap, and changelog as needed
 
 **Interfaces produced for later phases:**
 
 - Published product/category read contracts for storefront discovery.
-- Product, variant, SKU, media, price, and publication staff use cases.
 - Inventory balance, stock movement, reservation, release, expiry, and consume
   ports for checkout.
-- Availability queries that expose on-hand, reserved, and available quantities
-  without exposing persistence entities.
-- MinIO-backed media storage through an inward-facing object-storage port.
+- Availability queries exposing on-hand, reserved, and available quantities.
+- Publication policy requiring complete product data, active variant, current
+  price, primary image, and available stock.
 
 **Checklist:**
 
-- [ ] Define product, category, variant, SKU, media, price, publication, stock
-  movement, balance, and reservation invariants in the focused design.
-- [ ] Define unique SKU and slug constraints, publication prerequisites, image
-  ordering, and price validation.
-- [ ] Model one inventory location explicitly without adding warehouse
-  allocation abstractions.
-- [ ] Implement migrations and rollback coverage for catalog and inventory
-  tables, indexes, foreign keys, and concurrency columns.
-- [ ] Implement catalog administration vertical slices: create, edit, price,
-  media, publish/unpublish, list, filter, and detail.
-- [ ] Implement inventory vertical slices: receive, adjust with reason, inspect
-  movement history, reserve, release, expire, and consume.
+- [ ] Define stock movement, balance, reservation, publication, and unpublish
+  invariants in the focused design.
+- [ ] Model one inventory location without warehouse-allocation abstractions.
+- [ ] Implement migrations and rollback coverage for inventory and publication.
+- [ ] Implement receive, adjust with reason, movement history, reserve, release,
+  expire, consume, publish, and unpublish use cases.
 - [ ] Require backend authorization and audit for every staff mutation.
-- [ ] Build console catalog and inventory pages with loading, empty, error,
-  validation, success, filter, pagination, and permission-denied states.
-- [ ] Use MinIO presigned or backend-mediated media operations without exposing
-  storage credentials to browsers.
-- [ ] Add domain tests for SKU uniqueness, publication rules, money, available
-  quantity, reservation transitions, and invalid negative stock.
-- [ ] Add PostgreSQL integration tests for concurrent reservation and stock
-  movement atomicity.
-- [ ] Add API and UI tests for role boundaries and stable DTO mapping.
-- [ ] Add deterministic NovaCommerce catalog and inventory seed data.
-- [ ] Demonstrate that two concurrent reservations cannot oversell one SKU.
+- [ ] Build inventory and publication console workflows with complete UI states.
+- [ ] Add domain, PostgreSQL concurrency, API, authorization, and UI tests.
+- [ ] Extend deterministic seed data with stock and published products.
+- [ ] Prove concurrent reservations cannot oversell one SKU.
 
-**Exit gate:** Authorized staff can publish a physical product with variants,
-SKU, media, VND price, and stock; unauthorized users cannot mutate it; inventory
-history and audit explain every quantity; concurrency tests prove no oversell.
+**Exit gate:** Authorized staff can stock and publish a complete product;
+public read contracts expose only published available products; inventory and
+audit explain every quantity; concurrency tests prove no oversell.
 
 ---
 
@@ -622,8 +567,8 @@ the repository documentation, with no undocumented manual intervention.
 
 - [x] Phase 1: Repository Foundation
 - [x] Phase 2: Company Operating Core
-- [ ] Phase 3: Commerce Data Foundation
-- [ ] Phase 4: Catalog and One-Location Inventory
+- [ ] Phase 3: Commerce Product Foundation
+- [ ] Phase 4: Inventory and Product Publication
 - [ ] Phase 5: Storefront, Customer, and Cart
 - [ ] Phase 6: Checkout, Order, and SePay
 - [ ] Phase 7: Operational CRM, Support, and Dashboard
