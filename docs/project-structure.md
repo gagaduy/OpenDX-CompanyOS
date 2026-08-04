@@ -34,7 +34,12 @@ configured company.
 
 ## Services
 
-`services/ai-runtime` contains the Python FastAPI shell for future document parsing, extraction, embeddings, reranking, and GraphRAG support.
+`services/ai-runtime` contains the Python FastAPI shell for future document
+parsing, extraction, embeddings, reranking, and GraphRAG support. Its
+`app/create_app.py` file is the composition root, `app/main.py` exports the ASGI
+application, and `app/shared/health` owns the technical health endpoint and
+response schema. Business modules are created only when their implementation
+is approved.
 
 ## Shared Packages
 
