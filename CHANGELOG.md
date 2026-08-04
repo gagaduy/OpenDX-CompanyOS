@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   around the configured NovaCommerce company.
 - Add single-company Company Core application ports, response DTOs, mapper, and
   query service.
+- Move NovaCommerce fixtures into the Company Core module and add an async,
+  defensive in-memory repository adapter.
 - Move Company Operating Core entities and validation from the shared domain
   package into their owning API module.
 - Strengthen Company Core API and repository characterization coverage before
