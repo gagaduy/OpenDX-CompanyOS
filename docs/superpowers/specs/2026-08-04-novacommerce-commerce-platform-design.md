@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Status
 
 - Date: 2026-08-04
-- State: Written, pending user review
+- State: Approved master design
 - Product name: DX-OS
 - Configured company: NovaCommerce
 - Commerce model: B2C single-store

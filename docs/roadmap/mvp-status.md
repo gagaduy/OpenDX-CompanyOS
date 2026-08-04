@@ -7,8 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 2 is complete. Phase 3 Commerce Data Foundation is in design; its focused
-implementation spec and plan have not started.
+Phase 2 is complete. The commerce master design and plan are approved. Phase 3
+Commerce Data Foundation is next; its focused implementation spec and plan have
+not started.
+
+Active commerce master plan:
+`docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
 
 ## Phase Status
 
@@ -16,7 +20,7 @@ implementation spec and plan have not started.
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
-| Phase 3: Commerce Data Foundation | Master design pending review | `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md` | Not created | Pending master-design review |
+| Phase 3: Commerce Data Foundation | Master roadmap approved; focused design not started | `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md` | Master plan: `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md` | Pending focused phase kickoff |
 | Phase 4: Catalog and Inventory | Not started | Master design only | Not created | Not decided |
 | Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |

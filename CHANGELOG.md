@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Employees, and GraphRAG until separately approved post-commerce work.
 - Require a root `Makefile` and contributor-facing Docker operations
   documentation in the commerce foundation plan.
+- Add the end-to-end NovaCommerce Commerce Platform master implementation plan
+  with phase checklists, focused planning gates, test matrices, and acceptance
+  criteria.
 - Migrate the product console from Next.js to React + TypeScript with Vite,
   Vitest, and a feature-first `company-overview` structure.
 - Isolate the FastAPI application factory and typed technical health endpoint

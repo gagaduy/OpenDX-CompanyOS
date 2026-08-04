@@ -55,6 +55,7 @@ See:
 
 - `docs/product/vision.md`
 - `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`
+- `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`
 - `docs/architecture/system-baseline.md`
 - `docs/architecture/mvp-phases.md`
 - `docs/design/linear-product-canvas.md`
