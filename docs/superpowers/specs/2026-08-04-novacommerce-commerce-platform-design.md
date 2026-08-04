@@ -42,6 +42,8 @@ there is no Company ID, company selector, or multi-tenant routing.
 - Use Keycloak for staff and future Digital Employee identities.
 - Keep customer authentication in the Commerce boundary.
 - Build `apps/storefront` separately from the staff-facing `apps/console`.
+- Use PostgreSQL as the commerce foundation's only operational relational
+  database and source of truth.
 - Use SePay Payment Gateway for checkout.
 - Use SePay sandbox in local development and production credentials only on a
   hosted HTTPS deployment.
@@ -402,6 +404,9 @@ it requires Finance review until a separate design is approved.
 ## Persistence and Transactions
 
 - PostgreSQL is the operational source of truth.
+- Caches, search indexes, graph projections, or analytics stores introduced in
+  later designs are derived infrastructure and cannot replace PostgreSQL as the
+  authority for commerce records.
 - A migration tool selected in the first commerce phase owns versioned schema
   changes; application startup never silently mutates production schema.
 - Monetary values use integer VND minor units and never floating point.
