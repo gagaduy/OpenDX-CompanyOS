@@ -19,10 +19,14 @@ Read the smallest relevant set before acting:
 - `AGENTS.md` for agent workflow and guardrails.
 - `docs/product/vision.md` for Company-first product intent.
 - `docs/architecture/system-baseline.md` for system boundaries and technology baseline.
+- `docs/architecture/clean-architecture.md` before adding or moving application code.
+- `docs/architecture/dependency-rules.md` before changing module dependencies.
 - `docs/architecture/mvp-phases.md` for phase scope.
 - `docs/roadmap/mvp-status.md` for current completion status.
 - `docs/design/linear-product-canvas.md` before frontend work.
 - `docs/project-structure.md` before creating directories or moving code.
+- `docs/development/coding-conventions.md` for language and framework conventions.
+- `docs/development/testing-strategy.md` before behavior changes or refactors.
 - `docs/dependencies.md` before adding runtime, build, test, or infrastructure dependencies.
 - `docs/build-from-source.md` before changing setup, validation, or run commands.
 - `docs/agent-guidelines/implementation-guardrails.md` before agent, workflow, policy, GraphRAG, or permission work.
@@ -52,7 +56,30 @@ Read the smallest relevant set before acting:
 - Add SPDX headers to new license-capable files.
 - Do not vendor third-party dependency source.
 - Do not create empty future module directories before a phase spec and plan approve them.
+- Do not treat approval of a directory map or architecture document as approval
+  to migrate existing code. Obtain a focused implementation spec and plan.
 - Do not create a release until a stable, demonstrable milestone is complete.
+
+## Clean Architecture Workflow
+
+Before implementing or moving code:
+
+1. Identify the owning business module or frontend feature.
+2. Confirm the phase and focused implementation spec are approved.
+3. Define the observable behavior and write the smallest relevant failing test.
+4. Place business rules in domain or application code.
+5. Define inward-facing interfaces where persistence, tools, or external
+   systems need substitution.
+6. Keep concrete adapters in infrastructure and wire them in a composition
+   root.
+7. Validate transport input before controllers or handlers use it.
+8. Map internal entities to purpose-specific response DTOs.
+9. Update affected API, architecture, dependency, build, and changelog docs.
+10. Run the checks appropriate to every changed workspace.
+
+Do not create every directory from the target tree up front. Create a directory
+with its first approved source or test file. Avoid ceremonial interfaces,
+pass-through classes, and shared abstractions without proven consumers.
 
 ## Validation
 

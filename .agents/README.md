@@ -21,5 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 - Read `AGENTS.md` first for repository-wide rules.
 - Load `.agents/skills/opendx-companyos-development/SKILL.md` before changing product behavior, architecture, frontend UI, repository structure, or contributor-facing documentation.
 - Use `checklists/` before commits, PRs, and implementation handoffs.
+- Use `checklists/clean-architecture-review.md` before adding or moving a
+  backend, frontend, or Python business module.
 
 Do not store secrets, private prompts, production credentials, generated agent memory, or one-off task plans in this directory.

@@ -13,12 +13,16 @@ Before changing code or documentation, read:
 
 - `docs/product/vision.md`
 - `docs/architecture/system-baseline.md`
+- `docs/architecture/clean-architecture.md` before creating or moving code
+- `docs/architecture/dependency-rules.md` before introducing module imports
 - `docs/roadmap/mvp-status.md`
 - `docs/agent-guidelines/implementation-guardrails.md`
 - `docs/design/linear-product-canvas.md` for frontend work
 - `docs/build-from-source.md` for validation commands
 - `docs/dependencies.md` before adding dependencies
 - `docs/project-structure.md` before creating new directories
+- `docs/development/coding-conventions.md` for TypeScript, Python, and React work
+- `docs/development/testing-strategy.md` before behavior changes or refactors
 - `.agents/skills/opendx-companyos-development/SKILL.md` for the repo-local AI development workflow
 
 ## Workflow
@@ -28,6 +32,29 @@ Before changing code or documentation, read:
 - Update `CHANGELOG.md` under `[Unreleased]` in the same unit as the change.
 - Do not edit `main` directly unless explicitly requested.
 - Do not create phase sub-specs or sub-plans until the user explicitly kicks off that phase.
+- Do not interpret a repository-structure request as approval to refactor
+  existing application code. Code migration requires an explicit, focused spec
+  and plan.
+- Do not create empty architecture trees, `.gitkeep` placeholders, or
+  speculative modules. Add directories with their first approved source or
+  test file.
+
+## Clean Architecture
+
+- Organize business code by owning module or frontend feature.
+- Keep dependencies inward: presentation and infrastructure depend on
+  application/domain contracts, never the reverse.
+- Keep business logic out of routes, controllers, repositories, React
+  presentational components, and framework configuration.
+- Keep database access in repository implementations and external SDK access
+  behind inward-facing ports.
+- Validate untrusted input and map internal entities to purpose-specific public
+  DTOs.
+- Use constructor injection or explicit factories; add a DI framework only for
+  a demonstrated need.
+- Import another module or feature through its public API, not private files.
+- Apply architecture pragmatically. Do not add pass-through layers or
+  interfaces without an active responsibility or substitution boundary.
 
 ## Open-Source Readiness
 

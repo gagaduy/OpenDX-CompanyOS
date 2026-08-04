@@ -20,7 +20,7 @@ docs/
 .github/
 ```
 
-## Applications
+## Current Applications
 
 `apps/console` contains the Next.js product console. It owns the Mission Control-style frontend shell and future product UI surfaces.
 
@@ -54,9 +54,23 @@ docs/
 
 `.github` contains issue and pull request templates for public collaboration.
 
-## Future Modules
+## Target Code Organization
 
-Do not create empty `modules/*` directories. Create module directories only when the relevant phase has approved specs, plans, code, and tests.
+New business code and explicitly approved refactors follow feature-first Clean
+Architecture. The normative structure and responsibilities are documented in:
+
+- [`architecture/clean-architecture.md`](architecture/clean-architecture.md)
+- [`architecture/dependency-rules.md`](architecture/dependency-rules.md)
+- [`development/coding-conventions.md`](development/coding-conventions.md)
+- [`development/testing-strategy.md`](development/testing-strategy.md)
+
+Target trees in those documents describe where implemented files belong. They
+are not a request to pre-create every directory.
+
+Do not create empty `modules/*` or `features/*` directories. Create a directory
+only when the relevant phase has approved its spec, plan, source, and tests.
+
+## Planned Business Areas
 
 Expected future module areas include:
 
