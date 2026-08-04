@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { createNovaCommerceSnapshot } from "../../../tests/fixtures/nova-commerce.fixture";
+import { createNovaCommerceSnapshot } from "../../../infrastructure/seeds/nova-commerce.seed";
 import type { ICompanyOperatingCoreRepository } from "../../repositories/interfaces/company-operating-core.repository";
 import { CompanyOperatingCoreMapper } from "../../mappers/company-operating-core.mapper";
 import { CompanyOperatingCoreService } from "./company-operating-core.service";

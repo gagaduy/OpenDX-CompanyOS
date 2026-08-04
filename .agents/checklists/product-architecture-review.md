@@ -10,7 +10,8 @@ Use this checklist before shipping product model, API, workflow, infrastructure,
 - The change reinforces Company-first modeling instead of making Agent the primary product object.
 - The change serves a documented MVP phase or one of the NovaCommerce demo flows.
 - Business logic is not stored only in prompts or frontend state.
-- Tenant isolation and backend authorization are represented for any data access path.
+- Single-company actor, department, role, resource, classification, and risk
+  boundaries are enforced by the backend for every data access path.
 - Workflow behavior that must survive restarts is designed for durable execution.
 - Operational graph data remains a projection of source-of-truth records.
 - Semantic graph or extracted relationships include provenance and confidence where applicable.

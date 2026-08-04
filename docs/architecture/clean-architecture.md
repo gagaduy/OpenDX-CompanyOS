@@ -58,8 +58,9 @@ modules/<module>/
 |   `-- repositories/
 |       `-- interfaces/
 |-- infrastructure/
-|   `-- repositories/
-|       `-- implementations/
+|   |-- repositories/
+|   |   `-- implementations/
+|   `-- seeds/
 |-- presentation/
 |   |-- controllers/
 |   |-- routes/

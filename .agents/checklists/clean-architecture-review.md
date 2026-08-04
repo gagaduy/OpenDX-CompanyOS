@@ -32,8 +32,8 @@ Use this checklist before committing or reviewing application structure work.
 - [ ] Request and response DTOs match their specific use cases.
 - [ ] Persistence entities are not exposed as API contracts by convenience.
 - [ ] External SDK and credential access stays behind owned boundaries.
-- [ ] Tenant, authorization, approval, audit, and provenance rules remain
-      enforced where relevant.
+- [ ] Single-company authorization, approval, audit, and provenance rules
+      remain enforced where relevant.
 
 ## Quality
 

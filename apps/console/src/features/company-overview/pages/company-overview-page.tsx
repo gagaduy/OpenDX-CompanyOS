@@ -16,7 +16,7 @@ export function CompanyOverviewPage() {
           <div className="eyebrow">OpenDX CompanyOS</div>
           <h1>Company operating console</h1>
           <p>
-            A dark, dense product surface for governing companies, workflows,
+            A dark, dense product surface for governing the company, workflows,
             digital employees, approvals, graph memory, and audit trails.
           </p>
         </div>

@@ -19,5 +19,10 @@ describe("CompanyOverviewPage", () => {
     expect(
       screen.getByText("Audit and provenance by default"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /A dark, dense product surface for governing the company, workflows/,
+      ),
+    ).toBeInTheDocument();
   });
 });

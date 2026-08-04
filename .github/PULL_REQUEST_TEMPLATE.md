@@ -25,7 +25,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Product and Security Checks
 
 - [ ] Preserves Company-first design
-- [ ] Preserves permission and tenant boundaries
+- [ ] Preserves single-company actor, department, role, and resource boundaries
 - [ ] Adds or updates audit/provenance behavior where relevant
 - [ ] Does not introduce secrets
 - [ ] Updates `CHANGELOG.md`

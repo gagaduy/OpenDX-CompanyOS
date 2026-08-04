@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Vitest, and a feature-first `company-overview` structure.
 - Isolate the FastAPI application factory and typed technical health endpoint
   under the AI runtime's shared infrastructure.
+- Keep the production build in the repository gate, move NovaCommerce seed
+  ownership out of tests, and remove remaining active tenant assumptions.
 - Adopt a single-company architecture without Company IDs, company selectors,
   or tenant-scoped API routes.
 - Simplify Company Core entities, seed data, repository methods, and API paths

@@ -5,7 +5,7 @@ import express, { type RequestHandler } from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import type { ICompanyOperatingCoreService } from "../../application/services/interfaces/company-operating-core.service";
-import { createNovaCommerceSnapshot } from "../../tests/fixtures/nova-commerce.fixture";
+import { createNovaCommerceSnapshot } from "../../infrastructure/seeds/nova-commerce.seed";
 import { CompanyOperatingCoreController } from "./company-operating-core.controller";
 
 class FakeService implements ICompanyOperatingCoreService {

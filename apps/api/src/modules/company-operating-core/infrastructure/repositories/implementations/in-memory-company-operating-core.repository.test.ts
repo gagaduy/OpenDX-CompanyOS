@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { createNovaCommerceSnapshot } from "../../../tests/fixtures/nova-commerce.fixture";
+import { createNovaCommerceSnapshot } from "../../seeds/nova-commerce.seed";
 import { InMemoryCompanyOperatingCoreRepository } from "./in-memory-company-operating-core.repository";
 
 function createRepository() {

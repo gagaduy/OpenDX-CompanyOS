@@ -29,8 +29,8 @@ surface, and `src/shared` contains only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
 `modules/company-operating-core` slice owns domain, application,
-infrastructure, presentation, fixtures, and integration tests for the
-configured company.
+infrastructure, the configured NovaCommerce seed, presentation, and integration
+tests.
 
 ## Services
 
