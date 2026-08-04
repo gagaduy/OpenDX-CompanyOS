@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Add the approved repository-wide Clean Architecture foundation design.
+- Add the task-by-task Clean Architecture foundation implementation plan.
 - Add initial repository governance files for the OpenDX CompanyOS open-source project.
 - Add the master MVP roadmap spec and plan for phase-gated delivery.
 - Add the MVP status tracker for roadmap progress.
