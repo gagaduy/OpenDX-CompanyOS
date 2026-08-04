@@ -3,14 +3,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { CompanyOperatingCoreSnapshot } from "../entities/company-operating-core";
-import {
-  assertValidCompanyScope,
-  validateCompanyOperatingCoreSnapshot,
-} from "./company-operating-core-validation";
+import { validateCompanyOperatingCoreSnapshot } from "./company-operating-core-validation";
 
 const validSnapshot: CompanyOperatingCoreSnapshot = {
   company: {
-    id: "company_novacommerce",
     name: "NovaCommerce",
     industry: "E-commerce",
     size: "51-200",
@@ -19,7 +15,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   departments: [
     {
       id: "department_sales",
-      companyId: "company_novacommerce",
       name: "Sales",
       slug: "sales",
       createdAt: "2026-07-31T00:00:00.000Z",
@@ -30,7 +25,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   goals: [
     {
       id: "goal_pipeline",
-      companyId: "company_novacommerce",
       ownerType: "department",
       ownerId: "department_sales",
       title: "Grow qualified pipeline",
@@ -41,7 +35,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   kpis: [
     {
       id: "kpi_pipeline_value",
-      companyId: "company_novacommerce",
       goalId: "goal_pipeline",
       name: "Qualified pipeline value",
       unit: "usd",
@@ -54,7 +47,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   tasks: [
     {
       id: "task_qualify_lead",
-      companyId: "company_novacommerce",
       title: "Qualify Acme inbound lead",
       status: "in_progress",
       priority: "high",
@@ -66,7 +58,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   events: [
     {
       id: "event_lead_created",
-      companyId: "company_novacommerce",
       type: "lead.created",
       source: "website",
       actor: { type: "service_account", id: "svc_website" },
@@ -79,7 +70,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   approvals: [
     {
       id: "approval_discount",
-      companyId: "company_novacommerce",
       requestedAction: "sales.apply_discount",
       requestedBy: { type: "user", id: "employee_sales_manager" },
       approverRole: "finance_manager",
@@ -93,7 +83,6 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
   auditEvents: [
     {
       id: "audit_lead_created",
-      companyId: "company_novacommerce",
       actor: { type: "service_account", id: "svc_website" },
       action: "lead.created",
       resourceType: "lead",
@@ -106,32 +95,9 @@ const validSnapshot: CompanyOperatingCoreSnapshot = {
 };
 
 describe("Company Operating Core validation", () => {
-  it("accepts a valid company-scoped snapshot", () => {
+  it("accepts a valid single-company snapshot without company identifiers", () => {
     expect(validateCompanyOperatingCoreSnapshot(validSnapshot)).toEqual([]);
-    expect(assertValidCompanyScope(validSnapshot, "company_novacommerce")).toEqual(
-      [],
-    );
-  });
-
-  it("reports records outside the requested company scope", () => {
-    const invalid: CompanyOperatingCoreSnapshot = {
-      ...validSnapshot,
-      tasks: [
-        ...validSnapshot.tasks,
-        {
-          ...validSnapshot.tasks[0],
-          id: "task_other_company",
-          companyId: "company_other",
-        },
-      ],
-    };
-
-    expect(
-      assertValidCompanyScope(invalid, "company_novacommerce"),
-    ).toContainEqual({
-      path: "tasks[1].companyId",
-      message: "Expected company_novacommerce but received company_other",
-    });
+    expect(JSON.stringify(validSnapshot)).not.toContain("companyId");
   });
 
   it("reports unknown task and approval statuses", () => {

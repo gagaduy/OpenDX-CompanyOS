@@ -3,18 +3,20 @@
 
 import { describe, expect, it } from "vitest";
 import { InMemoryCompanyOperatingCoreRepository } from "./repository";
-import { NOVACOMMERCE_COMPANY_ID, createCompanyCoreSeed } from "./seed";
+import { createNovaCommerceSnapshot } from "./seed";
+
+function createRepository() {
+  return new InMemoryCompanyOperatingCoreRepository(
+    createNovaCommerceSnapshot(),
+  );
+}
 
 describe("InMemoryCompanyOperatingCoreRepository", () => {
-  it("returns the NovaCommerce operating core snapshot", () => {
-    const repository = new InMemoryCompanyOperatingCoreRepository(
-      createCompanyCoreSeed(),
-    );
+  it("returns the configured NovaCommerce snapshot", () => {
+    const snapshot = createRepository().getSnapshot();
 
-    const snapshot = repository.findSnapshotByCompanyId(NOVACOMMERCE_COMPANY_ID);
-
-    expect(snapshot?.company.name).toBe("NovaCommerce");
-    expect(snapshot?.departments.map((department) => department.slug)).toEqual([
+    expect(snapshot.company.name).toBe("NovaCommerce");
+    expect(snapshot.departments.map((department) => department.slug)).toEqual([
       "executive",
       "marketing",
       "sales",
@@ -26,53 +28,40 @@ describe("InMemoryCompanyOperatingCoreRepository", () => {
     ]);
   });
 
-  it("returns undefined for an unknown company", () => {
-    const repository = new InMemoryCompanyOperatingCoreRepository(
-      createCompanyCoreSeed(),
+  it("stores no company identifiers", () => {
+    expect(JSON.stringify(createRepository().getSnapshot())).not.toContain(
+      "companyId",
     );
-
-    expect(repository.findSnapshotByCompanyId("company_missing")).toBeUndefined();
+    expect(createRepository().getSnapshot().company).not.toHaveProperty("id");
   });
 
-  it("does not return cross-company records from scoped collection methods", () => {
-    const repository = new InMemoryCompanyOperatingCoreRepository(
-      createCompanyCoreSeed(),
-    );
+  it("returns the configured company collections", () => {
+    const repository = createRepository();
 
-    expect(repository.findTasksByCompanyId(NOVACOMMERCE_COMPANY_ID)).toEqual(
+    expect(repository.listDepartments()).toHaveLength(8);
+    expect(repository.listTasks()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ companyId: NOVACOMMERCE_COMPANY_ID }),
+        expect.objectContaining({ id: "task_qualify_acme_lead" }),
       ]),
     );
-    expect(
-      repository
-        .findTasksByCompanyId(NOVACOMMERCE_COMPANY_ID)
-        .every((task) => task.companyId === NOVACOMMERCE_COMPANY_ID),
-    ).toBe(true);
-    expect(repository.findTasksByCompanyId(NOVACOMMERCE_COMPANY_ID)).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "task_compass_private" }),
-      ]),
-    );
+    expect(repository.listEvents()).not.toHaveLength(0);
+    expect(repository.listApprovals()).not.toHaveLength(0);
   });
 
-  it("keeps task, event, approval, and audit correlation ids aligned for demo flows", () => {
-    const repository = new InMemoryCompanyOperatingCoreRepository(
-      createCompanyCoreSeed(),
-    );
-    const snapshot = repository.findSnapshotByCompanyId(NOVACOMMERCE_COMPANY_ID);
+  it("keeps demo-flow correlation ids aligned", () => {
+    const snapshot = createRepository().getSnapshot();
 
-    expect(snapshot?.events.map((event) => event.correlationId)).toContain(
+    expect(snapshot.events.map((event) => event.correlationId)).toContain(
       "corr_lead_to_cash",
     );
-    expect(snapshot?.tasks.map((task) => task.relatedEventId)).toContain(
+    expect(snapshot.tasks.map((task) => task.relatedEventId)).toContain(
       "event_lead_created",
     );
-    expect(snapshot?.approvals.map((approval) => approval.correlationId)).toContain(
+    expect(snapshot.approvals.map((approval) => approval.correlationId)).toContain(
       "corr_lead_to_cash",
     );
     expect(
-      snapshot?.auditEvents.map((auditEvent) => auditEvent.correlationId),
+      snapshot.auditEvents.map((auditEvent) => auditEvent.correlationId),
     ).toContain("corr_lead_to_cash");
   });
 });

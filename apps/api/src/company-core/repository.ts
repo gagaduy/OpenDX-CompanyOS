@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CompanyId } from "@opendx/domain";
 import type {
   ApprovalRequest,
   BusinessEvent,
@@ -9,32 +8,21 @@ import type {
   Department,
   Task,
 } from "../modules/company-operating-core/domain/entities/company-operating-core";
-import {
-  assertValidCompanyScope,
-  validateCompanyOperatingCoreSnapshot,
-} from "../modules/company-operating-core/domain/services/company-operating-core-validation";
+import { validateCompanyOperatingCoreSnapshot } from "../modules/company-operating-core/domain/services/company-operating-core-validation";
 
 export interface CompanyOperatingCoreRepository {
-  findSnapshotByCompanyId(
-    companyId: CompanyId,
-  ): CompanyOperatingCoreSnapshot | undefined;
-  findDepartmentsByCompanyId(companyId: CompanyId): Department[];
-  findTasksByCompanyId(companyId: CompanyId): Task[];
-  findEventsByCompanyId(companyId: CompanyId): BusinessEvent[];
-  findApprovalsByCompanyId(companyId: CompanyId): ApprovalRequest[];
+  getSnapshot(): CompanyOperatingCoreSnapshot;
+  listDepartments(): Department[];
+  listTasks(): Task[];
+  listEvents(): BusinessEvent[];
+  listApprovals(): ApprovalRequest[];
 }
 
 export class InMemoryCompanyOperatingCoreRepository
   implements CompanyOperatingCoreRepository
 {
-  private readonly snapshots: CompanyOperatingCoreSnapshot[];
-
-  constructor(snapshots: CompanyOperatingCoreSnapshot[]) {
-    const issues = snapshots.flatMap((snapshot) => [
-      ...validateCompanyOperatingCoreSnapshot(snapshot),
-      ...assertValidCompanyScope(snapshot, snapshot.company.id),
-    ]);
-
+  constructor(private readonly snapshot: CompanyOperatingCoreSnapshot) {
+    const issues = validateCompanyOperatingCoreSnapshot(snapshot);
     if (issues.length > 0) {
       throw new Error(
         `Invalid Company Operating Core seed: ${issues
@@ -42,29 +30,25 @@ export class InMemoryCompanyOperatingCoreRepository
           .join("; ")}`,
       );
     }
-
-    this.snapshots = snapshots;
   }
 
-  findSnapshotByCompanyId(
-    companyId: CompanyId,
-  ): CompanyOperatingCoreSnapshot | undefined {
-    return this.snapshots.find((snapshot) => snapshot.company.id === companyId);
+  getSnapshot(): CompanyOperatingCoreSnapshot {
+    return this.snapshot;
   }
 
-  findDepartmentsByCompanyId(companyId: CompanyId): Department[] {
-    return this.findSnapshotByCompanyId(companyId)?.departments ?? [];
+  listDepartments(): Department[] {
+    return this.snapshot.departments;
   }
 
-  findTasksByCompanyId(companyId: CompanyId): Task[] {
-    return this.findSnapshotByCompanyId(companyId)?.tasks ?? [];
+  listTasks(): Task[] {
+    return this.snapshot.tasks;
   }
 
-  findEventsByCompanyId(companyId: CompanyId): BusinessEvent[] {
-    return this.findSnapshotByCompanyId(companyId)?.events ?? [];
+  listEvents(): BusinessEvent[] {
+    return this.snapshot.events;
   }
 
-  findApprovalsByCompanyId(companyId: CompanyId): ApprovalRequest[] {
-    return this.findSnapshotByCompanyId(companyId)?.approvals ?? [];
+  listApprovals(): ApprovalRequest[] {
+    return this.snapshot.approvals;
   }
 }

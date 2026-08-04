@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Adopt a single-company architecture without Company IDs, company selectors,
   or tenant-scoped API routes.
+- Simplify Company Core entities, seed data, repository methods, and API paths
+  around the configured NovaCommerce company.
 - Move Company Operating Core entities and validation from the shared domain
   package into their owning API module.
 - Strengthen Company Core API and repository characterization coverage before

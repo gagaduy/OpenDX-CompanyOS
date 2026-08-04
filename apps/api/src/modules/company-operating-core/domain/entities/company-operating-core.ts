@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CompanyId } from "@opendx/domain";
-
 export type EntityId = string;
 export type IsoTimestamp = string;
 
@@ -39,7 +37,6 @@ export interface ActorRef {
 }
 
 export interface Company {
-  id: CompanyId;
   name: string;
   industry: string;
   size: string;
@@ -48,7 +45,6 @@ export interface Company {
 
 export interface Department {
   id: EntityId;
-  companyId: CompanyId;
   name: string;
   slug: string;
   headEmployeeId?: EntityId;
@@ -57,7 +53,6 @@ export interface Department {
 
 export interface Position {
   id: EntityId;
-  companyId: CompanyId;
   departmentId: EntityId;
   title: string;
   level: string;
@@ -66,7 +61,6 @@ export interface Position {
 
 export interface HumanEmployee {
   id: EntityId;
-  companyId: CompanyId;
   departmentId: EntityId;
   positionId: EntityId;
   displayName: string;
@@ -78,9 +72,8 @@ export interface HumanEmployee {
 
 export interface Goal {
   id: EntityId;
-  companyId: CompanyId;
   ownerType: "company" | "department";
-  ownerId: EntityId;
+  ownerId?: EntityId;
   title: string;
   status: "active" | "at_risk" | "complete" | "paused";
   createdAt: IsoTimestamp;
@@ -88,7 +81,6 @@ export interface Goal {
 
 export interface Kpi {
   id: EntityId;
-  companyId: CompanyId;
   goalId: EntityId;
   name: string;
   unit: string;
@@ -100,7 +92,6 @@ export interface Kpi {
 
 export interface Task {
   id: EntityId;
-  companyId: CompanyId;
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
@@ -113,7 +104,6 @@ export interface Task {
 
 export interface BusinessEvent {
   id: EntityId;
-  companyId: CompanyId;
   type: string;
   source: string;
   actor: ActorRef;
@@ -125,7 +115,6 @@ export interface BusinessEvent {
 
 export interface Decision {
   id: EntityId;
-  companyId: CompanyId;
   title: string;
   decidedBy: ActorRef;
   outcome: string;
@@ -136,7 +125,6 @@ export interface Decision {
 
 export interface ApprovalRequest {
   id: EntityId;
-  companyId: CompanyId;
   requestedAction: string;
   requestedBy: ActorRef;
   approverRole: string;
@@ -150,7 +138,6 @@ export interface ApprovalRequest {
 
 export interface AuditEvent {
   id: EntityId;
-  companyId: CompanyId;
   actor: ActorRef;
   action: string;
   resourceType: string;

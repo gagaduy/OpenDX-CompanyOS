@@ -2,75 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Router } from "express";
-import type { CompanyId } from "@opendx/domain";
 import type { CompanyOperatingCoreRepository } from "./repository";
-
-const companyNotFound = {
-  error: {
-    code: "company_not_found",
-    message: "Company was not found",
-  },
-};
 
 export function createCompanyOperatingCoreRouter(
   repository: CompanyOperatingCoreRepository,
 ): Router {
   const router = Router();
 
-  router.get("/companies/:companyId/operating-core", (request, response) => {
-    const companyId = request.params.companyId as CompanyId;
-    const snapshot = repository.findSnapshotByCompanyId(companyId);
-
-    if (!snapshot) {
-      response.status(404).json(companyNotFound);
-      return;
-    }
-
-    response.json(snapshot);
+  router.get("/operating-core", (_request, response) => {
+    response.json(repository.getSnapshot());
   });
 
-  router.get("/companies/:companyId/departments", (request, response) => {
-    const companyId = request.params.companyId as CompanyId;
-
-    if (!repository.findSnapshotByCompanyId(companyId)) {
-      response.status(404).json(companyNotFound);
-      return;
-    }
-
-    response.json({ data: repository.findDepartmentsByCompanyId(companyId) });
+  router.get("/departments", (_request, response) => {
+    response.json({ data: repository.listDepartments() });
   });
 
-  router.get("/companies/:companyId/tasks", (request, response) => {
-    const companyId = request.params.companyId as CompanyId;
-
-    if (!repository.findSnapshotByCompanyId(companyId)) {
-      response.status(404).json(companyNotFound);
-      return;
-    }
-
-    response.json({ data: repository.findTasksByCompanyId(companyId) });
+  router.get("/tasks", (_request, response) => {
+    response.json({ data: repository.listTasks() });
   });
 
-  router.get("/companies/:companyId/events", (request, response) => {
-    const companyId = request.params.companyId as CompanyId;
-
-    if (!repository.findSnapshotByCompanyId(companyId)) {
-      response.status(404).json(companyNotFound);
-      return;
-    }
-
-    response.json({ data: repository.findEventsByCompanyId(companyId) });
+  router.get("/events", (_request, response) => {
+    response.json({ data: repository.listEvents() });
   });
 
-  router.get("/companies/:companyId/approvals", (request, response) => {
-    const companyId = request.params.companyId as CompanyId;
-
-    if (!repository.findSnapshotByCompanyId(companyId)) {
-      response.status(404).json(companyNotFound);
-      return;
-    }
-
-    response.json({ data: repository.findApprovalsByCompanyId(companyId) });
+  router.get("/approvals", (_request, response) => {
+    response.json({ data: repository.listApprovals() });
   });
 
   return router;

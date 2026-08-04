@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CompanyId } from "@opendx/domain";
 import type {
   ApprovalStatus,
   CompanyOperatingCoreSnapshot,
@@ -43,54 +42,10 @@ export const CORE_ENTITY_KINDS = [
   "audit_event",
 ] as const;
 
-export function assertValidCompanyScope(
-  snapshot: CompanyOperatingCoreSnapshot,
-  companyId: CompanyId,
-): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-
-  if (snapshot.company.id !== companyId) {
-    issues.push({
-      path: "company.id",
-      message: `Expected ${companyId} but received ${snapshot.company.id}`,
-    });
-  }
-
-  const collections = [
-    ["departments", snapshot.departments],
-    ["positions", snapshot.positions],
-    ["humanEmployees", snapshot.humanEmployees],
-    ["goals", snapshot.goals],
-    ["kpis", snapshot.kpis],
-    ["tasks", snapshot.tasks],
-    ["events", snapshot.events],
-    ["decisions", snapshot.decisions],
-    ["approvals", snapshot.approvals],
-    ["auditEvents", snapshot.auditEvents],
-  ] as const;
-
-  for (const [collectionName, records] of collections) {
-    records.forEach((record, index) => {
-      if (record.companyId !== companyId) {
-        issues.push({
-          path: `${collectionName}[${index}].companyId`,
-          message: `Expected ${companyId} but received ${record.companyId}`,
-        });
-      }
-    });
-  }
-
-  return issues;
-}
-
 export function validateCompanyOperatingCoreSnapshot(
   snapshot: CompanyOperatingCoreSnapshot,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-
-  if (!snapshot.company.id) {
-    issues.push({ path: "company.id", message: "Company id is required" });
-  }
 
   snapshot.tasks.forEach((task, index) => {
     if (!TASK_STATUSES.includes(task.status)) {

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CompanyId } from "@opendx/domain";
 import type {
   ActorType,
   AuditEvent,
@@ -11,19 +10,11 @@ import type {
   Position,
 } from "../modules/company-operating-core/domain/entities/company-operating-core";
 
-export const NOVACOMMERCE_COMPANY_ID = "company_novacommerce" as CompanyId;
-
-const COMPASS_COMPANY_ID = "company_compass_demo" as CompanyId;
 const CREATED_AT = "2026-07-31T00:00:00.000Z";
 
-export function createCompanyCoreSeed(): CompanyOperatingCoreSnapshot[] {
-  return [createNovaCommerceSnapshot(), createCompassSnapshot()];
-}
-
-function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
+export function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
   return {
     company: {
-      id: NOVACOMMERCE_COMPANY_ID,
       name: "NovaCommerce",
       industry: "E-commerce",
       size: "51-200",
@@ -123,16 +114,13 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
     goals: [
       {
         id: "goal_company_growth",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         ownerType: "company",
-        ownerId: NOVACOMMERCE_COMPANY_ID,
         title: "Increase cross-department operating visibility",
         status: "active",
         createdAt: CREATED_AT,
       },
       {
         id: "goal_sales_pipeline",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         ownerType: "department",
         ownerId: "department_sales",
         title: "Grow qualified lead-to-cash pipeline",
@@ -143,7 +131,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
     kpis: [
       {
         id: "kpi_revenue_forecast",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         goalId: "goal_company_growth",
         name: "Revenue forecast",
         unit: "usd",
@@ -154,7 +141,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
       },
       {
         id: "kpi_pipeline_value",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         goalId: "goal_sales_pipeline",
         name: "Qualified pipeline value",
         unit: "usd",
@@ -167,7 +153,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
     tasks: [
       {
         id: "task_qualify_acme_lead",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         title: "Qualify Acme inbound lead",
         status: "in_progress",
         priority: "high",
@@ -178,7 +163,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
       },
       {
         id: "task_review_discount",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         title: "Review lead-to-cash discount request",
         status: "waiting_approval",
         priority: "high",
@@ -226,7 +210,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
     decisions: [
       {
         id: "decision_discount_requires_finance",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         title: "Discount requires finance approval",
         decidedBy: { type: "user", id: "employee_sales_manager" },
         outcome: "Route discount over 15 percent to Finance Manager",
@@ -238,7 +221,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
     approvals: [
       {
         id: "approval_discount_pending",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         requestedAction: "sales.apply_discount",
         requestedBy: { type: "workflow", id: "workflow_lead_to_cash" },
         approverRole: "finance_manager",
@@ -250,7 +232,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
       },
       {
         id: "approval_refund_approved",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         requestedAction: "finance.issue_refund",
         requestedBy: { type: "user", id: "employee_cs_manager" },
         approverRole: "finance_manager",
@@ -263,7 +244,6 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
       },
       {
         id: "approval_salary_export_rejected",
-        companyId: NOVACOMMERCE_COMPANY_ID,
         requestedAction: "hr.export_salary_data",
         requestedBy: { type: "agent", id: "agent_sales" },
         approverRole: "hr_manager",
@@ -310,53 +290,8 @@ function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
   };
 }
 
-function createCompassSnapshot(): CompanyOperatingCoreSnapshot {
-  return {
-    company: {
-      id: COMPASS_COMPANY_ID,
-      name: "Compass Demo",
-      industry: "Internal test tenant",
-      size: "1-10",
-      createdAt: CREATED_AT,
-    },
-    departments: [
-      department(
-        "department_compass_ops",
-        "Operations",
-        "operations",
-        COMPASS_COMPANY_ID,
-      ),
-    ],
-    positions: [],
-    humanEmployees: [],
-    goals: [],
-    kpis: [],
-    tasks: [
-      {
-        id: "task_compass_private",
-        companyId: COMPASS_COMPANY_ID,
-        title: "Private cross-tenant task",
-        status: "todo",
-        priority: "low",
-        assigneeType: "department",
-        assigneeId: "department_compass_ops",
-        createdAt: CREATED_AT,
-      },
-    ],
-    events: [],
-    decisions: [],
-    approvals: [],
-    auditEvents: [],
-  };
-}
-
-function department(
-  id: string,
-  name: string,
-  slug: string,
-  companyId = NOVACOMMERCE_COMPANY_ID,
-): Department {
-  return { id, companyId, name, slug, createdAt: CREATED_AT };
+function department(id: string, name: string, slug: string): Department {
+  return { id, name, slug, createdAt: CREATED_AT };
 }
 
 function position(
@@ -367,7 +302,6 @@ function position(
 ): Position {
   return {
     id,
-    companyId: NOVACOMMERCE_COMPANY_ID,
     departmentId,
     title,
     level,
@@ -385,7 +319,6 @@ function employee(
 ): HumanEmployee {
   return {
     id,
-    companyId: NOVACOMMERCE_COMPANY_ID,
     departmentId,
     positionId,
     displayName,
@@ -407,7 +340,6 @@ function businessEvent(
 ) {
   return {
     id,
-    companyId: NOVACOMMERCE_COMPANY_ID,
     type,
     source,
     actor: { type: actorType, id: actorId },
@@ -430,7 +362,6 @@ function audit(
 ): AuditEvent {
   return {
     id,
-    companyId: NOVACOMMERCE_COMPANY_ID,
     actor: { type: actorType, id: actorId },
     action,
     resourceType,
