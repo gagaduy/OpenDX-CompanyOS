@@ -5,6 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # App Foundation Implementation Plan
 
+> Historical note: Company ID helpers created by this completed Phase 1 plan
+> were removed by the approved single-company decision in
+> `2026-08-04-code-structure-refactor-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Scaffold a runnable OpenDX CompanyOS application foundation with console, API, AI runtime, shared packages, local infrastructure, validation commands, and development documentation.

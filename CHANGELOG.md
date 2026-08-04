@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   defensive in-memory repository adapter.
 - Compose Company Core through thin presentation controllers, routes, and an
   explicit module factory; remove the legacy flat implementation.
+- Align active product, architecture, API, testing, and agent guidance with the
+  single-company permission model.
+- Mark historical Company ID plans as superseded and document the implemented
+  Company Core module tree.
 - Move Company Operating Core entities and validation from the shared domain
   package into their owning API module.
 - Strengthen Company Core API and repository characterization coverage before

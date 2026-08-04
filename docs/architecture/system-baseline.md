@@ -30,6 +30,14 @@ OpenDX CompanyOS has six functional layers:
 - Observability: structured logs, OpenTelemetry, metrics.
 - Deployment: Docker Compose.
 
+## Single-Company Boundary
+
+One deployment operates one configured company. The Company Operating Core
+does not use Company IDs, company selectors, multi-company repositories, or
+tenant-scoped routes. Identity and policy checks still restrict access by
+department, role, resource, action, data classification, workflow context, and
+risk level.
+
 ## Backend Modules
 
 - Company.

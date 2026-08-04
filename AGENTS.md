@@ -76,5 +76,6 @@ Preserve these properties:
 - Authorization must be enforced in backend/runtime layers, not only the frontend.
 - Agents must not share credentials or decide their own permissions.
 - Risky actions require human approval.
-- GraphRAG must filter by tenant and permission before LLM context construction.
+- GraphRAG must filter by actor, department, role, resource, and data
+  classification before LLM context construction.
 - Important operations need audit and provenance.

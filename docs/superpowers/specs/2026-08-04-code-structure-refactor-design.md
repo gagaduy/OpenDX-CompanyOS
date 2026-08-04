@@ -133,5 +133,5 @@ business feature implementation yet.
 8. No speculative module, router, store, or placeholder directory is added.
 9. No production source, active API documentation, or current architecture
    guidance refers to `CompanyId`, `companyId`, multi-company selection, or
-   tenant isolation.
+   per-company isolation requirements.
 10. Documentation and repository checks describe the resulting tree accurately.

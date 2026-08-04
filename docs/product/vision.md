@@ -49,6 +49,13 @@ It is not a chatbot, a simple agent builder, a RAG-only document Q&A tool, a gen
 
 The MVP must include Company Core, Identity, Workflow and iPaaS, Agent Runtime, GraphRAG, Mission Control, and NovaCommerce demo data.
 
+## Company Model
+
+Each OpenDX CompanyOS deployment operates one configured company. `Company`
+remains the product's aggregate root, but no Company ID or company selector is
+exposed. Access control is evaluated through actor identity, department, role,
+resource, action, data classification, workflow context, and risk.
+
 ## MVP Non-Goals
 
 The MVP will not build full ERP, payroll, accounting, Salesforce-class CRM, Workday-class HRM, mobile apps, Kubernetes, broad connector marketplace, or uncontrolled agent self-creation.
@@ -56,7 +63,7 @@ The MVP will not build full ERP, payroll, accounting, Salesforce-class CRM, Work
 ## Acceptance Chain
 
 1. User logs in through SSO.
-2. System resolves company, department, and role.
+2. System loads the configured company and resolves department and role.
 3. Business event triggers a workflow.
 4. Workflow assigns work to a Digital Employee.
 5. Agent uses an authorized skill and data scope.

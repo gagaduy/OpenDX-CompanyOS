@@ -12,7 +12,8 @@ Use this checklist before shipping agent runtime, Digital Employee, Skill, Tool 
 - Agents cannot read, write, or expose credentials directly.
 - ALLOW, REQUIRE_APPROVAL, and DENY paths are represented explicitly.
 - Risky financial, legal, production, publishing, discount, or permission-changing actions require human approval.
-- GraphRAG retrieval filters by tenant and permission before LLM context construction.
+- GraphRAG retrieval filters by actor, department, role, resource, data
+  classification, and policy before LLM context construction.
 - Outputs that rely on documents or graph data include provenance.
 - Audit records include actor, action, resource, tool call, decision, approval state, retry, and error where relevant.
 - Tests cover at least one denied action and one approval-required action when permission behavior changes.

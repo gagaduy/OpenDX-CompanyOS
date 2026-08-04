@@ -11,7 +11,7 @@ AI coding agents working on OpenDX CompanyOS must follow these rules:
 2. Do not put business logic only in prompts.
 3. Do not give agents direct database access through shared credentials.
 4. Do not let agents decide their own permissions.
-5. Do not let GraphRAG bypass tenant or permission filters.
+5. Do not let GraphRAG bypass actor, department, role, resource, or data-classification filters.
 6. Do not use an LLM for calculations that deterministic code can perform.
 7. Do not use an LLM to create operational relationships without authoritative sources.
 8. Do not store secrets in source code, prompts, workflow JSON, or docs.

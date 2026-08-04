@@ -24,7 +24,10 @@ docs/
 
 `apps/console` contains the Next.js product console. It owns the Mission Control-style frontend shell and future product UI surfaces.
 
-`apps/api` contains the Express + TypeScript API entrypoint for the future modular monolith.
+`apps/api` contains the Express + TypeScript modular monolith. Its implemented
+`modules/company-operating-core` slice owns domain, application,
+infrastructure, presentation, fixtures, and integration tests for the
+configured company.
 
 ## Services
 
@@ -34,7 +37,8 @@ docs/
 
 `packages/config` contains shared configuration helpers.
 
-`packages/domain` contains minimal shared contracts such as service names and ID helpers. Full Company Core entities should not be added here by default.
+`packages/domain` currently contains shared service names. Company Core
+entities belong to their API module rather than this package.
 
 `packages/ui` contains design tokens and shared frontend primitives.
 
@@ -74,7 +78,6 @@ only when the relevant phase has approved its spec, plan, source, and tests.
 
 Expected future module areas include:
 
-- `modules/company`
 - `modules/organization`
 - `modules/workflow`
 - `modules/agent`

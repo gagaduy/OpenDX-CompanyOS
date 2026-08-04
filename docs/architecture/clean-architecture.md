@@ -104,7 +104,7 @@ these conditions hold:
 1. It serves liveness, readiness, metrics, or equivalent infrastructure.
 2. It has no business rule.
 3. It uses no repository or external business system.
-4. It exposes no tenant data.
+4. It exposes no business or restricted company data.
 5. Its reduced structure is documented.
 
 The exception cannot be used to collapse a small business endpoint into one
@@ -168,7 +168,8 @@ modules/<module>/
 
 Architecture does not replace product governance:
 
-- Every business resource remains company scoped.
+- Every business resource belongs to the configured company; no Company ID is
+  repeated in child records.
 - Authorization is enforced before data access and tool execution.
 - Risky actions can pause for human approval.
 - Operational databases remain sources of truth.

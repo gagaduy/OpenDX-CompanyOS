@@ -59,7 +59,7 @@ entities through the API.
 DTO layers."
 
 **Expected:** Apply the documented technical-endpoint exception when the route
-has no business rule, tenant data, repository, or external business-system
+has no business rule, restricted company data, repository, or external business-system
 interaction. Keep the handler typed and tested without ceremonial layers.
 
 **Failure:** Add pass-through abstractions solely to match a folder diagram.

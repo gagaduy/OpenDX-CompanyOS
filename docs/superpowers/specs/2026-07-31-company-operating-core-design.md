@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Company Operating Core Design
 
+> Superseded model note: this historical design records the original Phase 2
+> multi-company assumptions. The current architecture operates one configured
+> company and is defined by
+> `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md`.
+
 ## Purpose
 
 Phase 2 establishes the backend and shared-domain foundation for the Company Operating Core. It turns the Phase 1 runtime shell into a testable business core that can represent a company, its organization, goals, work, events, decisions, approvals, and audit evidence.

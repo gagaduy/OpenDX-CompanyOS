@@ -201,13 +201,13 @@ export interface ICompanyOperatingCoreRepository {
 - Modify: `docs/project-structure.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Replace active multi-company and tenant-isolation requirements with the
+- [ ] Replace active multi-company requirements with the
   single-company model and actor/department/resource permission scope.
 - [ ] Mark historical Phase 1/2 specs and plans as superseded where they require
   Company IDs; do not rewrite historical implementation details.
 - [ ] Run all API and shared-package tests/typechecks.
 - [ ] Search production source and active docs for `CompanyId`, `companyId`,
-  `/companies/:companyId`, and tenant-isolation requirements; expected no
+  `/companies/:companyId`, and per-company isolation requirements; expected no
   current references.
 - [ ] Run `git diff --check` and `pnpm audit:repo`.
 - [ ] Commit with `docs(architecture): document single company model`.

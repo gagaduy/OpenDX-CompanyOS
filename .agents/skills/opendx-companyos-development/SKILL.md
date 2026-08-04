@@ -37,7 +37,7 @@ Read the smallest relevant set before acting:
 - Treat Digital Employees as governed company workers with identity, role, skills, tools, memory scope, permissions, budget, audit, and approval rules.
 - Put authorization in backend/runtime layers. Frontend checks are only UX helpers.
 - Require human approval for risky financial, legal, production, publishing, or permission-changing actions.
-- Filter GraphRAG retrieval by tenant, role, resource, data classification, and policy before building LLM context.
+- Filter GraphRAG retrieval by actor, department, role, resource, data classification, and policy before building LLM context.
 - Record provenance for important graph, retrieval, and generated outputs.
 
 ## Frontend Rules

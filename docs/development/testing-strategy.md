@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Testing Strategy
 
 Tests scale with behavior risk and module boundaries. They protect observable
-contracts, business invariants, tenant isolation, permissions, auditability,
+contracts, business invariants, permission isolation, auditability,
 and recovery behavior rather than mirroring implementation details.
 
 ## Development Loop
@@ -45,7 +45,7 @@ risks and public boundaries.
 
 Tests are mandatory around:
 
-- Company and tenant isolation.
+- Actor, department, role, resource, and data-classification isolation.
 - Backend authorization and policy decisions.
 - `ALLOW`, `REQUIRE_APPROVAL`, and `DENY` behavior.
 - Human approval pause, resume, reject, reassign, and audit behavior.
@@ -61,7 +61,8 @@ Permission-leakage tests must expect zero unauthorized records or context.
 ## Fixtures and Fakes
 
 - Keep fixtures deterministic and owned by the relevant module.
-- Include at least one secondary company in tenant-isolation tests.
+- Include actors from different departments and permission scopes in access
+  isolation tests.
 - Preserve IDs, timestamps, correlation IDs, and causation IDs when a demo flow
   depends on them.
 - Fakes implement the same focused interface as production adapters.

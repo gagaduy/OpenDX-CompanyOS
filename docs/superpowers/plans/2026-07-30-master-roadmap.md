@@ -17,7 +17,11 @@ SPDX-License-Identifier: Apache-2.0
 
 - Roadmap target is the MVP demo, not public 1.0 release.
 - Product center is `Company`, not chatbot or agent persona.
-- Every phase must preserve Company-first modeling, backend-enforced authorization, tenant isolation, agent service-account separation, Tool Registry mediation, human approval for risky actions, workflow versioning, GraphRAG permission filtering before LLM context construction, and audit/provenance for important operations.
+- Every phase must preserve the single-company, Company-first model,
+  backend-enforced actor/department/resource authorization, agent
+  service-account separation, Tool Registry mediation, human approval for risky
+  actions, workflow versioning, GraphRAG permission filtering before LLM context
+  construction, and audit/provenance for important operations.
 - Every runtime architecture, data model, permission behavior, workflow behavior, agent behavior, GraphRAG behavior, or user-facing product surface requires an approved sub-spec before implementation.
 - Every sub-spec must be followed by a committed sub-plan before implementation.
 - Every repository-changing unit updates `CHANGELOG.md` under `[Unreleased]`.
