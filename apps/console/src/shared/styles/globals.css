@@ -20,8 +20,13 @@
 }
 
 html,
-body {
+body,
+#root {
   min-height: 100%;
+}
+
+html,
+body {
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
@@ -62,7 +67,7 @@ select {
   color: var(--primary);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 

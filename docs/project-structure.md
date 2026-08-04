@@ -22,7 +22,10 @@ docs/
 
 ## Current Applications
 
-`apps/console` contains the Next.js product console. It owns the Mission Control-style frontend shell and future product UI surfaces.
+`apps/console` contains the React + TypeScript product console built with Vite.
+Its `src/app` directory owns application composition,
+`src/features/company-overview` owns the current Mission Control-style product
+surface, and `src/shared` contains only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
 `modules/company-operating-core` slice owns domain, application,

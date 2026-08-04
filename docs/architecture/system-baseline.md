@@ -18,7 +18,7 @@ OpenDX CompanyOS has six functional layers:
 
 ## MVP Deployment
 
-- Frontend: Next.js.
+- Frontend: React + TypeScript with Vite.
 - Backend: Express + TypeScript modular monolith.
 - Durable workflow: Temporal.
 - Identity provider: Keycloak.

@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Migrate the product console from Next.js to React + TypeScript with Vite,
+  Vitest, and a feature-first `company-overview` structure.
 - Adopt a single-company architecture without Company IDs, company selectors,
   or tenant-scoped API routes.
 - Simplify Company Core entities, seed data, repository methods, and API paths
@@ -53,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the Express API shell with deterministic health endpoint tests.
 - Add the FastAPI AI runtime shell with deterministic health endpoint tests.
 - Add local Docker infrastructure and shared audit/check scripts.
-- Add the Next.js console shell using the approved dark operational product canvas.
+- Add the initial React console shell using the approved dark operational product canvas.
 - Add build-from-source, dependency, project-structure, agent instruction, and repo-local skill documentation.
 - Add agent workspace README and review checklists for open-source, product architecture, frontend, and agent safety handoffs.
 - Document verified Phase 1 development commands and roadmap status.
