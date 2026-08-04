@@ -5,6 +5,3 @@ export const SERVICE_NAMES = {
   api: "opendx-api",
   aiRuntime: "opendx-ai-runtime",
 } as const;
-
-export * from "./ids";
-export * from "./company-core";

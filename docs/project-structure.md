@@ -20,21 +20,33 @@ docs/
 .github/
 ```
 
-## Applications
+## Current Applications
 
-`apps/console` contains the Next.js product console. It owns the Mission Control-style frontend shell and future product UI surfaces.
+`apps/console` contains the React + TypeScript product console built with Vite.
+Its `src/app` directory owns application composition,
+`src/features/company-overview` owns the current Mission Control-style product
+surface, and `src/shared` contains only genuinely shared frontend concerns.
 
-`apps/api` contains the Express + TypeScript API entrypoint for the future modular monolith.
+`apps/api` contains the Express + TypeScript modular monolith. Its implemented
+`modules/company-operating-core` slice owns domain, application,
+infrastructure, the configured NovaCommerce seed, presentation, and integration
+tests.
 
 ## Services
 
-`services/ai-runtime` contains the Python FastAPI shell for future document parsing, extraction, embeddings, reranking, and GraphRAG support.
+`services/ai-runtime` contains the Python FastAPI shell for future document
+parsing, extraction, embeddings, reranking, and GraphRAG support. Its
+`app/create_app.py` file is the composition root, `app/main.py` exports the ASGI
+application, and `app/shared/health` owns the technical health endpoint and
+response schema. Business modules are created only when their implementation
+is approved.
 
 ## Shared Packages
 
 `packages/config` contains shared configuration helpers.
 
-`packages/domain` contains minimal shared contracts such as service names and ID helpers. Full Company Core entities should not be added here by default.
+`packages/domain` currently contains shared service names. Company Core
+entities belong to their API module rather than this package.
 
 `packages/ui` contains design tokens and shared frontend primitives.
 
@@ -54,13 +66,26 @@ docs/
 
 `.github` contains issue and pull request templates for public collaboration.
 
-## Future Modules
+## Target Code Organization
 
-Do not create empty `modules/*` directories. Create module directories only when the relevant phase has approved specs, plans, code, and tests.
+New business code and explicitly approved refactors follow feature-first Clean
+Architecture. The normative structure and responsibilities are documented in:
+
+- [`architecture/clean-architecture.md`](architecture/clean-architecture.md)
+- [`architecture/dependency-rules.md`](architecture/dependency-rules.md)
+- [`development/coding-conventions.md`](development/coding-conventions.md)
+- [`development/testing-strategy.md`](development/testing-strategy.md)
+
+Target trees in those documents describe where implemented files belong. They
+are not a request to pre-create every directory.
+
+Do not create empty `modules/*` or `features/*` directories. Create a directory
+only when the relevant phase has approved its spec, plan, source, and tests.
+
+## Planned Business Areas
 
 Expected future module areas include:
 
-- `modules/company`
 - `modules/organization`
 - `modules/workflow`
 - `modules/agent`

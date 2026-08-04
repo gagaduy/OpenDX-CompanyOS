@@ -36,7 +36,7 @@ This runs:
 - `git diff --check`
 - TypeScript lint gates
 - TypeScript typecheck gates
-- TypeScript tests and Next.js production build
+- TypeScript tests and Vite console production build
 - Python tests for `services/ai-runtime`
 - Repository governance audit
 - Docker Compose config validation

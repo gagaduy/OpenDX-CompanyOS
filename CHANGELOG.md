@@ -13,6 +13,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Migrate the product console from Next.js to React + TypeScript with Vite,
+  Vitest, and a feature-first `company-overview` structure.
+- Isolate the FastAPI application factory and typed technical health endpoint
+  under the AI runtime's shared infrastructure.
+- Keep the production build in the repository gate, move NovaCommerce seed
+  ownership out of tests, and remove remaining active tenant assumptions.
+- Adopt a single-company architecture without Company IDs, company selectors,
+  or tenant-scoped API routes.
+- Simplify Company Core entities, seed data, repository methods, and API paths
+  around the configured NovaCommerce company.
+- Add single-company Company Core application ports, response DTOs, mapper, and
+  query service.
+- Move NovaCommerce fixtures into the Company Core module and add an async,
+  defensive in-memory repository adapter.
+- Compose Company Core through thin presentation controllers, routes, and an
+  explicit module factory; remove the legacy flat implementation.
+- Align active product, architecture, API, testing, and agent guidance with the
+  single-company permission model.
+- Mark historical Company ID plans as superseded and document the implemented
+  Company Core module tree.
+- Move Company Operating Core entities and validation from the shared domain
+  package into their owning API module.
+- Strengthen Company Core API and repository characterization coverage before
+  structural refactoring.
+- Add documentation-only Clean Architecture structure, dependency, coding,
+  testing, agent workflow, and review guidance.
+- Add the approved existing-code structure refactor design and subsystem plans.
+- Add the approved repository-wide Clean Architecture structure design.
+- Add the task-by-task Clean Architecture documentation plan.
 - Add initial repository governance files for the OpenDX CompanyOS open-source project.
 - Add the master MVP roadmap spec and plan for phase-gated delivery.
 - Add the MVP status tracker for roadmap progress.
@@ -30,7 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the Express API shell with deterministic health endpoint tests.
 - Add the FastAPI AI runtime shell with deterministic health endpoint tests.
 - Add local Docker infrastructure and shared audit/check scripts.
-- Add the Next.js console shell using the approved dark operational product canvas.
+- Add the initial React console shell using the approved dark operational product canvas.
 - Add build-from-source, dependency, project-structure, agent instruction, and repo-local skill documentation.
 - Add agent workspace README and review checklists for open-source, product architecture, frontend, and agent safety handoffs.
 - Document verified Phase 1 development commands and roadmap status.

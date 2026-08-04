@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Company Operating Core Implementation Plan
 
+> Superseded model note: this completed Phase 2 plan documents the original
+> multi-company implementation. Company IDs, repeated `companyId` fields,
+> secondary-company fixtures, and company-parameter routes were removed by the
+> approved single-company refactor design dated 2026-08-04.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the backend/domain-first Company Operating Core slice with deterministic Company, organization, goal, KPI, task, event, decision, approval, and audit read models.

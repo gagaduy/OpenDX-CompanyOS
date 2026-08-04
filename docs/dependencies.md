@@ -21,12 +21,14 @@ Current major dependencies:
 
 | Package | Used by | Purpose |
 | --- | --- | --- |
-| `next` | `apps/console` | Product console application framework |
 | `react`, `react-dom` | `apps/console` | Console UI rendering |
+| `vite`, `@vitejs/plugin-react` | `apps/console` | Console development and production builds |
 | `lucide-react` | `apps/console` | Icon set for product UI controls and status surfaces |
+| `vitest`, `jsdom` | `apps/console` | Console unit test runner and browser-like test environment |
+| `@testing-library/react`, `@testing-library/jest-dom` | `apps/console` | User-facing component assertions |
 | `express` | `apps/api` | HTTP API shell |
 | `typescript` | workspace | Type checking |
-| `vitest` | packages and API | TypeScript tests |
+| `vitest` | packages, API, and console | TypeScript tests |
 | `supertest` | `apps/api` | API endpoint tests |
 | `tsx` | `apps/api` | Local TypeScript server execution |
 
