@@ -3,85 +3,97 @@ SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# API Clean Architecture Refactor Implementation Plan
+# Single-Company API Clean Architecture Refactor Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move the existing Company Operating Core Express code into one
-feature-owned Clean Architecture module without changing endpoint paths,
-response bodies, seed records, or tenant isolation.
+**Goal:** Move Company Operating Core into one feature-owned Clean Architecture
+module and simplify it to one configured company with no Company ID.
 
-**Architecture:** Presentation depends on application contracts, application
-depends on domain and repository ports, infrastructure implements those ports,
-and one module composition root wires concrete classes. Company Core entities
-move out of the shared domain package into the API module.
+**Architecture:** The repository owns one `CompanyOperatingCoreSnapshot` and
+exposes no-argument query methods. Application services map that snapshot to
+DTOs, presentation exposes single-company routes, and the module composition
+root wires the in-memory adapter.
 
 **Tech Stack:** Express 5, TypeScript strict mode, Vitest, Supertest, pnpm.
 
 ## Global Constraints
 
-- Preserve all five current endpoint paths and response payloads.
-- Preserve every NovaCommerce and secondary-tenant fixture value.
-- Add no runtime dependency and no new business behavior.
+- Keep `Company` as the aggregate root but remove its `id` field.
+- Remove `companyId` from every child entity and response.
+- Remove `CompanyId` and `makeCompanyScopedId` from `packages/domain`.
+- Keep only NovaCommerce seed data.
+- Preserve all other IDs, timestamps, correlations, visible values, and
+  collection response wrappers.
+- Use `/v1/operating-core`, `/v1/departments`, `/v1/tasks`, `/v1/events`, and
+  `/v1/approvals`.
+- Add no runtime dependency or unrelated business behavior.
 - Keep repository and service contracts asynchronous.
-- Use manual constructor injection.
-- Create only directories containing migrated source or tests.
-- Update `[Unreleased]` with each commit.
+- Use manual constructor injection and no empty scaffolds.
+- Update `[Unreleased]` with every commit.
 
 ---
 
-### Task 1: Characterize the Existing API
+### Task 1: Lock the Single-Company Domain Contract
 
 **Files:**
-- Modify: `apps/api/src/company-core/routes.test.ts`
+- Modify:
+  `apps/api/src/modules/company-operating-core/domain/entities/company-operating-core.ts`
+- Modify:
+  `apps/api/src/modules/company-operating-core/domain/services/company-operating-core-validation.ts`
+- Modify:
+  `apps/api/src/modules/company-operating-core/domain/services/company-operating-core-validation.test.ts`
+- Delete: `packages/domain/src/ids.ts`
+- Modify: `packages/domain/src/index.ts`
+- Modify: `packages/domain/src/index.test.ts`
+
+**Interfaces:**
+- Produces: Company Core entities with local entity IDs only and
+  `validateCompanyOperatingCoreSnapshot(snapshot): ValidationIssue[]`.
+
+- [ ] Rewrite the domain fixture test without `id` on Company or `companyId` on
+  children; assert no returned validation issue is company-scope related.
+- [ ] Run the test and confirm TypeScript fails while entities still require
+  Company IDs.
+- [ ] Remove Company-ID fields and `assertValidCompanyScope` from domain code.
+- [ ] Remove shared Company-ID types and update package tests to service names
+  only.
+- [ ] Run API domain tests and shared package tests/typechecks.
+- [ ] Commit with `refactor(domain): adopt single company model`.
+
+### Task 2: Replace Seed and Repository With One Snapshot
+
+**Files:**
+- Modify: `apps/api/src/company-core/seed.ts`
+- Modify: `apps/api/src/company-core/repository.ts`
 - Modify: `apps/api/src/company-core/repository.test.ts`
 
 **Interfaces:**
-- Consumes: current `createApiApp()` and in-memory repository.
-- Produces: regression coverage for exact endpoint envelopes, tenant scope, and
-  repository behavior.
 
-- [ ] Add assertions for the complete unknown-company response and collection
-  wrappers currently returned by each route.
-- [ ] Add a repository assertion proving a secondary-company record cannot
-  appear in NovaCommerce task results.
-- [ ] Run `pnpm --filter @opendx/api test`; expected PASS before movement.
-- [ ] Commit with `test(api): characterize company core contracts`.
+```ts
+export interface CompanyOperatingCoreRepository {
+  getSnapshot(): CompanyOperatingCoreSnapshot;
+  listDepartments(): Department[];
+  listTasks(): Task[];
+  listEvents(): BusinessEvent[];
+  listApprovals(): ApprovalRequest[];
+}
+```
 
-### Task 2: Move Domain Ownership
+- [ ] Rewrite repository tests to use no-argument methods and assert only the
+  NovaCommerce snapshot exists.
+- [ ] Run the tests and confirm failure because old methods require Company ID.
+- [ ] Remove the secondary company fixture and every company-ID field from the
+  NovaCommerce seed.
+- [ ] Store one validated snapshot in the repository and implement the new
+  methods.
+- [ ] Run repository, API, and TypeScript checks.
+- [ ] Commit with `refactor(api): simplify company core repository`.
 
-**Files:**
-- Create:
-  `apps/api/src/modules/company-operating-core/domain/entities/company-operating-core.ts`
-- Create:
-  `apps/api/src/modules/company-operating-core/domain/services/company-operating-core-validation.ts`
-- Create:
-  `apps/api/src/modules/company-operating-core/domain/services/company-operating-core-validation.test.ts`
-- Modify: `packages/domain/src/index.ts`
-- Modify: `packages/domain/src/index.test.ts`
-- Delete: `packages/domain/src/company-core.ts`
-- Delete: `packages/domain/src/company-core.test.ts`
-
-**Interfaces:**
-- Consumes: `CompanyId` from `@opendx/domain`.
-- Produces: `CompanyOperatingCoreSnapshot`, entity interfaces,
-  `ValidationIssue`, `validateCompanyOperatingCoreSnapshot()`, and
-  `assertValidCompanyScope()` owned by the API module.
-
-- [ ] Copy the existing validation tests to the target module and change only
-  imports; run the target test and confirm it cannot resolve the new module.
-- [ ] Move entity declarations and validation functions without changing field
-  names, status literals, or messages.
-- [ ] Update temporary API imports to the new domain files in one atomic edit.
-- [ ] Remove Company Core exports from `packages/domain` while retaining
-  `CompanyId`, service names, and ID helpers.
-- [ ] Run API and domain-package tests plus both TypeScript typechecks.
-- [ ] Commit with `refactor(domain): move company core ownership to api`.
-
-### Task 3: Introduce Application Ports and Mapper
+### Task 3: Introduce Single-Company Application Ports
 
 **Files:**
 - Create:
@@ -103,57 +115,44 @@ move out of the shared domain package into the API module.
 
 ```ts
 export interface ICompanyOperatingCoreRepository {
-  findSnapshotByCompanyId(
-    companyId: CompanyId,
-  ): Promise<CompanyOperatingCoreSnapshot | undefined>;
-  findDepartmentsByCompanyId(companyId: CompanyId): Promise<readonly Department[]>;
-  findTasksByCompanyId(companyId: CompanyId): Promise<readonly Task[]>;
-  findEventsByCompanyId(companyId: CompanyId): Promise<readonly BusinessEvent[]>;
-  findApprovalsByCompanyId(companyId: CompanyId): Promise<readonly ApprovalRequest[]>;
+  getSnapshot(): Promise<CompanyOperatingCoreSnapshot>;
+  listDepartments(): Promise<readonly Department[]>;
+  listTasks(): Promise<readonly Task[]>;
+  listEvents(): Promise<readonly BusinessEvent[]>;
+  listApprovals(): Promise<readonly ApprovalRequest[]>;
 }
 ```
 
-- Produces: `ICompanyOperatingCoreService`, `CompanyOperatingCoreService`,
-  explicit readonly response DTOs, and `CompanyOperatingCoreMapper`.
+- Produces: equivalent no-argument service methods and explicit readonly DTOs.
 
-- [ ] Write service tests using a fake repository for existing company,
-  unknown company, and all four scoped collections; confirm the target imports
-  fail before implementation.
-- [ ] Write a mapper test that mutates its source after mapping and expects the
-  response DTO to remain unchanged.
-- [ ] Implement focused repository and service interfaces.
-- [ ] Implement explicit readonly response DTOs for every currently exposed
-  field.
-- [ ] Implement defensive mapping and the query service without Express imports.
+- [ ] Write service tests using a no-argument fake repository; confirm target
+  imports fail before implementation.
+- [ ] Write a mapper defensive-copy test.
+- [ ] Implement repository/service interfaces, response DTOs, mapper, and query
+  service without Express or infrastructure imports.
 - [ ] Run application tests and API typecheck.
-- [ ] Commit with `refactor(api): introduce company core application layer`.
+- [ ] Commit with `refactor(api): add single company application layer`.
 
-### Task 4: Move Fixtures and Infrastructure Adapter
+### Task 4: Move the In-Memory Adapter and Fixture
 
 **Files:**
 - Create:
   `apps/api/src/modules/company-operating-core/tests/fixtures/nova-commerce.fixture.ts`
-- Create:
-  `apps/api/src/modules/company-operating-core/tests/fixtures/secondary-company.fixture.ts`
-- Create:
-  `apps/api/src/modules/company-operating-core/tests/fixtures/company-core-seed.ts`
 - Create:
   `apps/api/src/modules/company-operating-core/infrastructure/repositories/implementations/in-memory-company-operating-core.repository.ts`
 - Create:
   `apps/api/src/modules/company-operating-core/infrastructure/repositories/implementations/in-memory-company-operating-core.repository.test.ts`
 
 **Interfaces:**
-- Consumes: domain validation and `ICompanyOperatingCoreRepository`.
-- Produces: `createCompanyCoreSeed()`, `NOVACOMMERCE_COMPANY_ID`, and
-  `InMemoryCompanyOperatingCoreRepository`.
+- Produces: `createNovaCommerceSnapshot()` and an async implementation of
+  `ICompanyOperatingCoreRepository`.
 
-- [ ] Write an async reusable repository-contract test for the existing four
-  behaviors and defensive-copy behavior; confirm target imports fail.
-- [ ] Split the current seed by company without changing any value.
-- [ ] Implement the async adapter and validate all constructor fixtures.
-- [ ] Return defensive copies so callers cannot mutate repository state.
-- [ ] Run adapter tests, complete API tests, and API typecheck.
-- [ ] Commit with `refactor(api): isolate company core infrastructure`.
+- [ ] Write the async adapter contract test for snapshot, collections,
+  correlation IDs, and defensive copies; confirm target imports fail.
+- [ ] Move the single NovaCommerce fixture without changing non-company data.
+- [ ] Implement the async adapter and validate its constructor snapshot.
+- [ ] Run adapter, API, and typecheck suites.
+- [ ] Commit with `refactor(api): isolate single company adapter`.
 
 ### Task 5: Add Presentation and Composition
 
@@ -165,8 +164,6 @@ export interface ICompanyOperatingCoreRepository {
 - Create:
   `apps/api/src/modules/company-operating-core/presentation/routes/company-operating-core.routes.ts`
 - Create:
-  `apps/api/src/modules/company-operating-core/presentation/validators/company-id-params.validator.ts`
-- Create:
   `apps/api/src/modules/company-operating-core/company-operating-core.module.ts`
 - Create: `apps/api/src/modules/company-operating-core/index.ts`
 - Create:
@@ -175,33 +172,42 @@ export interface ICompanyOperatingCoreRepository {
 - Delete: `apps/api/src/company-core/`
 
 **Interfaces:**
-- Consumes: application service interface and infrastructure adapter.
-- Produces: the existing `/v1/companies/:companyId/*` router and module factory.
+- Produces: the five `/v1/*` routes with current response shapes.
 
-- [ ] Write controller tests proving each method calls only the matching service
-  method with the company ID and returns the existing response shape.
-- [ ] Move current API contract tests to the module integration directory and
-  confirm they still pass against the old composition.
-- [ ] Implement explicit company-ID validation without unsafe casts.
-- [ ] Implement thin controller methods and route registration.
-- [ ] Wire adapter, mapper, service, controller, and router in the module factory.
-- [ ] Switch `app.ts` to the module factory and remove the legacy directory.
-- [ ] Run `pnpm --filter @opendx/api test` and API typecheck.
-- [ ] Commit with `refactor(api): compose company core module`.
+- [ ] Rewrite API contract tests for the five single-company paths and assert
+  no response contains a `companyId` property.
+- [ ] Run tests and confirm old `/companies/:companyId` routes fail the new
+  contract.
+- [ ] Write controller tests proving no-argument service delegation.
+- [ ] Implement thin controllers and routes without company parameter
+  validation.
+- [ ] Wire adapter, mapper, service, controller, and router in the module root.
+- [ ] Switch `app.ts`, remove the legacy directory, and run all API tests and
+  typechecks.
+- [ ] Commit with `refactor(api): compose single company module`.
 
-### Task 6: Verify and Document the API Tree
+### Task 6: Update Active Documentation and Verify
 
 **Files:**
 - Modify: `docs/api/company-operating-core.md`
+- Modify: `docs/product/vision.md`
+- Modify: `docs/architecture/system-baseline.md`
+- Modify: `docs/architecture/clean-architecture.md`
+- Modify: `docs/development/testing-strategy.md`
+- Modify: `docs/agent-guidelines/implementation-guardrails.md`
+- Modify: `AGENTS.md`
+- Modify: `.agents/skills/opendx-companyos-development/SKILL.md`
+- Modify: relevant `.agents/checklists/*.md`
 - Modify: `docs/project-structure.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Verify no private application or domain file imports infrastructure or
-  presentation code using `rg` and manual review.
-- [ ] Run `pnpm --filter @opendx/api test`.
-- [ ] Run `pnpm --filter @opendx/api typecheck`.
-- [ ] Run `pnpm --filter @opendx/domain test` and typecheck.
+- [ ] Replace active multi-company and tenant-isolation requirements with the
+  single-company model and actor/department/resource permission scope.
+- [ ] Mark historical Phase 1/2 specs and plans as superseded where they require
+  Company IDs; do not rewrite historical implementation details.
+- [ ] Run all API and shared-package tests/typechecks.
+- [ ] Search production source and active docs for `CompanyId`, `companyId`,
+  `/companies/:companyId`, and tenant-isolation requirements; expected no
+  current references.
 - [ ] Run `git diff --check` and `pnpm audit:repo`.
-- [ ] Update documentation to match the implemented tree without claiming
-  unimplemented modules.
-- [ ] Commit with `docs(api): record clean architecture refactor`.
+- [ ] Commit with `docs(architecture): document single company model`.

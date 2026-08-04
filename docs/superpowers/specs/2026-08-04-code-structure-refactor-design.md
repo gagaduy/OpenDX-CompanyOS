@@ -16,8 +16,23 @@ SPDX-License-Identifier: Apache-2.0
 
 Move the existing Express API, React console, and Python AI runtime into the
 approved feature-first structure without adding CompanyOS business capability.
-The refactor must preserve NovaCommerce data, tenant isolation, API behavior,
-health behavior, and the current frontend content and visual design.
+The refactor must preserve NovaCommerce data, health behavior, and the current
+frontend content and visual design while simplifying the product to one
+configured company.
+
+## Single-Company Decision
+
+OpenDX CompanyOS is deployed for one company. `Company` remains the aggregate
+root and product center, but the system does not model multiple companies or
+select a company by identifier.
+
+- `Company` has no technical `CompanyId` field.
+- Child records do not repeat `companyId`.
+- Repositories expose the configured company snapshot without a company key.
+- API routes do not contain `/companies/:companyId`.
+- Seed data contains only NovaCommerce.
+- Authorization still applies by actor, department, role, resource, action,
+  classification, and risk, but not by tenant selection.
 
 ## Delivery Units
 
@@ -42,8 +57,8 @@ infrastructure -> application + domain
 company-operating-core.module.ts -> all module layers
 ```
 
-The current entities and validation leave `packages/domain`; that package keeps
-only proven cross-workspace primitives such as `CompanyId`. The module owns its
+The current entities and validation leave `packages/domain`; the obsolete
+`CompanyId` and company-scoped ID helper are removed. The module owns its
 response DTOs and maps internal entities before returning them.
 
 Repository and service contracts become asynchronous so a later PostgreSQL
@@ -51,9 +66,9 @@ adapter does not require changing controller signatures. Manual constructor
 injection wires the in-memory repository, mapper, service, controller, and
 router.
 
-The API retains the existing endpoint paths and NovaCommerce records. Response
-envelope changes are excluded from this structural refactor unless separately
-approved; preserving public behavior takes priority.
+The API exposes the single-company paths `/v1/operating-core`,
+`/v1/departments`, `/v1/tasks`, `/v1/events`, and `/v1/approvals`. Response
+shapes remain unchanged apart from removal of company identifiers.
 
 ## Console Design
 
@@ -84,8 +99,8 @@ business feature implementation yet.
 
 - Existing tests are characterization tests and must pass before migration.
 - New path-level tests are written before their target implementation.
-- API integration tests continue to cover NovaCommerce data, unknown companies,
-  scoped collections, and cross-company isolation.
+- API integration tests cover NovaCommerce data and the five single-company
+  collections.
 - Frontend tests cover the current visible headings and guardrail content.
 - Python tests exercise `/health` through the composed application.
 - Every unit runs typecheck, tests, build, lint commands currently supported by
@@ -106,13 +121,17 @@ business feature implementation yet.
 
 1. Existing API behavior passes through the new module composition root.
 2. Domain and application layers do not import Express or infrastructure.
-3. The in-memory adapter satisfies the application repository contract and
-   preserves tenant isolation.
-4. `packages/domain` no longer owns API-specific Company Core entities.
+3. The in-memory adapter satisfies a no-argument single-company repository
+   contract.
+4. `packages/domain` no longer owns API-specific entities, `CompanyId`, or a
+   company-scoped ID helper.
 5. The console builds with Vite and retains the approved UI at desktop and
    mobile sizes.
 6. No Next.js dependency, source convention, or generated output remains.
 7. Python health behavior passes through `create_app.py` and
    `shared/health/router.py`.
 8. No speculative module, router, store, or placeholder directory is added.
-9. Documentation and repository checks describe the resulting tree accurately.
+9. No production source, active API documentation, or current architecture
+   guidance refers to `CompanyId`, `companyId`, multi-company selection, or
+   tenant isolation.
+10. Documentation and repository checks describe the resulting tree accurately.
