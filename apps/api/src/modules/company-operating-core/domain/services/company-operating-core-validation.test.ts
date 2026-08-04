@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
+import type { CompanyOperatingCoreSnapshot } from "../entities/company-operating-core";
 import {
   assertValidCompanyScope,
   validateCompanyOperatingCoreSnapshot,
-  type CompanyOperatingCoreSnapshot,
-} from "./company-core";
+} from "./company-operating-core-validation";
 
 const validSnapshot: CompanyOperatingCoreSnapshot = {
   company: {

@@ -7,4 +7,3 @@ export const SERVICE_NAMES = {
 } as const;
 
 export * from "./ids";
-export * from "./company-core";

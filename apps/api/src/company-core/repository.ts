@@ -1,16 +1,18 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { CompanyId } from "@opendx/domain";
+import type {
+  ApprovalRequest,
+  BusinessEvent,
+  CompanyOperatingCoreSnapshot,
+  Department,
+  Task,
+} from "../modules/company-operating-core/domain/entities/company-operating-core";
 import {
   assertValidCompanyScope,
   validateCompanyOperatingCoreSnapshot,
-  type ApprovalRequest,
-  type BusinessEvent,
-  type CompanyId,
-  type CompanyOperatingCoreSnapshot,
-  type Department,
-  type Task,
-} from "@opendx/domain";
+} from "../modules/company-operating-core/domain/services/company-operating-core-validation";
 
 export interface CompanyOperatingCoreRepository {
   findSnapshotByCompanyId(

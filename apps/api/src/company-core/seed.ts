@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { CompanyId } from "@opendx/domain";
 import type {
   ActorType,
   AuditEvent,
-  CompanyId,
   CompanyOperatingCoreSnapshot,
   Department,
   HumanEmployee,
   Position,
-} from "@opendx/domain";
+} from "../modules/company-operating-core/domain/entities/company-operating-core";
 
 export const NOVACOMMERCE_COMPANY_ID = "company_novacommerce" as CompanyId;
 
