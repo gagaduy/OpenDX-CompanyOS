@@ -3,7 +3,7 @@
 
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { createApiApp } from "../app";
+import { createApiApp } from "../../../../app";
 
 describe("Company Operating Core API", () => {
   const app = createApiApp();

@@ -3,9 +3,7 @@
 
 import express from "express";
 import { SERVICE_NAMES } from "@opendx/domain";
-import { InMemoryCompanyOperatingCoreRepository } from "./company-core/repository";
-import { createCompanyOperatingCoreRouter } from "./company-core/routes";
-import { createNovaCommerceSnapshot } from "./company-core/seed";
+import { createCompanyOperatingCoreModule } from "./modules/company-operating-core";
 
 export function createApiApp() {
   const app = express();
@@ -17,10 +15,7 @@ export function createApiApp() {
     });
   });
 
-  const companyCoreRepository = new InMemoryCompanyOperatingCoreRepository(
-    createNovaCommerceSnapshot(),
-  );
-  app.use("/v1", createCompanyOperatingCoreRouter(companyCoreRepository));
+  app.use("/v1", createCompanyOperatingCoreModule());
 
   return app;
 }
