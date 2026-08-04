@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Status
 
 - Date: 2026-08-05
-- State: Written, pending user review
+- State: Approved focused design
 - Master design: `2026-08-04-novacommerce-commerce-platform-design.md`
 - Master plan: `../plans/2026-08-04-novacommerce-commerce-platform.md`
 - Delivery phase: Phase 3
@@ -291,6 +291,7 @@ PUT    /v1/admin/catalog/products/:productId/variants/:variantId/price
 POST   /v1/admin/catalog/products/:productId/media
 PATCH  /v1/admin/catalog/products/:productId/media/:mediaId
 DELETE /v1/admin/catalog/products/:productId/media/:mediaId
+GET    /v1/admin/catalog/products/:productId/media/:mediaId/content
 
 GET    /v1/admin/catalog/products/:productId/audit
 ```
@@ -498,7 +499,9 @@ credential, personal data, or copyrighted asset copied without permission.
   product creation, backup, mutation, restore, and recovered product evidence.
 
 All checks run through `make check`, which delegates to the repository's full
-validation gate and Docker Compose configuration validation.
+validation gate and Docker Compose configuration validation in one-shot check
+containers. The Python AI runtime remains absent from the running application
+topology; its existing tests run only as a repository check job.
 
 ## Documentation Deliverables
 

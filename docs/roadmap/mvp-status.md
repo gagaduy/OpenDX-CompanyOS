@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 2 is complete. Phase 3 Commerce Product Foundation focused design is
-written and pending user review; its implementation plan has not started.
+approved and its implementation plan is written for execution.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -19,7 +19,7 @@ Active commerce master plan:
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
-| Phase 3: Commerce Product Foundation | Focused design pending review | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | Master plan only | Pending focused-spec review |
+| Phase 3: Commerce Product Foundation | Ready for implementation | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Pending implementation and exit gate |
 | Phase 4: Inventory and Product Publication | Not started | Master design only | Not created | Not decided |
 | Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
