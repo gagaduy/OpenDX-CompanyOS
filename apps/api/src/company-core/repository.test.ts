@@ -49,6 +49,11 @@ describe("InMemoryCompanyOperatingCoreRepository", () => {
         .findTasksByCompanyId(NOVACOMMERCE_COMPANY_ID)
         .every((task) => task.companyId === NOVACOMMERCE_COMPANY_ID),
     ).toBe(true);
+    expect(repository.findTasksByCompanyId(NOVACOMMERCE_COMPANY_ID)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "task_compass_private" }),
+      ]),
+    );
   });
 
   it("keeps task, event, approval, and audit correlation ids aligned for demo flows", () => {

@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Strengthen Company Core API and repository characterization coverage before
+  structural refactoring.
 - Add documentation-only Clean Architecture structure, dependency, coding,
   testing, agent workflow, and review guidance.
 - Add the approved existing-code structure refactor design and subsystem plans.

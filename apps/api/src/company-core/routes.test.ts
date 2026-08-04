@@ -66,17 +66,21 @@ describe("Company Operating Core API", () => {
     expect(departments.body.data).toEqual(
       expect.arrayContaining([expect.objectContaining({ slug: "sales" })]),
     );
+    expect(Object.keys(departments.body)).toEqual(["data"]);
     expect(tasks.body.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ status: "waiting_approval" }),
       ]),
     );
+    expect(Object.keys(tasks.body)).toEqual(["data"]);
     expect(events.body.data).toEqual(
       expect.arrayContaining([expect.objectContaining({ type: "lead.created" })]),
     );
+    expect(Object.keys(events.body)).toEqual(["data"]);
     expect(approvals.body.data).toEqual(
       expect.arrayContaining([expect.objectContaining({ status: "pending" })]),
     );
+    expect(Object.keys(approvals.body)).toEqual(["data"]);
   });
 
   it("does not expose cross-company records from company-scoped endpoints", async () => {
