@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   or tenant-scoped API routes.
 - Simplify Company Core entities, seed data, repository methods, and API paths
   around the configured NovaCommerce company.
+- Add single-company Company Core application ports, response DTOs, mapper, and
+  query service.
 - Move Company Operating Core entities and validation from the shared domain
   package into their owning API module.
 - Strengthen Company Core API and repository characterization coverage before
