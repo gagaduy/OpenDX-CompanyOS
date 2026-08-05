@@ -10,13 +10,13 @@ export function createCategoryRouter(
   authenticate: RequestHandler,
 ): Router {
   const router = Router();
-  router.use(
+  const authorize = [
     authenticate,
     requireStaffRole("administrator", "catalog_manager"),
-  );
-  router.get("/categories", controller.list);
-  router.post("/categories", controller.create);
-  router.patch("/categories/:categoryId", controller.update);
-  router.post("/categories/:categoryId/archive", controller.archive);
+  ] as const;
+  router.get("/categories", ...authorize, controller.list);
+  router.post("/categories", ...authorize, controller.create);
+  router.patch("/categories/:categoryId", ...authorize, controller.update);
+  router.post("/categories/:categoryId/archive", ...authorize, controller.archive);
   return router;
 }

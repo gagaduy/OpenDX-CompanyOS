@@ -10,10 +10,10 @@ export function createVariantRouter(
   authenticate: RequestHandler,
 ): Router {
   const router = Router();
-  router.use(authenticate, requireStaffRole("administrator", "catalog_manager"));
-  router.post("/products/:productId/variants", controller.create);
-  router.patch("/products/:productId/variants/:variantId", controller.update);
-  router.post("/products/:productId/variants/:variantId/archive", controller.archive);
-  router.put("/products/:productId/variants/:variantId/price", controller.replacePrice);
+  const authorize = [authenticate, requireStaffRole("administrator", "catalog_manager")] as const;
+  router.post("/products/:productId/variants", ...authorize, controller.create);
+  router.patch("/products/:productId/variants/:variantId", ...authorize, controller.update);
+  router.post("/products/:productId/variants/:variantId/archive", ...authorize, controller.archive);
+  router.put("/products/:productId/variants/:variantId/price", ...authorize, controller.replacePrice);
   return router;
 }

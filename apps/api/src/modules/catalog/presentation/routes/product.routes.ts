@@ -10,11 +10,12 @@ export function createProductRouter(
   authenticate: RequestHandler,
 ): Router {
   const router = Router();
-  router.use(authenticate, requireStaffRole("administrator", "catalog_manager"));
-  router.get("/products", controller.list);
-  router.post("/products", controller.create);
-  router.get("/products/:productId", controller.get);
-  router.patch("/products/:productId", controller.update);
-  router.post("/products/:productId/archive", controller.archive);
+  const authorize = [authenticate, requireStaffRole("administrator", "catalog_manager")] as const;
+  router.get("/products", ...authorize, controller.list);
+  router.post("/products", ...authorize, controller.create);
+  router.get("/products/:productId", ...authorize, controller.get);
+  router.get("/products/:productId/audit", ...authorize, controller.audit);
+  router.patch("/products/:productId", ...authorize, controller.update);
+  router.post("/products/:productId/archive", ...authorize, controller.archive);
   return router;
 }

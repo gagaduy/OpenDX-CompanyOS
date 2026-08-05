@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   global SKU uniqueness, optimistic versions, concurrency tests, and audit.
 - Add backend-mediated product media management with byte-signature checks,
   bounded in-memory uploads, PostgreSQL metadata, MinIO storage, and audit.
+- Compose the authenticated Catalog API with real PostgreSQL, OIDC, MinIO,
+  clock, identity, audit, and media dependencies through one module factory.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,

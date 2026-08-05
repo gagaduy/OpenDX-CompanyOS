@@ -27,10 +27,10 @@ export function createProductMediaRouter(
     });
   };
 
-  router.use(authenticate, requireStaffRole("administrator", "catalog_manager"));
-  router.post("/products/:productId/media", parseUpload, controller.upload);
-  router.patch("/products/:productId/media/:mediaId", controller.update);
-  router.delete("/products/:productId/media/:mediaId", controller.delete);
-  router.get("/products/:productId/media/:mediaId/content", controller.content);
+  const authorize = [authenticate, requireStaffRole("administrator", "catalog_manager")] as const;
+  router.post("/products/:productId/media", ...authorize, parseUpload, controller.upload);
+  router.patch("/products/:productId/media/:mediaId", ...authorize, controller.update);
+  router.delete("/products/:productId/media/:mediaId", ...authorize, controller.delete);
+  router.get("/products/:productId/media/:mediaId/content", ...authorize, controller.content);
   return router;
 }

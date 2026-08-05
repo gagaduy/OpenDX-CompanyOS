@@ -58,6 +58,7 @@ function fixture(overrides: Partial<ProductServiceContract> = {}) {
       totalPages: 1,
     })),
     get: vi.fn(async () => product),
+    getAudit: vi.fn(async () => []),
     create: vi.fn(async () => product),
     update: vi.fn(async () => ({ ...product, name: "Updated", version: 2 })),
     archive: vi.fn(async () => ({ ...product, status: "archived" as const, version: 2 })),

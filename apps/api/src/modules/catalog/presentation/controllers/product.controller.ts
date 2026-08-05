@@ -46,6 +46,19 @@ export class ProductController {
     }
   };
 
+  readonly audit: RequestHandler = async (request, response, next) => {
+    try {
+      response.json(
+        successResponse(
+          "Product audit retrieved",
+          await this.service.getAudit(routeId(request.params.productId)),
+        ),
+      );
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
   readonly create: RequestHandler = async (request, response, next) => {
     try {
       const created = await this.service.create(

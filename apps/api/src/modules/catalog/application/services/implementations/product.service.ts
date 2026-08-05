@@ -48,6 +48,13 @@ export class ProductService implements ProductServiceContract {
     );
   }
 
+  async getAudit(id: string) {
+    return this.transactions.runReadOnly(async (session) => {
+      await this.requireProduct(session, id);
+      return this.audit.listByResource(session, "product", id);
+    });
+  }
+
   async create(
     request: CreateProductRequestDto,
     context: CatalogCommandContext,
