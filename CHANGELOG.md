@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the role-aware Inventory console workspace with validated API mapping,
+  URL-backed filters, responsive stock states, movement history, and guarded
+  receipt/adjustment dialogs.
 - Seed a deterministic twelve-product technology assortment with generated
   catalog imagery, mixed PostgreSQL stock states, published storefront data,
   Inventory migration/seed operations, and a local Inventory Manager role.

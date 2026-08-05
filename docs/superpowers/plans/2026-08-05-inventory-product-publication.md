@@ -886,7 +886,7 @@ git commit -m "feat(inventory): seed technology stock fixtures"
 - Produces: `/inventory` protected console route and role-aware navigation.
 - Consumes: Phase 4 staff inventory HTTP DTOs from Task 5, mapped into frontend-owned view models.
 
-- [ ] **Step 1: Write failing page tests for every user-visible state**
+- [x] **Step 1: Write failing page tests for every user-visible state**
 
 ```tsx
 it("shows balances and opens movement history", async () => {
@@ -912,13 +912,13 @@ Add explicit tests for loading, empty, network error with retry, low stock,
 sold out, forbidden mutation controls, receipt success, adjustment success,
 pagination, and filter URL state.
 
-- [ ] **Step 2: Run the console test and verify failure**
+- [x] **Step 2: Run the console test and verify failure**
 
 Run: `pnpm --filter @opendx/console exec vitest run src/features/inventory/tests/inventory-page.test.tsx src/app/console-shell.test.tsx`
 
 Expected: FAIL because the Inventory feature and navigation do not exist.
 
-- [ ] **Step 3: Implement the validated API boundary and feature state**
+- [x] **Step 3: Implement the validated API boundary and feature state**
 
 Define exact frontend view models:
 
@@ -942,7 +942,7 @@ Parse every response with Zod before mapping. Keep fetch calls outside
 components. The hook owns query/filter/pagination, aborts stale requests, and
 reloads after successful mutations. Do not add a state library.
 
-- [ ] **Step 4: Implement the dense responsive workspace**
+- [x] **Step 4: Implement the dense responsive workspace**
 
 Add an Inventory link with a `Boxes` Lucide icon. Show the approved compact
 table at desktop widths and labeled stacked rows below the existing mobile
@@ -952,7 +952,7 @@ rings, and no gradients. Status always includes visible text or icon plus an
 accessible label; success and error messages use `role="status"` or
 `role="alert"`.
 
-- [ ] **Step 5: Run console tests, typecheck, and build**
+- [x] **Step 5: Run console tests, typecheck, and build**
 
 Run: `pnpm --filter @opendx/console test`
 
@@ -962,7 +962,7 @@ Run: `pnpm --filter @opendx/console build`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the Inventory console feature**
+- [x] **Step 6: Commit the Inventory console feature**
 
 ```bash
 git add apps/console/src CHANGELOG.md

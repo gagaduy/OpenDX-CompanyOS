@@ -46,6 +46,7 @@ export interface InventoryItemResponseDto {
   readonly id: string;
   readonly variantId: string;
   readonly sku: string;
+  readonly productId?: string;
   readonly productName?: string;
   readonly variantTitle?: string;
   readonly categoryId?: string;

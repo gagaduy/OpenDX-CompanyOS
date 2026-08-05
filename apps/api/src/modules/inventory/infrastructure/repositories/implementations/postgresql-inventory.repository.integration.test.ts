@@ -89,6 +89,9 @@ describeWithDatabase("PostgresqlInventoryRepository", () => {
 
     expect(repeated).toMatchObject({ onHand: 7, reserved: 0 });
     expect(adjusted).toMatchObject({ onHand: 5, reserved: 0, available: 5, stockStatus: "low" });
+    await expect(service.list({ page: 1, pageSize: 20 })).resolves.toMatchObject({
+      items: [expect.objectContaining({ productId: ids.product, productName: "Phone X" })],
+    });
     const movements = await pool.query<{
       movement_type: string;
       on_hand_delta: number;

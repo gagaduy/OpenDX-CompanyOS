@@ -348,6 +348,70 @@ textarea {
   font-size: 12px;
 }
 
+.inventoryTable {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.inventoryTable th,
+.inventoryTable td {
+  min-height: 56px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.inventoryTable th {
+  height: 38px;
+  color: var(--ink-subtle);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.inventoryTable th:first-child { width: 27%; }
+.inventoryTable th:nth-child(2) { width: 18%; }
+.inventoryTable th:last-child { width: 108px; }
+.inventoryTable tr:last-child td { border-bottom: 0; }
+.inventoryTable .rowActions button { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ink-subtle); cursor: pointer; }
+.inventoryStatus { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-transform: none; }
+.status-low { color: #e7c97b; }
+.status-out_of_stock { color: #f0a6a6; }
+.status-healthy { color: #9bd3ad; }
+
+.inventoryDetail {
+  position: fixed;
+  z-index: 15;
+  top: 0;
+  right: 0;
+  width: min(440px, 100vw);
+  height: 100vh;
+  overflow-y: auto;
+  padding: 22px;
+  border-left: 1px solid var(--hairline);
+  background: var(--surface-1);
+  box-shadow: -16px 0 40px rgb(0 0 0 / 35%);
+}
+
+.inventoryDetail > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.inventoryDetail h2 { margin: 0; font-size: 18px; }
+.inventoryDetail > header button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ink-muted); }
+.balanceSummary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0; }
+.balanceSummary div { padding: 12px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-2); }
+.balanceSummary dt { color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
+.balanceSummary dd { margin: 5px 0 0; font-size: 20px; font-weight: 650; }
+.movementList { margin: 0; padding: 0; list-style: none; }
+.movementList li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--hairline); font-size: 11px; text-align: right; }
+.movementList li > span:first-child { display: grid; text-align: left; }
+.movementList small { margin-top: 3px; color: var(--ink-subtle); }
+.stockDialog { display: grid; gap: 14px; }
+.stockDialog label { display: grid; gap: 6px; color: var(--ink-muted); font-size: 12px; }
+.inventoryWorkspace > .notice { margin: 0 0 12px; }
+
 .productTable th,
 .productTable td {
   height: 56px;
@@ -571,6 +635,19 @@ textarea {
   .attributeRow,
   .categoryLayout { grid-template-columns: 1fr; }
   .splitHeader { align-items: flex-start; }
+  .inventoryTable { min-width: 0; }
+  .inventoryTable thead { display: none; }
+  .inventoryTable,
+  .inventoryTable tbody,
+  .inventoryTable tr,
+  .inventoryTable td { display: block; width: 100%; }
+  .inventoryTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+  .inventoryTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; padding: 5px 0; border: 0; text-align: right; }
+  .inventoryTable td::before { content: attr(data-label); color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
+  .inventoryTable td:first-child { align-items: flex-start; }
+  .inventoryTable td:first-child::before { display: none; }
+  .inventoryTable .productIdentity { width: 100%; text-align: left; }
+  .inventoryTable .rowActions { margin-left: auto; }
 }
 
 .editorTabs {
@@ -834,7 +911,7 @@ textarea {
   }
 
   .consoleSidebar nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .consoleSidebar nav a {

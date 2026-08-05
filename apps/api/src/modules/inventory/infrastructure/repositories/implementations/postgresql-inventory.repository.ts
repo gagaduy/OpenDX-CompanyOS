@@ -33,6 +33,7 @@ interface InventoryItemRow {
 
 interface InventoryListRow extends InventoryItemRow {
   sku: string;
+  product_id: string;
   variant_title: string;
   product_name: string;
   category_id: string;
@@ -111,6 +112,7 @@ export class PostgresqlInventoryRepository implements InventoryRepository {
       `SELECT item.id, item.variant_id, item.on_hand, item.reserved,
               item.version, item.created_at, item.updated_at,
               variant.sku, variant.title AS variant_title,
+              product.id AS product_id,
               product.name AS product_name, category.id AS category_id,
               category.name AS category_name,
               (SELECT media.id FROM product_media media
@@ -400,6 +402,7 @@ function mapListRow(row: InventoryListRow): InventoryItemResponseDto {
   return {
     ...mapItemRow(row),
     sku: row.sku,
+    productId: row.product_id,
     productName: row.product_name,
     variantTitle: row.variant_title,
     categoryId: row.category_id,

@@ -12,6 +12,7 @@ import { createCatalogApi } from "../features/catalog/api/catalog-api";
 import { CategoryPage } from "../features/catalog/pages/category-page";
 import { ProductEditorPage } from "../features/catalog/pages/product-editor-page";
 import { ProductListPage } from "../features/catalog/pages/product-list-page";
+import { createInventoryApi, InventoryPage } from "../features/inventory";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -21,17 +22,29 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<ConsoleShell />}>
-          <Route index element={<Navigate to="/products" replace />} />
+          <Route index element={<HomeRedirect />} />
           <Route path="/products" element={<CatalogPage apiBaseUrl={apiBaseUrl} page="products" />} />
           <Route path="/products/new" element={<CatalogPage apiBaseUrl={apiBaseUrl} page="editor" />} />
           <Route path="/products/:productId" element={<CatalogPage apiBaseUrl={apiBaseUrl} page="editor" />} />
           <Route path="/categories" element={<CatalogPage apiBaseUrl={apiBaseUrl} page="categories" />} />
+          <Route path="/inventory" element={<InventoryRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/products" replace />} />
     </Routes>
   );
+}
+
+function HomeRedirect() {
+  const { session } = useAuth();
+  return <Navigate to={session?.roles.includes("inventory_manager") && !session.roles.includes("administrator") ? "/inventory" : "/products"} replace />;
+}
+
+function InventoryRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createInventoryApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  return <InventoryPage api={api} roles={session?.roles ?? []} />;
 }
 
 function CatalogPage({ apiBaseUrl, page }: { readonly apiBaseUrl: string; readonly page: "products" | "editor" | "categories" }) {
