@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,
+  and isolated database integration-test workflow.
 - Add framework-neutral Catalog entities, value objects, and validated domain
   invariants for draft product management.
 - Add validated API and console environment contracts plus locked Commerce

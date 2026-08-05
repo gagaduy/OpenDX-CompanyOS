@@ -7,7 +7,10 @@
     "dev": "tsx watch src/server.ts",
     "lint": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "node-pg-migrate up -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
+    "db:rollback": "node-pg-migrate down 1 -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order"
   },
   "dependencies": {
     "@opendx/domain": "workspace:*",
