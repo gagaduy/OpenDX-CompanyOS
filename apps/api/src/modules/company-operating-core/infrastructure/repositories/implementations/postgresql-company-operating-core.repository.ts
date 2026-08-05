@@ -13,6 +13,7 @@ import type {
   DatabaseSession,
   TransactionRunner,
 } from "../../../../../shared/database/transaction";
+import { DatabaseUnavailableError } from "../../../../../shared/database/database-unavailable.error";
 import {
   mapApprovalRequestRow,
   mapAuditEventRow,
@@ -41,7 +42,7 @@ export class PostgresqlCompanyOperatingCoreRepository
   constructor(private readonly transactions: TransactionRunner) {}
 
   async getSnapshot(): Promise<CompanyOperatingCoreSnapshot> {
-    return this.transactions.runReadOnly(async (session) => {
+    return this.read(async (session) => {
       const company = await session.query<CompanyProfileRow>(
         "SELECT name, industry, size, created_at FROM company_profile WHERE singleton_key = 1",
       );
@@ -77,25 +78,25 @@ export class PostgresqlCompanyOperatingCoreRepository
   }
 
   async listDepartments(): Promise<readonly Department[]> {
-    return this.transactions.runReadOnly(async (session) =>
+    return this.read(async (session) =>
       (await this.query<DepartmentRow>(session, "departments")).map(mapDepartmentRow),
     );
   }
 
   async listTasks(): Promise<readonly Task[]> {
-    return this.transactions.runReadOnly(async (session) =>
+    return this.read(async (session) =>
       (await this.query<OperatingTaskRow>(session, "operating_tasks")).map(mapOperatingTaskRow),
     );
   }
 
   async listEvents(): Promise<readonly BusinessEvent[]> {
-    return this.transactions.runReadOnly(async (session) =>
+    return this.read(async (session) =>
       (await this.query<BusinessEventRow>(session, "business_events")).map(mapBusinessEventRow),
     );
   }
 
   async listApprovals(): Promise<readonly ApprovalRequest[]> {
-    return this.transactions.runReadOnly(async (session) =>
+    return this.read(async (session) =>
       (await this.query<ApprovalRequestRow>(session, "approval_requests")).map(mapApprovalRequestRow),
     );
   }
@@ -106,5 +107,16 @@ export class PostgresqlCompanyOperatingCoreRepository
   ): Promise<readonly Row[]> {
     const result = await session.query<Row>(`SELECT * FROM ${table} ORDER BY id`);
     return result.rows;
+  }
+
+  private async read<T>(
+    work: (session: DatabaseSession) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.transactions.runReadOnly(work);
+    } catch (error) {
+      if (error instanceof DatabaseUnavailableError) throw error;
+      throw new DatabaseUnavailableError({ cause: error });
+    }
   }
 }

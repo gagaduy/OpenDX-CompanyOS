@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   for Company Operating Core snapshots and route collections.
 - Add transactional, idempotent NovaCommerce seed persistence and a direct
   Company Operating Core PostgreSQL seed command.
+- Require explicit Company Operating Core persistence composition, use
+  PostgreSQL in the API runtime, and fail closed when the database is down.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,

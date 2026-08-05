@@ -3,6 +3,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { ErrorRequestHandler } from "express";
+import { DatabaseUnavailableError } from "../database/database-unavailable.error";
 import { ApplicationError } from "./application-error";
 
 export function createErrorHandler(): ErrorRequestHandler {
@@ -19,6 +20,16 @@ export function createErrorHandler(): ErrorRequestHandler {
         message: error.message,
         errorCode: error.errorCode,
         errors: error.errors,
+      });
+      return;
+    }
+
+    if (error instanceof DatabaseUnavailableError) {
+      response.status(503).json({
+        success: false,
+        message: "A required dependency is unavailable",
+        errorCode: "DEPENDENCY_UNAVAILABLE",
+        errors: [],
       });
       return;
     }
