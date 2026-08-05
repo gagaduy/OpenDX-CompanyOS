@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   PostgreSQL in the API runtime, and fail closed when the database is down.
 - Add verified staff OIDC principals, catalog role authorization, and a
   deterministic local Keycloak realm with PKCE console configuration.
+- Add transaction-scoped PostgreSQL audit persistence for catalog mutations
+  with sensitive metadata rejection.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,
