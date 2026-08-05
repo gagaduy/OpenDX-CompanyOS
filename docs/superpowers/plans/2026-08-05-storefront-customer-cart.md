@@ -199,19 +199,19 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `docs/dependencies.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing storefront environment tests for API URL, storefront origin,
+- [x] Write failing storefront environment tests for API URL, storefront origin,
   optional Google client ID, and production-safe URL validation.
-- [ ] Add a failing storefront smoke test asserting a semantic `main`,
+- [x] Add a failing storefront smoke test asserting a semantic `main`,
   NovaCommerce identity, and an application-loading state.
-- [ ] Review current versions, maintenance, licenses, and advisories for `cookie`
+- [x] Review current versions, maintenance, licenses, and advisories for `cookie`
   and `express-rate-limit`; record the decision before installation. Reuse
   existing `jose`, React, Vite, Router, Zod, Lucide, Vitest, and Testing Library.
-- [ ] Create only the minimum Vite application needed for the tests to pass;
+- [x] Create only the minimum Vite application needed for the tests to pass;
   routes and feature directories arrive in their owning tasks.
-- [ ] Add strict TypeScript, jsdom setup, scripts for `dev`, `build`, `lint`,
+- [x] Add strict TypeScript, jsdom setup, scripts for `dev`, `build`, `lint`,
   `typecheck`, and `test`, and port `3100`.
-- [ ] Run `pnpm --filter @opendx/storefront test`, `typecheck`, and `build`.
-- [ ] Commit as `feat(storefront): scaffold customer storefront`.
+- [x] Run `pnpm --filter @opendx/storefront test`, `typecheck`, and `build`.
+- [x] Commit as `feat(storefront): scaffold customer storefront`.
 
 ### Task 2: Customer and Cart PostgreSQL Schemas plus Domain Rules
 

@@ -26,8 +26,10 @@
   },
   "dependencies": {
     "@opendx/domain": "workspace:*",
+    "cookie": "2.0.1",
     "cors": "2.8.6",
     "express": "^5.2.1",
+    "express-rate-limit": "8.6.0",
     "file-type": "22.0.1",
     "jose": "6.2.8",
     "minio": "8.0.7",

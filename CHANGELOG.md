@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Pin both React frontends to the maintained React Router v6 line outside the
+  high-severity unstable-RSC CSRF advisory range.
 - Navigate newly created products to their persistent editor URL so variants,
   media, publication, and audit controls become available immediately.
 - Serialize reservation references, finalize expiry by complete groups, and
@@ -26,6 +28,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Scaffold the strict React, TypeScript, and Vite NovaCommerce Storefront with
+  validated public environment configuration and initial semantic app states.
+- Add reviewed cookie parsing and selected Express authentication rate-limiting
+  dependencies for the Phase 5 Commerce session boundary.
 - Add the Phase 5 file-level TDD implementation plan for the Storefront,
   Customer identity and sessions, address ownership, authoritative Cart,
   explicit cart resolution, Docker delivery, and acceptance evidence.
