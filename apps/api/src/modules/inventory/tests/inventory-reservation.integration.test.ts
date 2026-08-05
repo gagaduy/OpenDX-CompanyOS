@@ -19,6 +19,7 @@ const ids = {
   category: "b1000000-0000-4000-8000-000000000001",
   product: "b2000000-0000-4000-8000-000000000001",
   variant: "b3000000-0000-4000-8000-000000000001",
+  variant2: "b3000000-0000-4000-8000-000000000002",
 } as const;
 const staffContext = {
   actorId: "staff_inventory",
@@ -68,9 +69,11 @@ describeWithDatabase("inventory reservation concurrency", () => {
     await pool.query(
       `INSERT INTO product_variants
         (id, product_id, sku, title, option_values, status, created_at, updated_at, version)
-       VALUES ($1, $2, 'TECH-PHONE-BLACK', 'Black', '{"color":"Black"}',
+       VALUES ($1, $3, 'TECH-PHONE-BLACK', 'Black', '{"color":"Black"}',
+               'active', NOW(), NOW(), 1),
+              ($2, $3, 'TECH-PHONE-WHITE', 'White', '{"color":"White"}',
                'active', NOW(), NOW(), 1)`,
-      [ids.variant, ids.product],
+      [ids.variant, ids.variant2, ids.product],
     );
   });
 
@@ -170,6 +173,59 @@ describeWithDatabase("inventory reservation concurrency", () => {
     expect(movement.rows[0]).toEqual({ count: "1" });
   });
 
+  it("expires every line in a due reservation group across a batch boundary", async () => {
+    await inventory.receive(
+      { variantId: ids.variant, quantity: 1, idempotencyKey: "receive-group-first" },
+      staffContext,
+    );
+    await inventory.receive(
+      { variantId: ids.variant2, quantity: 1, idempotencyKey: "receive-group-second" },
+      staffContext,
+    );
+    const beforeExpiry = new InventoryReservationService(
+      repository,
+      variants,
+      audit,
+      transactions,
+      randomUUID,
+      () => "2026-08-05T00:00:00.000Z",
+      900_000,
+    );
+    await beforeExpiry.reserve(
+      {
+        referenceType: "checkout",
+        referenceId: "checkout-multi-expiry",
+        lines: [
+          { variantId: ids.variant, quantity: 1 },
+          { variantId: ids.variant2, quantity: 1 },
+        ],
+      },
+      systemContext,
+    );
+    const afterExpiry = new InventoryReservationService(
+      repository,
+      variants,
+      audit,
+      transactions,
+      randomUUID,
+      () => "2026-08-05T00:16:00.000Z",
+      900_000,
+    );
+
+    await expect(afterExpiry.expireDue(1, systemContext)).resolves.toBe(2);
+    const states = await pool.query<{ status: string; count: string }>(
+      `SELECT status, count(*)::text AS count
+       FROM inventory_reservations
+       WHERE reference_id = 'checkout-multi-expiry'
+       GROUP BY status`,
+    );
+    expect(states.rows).toEqual([{ status: "expired", count: "2" }]);
+    const balances = await pool.query<{ reserved: number }>(
+      "SELECT reserved FROM inventory_items ORDER BY variant_id",
+    );
+    expect(balances.rows).toEqual([{ reserved: 0 }, { reserved: 0 }]);
+  });
+
   it("converges concurrent retries for one reservation reference", async () => {
     await inventory.receive(
       { variantId: ids.variant, quantity: 2, idempotencyKey: "receive-retry" },
@@ -205,5 +261,43 @@ describeWithDatabase("inventory reservation concurrency", () => {
       "SELECT count(*)::text AS count FROM stock_movements WHERE movement_type = 'reservation'",
     );
     expect(movement.rows[0]).toEqual({ count: "1" });
+  });
+
+  it("rejects concurrent reservation requests that reuse one reference with different lines", async () => {
+    await inventory.receive(
+      { variantId: ids.variant, quantity: 1, idempotencyKey: "receive-first" },
+      staffContext,
+    );
+    await inventory.receive(
+      { variantId: ids.variant2, quantity: 1, idempotencyKey: "receive-second" },
+      staffContext,
+    );
+    const reservations = new InventoryReservationService(
+      repository,
+      variants,
+      audit,
+      transactions,
+      randomUUID,
+      () => "2026-08-05T00:00:00.000Z",
+      900_000,
+    );
+
+    const attempts = await Promise.allSettled([
+      reservations.reserve(
+        { referenceType: "checkout", referenceId: "checkout-conflict", lines: [{ variantId: ids.variant, quantity: 1 }] },
+        systemContext,
+      ),
+      reservations.reserve(
+        { referenceType: "checkout", referenceId: "checkout-conflict", lines: [{ variantId: ids.variant2, quantity: 1 }] },
+        systemContext,
+      ),
+    ]);
+
+    expect(attempts.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(attempts.filter(({ status }) => status === "rejected")).toHaveLength(1);
+    const rows = await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM inventory_reservations WHERE reference_id = 'checkout-conflict'",
+    );
+    expect(rows.rows[0]).toEqual({ count: "1" });
   });
 });

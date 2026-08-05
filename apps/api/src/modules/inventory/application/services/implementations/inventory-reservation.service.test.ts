@@ -62,6 +62,7 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     findMovementByIdempotencyKey: vi.fn(async () => undefined),
     listMovements: vi.fn(async () => ({ items: [], totalItems: 0 })),
     getAvailabilityByVariantIds: vi.fn(async () => new Map()),
+    lockReservationReference: vi.fn(async () => undefined),
     findReservationGroup: vi.fn(async () => []),
     lockReservationGroup: vi.fn(async () => []),
     createReservation: vi.fn(async () => undefined),
@@ -185,6 +186,51 @@ describe("InventoryReservationService", () => {
     expect(repository.updateReservation).toHaveBeenCalledWith(
       session,
       expect.objectContaining({ status: "consumed", finalizedAt: NOW }),
+    );
+  });
+
+  it("rejects consuming an active reservation after its expiry time", async () => {
+    const expired = reservation({ expiresAt: "2026-08-04T23:59:00.000Z" });
+    const { repository, service } = dependencies({
+      lockReservationGroup: vi.fn(async () => [expired]),
+      lockByVariantId: vi.fn(async () => item({ reserved: 2 })),
+    });
+
+    await expect(
+      service.consume(
+        { referenceType: "checkout", referenceId: "checkout-1" },
+        context,
+      ),
+    ).rejects.toMatchObject({ code: "RESERVATION_EXPIRED" });
+    expect(repository.updateBalance).not.toHaveBeenCalled();
+    expect(repository.updateReservation).not.toHaveBeenCalled();
+  });
+
+  it("expires and releases an overdue group when release arrives before the worker", async () => {
+    const expired = reservation({ expiresAt: "2026-08-04T23:59:00.000Z" });
+    const { repository, service } = dependencies({
+      lockReservationGroup: vi.fn(async () => [expired]),
+      lockByVariantId: vi.fn(async () => item({ reserved: 2 })),
+    });
+
+    await expect(
+      service.release(
+        { referenceType: "checkout", referenceId: "checkout-1" },
+        context,
+      ),
+    ).resolves.toMatchObject({ status: "expired" });
+    expect(repository.updateBalance).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ onHand: 5, reserved: 0 }),
+      1,
+    );
+    expect(repository.updateReservation).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ status: "expired", finalizedAt: NOW }),
+    );
+    expect(repository.appendMovement).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ movementType: "expiry", reservedDelta: -2 }),
     );
   });
 });

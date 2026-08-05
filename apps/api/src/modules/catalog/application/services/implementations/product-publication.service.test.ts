@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it, vi } from "vitest";
-import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
+import type { InventoryAvailabilityReader } from "../../../../inventory";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { Product } from "../../../domain/entities/product";
 import type { CatalogAuditEntry, CatalogAuditRepository } from "../../repositories/interfaces/catalog-audit.repository";

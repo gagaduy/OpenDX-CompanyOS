@@ -322,6 +322,17 @@ export class PostgresqlInventoryRepository implements InventoryRepository {
     );
   }
 
+  async lockReservationReference(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<void> {
+    await session.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`inventory-reservation:${referenceType}:${referenceId}`],
+    );
+  }
+
   async updateReservation(
     session: DatabaseSession,
     reservation: InventoryReservation,
@@ -345,13 +356,40 @@ export class PostgresqlInventoryRepository implements InventoryRepository {
     now: string,
     limit: number,
   ): Promise<readonly InventoryReservation[]> {
-    const result = await session.query<ReservationRow>(
-      `SELECT * FROM inventory_reservations
-       WHERE status = 'active' AND expires_at <= $1
-       ORDER BY expires_at, id
+    const groups = await session.query<Pick<ReservationRow, "reference_type" | "reference_id">>(
+      `SELECT candidate.reference_type, candidate.reference_id
+       FROM inventory_reservations candidate
+       WHERE candidate.status = 'active'
+         AND candidate.expires_at <= $1
+         AND candidate.id = (
+           SELECT member.id
+           FROM inventory_reservations member
+           WHERE member.reference_type = candidate.reference_type
+             AND member.reference_id = candidate.reference_id
+             AND member.status = 'active'
+           ORDER BY member.id
+           LIMIT 1
+         )
+       ORDER BY candidate.expires_at, candidate.id
        FOR UPDATE SKIP LOCKED
        LIMIT $2`,
       [now, limit],
+    );
+    if (groups.rows.length === 0) return [];
+    const result = await session.query<ReservationRow>(
+      `SELECT reservation.*
+       FROM inventory_reservations reservation
+       JOIN unnest($1::text[], $2::text[])
+         AS claimed(reference_type, reference_id)
+         ON claimed.reference_type = reservation.reference_type
+        AND claimed.reference_id = reservation.reference_id
+       WHERE reservation.status = 'active'
+       ORDER BY reservation.expires_at, reservation.id
+       FOR UPDATE OF reservation`,
+      [
+        groups.rows.map(({ reference_type }) => reference_type),
+        groups.rows.map(({ reference_id }) => reference_id),
+      ],
     );
     return result.rows.map(mapReservation);
   }

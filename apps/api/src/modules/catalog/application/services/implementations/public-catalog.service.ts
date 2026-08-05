@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
+import type { InventoryAvailabilityReader } from "../../../../inventory";
 import type { TransactionRunner } from "../../../../../shared/database/transaction";
 import type { PublicProductListQuery } from "../../dtos/requests/public-catalog-request.dto";
 import type {
@@ -32,21 +32,41 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     query: PublicProductListQuery,
   ): Promise<PaginatedPublicProductsDto> {
     return this.transactions.runReadOnly(async (session) => {
+      if (query.stockStatus !== undefined) {
+        const candidates: PublicProductProjection[] = [];
+        let candidatePage = 1;
+        let totalCandidates = 0;
+        do {
+          const result = await this.repository.listProducts(session, {
+            ...query,
+            page: candidatePage,
+            pageSize: 100,
+          });
+          candidates.push(...result.items);
+          totalCandidates = result.totalItems;
+          candidatePage += 1;
+        } while (candidates.length < totalCandidates);
+        const matching = (await this.enrich(candidates)).filter((product) => {
+          const inStock = product.variants.some(({ purchasable }) => purchasable);
+          return query.stockStatus === "in_stock" ? inStock : !inStock;
+        });
+        const start = (query.page - 1) * query.pageSize;
+        return {
+          items: matching.slice(start, start + query.pageSize),
+          page: query.page,
+          pageSize: query.pageSize,
+          totalItems: matching.length,
+          totalPages: Math.ceil(matching.length / query.pageSize),
+        };
+      }
       const result = await this.repository.listProducts(session, query);
       const products = await this.enrich(result.items);
-      const items = products.filter((product) => {
-        if (query.stockStatus === undefined) return true;
-        const inStock = product.variants.some(({ purchasable }) => purchasable);
-        return query.stockStatus === "in_stock" ? inStock : !inStock;
-      });
-      const totalItems =
-        query.stockStatus === undefined ? result.totalItems : items.length;
       return {
-        items,
+        items: products,
         page: query.page,
         pageSize: query.pageSize,
-        totalItems,
-        totalPages: Math.ceil(totalItems / query.pageSize),
+        totalItems: result.totalItems,
+        totalPages: Math.ceil(result.totalItems / query.pageSize),
       };
     });
   }

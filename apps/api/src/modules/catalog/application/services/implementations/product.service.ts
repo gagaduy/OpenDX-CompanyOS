@@ -18,7 +18,7 @@ import type { ProductRepository } from "../../repositories/interfaces/product.re
 import { CatalogApplicationError } from "../catalog-application.error";
 import type { CatalogCommandContext } from "../interfaces/category.service";
 import type { ProductServiceContract } from "../interfaces/product.service";
-import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
+import type { InventoryAvailabilityReader } from "../../../../inventory";
 
 export class ProductService implements ProductServiceContract {
   constructor(

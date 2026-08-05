@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Serialize reservation references, finalize expiry by complete groups, and
+  reject consumption after the backend-owned TTL.
+- Apply public stock-status filtering before pagination and keep Catalog
+  dependencies on Inventory's exported module contract.
 - Route Inventory Managers to their authorized Inventory workspace after OIDC
   callback instead of rejecting them at the shared staff route guard.
 - Make the repository governance audit self-contained and portable instead of

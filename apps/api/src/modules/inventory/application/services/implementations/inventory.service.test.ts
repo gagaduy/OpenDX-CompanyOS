@@ -65,6 +65,7 @@ function dependencies(
     findMovementByIdempotencyKey: vi.fn(async () => undefined),
     listMovements: vi.fn(async () => ({ items: [], totalItems: 0 })),
     getAvailabilityByVariantIds: vi.fn(async () => new Map()),
+    lockReservationReference: vi.fn(async () => undefined),
     findReservationGroup: vi.fn(async () => []),
     lockReservationGroup: vi.fn(async () => []),
     createReservation: vi.fn(async () => undefined),

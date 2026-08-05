@@ -65,6 +65,11 @@ export interface InventoryRepository {
     session: DatabaseSession,
     variantIds: readonly string[],
   ): Promise<ReadonlyMap<string, InventoryAvailability>>;
+  lockReservationReference(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<void>;
   findReservationGroup(
     session: DatabaseSession,
     referenceType: InventoryReservationReferenceType,

@@ -8,7 +8,7 @@ import type { Product } from "../../../domain/entities/product";
 import type { CatalogAuditRepository } from "../../repositories/interfaces/catalog-audit.repository";
 import type { CategoryRepository } from "../../repositories/interfaces/category.repository";
 import type { ProductRepository } from "../../repositories/interfaces/product.repository";
-import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
+import type { InventoryAvailabilityReader } from "../../../../inventory";
 import { ProductService } from "./product.service";
 
 const session = {} as DatabaseSession;

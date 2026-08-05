@@ -45,6 +45,11 @@ export class InventoryReservationService implements InventoryReservationPort {
     assertReservationLines(request.lines);
     try {
       return await this.transactions.run(async (session) => {
+        await this.repository.lockReservationReference(
+          session,
+          request.referenceType,
+          request.referenceId,
+        );
         const existing = await this.repository.findReservationGroup(
           session,
           request.referenceType,
@@ -228,6 +233,18 @@ export class InventoryReservationService implements InventoryReservationPort {
       }
 
       const timestamp = this.now();
+      const overdue = reservations.some(
+        ({ expiresAt }) => new Date(expiresAt).getTime() <= new Date(timestamp).getTime(),
+      );
+      if (overdue && terminalStatus === "consumed") {
+        throw new InventoryApplicationError(
+          "RESERVATION_EXPIRED",
+          "Inventory reservation has expired",
+        );
+      }
+      const effectiveStatus: InventoryReservationTerminalStatus = overdue
+        ? "expired"
+        : terminalStatus;
       const ordered = [...reservations].sort((left, right) =>
         left.variantId.localeCompare(right.variantId),
       );
@@ -244,20 +261,20 @@ export class InventoryReservationService implements InventoryReservationPort {
           );
         }
         const updated =
-          terminalStatus === "consumed"
+          effectiveStatus === "consumed"
             ? applyConsume(current, reservation.quantity, timestamp)
             : applyRelease(current, reservation.quantity, timestamp);
         await this.persistBalance(session, current, updated);
-        const terminal = finalizeReservation(reservation, terminalStatus, timestamp);
+        const terminal = finalizeReservation(reservation, effectiveStatus, timestamp);
         await this.repository.updateReservation(session, terminal);
         await this.appendMovement(
           session,
           current.id,
           reservation,
-          terminalStatus === "consumed" ? "consume" : "release",
-          terminalStatus === "consumed" ? -reservation.quantity : 0,
+          effectiveStatus === "consumed" ? "consume" : effectiveStatus === "expired" ? "expiry" : "release",
+          effectiveStatus === "consumed" ? -reservation.quantity : 0,
           -reservation.quantity,
-          terminalStatus === "consumed" ? "RESERVATION_CONSUMED" : "RESERVATION_RELEASED",
+          effectiveStatus === "consumed" ? "RESERVATION_CONSUMED" : effectiveStatus === "expired" ? "RESERVATION_EXPIRED" : "RESERVATION_RELEASED",
           context,
           timestamp,
         );
@@ -265,9 +282,11 @@ export class InventoryReservationService implements InventoryReservationPort {
           session,
           current.id,
           terminal,
-          terminalStatus === "consumed"
+          effectiveStatus === "consumed"
             ? "inventory.stock.consumed"
-            : "inventory.stock.released",
+            : effectiveStatus === "expired"
+              ? "inventory.stock.expired"
+              : "inventory.stock.released",
           context,
           timestamp,
         );
