@@ -12,7 +12,7 @@ export function up(pgm: MigrationBuilder): void {
       onDelete: "RESTRICT",
     },
     name: { type: "text", notNull: true, check: "length(trim(name)) > 0" },
-    slug: { type: "text", notNull: true, unique: true },
+    slug: { type: "text", notNull: true },
     description: { type: "text" },
     sort_order: { type: "integer", notNull: true, default: 0, check: "sort_order >= 0" },
     status: { type: "text", notNull: true, check: "status IN ('active', 'archived')" },
@@ -20,6 +20,7 @@ export function up(pgm: MigrationBuilder): void {
     updated_at: { type: "timestamptz", notNull: true, default: pgm.func("current_timestamp") },
     version: { type: "integer", notNull: true, default: 1, check: "version > 0" },
   });
+  pgm.sql("CREATE UNIQUE INDEX categories_slug_ci_unique ON categories (lower(slug))");
   pgm.createIndex("categories", "parent_id");
 
   pgm.createTable("products", {
