@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the normalized PostgreSQL schema and migration runner for Company
+  Operating Core data, including relational and domain-level constraints.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,

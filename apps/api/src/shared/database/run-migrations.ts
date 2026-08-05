@@ -5,9 +5,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runner } from "node-pg-migrate";
 
-const migrationsDirectory = join(
+const catalogMigrationsDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "migrations",
+);
+const companyCoreMigrationsDirectory = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../modules/company-operating-core/infrastructure/database/migrations",
 );
 
 export async function runCatalogMigrations(
@@ -19,9 +23,26 @@ export async function runCatalogMigrations(
     databaseUrl,
     direction,
     count,
-    dir: migrationsDirectory,
+    dir: catalogMigrationsDirectory,
     ignorePattern: ".*\\.test\\.(ts|js)$",
     migrationsTable: "catalog_migrations",
+    checkOrder: true,
+    singleTransaction: true,
+    log: () => undefined,
+  });
+}
+
+export async function runCompanyCoreMigrations(
+  databaseUrl: string,
+  direction: "up" | "down",
+  count?: number,
+): Promise<void> {
+  await runner({
+    databaseUrl,
+    direction,
+    count,
+    dir: companyCoreMigrationsDirectory,
+    migrationsTable: "company_core_migrations",
     checkOrder: true,
     singleTransaction: true,
     log: () => undefined,
