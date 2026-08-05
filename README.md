@@ -40,7 +40,7 @@ The active MVP is organized around:
 - Company Core.
 - Public storefront and staff console.
 - Catalog and one-location inventory.
-- Guest/customer identity, cart, and checkout.
+- Guest discovery/cart, Google customer identity, and authenticated checkout.
 - Order and SePay Payment Gateway.
 - Operational CRM, support, and dashboard.
 - Staff identity, authorization, audit, and production hardening.

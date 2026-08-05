@@ -9,7 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Phase 4 Inventory and Product Publication is complete after full source,
 container, PostgreSQL concurrency, HTTP, OIDC console, and backup/restore
-acceptance. Phase 5 has not started.
+acceptance. Phase 5 has an approved focused design; its file-level
+implementation plan has not been created.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -22,7 +23,7 @@ Active commerce master plan:
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
-| Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | Design approved | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
@@ -88,11 +89,15 @@ Active commerce master plan:
   Important findings covering reservation-group concurrency, late expiry,
   expiry batching, stock-filter pagination, and module imports were reproduced,
   fixed with tests, and verified through commit `283b94c`.
+- Phase 5 focused design approved for a catalog-first technology storefront,
+  seven-day guest cart, Google customer registration, 30-day Commerce-owned
+  sessions, explicit cart resolution, address ownership, and an authenticated
+  checkout gate.
 
 ## Open Risks
 
-- Customer identity and the public storefront frontend are not implemented;
-  the anonymous Storefront Catalog API is implemented.
+- Customer identity, cart, and the public storefront frontend are designed but
+  not implemented; the anonymous Storefront Catalog API is implemented.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
 - Shipping, refunds, returns, and electronic invoices are outside the current

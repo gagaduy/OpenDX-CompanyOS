@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the approved Phase 5 Storefront, Customer, and Cart design with a
+  catalog-first technology storefront, seven-day guest carts, Google customer
+  registration, 30-day Commerce sessions, explicit cart resolution, and an
+  authenticated checkout gate.
 - Complete Phase 4 after source, container, concurrency, OIDC console, public
   HTTP, responsive UI, and PostgreSQL backup/restore acceptance.
 - Document the Phase 4 Inventory, publication, Storefront Catalog, PostgreSQL

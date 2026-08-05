@@ -79,7 +79,7 @@ provenance-bearing records.
 ## Commerce Boundaries
 
 - One B2C store, physical goods, one inventory location, and VND only.
-- Guest checkout plus optional customer accounts.
+- Guest discovery and cart plus Google customer accounts required for checkout.
 - Keycloak authenticates staff; customer authentication remains in Commerce.
 - No shipping-provider integration, refunds, returns, or electronic invoices.
 - Browser redirects never prove payment; authenticated SePay IPN or successful

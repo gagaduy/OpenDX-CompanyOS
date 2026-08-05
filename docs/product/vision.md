@@ -56,9 +56,9 @@ removes human accountability.
 ## MVP Scope
 
 The active MVP is the NovaCommerce Commerce Foundation: two frontend surfaces,
-PostgreSQL-backed catalog and one-location inventory, guest and registered
-customers, cart, checkout, orders, SePay payments, Operational CRM, support,
-dashboard, staff identity, authorization, and audit.
+PostgreSQL-backed catalog and one-location inventory, guest discovery and cart,
+Google-registered customers, authenticated checkout, orders, SePay payments,
+Operational CRM, support, dashboard, staff identity, authorization, and audit.
 
 ## Company Model
 
@@ -79,7 +79,9 @@ Kubernetes, Workflow Builder, Digital Employee execution, or GraphRAG.
 1. Staff signs in through Keycloak with backoffice permissions.
 2. Staff publishes a product and records stock for its SKU.
 3. A guest discovers the product and adds it to a cart.
-4. Checkout validates customer, address, pricing, promotion, and availability.
+4. Google registration/login establishes a Commerce-owned customer session,
+   then checkout validates customer, address, pricing, promotion, and
+   availability.
 5. PostgreSQL transaction reserves inventory and creates a pending order.
 6. Backend initiates a signed SePay checkout.
 7. Authenticated SePay IPN confirms the payment exactly once.
