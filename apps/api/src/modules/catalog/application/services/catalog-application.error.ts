@@ -4,6 +4,7 @@
 export type CatalogApplicationErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
+  | "STALE_VERSION"
   | "VALIDATION_ERROR";
 
 export class CatalogApplicationError extends Error {

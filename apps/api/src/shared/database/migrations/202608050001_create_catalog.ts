@@ -27,7 +27,7 @@ export function up(pgm: MigrationBuilder): void {
     id: { type: "uuid", primaryKey: true },
     category_id: { type: "uuid", notNull: true, references: "categories", onDelete: "RESTRICT" },
     name: { type: "text", notNull: true, check: "length(trim(name)) > 0" },
-    slug: { type: "text", notNull: true, unique: true },
+    slug: { type: "text", notNull: true },
     brand: { type: "text" },
     description: { type: "text", notNull: true, check: "length(trim(description)) > 0" },
     attributes: { type: "jsonb", notNull: true, default: "{}" },
@@ -36,6 +36,7 @@ export function up(pgm: MigrationBuilder): void {
     updated_at: { type: "timestamptz", notNull: true, default: pgm.func("current_timestamp") },
     version: { type: "integer", notNull: true, default: 1, check: "version > 0" },
   });
+  pgm.sql("CREATE UNIQUE INDEX products_slug_ci_unique ON products (lower(slug))");
   pgm.createIndex("products", "category_id");
   pgm.createIndex("products", "status");
 

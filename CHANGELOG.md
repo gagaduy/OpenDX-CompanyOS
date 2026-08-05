@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with sensitive metadata rejection.
 - Add authenticated category list, create, update, and archive APIs with
   hierarchy rules, optimistic versions, PostgreSQL persistence, and audit.
+- Add authenticated product listing, detail, create, edit, and archive flows
+  with pagination projections, PostgreSQL persistence, versions, and audit.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,
