@@ -4,7 +4,8 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogModule } from "./modules/catalog";
+import { createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
+import { createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
 import { parseApiEnvironment } from "./shared/config/environment";
@@ -25,30 +26,44 @@ const minio = new Client({
   accessKey: environment.minioAccessKey,
   secretKey: environment.minioSecretKey,
 });
-const catalogRouter = createCatalogModule({
+const staffTokenVerifier = createRemoteStaffTokenVerifier({
+  issuer: environment.keycloakIssuer,
+  jwksUrl: environment.keycloakJwksUrl,
+  audience: environment.keycloakAudience,
+});
+const inventory = createInventoryModule({
+  transactions,
+  variantReader: createCatalogVariantReader(),
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+  reservationTtlMs: environment.inventoryReservationTtlSeconds * 1_000,
+  expiryIntervalMs: environment.inventoryExpiryIntervalSeconds * 1_000,
+  onWorkerError: (error) => console.error("Inventory expiry worker failed", error),
+});
+const catalog = createCatalogModule({
   transactions,
   mediaStorage: new MinioProductMediaStorage(minio, environment.minioBucket),
   mediaInspector: new FileTypeProductMediaInspector(),
-  staffTokenVerifier: createRemoteStaffTokenVerifier({
-    issuer: environment.keycloakIssuer,
-    jwksUrl: environment.keycloakJwksUrl,
-    audience: environment.keycloakAudience,
-  }),
+  staffTokenVerifier,
   generateId: randomUUID,
   now: () => new Date().toISOString(),
   mediaMaximumBytes: environment.mediaMaxBytes,
+  availability: inventory.availability,
 });
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
   companyOperatingCoreRepository: repository,
-  catalogRouter,
+  catalogAdminRouter: catalog.adminRouter,
+  storefrontRouter: catalog.publicRouter,
+  inventoryRouter: inventory.router,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
-      const result = await pool.query<{ catalog: string; company_core: string }>(
-        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core",
+      const result = await pool.query<{ catalog: string; company_core: string; inventory: string }>(
+        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory",
       );
-      if (Number(result.rows[0]?.catalog ?? 0) < 1 || Number(result.rows[0]?.company_core ?? 0) < 1) {
+      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1) {
         throw new Error("Database migrations are incomplete");
       }
     }),
@@ -66,9 +81,11 @@ const app = createApiApp({
 
 const server = app.listen(environment.apiPort, () => {
   console.log(`OpenDX API listening on http://localhost:${environment.apiPort}`);
+  inventory.expiryWorker.start();
 });
 
 async function shutdown(): Promise<void> {
+  inventory.expiryWorker.stop();
   server.close(async () => {
     await pool.end();
   });

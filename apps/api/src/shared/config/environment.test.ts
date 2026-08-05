@@ -25,6 +25,8 @@ describe("parseApiEnvironment", () => {
     expect(environment.apiPort).toBe(4000);
     expect(environment.databaseUrl).toBe(validSource.DATABASE_URL);
     expect(environment.mediaMaxBytes).toBe(10_485_760);
+    expect(environment.inventoryReservationTtlSeconds).toBe(900);
+    expect(environment.inventoryExpiryIntervalSeconds).toBe(30);
   });
 
   it.each([
@@ -33,6 +35,8 @@ describe("parseApiEnvironment", () => {
     ["API_PORT", { API_PORT: "0" }],
     ["API_PORT", { API_PORT: "70000" }],
     ["MEDIA_MAX_BYTES", { MEDIA_MAX_BYTES: "0" }],
+    ["INVENTORY_RESERVATION_TTL_SECONDS", { INVENTORY_RESERVATION_TTL_SECONDS: "600" }],
+    ["INVENTORY_EXPIRY_INTERVAL_SECONDS", { INVENTORY_EXPIRY_INTERVAL_SECONDS: "4" }],
   ])("rejects invalid %s", (expectedKey, override) => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),

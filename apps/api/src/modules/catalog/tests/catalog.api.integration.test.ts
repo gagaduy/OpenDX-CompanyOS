@@ -65,8 +65,7 @@ describeWithInfrastructure("Catalog API composition", () => {
       .setIssuedAt()
       .setExpirationTime("5m")
       .sign(privateKey);
-    app = createApiApp({
-      catalogRouter: createCatalogModule({
+    const catalog = createCatalogModule({
         transactions,
         mediaStorage: new MinioProductMediaStorage(minio, bucket!),
         mediaInspector: new FileTypeProductMediaInspector(),
@@ -74,7 +73,11 @@ describeWithInfrastructure("Catalog API composition", () => {
         generateId: randomUUID,
         now: () => "2026-08-05T00:00:00.000Z",
         mediaMaximumBytes: 10 * 1024 * 1024,
-      }),
+        availability: { getByVariantIds: async () => new Map() },
+      });
+    app = createApiApp({
+      catalogAdminRouter: catalog.adminRouter,
+      storefrontRouter: catalog.publicRouter,
     });
   });
 
@@ -133,8 +136,23 @@ describeWithInfrastructure("Catalog API composition", () => {
         expect.objectContaining({ action: "catalog.product.created" }),
       ]),
     );
+    await pool.query("UPDATE products SET status = 'published' WHERE id = $1", [
+      product.body.data.id,
+    ]);
+    const publicProduct = await request(app)
+      .get(`/v1/storefront/products/${product.body.data.slug}`)
+      .expect(200);
+    expect(publicProduct.body.data.variants[0]).toMatchObject({
+      availableQuantity: 0,
+      purchasable: false,
+    });
+    await request(app)
+      .get(`/v1/storefront/products/${product.body.data.id}/media/${media.body.data.id}/content`)
+      .expect("content-type", /image\/png/)
+      .expect(200);
     const serialized = JSON.stringify({
       product: product.body,
+      publicProduct: publicProduct.body,
       media: media.body,
       audit: audit.body,
     });

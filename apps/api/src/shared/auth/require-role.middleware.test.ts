@@ -16,7 +16,7 @@ function createApp(principal?: StaffPrincipal) {
       response.locals.staffPrincipal = principal;
       next();
     },
-    requireStaffRole("administrator", "catalog_manager"),
+    requireStaffRole("administrator", "catalog_manager", "inventory_manager"),
     (_request, response) => response.json({ allowed: true }),
   );
   app.use(createErrorHandler());
@@ -30,6 +30,18 @@ describe("requireStaffRole", () => {
         subject: "user_catalog",
         displayName: "Catalog Manager",
         roles: ["catalog_manager"],
+      }),
+    )
+      .get("/catalog")
+      .expect(200, { allowed: true });
+  });
+
+  it("recognizes the inventory manager staff role", async () => {
+    await request(
+      createApp({
+        subject: "user_inventory",
+        displayName: "Inventory Manager",
+        roles: ["inventory_manager"],
       }),
     )
       .get("/catalog")

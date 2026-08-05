@@ -23,6 +23,7 @@ export interface RemoteStaffTokenVerifierOptions {
 const STAFF_ROLES = new Set<StaffRole>([
   "administrator",
   "catalog_manager",
+  "inventory_manager",
 ]);
 
 export function createRemoteStaffTokenVerifier(

@@ -80,12 +80,13 @@ describe("Product API", () => {
   it("lists with validated filters, pagination defaults, and meta", async () => {
     const { app, service } = fixture();
     const response = await request(app)
-      .get(`/v1/admin/catalog/products?query=bottle&categoryId=${categoryId}`)
+      .get(`/v1/admin/catalog/products?query=bottle&categoryId=${categoryId}&status=published`)
       .set("authorization", "Bearer manager")
       .expect(200);
     expect(service.list).toHaveBeenCalledWith({
       query: "bottle",
       categoryId,
+      status: "published",
       page: 1,
       pageSize: 20,
     });

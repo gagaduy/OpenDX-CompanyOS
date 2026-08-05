@@ -18,7 +18,9 @@ export interface CreateApiAppOptions {
   readonly consoleOrigin?: string;
   readonly readiness?: ReadinessProbe;
   readonly companyOperatingCoreRepository?: ICompanyOperatingCoreRepository;
-  readonly catalogRouter?: Router;
+  readonly catalogAdminRouter?: Router;
+  readonly storefrontRouter?: Router;
+  readonly inventoryRouter?: Router;
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}) {
@@ -34,8 +36,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       createCompanyOperatingCoreModule(options.companyOperatingCoreRepository),
     );
   }
-  if (options.catalogRouter !== undefined) {
-    app.use("/v1/admin/catalog", options.catalogRouter);
+  if (options.catalogAdminRouter !== undefined) {
+    app.use("/v1/admin/catalog", options.catalogAdminRouter);
+  }
+  if (options.inventoryRouter !== undefined) {
+    app.use("/v1/admin/inventory", options.inventoryRouter);
+  }
+  if (options.storefrontRouter !== undefined) {
+    app.use("/v1/storefront", options.storefrontRouter);
   }
   app.use((_request, _response, next) => {
     next(new ApplicationError(404, "NOT_FOUND", "Resource not found"));

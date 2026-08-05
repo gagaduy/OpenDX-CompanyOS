@@ -18,7 +18,7 @@ export class PostgresqlInventoryAuditRepository
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)`,
       [
         entry.id,
-        entry.actorType,
+        entry.actorType === "staff" ? "user" : "service_account",
         entry.actorId,
         entry.action,
         entry.resourceType,

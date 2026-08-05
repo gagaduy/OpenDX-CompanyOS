@@ -23,7 +23,7 @@ const attributes = z.record(z.string().trim().min(1), attributeValue);
 const listSchema = z.object({
   query: z.string().trim().min(1).optional(),
   categoryId: id.optional(),
-  status: z.enum(["draft", "archived"]).optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
   page: page.default(1),
   pageSize: page.max(100).default(20),
 });

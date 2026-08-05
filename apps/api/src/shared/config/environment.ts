@@ -24,6 +24,13 @@ const apiEnvironmentSchema = z.object({
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().trim().min(1),
   MEDIA_MAX_BYTES: positiveInteger,
+  INVENTORY_RESERVATION_TTL_SECONDS: positiveInteger.default(900).refine(
+    (value) => value === 900,
+    { message: "must equal 900" },
+  ),
+  INVENTORY_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
+    z.number().int().min(5).max(300),
+  ),
 });
 
 export interface ApiEnvironment {
@@ -39,6 +46,8 @@ export interface ApiEnvironment {
   readonly minioSecretKey: string;
   readonly minioBucket: string;
   readonly mediaMaxBytes: number;
+  readonly inventoryReservationTtlSeconds: number;
+  readonly inventoryExpiryIntervalSeconds: number;
 }
 
 export function parseApiEnvironment(
@@ -61,5 +70,7 @@ export function parseApiEnvironment(
     minioSecretKey: value.MINIO_SECRET_KEY,
     minioBucket: value.MINIO_BUCKET,
     mediaMaxBytes: value.MEDIA_MAX_BYTES,
+    inventoryReservationTtlSeconds: value.INVENTORY_RESERVATION_TTL_SECONDS,
+    inventoryExpiryIntervalSeconds: value.INVENTORY_EXPIRY_INTERVAL_SECONDS,
   };
 }

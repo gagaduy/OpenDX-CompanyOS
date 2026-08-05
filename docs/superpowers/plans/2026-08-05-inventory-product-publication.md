@@ -651,7 +651,7 @@ git commit -m "feat(catalog): add publication and public reads"
 - `createInventoryModule` returns `{ router, availability, reservations, expiryWorker }`.
 - `createCatalogModule` returns `{ adminRouter, publicRouter }` and consumes `availability` plus the existing media dependencies.
 
-- [ ] **Step 1: Write failing HTTP authorization and validation tests**
+- [x] **Step 1: Write failing HTTP authorization and validation tests**
 
 ```ts
 it.each([
@@ -678,13 +678,13 @@ it("serves a sold-out product anonymously", async () => {
 });
 ```
 
-- [ ] **Step 2: Run HTTP tests and verify failure**
+- [x] **Step 2: Run HTTP tests and verify failure**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/tests/inventory.api.test.ts src/modules/catalog/tests/public-catalog.api.test.ts`
 
 Expected: FAIL because the routes and module composition are absent.
 
-- [ ] **Step 3: Implement validators, thin controllers, routes, and stable errors**
+- [x] **Step 3: Implement validators, thin controllers, routes, and stable errors**
 
 Use Zod to require UUIDs, safe integer quantities, non-empty bounded
 idempotency keys, non-zero adjustment deltas, reason codes, current versions,
@@ -713,7 +713,7 @@ audit write, then returns `403`; the mutation service is not called. Add an
 integration assertion that a forbidden receipt creates one `outcome = 'denied'`
 audit row and no Inventory balance or movement.
 
-- [ ] **Step 4: Compose modules without private imports or duplicate infrastructure instances**
+- [x] **Step 4: Compose modules without private imports or duplicate infrastructure instances**
 
 Create `variantReader = createCatalogVariantReader(transactions)` first, create
 Inventory with that public contract, then create Catalog with Inventory's
@@ -732,7 +732,7 @@ Require TTL to equal `900`; bound expiry interval from `5` through `300`.
 Start the expiry worker after the HTTP server starts and call `stop()` before
 closing the PostgreSQL pool on SIGINT/SIGTERM.
 
-- [ ] **Step 5: Run API unit and full PostgreSQL/MinIO integration tests**
+- [x] **Step 5: Run API unit and full PostgreSQL/MinIO integration tests**
 
 Run: `pnpm --filter @opendx/api test`
 
@@ -741,7 +741,7 @@ Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:
 Expected: PASS, including anonymous public reads, role isolation, audit writes,
 and no protected field leakage.
 
-- [ ] **Step 6: Commit the API vertical slice**
+- [x] **Step 6: Commit the API vertical slice**
 
 ```bash
 git add apps/api/src CHANGELOG.md

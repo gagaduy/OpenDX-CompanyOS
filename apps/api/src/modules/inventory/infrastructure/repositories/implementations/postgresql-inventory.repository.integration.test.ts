@@ -101,13 +101,13 @@ describeWithDatabase("PostgresqlInventoryRepository", () => {
       { movement_type: "receive", on_hand_delta: 7, reserved_delta: 0 },
       { movement_type: "adjustment", on_hand_delta: -2, reserved_delta: 0 },
     ]);
-    const audits = await pool.query<{ action: string }>(
-      `SELECT action FROM audit_events
+    const audits = await pool.query<{ action: string; actor_type: string }>(
+      `SELECT action, actor_type FROM audit_events
        WHERE resource_type = 'inventory_item' ORDER BY action`,
     );
     expect(audits.rows).toEqual([
-      { action: "inventory.stock.adjusted" },
-      { action: "inventory.stock.received" },
+      { action: "inventory.stock.adjusted", actor_type: "user" },
+      { action: "inventory.stock.received", actor_type: "user" },
     ]);
   });
 });

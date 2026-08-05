@@ -4,9 +4,12 @@
 import { Router } from "express";
 import { authenticateStaff, type StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
+import type { InventoryAvailabilityReader } from "../inventory";
 import { CategoryService } from "./application/services/implementations/category.service";
 import { ProductMediaService } from "./application/services/implementations/product-media.service";
 import { ProductService } from "./application/services/implementations/product.service";
+import { ProductPublicationService } from "./application/services/implementations/product-publication.service";
+import { PublicCatalogService } from "./application/services/implementations/public-catalog.service";
 import { VariantService } from "./application/services/implementations/variant.service";
 import { CatalogVariantReaderService } from "./application/services/implementations/catalog-variant-reader";
 import type { ProductMediaInspector, ProductMediaStorage } from "./application/storage/product-media.storage";
@@ -14,14 +17,19 @@ import { PostgresqlCatalogAuditRepository } from "./infrastructure/repositories/
 import { PostgresqlCategoryRepository } from "./infrastructure/repositories/implementations/postgresql-category.repository";
 import { PostgresqlProductMediaRepository } from "./infrastructure/repositories/implementations/postgresql-product-media.repository";
 import { PostgresqlProductRepository } from "./infrastructure/repositories/implementations/postgresql-product.repository";
+import { PostgresqlPublicCatalogRepository } from "./infrastructure/repositories/implementations/postgresql-public-catalog.repository";
 import { PostgresqlVariantRepository } from "./infrastructure/repositories/implementations/postgresql-variant.repository";
 import { CategoryController } from "./presentation/controllers/category.controller";
 import { ProductMediaController } from "./presentation/controllers/product-media.controller";
 import { ProductController } from "./presentation/controllers/product.controller";
+import { ProductPublicationController } from "./presentation/controllers/product-publication.controller";
+import { PublicCatalogController } from "./presentation/controllers/public-catalog.controller";
 import { VariantController } from "./presentation/controllers/variant.controller";
 import { createCategoryRouter } from "./presentation/routes/category.routes";
 import { createProductMediaRouter } from "./presentation/routes/product-media.routes";
 import { createProductRouter } from "./presentation/routes/product.routes";
+import { createProductPublicationRouter } from "./presentation/routes/product-publication.routes";
+import { createPublicCatalogRouter } from "./presentation/routes/public-catalog.routes";
 import { createVariantRouter } from "./presentation/routes/variant.routes";
 
 export interface CatalogModuleDependencies {
@@ -32,24 +40,40 @@ export interface CatalogModuleDependencies {
   readonly generateId: () => string;
   readonly now: () => string;
   readonly mediaMaximumBytes: number;
+  readonly availability: InventoryAvailabilityReader;
 }
 
 export function createCatalogVariantReader() {
   return new CatalogVariantReaderService(new PostgresqlVariantRepository());
 }
 
-export function createCatalogModule(dependencies: CatalogModuleDependencies): Router {
+export function createCatalogModule(dependencies: CatalogModuleDependencies) {
   const audit = new PostgresqlCatalogAuditRepository();
   const categories = new PostgresqlCategoryRepository();
   const products = new PostgresqlProductRepository();
   const variants = new PostgresqlVariantRepository();
   const media = new PostgresqlProductMediaRepository();
+  const publicCatalog = new PostgresqlPublicCatalogRepository();
   const categoryService = new CategoryService(
     categories,
     audit,
     dependencies.transactions,
     dependencies.generateId,
     dependencies.now,
+  );
+  const publicationService = new ProductPublicationService(
+    products,
+    publicCatalog,
+    dependencies.availability,
+    audit,
+    dependencies.transactions,
+    dependencies.generateId,
+    dependencies.now,
+  );
+  const publicCatalogService = new PublicCatalogService(
+    publicCatalog,
+    dependencies.availability,
+    dependencies.transactions,
   );
   const productService = new ProductService(
     products,
@@ -58,6 +82,7 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies): Ro
     dependencies.transactions,
     dependencies.generateId,
     dependencies.now,
+    dependencies.availability,
   );
   const variantService = new VariantService(
     variants,
@@ -79,16 +104,37 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies): Ro
     dependencies.mediaMaximumBytes,
   );
   const authenticate = authenticateStaff(dependencies.staffTokenVerifier);
-  const router = Router();
-  router.use(createCategoryRouter(new CategoryController(categoryService), authenticate));
-  router.use(createProductRouter(new ProductController(productService), authenticate));
-  router.use(createVariantRouter(new VariantController(variantService), authenticate));
-  router.use(
+  const appendDenied = async (denied: {
+    actorId: string; action: string; resourceId: string; correlationId: string;
+  }) => dependencies.transactions.run((session) => audit.append(session, {
+    id: dependencies.generateId(),
+    actorId: denied.actorId,
+    action: denied.action,
+    resourceType: "product",
+    resourceId: denied.resourceId,
+    outcome: "denied",
+    correlationId: denied.correlationId,
+    metadata: {},
+    occurredAt: dependencies.now(),
+  }));
+  const adminRouter = Router();
+  adminRouter.use(createCategoryRouter(new CategoryController(categoryService), authenticate));
+  adminRouter.use(createProductRouter(new ProductController(productService), authenticate));
+  adminRouter.use(createVariantRouter(new VariantController(variantService), authenticate));
+  adminRouter.use(
     createProductMediaRouter(
       new ProductMediaController(mediaService),
       authenticate,
       dependencies.mediaMaximumBytes,
     ),
   );
-  return router;
+  adminRouter.use(createProductPublicationRouter(
+    new ProductPublicationController(publicationService),
+    authenticate,
+    appendDenied,
+  ));
+  const publicRouter = createPublicCatalogRouter(
+    new PublicCatalogController(publicCatalogService, dependencies.mediaStorage),
+  );
+  return { adminRouter, publicRouter };
 }

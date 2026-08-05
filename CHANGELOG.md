@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Expose role-protected Inventory and publication APIs, anonymous Storefront
+  catalog/media routes, audited authorization denials, runtime reservation
+  expiry, and explicit Catalog/Inventory composition over PostgreSQL.
 - Add Catalog publication readiness, publish/unpublish auditing, anonymous-safe
   PostgreSQL product projections, sold-out availability enrichment, and batched
   inventory summaries for staff product lists.
