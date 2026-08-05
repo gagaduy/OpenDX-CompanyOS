@@ -101,7 +101,7 @@ suite("customer API integration", () => {
     expectCookie(
       login.headers["set-cookie"],
       "opendx_csrf",
-      ["SameSite=Lax", "Path=/v1/storefront"],
+      ["SameSite=Lax", "Path=/"],
       ["HttpOnly"],
     );
 

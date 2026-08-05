@@ -112,8 +112,9 @@ Active commerce master plan:
   to 1 using `infra/backups/opendx-20260806-003458.dump`.
 - Browser acceptance at 390x844, 768x1024, and 1440x900 rendered ten seeded
   products with complete 1254x1254 images, semantic `main`, visible keyboard
-  focus, and no horizontal overflow. Evidence is reproducible with
-  `pnpm check:storefront-browser`.
+  focus, and no horizontal overflow. The same Chrome run created a real guest,
+  added one available product, displayed the success state, and updated the cart
+  counter to one. Evidence is reproducible with `pnpm check:storefront-browser`.
 - Independent review found seven Important issues in CORS isolation,
   idempotency concurrency/retry, invalid-cookie fallback, cart media URLs,
   environment validation, restore safety, and failed-login compensation. All

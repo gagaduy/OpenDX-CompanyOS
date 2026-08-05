@@ -50,5 +50,7 @@ pnpm check:storefront-browser
 
 Chrome or Chromium is required. The script checks all three supported
 acceptance viewports, product image delivery, semantic `main`, visible keyboard
-focus, and document overflow. It stores screenshots outside the repository in
-`/tmp/opendx-storefront-browser` unless `BROWSER_EVIDENCE_DIR` is set.
+focus, document overflow, and a real guest add-to-cart mutation with CSRF cookie
+visibility and cart-counter verification. It stores screenshots outside the
+repository in `/tmp/opendx-storefront-browser` unless `BROWSER_EVIDENCE_DIR` is
+set.

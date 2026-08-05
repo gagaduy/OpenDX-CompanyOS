@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Make the double-submit CSRF cookie readable from the Storefront document path
+  while keeping guest and customer session cookies API-scoped and `HttpOnly`,
+  restoring real-browser add-to-cart mutations.
 - Isolate credentialed Console and Storefront CORS audiences, clear invalid
   customer cookies before guest restoration, and revoke newly issued sessions
   when post-login cart inspection fails.

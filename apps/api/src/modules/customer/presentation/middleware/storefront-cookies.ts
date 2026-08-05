@@ -44,7 +44,7 @@ export function setCsrfCookie(
       httpOnly: false,
       secure: config.secure,
       sameSite: "lax",
-      path: "/v1/storefront",
+      path: "/",
     }),
   );
 }
@@ -61,7 +61,7 @@ export function clearCookie(
       httpOnly: name !== config.csrfName,
       secure: config.secure,
       sameSite: "lax",
-      path: "/v1/storefront",
+      path: name === config.csrfName ? "/" : "/v1/storefront",
       expires: new Date(0),
     }),
   );

@@ -114,8 +114,11 @@ async function main() {
       await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
       evidence.push({ ...result, screenshotPath });
     }
+    const guestCart = await verifyGuestCart(client);
     client.close();
-    console.log(JSON.stringify({ storefrontUrl, evidence }, null, 2));
+    console.log(
+      JSON.stringify({ storefrontUrl, evidence, guestCart }, null, 2),
+    );
   } finally {
     await stopProcess(processHandle);
     await rm(profile, {
@@ -137,6 +140,72 @@ async function stopProcess(processHandle) {
     processHandle.kill("SIGKILL");
     await Promise.race([exited, delay(2_000)]);
   }
+}
+
+async function verifyGuestCart(client) {
+  const productUrl = await evaluate(
+    client,
+    "document.querySelector('article a')?.href ?? null",
+  );
+  if (productUrl === null) throw new Error("Guest cart check found no product");
+
+  await client.send("Page.navigate", { url: productUrl });
+  await waitForCondition(
+    client,
+    `
+      [...document.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Thêm vào giỏ' && !button.disabled
+      )
+    `,
+    "Product detail did not expose an available add-to-cart action",
+  );
+  await client.send("Runtime.evaluate", {
+    expression: `
+      [...document.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === 'Thêm vào giỏ')
+        ?.click()
+    `,
+  });
+  await waitForCondition(
+    client,
+    `
+      document.querySelector('[role="status"]')?.textContent?.includes('Đã thêm vào giỏ hàng')
+      || document.querySelector('[role="alert"]') !== null
+    `,
+    "Guest add-to-cart operation did not settle",
+  );
+  const result = await evaluate(
+    client,
+    `(() => ({
+      status: document.querySelector('[role="status"]')?.textContent?.trim() ?? null,
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+      cartLabel: document.querySelector('[aria-label^="Giỏ hàng,"]')?.getAttribute('aria-label') ?? null,
+      readableCookieNames: document.cookie
+        .split(';')
+        .map((cookie) => cookie.trim().split('=')[0])
+        .filter(Boolean),
+    }))()`,
+  );
+  if (result.alert !== null)
+    throw new Error(`Guest cart alert: ${result.alert}`);
+  if (result.status !== "Đã thêm vào giỏ hàng.") {
+    throw new Error("Guest cart did not report successful addition");
+  }
+  if (!result.cartLabel?.includes("1 sản phẩm")) {
+    throw new Error(`Guest cart counter did not update: ${result.cartLabel}`);
+  }
+  if (!result.readableCookieNames.includes("opendx_csrf")) {
+    throw new Error("Storefront cannot read its CSRF cookie");
+  }
+  return result;
+}
+
+async function waitForCondition(client, expression, timeoutMessage) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (await evaluate(client, expression)) return;
+    await delay(100);
+  }
+  throw new Error(timeoutMessage);
 }
 
 class CdpClient {
