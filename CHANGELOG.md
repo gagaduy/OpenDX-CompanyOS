@@ -28,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add CSRF-protected Cart APIs, explicit persisted guest/customer cart
+  resolution, login-time non-conflicting cart transfer, and customer-only
+  checkout-readiness validation without checkout, order, or payment state.
 - Add backend-authoritative Cart operations backed by PostgreSQL, batch Catalog
   variant projections, live Inventory availability, stale-line markers, and
   concurrency-safe first-cart creation.

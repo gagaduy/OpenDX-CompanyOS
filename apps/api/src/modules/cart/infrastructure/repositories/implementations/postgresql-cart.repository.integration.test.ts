@@ -11,6 +11,7 @@ import { runCustomerMigrations } from "../../../../customer/infrastructure/datab
 import { runCatalogMigrations } from "../../../../../shared/database/run-migrations";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { CartService } from "../../../application/services/implementations/cart.service";
+import { CartResolutionService } from "../../../application/services/implementations/cart-resolution.service";
 import { runCartMigrations } from "../../database/run-cart-migrations";
 import { PostgresqlCartRepository } from "./postgresql-cart.repository";
 
@@ -23,6 +24,7 @@ const ids = {
   price: "f4000000-0000-4000-8000-000000000001",
   media: "f5000000-0000-4000-8000-000000000001",
   guest: "f6000000-0000-4000-8000-000000000001",
+  customer: "f7000000-0000-4000-8000-000000000001",
 } as const;
 
 suite("PostgresqlCartRepository", () => {
@@ -81,6 +83,11 @@ suite("PostgresqlCartRepository", () => {
        VALUES($1,$2,NOW() + interval '7 days',NOW(),NOW())`,
       [ids.guest, "a".repeat(64)],
     );
+    await pool.query(
+      `INSERT INTO customers(id,email,email_verified_at,status,version,created_at,updated_at)
+       VALUES($1,'cart@example.com',NOW(),'active',1,NOW(),NOW())`,
+      [ids.customer],
+    );
   });
   afterAll(async () => {
     await runCartMigrations(databaseUrl!, "down");
@@ -90,14 +97,7 @@ suite("PostgresqlCartRepository", () => {
   });
 
   it("converges concurrent first adds to one active cart and one aggregated line", async () => {
-    const service = new CartService(
-      repository,
-      variants,
-      inventory,
-      transactions,
-      randomUUID,
-      () => new Date().toISOString(),
-    );
+    const service = createService();
     const owner = {
       kind: "guest" as const,
       guestSessionId: ids.guest,
@@ -117,4 +117,54 @@ suite("PostgresqlCartRepository", () => {
     );
     expect(counts.rows[0]).toEqual({ carts: 1, items: 1 });
   });
+
+  it("merges conflicting carts once and preserves superseded history", async () => {
+    const service = createService();
+    const resolution = new CartResolutionService(
+      repository,
+      service,
+      variants,
+      inventory,
+      transactions,
+      randomUUID,
+      () => new Date().toISOString(),
+    );
+    const expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    await service.addItem({ kind: "guest", guestSessionId: ids.guest, expiresAt }, ids.variant, 1);
+    await service.addItem({ kind: "customer", customerId: ids.customer, expiresAt }, ids.variant, 2);
+
+    await expect(
+      resolution.inspect(ids.customer, expiresAt, ids.guest, expiresAt, true),
+    ).resolves.toMatchObject({ status: "required" });
+    const input = {
+      customerId: ids.customer,
+      customerExpiresAt: expiresAt,
+      guestSessionId: ids.guest,
+      guestExpiresAt: expiresAt,
+      action: "merge" as const,
+      idempotencyKey: "merge-request-0001",
+    };
+    const merged = await resolution.resolve(input);
+    expect(merged.resultingCart).toMatchObject({ itemCount: 3, totalVnd: 3_870_000 });
+    await expect(resolution.resolve(input)).resolves.toMatchObject({ status: "resolved" });
+    await expect(resolution.resolve({ ...input, action: "keep_saved" })).rejects.toMatchObject({
+      code: "CART_RESOLUTION_CONFLICT",
+    });
+    const history = await pool.query("SELECT status, customer_id, guest_session_id FROM carts ORDER BY status");
+    expect(history.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "active", customer_id: ids.customer }),
+      expect.objectContaining({ status: "superseded", guest_session_id: ids.guest }),
+    ]));
+  });
+
+  function createService(): CartService {
+    return new CartService(
+      repository,
+      variants,
+      inventory,
+      transactions,
+      randomUUID,
+      () => new Date().toISOString(),
+    );
+  }
 });

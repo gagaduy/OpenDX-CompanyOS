@@ -13,8 +13,9 @@ import { emptyCart, mapCart } from "../../mappers/cart.mapper";
 import type { CartRepository } from "../../repositories/interfaces/cart.repository";
 import { CartApplicationError } from "../cart-application.error";
 import type { CartServiceContract } from "../interfaces/cart.service";
+import type { CheckoutReadyCartReader } from "../interfaces/checkout-ready-cart-reader";
 
-export class CartService implements CartServiceContract {
+export class CartService implements CartServiceContract, CheckoutReadyCartReader {
   constructor(
     private readonly repository: CartRepository,
     private readonly variants: StorefrontVariantReader,
@@ -88,6 +89,17 @@ export class CartService implements CartServiceContract {
       }
     });
     return this.get(owner);
+  }
+
+  async getCheckoutReady(customerId: string, expiresAt: string): Promise<CartDto> {
+    const cart = await this.get({ kind: "customer", customerId, expiresAt });
+    if (cart.id === undefined || cart.items.length === 0) {
+      throw new CartApplicationError("CART_NOT_FOUND", "A non-empty customer cart is required");
+    }
+    if (cart.requiresAction || cart.items.some((item) => !item.purchasable)) {
+      throw new CartApplicationError("CART_RESOLUTION_CONFLICT", "Cart requires correction before checkout");
+    }
+    return cart;
   }
 
   private async mutateWithCreateRetry(

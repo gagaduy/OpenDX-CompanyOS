@@ -135,4 +135,8 @@ class MemoryCartRepository implements CartRepository {
   async updateItem(_session: DatabaseSession, item: CartItem) { this.items = this.items.map((candidate) => candidate.id === item.id ? item : candidate); }
   async deleteItem(_session: DatabaseSession, _cartId: string, itemId: string) { const before = this.items.length; this.items = this.items.filter((item) => item.id !== itemId); return before !== this.items.length; }
   async updateCartVersion(_session: DatabaseSession, cart: Cart) { this.cart = cart; return true; }
+  async supersede() { return false; }
+  async transferGuestCart() { return false; }
+  async findResolutionRequest() { return undefined; }
+  async createResolutionRequest() {}
 }

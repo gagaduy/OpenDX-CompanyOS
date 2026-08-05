@@ -405,21 +405,21 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/api/src/modules/customer/customer.module.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing resolution tests for no conflict, guest-only transfer,
+- [x] Write failing resolution tests for no conflict, guest-only transfer,
   keep-guest, keep-saved, merge, quantity/availability conflict, request
   fingerprint mismatch, idempotent retry, and cross-customer denial.
-- [ ] On login, inspect both carts. Transfer automatically only when at most one
+- [x] On login, inspect both carts. Transfer automatically only when at most one
   contains lines; otherwise return `CART_RESOLUTION_REQUIRED` without mutation.
-- [ ] Preserve superseded carts and resolution records. Never reactivate a
+- [x] Preserve superseded carts and resolution records. Never reactivate a
   superseded cart or delete historical lines during a retry.
-- [ ] Write failing API tests for all cart routes, guest/customer requirements,
+- [x] Write failing API tests for all cart routes, guest/customer requirements,
   CSRF/origin enforcement, stable errors, and fully recalculated envelopes.
-- [ ] Implement checkout readiness as validation plus a stable Cart DTO only.
+- [x] Implement checkout readiness as validation plus a stable Cart DTO only.
   It requires a customer session and resolved cart, but creates no reservation,
   order, promotion, checkout row, payment, or event.
-- [ ] Export only the checkout-ready reader required by Phase 6.
-- [ ] Run Cart unit/API/PostgreSQL tests including concurrent resolution.
-- [ ] Commit as `feat(api): expose cart resolution workflows`.
+- [x] Export only the checkout-ready reader required by Phase 6.
+- [x] Run Cart unit/API/PostgreSQL tests including concurrent resolution.
+- [x] Commit as `feat(api): expose cart resolution workflows`.
 
 ### Task 7: Storefront Shell and Catalog Discovery
 

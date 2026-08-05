@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
-import type { CartRepository } from "../../../application/repositories/interfaces/cart.repository";
+import type { CartRepository, CartResolutionRecord } from "../../../application/repositories/interfaces/cart.repository";
 import type { CartOwner } from "../../../application/dtos/cart.dto";
 import type { Cart } from "../../../domain/entities/cart";
 import type { CartItem } from "../../../domain/entities/cart-item";
@@ -125,6 +125,84 @@ export class PostgresqlCartRepository implements CartRepository {
       [cart.id, cart.version, cart.status, cart.expiresAt, cart.updatedAt, expectedVersion],
     );
     return result.rowCount === 1;
+  }
+
+  async supersede(
+    session: DatabaseSession,
+    cartId: string,
+    expectedOwner: CartOwner,
+    updatedAt: string,
+  ): Promise<boolean> {
+    const owner = ownerPredicate(expectedOwner);
+    const result = await session.query(
+      `UPDATE carts
+       SET status = 'superseded', version = version + 1, updated_at = $3
+       WHERE id = $2 AND ${owner.sql} AND status = 'active'`,
+      [owner.value, cartId, updatedAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async transferGuestCart(
+    session: DatabaseSession,
+    cartId: string,
+    guestSessionId: string,
+    customerId: string,
+    expiresAt: string,
+    updatedAt: string,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE carts
+       SET guest_session_id = NULL, customer_id = $3, expires_at = $4,
+           version = version + 1, updated_at = $5
+       WHERE id = $1 AND guest_session_id = $2 AND status = 'active'`,
+      [cartId, guestSessionId, customerId, expiresAt, updatedAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async findResolutionRequest(
+    session: DatabaseSession,
+    customerId: string,
+    idempotencyKey: string,
+  ): Promise<CartResolutionRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT * FROM cart_resolution_requests
+       WHERE customer_id = $1 AND idempotency_key = $2`,
+      [customerId, idempotencyKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      id: String(row.id),
+      customerId: String(row.customer_id),
+      idempotencyKey: String(row.idempotency_key),
+      requestFingerprint: String(row.request_fingerprint),
+      action: String(row.action) as CartResolutionRecord["action"],
+      ...(row.guest_cart_id === null ? {} : { guestCartId: String(row.guest_cart_id) }),
+      ...(row.saved_cart_id === null ? {} : { savedCartId: String(row.saved_cart_id) }),
+      ...(row.resulting_cart_id === null ? {} : { resultingCartId: String(row.resulting_cart_id) }),
+      createdAt: iso(row.created_at),
+    };
+  }
+
+  async createResolutionRequest(session: DatabaseSession, record: CartResolutionRecord): Promise<void> {
+    await session.query(
+      `INSERT INTO cart_resolution_requests(
+         id, customer_id, idempotency_key, request_fingerprint, action,
+         guest_cart_id, saved_cart_id, resulting_cart_id, created_at
+       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        record.id,
+        record.customerId,
+        record.idempotencyKey,
+        record.requestFingerprint,
+        record.action,
+        record.guestCartId ?? null,
+        record.savedCartId ?? null,
+        record.resultingCartId ?? null,
+        record.createdAt,
+      ],
+    );
   }
 
   private async findActive(

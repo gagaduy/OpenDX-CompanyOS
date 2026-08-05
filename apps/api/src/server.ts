@@ -15,6 +15,8 @@ import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import type { DependencyStatus } from "./shared/http/health.routes";
 import { createCustomerModule } from "./modules/customer";
+import type { CustomerCartLoginResolver } from "./modules/customer";
+import { createCartModule, type CartResolutionServiceContract } from "./modules/cart";
 import { NodeSessionTokenService } from "./modules/customer/infrastructure/security/node-session-token-service";
 import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
 import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
@@ -56,6 +58,20 @@ const catalog = createCatalogModule({
   mediaMaximumBytes: environment.mediaMaxBytes,
   availability: inventory.availability,
 });
+const storefrontCookies = {
+  guestName: environment.guestCookieName,
+  customerName: environment.customerCookieName,
+  csrfName: environment.csrfCookieName,
+  secure: environment.cookieSecure,
+};
+let cartResolution: CartResolutionServiceContract | undefined;
+const cartLoginResolver: CustomerCartLoginResolver = {
+  async inspect(...arguments_) {
+    return cartResolution === undefined
+      ? { status: "not_required" }
+      : cartResolution.inspect(...arguments_);
+  },
+};
 const customer = createCustomerModule({
   transactions,
   verifier: environment.googleClientId === undefined
@@ -65,17 +81,25 @@ const customer = createCustomerModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
   storefrontOrigin: environment.storefrontOrigin,
-  cookies: {
-    guestName: environment.guestCookieName,
-    customerName: environment.customerCookieName,
-    csrfName: environment.csrfCookieName,
-    secure: environment.cookieSecure,
-  },
+  cookies: storefrontCookies,
   authenticationRateLimit: environment.authenticationRateLimit,
+  cartLoginResolver,
 });
+const cart = createCartModule({
+  transactions,
+  variants: catalog.storefrontVariants,
+  availability: inventory.availability,
+  sessions: customer.sessions,
+  storefrontOrigin: environment.storefrontOrigin,
+  cookies: storefrontCookies,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
+cartResolution = cart.resolution;
 const storefront = Router();
 storefront.use(catalog.publicRouter);
 storefront.use(customer.router);
+storefront.use(cart.router);
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
   storefrontOrigin: environment.storefrontOrigin,
