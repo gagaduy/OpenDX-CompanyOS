@@ -28,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Google-verified customer registration, hash-only rotating Commerce
+  sessions, guest sessions, CSRF/origin protection, owned profiles and address
+  APIs, authentication rate limiting, and credential-free audit events.
 - Add Customer, Commerce session, address, Cart, CartItem, and durable cart
   resolution PostgreSQL schemas with matching domain invariants.
 - Scaffold the strict React, TypeScript, and Vite NovaCommerce Storefront with

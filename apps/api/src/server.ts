@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from "node:crypto";
+import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
 import { createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
@@ -13,6 +14,10 @@ import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import type { DependencyStatus } from "./shared/http/health.routes";
+import { createCustomerModule } from "./modules/customer";
+import { NodeSessionTokenService } from "./modules/customer/infrastructure/security/node-session-token-service";
+import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
+import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -51,11 +56,32 @@ const catalog = createCatalogModule({
   mediaMaximumBytes: environment.mediaMaxBytes,
   availability: inventory.availability,
 });
+const customer = createCustomerModule({
+  transactions,
+  verifier: environment.googleClientId === undefined
+    ? new UnavailableGoogleIdentityVerifier()
+    : new GoogleJoseIdentityVerifier(environment.googleClientId),
+  tokens: new NodeSessionTokenService(),
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+  storefrontOrigin: environment.storefrontOrigin,
+  cookies: {
+    guestName: environment.guestCookieName,
+    customerName: environment.customerCookieName,
+    csrfName: environment.csrfCookieName,
+    secure: environment.cookieSecure,
+  },
+  authenticationRateLimit: environment.authenticationRateLimit,
+});
+const storefront = Router();
+storefront.use(catalog.publicRouter);
+storefront.use(customer.router);
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
+  storefrontOrigin: environment.storefrontOrigin,
   companyOperatingCoreRepository: repository,
   catalogAdminRouter: catalog.adminRouter,
-  storefrontRouter: catalog.publicRouter,
+  storefrontRouter: storefront,
   inventoryRouter: inventory.router,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),

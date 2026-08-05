@@ -16,6 +16,7 @@ import {
 
 export interface CreateApiAppOptions {
   readonly consoleOrigin?: string;
+  readonly storefrontOrigin?: string;
   readonly readiness?: ReadinessProbe;
   readonly companyOperatingCoreRepository?: ICompanyOperatingCoreRepository;
   readonly catalogAdminRouter?: Router;
@@ -27,7 +28,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));
-  app.use(cors({ origin: options.consoleOrigin ?? "http://localhost:3000" }));
+  app.use(cors({ origin: [options.consoleOrigin ?? "http://localhost:3000", options.storefrontOrigin ?? "http://localhost:3100"], credentials: true }));
   app.use(correlationIdMiddleware);
   app.use(createHealthRouter(options.readiness));
   if (options.companyOperatingCoreRepository !== undefined) {

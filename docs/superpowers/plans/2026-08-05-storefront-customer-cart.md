@@ -282,23 +282,23 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Create: `apps/api/src/modules/customer/infrastructure/repositories/implementations/postgresql-customer-audit.repository.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing application tests for first Google login, repeat login,
+- [x] Write failing application tests for first Google login, repeat login,
   unverified email, duplicate subject convergence, same-email/different-subject
   conflict, disabled customer, token hashing, rotation without expiry extension,
   logout, revocation, guest restoration, and expired-session rejection.
-- [ ] Define the verifier output as only provider, subject, verified email, and
+- [x] Define the verifier output as only provider, subject, verified email, and
   verification timestamp. Keep provider JWT types out of domain/application DTOs.
-- [ ] Implement the Google adapter with remote JWKS and exact issuer/audience
+- [x] Implement the Google adapter with remote JWKS and exact issuer/audience
   checks. Tests inject a local signed key set; runtime never receives a fake
   verifier through environment selection.
-- [ ] Implement 256-bit opaque tokens with Node `crypto`, SHA-256 persistence
+- [x] Implement 256-bit opaque tokens with Node `crypto`, SHA-256 persistence
   hashes, transactional customer/identity/session creation, and concurrency-safe
   unique-conflict recovery.
-- [ ] Add PostgreSQL repository integration tests for rollback, duplicate login,
+- [x] Add PostgreSQL repository integration tests for rollback, duplicate login,
   rotation, revocation, absolute expiry, and no raw token persistence.
-- [ ] Audit auth outcomes without credential, email, subject, or token payloads.
-- [ ] Run focused unit and integration tests.
-- [ ] Commit as `feat(customer): add verified commerce sessions`.
+- [x] Audit auth outcomes without credential, email, subject, or token payloads.
+- [x] Run focused unit and integration tests.
+- [x] Commit as `feat(customer): add verified commerce sessions`.
 
 ### Task 4: Customer HTTP Security, Session, Profile, and Address APIs
 
@@ -326,24 +326,24 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/api/src/shared/config/environment.test.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing profile/address service tests for owner-constrained reads,
+- [x] Write failing profile/address service tests for owner-constrained reads,
   validation, optimistic versions, default switching, deletion, and disabled
   customers.
-- [ ] Write failing API tests for exact cookie attributes, credentials-enabled
+- [x] Write failing API tests for exact cookie attributes, credentials-enabled
   CORS, allowed origins, CSRF mismatch, auth rate limits, stable errors, cookie
   clearing, staff/customer credential isolation, and address ownership.
-- [ ] Parse/serialize cookies with the reviewed package. Use one shared mutation
+- [x] Parse/serialize cookies with the reviewed package. Use one shared mutation
   boundary for origin plus CSRF cookie/header equality; do not scatter security
   checks through controllers.
-- [ ] Return only session kind, customer ID where authenticated, verified email,
+- [x] Return only session kind, customer ID where authenticated, verified email,
   profile, address DTOs, expiry, and cart-resolution status. Never return hashes,
   raw tokens, Google subjects, or provider internals.
-- [ ] Compose Customer with explicit verifier/token/clock/ID/transaction
+- [x] Compose Customer with explicit verifier/token/clock/ID/transaction
   dependencies and mount its routes under `/v1/storefront`.
-- [ ] Extend API configuration with storefront origin, Google audience, cookie
+- [x] Extend API configuration with storefront origin, Google audience, cookie
   names/security, fixed TTL validation, and bounded rate-limit settings.
-- [ ] Run Customer service, HTTP, integration, and environment tests.
-- [ ] Commit as `feat(api): expose secure customer account workflows`.
+- [x] Run Customer service, HTTP, integration, and environment tests.
+- [x] Commit as `feat(api): expose secure customer account workflows`.
 
 ### Task 5: Catalog Cart Projection and Backend-Authoritative Cart Service
 
