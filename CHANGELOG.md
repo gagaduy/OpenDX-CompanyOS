@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Customer, Commerce session, address, Cart, CartItem, and durable cart
+  resolution PostgreSQL schemas with matching domain invariants.
 - Scaffold the strict React, TypeScript, and Vite NovaCommerce Storefront with
   validated public environment configuration and initial semantic app states.
 - Add reviewed cookie parsing and selected Express authentication rate-limiting

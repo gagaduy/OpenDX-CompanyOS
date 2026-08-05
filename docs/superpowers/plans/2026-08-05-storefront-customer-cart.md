@@ -238,26 +238,26 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/api/package.json`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing Customer domain tests for seven/30-day absolute expiry,
+- [x] Write failing Customer domain tests for seven/30-day absolute expiry,
   immutable terminal session states, verified identity requirements, bounded
   profile fields, address validation, and one default address.
-- [ ] Write failing Cart domain tests for positive safe-integer quantities,
+- [x] Write failing Cart domain tests for positive safe-integer quantities,
   unique variants, VND subtotal/total safe-integer arithmetic, stale-line
   markers, and legal active/superseded/checkout-ready transitions.
-- [ ] Write failing migration tests proving all tables, checks, partial unique
+- [x] Write failing migration tests proving all tables, checks, partial unique
   indexes, foreign keys, migration order, and complete rollback.
-- [ ] Create `customers`, `customer_external_identities`, `customer_sessions`,
+- [x] Create `customers`, `customer_external_identities`, `customer_sessions`,
   `guest_sessions`, and `customer_addresses` without `company_id` or raw token
   columns. Enforce unique provider subject and at most one default address per
   customer with a partial unique index.
-- [ ] Create `carts`, `cart_items`, and `cart_resolution_requests`. Require
+- [x] Create `carts`, `cart_items`, and `cart_resolution_requests`. Require
   exactly one cart owner, one active cart per owner, one variant per cart,
   positive quantities, immutable superseded history, and unique
   `(customer_id, idempotency_key)` resolution requests with a request
   fingerprint and resulting cart reference.
-- [ ] Add module-local migrate/rollback scripts and all-order scripts.
-- [ ] Run domain tests and PostgreSQL migration up/down integration tests.
-- [ ] Commit as `feat(commerce): add customer and cart foundations`.
+- [x] Add module-local migrate/rollback scripts and all-order scripts.
+- [x] Run domain tests and PostgreSQL migration up/down integration tests.
+- [x] Commit as `feat(commerce): add customer and cart foundations`.
 
 ### Task 3: Customer Authentication, Sessions, and PostgreSQL Adapters
 
