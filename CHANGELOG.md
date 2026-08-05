@@ -26,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the Phase 5 file-level TDD implementation plan for the Storefront,
+  Customer identity and sessions, address ownership, authoritative Cart,
+  explicit cart resolution, Docker delivery, and acceptance evidence.
 - Add the approved Phase 5 Storefront, Customer, and Cart design with a
   catalog-first technology storefront, seven-day guest carts, Google customer
   registration, 30-day Commerce sessions, explicit cart resolution, and an

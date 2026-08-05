@@ -9,8 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Phase 4 Inventory and Product Publication is complete after full source,
 container, PostgreSQL concurrency, HTTP, OIDC console, and backup/restore
-acceptance. Phase 5 has an approved focused design; its file-level
-implementation plan has not been created.
+acceptance. Phase 5 has an approved focused design and a file-level TDD
+implementation plan; implementation has not started.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -23,7 +23,7 @@ Active commerce master plan:
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
-| Phase 5: Storefront, Customer, and Cart | Design approved | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | Plan ready | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
@@ -93,6 +93,9 @@ Active commerce master plan:
   seven-day guest cart, Google customer registration, 30-day Commerce-owned
   sessions, explicit cart resolution, address ownership, and an authenticated
   checkout gate.
+- Phase 5 file-level implementation plan defines eleven ordered TDD units for
+  the Storefront scaffold, Customer/Cart schemas, secure sessions, authoritative
+  cart behavior, customer UI, Docker, documentation, and exit acceptance.
 
 ## Open Risks
 
