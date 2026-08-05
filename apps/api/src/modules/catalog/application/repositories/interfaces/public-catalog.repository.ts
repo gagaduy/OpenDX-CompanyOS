@@ -53,6 +53,19 @@ export interface PublicMediaAuthorization {
   readonly contentType: string;
 }
 
+export interface StorefrontVariantProjection {
+  readonly variantId: string;
+  readonly productId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly variantTitle: string;
+  readonly sku: string;
+  readonly optionValues: VariantOptions;
+  readonly unitPriceVnd: number;
+  readonly primaryMediaId: string;
+  readonly primaryMediaAltText: string;
+}
+
 export interface PublicCatalogRepository {
   inspectPublicationReadiness(
     session: DatabaseSession,
@@ -72,4 +85,8 @@ export interface PublicCatalogRepository {
     productId: string,
     mediaId: string,
   ): Promise<PublicMediaAuthorization | undefined>;
+  findStorefrontVariants(
+    session: DatabaseSession,
+    variantIds: readonly string[],
+  ): Promise<readonly StorefrontVariantProjection[]>;
 }

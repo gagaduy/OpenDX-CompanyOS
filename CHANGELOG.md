@@ -28,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add backend-authoritative Cart operations backed by PostgreSQL, batch Catalog
+  variant projections, live Inventory availability, stale-line markers, and
+  concurrency-safe first-cart creation.
 - Add Google-verified customer registration, hash-only rotating Commerce
   sessions, guest sessions, CSRF/origin protection, owned profiles and address
   APIs, authentication rate limiting, and credential-free audit events.

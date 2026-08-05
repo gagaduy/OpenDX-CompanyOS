@@ -367,24 +367,24 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Create: `apps/api/src/modules/cart/infrastructure/repositories/implementations/postgresql-cart.repository.integration.test.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing Catalog reader tests for published product, active variant,
+- [x] Write failing Catalog reader tests for published product, active variant,
   current VND price, SKU, option values, primary media, and missing/unpublished
   variants without exposing Catalog repositories to Cart.
-- [ ] Write failing Cart service tests for empty read, add/update/remove,
+- [x] Write failing Cart service tests for empty read, add/update/remove,
   quantity aggregation, stale/unpublished line visibility, changed price,
   insufficient stock, safe totals, ownership denial, and idempotent retries.
-- [ ] Implement a batch Catalog projection port and reuse Inventory's batch
+- [x] Implement a batch Catalog projection port and reuse Inventory's batch
   availability port to avoid per-line queries.
-- [ ] Lock/version the active cart in PostgreSQL mutations. Persist only variant,
+- [x] Lock/version the active cart in PostgreSQL mutations. Persist only variant,
   quantity, and last validated price; recalculate all public line fields and
   totals from owner contracts before every response.
-- [ ] Ensure a missing session read returns an empty anonymous cart without
+- [x] Ensure a missing session read returns an empty anonymous cart without
   creating state. First add requires/creates the guest session through the
   explicit guest-session endpoint.
-- [ ] Prove concurrent first-add and same-variant mutations converge to one
+- [x] Prove concurrent first-add and same-variant mutations converge to one
   active cart and one line without lost updates or duplicate rows.
-- [ ] Run Catalog reader, Cart service, and PostgreSQL integration tests.
-- [ ] Commit as `feat(cart): add authoritative cart operations`.
+- [x] Run Catalog reader, Cart service, and PostgreSQL integration tests.
+- [x] Commit as `feat(cart): add authoritative cart operations`.
 
 ### Task 6: Explicit Cart Resolution and Checkout-Readiness API
 
