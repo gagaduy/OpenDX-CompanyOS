@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Complete Phase 4 after source, container, concurrency, OIDC console, public
+  HTTP, responsive UI, and PostgreSQL backup/restore acceptance.
 - Document the Phase 4 Inventory, publication, Storefront Catalog, PostgreSQL
   operations, runtime topology, and contributor source-build contracts.
 - Add role-aware Catalog publication controls with readiness checks, confirmed

@@ -1136,7 +1136,7 @@ git commit -m "docs(inventory): document phase 4 operations"
 - Consumes every Phase 4 capability.
 - Produces final clean-checkout evidence and the Phase 4 exit decision.
 
-- [ ] **Step 1: Run repository and workspace validation**
+- [x] **Step 1: Run repository and workspace validation**
 
 Run: `git diff --check`
 
@@ -1145,7 +1145,7 @@ Run: `pnpm check`
 Expected: TypeScript lint/typecheck, unit tests, console production build,
 Python test, repository audit, and Docker Compose configuration all PASS.
 
-- [ ] **Step 2: Run the isolated infrastructure matrix**
+- [x] **Step 2: Run the isolated infrastructure matrix**
 
 Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:${POSTGRES_PORT:-5432}/opendx_test MINIO_ENDPOINT=http://localhost:9000 MINIO_ACCESS_KEY=opendx_minio MINIO_SECRET_KEY=opendx_minio_password MINIO_BUCKET=product-media-test pnpm --filter @opendx/api test:integration`
 
@@ -1153,7 +1153,7 @@ Expected: migration up/down, repository, seed, API, MinIO, expiry race, and
 reservation concurrency tests PASS; the no-oversell assertion records exactly
 the available quantity as successful.
 
-- [ ] **Step 3: Demonstrate full-container behavior from source**
+- [x] **Step 3: Demonstrate full-container behavior from source**
 
 Run: `make check`
 
@@ -1164,7 +1164,7 @@ Run: `docker compose -f infra/docker/docker-compose.yml ps`
 Expected: PostgreSQL, Keycloak, MinIO, API, and console are healthy; migrate,
 MinIO bootstrap, and seed jobs completed successfully.
 
-- [ ] **Step 4: Execute the acceptance chain through real HTTP and console**
+- [x] **Step 4: Execute the acceptance chain through real HTTP and console**
 
 Verify all 15 spec acceptance steps: Inventory Manager login, receipt,
 reasoned adjustment, audit/movement explanation, publication readiness,
@@ -1174,7 +1174,7 @@ restock, backup/restore, responsive desktop/mobile UI, and volume-preserving
 shutdown. Save command counts and observed HTTP status/error codes in the
 roadmap evidence; never record access tokens or passwords.
 
-- [ ] **Step 5: Request code review and address only verified findings**
+- [x] **Step 5: Request code review and address only verified findings**
 
 Use `superpowers:requesting-code-review` with the spec path, this plan path,
 commit range from `125e987` to `HEAD`, risk areas (row locking, idempotency,
@@ -1182,7 +1182,7 @@ authorization, public-field leakage, expiry races), and the exact validation
 commands. Apply accepted findings through focused failing tests and atomic fix
 commits.
 
-- [ ] **Step 6: Mark Phase 4 complete only after all evidence passes**
+- [x] **Step 6: Mark Phase 4 complete only after all evidence passes**
 
 Change the roadmap table to:
 
@@ -1197,7 +1197,7 @@ Add the exact test counts and acceptance evidence under Latest Validation
 Evidence. If any required command is unavailable or failing, leave Phase 4 in
 progress and record the unresolved risk instead of claiming completion.
 
-- [ ] **Step 7: Commit the verified phase exit**
+- [x] **Step 7: Commit the verified phase exit**
 
 ```bash
 git add docs/roadmap/mvp-status.md CHANGELOG.md
