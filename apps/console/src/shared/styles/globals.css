@@ -48,6 +48,209 @@ select {
   font: inherit;
 }
 
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.consoleLayout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.consoleSidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 18px 12px;
+  border-right: 1px solid var(--hairline);
+  background: var(--surface-1);
+}
+
+.consoleBrand,
+.consoleSidebar nav a,
+.staffIdentity {
+  display: flex;
+  align-items: center;
+}
+
+.consoleBrand {
+  gap: 10px;
+  padding: 0 8px 18px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.brandMark {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.consoleSidebar nav {
+  display: grid;
+  gap: 3px;
+}
+
+.consoleSidebar nav a {
+  gap: 9px;
+  min-height: 36px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--ink-subtle);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.consoleSidebar nav a.active,
+.consoleSidebar nav a:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.alphaBadge {
+  margin-left: auto;
+  color: var(--ink-tertiary, #62666d);
+  font-size: 10px;
+}
+
+.staffIdentity {
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding: 12px 8px 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.staffIdentity button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-subtle);
+  cursor: pointer;
+}
+
+.consoleContent {
+  min-width: 0;
+  padding: 28px 32px;
+}
+
+.workspaceHeader h1,
+.authPanel h1,
+.centeredState h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.sectionKicker {
+  margin: 0 0 6px;
+  color: var(--ink-subtle);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.authPage,
+.centeredState {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.authPanel {
+  width: min(420px, 100%);
+  padding: 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.authPanel .brandMark {
+  margin-bottom: 28px;
+}
+
+.authPanel p {
+  font-size: 14px;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.inlineError {
+  margin: 12px 0;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .consoleLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .consoleSidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .consoleSidebar nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .consoleSidebar nav a {
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .staffIdentity {
+    margin-top: 12px;
+  }
+
+  .consoleContent {
+    padding: 20px 16px;
+  }
+}
+
 .shell {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;

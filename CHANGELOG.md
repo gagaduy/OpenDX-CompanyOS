@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the staff OIDC console shell with protected catalog routing, role-aware
+  navigation, explicit callback/logout handling, and compact responsive UI.
 - Add the normalized PostgreSQL schema and migration runner for Company
   Operating Core data, including relational and domain-level constraints.
 - Add validated PostgreSQL row mapping and read-only repository transactions
