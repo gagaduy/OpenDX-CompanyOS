@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StorefrontVariantReader } from "../catalog";
-import type { CustomerSessionServiceContract, StorefrontCookieConfig } from "../customer";
+import type {
+  CustomerSessionServiceContract,
+  StorefrontCookieConfig,
+} from "../customer";
 import { requireCsrf, requireStorefrontOrigin } from "../customer";
 import type { InventoryAvailabilityReader } from "../inventory";
 import type { TransactionRunner } from "../../shared/database/transaction";

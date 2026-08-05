@@ -4,6 +4,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/app";
+import { parseStorefrontEnvironment } from "./app/environment";
 import "./shared/styles/globals.css";
 
 const rootElement = document.getElementById("root");
@@ -14,6 +15,6 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <App environment={parseStorefrontEnvironment(import.meta.env)} />
   </StrictMode>,
 );

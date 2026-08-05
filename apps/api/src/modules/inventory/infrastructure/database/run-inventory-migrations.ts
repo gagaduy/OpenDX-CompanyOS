@@ -21,6 +21,7 @@ export async function runInventoryMigrations(
     count,
     dir: migrationsDirectory,
     migrationsTable: "inventory_migrations",
+    advisoryLockMode: "wait",
     checkOrder: true,
     singleTransaction: true,
     log: () => undefined,

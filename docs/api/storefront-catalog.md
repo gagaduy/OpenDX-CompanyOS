@@ -19,8 +19,9 @@ GET /v1/storefront/products/:slug
 GET /v1/storefront/products/:productId/media/:mediaId/content
 ```
 
-Product listing accepts `query`, category slug in `category`, `stockStatus`
-(`in_stock` or `out_of_stock`), `page`, and `pageSize` (maximum 100). Responses
+Product listing accepts `query`, category slug in `category`, `minPriceVnd`,
+`maxPriceVnd`, `stockStatus` (`in_stock` or `out_of_stock`), `sort` (`newest`,
+`price_asc`, `price_desc`, or `name_asc`), `page`, and `pageSize` (maximum 100). Responses
 use `{ success, message, data, meta? }`. Product detail contains category,
 public descriptive fields, primary media, and active variants with current VND
 price and live calculated availability.

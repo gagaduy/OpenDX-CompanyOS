@@ -1,6 +1,40 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
-import { z } from "zod"; import { ApplicationError } from "../../../../shared/http/application-error";
-const address=z.object({recipientName:z.string().trim().min(1).max(120),phoneNumber:z.string().trim().min(1).max(30),addressLine:z.string().trim().min(1).max(300),ward:z.string().trim().min(1).max(120),provinceOrCity:z.string().trim().min(1).max(120),postalCode:z.string().trim().max(20).optional(),deliveryNote:z.string().trim().max(500).optional()});
-export function parseBody<T>(schema:z.ZodType<T>,body:unknown):T{const r=schema.safeParse(body);if(!r.success)throw new ApplicationError(400,"VALIDATION_ERROR","Validation failed",r.error.issues.map(i=>({path:i.path.join("."),message:i.message})));return r.data;}
-export const googleSchema=z.object({credential:z.string().min(20).max(10000)});export const profileSchema=z.object({fullName:z.string().trim().min(1).max(120).optional(),phoneNumber:z.string().trim().min(1).max(30).optional(),version:z.number().int().positive()});export const addressCreateSchema=address;export const addressUpdateSchema=address.extend({version:z.number().int().positive()});export const idSchema=z.uuid();
+import { z } from "zod";
+import { ApplicationError } from "../../../../shared/http/application-error";
+const address = z.object({
+  recipientName: z.string().trim().min(1).max(120),
+  phoneNumber: z.string().trim().min(1).max(30),
+  addressLine: z.string().trim().min(1).max(300),
+  ward: z.string().trim().min(1).max(120),
+  provinceOrCity: z.string().trim().min(1).max(120),
+  postalCode: z.string().trim().max(20).optional(),
+  deliveryNote: z.string().trim().max(500).optional(),
+});
+export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
+  const r = schema.safeParse(body);
+  if (!r.success)
+    throw new ApplicationError(
+      400,
+      "VALIDATION_ERROR",
+      "Validation failed",
+      r.error.issues.map((i) => ({
+        path: i.path.join("."),
+        message: i.message,
+      })),
+    );
+  return r.data;
+}
+export const googleSchema = z.object({
+  credential: z.string().min(20).max(10000),
+});
+export const profileSchema = z.object({
+  fullName: z.string().trim().min(1).max(120).optional(),
+  phoneNumber: z.string().trim().min(1).max(30).optional(),
+  version: z.number().int().positive(),
+});
+export const addressCreateSchema = address;
+export const addressUpdateSchema = address.extend({
+  version: z.number().int().positive(),
+});
+export const idSchema = z.uuid();

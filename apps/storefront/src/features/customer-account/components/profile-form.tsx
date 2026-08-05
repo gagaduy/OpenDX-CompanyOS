@@ -2,5 +2,55 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { FormEvent } from "react";
-import type { CustomerProfile } from "../types/customer-account.types";
-export function ProfileForm({ profile, disabled, onSubmit }: { readonly profile: CustomerProfile; readonly disabled: boolean; readonly onSubmit: (value: { fullName?: string; phoneNumber?: string; version: number }) => void }) { const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); const fullName = String(form.get("fullName") ?? "").trim(); const phoneNumber = String(form.get("phoneNumber") ?? "").trim(); onSubmit({ ...(fullName ? { fullName } : {}), ...(phoneNumber ? { phoneNumber } : {}), version: profile.version }); }; return <form className="account-form" onSubmit={submit}><label>Email đã xác minh<input value={profile.email} readOnly /></label><label>Họ và tên<input name="fullName" defaultValue={profile.fullName ?? ""} maxLength={120} /></label><label>Số điện thoại<input name="phoneNumber" defaultValue={profile.phoneNumber ?? ""} maxLength={30} /></label><button className="button primary" disabled={disabled}>Lưu hồ sơ</button></form>; }
+import type {
+  CustomerProfile,
+  ProfileInput,
+} from "../types/customer-account.types";
+export function ProfileForm({
+  profile,
+  disabled,
+  onSubmit,
+}: {
+  readonly profile: CustomerProfile;
+  readonly disabled: boolean;
+  readonly onSubmit: (value: ProfileInput) => Promise<void>;
+}) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const fullName = String(form.get("fullName") ?? "").trim();
+    const phoneNumber = String(form.get("phoneNumber") ?? "").trim();
+    void onSubmit({
+      ...(fullName ? { fullName } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
+      version: profile.version,
+    });
+  };
+  return (
+    <form className="account-form" onSubmit={submit}>
+      <label>
+        Email đã xác minh
+        <input value={profile.email} readOnly />
+      </label>
+      <label>
+        Họ và tên
+        <input
+          name="fullName"
+          defaultValue={profile.fullName ?? ""}
+          maxLength={120}
+        />
+      </label>
+      <label>
+        Số điện thoại
+        <input
+          name="phoneNumber"
+          defaultValue={profile.phoneNumber ?? ""}
+          maxLength={30}
+        />
+      </label>
+      <button className="button primary" disabled={disabled}>
+        Lưu hồ sơ
+      </button>
+    </form>
+  );
+}

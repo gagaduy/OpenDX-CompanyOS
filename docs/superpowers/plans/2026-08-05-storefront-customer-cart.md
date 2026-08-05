@@ -593,30 +593,30 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `README.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Extend `db:migrate:all`, `db:rollback:all`, readiness migration checks,
+- [x] Extend `db:migrate:all`, `db:rollback:all`, readiness migration checks,
   Compose migration/seed order, integration-test database reset, and backup/
   restore acceptance for Customer then Cart.
-- [ ] Add Storefront on host port `3100` after API readiness with a pinned
+- [x] Add Storefront on host port `3100` after API readiness with a pinned
   non-root image, source mounts consistent with current full-container mode,
   and a health check that does not contact Google.
-- [ ] Keep the focused Make interface (`up`, `down`, `logs`, `check`, migration,
+- [x] Keep the focused Make interface (`up`, `down`, `logs`, `check`, migration,
   seed, backup, restore) and make existing targets include the new services;
   do not add one target per frontend feature.
-- [ ] Document local Google OAuth setup using contributor-owned credentials,
+- [x] Document local Google OAuth setup using contributor-owned credentials,
   exact authorized origin `http://localhost:3100`, and no committed secret/token.
-- [ ] Run focused unit suites after every task, then `pnpm check`, `make check`,
+- [x] Run focused unit suites after every task, then `pnpm check`, `make check`,
   `git diff --check`, `pnpm audit:repo`, and Compose configuration validation.
-- [ ] From a clean database, prove migrate, repeated seed, rollback/reapply,
+- [x] From a clean database, prove migrate, repeated seed, rollback/reapply,
   backup/restore, full-stack readiness, and persistence across `make down`/`up`.
-- [ ] Run real HTTP acceptance for public filters, guest-cookie restoration,
+- [x] Run real HTTP acceptance for public filters, guest-cookie restoration,
   CSRF denial, customer/address ownership denial, cart recalculation, all three
   resolution actions, and checkout readiness with no order/payment rows.
-- [ ] Run browser acceptance at 390x844, 768x1024, and 1440x900. Capture evidence
+- [x] Run browser acceptance at 390x844, 768x1024, and 1440x900. Capture evidence
   that images render, focus is visible, keyboard flows work, and no incoherent
   overlap or horizontal document overflow exists.
 - [ ] Run one real Google login only with an external local `.env`; verify login,
   rotation, logout, and re-login without recording credentials or tokens.
-- [ ] Request independent code/security review and resolve all Critical and
+- [x] Request independent code/security review and resolve all Critical and
   Important findings with regression tests.
 - [ ] Mark every completed task checkbox, record exact evidence in
   `docs/roadmap/mvp-status.md`, and set Phase 5 complete only after all exit-gate
@@ -641,19 +641,19 @@ Stop and obtain a focused design amendment before:
 
 ## Phase 5 Exit Gate
 
-- [ ] Guest discovery, filters, product detail, sold-out visibility, and image
+- [x] Guest discovery, filters, product detail, sold-out visibility, and image
   delivery pass against real seeded Catalog/Inventory data.
-- [ ] Seven-day guest cart survives refresh/browser restart and remains
+- [x] Seven-day guest cart survives refresh/browser restart and remains
   backend-authoritative.
 - [ ] Google verified login creates/restores the correct customer and a rotating,
   revocable 30-day local session without silent email merge.
-- [ ] Staff and customer credentials remain mutually isolated.
-- [ ] Owned profile/address behavior and cross-account denial pass.
-- [ ] Keep-guest, keep-saved, merge, merge conflicts, and retries pass without
+- [x] Staff and customer credentials remain mutually isolated.
+- [x] Owned profile/address behavior and cross-account denial pass.
+- [x] Keep-guest, keep-saved, merge, merge conflicts, and retries pass without
   silent replacement or deleted history.
-- [ ] Every cart response reflects current publication, price, availability,
+- [x] Every cart response reflects current publication, price, availability,
   subtotal, total, and line changes from backend owners.
-- [ ] Checkout readiness requires a customer and creates no order, reservation,
+- [x] Checkout readiness requires a customer and creates no order, reservation,
   promotion, or payment.
 - [ ] Source, PostgreSQL, Docker, build, test, accessibility, responsive,
   backup/restore, and real-Google acceptance evidence is current.

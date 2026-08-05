@@ -7,17 +7,47 @@ import type { CartItem } from "../../../domain/entities/cart-item";
 import type { CartOwner } from "../../dtos/cart.dto";
 
 export interface CartRepository {
-  findActiveByOwner(session: DatabaseSession, owner: CartOwner): Promise<Cart | undefined>;
-  lockActiveByOwner(session: DatabaseSession, owner: CartOwner): Promise<Cart | undefined>;
+  findActiveByOwner(
+    session: DatabaseSession,
+    owner: CartOwner,
+  ): Promise<Cart | undefined>;
+  lockActiveByOwner(
+    session: DatabaseSession,
+    owner: CartOwner,
+  ): Promise<Cart | undefined>;
   create(session: DatabaseSession, cart: Cart): Promise<void>;
-  listItems(session: DatabaseSession, cartId: string): Promise<readonly CartItem[]>;
-  findItem(session: DatabaseSession, cartId: string, itemId: string): Promise<CartItem | undefined>;
-  findItemByVariant(session: DatabaseSession, cartId: string, variantId: string): Promise<CartItem | undefined>;
+  listItems(
+    session: DatabaseSession,
+    cartId: string,
+  ): Promise<readonly CartItem[]>;
+  findItem(
+    session: DatabaseSession,
+    cartId: string,
+    itemId: string,
+  ): Promise<CartItem | undefined>;
+  findItemByVariant(
+    session: DatabaseSession,
+    cartId: string,
+    variantId: string,
+  ): Promise<CartItem | undefined>;
   createItem(session: DatabaseSession, item: CartItem): Promise<void>;
   updateItem(session: DatabaseSession, item: CartItem): Promise<void>;
-  deleteItem(session: DatabaseSession, cartId: string, itemId: string): Promise<boolean>;
-  updateCartVersion(session: DatabaseSession, cart: Cart, expectedVersion: number): Promise<boolean>;
-  supersede(session: DatabaseSession, cartId: string, expectedOwner: CartOwner, updatedAt: string): Promise<boolean>;
+  deleteItem(
+    session: DatabaseSession,
+    cartId: string,
+    itemId: string,
+  ): Promise<boolean>;
+  updateCartVersion(
+    session: DatabaseSession,
+    cart: Cart,
+    expectedVersion: number,
+  ): Promise<boolean>;
+  supersede(
+    session: DatabaseSession,
+    cartId: string,
+    expectedOwner: CartOwner,
+    updatedAt: string,
+  ): Promise<boolean>;
   transferGuestCart(
     session: DatabaseSession,
     cartId: string,
@@ -26,12 +56,20 @@ export interface CartRepository {
     expiresAt: string,
     updatedAt: string,
   ): Promise<boolean>;
+  lockResolutionKey(
+    session: DatabaseSession,
+    customerId: string,
+    idempotencyKey: string,
+  ): Promise<void>;
   findResolutionRequest(
     session: DatabaseSession,
     customerId: string,
     idempotencyKey: string,
   ): Promise<CartResolutionRecord | undefined>;
-  createResolutionRequest(session: DatabaseSession, record: CartResolutionRecord): Promise<void>;
+  createResolutionRequest(
+    session: DatabaseSession,
+    record: CartResolutionRecord,
+  ): Promise<void>;
 }
 
 export interface CartResolutionRecord {

@@ -2,8 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export type CartOwner =
-  | { readonly kind: "guest"; readonly guestSessionId: string; readonly expiresAt: string }
-  | { readonly kind: "customer"; readonly customerId: string; readonly expiresAt: string };
+  | {
+      readonly kind: "guest";
+      readonly guestSessionId: string;
+      readonly expiresAt: string;
+    }
+  | {
+      readonly kind: "customer";
+      readonly customerId: string;
+      readonly expiresAt: string;
+    };
 
 export interface CartLineDto {
   readonly id: string;

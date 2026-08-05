@@ -30,14 +30,17 @@ Its `src/app` directory owns application composition,
 only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
-`modules/company-operating-core`, `modules/catalog`, and `modules/inventory` own their respective
+`modules/company-operating-core`, `modules/catalog`, `modules/inventory`,
+`modules/customer`, and `modules/cart` own their respective
 domain, application, infrastructure, presentation, seed, and test code. Both
 commerce repositories use shared PostgreSQL transaction infrastructure; Catalog
 media storage remains behind its inward-facing storage port.
 
-`apps/storefront` is the approved future public commerce frontend. It will be
-created in the Storefront phase with its first source and tests, not as an empty
-placeholder.
+`apps/storefront` contains the React + TypeScript customer commerce surface.
+Its feature-owned Catalog, authentication, Cart, and customer-account areas
+consume runtime-validated API envelopes; `src/app` owns composition and
+`src/shared` contains only HTTP, formatting, and global style concerns used by
+multiple features.
 
 ## Services
 

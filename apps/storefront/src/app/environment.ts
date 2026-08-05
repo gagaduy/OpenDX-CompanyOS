@@ -6,7 +6,10 @@ import { z } from "zod";
 const storefrontEnvironmentSchema = z.object({
   VITE_API_BASE_URL: z.url(),
   VITE_STOREFRONT_ORIGIN: z.url(),
-  VITE_GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
+  VITE_GOOGLE_CLIENT_ID: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().trim().min(1).optional(),
+  ),
 });
 
 export interface StorefrontEnvironment {

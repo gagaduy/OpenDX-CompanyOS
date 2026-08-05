@@ -17,9 +17,20 @@ const statusByCode: Readonly<Record<string, number>> = {
   INVALID_CART_QUANTITY: 400,
 };
 
-export const cartErrorMiddleware: ErrorRequestHandler = (error, _req, _res, next) => {
+export const cartErrorMiddleware: ErrorRequestHandler = (
+  error,
+  _req,
+  _res,
+  next,
+) => {
   if (error instanceof CartApplicationError) {
-    next(new ApplicationError(statusByCode[error.code] ?? 400, error.code, error.message));
+    next(
+      new ApplicationError(
+        statusByCode[error.code] ?? 400,
+        error.code,
+        error.message,
+      ),
+    );
     return;
   }
   next(error);

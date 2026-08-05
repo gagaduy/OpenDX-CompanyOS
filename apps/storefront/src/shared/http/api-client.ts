@@ -10,7 +10,11 @@ const errorEnvelopeSchema = z.object({
 });
 
 export class StorefrontApiError extends Error {
-  constructor(readonly errorCode: string, message: string, readonly status: number) {
+  constructor(
+    readonly errorCode: string,
+    message: string,
+    readonly status: number,
+  ) {
     super(message);
     this.name = "StorefrontApiError";
   }
@@ -19,7 +23,11 @@ export class StorefrontApiError extends Error {
 export class ApiClient {
   constructor(private readonly baseUrl: string) {}
 
-  async request<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
+  async request<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init: RequestInit = {},
+  ): Promise<T> {
     const response = await fetch(new URL(path, this.baseUrl), {
       ...init,
       credentials: "include",
@@ -30,7 +38,9 @@ export class ApiClient {
       const parsed = errorEnvelopeSchema.safeParse(payload);
       throw new StorefrontApiError(
         parsed.success ? parsed.data.errorCode : "DEPENDENCY_UNAVAILABLE",
-        parsed.success ? parsed.data.message : "The store service is unavailable",
+        parsed.success
+          ? parsed.data.message
+          : "The store service is unavailable",
         response.status,
       );
     }
@@ -39,10 +49,19 @@ export class ApiClient {
 }
 
 export function csrfToken(): string | undefined {
-  return document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("opendx_csrf="))?.split("=").slice(1).join("=");
+  return document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("opendx_csrf="))
+    ?.split("=")
+    .slice(1)
+    .join("=");
 }
 
 export function mutationHeaders(): HeadersInit {
   const csrf = csrfToken();
-  return { "Content-Type": "application/json", ...(csrf === undefined ? {} : { "x-csrf-token": csrf }) };
+  return {
+    "Content-Type": "application/json",
+    ...(csrf === undefined ? {} : { "x-csrf-token": csrf }),
+  };
 }

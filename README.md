@@ -11,8 +11,8 @@ NovaCommerce as a B2C single-store business.
 ## Status
 
 The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
-and product-publication foundation are implemented. The active roadmap continues with the
-storefront frontend, customer, cart, checkout, SePay payment, Operational
+product publication, Storefront, Customer, and Cart foundation are implemented.
+The active roadmap continues with checkout, SePay payment, Operational
 CRM, support, dashboard, and production hardening phases.
 
 ## What It Is
@@ -95,11 +95,11 @@ cd services/ai-runtime && python3 -m pip install -e ".[dev]"
 make up
 ```
 
-Open the staff console at `http://localhost:3000`. The stack includes
+Open the staff Console at `http://localhost:3000` and Storefront at
+`http://localhost:3100`. The stack includes
 PostgreSQL, Keycloak, MinIO, migrations, deterministic technology-product and
-Inventory seeds, API, and console. Anonymous Storefront Catalog APIs are
-available under `http://localhost:4000/v1/storefront`; the public React
-storefront UI begins in Phase 5 and is not yet implemented.
+Inventory seeds, API, Console, and Storefront. Customer and Cart APIs are
+available under `http://localhost:4000/v1/storefront`.
 
 ### Run Validation
 
@@ -116,6 +116,7 @@ For host-based development after infrastructure is available:
 ```bash
 pnpm --filter @opendx/api dev
 pnpm --filter @opendx/console dev
+pnpm --filter @opendx/storefront dev
 ```
 
 ## Contributing

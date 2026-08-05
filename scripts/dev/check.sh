@@ -9,6 +9,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm --filter @opendx/console build
+pnpm --filter @opendx/storefront build
 pnpm test:py
 pnpm audit:repo
 docker compose -f infra/docker/docker-compose.yml config >/dev/null

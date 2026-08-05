@@ -14,31 +14,60 @@ export function validateVerifiedIdentity(input: {
   readonly email: string;
   readonly emailVerified: boolean;
 }): void {
-  if (!input.emailVerified || input.subject.trim().length === 0 || !/^\S+@\S+\.\S+$/.test(input.email)) {
-    throw new CustomerDomainError("GOOGLE_TOKEN_INVALID", "Verified identity is invalid");
+  if (
+    !input.emailVerified ||
+    input.subject.trim().length === 0 ||
+    !/^\S+@\S+\.\S+$/.test(input.email)
+  ) {
+    throw new CustomerDomainError(
+      "GOOGLE_TOKEN_INVALID",
+      "Verified identity is invalid",
+    );
   }
 }
 
-export function validateCustomerProfile(fullName?: string, phoneNumber?: string): void {
-  if ((fullName !== undefined && (fullName.trim().length === 0 || fullName.length > 120)) ||
-      (phoneNumber !== undefined && (phoneNumber.trim().length === 0 || phoneNumber.length > 30))) {
-    throw new CustomerDomainError("INVALID_CUSTOMER_PROFILE", "Customer profile is invalid");
+export function validateCustomerProfile(
+  fullName?: string,
+  phoneNumber?: string,
+): void {
+  if (
+    (fullName !== undefined &&
+      (fullName.trim().length === 0 || fullName.length > 120)) ||
+    (phoneNumber !== undefined &&
+      (phoneNumber.trim().length === 0 || phoneNumber.length > 30))
+  ) {
+    throw new CustomerDomainError(
+      "INVALID_CUSTOMER_PROFILE",
+      "Customer profile is invalid",
+    );
   }
 }
 
 export function sessionExpiresAt(now: string, ttlMs: number): string {
   const timestamp = Date.parse(now);
-  if (!Number.isFinite(timestamp) || ![GUEST_SESSION_TTL_MS, CUSTOMER_SESSION_TTL_MS].includes(ttlMs)) {
-    throw new CustomerDomainError("INVALID_SESSION_EXPIRY", "Session expiry is invalid");
+  if (
+    !Number.isFinite(timestamp) ||
+    ![GUEST_SESSION_TTL_MS, CUSTOMER_SESSION_TTL_MS].includes(ttlMs)
+  ) {
+    throw new CustomerDomainError(
+      "INVALID_SESSION_EXPIRY",
+      "Session expiry is invalid",
+    );
   }
   return new Date(timestamp + ttlMs).toISOString();
 }
 
-export function assertCustomerSessionActive(session: CustomerSession, now: string): void {
+export function assertCustomerSessionActive(
+  session: CustomerSession,
+  now: string,
+): void {
   assertSessionActive(session.expiresAt, session.revokedAt, now);
 }
 
-export function assertGuestSessionActive(session: GuestSession, now: string): void {
+export function assertGuestSessionActive(
+  session: GuestSession,
+  now: string,
+): void {
   assertSessionActive(session.expiresAt, session.revokedAt, now);
 }
 
@@ -49,9 +78,17 @@ export function rotateCustomerSession(
 ): CustomerSession {
   assertCustomerSessionActive(session, now);
   if (!/^[a-f0-9]{64}$/.test(replacementTokenHash)) {
-    throw new CustomerDomainError("INVALID_SESSION_TOKEN", "Session token hash is invalid");
+    throw new CustomerDomainError(
+      "INVALID_SESSION_TOKEN",
+      "Session token hash is invalid",
+    );
   }
-  return { ...session, tokenHash: replacementTokenHash, rotatedAt: now, lastSeenAt: now };
+  return {
+    ...session,
+    tokenHash: replacementTokenHash,
+    rotatedAt: now,
+    lastSeenAt: now,
+  };
 }
 
 export function validateAddress(address: CustomerAddress): CustomerAddress {
@@ -66,8 +103,14 @@ export function validateAddress(address: CustomerAddress): CustomerAddress {
       throw new CustomerDomainError("INVALID_ADDRESS", `${name} is invalid`);
     }
   }
-  if ((address.postalCode?.length ?? 0) > 20 || (address.deliveryNote?.length ?? 0) > 500) {
-    throw new CustomerDomainError("INVALID_ADDRESS", "Optional address data is invalid");
+  if (
+    (address.postalCode?.length ?? 0) > 20 ||
+    (address.deliveryNote?.length ?? 0) > 500
+  ) {
+    throw new CustomerDomainError(
+      "INVALID_ADDRESS",
+      "Optional address data is invalid",
+    );
   }
   return address;
 }
@@ -83,12 +126,21 @@ export function setDefaultAddress(
   return addresses.map((address) => ({
     ...address,
     isDefault: address.id === addressId,
-    version: address.version + (address.isDefault !== (address.id === addressId) ? 1 : 0),
-    updatedAt: address.isDefault !== (address.id === addressId) ? updatedAt : address.updatedAt,
+    version:
+      address.version +
+      (address.isDefault !== (address.id === addressId) ? 1 : 0),
+    updatedAt:
+      address.isDefault !== (address.id === addressId)
+        ? updatedAt
+        : address.updatedAt,
   }));
 }
 
-function assertSessionActive(expiresAt: string, revokedAt: string | undefined, now: string): void {
+function assertSessionActive(
+  expiresAt: string,
+  revokedAt: string | undefined,
+  now: string,
+): void {
   if (revokedAt !== undefined) {
     throw new CustomerDomainError("SESSION_REVOKED", "Session is revoked");
   }

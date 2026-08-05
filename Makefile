@@ -21,7 +21,7 @@ check:
 	$(COMPOSE) up -d postgres minio
 	$(COMPOSE) run --rm minio-bootstrap
 	$(COMPOSE) run --rm migrate
-	$(COMPOSE) run --rm -e TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test -e MINIO_BUCKET=product-media-test api sh -ec 'pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @opendx/api test:integration && pnpm --filter @opendx/console build && pnpm audit:repo'
+	$(COMPOSE) run --rm -e TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test -e MINIO_BUCKET=product-media-test api sh -ec 'pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @opendx/api test:integration && pnpm --filter @opendx/console build && pnpm --filter @opendx/storefront build && pnpm audit:repo'
 	$(COMPOSE) --profile checks run --rm ai-check
 	$(COMPOSE) config --quiet
 
@@ -44,4 +44,7 @@ db-restore:
 	@set -eu; \
 	test -n "$(BACKUP)" || (echo "BACKUP path is required" >&2; exit 1); \
 	test -f "$(BACKUP)" || (echo "Backup not found: $(BACKUP)" >&2; exit 1); \
-	$(COMPOSE) exec -T postgres pg_restore -U opendx_local -d opendx --clean --if-exists --no-owner < "$(BACKUP)"
+	$(COMPOSE) stop api console storefront; \
+	trap '$(COMPOSE) start api console storefront' EXIT; \
+	$(COMPOSE) exec -T postgres pg_restore -U opendx_local -d opendx \
+		--clean --if-exists --no-owner --exit-on-error --single-transaction < "$(BACKUP)"

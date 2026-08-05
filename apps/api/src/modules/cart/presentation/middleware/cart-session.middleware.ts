@@ -3,8 +3,8 @@
 
 import type { RequestHandler, Response } from "express";
 import {
+  clearCookie,
   readCookie,
-  setSessionCookie,
   type CustomerPrincipal,
   type CustomerSessionServiceContract,
   type GuestPrincipal,
@@ -30,24 +30,40 @@ export function resolveCartSession(
       let guest: GuestPrincipal | undefined;
       const customerToken = readCookie(req, cookies.customerName);
       if (customerToken !== undefined) {
-        const issued = await sessions.resolveCustomer(customerToken, true);
-        customer = issued.principal;
-        setSessionCookie(res, cookies.customerName, issued.rawToken, issued.principal.expiresAt, cookies);
+        try {
+          const issued = await sessions.resolveCustomer(customerToken, false);
+          customer = issued.principal;
+        } catch {
+          clearCookie(res, cookies.customerName, cookies);
+        }
       }
       const guestToken = readCookie(req, cookies.guestName);
       if (guestToken !== undefined) {
-        try { guest = await sessions.resolveGuest(guestToken); }
-        catch { guest = undefined; }
+        try {
+          guest = await sessions.resolveGuest(guestToken);
+        } catch {
+          guest = undefined;
+        }
       }
       if (requireCustomer && customer === undefined) {
-        throw new ApplicationError(401, "CUSTOMER_SESSION_EXPIRED", "Customer session is required");
+        throw new ApplicationError(
+          401,
+          "CUSTOMER_SESSION_EXPIRED",
+          "Customer session is required",
+        );
       }
       if (requireOwner && customer === undefined && guest === undefined) {
-        throw new ApplicationError(401, "CUSTOMER_SESSION_EXPIRED", "Guest or customer session is required");
+        throw new ApplicationError(
+          401,
+          "CUSTOMER_SESSION_EXPIRED",
+          "Guest or customer session is required",
+        );
       }
       res.locals.cartSession = { customer, guest } satisfies CartSessionState;
       next();
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   };
 }
 
@@ -58,9 +74,17 @@ export function cartSessionState(res: Response): CartSessionState {
 export function preferredCartOwner(res: Response): CartOwner | undefined {
   const state = cartSessionState(res);
   if (state.customer !== undefined) {
-    return { kind: "customer", customerId: state.customer.customerId, expiresAt: state.customer.expiresAt };
+    return {
+      kind: "customer",
+      customerId: state.customer.customerId,
+      expiresAt: state.customer.expiresAt,
+    };
   }
   return state.guest === undefined
     ? undefined
-    : { kind: "guest", guestSessionId: state.guest.guestSessionId, expiresAt: state.guest.expiresAt };
+    : {
+        kind: "guest",
+        guestSessionId: state.guest.guestSessionId,
+        expiresAt: state.guest.expiresAt,
+      };
 }

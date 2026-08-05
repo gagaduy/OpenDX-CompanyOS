@@ -15,10 +15,34 @@ export function createCartRouter(
   const router = Router();
   router.get("/cart", optionalSession, controller.get);
   router.post("/cart/items", ownerSession, origin, csrf, controller.add);
-  router.patch("/cart/items/:cartItemId", ownerSession, origin, csrf, controller.update);
-  router.delete("/cart/items/:cartItemId", ownerSession, origin, csrf, controller.remove);
+  router.patch(
+    "/cart/items/:cartItemId",
+    ownerSession,
+    origin,
+    csrf,
+    controller.update,
+  );
+  router.delete(
+    "/cart/items/:cartItemId",
+    ownerSession,
+    origin,
+    csrf,
+    controller.remove,
+  );
   router.get("/cart/resolution", customerSession, controller.inspectResolution);
-  router.post("/cart/resolution", customerSession, origin, csrf, controller.resolve);
-  router.post("/cart/checkout-readiness", customerSession, origin, csrf, controller.checkoutReadiness);
+  router.post(
+    "/cart/resolution",
+    customerSession,
+    origin,
+    csrf,
+    controller.resolve,
+  );
+  router.post(
+    "/cart/checkout-readiness",
+    customerSession,
+    origin,
+    csrf,
+    controller.checkoutReadiness,
+  );
   return router;
 }

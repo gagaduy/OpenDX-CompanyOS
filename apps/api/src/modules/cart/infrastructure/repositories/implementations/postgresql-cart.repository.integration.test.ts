@@ -37,12 +37,17 @@ suite("PostgresqlCartRepository", () => {
   );
   const inventory: InventoryAvailabilityReader = {
     async getByVariantIds(variantIds) {
-      return new Map(variantIds.map((variantId) => [variantId, {
-        initialized: true,
-        onHand: 20,
-        reserved: 0,
-        available: 20,
-      }]));
+      return new Map(
+        variantIds.map((variantId) => [
+          variantId,
+          {
+            initialized: true,
+            onHand: 20,
+            reserved: 0,
+            available: 20,
+          },
+        ]),
+      );
     },
   };
 
@@ -52,7 +57,9 @@ suite("PostgresqlCartRepository", () => {
     await runCartMigrations(databaseUrl!, "up");
   });
   beforeEach(async () => {
-    await pool.query("TRUNCATE cart_resolution_requests, carts, guest_sessions, customers, audit_events, categories CASCADE");
+    await pool.query(
+      "TRUNCATE cart_resolution_requests, carts, guest_sessions, customers, audit_events, categories CASCADE",
+    );
     await pool.query(
       `INSERT INTO categories(id,name,slug,sort_order,status,created_at,updated_at,version)
        VALUES($1,'Accessories','accessories',0,'active',NOW(),NOW(),1)`,
@@ -130,8 +137,16 @@ suite("PostgresqlCartRepository", () => {
       () => new Date().toISOString(),
     );
     const expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
-    await service.addItem({ kind: "guest", guestSessionId: ids.guest, expiresAt }, ids.variant, 1);
-    await service.addItem({ kind: "customer", customerId: ids.customer, expiresAt }, ids.variant, 2);
+    await service.addItem(
+      { kind: "guest", guestSessionId: ids.guest, expiresAt },
+      ids.variant,
+      1,
+    );
+    await service.addItem(
+      { kind: "customer", customerId: ids.customer, expiresAt },
+      ids.variant,
+      2,
+    );
 
     await expect(
       resolution.inspect(ids.customer, expiresAt, ids.guest, expiresAt, true),
@@ -144,17 +159,35 @@ suite("PostgresqlCartRepository", () => {
       action: "merge" as const,
       idempotencyKey: "merge-request-0001",
     };
-    const merged = await resolution.resolve(input);
-    expect(merged.resultingCart).toMatchObject({ itemCount: 3, totalVnd: 3_870_000 });
-    await expect(resolution.resolve(input)).resolves.toMatchObject({ status: "resolved" });
-    await expect(resolution.resolve({ ...input, action: "keep_saved" })).rejects.toMatchObject({
+    const [merged, concurrentRetry] = await Promise.all([
+      resolution.resolve(input),
+      resolution.resolve(input),
+    ]);
+    expect(merged.resultingCart).toMatchObject({
+      itemCount: 3,
+      totalVnd: 3_870_000,
+    });
+    expect(concurrentRetry).toMatchObject({ status: "resolved" });
+    await expect(
+      resolution.resolve({ ...input, action: "keep_saved" }),
+    ).rejects.toMatchObject({
       code: "CART_RESOLUTION_CONFLICT",
     });
-    const history = await pool.query("SELECT status, customer_id, guest_session_id FROM carts ORDER BY status");
-    expect(history.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ status: "active", customer_id: ids.customer }),
-      expect.objectContaining({ status: "superseded", guest_session_id: ids.guest }),
-    ]));
+    const history = await pool.query(
+      "SELECT status, customer_id, guest_session_id FROM carts ORDER BY status",
+    );
+    expect(history.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "active",
+          customer_id: ids.customer,
+        }),
+        expect.objectContaining({
+          status: "superseded",
+          guest_session_id: ids.guest,
+        }),
+      ]),
+    );
   });
 
   function createService(): CartService {

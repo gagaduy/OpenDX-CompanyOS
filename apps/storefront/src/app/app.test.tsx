@@ -7,7 +7,14 @@ import { App } from "./app";
 
 describe("Storefront App", () => {
   it("renders NovaCommerce as a semantic customer storefront", () => {
-    render(<App />);
+    render(
+      <App
+        environment={{
+          apiBaseUrl: "http://localhost:4000",
+          storefrontOrigin: "http://localhost:3100",
+        }}
+      />,
+    );
 
     expect(screen.getByRole("banner")).toHaveTextContent("NovaCommerce");
     expect(screen.getByRole("main")).toBeVisible();

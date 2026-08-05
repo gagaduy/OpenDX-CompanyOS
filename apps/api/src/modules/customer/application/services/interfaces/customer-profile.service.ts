@@ -1,5 +1,32 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { AddressDto, CustomerProfileDto } from "../../dtos/customer.dto";
-export interface AddressInput { readonly recipientName:string;readonly phoneNumber:string;readonly addressLine:string;readonly ward:string;readonly provinceOrCity:string;readonly postalCode?:string;readonly deliveryNote?:string }
-export interface CustomerProfileServiceContract { get(customerId:string):Promise<CustomerProfileDto>; update(customerId:string,input:{readonly fullName?:string;readonly phoneNumber?:string;readonly version:number}):Promise<CustomerProfileDto>; listAddresses(customerId:string):Promise<readonly AddressDto[]>; createAddress(customerId:string,input:AddressInput):Promise<AddressDto>; updateAddress(customerId:string,addressId:string,input:AddressInput&{readonly version:number}):Promise<AddressDto>; deleteAddress(customerId:string,addressId:string):Promise<void>; setDefaultAddress(customerId:string,addressId:string):Promise<void> }
+export interface AddressInput {
+  readonly recipientName: string;
+  readonly phoneNumber: string;
+  readonly addressLine: string;
+  readonly ward: string;
+  readonly provinceOrCity: string;
+  readonly postalCode?: string;
+  readonly deliveryNote?: string;
+}
+export interface CustomerProfileServiceContract {
+  get(customerId: string): Promise<CustomerProfileDto>;
+  update(
+    customerId: string,
+    input: {
+      readonly fullName?: string;
+      readonly phoneNumber?: string;
+      readonly version: number;
+    },
+  ): Promise<CustomerProfileDto>;
+  listAddresses(customerId: string): Promise<readonly AddressDto[]>;
+  createAddress(customerId: string, input: AddressInput): Promise<AddressDto>;
+  updateAddress(
+    customerId: string,
+    addressId: string,
+    input: AddressInput & { readonly version: number },
+  ): Promise<AddressDto>;
+  deleteAddress(customerId: string, addressId: string): Promise<void>;
+  setDefaultAddress(customerId: string, addressId: string): Promise<void>;
+}

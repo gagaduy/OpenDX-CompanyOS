@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import express from "express";
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import { createCompanyOperatingCoreModule } from "./modules/company-operating-core";
 import type { ICompanyOperatingCoreRepository } from "./modules/company-operating-core/application/repositories/interfaces/company-operating-core.repository";
 import type { Router } from "express";
@@ -24,27 +24,47 @@ export interface CreateApiAppOptions {
   readonly inventoryRouter?: Router;
 }
 
+function createAudienceCors(allowedOrigin: string) {
+  const options: CorsOptions = {
+    origin(requestOrigin, callback) {
+      callback(
+        null,
+        requestOrigin === undefined || requestOrigin === allowedOrigin,
+      );
+    },
+    credentials: true,
+  };
+
+  return cors(options);
+}
+
 export function createApiApp(options: CreateApiAppOptions = {}) {
   const app = express();
+  const consoleCors = createAudienceCors(
+    options.consoleOrigin ?? "http://localhost:3000",
+  );
+  const storefrontCors = createAudienceCors(
+    options.storefrontOrigin ?? "http://localhost:3100",
+  );
 
   app.use(express.json({ limit: "1mb" }));
-  app.use(cors({ origin: [options.consoleOrigin ?? "http://localhost:3000", options.storefrontOrigin ?? "http://localhost:3100"], credentials: true }));
   app.use(correlationIdMiddleware);
   app.use(createHealthRouter(options.readiness));
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(
       "/v1",
+      consoleCors,
       createCompanyOperatingCoreModule(options.companyOperatingCoreRepository),
     );
   }
   if (options.catalogAdminRouter !== undefined) {
-    app.use("/v1/admin/catalog", options.catalogAdminRouter);
+    app.use("/v1/admin/catalog", consoleCors, options.catalogAdminRouter);
   }
   if (options.inventoryRouter !== undefined) {
-    app.use("/v1/admin/inventory", options.inventoryRouter);
+    app.use("/v1/admin/inventory", consoleCors, options.inventoryRouter);
   }
   if (options.storefrontRouter !== undefined) {
-    app.use("/v1/storefront", options.storefrontRouter);
+    app.use("/v1/storefront", storefrontCors, options.storefrontRouter);
   }
   app.use((_request, _response, next) => {
     next(new ApplicationError(404, "NOT_FOUND", "Resource not found"));

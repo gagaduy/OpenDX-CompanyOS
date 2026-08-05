@@ -16,7 +16,10 @@ import { CustomerAuthController } from "./presentation/controllers/customer-auth
 import { customerErrorMiddleware } from "./presentation/middleware/customer-error.middleware";
 import { requireCustomerSession } from "./presentation/middleware/customer-session.middleware";
 import type { StorefrontCookieConfig } from "./presentation/middleware/storefront-cookies";
-import { requireCsrf, requireStorefrontOrigin } from "./presentation/middleware/storefront-mutation.middleware";
+import {
+  requireCsrf,
+  requireStorefrontOrigin,
+} from "./presentation/middleware/storefront-mutation.middleware";
 import { createAuthenticationRateLimit } from "./presentation/middleware/storefront-rate-limit.middleware";
 import { createCustomerAccountRouter } from "./presentation/routes/customer-account.routes";
 import { createCustomerAuthRouter } from "./presentation/routes/customer-auth.routes";
@@ -36,20 +39,53 @@ export interface CustomerModuleDependencies {
 export function createCustomerModule(dependencies: CustomerModuleDependencies) {
   const repository = new PostgresqlCustomerRepository();
   const audit = new PostgresqlCustomerAuditRepository();
-  const sessions = new CustomerSessionService(repository, dependencies.transactions, dependencies.tokens, dependencies.generateId, dependencies.now);
-  const authentication = new CustomerAuthenticationService(repository, audit, dependencies.transactions, dependencies.verifier, dependencies.tokens, dependencies.generateId, dependencies.now);
-  const profile = new CustomerProfileService(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const sessions = new CustomerSessionService(
+    repository,
+    dependencies.transactions,
+    dependencies.tokens,
+    dependencies.generateId,
+    dependencies.now,
+  );
+  const authentication = new CustomerAuthenticationService(
+    repository,
+    audit,
+    dependencies.transactions,
+    dependencies.verifier,
+    dependencies.tokens,
+    dependencies.generateId,
+    dependencies.now,
+  );
+  const profile = new CustomerProfileService(
+    repository,
+    dependencies.transactions,
+    dependencies.generateId,
+    dependencies.now,
+  );
   const origin = requireStorefrontOrigin(dependencies.storefrontOrigin);
   const csrf = requireCsrf(dependencies.cookies);
   const customer = requireCustomerSession(sessions, dependencies.cookies);
   const router = Router();
-  router.use(createCustomerAuthRouter(
-    new CustomerAuthController(authentication, sessions, dependencies.cookies, dependencies.cartLoginResolver),
-    origin,
-    csrf,
-    createAuthenticationRateLimit(dependencies.authenticationRateLimit),
-  ));
-  router.use(createCustomerAccountRouter(new CustomerAccountController(profile), customer, origin, csrf));
+  router.use(
+    createCustomerAuthRouter(
+      new CustomerAuthController(
+        authentication,
+        sessions,
+        dependencies.cookies,
+        dependencies.cartLoginResolver,
+      ),
+      origin,
+      csrf,
+      createAuthenticationRateLimit(dependencies.authenticationRateLimit),
+    ),
+  );
+  router.use(
+    createCustomerAccountRouter(
+      new CustomerAccountController(profile),
+      customer,
+      origin,
+      csrf,
+    ),
+  );
   router.use(customerErrorMiddleware);
   return { router, sessions, profile };
 }

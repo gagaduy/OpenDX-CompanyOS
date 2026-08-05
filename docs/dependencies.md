@@ -34,7 +34,7 @@ Current major dependencies:
 | `tsx` | `apps/api` | Local TypeScript server execution |
 | `pg`, `@types/pg` | `apps/api` | PostgreSQL driver and TypeScript contracts (MIT) |
 | `node-pg-migrate` | `apps/api` | Versioned PostgreSQL migrations (MIT) |
-| `zod` | API and console | Runtime environment and boundary validation (MIT) |
+| `zod` | API, Console, and Storefront | Runtime environment, request, and response boundary validation (MIT) |
 | `jose` | `apps/api` | OIDC JWT and JWKS verification (MIT) |
 | `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
 | `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
@@ -76,7 +76,7 @@ Current images:
 
 | Image | Purpose |
 | --- | --- |
-| `node:22.22.0-bookworm-slim` | Non-root API and console development images |
+| `node:22.22.0-bookworm-slim` | Non-root API, Console, and Storefront development images |
 | `python:3.13.12-slim-bookworm` | Non-root AI validation image |
 | `postgres:18.3-bookworm` | Operational and integration-test PostgreSQL |
 | `quay.io/keycloak/keycloak:26.4.2` | Local staff identity provider |

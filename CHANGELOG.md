@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Isolate credentialed Console and Storefront CORS audiences, clear invalid
+  customer cookies before guest restoration, and revoke newly issued sessions
+  when post-login cart inspection fails.
+- Serialize cart-resolution idempotency keys, preserve them across Storefront
+  retries, and return usable cart media content URLs.
+- Load validated Storefront configuration from the repository-root environment,
+  make database restore atomic while application writes are stopped, and make
+  integration migration runners wait safely for advisory locks.
+- Allow Commerce customers as audited actors in the Phase 5 schema, serialize
+  concurrent first Google login, avoid request-racing session rotation, and
+  reject insecure production customer-cookie configuration.
+- Refuse integration-test execution against non-test PostgreSQL databases or
+  MinIO buckets so cleanup cannot remove local runtime data.
+- Fail cart merge on stale optimistic versions and preserve profile mutation
+  input while surfacing recoverable Storefront errors.
 - Pin both React frontends to the maintained React Router v6 line outside the
   high-severity unstable-RSC CSRF advisory range.
 - Navigate newly created products to their persistent editor URL so variants,
@@ -28,6 +43,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add reproducible Chrome DevTools browser acceptance for Storefront image
+  delivery, semantic layout, keyboard focus, and responsive overflow at mobile,
+  tablet, and desktop viewports.
 - Add the NovaCommerce React storefront with URL-backed catalog discovery,
   product detail, persistent guest cart, lazy Google identity sign-in,
   checkout gating, customer profile/address workflows, and accessible cart

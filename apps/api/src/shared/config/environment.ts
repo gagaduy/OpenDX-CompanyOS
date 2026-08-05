@@ -17,7 +17,10 @@ const apiEnvironmentSchema = z.object({
   }),
   CONSOLE_ORIGIN: z.url(),
   STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
-  GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
+  GOOGLE_CLIENT_ID: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.string().trim().min(1).optional(),
+  ),
   CUSTOMER_COOKIE_NAME: z.string().trim().min(1).default("opendx_customer"),
   GUEST_COOKIE_NAME: z.string().trim().min(1).default("opendx_guest"),
   CSRF_COOKIE_NAME: z.string().trim().min(1).default("opendx_csrf"),
@@ -40,6 +43,22 @@ const apiEnvironmentSchema = z.object({
   INVENTORY_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
     z.number().int().min(5).max(300),
   ),
+}).superRefine((value, context) => {
+  if (value.OPENDX_ENV !== "production") return;
+  if (!value.COOKIE_SECURE) {
+    context.addIssue({
+      code: "custom",
+      path: ["COOKIE_SECURE"],
+      message: "must be true in production",
+    });
+  }
+  if (!value.STOREFRONT_ORIGIN.startsWith("https://")) {
+    context.addIssue({
+      code: "custom",
+      path: ["STOREFRONT_ORIGIN"],
+      message: "must use HTTPS in production",
+    });
+  }
 });
 
 export interface ApiEnvironment {

@@ -3,4 +3,22 @@
 
 import type { StorefrontProduct } from "../types/catalog.types";
 import { ProductCard } from "./product-card";
-export function ProductGrid({ products, apiBaseUrl }: { readonly products: readonly StorefrontProduct[]; readonly apiBaseUrl: string }) { return <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} apiBaseUrl={apiBaseUrl} />)}</div>; }
+export function ProductGrid({
+  products,
+  apiBaseUrl,
+}: {
+  readonly products: readonly StorefrontProduct[];
+  readonly apiBaseUrl: string;
+}) {
+  return (
+    <div className="product-grid">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          apiBaseUrl={apiBaseUrl}
+        />
+      ))}
+    </div>
+  );
+}
