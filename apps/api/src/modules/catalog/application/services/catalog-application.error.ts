@@ -5,6 +5,8 @@ export type CatalogApplicationErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "STALE_VERSION"
+  | "UNSUPPORTED_MEDIA_TYPE"
+  | "MEDIA_TOO_LARGE"
   | "VALIDATION_ERROR";
 
 export class CatalogApplicationError extends Error {

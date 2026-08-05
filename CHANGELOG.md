@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with pagination projections, PostgreSQL persistence, versions, and audit.
 - Add variant lifecycle and transactional VND price replacement APIs with
   global SKU uniqueness, optimistic versions, concurrency tests, and audit.
+- Add backend-mediated product media management with byte-signature checks,
+  bounded in-memory uploads, PostgreSQL metadata, MinIO storage, and audit.
 - Add correlation-aware HTTP errors plus liveness and dependency-aware
   readiness contracts for the API.
 - Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,
