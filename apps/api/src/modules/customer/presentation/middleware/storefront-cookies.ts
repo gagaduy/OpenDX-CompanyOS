@@ -11,6 +11,15 @@ export interface StorefrontCookieConfig {
 export function readCookie(req: Request, name: string): string | undefined {
   return parseCookie(req.header("cookie") ?? "")[name];
 }
+export function readCookieValues(
+  req: Request,
+  name: string,
+): readonly string[] {
+  return (req.header("cookie") ?? "")
+    .split(";")
+    .map((cookie) => parseCookie(cookie.trim())[name])
+    .filter((value): value is string => value !== undefined);
+}
 export function setSessionCookie(
   res: Response,
   name: string,
@@ -36,6 +45,7 @@ export function setCsrfCookie(
   value: string,
   config: StorefrontCookieConfig,
 ) {
+  clearCsrfCookieAtPath(res, config, "/v1/storefront");
   res.append(
     "Set-Cookie",
     stringifySetCookie({
@@ -53,15 +63,39 @@ export function clearCookie(
   name: string,
   config: StorefrontCookieConfig,
 ) {
+  if (name === config.csrfName) {
+    clearCsrfCookieAtPath(res, config, "/");
+    clearCsrfCookieAtPath(res, config, "/v1/storefront");
+    return;
+  }
   res.append(
     "Set-Cookie",
     stringifySetCookie({
       name,
       value: "",
-      httpOnly: name !== config.csrfName,
+      httpOnly: true,
       secure: config.secure,
       sameSite: "lax",
-      path: name === config.csrfName ? "/" : "/v1/storefront",
+      path: "/v1/storefront",
+      expires: new Date(0),
+    }),
+  );
+}
+
+function clearCsrfCookieAtPath(
+  res: Response,
+  config: StorefrontCookieConfig,
+  path: string,
+) {
+  res.append(
+    "Set-Cookie",
+    stringifySetCookie({
+      name: config.csrfName,
+      value: "",
+      httpOnly: false,
+      secure: config.secure,
+      sameSite: "lax",
+      path,
       expires: new Date(0),
     }),
   );

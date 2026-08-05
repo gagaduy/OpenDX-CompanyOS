@@ -43,6 +43,14 @@ async function main() {
     await client.connect();
     await client.send("Page.enable");
     await client.send("Runtime.enable");
+    await client.send("Network.enable");
+    await client.send("Network.setCookie", {
+      name: "opendx_csrf",
+      value: "legacy-path-token",
+      url: "http://localhost:4000/v1/storefront",
+      path: "/v1/storefront",
+      sameSite: "Lax",
+    });
 
     const evidence = [];
     for (const viewport of [

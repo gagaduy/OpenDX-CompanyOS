@@ -100,7 +100,7 @@ Active commerce master plan:
   product detail, opaque guest/customer sessions, Google verification,
   profiles/addresses, PostgreSQL carts, explicit resolution, and a customer-only
   checkout-readiness contract.
-- Phase 5 source gates on 2026-08-06 passed 164 API unit tests, 52 API
+- Phase 5 source gates on 2026-08-06 passed 166 API unit tests, 52 API
   PostgreSQL/MinIO integration tests across 24 files, 41 Console tests, 13
   Storefront tests, four shared-package tests, one Python test, strict
   TypeScript checks, both frontend production builds, repository audit,
@@ -113,8 +113,9 @@ Active commerce master plan:
 - Browser acceptance at 390x844, 768x1024, and 1440x900 rendered ten seeded
   products with complete 1254x1254 images, semantic `main`, visible keyboard
   focus, and no horizontal overflow. The same Chrome run created a real guest,
-  added one available product, displayed the success state, and updated the cart
-  counter to one. Evidence is reproducible with `pnpm check:storefront-browser`.
+  injected and migrated a legacy CSRF path cookie, added one available product,
+  displayed the success state, and updated the cart counter to one. Evidence is
+  reproducible with `pnpm check:storefront-browser`.
 - Independent review found seven Important issues in CORS isolation,
   idempotency concurrency/retry, invalid-cookie fallback, cart media URLs,
   environment validation, restore safety, and failed-login compensation. All

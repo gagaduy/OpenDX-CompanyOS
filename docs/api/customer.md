@@ -32,7 +32,9 @@ current token without rotating it, so parallel requests cannot invalidate one
 another. Guest cookies use a seven-day absolute boundary. HTTPS deployments
 must set `COOKIE_SECURE=true`. The non-`HttpOnly` CSRF cookie uses `Path=/` so
 Storefront JavaScript can echo it in the mutation header; it grants no identity
-without the separate `HttpOnly` session cookie and exact-origin check.
+without the separate `HttpOnly` session cookie and exact-origin check. Session
+responses expire the former `/v1/storefront` CSRF cookie, and the mutation
+guard accepts either duplicate during that one-time path migration.
 
 Google login accepts only a signed credential. The backend verifies Google
 issuer, configured audience, expiry, subject, email, and verified-email claim.

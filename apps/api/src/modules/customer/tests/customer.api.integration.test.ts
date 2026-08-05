@@ -104,6 +104,14 @@ suite("customer API integration", () => {
       ["SameSite=Lax", "Path=/"],
       ["HttpOnly"],
     );
+    expect(
+      cookieLines(login.headers["set-cookie"]).some(
+        (line) =>
+          line.startsWith("opendx_csrf=;") &&
+          line.includes("Path=/v1/storefront") &&
+          line.includes("Expires=Thu, 01 Jan 1970 00:00:00 GMT"),
+      ),
+    ).toBe(true);
 
     const loginToken = cookiePair(
       login.headers["set-cookie"],
@@ -329,8 +337,8 @@ function cookiePair(
   header: string | string[] | undefined,
   name: string,
 ): string {
-  const line = cookieLines(header).find((value) =>
-    value.startsWith(`${name}=`),
+  const line = cookieLines(header).find(
+    (value) => value.startsWith(`${name}=`) && !value.startsWith(`${name}=;`),
   );
   if (line === undefined) throw new Error(`Missing ${name} cookie`);
   return line.split(";", 1)[0]!;
@@ -349,8 +357,10 @@ function expectCookie(
   required: readonly string[],
   forbidden: readonly string[] = [],
 ): void {
-  const line = cookieLines(header).find((value) =>
-    value.startsWith(`${name}=`),
+  const line = cookieLines(header).find(
+    (value) =>
+      value.startsWith(`${name}=`) &&
+      required.every((attribute) => value.includes(attribute)),
   );
   expect(line).toBeDefined();
   for (const attribute of required) expect(line).toContain(attribute);
