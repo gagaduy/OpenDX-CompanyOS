@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Catalog publication readiness, publish/unpublish auditing, anonymous-safe
+  PostgreSQL product projections, sold-out availability enrichment, and batched
+  inventory summaries for staff product lists.
 - Add atomic multi-line Inventory reservations with fixed 15-minute expiry,
   idempotent release/consume, a bounded expiry worker, and PostgreSQL proofs for
   oversell prevention and concurrent retry/expiry safety.

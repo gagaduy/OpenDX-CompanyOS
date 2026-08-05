@@ -18,6 +18,7 @@ import type { ProductRepository } from "../../repositories/interfaces/product.re
 import { CatalogApplicationError } from "../catalog-application.error";
 import type { CatalogCommandContext } from "../interfaces/category.service";
 import type { ProductServiceContract } from "../interfaces/product.service";
+import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
 
 export class ProductService implements ProductServiceContract {
   constructor(
@@ -27,13 +28,32 @@ export class ProductService implements ProductServiceContract {
     private readonly transactions: TransactionRunner,
     private readonly generateId: () => string,
     private readonly now: () => string,
+    private readonly availability?: InventoryAvailabilityReader,
   ) {}
 
   async list(query: ProductListQuery): Promise<PaginatedProductsDto> {
     return this.transactions.runReadOnly(async (session) => {
       const result = await this.repository.list(session, query);
+      const variantIds = [...new Set(result.items.flatMap((item) => item.variantIds))];
+      const availability =
+        (await this.availability?.getByVariantIds(variantIds)) ?? new Map();
       return {
-        items: result.items,
+        items: result.items.map(({ variantIds: productVariantIds, ...item }) => {
+          let totalAvailable = 0;
+          let purchasableVariantCount = 0;
+          for (const variantId of productVariantIds) {
+            const stock = availability.get(variantId);
+            const available = stock?.available ?? 0;
+            totalAvailable += available;
+            if (stock?.initialized === true && available > 0) {
+              purchasableVariantCount += 1;
+            }
+          }
+          return {
+            ...item,
+            availabilitySummary: { totalAvailable, purchasableVariantCount },
+          };
+        }),
         page: query.page,
         pageSize: query.pageSize,
         totalItems: result.totalItems,

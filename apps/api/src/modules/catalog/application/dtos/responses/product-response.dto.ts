@@ -17,6 +17,10 @@ export interface ProductListItemDto {
   readonly variantCount: number;
   readonly minimumPrice?: number;
   readonly maximumPrice?: number;
+  readonly availabilitySummary: {
+    readonly totalAvailable: number;
+    readonly purchasableVariantCount: number;
+  };
   readonly updatedAt: string;
   readonly version: number;
 }

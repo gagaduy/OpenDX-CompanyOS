@@ -6,8 +6,13 @@ import type { ProductListQuery } from "../../dtos/requests/product-request.dto";
 import type { ProductListItemDto } from "../../dtos/responses/product-response.dto";
 import type { Product } from "../../../domain/entities/product";
 
+export interface ProductListProjection
+  extends Omit<ProductListItemDto, "availabilitySummary"> {
+  readonly variantIds: readonly string[];
+}
+
 export interface ProductListResult {
-  readonly items: readonly ProductListItemDto[];
+  readonly items: readonly ProductListProjection[];
   readonly totalItems: number;
 }
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type ProductStatus = "draft" | "archived";
+export type ProductStatus = "draft" | "published" | "archived";
 export type ProductAttributeValue = string | number | boolean | readonly string[];
 export type ProductAttributes = Readonly<Record<string, ProductAttributeValue>>;
 

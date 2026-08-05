@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ProductListQuery } from "../../../application/dtos/requests/product-request.dto";
-import type { ProductListItemDto } from "../../../application/dtos/responses/product-response.dto";
 import type {
+  ProductListProjection,
   ProductListResult,
   ProductRepository,
 } from "../../../application/repositories/interfaces/product.repository";
@@ -31,6 +31,7 @@ interface ProductListRow extends ProductRow {
   variant_count: number;
   minimum_price: string | null;
   maximum_price: string | null;
+  variant_ids: string[];
 }
 
 const productColumns = `p.id, p.category_id, p.name, p.slug, p.brand,
@@ -82,6 +83,9 @@ export class PostgresqlProductRepository implements ProductRepository {
                FROM product_prices price
                JOIN product_variants variant ON variant.id = price.variant_id
                WHERE variant.product_id = p.id AND price.valid_to IS NULL) AS maximum_price
+              ,ARRAY(SELECT variant.id::text FROM product_variants variant
+                     WHERE variant.product_id = p.id AND variant.status = 'active'
+                     ORDER BY variant.created_at, variant.id) AS variant_ids
        FROM products p
        JOIN categories category ON category.id = p.category_id
        ${whereSql}
@@ -159,7 +163,7 @@ function mapProductRow(row: ProductRow): Product {
   };
 }
 
-function mapListRow(row: ProductListRow): ProductListItemDto {
+function mapListRow(row: ProductListRow): ProductListProjection {
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -172,13 +176,14 @@ function mapListRow(row: ProductListRow): ProductListItemDto {
     variantCount: row.variant_count,
     ...(row.minimum_price === null ? {} : { minimumPrice: safeInteger(row.minimum_price) }),
     ...(row.maximum_price === null ? {} : { maximumPrice: safeInteger(row.maximum_price) }),
+    variantIds: row.variant_ids,
     updatedAt: toIso(row.updated_at),
     version: row.version,
   };
 }
 
 function productStatus(value: string): ProductStatus {
-  if (value !== "draft" && value !== "archived") throw new Error(`Invalid product status: ${value}`);
+  if (value !== "draft" && value !== "published" && value !== "archived") throw new Error(`Invalid product status: ${value}`);
   return value;
 }
 

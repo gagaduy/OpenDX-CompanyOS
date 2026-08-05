@@ -519,7 +519,7 @@ git commit -m "feat(inventory): add oversell-safe reservations"
 - Public variant fields: `id`, `sku`, `title`, `optionValues`, current VND price, `availableQuantity`, and `purchasable`.
 - Admin product-list items gain `availabilitySummary: { totalAvailable, purchasableVariantCount }` so the existing Catalog table can distinguish `Published` from `Published · Out of stock` without browser-side inventory calculations.
 
-- [ ] **Step 1: Write failing publication-policy tests**
+- [x] **Step 1: Write failing publication-policy tests**
 
 ```ts
 it("returns every missing publication requirement", async () => {
@@ -544,13 +544,13 @@ it("publishes an initialized zero-stock product", async () => {
 });
 ```
 
-- [ ] **Step 2: Run publication tests and verify failure**
+- [x] **Step 2: Run publication tests and verify failure**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/catalog/application/services/implementations/product-publication.service.test.ts`
 
 Expected: FAIL because publication contracts are absent.
 
-- [ ] **Step 3: Implement publication without weakening archived/mutation rules**
+- [x] **Step 3: Implement publication without weakening archived/mutation rules**
 
 Extend `ProductStatus` and all exhaustive row/DTO/schema mappings to include
 `published`. Allow product metadata edits while published only if existing
@@ -562,7 +562,7 @@ and initialized inventory for each exposed active variant. Stock quantity may be
 zero. Publish/unpublish and `catalog.product.published` or
 `catalog.product.unpublished` audit append commit together.
 
-- [ ] **Step 4: Write failing public-projection tests**
+- [x] **Step 4: Write failing public-projection tests**
 
 ```ts
 it("keeps a sold-out published product discoverable", async () => {
@@ -580,7 +580,7 @@ it("does not return draft or archived products", async () => {
 });
 ```
 
-- [ ] **Step 5: Implement public catalog repository and enrichment**
+- [x] **Step 5: Implement public catalog repository and enrichment**
 
 The PostgreSQL public repository reads only Catalog tables and requires
 `p.status = 'published'`, `category.status = 'active'`, active variants, current
@@ -593,7 +593,7 @@ Extend the existing Product list service with the same one-call availability
 enrichment to produce `availabilitySummary`; do not issue one availability
 query per product or variant.
 
-- [ ] **Step 6: Run unit and PostgreSQL public-catalog tests**
+- [x] **Step 6: Run unit and PostgreSQL public-catalog tests**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/catalog/domain/services/catalog-rules.test.ts src/modules/catalog/application/services/implementations/product-publication.service.test.ts src/modules/catalog/application/services/implementations/public-catalog.service.test.ts`
 
@@ -601,7 +601,7 @@ Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit publication and public read contracts**
+- [x] **Step 7: Commit publication and public read contracts**
 
 ```bash
 git add apps/api/src/modules/catalog CHANGELOG.md

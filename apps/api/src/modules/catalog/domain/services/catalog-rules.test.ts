@@ -39,6 +39,7 @@ describe("catalog domain rules", () => {
   it("prevents mutation of archived products", () => {
     expect(() => assertProductMutable("archived")).toThrow(CatalogDomainError);
     expect(() => assertProductMutable("draft")).not.toThrow();
+    expect(() => assertProductMutable("published")).not.toThrow();
   });
 
   it("accepts only approved JSONB attribute values", () => {

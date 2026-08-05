@@ -4,10 +4,13 @@
 export type CatalogApplicationErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
+  | "FORBIDDEN"
   | "STALE_VERSION"
   | "UNSUPPORTED_MEDIA_TYPE"
   | "MEDIA_TOO_LARGE"
-  | "VALIDATION_ERROR";
+  | "VALIDATION_ERROR"
+  | "PRODUCT_NOT_PUBLISHED"
+  | "PRODUCT_NOT_READY_FOR_PUBLICATION";
 
 export class CatalogApplicationError extends Error {
   constructor(

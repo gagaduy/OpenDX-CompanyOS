@@ -8,6 +8,7 @@ import type { Product } from "../../../domain/entities/product";
 import type { CatalogAuditRepository } from "../../repositories/interfaces/catalog-audit.repository";
 import type { CategoryRepository } from "../../repositories/interfaces/category.repository";
 import type { ProductRepository } from "../../repositories/interfaces/product.repository";
+import type { InventoryAvailabilityReader } from "../../../../inventory/application/services/interfaces/inventory-availability";
 import { ProductService } from "./product.service";
 
 const session = {} as DatabaseSession;
@@ -38,6 +39,7 @@ const product: Product = {
 function fixture(
   overrides: Partial<ProductRepository> = {},
   categoryOverride: Category | null = category,
+  availabilityOverride?: InventoryAvailabilityReader,
 ) {
   const repository: ProductRepository = {
     list: vi.fn(async () => ({ items: [], totalItems: 0 })),
@@ -64,6 +66,9 @@ function fixture(
     run: (work) => work(session),
     runReadOnly: (work) => work(session),
   };
+  const availability: InventoryAvailabilityReader = availabilityOverride ?? {
+    getByVariantIds: vi.fn(async () => new Map()),
+  };
   return {
     service: new ProductService(
       repository,
@@ -72,13 +77,56 @@ function fixture(
       transactions,
       () => "product_generated",
       () => "2026-08-05T00:00:00.000Z",
+      availability,
     ),
     repository,
     audit,
+    availability,
   };
 }
 
 describe("ProductService", () => {
+  it("enriches one product page with one batched availability read", async () => {
+    const listItem = {
+      id: product.id,
+      categoryId: category.id,
+      categoryName: category.name,
+      name: product.name,
+      slug: product.slug,
+      status: product.status,
+      variantCount: 2,
+      variantIds: ["variant_one", "variant_two"],
+      updatedAt: product.updatedAt,
+      version: product.version,
+    };
+    const availability: InventoryAvailabilityReader = {
+      getByVariantIds: vi.fn(async () =>
+        new Map([
+          ["variant_one", { initialized: true, onHand: 5, reserved: 2, available: 3 }],
+          ["variant_two", { initialized: true, onHand: 1, reserved: 1, available: 0 }],
+        ]),
+      ),
+    };
+    const { service } = fixture(
+      { list: vi.fn(async () => ({ items: [listItem], totalItems: 1 })) },
+      category,
+      availability,
+    );
+
+    const result = await service.list({ page: 1, pageSize: 20 });
+
+    expect(availability.getByVariantIds).toHaveBeenCalledOnce();
+    expect(availability.getByVariantIds).toHaveBeenCalledWith([
+      "variant_one",
+      "variant_two",
+    ]);
+    expect(result.items[0]?.availabilitySummary).toEqual({
+      totalAvailable: 3,
+      purchasableVariantCount: 1,
+    });
+    expect(result.items[0]).not.toHaveProperty("variantIds");
+  });
+
   it("creates a normalized draft with validated attributes and audit", async () => {
     const { service, repository, audit } = fixture({ findById: vi.fn(async () => undefined) });
     const created = await service.create(

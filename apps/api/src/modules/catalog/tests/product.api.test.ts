@@ -49,6 +49,10 @@ function fixture(overrides: Partial<ProductServiceContract> = {}) {
         slug: product.slug,
         status: "draft" as const,
         variantCount: 0,
+        availabilitySummary: {
+          totalAvailable: 0,
+          purchasableVariantCount: 0,
+        },
         updatedAt: product.updatedAt,
         version: 1,
       }],
