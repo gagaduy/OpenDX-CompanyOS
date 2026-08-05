@@ -785,7 +785,7 @@ git commit -m "feat(api): expose inventory and publication workflows"
 - Seed order: Company Core, Catalog, Inventory.
 - Local Inventory Manager: `inventory@novacommerce.example` with the local-only temporary realm password `opendx_inventory_change_me`; `.env.example` names it as `KEYCLOAK_DEV_INVENTORY_PASSWORD` for contributor discovery.
 
-- [ ] **Step 1: Write failing deterministic seed tests**
+- [x] **Step 1: Write failing deterministic seed tests**
 
 ```ts
 it("seeds a technology assortment and explanatory inventory exactly once", async () => {
@@ -804,13 +804,13 @@ it("seeds a technology assortment and explanatory inventory exactly once", async
 });
 ```
 
-- [ ] **Step 2: Run seed tests and verify failure**
+- [x] **Step 2: Run seed tests and verify failure**
 
 Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:${POSTGRES_PORT:-5432}/opendx_test MINIO_ENDPOINT=http://localhost:9000 MINIO_ACCESS_KEY=opendx_minio MINIO_SECRET_KEY=opendx_minio_password MINIO_BUCKET=product-media-test pnpm --filter @opendx/api exec vitest run --config vitest.integration.config.ts src/modules/catalog/infrastructure/seeds/catalog.seed.integration.test.ts src/modules/inventory/infrastructure/seeds/inventory.seed.integration.test.ts`
 
 Expected: FAIL because technology and Inventory fixtures are absent.
 
-- [ ] **Step 3: Implement deterministic technology fixtures without deleting user data**
+- [x] **Step 3: Implement deterministic technology fixtures without deleting user data**
 
 Use stable UUIDs and repository-owned or generated technology images. On fresh
 databases seed the six approved categories and at least twelve products with
@@ -821,7 +821,7 @@ delete or overwrite rows outside the deterministic fixture ID set. Use stable
 movement idempotency keys such as `seed:inventory:<variant-id>` and publish only
 fixture products that meet the backend publication policy.
 
-- [ ] **Step 4: Wire migration, rollback, seed, health, and role fixtures**
+- [x] **Step 4: Wire migration, rollback, seed, health, and role fixtures**
 
 Add module-local scripts:
 
@@ -840,7 +840,7 @@ anchor and `.env.example`. Add `inventory_manager` and its local user to the
 Keycloak realm. Keep the current Make target names and make `db-rollback`
 delegate to the corrected aggregate rollback.
 
-- [ ] **Step 5: Validate repeat seed and Compose configuration**
+- [x] **Step 5: Validate repeat seed and Compose configuration**
 
 Run: `pnpm --filter @opendx/api test:integration`
 
@@ -851,7 +851,7 @@ Run twice: `make db-seed`
 Expected: all tests and Compose validation pass; the second seed reports no
 duplicate-key failure and leaves fixture counts unchanged.
 
-- [ ] **Step 6: Commit seed and operations wiring**
+- [x] **Step 6: Commit seed and operations wiring**
 
 ```bash
 git add apps/api .env.example infra/docker/docker-compose.yml infra/keycloak/realm-export.json Makefile CHANGELOG.md

@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Seed a deterministic twelve-product technology assortment with generated
+  catalog imagery, mixed PostgreSQL stock states, published storefront data,
+  Inventory migration/seed operations, and a local Inventory Manager role.
 - Expose role-protected Inventory and publication APIs, anonymous Storefront
   catalog/media routes, audited authorization denials, runtime reservation
   expiry, and explicit Catalog/Inventory composition over PostgreSQL.

@@ -12,14 +12,17 @@
     "db:migrate": "pnpm db:migrate:all",
     "db:migrate:catalog": "node-pg-migrate up -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
     "db:migrate:company-core": "node-pg-migrate up -j ts -m src/modules/company-operating-core/infrastructure/database/migrations -t company_core_migrations --check-order",
-    "db:migrate:all": "pnpm db:migrate:catalog && pnpm db:migrate:company-core",
+    "db:migrate:inventory": "node-pg-migrate up -j ts -m src/modules/inventory/infrastructure/database/migrations -t inventory_migrations --check-order",
+    "db:migrate:all": "pnpm db:migrate:catalog && pnpm db:migrate:company-core && pnpm db:migrate:inventory",
     "db:rollback": "pnpm db:rollback:all",
     "db:rollback:catalog": "node-pg-migrate down 1 -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
     "db:rollback:company-core": "node-pg-migrate down 1 -j ts -m src/modules/company-operating-core/infrastructure/database/migrations -t company_core_migrations --check-order",
-    "db:rollback:all": "pnpm db:rollback:company-core && pnpm db:rollback:catalog",
+    "db:rollback:inventory": "node-pg-migrate down 1 -j ts -m src/modules/inventory/infrastructure/database/migrations -t inventory_migrations --check-order",
+    "db:rollback:all": "pnpm db:rollback:inventory && pnpm db:rollback:company-core && pnpm db:rollback:catalog",
     "db:seed:company-core": "tsx src/modules/company-operating-core/infrastructure/seeds/run-nova-commerce.seed.ts",
     "db:seed:catalog": "tsx src/modules/catalog/infrastructure/seeds/run-catalog-seed.ts",
-    "db:seed:all": "pnpm db:seed:company-core && pnpm db:seed:catalog"
+    "db:seed:inventory": "tsx src/modules/inventory/infrastructure/seeds/run-inventory-seed.ts",
+    "db:seed:all": "pnpm db:seed:company-core && pnpm db:seed:catalog && pnpm db:seed:inventory"
   },
   "dependencies": {
     "@opendx/domain": "workspace:*",

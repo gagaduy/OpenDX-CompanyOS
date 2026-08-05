@@ -16,25 +16,27 @@ interface SeedProduct {
 }
 
 const categories = [
-  ["Drinkware", "drinkware", "Reusable drinkware for work and travel"],
-  ["Bags", "bags", "Practical bags for everyday journeys"],
-  ["Home", "home", "Simple objects for a comfortable home"],
-  ["Accessories", "accessories", "Useful everyday personal accessories"],
+  ["Laptops", "laptops", "Portable computers for work, study, and creation"],
+  ["Phones", "phones", "Smartphones for communication, photography, and everyday apps"],
+  ["Tablets", "tablets", "Versatile touch devices for work and entertainment"],
+  ["Smart Watches", "smart-watches", "Connected wearables for activity and notifications"],
+  ["Computer Components", "computer-components", "Performance parts and storage upgrades"],
+  ["Accessories", "accessories", "Keyboards, mice, audio, and connectivity essentials"],
 ] as const;
 
 const products: readonly SeedProduct[] = [
-  { name: "Steel Bottle", slug: "steel-bottle", category: 0, description: "Vacuum-insulated stainless-steel bottle.", image: "steel-bottle.png", price: 349_000, options: ["500 ml", "750 ml"] },
-  { name: "Ceramic Mug", slug: "ceramic-mug", category: 0, description: "Glazed ceramic mug for coffee and tea.", image: "ceramic-mug.png", price: 189_000, options: ["Sand", "Charcoal"] },
-  { name: "Travel Tumbler", slug: "travel-tumbler", category: 0, description: "Lidded tumbler designed for daily commutes.", image: "travel-tumbler.png", price: 299_000, options: ["350 ml", "500 ml"] },
-  { name: "Canvas Tote", slug: "canvas-tote", category: 1, description: "Durable cotton canvas tote with an inner pocket.", image: "canvas-tote.png", price: 249_000, options: ["Natural", "Black"] },
-  { name: "Commuter Backpack", slug: "commuter-backpack", category: 1, description: "Structured backpack with a padded laptop sleeve.", image: "commuter-backpack.png", price: 899_000, options: ["16 L", "22 L"] },
-  { name: "Canvas Duffel", slug: "canvas-duffel", category: 1, description: "Compact canvas duffel for short trips.", image: "canvas-duffel.png", price: 749_000, options: ["Olive", "Navy"] },
-  { name: "Desk Lamp", slug: "desk-lamp", category: 2, description: "Adjustable task lamp with warm, focused light.", image: "desk-lamp.png", price: 629_000, options: ["White", "Graphite"] },
-  { name: "Throw Pillow", slug: "throw-pillow", category: 2, description: "Textured throw pillow with a removable cover.", image: "throw-pillow.png", price: 279_000, options: ["Clay", "Oat"] },
-  { name: "Terracotta Planter", slug: "terracotta-planter", category: 2, description: "Natural terracotta planter with drainage tray.", image: "terracotta-planter.png", price: 219_000, options: ["Small", "Medium"] },
-  { name: "Compact Umbrella", slug: "compact-umbrella", category: 3, description: "Wind-resistant folding umbrella for daily carry.", image: "compact-umbrella.png", price: 329_000, options: ["Black", "Forest"] },
-  { name: "Kraft Notebook", slug: "kraft-notebook", category: 3, description: "Lay-flat ruled notebook made with recycled paper.", image: "kraft-notebook.png", price: 119_000, options: ["A5", "A6"] },
-  { name: "Over-Ear Headphones", slug: "over-ear-headphones", category: 3, description: "Comfortable wireless headphones for focused listening.", image: "over-ear-headphones.png", price: 1_290_000, options: ["Stone", "Black"] },
+  { name: "Nova Laptop Pro", slug: "laptop-pro", category: 0, description: "High-performance laptop with a vivid display for demanding professional work.", image: "laptop-pro.png", price: 32_990_000, options: ["16 GB / 512 GB", "32 GB / 1 TB"] },
+  { name: "Nova Laptop Air", slug: "laptop-air", category: 0, description: "Lightweight all-day laptop for mobile productivity.", image: "laptop-air.png", price: 24_990_000, options: ["8 GB / 256 GB", "16 GB / 512 GB"] },
+  { name: "Nova Phone Pro", slug: "phone-pro", category: 1, description: "Premium smartphone with an advanced camera system and bright display.", image: "phone-pro.png", price: 22_990_000, options: ["256 GB", "512 GB"] },
+  { name: "Nova Phone Lite", slug: "phone-lite", category: 1, description: "Slim everyday smartphone with dependable battery life.", image: "phone-lite.png", price: 9_990_000, options: ["128 GB", "256 GB"] },
+  { name: "Nova Tablet Pro", slug: "tablet-pro", category: 2, description: "Responsive tablet with stylus support for notes and creative work.", image: "tablet-pro.png", price: 16_490_000, options: ["Wi-Fi 128 GB", "Wi-Fi 256 GB"] },
+  { name: "Nova Smart Watch", slug: "smart-watch", category: 3, description: "Connected watch for activity tracking and timely notifications.", image: "smart-watch.png", price: 6_490_000, options: ["41 mm", "45 mm"] },
+  { name: "Nova Graphics Card", slug: "graphics-card", category: 4, description: "Dual-fan graphics card for high-resolution gaming and creation.", image: "graphics-card.png", price: 18_990_000, options: ["12 GB", "16 GB"] },
+  { name: "Nova Solid-State Drive", slug: "solid-state-drive", category: 4, description: "Fast NVMe storage for responsive systems and applications.", image: "solid-state-drive.png", price: 2_190_000, options: ["1 TB", "2 TB"] },
+  { name: "Nova Mechanical Keyboard", slug: "mechanical-keyboard", category: 5, description: "Compact wireless mechanical keyboard with tactile switches.", image: "mechanical-keyboard.png", price: 2_490_000, options: ["Tactile", "Linear"] },
+  { name: "Nova Wireless Mouse", slug: "wireless-mouse", category: 5, description: "Ergonomic wireless mouse with precise tracking.", image: "wireless-mouse.png", price: 1_290_000, options: ["Graphite", "Silver"] },
+  { name: "Nova USB-C Hub", slug: "usb-c-hub", category: 5, description: "Compact multiport hub for displays, storage, and peripherals.", image: "usb-c-hub.png", price: 1_590_000, options: ["6-in-1", "9-in-1"] },
+  { name: "Nova Over-Ear Headphones", slug: "over-ear-headphones", category: 5, description: "Comfortable wireless headphones for focused listening.", image: "over-ear-headphones.png", price: 3_290_000, options: ["Stone", "Black"] },
 ];
 
 function id(prefix: 1 | 2 | 3 | 4 | 5, sequence: number): string {

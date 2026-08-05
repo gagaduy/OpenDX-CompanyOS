@@ -7,7 +7,8 @@
   "roles": {
     "realm": [
       { "name": "administrator" },
-      { "name": "catalog_manager" }
+      { "name": "catalog_manager" },
+      { "name": "inventory_manager" }
     ]
   },
   "clients": [
@@ -97,6 +98,18 @@
         { "type": "password", "value": "opendx_catalog_change_me", "temporary": true }
       ],
       "realmRoles": ["catalog_manager"]
+    },
+    {
+      "username": "inventory@novacommerce.example",
+      "email": "inventory@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Inventory Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_inventory_change_me", "temporary": true }
+      ],
+      "realmRoles": ["inventory_manager"]
     }
   ]
 }

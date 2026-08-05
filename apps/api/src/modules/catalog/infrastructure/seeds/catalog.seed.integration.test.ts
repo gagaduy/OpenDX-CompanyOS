@@ -51,7 +51,7 @@ describeWithInfrastructure("NovaCommerce catalog seed", () => {
     await pool.end();
   });
 
-  it("creates a repeatable four-category, twelve-product catalog with media", async () => {
+  it("creates a repeatable six-category technology catalog with media", async () => {
     await seedCatalog(transactions, storage);
     await seedCatalog(transactions, storage);
 
@@ -70,7 +70,7 @@ describeWithInfrastructure("NovaCommerce catalog seed", () => {
         (SELECT count(*) FROM product_media)::text AS media`,
     );
     expect(counts.rows[0]).toEqual({
-      categories: "4",
+      categories: "6",
       products: "12",
       variants: "24",
       prices: "24",
@@ -82,5 +82,21 @@ describeWithInfrastructure("NovaCommerce catalog seed", () => {
       if (item.name !== undefined) objects.push(item.name);
     }
     expect(objects).toHaveLength(12);
+    const categorySlugs = await pool.query<{ slug: string }>(
+      "SELECT slug FROM categories WHERE status = 'active' ORDER BY slug",
+    );
+    expect(categorySlugs.rows.map(({ slug }) => slug)).toEqual([
+      "accessories",
+      "computer-components",
+      "laptops",
+      "phones",
+      "smart-watches",
+      "tablets",
+    ]);
+    const productSlugs = await pool.query<{ slug: string }>(
+      "SELECT slug FROM products ORDER BY slug",
+    );
+    expect(productSlugs.rows.map(({ slug }) => slug)).toContain("graphics-card");
+    expect(productSlugs.rows.map(({ slug }) => slug)).toContain("phone-pro");
   });
 });
