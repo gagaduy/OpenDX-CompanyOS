@@ -43,7 +43,7 @@ export function up(pgm: MigrationBuilder): void {
   pgm.createTable("product_variants", {
     id: { type: "uuid", primaryKey: true },
     product_id: { type: "uuid", notNull: true, references: "products", onDelete: "CASCADE" },
-    sku: { type: "text", notNull: true, unique: true },
+    sku: { type: "text", notNull: true },
     title: { type: "text", notNull: true, check: "length(trim(title)) > 0" },
     option_values: { type: "jsonb", notNull: true },
     status: { type: "text", notNull: true, check: "status IN ('active', 'archived')" },
@@ -51,6 +51,7 @@ export function up(pgm: MigrationBuilder): void {
     updated_at: { type: "timestamptz", notNull: true, default: pgm.func("current_timestamp") },
     version: { type: "integer", notNull: true, default: 1, check: "version > 0" },
   });
+  pgm.sql("CREATE UNIQUE INDEX product_variants_sku_ci_unique ON product_variants (lower(sku))");
   pgm.createIndex("product_variants", "product_id");
 
   pgm.createTable("product_prices", {
