@@ -31,6 +31,17 @@ Current major dependencies:
 | `vitest` | packages, API, and console | TypeScript tests |
 | `supertest` | `apps/api` | API endpoint tests |
 | `tsx` | `apps/api` | Local TypeScript server execution |
+| `pg`, `@types/pg` | `apps/api` | PostgreSQL driver and TypeScript contracts (MIT) |
+| `node-pg-migrate` | `apps/api` | Versioned PostgreSQL migrations (MIT) |
+| `zod` | API and console | Runtime environment and boundary validation (MIT) |
+| `jose` | `apps/api` | OIDC JWT and JWKS verification (MIT) |
+| `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
+| `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
+| `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
+| `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
+| `oidc-client-ts` | `apps/console` | Staff Authorization Code with PKCE client (Apache-2.0) |
+| `react-router-dom` | `apps/console` | Authenticated console routing (MIT) |
+| `@testing-library/user-event` | `apps/console` | User-level interaction tests (MIT) |
 
 ## Python
 

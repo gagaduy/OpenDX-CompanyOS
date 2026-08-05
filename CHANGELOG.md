@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add validated API and console environment contracts plus locked Commerce
+  Foundation dependencies.
 - Add the approved Company Operating Core PostgreSQL persistence companion
   design for Phase 3.
 - Add the Company Operating Core PostgreSQL persistence companion
