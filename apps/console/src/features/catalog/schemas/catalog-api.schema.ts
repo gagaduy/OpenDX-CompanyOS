@@ -30,3 +30,26 @@ export const productListEnvelopeSchema = z.object({
 export const errorEnvelopeSchema = z.object({
   success: z.literal(false), message: z.string(), errorCode: z.string(), errors: z.array(z.unknown()).optional(),
 });
+export const variantSchema = z.object({
+  id: z.uuid(), productId: z.uuid(), sku: z.string(), title: z.string(),
+  optionValues: z.record(z.string(), z.string()), status: z.enum(["active", "archived"]),
+  createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), version: z.number().int().positive(),
+});
+export const priceSchema = z.object({
+  id: z.uuid(), variantId: z.uuid(), amountMinor: z.number().int().positive(), currency: z.literal("VND"),
+  validFrom: z.iso.datetime(), validTo: z.iso.datetime().optional(), createdBy: z.string(),
+});
+export const mediaSchema = z.object({
+  id: z.uuid(), productId: z.uuid(), contentType: z.enum(["image/jpeg", "image/png", "image/webp", "image/avif"]),
+  byteSize: z.number().int().nonnegative(), altText: z.string(), sortOrder: z.number().int().nonnegative(),
+  isPrimary: z.boolean(), previewUrl: z.string(), createdAt: z.iso.datetime(),
+});
+export const auditEntrySchema = z.object({
+  id: z.uuid(), actorId: z.string(), action: z.string(), resourceType: z.enum(["category", "product", "variant", "price", "media"]),
+  resourceId: z.uuid(), outcome: z.enum(["success", "failure", "denied"]), correlationId: z.string(),
+  metadata: z.record(z.string(), z.unknown()), occurredAt: z.iso.datetime(),
+});
+export const variantEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: variantSchema });
+export const priceEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: priceSchema });
+export const mediaEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: mediaSchema });
+export const auditEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: z.array(auditEntrySchema) });

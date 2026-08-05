@@ -560,6 +560,248 @@ textarea {
   .splitHeader { align-items: flex-start; }
 }
 
+.editorTabs {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.editorTabs button {
+  flex: 0 0 auto;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-subtle);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editorTabs button[aria-selected="true"] {
+  border-bottom-color: var(--primary);
+  color: var(--ink);
+}
+
+.editorTabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.editorPanel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.variantCreate,
+.mediaUpload {
+  display: grid;
+  gap: 14px;
+}
+
+.variantCreate > .primaryButton,
+.mediaUpload > .primaryButton {
+  justify-self: start;
+}
+
+.skuPreview {
+  margin: 0;
+  color: var(--ink-subtle);
+  font-size: 11px;
+}
+
+.variantList {
+  display: grid;
+  gap: 10px;
+}
+
+.variantRow {
+  padding: 14px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.variantRow > header,
+.variantRow > header > div,
+.mediaItem > div {
+  display: flex;
+}
+
+.variantRow > header {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.variantRow > header > div,
+.mediaItem > div {
+  min-width: 0;
+  flex-direction: column;
+}
+
+.variantRow small,
+.mediaItem small {
+  margin-top: 3px;
+  color: var(--ink-subtle);
+  font-size: 10px;
+}
+
+.variantRow header button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-subtle);
+}
+
+.priceEditor {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.priceEditor label,
+.mediaUpload label,
+.mediaItem label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.priceEditor > span {
+  min-width: 110px;
+  padding-bottom: 9px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.inlineConfirm {
+  grid-column: 1 / -1;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.inlineConfirm p {
+  margin: 0 0 10px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.inlineConfirm button + button {
+  margin-left: 7px;
+}
+
+.mediaUpload {
+  grid-template-columns: minmax(200px, 1fr) minmax(220px, 2fr) auto auto;
+  align-items: end;
+}
+
+.mediaUpload .formError {
+  grid-column: 1 / -1;
+}
+
+.mediaUpload > span {
+  padding-bottom: 10px;
+  color: var(--ink-subtle);
+  font-size: 11px;
+}
+
+.mediaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.mediaItem {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.mediaItem img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--canvas);
+}
+
+.mediaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mediaActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.auditTimeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auditTimeline li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.auditTimeline p,
+.auditTimeline small {
+  margin: 4px 0 0;
+  color: var(--ink-subtle);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.auditOutcome {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border: 1px solid var(--ink-tertiary);
+  border-radius: 50%;
+}
+
+.audit-success {
+  background: var(--ink-tertiary);
+}
+
+@media (max-width: 760px) {
+  .priceEditor,
+  .mediaUpload {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .priceEditor > span {
+    padding: 0;
+    text-align: left;
+  }
+}
+
 .inlineError {
   margin: 12px 0;
   color: var(--ink-muted);

@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add product editor panels for variants, immutable VND price replacement,
+  authenticated media management, previews, and catalog audit provenance.
 - Add the authenticated Catalog console workspace with validated API mapping,
   URL-addressable product filters, product editing, and category management.
 - Add the staff OIDC console shell with protected catalog routing, role-aware

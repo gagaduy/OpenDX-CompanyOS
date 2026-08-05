@@ -13,6 +13,8 @@ function api(): CatalogApi {
   return {
     listProducts: vi.fn(), listCategories: vi.fn(async () => [category]), getProduct: vi.fn(), createProduct: vi.fn(), updateProduct: vi.fn(), archiveProduct: vi.fn(),
     createCategory: vi.fn(async (input) => ({ ...category, ...input })), updateCategory: vi.fn(async (_id, input) => ({ ...category, ...input, version: 2 })), archiveCategory: vi.fn(async () => undefined),
+    createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
+    uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(),
   };
 }
 

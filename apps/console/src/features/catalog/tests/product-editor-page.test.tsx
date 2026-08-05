@@ -16,6 +16,8 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     listProducts: vi.fn(), listCategories: vi.fn(async () => [category]), getProduct: vi.fn(async () => product),
     createProduct: vi.fn(async (input) => ({ ...product, ...input })), updateProduct: vi.fn(async () => product), archiveProduct: vi.fn(),
     createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(), ...overrides,
+    createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
+    uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(async () => []),
   };
 }
 
@@ -49,5 +51,17 @@ describe("ProductEditorPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /save product/i }));
     expect(await screen.findByText(message)).toBeVisible();
     expect(client.updateProduct).toHaveBeenCalledWith(product.id, expect.objectContaining({ version: 3 }));
+  });
+
+  it("switches among flat operational editor tabs", async () => {
+    const client = api();
+    render(<MemoryRouter initialEntries={[`/products/${product.id}`]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={client} />} /></Routes></MemoryRouter>);
+    await screen.findByDisplayValue("Steel Bottle");
+    await userEvent.click(screen.getByRole("tab", { name: /variants and prices/i }));
+    expect(screen.getByLabelText("SKU")).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Media" }));
+    expect(screen.getByLabelText("Product image")).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Audit" }));
+    expect(await screen.findByText(/no audit activity yet/i)).toBeVisible();
   });
 });

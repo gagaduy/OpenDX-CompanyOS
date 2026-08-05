@@ -82,3 +82,49 @@ export interface CategoryInput {
   readonly description?: string;
   readonly sortOrder?: number;
 }
+
+export interface ProductVariant {
+  readonly id: string;
+  readonly productId: string;
+  readonly sku: string;
+  readonly title: string;
+  readonly optionValues: Readonly<Record<string, string>>;
+  readonly status: "active" | "archived";
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+export interface ProductPrice {
+  readonly id: string;
+  readonly variantId: string;
+  readonly amountMinor: number;
+  readonly currency: "VND";
+  readonly validFrom: string;
+  readonly validTo?: string;
+  readonly createdBy: string;
+}
+
+export interface ProductMedia {
+  readonly id: string;
+  readonly productId: string;
+  readonly contentType: "image/jpeg" | "image/png" | "image/webp" | "image/avif";
+  readonly byteSize: number;
+  readonly altText: string;
+  readonly sortOrder: number;
+  readonly isPrimary: boolean;
+  readonly previewUrl: string;
+  readonly createdAt: string;
+}
+
+export interface CatalogAuditEntry {
+  readonly id: string;
+  readonly actorId: string;
+  readonly action: string;
+  readonly resourceType: "category" | "product" | "variant" | "price" | "media";
+  readonly resourceId: string;
+  readonly outcome: "success" | "failure" | "denied";
+  readonly correlationId: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly occurredAt: string;
+}

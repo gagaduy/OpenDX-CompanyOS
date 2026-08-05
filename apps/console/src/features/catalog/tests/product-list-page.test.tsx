@@ -29,6 +29,8 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     listCategories: vi.fn(async () => []),
     getProduct: vi.fn(), createProduct: vi.fn(), updateProduct: vi.fn(), archiveProduct: vi.fn(async () => undefined),
     createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(),
+    createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
+    uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(),
     ...overrides,
   };
 }
