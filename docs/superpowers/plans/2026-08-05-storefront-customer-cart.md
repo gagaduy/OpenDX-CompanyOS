@@ -447,21 +447,21 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/api/src/modules/catalog/tests/public-catalog.api.test.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing API tests for query, category slug, min/max VND price,
+- [x] Write failing API tests for query, category slug, min/max VND price,
   in/out-of-stock, stable sort, page, page size, malformed filters, and sold-out
   visibility before extending Catalog contracts.
-- [ ] Write failing Storefront tests for loading, empty, dependency error/retry,
+- [x] Write failing Storefront tests for loading, empty, dependency error/retry,
   success, URL restoration, pagination, mobile filters, and sold-out cards.
-- [ ] Build the actual catalog as the first screen: compact brand/search/header,
+- [x] Build the actual catalog as the first screen: compact brand/search/header,
   category shortcuts, and real product grid. Do not add a marketing landing hero.
-- [ ] Keep primary image dimensions stable, preserve aspect ratio, use Catalog
+- [x] Keep primary image dimensions stable, preserve aspect ratio, use Catalog
   alt text, and show VND price plus textual availability on every card.
-- [ ] Keep filters in URL search params and submit backend-supported values only.
+- [x] Keep filters in URL search params and submit backend-supported values only.
   Frontend code does not refilter authoritative results.
-- [ ] Verify keyboard navigation, visible focus, semantic landmarks, 390x844,
+- [x] Verify keyboard navigation, visible focus, semantic landmarks, 390x844,
   768x1024, and 1440x900 layouts without document overflow.
-- [ ] Run Catalog API and Storefront discovery tests plus production build.
-- [ ] Commit as `feat(storefront): add catalog discovery`.
+- [x] Run Catalog API and Storefront discovery tests plus production build.
+- [x] Commit as `feat(storefront): add catalog discovery`.
 
 ### Task 8: Product Detail and Persistent Guest Cart UI
 
@@ -485,20 +485,20 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/storefront/src/app/storefront-shell.tsx`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing detail tests for image, alt text, variant selection, SKU,
+- [x] Write failing detail tests for image, alt text, variant selection, SKU,
   variant price/availability, sold-out disabling, add success, and server error.
-- [ ] Write failing cart tests for first guest-session creation, credentials and
+- [x] Write failing cart tests for first guest-session creation, credentials and
   CSRF header use, refresh restoration, quantity changes, removal, changed price,
   stale stock, unavailable product, empty state, and retry.
-- [ ] Build first-viewport product identity with inspectable media, name, VND
+- [x] Build first-viewport product identity with inspectable media, name, VND
   price, selected variant, SKU, availability, and one clear add action.
-- [ ] Create a guest session only immediately before the first stateful cart
+- [x] Create a guest session only immediately before the first stateful cart
   mutation. Never create guest cookies during anonymous browsing.
-- [ ] Validate every API envelope with Zod and render backend totals/change
+- [x] Validate every API envelope with Zod and render backend totals/change
   markers; never calculate trusted cart totals in React.
-- [ ] Keep cart badge/layout dimensions stable during loading and mutations.
-- [ ] Run detail/cart tests and storefront production build.
-- [ ] Commit as `feat(storefront): add persistent guest cart`.
+- [x] Keep cart badge/layout dimensions stable during loading and mutations.
+- [x] Run detail/cart tests and storefront production build.
+- [x] Commit as `feat(storefront): add persistent guest cart`.
 
 ### Task 9: Google Sign-In, Customer Session, and Checkout Gate UI
 
@@ -518,19 +518,19 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/storefront/src/app/app-router.tsx`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing tests for unavailable Google configuration, script failure,
+- [x] Write failing tests for unavailable Google configuration, script failure,
   credential success/failure, session restoration, logout, CSRF, same-origin
   return target validation, resolution-required result, and checkout readiness.
-- [ ] Load Google Identity Services only on sign-in intent and request identity
+- [x] Load Google Identity Services only on sign-in intent and request identity
   scopes only. Keep the credential in memory only until the API call completes.
-- [ ] Hide no failure: when no client ID is configured, render a clear
+- [x] Hide no failure: when no client ID is configured, render a clear
   unavailable sign-in state while catalog and guest cart remain functional.
-- [ ] Accept return targets only from the approved route allowlist and never
+- [x] Accept return targets only from the approved route allowlist and never
   navigate to an arbitrary URL.
-- [ ] Make checkout intent authenticate and request readiness only. Do not create
+- [x] Make checkout intent authenticate and request readiness only. Do not create
   `/checkout`, order, reservation, or payment behavior.
-- [ ] Run authentication/cart tests and production build.
-- [ ] Commit as `feat(storefront): add customer sign-in gate`.
+- [x] Run authentication/cart tests and production build.
+- [x] Commit as `feat(storefront): add customer sign-in gate`.
 
 ### Task 10: Account, Address Book, and Cart Resolution UI
 
@@ -553,20 +553,20 @@ Cart rollback -> Customer rollback -> Inventory -> Company Core -> Catalog
 - Modify: `apps/storefront/src/app/app-router.tsx`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing account tests for guarded routes, verified email display,
+- [x] Write failing account tests for guarded routes, verified email display,
   profile validation, address loading/empty/error/success, create/update/delete,
   default switching, stale version, and ownership denial.
-- [ ] Write failing resolution UI tests for opaque guest/saved summaries,
+- [x] Write failing resolution UI tests for opaque guest/saved summaries,
   keep-guest, keep-saved, merge, conflict correction, pending/disabled states,
   idempotency key reuse, and retry.
-- [ ] Use labels and explicit destructive confirmations; do not place API calls
+- [x] Use labels and explicit destructive confirmations; do not place API calls
   directly in presentational forms or dialogs.
-- [ ] Preserve form input after recoverable validation errors and expose no
+- [x] Preserve form input after recoverable validation errors and expose no
   provider subject, session token, or internal IDs beyond opaque resource IDs.
-- [ ] Verify keyboard focus trapping/restoration for the resolution dialog and
+- [x] Verify keyboard focus trapping/restoration for the resolution dialog and
   mobile text/control fit.
-- [ ] Run account/resolution tests and production build.
-- [ ] Commit as `feat(storefront): add customer account workflows`.
+- [x] Run account/resolution tests and production build.
+- [x] Commit as `feat(storefront): add customer account workflows`.
 
 ### Task 11: Docker, Documentation, Full Validation, and Exit Evidence
 

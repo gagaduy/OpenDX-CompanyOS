@@ -28,6 +28,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the NovaCommerce React storefront with URL-backed catalog discovery,
+  product detail, persistent guest cart, lazy Google identity sign-in,
+  checkout gating, customer profile/address workflows, and accessible cart
+  resolution controls.
 - Add CSRF-protected Cart APIs, explicit persisted guest/customer cart
   resolution, login-time non-conflicting cart transfer, and customer-only
   checkout-readiness validation without checkout, order, or payment state.

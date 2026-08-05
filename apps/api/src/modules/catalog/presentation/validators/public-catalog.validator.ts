@@ -10,9 +10,15 @@ const querySchema = z.object({
   query: z.string().trim().min(1).max(200).optional(),
   category: z.string().trim().min(1).max(220).optional(),
   stockStatus: z.enum(["in_stock", "out_of_stock"]).optional(),
+  minPriceVnd: z.coerce.number().int().nonnegative().safe().optional(),
+  maxPriceVnd: z.coerce.number().int().nonnegative().safe().optional(),
+  sort: z.enum(["newest", "price_asc", "price_desc", "name_asc"]).default("newest"),
   page: page.default(1),
   pageSize: page.max(100).default(20),
-});
+}).refine(
+  ({ minPriceVnd, maxPriceVnd }) => minPriceVnd === undefined || maxPriceVnd === undefined || minPriceVnd <= maxPriceVnd,
+  { path: ["maxPriceVnd"], message: "Maximum price must be greater than or equal to minimum price" },
+);
 const slugSchema = z.string().trim().min(1).max(220);
 const idSchema = z.uuid();
 const versionSchema = z.object({ version: z.number().int().positive() }).strict();

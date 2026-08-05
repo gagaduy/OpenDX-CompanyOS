@@ -188,6 +188,21 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     if (query.category !== undefined && query.category.trim().length > 0) {
       filters.push(`lower(category.slug) = lower(${bind(query.category.trim())})`);
     }
+    if (query.minPriceVnd !== undefined || query.maxPriceVnd !== undefined) {
+      const priceConditions = [
+        "price_variant.product_id = p.id",
+        "price_variant.status = 'active'",
+        "price_filter.valid_from <= NOW()",
+        "(price_filter.valid_to IS NULL OR price_filter.valid_to > NOW())",
+      ];
+      if (query.minPriceVnd !== undefined) priceConditions.push(`price_filter.amount_minor >= ${bind(query.minPriceVnd)}`);
+      if (query.maxPriceVnd !== undefined) priceConditions.push(`price_filter.amount_minor <= ${bind(query.maxPriceVnd)}`);
+      filters.push(`EXISTS (
+        SELECT 1 FROM product_variants price_variant
+        JOIN product_prices price_filter ON price_filter.variant_id = price_variant.id
+        WHERE ${priceConditions.join(" AND ")}
+      )`);
+    }
     const where = filters.join(" AND ");
     const count = await session.query<{ total: string }>(
       `SELECT count(*)::text AS total FROM products p
@@ -197,12 +212,25 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     );
     const limit = bind(query.pageSize);
     const offset = bind((query.page - 1) * query.pageSize);
+    const orderBy = query.sort === "price_asc"
+      ? "minimum_price ASC, p.id"
+      : query.sort === "price_desc"
+        ? "minimum_price DESC, p.id"
+        : query.sort === "name_asc"
+          ? "lower(p.name) ASC, p.id"
+          : "p.updated_at DESC, p.id";
     const products = await session.query<ProductRow>(
       `SELECT ${productProjectionColumns}
+              ,(SELECT min(sort_price.amount_minor)
+                FROM product_variants sort_variant
+                JOIN product_prices sort_price ON sort_price.variant_id = sort_variant.id
+                WHERE sort_variant.product_id = p.id AND sort_variant.status = 'active'
+                  AND sort_price.valid_from <= NOW()
+                  AND (sort_price.valid_to IS NULL OR sort_price.valid_to > NOW())) AS minimum_price
        FROM products p
        ${productProjectionJoins}
        WHERE ${where}
-       ORDER BY p.updated_at DESC, p.id
+       ORDER BY ${orderBy}
        LIMIT ${limit} OFFSET ${offset}`,
       values,
     );
