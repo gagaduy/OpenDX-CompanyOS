@@ -1,0 +1,115 @@
+{
+  "realm": "opendx",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "administrator" },
+      { "name": "catalog_manager" },
+      { "name": "inventory_manager" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "opendx-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "opendx-console",
+      "name": "OpenDX Console",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/auth/callback"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/sign-in",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "opendx-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "opendx-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "preferred-username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@novacommerce.example",
+      "email": "admin@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_admin_change_me", "temporary": true }
+      ],
+      "realmRoles": ["administrator"]
+    },
+    {
+      "username": "catalog@novacommerce.example",
+      "email": "catalog@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Catalog Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_catalog_change_me", "temporary": true }
+      ],
+      "realmRoles": ["catalog_manager"]
+    },
+    {
+      "username": "inventory@novacommerce.example",
+      "email": "inventory@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Inventory Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_inventory_change_me", "temporary": true }
+      ],
+      "realmRoles": ["inventory_manager"]
+    }
+  ]
+}

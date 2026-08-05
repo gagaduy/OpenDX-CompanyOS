@@ -37,7 +37,7 @@ Before committing, run:
 
 ```bash
 git diff --check
-python3 /home/duy/Olympic/TraceGuard/.agents/skills/build-open-source-repository/scripts/audit_repo.py . --spdx-id Apache-2.0
+pnpm audit:repo
 ```
 
 Run project-specific tests once application code exists.

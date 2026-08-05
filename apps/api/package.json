@@ -7,15 +7,41 @@
     "dev": "tsx watch src/server.ts",
     "lint": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "pnpm db:migrate:all",
+    "db:migrate:catalog": "node-pg-migrate up -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
+    "db:migrate:company-core": "node-pg-migrate up -j ts -m src/modules/company-operating-core/infrastructure/database/migrations -t company_core_migrations --check-order",
+    "db:migrate:inventory": "node-pg-migrate up -j ts -m src/modules/inventory/infrastructure/database/migrations -t inventory_migrations --check-order",
+    "db:migrate:all": "pnpm db:migrate:catalog && pnpm db:migrate:company-core && pnpm db:migrate:inventory",
+    "db:rollback": "pnpm db:rollback:all",
+    "db:rollback:catalog": "node-pg-migrate down 1 -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
+    "db:rollback:company-core": "node-pg-migrate down 1 -j ts -m src/modules/company-operating-core/infrastructure/database/migrations -t company_core_migrations --check-order",
+    "db:rollback:inventory": "node-pg-migrate down 1 -j ts -m src/modules/inventory/infrastructure/database/migrations -t inventory_migrations --check-order",
+    "db:rollback:all": "pnpm db:rollback:inventory && pnpm db:rollback:company-core && pnpm db:rollback:catalog",
+    "db:seed:company-core": "tsx src/modules/company-operating-core/infrastructure/seeds/run-nova-commerce.seed.ts",
+    "db:seed:catalog": "tsx src/modules/catalog/infrastructure/seeds/run-catalog-seed.ts",
+    "db:seed:inventory": "tsx src/modules/inventory/infrastructure/seeds/run-inventory-seed.ts",
+    "db:seed:all": "pnpm db:seed:company-core && pnpm db:seed:catalog && pnpm db:seed:inventory"
   },
   "dependencies": {
     "@opendx/domain": "workspace:*",
-    "express": "^5.2.1"
+    "cors": "2.8.6",
+    "express": "^5.2.1",
+    "file-type": "22.0.1",
+    "jose": "6.2.8",
+    "minio": "8.0.7",
+    "multer": "2.2.0",
+    "pg": "8.22.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/cors": "2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "2.2.0",
+    "@types/pg": "8.20.4",
     "@types/supertest": "^7.2.1",
+    "node-pg-migrate": "9.0.0",
     "supertest": "^7.2.2",
     "tsx": "^4.23.1",
     "vitest": "^4.1.10"

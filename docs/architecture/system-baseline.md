@@ -44,8 +44,8 @@ risk level.
 
 ## Backend Modules
 
-- Existing: Company Operating Core.
-- Commerce foundation: Identity, Catalog, Inventory, Customer, Cart, Promotion,
+- Existing: PostgreSQL-backed Company Operating Core, Catalog, and Inventory.
+- Commerce roadmap: Identity, Customer, Cart, Promotion,
   Checkout, Order, Payment, CRM, Support, Reporting, and Audit.
 - Post-commerce: Workflow, Agent, Skill, Policy, Graph, and Integration.
 
@@ -79,8 +79,24 @@ provenance-bearing records.
 ## Commerce Boundaries
 
 - One B2C store, physical goods, one inventory location, and VND only.
-- Guest checkout plus optional customer accounts.
+- Guest discovery and cart plus Google customer accounts required for checkout.
 - Keycloak authenticates staff; customer authentication remains in Commerce.
 - No shipping-provider integration, refunds, returns, or electronic invoices.
 - Browser redirects never prove payment; authenticated SePay IPN or successful
   reconciliation is required.
+
+## Implemented Runtime Topology
+
+The local Commerce runtime runs PostgreSQL 18, Keycloak, MinIO, an
+Express API, and the React console through Docker Compose. One-shot jobs apply
+Catalog, Company Core, then Inventory migrations, bootstrap MinIO, and seed
+Company Core, Catalog, then Inventory before API readiness can succeed.
+Production composition uses PostgreSQL repositories only and has no in-memory
+fallback.
+
+Catalog owns publication rules and depends inward on the public
+`InventoryAvailabilityReader` port; the Inventory module does not import
+Catalog internals. Anonymous `/v1/storefront` reads pass through public Catalog
+DTOs, include live Inventory availability, and authorize media only for
+published products. The public storefront React application is not yet
+implemented.

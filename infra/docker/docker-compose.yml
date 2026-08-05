@@ -3,42 +3,60 @@
 
 name: opendx-companyos
 
+x-api-environment: &api-environment
+  OPENDX_ENV: development
+  API_PORT: "4000"
+  DATABASE_URL: postgres://opendx_local:opendx_local_password@postgres:5432/opendx
+  CONSOLE_ORIGIN: http://localhost:3000
+  KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
+  KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
+  KEYCLOAK_AUDIENCE: opendx-api
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: opendx_minio
+  MINIO_SECRET_KEY: opendx_minio_password
+  MINIO_BUCKET: product-media
+  MEDIA_MAX_BYTES: "10485760"
+  INVENTORY_RESERVATION_TTL_SECONDS: "900"
+  INVENTORY_EXPIRY_INTERVAL_SECONDS: "30"
+
 services:
   postgres:
-    image: pgvector/pgvector:pg18
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
     environment:
       POSTGRES_DB: opendx
       POSTGRES_USER: opendx_local
       POSTGRES_PASSWORD: opendx_local_password
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - opendx_postgres:/var/lib/postgresql/data
+      - opendx_postgres:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opendx_local -d opendx"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.4.2
-    command: ["start-dev"]
+    image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: opendx_admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: opendx_admin_password
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:8080
     ports:
       - "8080:8080"
-
-  temporal:
-    image: temporalio/auto-setup:1.29.1
-    environment:
-      DB: postgresql
-      DB_PORT: 5432
-      POSTGRES_USER: opendx_local
-      POSTGRES_PWD: opendx_local_password
-      POSTGRES_SEEDS: postgres
-    depends_on:
-      - postgres
-    ports:
-      - "7233:7233"
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/opendx-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: opendx_minio
@@ -48,6 +66,104 @@ services:
       - "9001:9001"
     volumes:
       - opendx_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio-bootstrap:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 opendx_minio opendx_minio_password;
+        mc mb --ignore-existing local/product-media
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:migrate:all"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:seed:all"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    ports:
+      - "4000:4000"
+    volumes:
+      - ../../apps/api/src:/workspace/apps/api/src
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  console:
+    build:
+      context: ../..
+      dockerfile: apps/console/Dockerfile
+      network: host
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+      VITE_OIDC_AUTHORITY: http://localhost:8080/realms/opendx
+      VITE_OIDC_CLIENT_ID: opendx-console
+      VITE_OIDC_REDIRECT_URI: http://localhost:3000/auth/callback
+      VITE_OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/sign-in
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../apps/console/src:/workspace/apps/console/src
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  ai-check:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      network: host
+    profiles: ["checks"]
 
 volumes:
   opendx_postgres:

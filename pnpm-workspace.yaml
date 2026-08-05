@@ -15,3 +15,4 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - lucide-react@1.28.0
+  - '@types/pg@8.20.4'

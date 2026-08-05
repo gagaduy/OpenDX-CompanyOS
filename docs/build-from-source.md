@@ -27,8 +27,11 @@ cd services/ai-runtime && python3 -m pip install -e ".[dev]"
 
 From the repository root:
 
+The reproducible container gate requires Docker, but does not require host
+Node.js or Python:
+
 ```bash
-pnpm check
+make check
 ```
 
 This runs:
@@ -36,17 +39,25 @@ This runs:
 - `git diff --check`
 - TypeScript lint gates
 - TypeScript typecheck gates
-- TypeScript tests and Vite console production build
+- TypeScript unit and PostgreSQL/MinIO integration tests
+- Vite console production build
 - Python tests for `services/ai-runtime`
 - Repository governance audit
 - Docker Compose config validation
 
-## Run Local Services
-
-Start local infrastructure:
+The faster host gate remains available after installing dependencies:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml up -d
+pnpm check
+```
+
+## Run Local Services
+
+Start the full local stack, including Catalog → Company Core → Inventory
+migrations and Company Core → Catalog → Inventory seed jobs:
+
+```bash
+make up
 ```
 
 Run the console:
@@ -68,8 +79,15 @@ cd services/ai-runtime
 python3 -m uvicorn app.main:app --reload --port 8000
 ```
 
+The AI runtime is not a long-running service in the Commerce Foundation Compose
+topology; its image is used by `make check`.
+
 ## Configuration
 
 Copy `.env.example` to `.env` for local development if needed. Do not commit `.env` or real credentials.
 
-The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production.
+The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production. See `development/catalog-local-environment.md` and `development/database-operations.md` for operations and data-loss boundaries.
+
+The API readiness probe verifies PostgreSQL migration state for all three
+implemented modules and the MinIO bucket. Runtime persistence remains
+PostgreSQL-only; there is no memory database switch.

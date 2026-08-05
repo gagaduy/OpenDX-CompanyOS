@@ -4,9 +4,14 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApiApp } from "../../../../app";
+import { InMemoryCompanyOperatingCoreRepository } from "../../infrastructure/repositories/implementations/in-memory-company-operating-core.repository";
+import { createNovaCommerceSnapshot } from "../../infrastructure/seeds/nova-commerce.seed";
 
 describe("Company Operating Core API", () => {
-  const app = createApiApp();
+  const app = createApiApp({
+    companyOperatingCoreRepository:
+      new InMemoryCompanyOperatingCoreRepository(createNovaCommerceSnapshot()),
+  });
 
   it("returns the NovaCommerce operating-core snapshot", async () => {
     const response = await request(app).get("/v1/operating-core").expect(200);

@@ -10,10 +10,10 @@ NovaCommerce as a B2C single-store business.
 
 ## Status
 
-The repository and Company Operating Core foundations are complete. The active
-roadmap now builds the NovaCommerce commerce platform through PostgreSQL-backed
-catalog, inventory, storefront, customer, cart, checkout, SePay payment,
-Operational CRM, support, dashboard, and production hardening phases.
+The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
+and product-publication foundation are implemented. The active roadmap continues with the
+storefront frontend, customer, cart, checkout, SePay payment, Operational
+CRM, support, dashboard, and production hardening phases.
 
 ## What It Is
 
@@ -40,7 +40,7 @@ The active MVP is organized around:
 - Company Core.
 - Public storefront and staff console.
 - Catalog and one-location inventory.
-- Guest/customer identity, cart, and checkout.
+- Guest discovery/cart, Google customer identity, and authenticated checkout.
 - Order and SePay Payment Gateway.
 - Operational CRM, support, and dashboard.
 - Staff identity, authorization, audit, and production hardening.
@@ -63,6 +63,9 @@ See:
 - `docs/project-structure.md`
 - `docs/dependencies.md`
 - `docs/api/company-operating-core.md`
+- `docs/api/catalog.md`
+- `docs/api/inventory.md`
+- `docs/api/storefront-catalog.md`
 
 ## Development
 
@@ -86,24 +89,33 @@ pnpm install
 cd services/ai-runtime && python3 -m pip install -e ".[dev]"
 ```
 
+### Run the Containerized Stack
+
+```bash
+make up
+```
+
+Open the staff console at `http://localhost:3000`. The stack includes
+PostgreSQL, Keycloak, MinIO, migrations, deterministic technology-product and
+Inventory seeds, API, and console. Anonymous Storefront Catalog APIs are
+available under `http://localhost:4000/v1/storefront`; the public React
+storefront UI begins in Phase 5 and is not yet implemented.
+
 ### Run Validation
 
 ```bash
-pnpm check
+make check
 ```
 
-### Run Services
+Database operations are exposed through `make db-migrate`, `make db-rollback`,
+`make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. See
+`docs/development/database-operations.md` before restore.
+
+For host-based development after infrastructure is available:
 
 ```bash
-pnpm --filter @opendx/console dev
 pnpm --filter @opendx/api dev
-docker compose -f infra/docker/docker-compose.yml up -d
-```
-
-AI runtime can be served from `services/ai-runtime` with:
-
-```bash
-python3 -m uvicorn app.main:app --reload --port 8000
+pnpm --filter @opendx/console dev
 ```
 
 ## Contributing

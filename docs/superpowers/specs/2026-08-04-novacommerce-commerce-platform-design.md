@@ -37,7 +37,8 @@ there is no Company ID, company selector, or multi-tenant routing.
 
 - Sell physical goods only.
 - Use one inventory location.
-- Support guest checkout and optional customer accounts.
+- Support guest discovery and cart, then require a Google customer account for
+  checkout.
 - Build an Operational CRM, not marketing automation.
 - Use Keycloak for staff and future Digital Employee identities.
 - Keep customer authentication in the Commerce boundary.
@@ -61,7 +62,7 @@ there is no Company ID, company selector, or multi-tenant routing.
 ### Commerce Foundation Includes
 
 - Staff authentication through Keycloak and backend authorization.
-- Customer guest identity and optional registered account.
+- Customer guest identity and Google-registered account.
 - Product catalog, categories, variants, SKU, media, price, and publication.
 - One-location inventory, reservation, release, and stock movements.
 - Product discovery, search, filter, product detail, cart, and checkout.
@@ -125,7 +126,7 @@ financial or inventory mutation.
 - Search and filters.
 - Product detail and variant selection.
 - Cart.
-- Guest/customer checkout.
+- Guest cart and authenticated-customer checkout.
 - SePay redirect result pages.
 - Customer registration, login, profile, addresses, and order history.
 
@@ -223,9 +224,10 @@ Reservation and order creation execute transactionally to prevent overselling.
 - `InteractionEvent`: append-only order, payment, note, and support timeline.
 - `SupportTicket` and `TicketMessage`.
 
-Guest checkout creates or links a customer profile by verified contact data
-without forcing account creation. Account registration can claim an eligible
-guest profile through a verified flow; it cannot merge profiles silently.
+Google registration creates or resolves a customer profile from a verified
+provider subject and email before checkout. Registration can claim an eligible
+guest cart through an explicit verified flow; it cannot merge profiles or carts
+silently.
 
 ### Cart and Checkout
 
@@ -302,10 +304,10 @@ Published product
 → backend returns recalculated cart
 ```
 
-### Guest Checkout-to-Paid Order
+### Authenticated Checkout-to-Paid Order
 
 ```text
-Guest/customer cart
+Authenticated customer cart
 → validate customer and address
 → recalculate catalog prices and promotion
 → reserve inventory in PostgreSQL transaction
@@ -423,8 +425,11 @@ it requires Finance review until a separate design is approved.
 
 - Staff authenticate through Keycloak OIDC.
 - Customer guest sessions use opaque, rotated tokens stored in secure cookies.
-- Registered customer authentication uses proven password/session libraries;
-  DX-OS does not implement cryptographic primitives.
+- Registered customers authenticate with Google Identity Services. The backend
+  verifies signed Google ID tokens through a maintained library, stores only
+  the provider subject and verified email, and issues its own opaque session;
+  DX-OS does not implement cryptographic primitives or persist Google access or
+  refresh tokens.
 - Staff and customer sessions use separate audiences and middleware.
 - Every admin mutation resolves actor, role, action, resource, and risk before
   the service executes.
@@ -519,8 +524,9 @@ public product read contracts, and staff inventory workspace.
 
 ### Phase 5: Storefront, Customer, and Cart
 
-Public storefront, product discovery, guest identity, optional customer
-accounts, CRM profile baseline, cart, and address book.
+Public storefront, product discovery, seven-day guest identity and cart, Google
+customer accounts, CRM profile baseline, address book, and an authenticated
+checkout gate.
 
 ### Phase 6: Checkout, Order, and SePay
 

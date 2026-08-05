@@ -11,8 +11,99 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Serialize reservation references, finalize expiry by complete groups, and
+  reject consumption after the backend-owned TTL.
+- Apply public stock-status filtering before pagination and keep Catalog
+  dependencies on Inventory's exported module contract.
+- Route Inventory Managers to their authorized Inventory workspace after OIDC
+  callback instead of rejecting them at the shared staff route guard.
+- Make the repository governance audit self-contained and portable instead of
+  depending on an absolute path from a contributor workstation.
+
 ### Added
 
+- Add the approved Phase 5 Storefront, Customer, and Cart design with a
+  catalog-first technology storefront, seven-day guest carts, Google customer
+  registration, 30-day Commerce sessions, explicit cart resolution, and an
+  authenticated checkout gate.
+- Complete Phase 4 after source, container, concurrency, OIDC console, public
+  HTTP, responsive UI, and PostgreSQL backup/restore acceptance.
+- Document the Phase 4 Inventory, publication, Storefront Catalog, PostgreSQL
+  operations, runtime topology, and contributor source-build contracts.
+- Add role-aware Catalog publication controls with readiness checks, confirmed
+  unpublishing, published filters, and explicit sold-out product status.
+- Add the role-aware Inventory console workspace with validated API mapping,
+  URL-backed filters, responsive stock states, movement history, and guarded
+  receipt/adjustment dialogs.
+- Seed a deterministic twelve-product technology assortment with generated
+  catalog imagery, mixed PostgreSQL stock states, published storefront data,
+  Inventory migration/seed operations, and a local Inventory Manager role.
+- Expose role-protected Inventory and publication APIs, anonymous Storefront
+  catalog/media routes, audited authorization denials, runtime reservation
+  expiry, and explicit Catalog/Inventory composition over PostgreSQL.
+- Add Catalog publication readiness, publish/unpublish auditing, anonymous-safe
+  PostgreSQL product projections, sold-out availability enrichment, and batched
+  inventory summaries for staff product lists.
+- Add atomic multi-line Inventory reservations with fixed 15-minute expiry,
+  idempotent release/consume, a bounded expiry worker, and PostgreSQL proofs for
+  oversell prevention and concurrent retry/expiry safety.
+- Add PostgreSQL-backed Inventory receipt, adjustment, availability, movement,
+  idempotency recovery, application authorization, and audit use cases.
+- Add the Phase 4 product-publication migration, one-location Inventory schema,
+  rollback coverage, and framework-neutral stock/reservation invariants.
+- Add the approved Phase 4 Inventory and Product Publication design for a
+  technology storefront, one-location PostgreSQL inventory, 15-minute
+  reservations, sold-out product discovery, and oversell-safe publication
+  contracts.
+- Add the file-level Phase 4 implementation plan with PostgreSQL concurrency,
+  publication, public API, console, Docker, seed, documentation, and acceptance
+  checkpoints.
+- Deliver the full-container Commerce Product Foundation with pinned non-root
+  application images, PostgreSQL/MinIO/Keycloak health ordering, deterministic
+  Company Core and twelve-product Catalog seeds, focused Make operations,
+  backup/restore guidance, and contributor documentation.
+- Add product editor panels for variants, immutable VND price replacement,
+  authenticated media management, previews, and catalog audit provenance.
+- Add the authenticated Catalog console workspace with validated API mapping,
+  URL-addressable product filters, product editing, and category management.
+- Add the staff OIDC console shell with protected catalog routing, role-aware
+  navigation, explicit callback/logout handling, and compact responsive UI.
+- Add the normalized PostgreSQL schema and migration runner for Company
+  Operating Core data, including relational and domain-level constraints.
+- Add validated PostgreSQL row mapping and read-only repository transactions
+  for Company Operating Core snapshots and route collections.
+- Add transactional, idempotent NovaCommerce seed persistence and a direct
+  Company Operating Core PostgreSQL seed command.
+- Require explicit Company Operating Core persistence composition, use
+  PostgreSQL in the API runtime, and fail closed when the database is down.
+- Add verified staff OIDC principals, catalog role authorization, and a
+  deterministic local Keycloak realm with PKCE console configuration.
+- Add transaction-scoped PostgreSQL audit persistence for catalog mutations
+  with sensitive metadata rejection.
+- Add authenticated category list, create, update, and archive APIs with
+  hierarchy rules, optimistic versions, PostgreSQL persistence, and audit.
+- Add authenticated product listing, detail, create, edit, and archive flows
+  with pagination projections, PostgreSQL persistence, versions, and audit.
+- Add variant lifecycle and transactional VND price replacement APIs with
+  global SKU uniqueness, optimistic versions, concurrency tests, and audit.
+- Add backend-mediated product media management with byte-signature checks,
+  bounded in-memory uploads, PostgreSQL metadata, MinIO storage, and audit.
+- Compose the authenticated Catalog API with real PostgreSQL, OIDC, MinIO,
+  clock, identity, audit, and media dependencies through one module factory.
+- Add correlation-aware HTTP errors plus liveness and dependency-aware
+  readiness contracts for the API.
+- Add the PostgreSQL pool, transaction boundary, versioned Catalog migration,
+  and isolated database integration-test workflow.
+- Add framework-neutral Catalog entities, value objects, and validated domain
+  invariants for draft product management.
+- Add validated API and console environment contracts plus locked Commerce
+  Foundation dependencies.
+- Add the approved Company Operating Core PostgreSQL persistence companion
+  design for Phase 3.
+- Add the Company Operating Core PostgreSQL persistence companion
+  implementation plan and execution order for Phase 3.
 - Add the Phase 3 Commerce Product Foundation design for a PostgreSQL-backed
   general-merchandise catalog, full-container local stack, focused Makefile,
   Keycloak staff access, MinIO media, and audit.

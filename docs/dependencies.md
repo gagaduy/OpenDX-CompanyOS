@@ -31,6 +31,17 @@ Current major dependencies:
 | `vitest` | packages, API, and console | TypeScript tests |
 | `supertest` | `apps/api` | API endpoint tests |
 | `tsx` | `apps/api` | Local TypeScript server execution |
+| `pg`, `@types/pg` | `apps/api` | PostgreSQL driver and TypeScript contracts (MIT) |
+| `node-pg-migrate` | `apps/api` | Versioned PostgreSQL migrations (MIT) |
+| `zod` | API and console | Runtime environment and boundary validation (MIT) |
+| `jose` | `apps/api` | OIDC JWT and JWKS verification (MIT) |
+| `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
+| `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
+| `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
+| `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
+| `oidc-client-ts` | `apps/console` | Staff Authorization Code with PKCE client (Apache-2.0) |
+| `react-router-dom` | `apps/console` | Authenticated console routing (MIT) |
+| `@testing-library/user-event` | `apps/console` | User-level interaction tests (MIT) |
 
 ## Python
 
@@ -57,12 +68,16 @@ Current images:
 
 | Image | Purpose |
 | --- | --- |
-| `pgvector/pgvector:pg18` | PostgreSQL with pgvector target |
-| `quay.io/keycloak/keycloak:26.4.2` | Local identity provider |
-| `temporalio/auto-setup:1.29.1` | Local Temporal development service |
-| `minio/minio:latest` | Local object storage only |
+| `node:22.22.0-bookworm-slim` | Non-root API and console development images |
+| `python:3.13.12-slim-bookworm` | Non-root AI validation image |
+| `postgres:18.3-bookworm` | Operational and integration-test PostgreSQL |
+| `quay.io/keycloak/keycloak:26.4.2` | Local staff identity provider |
+| `minio/minio:RELEASE.2025-04-22T22-12-26Z` | Local product-media object storage |
+| `minio/mc:RELEASE.2025-04-16T18-13-26Z` | Idempotent local bucket bootstrap |
 
-`minio/minio:latest` is intentionally limited to local development. Do not use it as a production deployment pin.
+Compose and Dockerfiles pin these reviewed tags to immutable image digests.
+Temporal and pgvector are not runtime dependencies of the Commerce Product
+Foundation.
 
 ## Dependency Policy
 

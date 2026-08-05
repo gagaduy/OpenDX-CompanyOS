@@ -26,8 +26,9 @@ public product read contracts, and Inventory staff workspace.
 
 ## Phase 5: Storefront, Customer, and Cart
 
-Public storefront, discovery, product detail, guest identity, optional customer
-accounts, CRM profile baseline, address book, and cart.
+Public storefront, discovery, product detail, seven-day guest identity and cart,
+Google customer accounts, CRM profile baseline, address book, and an
+authenticated checkout gate.
 
 ## Phase 6: Checkout, Order, and SePay
 

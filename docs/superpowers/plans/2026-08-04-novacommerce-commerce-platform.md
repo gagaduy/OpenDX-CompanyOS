@@ -36,8 +36,8 @@ a dormant post-commerce service shell.
   for financial calculations.
 - Prices are tax-inclusive and orders retain immutable price, discount, and tax
   snapshots.
-- Staff use Keycloak; guest and registered customer identity belongs to the
-  Commerce boundary.
+- Staff use Keycloak; guest and Google-registered customer identity belongs to
+  the Commerce boundary, and checkout requires a registered customer session.
 - Browser redirects never prove payment. Only authenticated SePay IPN handling
   or successful provider reconciliation can mark a payment paid.
 - Shipping-provider integration, refunds, partial refunds, returns, exchanges,
@@ -257,8 +257,8 @@ a server-authoritative cart, without introducing payment yet.
 **Interfaces produced for later phases:**
 
 - Public paginated category, search, filter, and product-detail APIs.
-- Guest session and registered customer authentication contracts isolated from
-  staff Keycloak identity.
+- Seven-day guest-session and Google-registered customer authentication
+  contracts isolated from staff Keycloak identity.
 - Customer profile, verified-contact claim, address book, and order-history
   extension points.
 - Cart create/read/update/remove contracts that revalidate variant publication,
@@ -278,8 +278,8 @@ a server-authoritative cart, without introducing payment yet.
   filters and pagination.
 - [ ] Build guest cart creation and registered-customer cart ownership without
   trusting browser totals.
-- [ ] Build customer registration, login, logout, profile, address book, and
-  eligible guest-profile claim flow.
+- [ ] Build Google registration/login, Commerce-owned session rotation, logout,
+  profile, address book, and eligible guest-cart claim flow.
 - [ ] Prevent silent customer-profile merges and cross-account cart access.
 - [ ] Recalculate cart lines and totals on every mutation and mark changed price
   or unavailable stock explicitly.
@@ -297,8 +297,10 @@ a server-authoritative cart, without introducing payment yet.
   maintaining a valid cart across a browser refresh.
 
 **Exit gate:** A guest can discover and inspect real seeded products, select an
-available variant, maintain a backend-authoritative cart, optionally register,
-and manage an address; staff and customer authentication remain isolated.
+available variant, and maintain a backend-authoritative cart; Google login
+creates or restores a customer that can manage an address and pass the
+authenticated checkout gate; staff and customer authentication remain
+isolated.
 
 ---
 
@@ -373,13 +375,14 @@ payment transitions and transactional stock handling.
   from deterministic fake-provider CI tests.
 - [ ] Document sandbox setup, callback exposure for local testing, credential
   rotation, redacted logging, and hosted HTTPS production switch.
-- [ ] Demonstrate guest cart to paid order in sandbox and prove duplicate IPNs
-  do not duplicate payment, order, stock, or audit effects.
+- [ ] Demonstrate authenticated customer cart to paid order in sandbox and
+  prove duplicate IPNs do not duplicate payment, order, stock, or audit
+  effects.
 
-**Exit gate:** A guest checkout creates a transactionally reserved pending
-order, SePay sandbox payment is confirmed only by trusted backend evidence,
-stock is consumed exactly once, staff can process the paid order to completion,
-and no refund/shipping behavior exists.
+**Exit gate:** An authenticated customer checkout creates a transactionally
+reserved pending order, SePay sandbox payment is confirmed only by trusted
+backend evidence, stock is consumed exactly once, staff can process the paid
+order to completion, and no refund/shipping behavior exists.
 
 ---
 
