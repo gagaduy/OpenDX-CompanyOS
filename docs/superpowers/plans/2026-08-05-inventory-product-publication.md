@@ -1204,7 +1204,7 @@ git add docs/roadmap/mvp-status.md CHANGELOG.md
 git commit -m "docs(roadmap): record phase 4 completion"
 ```
 
-- [ ] **Step 8: Stop the local stack without deleting volumes**
+- [x] **Step 8: Stop the local stack without deleting volumes**
 
 Run: `make down`
 
