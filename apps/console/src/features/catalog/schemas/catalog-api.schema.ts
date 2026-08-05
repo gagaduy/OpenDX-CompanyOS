@@ -11,7 +11,7 @@ export const categorySchema = z.object({
 });
 export const productSchema = z.object({
   id: z.uuid(), categoryId: z.uuid(), name: z.string(), slug: z.string(), brand: z.string().optional(),
-  description: z.string(), attributes: z.record(z.string(), attributeValue), status: z.enum(["draft", "archived"]),
+  description: z.string(), attributes: z.record(z.string(), attributeValue), status: z.enum(["draft", "published", "archived"]),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), version: z.number().int().positive(),
 });
 export const productListItemSchema = productSchema.pick({
@@ -19,6 +19,7 @@ export const productListItemSchema = productSchema.pick({
 }).extend({
   categoryName: z.string(), primaryMediaId: z.uuid().optional(), variantCount: z.number().int().nonnegative(),
   minimumPrice: z.number().int().nonnegative().optional(), maximumPrice: z.number().int().nonnegative().optional(),
+  availabilitySummary: z.object({ totalAvailable: z.number().int().nonnegative(), purchasableVariantCount: z.number().int().nonnegative() }),
 });
 export const categoriesEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: z.array(categorySchema) });
 export const categoryEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: categorySchema });
@@ -53,3 +54,8 @@ export const variantEnvelopeSchema = z.object({ success: z.literal(true), messag
 export const priceEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: priceSchema });
 export const mediaEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: mediaSchema });
 export const auditEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: z.array(auditEntrySchema) });
+export const publicationReadinessSchema = z.object({
+  ready: z.boolean(),
+  missing: z.array(z.enum(["ACTIVE_CATEGORY", "ACTIVE_VARIANT", "CURRENT_PRICE", "PRIMARY_IMAGE", "INVENTORY_ITEM"])),
+});
+export const publicationReadinessEnvelopeSchema = z.object({ success: z.literal(true), message: z.string(), data: publicationReadinessSchema });

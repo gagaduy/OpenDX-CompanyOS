@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type CatalogStatus = "active" | "draft" | "archived";
+export type CatalogStatus = "active" | "draft" | "published" | "archived";
 export type AttributeValue = string | number | boolean | readonly string[];
 
 export interface Category {
@@ -25,7 +25,7 @@ export interface Product {
   readonly brand?: string;
   readonly description: string;
   readonly attributes: Readonly<Record<string, AttributeValue>>;
-  readonly status: "draft" | "archived";
+  readonly status: "draft" | "published" | "archived";
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly version: number;
@@ -38,11 +38,15 @@ export interface ProductListItem {
   readonly name: string;
   readonly slug: string;
   readonly brand?: string;
-  readonly status: "draft" | "archived";
+  readonly status: "draft" | "published" | "archived";
   readonly primaryMediaId?: string;
   readonly variantCount: number;
   readonly minimumPrice?: number;
   readonly maximumPrice?: number;
+  readonly availabilitySummary: {
+    readonly totalAvailable: number;
+    readonly purchasableVariantCount: number;
+  };
   readonly updatedAt: string;
   readonly version: number;
 }
@@ -58,9 +62,15 @@ export interface ProductPage {
 export interface ProductQuery {
   readonly query?: string;
   readonly categoryId?: string;
-  readonly status?: "draft" | "archived";
+  readonly status?: "draft" | "published" | "archived";
   readonly page: number;
   readonly pageSize: number;
+}
+
+export type PublicationRequirement = "ACTIVE_CATEGORY" | "ACTIVE_VARIANT" | "CURRENT_PRICE" | "PRIMARY_IMAGE" | "INVENTORY_ITEM";
+export interface PublicationReadiness {
+  readonly ready: boolean;
+  readonly missing: readonly PublicationRequirement[];
 }
 
 export interface ProductInput {

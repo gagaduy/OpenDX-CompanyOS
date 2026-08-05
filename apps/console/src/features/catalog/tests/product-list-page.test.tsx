@@ -20,6 +20,7 @@ const product = {
   variantCount: 2,
   minimumPrice: 199000,
   maximumPrice: 249000,
+  availabilitySummary: { totalAvailable: 8, purchasableVariantCount: 2 },
   updatedAt: "2026-08-05T03:00:00.000Z",
   version: 1,
 };
@@ -32,6 +33,7 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(),
     createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
     uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(async () => "blob:seed-image"), getProductAudit: vi.fn(),
+    checkPublicationReadiness: vi.fn(), publishProduct: vi.fn(), unpublishProduct: vi.fn(),
     ...overrides,
   };
 }
@@ -66,6 +68,15 @@ describe("ProductListPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /retry/i }));
     expect(await screen.findByText(/no products found/i)).toBeVisible();
     expect(listProducts).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows published sold-out products and accepts the published filter", async () => {
+    const published = { ...product, status: "published" as const, availabilitySummary: { totalAvailable: 0, purchasableVariantCount: 0 } };
+    const client = api({ listProducts: vi.fn(async () => ({ items: [published], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 })) });
+    render(<MemoryRouter><ProductListPage api={client} /></MemoryRouter>);
+    expect(await screen.findByText("Published · Out of stock")).toBeVisible();
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "published");
+    await waitFor(() => expect(client.listProducts).toHaveBeenLastCalledWith(expect.objectContaining({ status: "published" })));
   });
 });
 

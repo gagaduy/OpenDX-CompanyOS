@@ -55,5 +55,5 @@ function CatalogPage({ apiBaseUrl, page }: { readonly apiBaseUrl: string; readon
   );
   if (page === "products") return <ProductListPage api={api} />;
   if (page === "categories") return <CategoryPage api={api} />;
-  return <ProductEditorPage api={api} />;
+  return <ProductEditorPage api={api} roles={session?.roles ?? []} />;
 }

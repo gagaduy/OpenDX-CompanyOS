@@ -993,7 +993,7 @@ git commit -m "feat(console): add inventory workspace"
 - Produces: `CatalogApi.checkPublicationReadiness(id)`, `.publishProduct(id, version)`, and `.unpublishProduct(id, version)`.
 - Readiness fields: `{ ready: boolean; missing: readonly PublicationRequirement[] }` where requirements are `ACTIVE_CATEGORY | ACTIVE_VARIANT | CURRENT_PRICE | PRIMARY_IMAGE | INVENTORY_ITEM`.
 
-- [ ] **Step 1: Write failing publication component tests**
+- [x] **Step 1: Write failing publication component tests**
 
 ```tsx
 it("lists every missing publication requirement", async () => {
@@ -1013,13 +1013,13 @@ it("shows published sold-out state without unpublishing", () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify failure**
+- [x] **Step 2: Run focused tests and verify failure**
 
 Run: `pnpm --filter @opendx/console exec vitest run src/features/catalog/tests/publication-panel.test.tsx src/features/catalog/tests/product-editor-page.test.tsx src/features/catalog/tests/product-list-page.test.tsx`
 
 Expected: FAIL because publication UI contracts are absent.
 
-- [ ] **Step 3: Extend validated Catalog transport and editor state**
+- [x] **Step 3: Extend validated Catalog transport and editor state**
 
 Add Zod schemas for `published`, readiness, availability summary, and the
 publish/unpublish response envelopes. Map API errors to stable messages without
@@ -1027,7 +1027,7 @@ showing backend details. Load readiness after product, variants, prices, and
 media; reload it after any editor mutation. Send the current product version on
 publish/unpublish and handle `STALE_VERSION` with the existing refresh copy.
 
-- [ ] **Step 4: Implement publication UI using existing Catalog layout**
+- [x] **Step 4: Implement publication UI using existing Catalog layout**
 
 Add Publication as one focused editor panel or tab, not a new page hierarchy.
 Show a checklist with passed/missing labels, one primary Publish action, and a
@@ -1036,7 +1036,7 @@ confirmed Unpublish action. Product tables show `Draft`, `Published`, and
 status. Hide mutation controls for roles outside `administrator` and
 `catalog_manager`, while backend enforcement remains authoritative.
 
-- [ ] **Step 5: Run all console checks**
+- [x] **Step 5: Run all console checks**
 
 Run: `pnpm --filter @opendx/console test`
 
@@ -1046,7 +1046,7 @@ Run: `pnpm --filter @opendx/console build`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit publication controls**
+- [x] **Step 6: Commit publication controls**
 
 ```bash
 git add apps/console/src CHANGELOG.md

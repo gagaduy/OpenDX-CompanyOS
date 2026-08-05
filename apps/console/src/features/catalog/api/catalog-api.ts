@@ -5,12 +5,13 @@ import {
   auditEnvelopeSchema, categoriesEnvelopeSchema, categoryEnvelopeSchema, errorEnvelopeSchema,
   mediaEnvelopeSchema, priceEnvelopeSchema, productEnvelopeSchema, productListEnvelopeSchema,
   variantEnvelopeSchema,
+  publicationReadinessEnvelopeSchema,
 } from "../schemas/catalog-api.schema";
 import type { ZodType } from "zod";
 import { mapCategory, mapProduct, mapProductPage } from "../mappers/catalog.mapper";
-import type { CatalogAuditEntry, Category, CategoryInput, Product, ProductInput, ProductMedia, ProductPage, ProductPrice, ProductQuery, ProductUpdate, ProductVariant } from "../types/catalog.types";
+import type { CatalogAuditEntry, Category, CategoryInput, Product, ProductInput, ProductMedia, ProductPage, ProductPrice, ProductQuery, ProductUpdate, ProductVariant, PublicationReadiness } from "../types/catalog.types";
 
-export type CatalogErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "CONFLICT" | "STALE_VERSION" | "VALIDATION_ERROR" | "NOT_FOUND" | "INVALID_RESPONSE" | "UNAVAILABLE";
+export type CatalogErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "CONFLICT" | "STALE_VERSION" | "VALIDATION_ERROR" | "NOT_FOUND" | "PRODUCT_NOT_READY_FOR_PUBLICATION" | "PRODUCT_NOT_PUBLISHED" | "INVALID_RESPONSE" | "UNAVAILABLE";
 
 export class CatalogApiError extends Error {
   constructor(readonly code: CatalogErrorCode, message: string) { super(message); this.name = "CatalogApiError"; }
@@ -35,6 +36,9 @@ export interface CatalogApi {
   deleteMedia(productId: string, mediaId: string): Promise<void>;
   loadMediaPreview(productId: string, mediaId: string): Promise<string>;
   getProductAudit(productId: string): Promise<readonly CatalogAuditEntry[]>;
+  checkPublicationReadiness(productId: string): Promise<PublicationReadiness>;
+  publishProduct(productId: string, version: number): Promise<Product>;
+  unpublishProduct(productId: string, version: number): Promise<Product>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -84,6 +88,9 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
       return URL.createObjectURL(await response.blob());
     },
     async getProductAudit(productId) { return parse(auditEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/audit`)).data; },
+    async checkPublicationReadiness(productId) { return parse(publicationReadinessEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publication-readiness`)).data; },
+    async publishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publish`, write("POST", { version }))).data); },
+    async unpublishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/unpublish`, write("POST", { version }))).data); },
   };
 }
 
@@ -109,7 +116,7 @@ function parse<T>(schema: ZodType<T>, value: unknown): T {
 }
 
 function normalizeCode(code: string): CatalogErrorCode {
-  return ["UNAUTHORIZED", "FORBIDDEN", "CONFLICT", "STALE_VERSION", "VALIDATION_ERROR", "NOT_FOUND"].includes(code) ? code as CatalogErrorCode : "UNAVAILABLE";
+  return ["UNAUTHORIZED", "FORBIDDEN", "CONFLICT", "STALE_VERSION", "VALIDATION_ERROR", "NOT_FOUND", "PRODUCT_NOT_READY_FOR_PUBLICATION", "PRODUCT_NOT_PUBLISHED"].includes(code) ? code as CatalogErrorCode : "UNAVAILABLE";
 }
 function normalizeStatus(status: number): CatalogErrorCode { return status === 401 ? "UNAUTHORIZED" : status === 403 ? "FORBIDDEN" : status === 409 ? "CONFLICT" : "UNAVAILABLE"; }
 function publicMessage(code: CatalogErrorCode): string {
@@ -117,5 +124,6 @@ function publicMessage(code: CatalogErrorCode): string {
   if (code === "UNAUTHORIZED") return "Your session has expired.";
   if (code === "STALE_VERSION") return "Refresh required before saving again.";
   if (code === "CONFLICT") return "This slug already exists.";
+  if (code === "PRODUCT_NOT_READY_FOR_PUBLICATION") return "Complete every publication requirement before publishing.";
   return "The catalog request could not be completed.";
 }

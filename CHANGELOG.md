@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add role-aware Catalog publication controls with readiness checks, confirmed
+  unpublishing, published filters, and explicit sold-out product status.
 - Add the role-aware Inventory console workspace with validated API mapping,
   URL-backed filters, responsive stock states, movement history, and guarded
   receipt/adjustment dialogs.

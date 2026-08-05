@@ -18,6 +18,7 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(), ...overrides,
     createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
     uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(async () => []),
+    checkPublicationReadiness: vi.fn(async () => ({ ready: true, missing: [] })), publishProduct: vi.fn(async () => ({ ...product, status: "published" as const, version: 4 })), unpublishProduct: vi.fn(async () => product),
   };
 }
 
@@ -61,6 +62,11 @@ describe("ProductEditorPage", () => {
     expect(screen.getByLabelText("SKU")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Media" }));
     expect(screen.getByLabelText("Product image")).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Publication" }));
+    expect(screen.getByRole("button", { name: "Publish product" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Publish product" }));
+    expect(client.publishProduct).toHaveBeenCalledWith(product.id, product.version);
+    expect(await screen.findByText("Product published.")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Audit" }));
     expect(await screen.findByText(/no audit activity yet/i)).toBeVisible();
   });

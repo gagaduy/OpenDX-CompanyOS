@@ -493,6 +493,7 @@ textarea {
 }
 
 .status-archived { color: var(--ink-tertiary); }
+.status-published { color: #9bd3ad; }
 
 .rowActions {
   gap: 2px;
@@ -687,6 +688,26 @@ textarea {
   border-radius: 12px;
   background: var(--surface-1);
 }
+
+.publicationPanel > header,
+.publicationActions,
+.unpublishConfirmation > div {
+  display: flex;
+  align-items: center;
+}
+
+.publicationPanel > header { justify-content: space-between; gap: 16px; }
+.publicationPanel h2 { margin: 0; font-size: 18px; }
+.publicationPanel > p { margin: 0; color: var(--ink-subtle); font-size: 12px; }
+.publicationChecklist { margin: 0; padding: 0; list-style: none; }
+.publicationChecklist li { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--hairline); font-size: 12px; }
+.publicationChecklist li:last-child { border-bottom: 0; }
+.requirementReady { color: #9bd3ad; }
+.requirementMissing { color: #f0a6a6; }
+.publicationActions { justify-content: flex-end; }
+.unpublishConfirmation { padding: 14px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-2); }
+.unpublishConfirmation p { margin: 0 0 12px; color: var(--ink-muted); font-size: 12px; }
+.unpublishConfirmation > div { justify-content: flex-end; gap: 8px; }
 
 .variantCreate,
 .mediaUpload {
