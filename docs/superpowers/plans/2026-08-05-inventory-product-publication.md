@@ -116,7 +116,7 @@ SPDX-License-Identifier: Apache-2.0
 - Produces: `runInventoryMigrations(databaseUrl, direction, count?)` using migration table `inventory_migrations`.
 - Database contract: `inventory_items`, `inventory_reservations`, and `stock_movements`; `products.status` accepts `draft | published | archived`.
 
-- [ ] **Step 1: Write failing domain invariant tests**
+- [x] **Step 1: Write failing domain invariant tests**
 
 ```ts
 it("computes availability and rejects oversell", () => {
@@ -144,13 +144,13 @@ it("allows only active reservations to finalize", () => {
 });
 ```
 
-- [ ] **Step 2: Run the domain test and verify the missing-module failure**
+- [x] **Step 2: Run the domain test and verify the missing-module failure**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/domain/services/inventory-rules.test.ts`
 
 Expected: FAIL because the Inventory domain files do not exist.
 
-- [ ] **Step 3: Implement the pure domain types and calculations**
+- [x] **Step 3: Implement the pure domain types and calculations**
 
 ```ts
 export interface InventoryItem {
@@ -175,7 +175,7 @@ export function availableQuantity(item: InventoryItem): number {
 Implement all deltas as safe integers, reject non-positive receipts/reservations,
 reject zero adjustments, and keep reservation terminal states immutable.
 
-- [ ] **Step 4: Write failing migration coverage**
+- [x] **Step 4: Write failing migration coverage**
 
 ```ts
 it("creates inventory constraints and rolls them back", async () => {
@@ -199,13 +199,13 @@ it("creates inventory constraints and rolls them back", async () => {
 });
 ```
 
-- [ ] **Step 5: Run the migration test and verify it fails**
+- [x] **Step 5: Run the migration test and verify it fails**
 
 Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:${POSTGRES_PORT:-5432}/opendx_test pnpm --filter @opendx/api exec vitest run --config vitest.integration.config.ts src/modules/inventory/infrastructure/database/inventory-migration.integration.test.ts`
 
 Expected: FAIL because the Inventory migration runner and tables are absent.
 
-- [ ] **Step 6: Implement exact schema constraints and rollback order**
+- [x] **Step 6: Implement exact schema constraints and rollback order**
 
 ```ts
 pgm.createTable("inventory_items", {
@@ -232,7 +232,7 @@ Drop movements, reservations, then items in `down`. The publication migration
 replaces the Product status check in `up` and restores it only after converting
 published rows to draft in `down`.
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/domain/services/inventory-rules.test.ts`
 
@@ -240,7 +240,7 @@ Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit the schema and domain unit**
+- [x] **Step 8: Commit the schema and domain unit**
 
 ```bash
 git add apps/api/src/shared/database/migrations apps/api/src/modules/inventory CHANGELOG.md

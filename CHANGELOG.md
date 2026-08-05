@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the Phase 4 product-publication migration, one-location Inventory schema,
+  rollback coverage, and framework-neutral stock/reservation invariants.
 - Add the approved Phase 4 Inventory and Product Publication design for a
   technology storefront, one-location PostgreSQL inventory, 15-minute
   reservations, sold-out product discovery, and oversell-safe publication
