@@ -274,7 +274,7 @@ git commit -m "feat(inventory): add stock schema and domain invariants"
 - Produces: Catalog's exported `CatalogVariantReader.findById(session, variantId)` returning `{ id, sku, status }` without exposing a Catalog entity or repository.
 - Consumes: Task 1 domain functions and schema.
 
-- [ ] **Step 1: Write failing service tests for first receipt, retry, adjustment, and audit**
+- [x] **Step 1: Write failing service tests for first receipt, retry, adjustment, and audit**
 
 ```ts
 it("creates the first balance and movement atomically", async () => {
@@ -306,13 +306,13 @@ it("rejects an adjustment below reserved stock", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the service tests and verify they fail**
+- [x] **Step 2: Run the service tests and verify they fail**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/application/services/implementations/inventory.service.test.ts`
 
 Expected: FAIL because service contracts and implementations are absent.
 
-- [ ] **Step 3: Define repository and service signatures before implementation**
+- [x] **Step 3: Define repository and service signatures before implementation**
 
 ```ts
 export interface InventoryRepository {
@@ -339,11 +339,11 @@ export interface CatalogVariantReader {
 Use `SELECT ... FOR UPDATE` only in write transactions. Validate that the
 variant exists and is active through the Catalog module's exported
 `CatalogVariantReader`, passed to the service constructor; do not import a
-Catalog repository. Export a `createCatalogVariantReader(transactions)` factory
+Catalog repository. Export a `createCatalogVariantReader()` factory
 from Catalog's `index.ts` so `server.ts` can construct this public read contract
 before composing Inventory.
 
-- [ ] **Step 4: Implement receive, adjust, queries, mapping, and audit atomically**
+- [x] **Step 4: Implement receive, adjust, queries, mapping, and audit atomically**
 
 For receipt, check the idempotency key first, lock or create the variant's item,
 apply the positive quantity, append one `receive` movement, and append one audit
@@ -354,7 +354,7 @@ For adjustment, require `reasonCode`, trim the optional note, compare the
 request version, apply a non-zero signed delta, append one `adjustment` movement,
 and return `STALE_VERSION` or `INVALID_STOCK_ADJUSTMENT` deterministically.
 
-- [ ] **Step 5: Write PostgreSQL adapter tests**
+- [x] **Step 5: Write PostgreSQL adapter tests**
 
 ```ts
 it("persists an explanatory movement with every balance change", async () => {
@@ -370,7 +370,7 @@ it("persists an explanatory movement with every balance change", async () => {
 });
 ```
 
-- [ ] **Step 6: Run unit and PostgreSQL tests**
+- [x] **Step 6: Run unit and PostgreSQL tests**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/application/services/implementations/inventory.service.test.ts`
 
@@ -378,7 +378,7 @@ Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the staff inventory application slice**
+- [x] **Step 7: Commit the staff inventory application slice**
 
 ```bash
 git add apps/api/src/modules/inventory apps/api/src/modules/catalog/application/services apps/api/src/modules/catalog/index.ts CHANGELOG.md

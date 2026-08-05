@@ -8,6 +8,7 @@ import { CategoryService } from "./application/services/implementations/category
 import { ProductMediaService } from "./application/services/implementations/product-media.service";
 import { ProductService } from "./application/services/implementations/product.service";
 import { VariantService } from "./application/services/implementations/variant.service";
+import { CatalogVariantReaderService } from "./application/services/implementations/catalog-variant-reader";
 import type { ProductMediaInspector, ProductMediaStorage } from "./application/storage/product-media.storage";
 import { PostgresqlCatalogAuditRepository } from "./infrastructure/repositories/implementations/postgresql-catalog-audit.repository";
 import { PostgresqlCategoryRepository } from "./infrastructure/repositories/implementations/postgresql-category.repository";
@@ -31,6 +32,10 @@ export interface CatalogModuleDependencies {
   readonly generateId: () => string;
   readonly now: () => string;
   readonly mediaMaximumBytes: number;
+}
+
+export function createCatalogVariantReader() {
+  return new CatalogVariantReaderService(new PostgresqlVariantRepository());
 }
 
 export function createCatalogModule(dependencies: CatalogModuleDependencies): Router {

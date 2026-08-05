@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add PostgreSQL-backed Inventory receipt, adjustment, availability, movement,
+  idempotency recovery, application authorization, and audit use cases.
 - Add the Phase 4 product-publication migration, one-location Inventory schema,
   rollback coverage, and framework-neutral stock/reservation invariants.
 - Add the approved Phase 4 Inventory and Product Publication design for a
