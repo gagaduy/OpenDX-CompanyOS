@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Make the repository governance audit self-contained and portable instead of
+  depending on an absolute path from a contributor workstation.
+
 ### Added
 
 - Add the normalized PostgreSQL schema and migration runner for Company
