@@ -15,12 +15,18 @@ const catalogSession: AuthSession = {
   displayName: "Catalog Manager",
   roles: ["catalog_manager"],
 };
+const inventorySession: AuthSession = {
+  accessToken: "inventory-token",
+  subject: "user_inventory",
+  displayName: "Inventory Manager",
+  roles: ["inventory_manager"],
+};
 
-function createClient(session: AuthSession | null): AuthClient {
+function createClient(session: AuthSession | null, completedSession: AuthSession = catalogSession): AuthClient {
   return {
     getSession: vi.fn(async () => session),
     signIn: vi.fn(async () => undefined),
-    completeSignIn: vi.fn(async () => catalogSession),
+    completeSignIn: vi.fn(async () => completedSession),
     signOut: vi.fn(async () => undefined),
   };
 }
@@ -50,6 +56,18 @@ describe("console authentication routes", () => {
     expect(await screen.findByRole("heading", { name: "Products" })).toBeVisible();
   });
 
+  it("completes Inventory Manager sign-in and opens inventory", async () => {
+    const client = createClient(null, inventorySession);
+    renderRoute("/auth/callback", client);
+    await waitFor(() => expect(client.completeSignIn).toHaveBeenCalledOnce());
+    expect(await screen.findByRole("heading", { name: "Inventory" })).toBeVisible();
+  });
+
+  it("allows Inventory Managers into their workspace", async () => {
+    renderRoute("/inventory", createClient(inventorySession));
+    expect(await screen.findByRole("heading", { name: "Inventory" })).toBeVisible();
+  });
+
   it.each(["administrator", "catalog_manager"] as const)(
     "allows the %s role into catalog",
     async (role) => {
@@ -58,7 +76,7 @@ describe("console authentication routes", () => {
     },
   );
 
-  it("renders permission denied for authenticated staff without a catalog role", async () => {
+  it("renders permission denied for authenticated users without a staff role", async () => {
     renderRoute(
       "/products",
       createClient({ ...catalogSession, roles: [] }),

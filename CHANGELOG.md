@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Route Inventory Managers to their authorized Inventory workspace after OIDC
+  callback instead of rejecting them at the shared staff route guard.
 - Make the repository governance audit self-contained and portable instead of
   depending on an absolute path from a contributor workstation.
 

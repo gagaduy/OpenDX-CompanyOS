@@ -13,7 +13,7 @@ export function AuthCallbackPage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void completeSignIn().then(() => navigate("/products", { replace: true }));
+    void completeSignIn().then(() => navigate("/", { replace: true }));
   }, [completeSignIn, navigate]);
 
   return <main className="centeredState">Completing secure sign-in…</main>;

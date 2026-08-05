@@ -8,12 +8,12 @@ export function ProtectedRoute() {
   const { loading, session } = useAuth();
   if (loading) return <main className="centeredState">Loading staff session…</main>;
   if (session === null) return <Navigate to="/sign-in" replace />;
-  if (!session.roles.some((role) => role === "administrator" || role === "catalog_manager")) {
+  if (!session.roles.some((role) => role === "administrator" || role === "catalog_manager" || role === "inventory_manager")) {
     return (
       <main className="centeredState">
         <div>
           <h1>Permission denied</h1>
-          <p>Your account does not have a Catalog staff role.</p>
+          <p>Your account does not have an authorized staff role.</p>
         </div>
       </main>
     );
