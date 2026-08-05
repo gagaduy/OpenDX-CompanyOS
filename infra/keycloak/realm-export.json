@@ -10,26 +10,6 @@
       { "name": "catalog_manager" }
     ]
   },
-  "clientScopes": [
-    {
-      "name": "opendx-api-audience",
-      "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" },
-      "protocolMappers": [
-        {
-          "name": "opendx-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "consentRequired": false,
-          "config": {
-            "included.client.audience": "opendx-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
-        }
-      ]
-    }
-  ],
   "clients": [
     {
       "clientId": "opendx-api",
@@ -51,13 +31,45 @@
         "post.logout.redirect.uris": "http://localhost:3000/sign-in",
         "pkce.code.challenge.method": "S256"
       },
-      "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "roles",
-        "profile",
-        "email",
-        "opendx-api-audience"
+      "protocolMappers": [
+        {
+          "name": "opendx-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "opendx-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "preferred-username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "jsonType.label": "String"
+          }
+        }
       ]
     }
   ],

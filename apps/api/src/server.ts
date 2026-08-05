@@ -11,6 +11,7 @@ import { parseApiEnvironment } from "./shared/config/environment";
 import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
+import type { DependencyStatus } from "./shared/http/health.routes";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -30,6 +31,7 @@ const catalogRouter = createCatalogModule({
   mediaInspector: new FileTypeProductMediaInspector(),
   staffTokenVerifier: createRemoteStaffTokenVerifier({
     issuer: environment.keycloakIssuer,
+    jwksUrl: environment.keycloakJwksUrl,
     audience: environment.keycloakAudience,
   }),
   generateId: randomUUID,
@@ -40,6 +42,26 @@ const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
   companyOperatingCoreRepository: repository,
   catalogRouter,
+  readiness: async () => ({
+    postgres: await probe(async () => { await pool.query("SELECT 1"); }),
+    migrations: await probe(async () => {
+      const result = await pool.query<{ catalog: string; company_core: string }>(
+        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core",
+      );
+      if (Number(result.rows[0]?.catalog ?? 0) < 1 || Number(result.rows[0]?.company_core ?? 0) < 1) {
+        throw new Error("Database migrations are incomplete");
+      }
+    }),
+    keycloak: await probe(async () => {
+      const response = await fetch(environment.keycloakJwksUrl);
+      if (!response.ok) throw new Error("Keycloak JWKS is unavailable");
+    }),
+    minio: await probe(async () => {
+      if (!(await minio.bucketExists(environment.minioBucket))) {
+        throw new Error("Product media bucket is unavailable");
+      }
+    }),
+  }),
 });
 
 const server = app.listen(environment.apiPort, () => {
@@ -54,3 +76,12 @@ async function shutdown(): Promise<void> {
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
+
+async function probe(operation: () => Promise<void>): Promise<DependencyStatus> {
+  try {
+    await operation();
+    return "up";
+  } catch {
+    return "down";
+  }
+}

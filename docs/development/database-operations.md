@@ -1,0 +1,51 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Database Operations
+
+PostgreSQL is the only production/runtime persistence path for both Catalog and
+Company Operating Core. The API has no in-memory fallback. The migration job
+applies Catalog migrations before Company Core migrations; seed ordering is
+Company Core followed by Catalog.
+
+## Migrate, Roll Back, and Seed
+
+```bash
+make db-migrate
+make db-rollback
+make db-seed
+```
+
+Direct equivalents are:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml run --rm migrate
+docker compose -f infra/docker/docker-compose.yml run --rm api pnpm --filter @opendx/api db:rollback:all
+docker compose -f infra/docker/docker-compose.yml run --rm seed
+```
+
+Rollback removes one Company Core migration and then one Catalog migration.
+It is destructive and intended for local development. Seeding is transactional
+and idempotent at the database boundary; Catalog image objects use stable MinIO
+keys.
+
+## Backup and Restore
+
+```bash
+make db-backup
+make db-restore BACKUP=infra/backups/opendx-YYYYMMDD-HHMMSS.dump
+```
+
+Backups are PostgreSQL custom-format archives under the ignored
+`infra/backups/` directory. Restore rejects an empty or missing path and runs
+`pg_restore --clean --if-exists --no-owner`. Consequently, restore replaces
+matching database objects and can destroy newer local data. Stop writes and
+retain a separate backup before restoring. MinIO objects are not included in a
+PostgreSQL archive and need an independent object-storage backup for disaster
+recovery.
+
+`make down` preserves named volumes. Removing Compose volumes, for example with
+`docker compose down --volumes`, permanently removes local PostgreSQL and MinIO
+state and is intentionally not exposed as a Make target.

@@ -24,13 +24,15 @@ docs/
 
 `apps/console` contains the React + TypeScript product console built with Vite.
 Its `src/app` directory owns application composition,
-`src/features/company-overview` owns the current Mission Control-style product
-surface, and `src/shared` contains only genuinely shared frontend concerns.
+`src/features/company-overview` owns the Mission Control-style company surface,
+`src/features/catalog` owns staff catalog workflows, and `src/shared` contains
+only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
-`modules/company-operating-core` slice owns domain, application,
-infrastructure, the configured NovaCommerce seed, presentation, and integration
-tests.
+`modules/company-operating-core` and `modules/catalog` own their respective
+domain, application, infrastructure, presentation, seed, and test code. Both
+runtime repositories use shared PostgreSQL transaction infrastructure; Catalog
+media storage remains behind its inward-facing storage port.
 
 `apps/storefront` is the approved future public commerce frontend. It will be
 created in the Storefront phase with its first source and tests, not as an empty
@@ -56,7 +58,11 @@ entities belong to their API module rather than this package.
 
 ## Infrastructure and Scripts
 
-`infra/docker` contains local Docker Compose infrastructure.
+`infra/docker` contains the pinned full local Docker Compose topology,
+PostgreSQL test-database initialization, and Keycloak realm import.
+
+`infra/backups` is the ignored local destination for custom-format PostgreSQL
+archives created by the root `Makefile`.
 
 `scripts/audit` contains repository governance audit helpers.
 

@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Deliver the full-container Commerce Product Foundation with pinned non-root
+  application images, PostgreSQL/MinIO/Keycloak health ordering, deterministic
+  Company Core and twelve-product Catalog seeds, focused Make operations,
+  backup/restore guidance, and contributor documentation.
 - Add product editor panels for variants, immutable VND price replacement,
   authenticated media management, previews, and catalog audit provenance.
 - Add the authenticated Catalog console workspace with validated API mapping,

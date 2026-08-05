@@ -16,6 +16,7 @@ const product = {
   slug: "steel-bottle",
   brand: "Nova",
   status: "draft" as const,
+  primaryMediaId: "50000000-0000-4000-8000-000000000001",
   variantCount: 2,
   minimumPrice: 199000,
   maximumPrice: 249000,
@@ -30,7 +31,7 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     getProduct: vi.fn(), createProduct: vi.fn(), updateProduct: vi.fn(), archiveProduct: vi.fn(async () => undefined),
     createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(),
     createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
-    uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(),
+    uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(async () => "blob:seed-image"), getProductAudit: vi.fn(),
     ...overrides,
   };
 }
@@ -43,6 +44,7 @@ describe("ProductListPage", () => {
     expect(screen.getByText(/loading products/i)).toBeVisible();
     resolve({ items: [product], page: 1, pageSize: 20, totalItems: 21, totalPages: 2 });
     expect(await screen.findByText("Steel Bottle")).toBeVisible();
+    expect(await screen.findByRole("img", { name: "Steel Bottle thumbnail" })).toHaveAttribute("src", "blob:seed-image");
     expect(screen.getByText("₫199,000 – ₫249,000")).toBeVisible();
 
     await userEvent.type(screen.getByRole("searchbox"), "bottle");

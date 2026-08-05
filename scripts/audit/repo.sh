@@ -18,7 +18,11 @@ required_files=(
   .env.example
   package.json
   pnpm-lock.yaml
+  Makefile
   infra/docker/docker-compose.yml
+  apps/api/Dockerfile
+  apps/console/Dockerfile
+  services/ai-runtime/Dockerfile
 )
 
 for required_file in "${required_files[@]}"; do
@@ -27,6 +31,45 @@ for required_file in "${required_files[@]}"; do
     exit 1
   fi
 done
+
+expected_make_targets="check db-backup db-migrate db-restore db-rollback db-seed down help logs up"
+actual_make_targets="$(sed -n 's/^\([a-z][a-z-]*\):.*/\1/p' Makefile | sort -u | tr '\n' ' ' | sed 's/ $//')"
+if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
+  echo "Repository audit failed: Makefile targets must be exactly: ${expected_make_targets}" >&2
+  exit 1
+fi
+
+compose_file="infra/docker/docker-compose.yml"
+if grep -Eq '(^|[[:space:]])temporal:|:latest([[:space:]]|$)' "${compose_file}"; then
+  echo "Repository audit failed: active Compose cannot contain Temporal or latest images" >&2
+  exit 1
+fi
+
+for required_compose_text in \
+  "healthcheck:" \
+  "opendx_postgres:" \
+  "opendx_minio:" \
+  "--import-realm" \
+  "minio-bootstrap:" \
+  "migrate:" \
+  "seed:" \
+  "db:migrate:all" \
+  "db:seed:all"; do
+  if ! grep -q -- "${required_compose_text}" "${compose_file}"; then
+    echo "Repository audit failed: Compose is missing ${required_compose_text}" >&2
+    exit 1
+  fi
+done
+
+if grep -R "InMemoryCompanyOperatingCoreRepository" apps/api/src/server.ts apps/api/src/app.ts >/dev/null; then
+  echo "Repository audit failed: production Company Core cannot use memory persistence" >&2
+  exit 1
+fi
+
+if git ls-files 'infra/backups/*.dump' | grep -q .; then
+  echo "Repository audit failed: database backup archives must not be tracked" >&2
+  exit 1
+fi
 
 if ! grep -q "Apache License" LICENSE; then
   echo "Repository audit failed: LICENSE is not Apache-2.0" >&2

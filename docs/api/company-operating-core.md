@@ -5,9 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Company Operating Core API
 
-The Phase 2 API is read-only and exposes deterministic data for the one
-configured company, NovaCommerce. CompanyOS does not select between companies
-and therefore has no Company ID route parameter or response field.
+The API is read-only and exposes PostgreSQL-backed data for the one configured
+company, NovaCommerce. CompanyOS does not select between companies and
+therefore has no Company ID route parameter or response field. The local seed
+is deterministic, transactional, and idempotent; production composition has no
+in-memory repository fallback.
 
 ## Endpoints
 
@@ -58,7 +60,8 @@ The configured company is implicit. Future authorization middleware evaluates
 the authenticated actor's department, role, resource, action, data
 classification, workflow context, and risk level before allowing access.
 
-## Phase 2 Boundaries
+## Boundaries
 
-These endpoints do not implement persistence, SSO, RBAC, Temporal workflows,
+These endpoints do not implement mutation, SSO/RBAC enforcement, workflows,
 Digital Employee execution, Tool Registry behavior, or GraphRAG retrieval.
+Database unavailability fails closed instead of returning seeded memory data.

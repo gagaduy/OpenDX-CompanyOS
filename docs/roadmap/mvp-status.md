@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 2 is complete. Phase 3 Commerce Product Foundation focused design is
-approved and its implementation plan is written for execution. An approved
-companion design migrates Company Operating Core runtime persistence from
-memory to PostgreSQL during the same phase.
+Phase 3 Commerce Product Foundation is implemented. Catalog and Company
+Operating Core now use PostgreSQL runtime persistence; the full local stack
+also includes Keycloak, MinIO, deterministic seeds, API, and staff console.
+Phase 4 Inventory and Product Publication is the next phase and has not been
+kicked off.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -21,7 +22,7 @@ Active commerce master plan:
 | --- | --- | --- | --- | --- |
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
-| Phase 3: Commerce Product Foundation | Ready for implementation | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Pending implementation and exit gate |
+| Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Not started | Master design only | Not created | Not decided |
 | Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
@@ -48,12 +49,15 @@ Active commerce master plan:
 - Company Operating Core PostgreSQL persistence companion design approved;
   detailed companion implementation plan written for execution after Commerce
   Tasks 1-4.
+- Phase 3 validation: 104 API unit tests, 27 console tests, 24 PostgreSQL/MinIO
+  integration tests, four shared-package tests, one Python test, console
+  production build, repository audit, and Docker Compose configuration pass.
+  Full-container readiness, repeated seed, custom-format backup/restore, PKCE
+  login, authenticated seed images, and responsive Chrome acceptance also pass.
 
 ## Open Risks
 
-- Real SSO login flow is not implemented.
-- Product catalog, commerce persistence, and public storefront are not
-  implemented.
+- Customer identity and the public storefront are not implemented.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
 - Shipping, refunds, returns, and electronic invoices are outside the current

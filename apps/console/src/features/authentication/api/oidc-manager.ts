@@ -31,7 +31,7 @@ export function createOidcAuthClient(environment: ConsoleEnvironment): AuthClien
     redirect_uri: environment.oidcRedirectUri,
     post_logout_redirect_uri: environment.oidcPostLogoutRedirectUri,
     response_type: "code",
-    scope: "openid profile email roles",
+    scope: "openid",
     automaticSilentRenew: false,
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
   });

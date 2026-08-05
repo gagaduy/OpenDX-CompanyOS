@@ -68,12 +68,16 @@ Current images:
 
 | Image | Purpose |
 | --- | --- |
-| `pgvector/pgvector:pg18` | PostgreSQL with pgvector target |
-| `quay.io/keycloak/keycloak:26.4.2` | Local identity provider |
-| `temporalio/auto-setup:1.29.1` | Local Temporal development service |
-| `minio/minio:latest` | Local object storage only |
+| `node:22.22.0-bookworm-slim` | Non-root API and console development images |
+| `python:3.13.12-slim-bookworm` | Non-root AI validation image |
+| `postgres:18.3-bookworm` | Operational and integration-test PostgreSQL |
+| `quay.io/keycloak/keycloak:26.4.2` | Local staff identity provider |
+| `minio/minio:RELEASE.2025-04-22T22-12-26Z` | Local product-media object storage |
+| `minio/mc:RELEASE.2025-04-16T18-13-26Z` | Idempotent local bucket bootstrap |
 
-`minio/minio:latest` is intentionally limited to local development. Do not use it as a production deployment pin.
+Compose and Dockerfiles pin these reviewed tags to immutable image digests.
+Temporal and pgvector are not runtime dependencies of the Commerce Product
+Foundation.
 
 ## Dependency Policy
 

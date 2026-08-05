@@ -17,6 +17,7 @@ const apiEnvironmentSchema = z.object({
   }),
   CONSOLE_ORIGIN: z.url(),
   KEYCLOAK_ISSUER: z.url(),
+  KEYCLOAK_JWKS_URL: z.url().optional(),
   KEYCLOAK_AUDIENCE: z.string().trim().min(1),
   MINIO_ENDPOINT: z.url(),
   MINIO_ACCESS_KEY: z.string().trim().min(1),
@@ -31,6 +32,7 @@ export interface ApiEnvironment {
   readonly databaseUrl: string;
   readonly consoleOrigin: string;
   readonly keycloakIssuer: string;
+  readonly keycloakJwksUrl: string;
   readonly keycloakAudience: string;
   readonly minioEndpoint: string;
   readonly minioAccessKey: string;
@@ -50,6 +52,9 @@ export function parseApiEnvironment(
     databaseUrl: value.DATABASE_URL,
     consoleOrigin: value.CONSOLE_ORIGIN,
     keycloakIssuer: value.KEYCLOAK_ISSUER,
+    keycloakJwksUrl:
+      value.KEYCLOAK_JWKS_URL ??
+      `${value.KEYCLOAK_ISSUER.replace(/\/$/, "")}/protocol/openid-connect/certs`,
     keycloakAudience: value.KEYCLOAK_AUDIENCE,
     minioEndpoint: value.MINIO_ENDPOINT,
     minioAccessKey: value.MINIO_ACCESS_KEY,

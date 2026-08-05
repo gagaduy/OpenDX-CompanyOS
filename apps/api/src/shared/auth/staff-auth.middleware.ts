@@ -17,6 +17,7 @@ export interface StaffTokenVerifier {
 export interface RemoteStaffTokenVerifierOptions {
   readonly issuer: string;
   readonly audience: string;
+  readonly jwksUrl?: string;
 }
 
 const STAFF_ROLES = new Set<StaffRole>([
@@ -29,7 +30,7 @@ export function createRemoteStaffTokenVerifier(
 ): StaffTokenVerifier {
   const issuer = options.issuer.replace(/\/$/, "");
   const jwks = createRemoteJWKSet(
-    new URL(`${issuer}/protocol/openid-connect/certs`),
+    new URL(options.jwksUrl ?? `${issuer}/protocol/openid-connect/certs`),
   );
 
   return {
