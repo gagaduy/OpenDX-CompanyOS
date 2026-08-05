@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Pass the optional repository-root `.env` explicitly to Docker Compose so
+  local Google Sign-In configuration reaches API and Storefront containers
+  without changing relative build or bind-mount paths.
 - Make the double-submit CSRF cookie readable from the Storefront document path
   while keeping guest and customer session cookies API-scoped and `HttpOnly`.
   Expire the legacy API-path cookie and tolerate both values during migration,

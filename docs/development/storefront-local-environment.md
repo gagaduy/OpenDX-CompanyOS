@@ -29,6 +29,10 @@ Restart `api` and `storefront` after changing the value. Do not commit `.env`,
 Google credentials, ID tokens, customer cookies, or CSRF tokens. No Google
 client secret is used by this identity-only browser flow.
 
+When the root `.env` exists, the repository Makefile passes it explicitly to
+Compose. Direct Compose commands that need Google configuration must likewise
+include `--env-file .env` before `-f`.
+
 For host development:
 
 ```bash

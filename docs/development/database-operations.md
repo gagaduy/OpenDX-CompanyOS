@@ -56,5 +56,6 @@ restore, run `make db-migrate` before starting writes if the archive predates
 the current schema.
 
 `make down` preserves named volumes. Removing Compose volumes, for example with
-`docker compose down --volumes`, permanently removes local PostgreSQL and MinIO
-state and is intentionally not exposed as a Make target.
+`docker compose -f infra/docker/docker-compose.yml down --volumes`, permanently
+removes local PostgreSQL and MinIO state and is intentionally not exposed as a
+Make target.

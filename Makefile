@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 # SPDX-License-Identifier: Apache-2.0
 
-COMPOSE := docker compose -f infra/docker/docker-compose.yml
+COMPOSE_ENV := $(if $(wildcard .env),--env-file .env,)
+COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
 
 .PHONY: help up down logs check db-migrate db-rollback db-seed db-backup db-restore
 

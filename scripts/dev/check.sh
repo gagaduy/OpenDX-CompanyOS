@@ -12,4 +12,8 @@ pnpm --filter @opendx/console build
 pnpm --filter @opendx/storefront build
 pnpm test:py
 pnpm audit:repo
-docker compose -f infra/docker/docker-compose.yml config >/dev/null
+compose_env=()
+if [[ -f .env ]]; then
+  compose_env=(--env-file .env)
+fi
+docker compose "${compose_env[@]}" -f infra/docker/docker-compose.yml config >/dev/null
