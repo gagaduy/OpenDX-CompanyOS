@@ -8,12 +8,15 @@ import { AppRouter } from "./app-router";
 import { parseConsoleEnvironment } from "./environment";
 
 export function App({ authClient }: { readonly authClient?: AuthClient }) {
+  const environment = authClient === undefined
+    ? parseConsoleEnvironment(import.meta.env)
+    : undefined;
   const client =
-    authClient ?? createOidcAuthClient(parseConsoleEnvironment(import.meta.env));
+    authClient ?? createOidcAuthClient(environment!);
   return (
     <BrowserRouter>
       <AuthProvider client={client}>
-        <AppRouter />
+        <AppRouter apiBaseUrl={environment?.apiBaseUrl ?? "http://localhost"} />
       </AuthProvider>
     </BrowserRouter>
   );
