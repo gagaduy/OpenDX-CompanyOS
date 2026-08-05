@@ -34,9 +34,11 @@ export function useProductEditor(api: CatalogApi, productId?: string) {
       setProduct(saved);
       setNotice(productId === undefined ? "Product created." : "Product saved.");
       if (productId !== undefined) await refreshReadiness();
+      return saved;
     } catch (error) {
       const code = error instanceof CatalogApiError ? error.code : "UNAVAILABLE";
       setNotice(code === "STALE_VERSION" ? "Refresh required before saving again." : code === "CONFLICT" ? "This slug already exists." : code === "FORBIDDEN" ? "Permission denied." : "Unable to save this product.");
+      return undefined;
     }
   }
   async function changePublication(action: "publish" | "unpublish") {

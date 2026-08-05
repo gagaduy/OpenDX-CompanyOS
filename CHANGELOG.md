@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Navigate newly created products to their persistent editor URL so variants,
+  media, publication, and audit controls become available immediately.
 - Serialize reservation references, finalize expiry by complete groups, and
   reject consumption after the backend-owned TTL.
 - Apply public stock-status filtering before pagination and keep Catalog
