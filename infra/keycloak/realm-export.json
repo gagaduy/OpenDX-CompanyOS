@@ -1,0 +1,90 @@
+{
+  "realm": "opendx",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "administrator" },
+      { "name": "catalog_manager" }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "opendx-api-audience",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        {
+          "name": "opendx-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "opendx-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "opendx-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "opendx-console",
+      "name": "OpenDX Console",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/auth/callback"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/sign-in",
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "email",
+        "opendx-api-audience"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@novacommerce.example",
+      "email": "admin@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_admin_change_me", "temporary": true }
+      ],
+      "realmRoles": ["administrator"]
+    },
+    {
+      "username": "catalog@novacommerce.example",
+      "email": "catalog@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Catalog Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_catalog_change_me", "temporary": true }
+      ],
+      "realmRoles": ["catalog_manager"]
+    }
+  ]
+}
