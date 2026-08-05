@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add atomic multi-line Inventory reservations with fixed 15-minute expiry,
+  idempotent release/consume, a bounded expiry worker, and PostgreSQL proofs for
+  oversell prevention and concurrent retry/expiry safety.
 - Add PostgreSQL-backed Inventory receipt, adjustment, availability, movement,
   idempotency recovery, application authorization, and audit use cases.
 - Add the Phase 4 product-publication migration, one-location Inventory schema,

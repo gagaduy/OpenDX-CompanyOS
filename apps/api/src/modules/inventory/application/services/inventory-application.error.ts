@@ -5,6 +5,7 @@ export type InventoryApplicationErrorCode =
   | "CONFLICT"
   | "FORBIDDEN"
   | "INVENTORY_ITEM_NOT_FOUND"
+  | "RESERVATION_NOT_FOUND"
   | "STALE_VERSION"
   | "VARIANT_NOT_FOUND"
   | "VARIANT_NOT_ACTIVE";

@@ -406,7 +406,7 @@ git commit -m "feat(inventory): add stock balance operations"
 - Reservation output: `{ referenceType; referenceId; status; expiresAt; lines: readonly ReservationLineDto[] }`.
 - Produces: `ReservationExpiryWorker.start()` and `.stop()`; its batch callback invokes `expireDue(100, systemContext)`.
 
-- [ ] **Step 1: Write failing reservation state and idempotency tests**
+- [x] **Step 1: Write failing reservation state and idempotency tests**
 
 ```ts
 it("uses a backend-owned fifteen-minute expiry", async () => {
@@ -427,13 +427,13 @@ it.each(["released", "expired", "consumed"] as const)(
 );
 ```
 
-- [ ] **Step 2: Run unit tests and verify failure**
+- [x] **Step 2: Run unit tests and verify failure**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/application/services/implementations/inventory-reservation.service.test.ts`
 
 Expected: FAIL because reservation application code is absent.
 
-- [ ] **Step 3: Implement deterministic multi-line reservation orchestration**
+- [x] **Step 3: Implement deterministic multi-line reservation orchestration**
 
 Sort unique variant IDs before locking so concurrent multi-line reservations use
 one lock order. Reject duplicate variant lines, non-positive quantities, inactive
@@ -447,7 +447,7 @@ Release/expire decrement `reserved`; consume decrements both `onHand` and
 `reserved`. Lock reservation rows then inventory rows in stable UUID order and
 finalize all lines atomically.
 
-- [ ] **Step 4: Write the required concurrent PostgreSQL proof**
+- [x] **Step 4: Write the required concurrent PostgreSQL proof**
 
 ```ts
 it("never reserves more units than one SKU has available", async () => {
@@ -468,7 +468,7 @@ it("never reserves more units than one SKU has available", async () => {
 Also test two expiry workers racing for the same due reservation and assert one
 `expiry` movement, one terminal state, and `reserved = 0`.
 
-- [ ] **Step 5: Run the reservation and concurrency tests**
+- [x] **Step 5: Run the reservation and concurrency tests**
 
 Run: `pnpm --filter @opendx/api exec vitest run src/modules/inventory/application/services/implementations/inventory-reservation.service.test.ts src/modules/inventory/infrastructure/workers/reservation-expiry.worker.test.ts`
 
@@ -477,7 +477,7 @@ Run: `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:
 Expected: PASS with exactly ten successful reservations and no negative
 availability.
 
-- [ ] **Step 6: Commit the reservation lifecycle**
+- [x] **Step 6: Commit the reservation lifecycle**
 
 ```bash
 git add apps/api/src/modules/inventory CHANGELOG.md

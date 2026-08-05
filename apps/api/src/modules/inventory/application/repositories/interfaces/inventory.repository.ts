@@ -5,6 +5,10 @@ import type { DatabaseSession } from "../../../../../shared/database/transaction
 import type { InventoryItem } from "../../../domain/entities/inventory-item";
 import type { StockMovement } from "../../../domain/entities/stock-movement";
 import type {
+  InventoryReservation,
+  InventoryReservationReferenceType,
+} from "../../../domain/entities/inventory-reservation";
+import type {
   InventoryAvailability,
   InventoryItemResponseDto,
   InventoryListQuery,
@@ -61,4 +65,27 @@ export interface InventoryRepository {
     session: DatabaseSession,
     variantIds: readonly string[],
   ): Promise<ReadonlyMap<string, InventoryAvailability>>;
+  findReservationGroup(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<readonly InventoryReservation[]>;
+  lockReservationGroup(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<readonly InventoryReservation[]>;
+  createReservation(
+    session: DatabaseSession,
+    reservation: InventoryReservation,
+  ): Promise<void>;
+  updateReservation(
+    session: DatabaseSession,
+    reservation: InventoryReservation,
+  ): Promise<boolean>;
+  lockDueReservations(
+    session: DatabaseSession,
+    now: string,
+    limit: number,
+  ): Promise<readonly InventoryReservation[]>;
 }

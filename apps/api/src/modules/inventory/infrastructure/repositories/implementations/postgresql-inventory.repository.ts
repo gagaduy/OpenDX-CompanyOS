@@ -3,6 +3,11 @@
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { InventoryItem } from "../../../domain/entities/inventory-item";
+import type {
+  InventoryReservation,
+  InventoryReservationReferenceType,
+  InventoryReservationStatus,
+} from "../../../domain/entities/inventory-reservation";
 import type { StockMovement, StockMovementType } from "../../../domain/entities/stock-movement";
 import type {
   InventoryAvailability,
@@ -49,6 +54,19 @@ interface MovementRow {
   correlation_id: string;
   idempotency_key: string | null;
   occurred_at: Date | string;
+}
+
+interface ReservationRow {
+  id: string;
+  reference_type: string;
+  reference_id: string;
+  variant_id: string;
+  quantity: number;
+  status: string;
+  expires_at: Date | string;
+  finalized_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 const itemColumns = `id, variant_id, on_hand, reserved, version,
@@ -262,6 +280,80 @@ export class PostgresqlInventoryRepository implements InventoryRepository {
     return availability;
   }
 
+  async findReservationGroup(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<readonly InventoryReservation[]> {
+    return this.reservationGroup(session, referenceType, referenceId, false);
+  }
+
+  async lockReservationGroup(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+  ): Promise<readonly InventoryReservation[]> {
+    return this.reservationGroup(session, referenceType, referenceId, true);
+  }
+
+  async createReservation(
+    session: DatabaseSession,
+    reservation: InventoryReservation,
+  ): Promise<void> {
+    await session.query(
+      `INSERT INTO inventory_reservations
+        (id, reference_type, reference_id, variant_id, quantity, status,
+         expires_at, finalized_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        reservation.id,
+        reservation.referenceType,
+        reservation.referenceId,
+        reservation.variantId,
+        reservation.quantity,
+        reservation.status,
+        reservation.expiresAt,
+        reservation.finalizedAt ?? null,
+        reservation.createdAt,
+        reservation.updatedAt,
+      ],
+    );
+  }
+
+  async updateReservation(
+    session: DatabaseSession,
+    reservation: InventoryReservation,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE inventory_reservations
+       SET status = $2, finalized_at = $3, updated_at = $4
+       WHERE id = $1 AND status = 'active'`,
+      [
+        reservation.id,
+        reservation.status,
+        reservation.finalizedAt ?? null,
+        reservation.updatedAt,
+      ],
+    );
+    return result.rowCount === 1;
+  }
+
+  async lockDueReservations(
+    session: DatabaseSession,
+    now: string,
+    limit: number,
+  ): Promise<readonly InventoryReservation[]> {
+    const result = await session.query<ReservationRow>(
+      `SELECT * FROM inventory_reservations
+       WHERE status = 'active' AND expires_at <= $1
+       ORDER BY expires_at, id
+       FOR UPDATE SKIP LOCKED
+       LIMIT $2`,
+      [now, limit],
+    );
+    return result.rows.map(mapReservation);
+  }
+
   private async findOne(
     session: DatabaseSession,
     predicate: string,
@@ -272,6 +364,22 @@ export class PostgresqlInventoryRepository implements InventoryRepository {
       values,
     );
     return result.rows[0] === undefined ? undefined : mapItemRow(result.rows[0]);
+  }
+
+  private async reservationGroup(
+    session: DatabaseSession,
+    referenceType: InventoryReservationReferenceType,
+    referenceId: string,
+    lock: boolean,
+  ): Promise<readonly InventoryReservation[]> {
+    const result = await session.query<ReservationRow>(
+      `SELECT * FROM inventory_reservations
+       WHERE reference_type = $1 AND reference_id = $2
+       ORDER BY variant_id
+       ${lock ? "FOR UPDATE" : ""}`,
+      [referenceType, referenceId],
+    );
+    return result.rows.map(mapReservation);
   }
 }
 
@@ -324,6 +432,21 @@ function mapMovement(row: MovementRow): StockMovement {
   };
 }
 
+function mapReservation(row: ReservationRow): InventoryReservation {
+  return {
+    id: row.id,
+    referenceType: row.reference_type === "order" ? "order" : "checkout",
+    referenceId: row.reference_id,
+    variantId: row.variant_id,
+    quantity: row.quantity,
+    status: reservationStatus(row.status),
+    expiresAt: toIso(row.expires_at),
+    ...(row.finalized_at === null ? {} : { finalizedAt: toIso(row.finalized_at) }),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+  };
+}
+
 function movementType(value: string): StockMovementType {
   if (
     value !== "receive" &&
@@ -334,6 +457,18 @@ function movementType(value: string): StockMovementType {
     value !== "consume"
   ) {
     throw new Error(`Invalid stock movement type: ${value}`);
+  }
+  return value;
+}
+
+function reservationStatus(value: string): InventoryReservationStatus {
+  if (
+    value !== "active" &&
+    value !== "released" &&
+    value !== "expired" &&
+    value !== "consumed"
+  ) {
+    throw new Error(`Invalid inventory reservation status: ${value}`);
   }
   return value;
 }

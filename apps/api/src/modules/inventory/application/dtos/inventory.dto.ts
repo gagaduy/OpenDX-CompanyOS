@@ -16,6 +16,7 @@ export interface InventoryCommandContext {
 }
 
 export interface InventorySystemContext {
+  readonly actorType: "staff" | "system";
   readonly actorId: string;
   readonly correlationId: string;
 }

@@ -65,6 +65,11 @@ function dependencies(
     findMovementByIdempotencyKey: vi.fn(async () => undefined),
     listMovements: vi.fn(async () => ({ items: [], totalItems: 0 })),
     getAvailabilityByVariantIds: vi.fn(async () => new Map()),
+    findReservationGroup: vi.fn(async () => []),
+    lockReservationGroup: vi.fn(async () => []),
+    createReservation: vi.fn(async () => undefined),
+    updateReservation: vi.fn(async () => true),
+    lockDueReservations: vi.fn(async () => []),
     ...overrides,
   };
   const auditEntries: InventoryAuditEntry[] = [];
