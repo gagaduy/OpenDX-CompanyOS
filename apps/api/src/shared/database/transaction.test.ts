@@ -49,4 +49,19 @@ describe("PostgresTransactionRunner", () => {
     expect(fixture.calls).toEqual(["BEGIN", "ROLLBACK"]);
     expect(fixture.release).toHaveBeenCalledOnce();
   });
+
+  it("starts read-only work with an explicit transaction mode", async () => {
+    const fixture = createPool();
+    const runner = new PostgresTransactionRunner(fixture.pool);
+
+    await runner.runReadOnly(async (session) => {
+      await session.query("SELECT 1");
+    });
+
+    expect(fixture.calls).toEqual([
+      "BEGIN READ ONLY",
+      "SELECT 1",
+      "COMMIT",
+    ]);
+  });
 });
