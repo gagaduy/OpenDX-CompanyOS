@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   technology storefront, one-location PostgreSQL inventory, 15-minute
   reservations, sold-out product discovery, and oversell-safe publication
   contracts.
+- Add the file-level Phase 4 implementation plan with PostgreSQL concurrency,
+  publication, public API, console, Docker, seed, documentation, and acceptance
+  checkpoints.
 - Deliver the full-container Commerce Product Foundation with pinned non-root
   application images, PostgreSQL/MinIO/Keycloak health ordering, deterministic
   Company Core and twelve-product Catalog seeds, focused Make operations,
