@@ -8,7 +8,9 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 2 is complete. Phase 3 Commerce Product Foundation focused design is
-approved and its implementation plan is written for execution.
+approved and its implementation plan is written for execution. An approved
+companion design migrates Company Operating Core runtime persistence from
+memory to PostgreSQL during the same phase.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -43,6 +45,8 @@ Active commerce master plan:
   dashboard.
 - Phase 3 focused design approved conceptually for a PostgreSQL-backed general-
   merchandise catalog; written-spec review remains pending.
+- Company Operating Core PostgreSQL persistence companion design approved;
+  detailed implementation planning is pending.
 
 ## Open Risks
 

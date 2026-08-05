@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the approved Company Operating Core PostgreSQL persistence companion
+  design for Phase 3.
 - Add the Phase 3 Commerce Product Foundation design for a PostgreSQL-backed
   general-merchandise catalog, full-container local stack, focused Makefile,
   Keycloak staff access, MinIO media, and audit.
