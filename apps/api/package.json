@@ -10,7 +10,8 @@
     "test": "vitest run --exclude '**/*.integration.test.ts'",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:migrate": "node-pg-migrate up -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
-    "db:rollback": "node-pg-migrate down 1 -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order"
+    "db:rollback": "node-pg-migrate down 1 -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
+    "db:seed:company-core": "tsx src/modules/company-operating-core/infrastructure/seeds/run-nova-commerce.seed.ts"
   },
   "dependencies": {
     "@opendx/domain": "workspace:*",
