@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 3 Commerce Product Foundation is implemented. Phase 4 Inventory and
-Product Publication is active with an approved focused design and a detailed
-implementation plan. Phase 4 implementation and exit validation have not
-started.
+Phase 4 Inventory and Product Publication implementation is complete and its
+exit validation is active. Phase 5 does not begin until the Phase 4 acceptance
+gate has fresh evidence.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -22,7 +21,7 @@ Active commerce master plan:
 | Phase 1: Foundation | Complete | `docs/superpowers/specs/2026-07-30-app-foundation-design.md` | `docs/superpowers/plans/2026-07-30-app-foundation.md` | Complete after validation |
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
-| Phase 4: Inventory and Product Publication | Planning complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Not decided |
+| Phase 4: Inventory and Product Publication | Exit validation | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Pending acceptance evidence |
 | Phase 5: Storefront, Customer, and Cart | Not started | Master design only | Not created | Not decided |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
@@ -56,10 +55,15 @@ Active commerce master plan:
 - Phase 4 focused design and file-level implementation plan approved for
   one-location PostgreSQL inventory, 15-minute reservations, technology product
   publication, sold-out discovery, and an Inventory console workspace.
+- Phase 4 implementation adds PostgreSQL Inventory balances, movements and
+  reservations, Catalog publication, anonymous public Catalog reads, technology
+  fixtures, and role-aware Inventory/publication console workflows. Exit
+  validation remains pending.
 
 ## Open Risks
 
-- Customer identity and the public storefront are not implemented.
+- Customer identity and the public storefront frontend are not implemented;
+  the anonymous Storefront Catalog API is implemented.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
 - Shipping, refunds, returns, and electronic invoices are outside the current

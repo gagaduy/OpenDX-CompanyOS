@@ -53,7 +53,8 @@ pnpm check
 
 ## Run Local Services
 
-Start the full local stack, including migration and seed jobs:
+Start the full local stack, including Catalog → Company Core → Inventory
+migrations and Company Core → Catalog → Inventory seed jobs:
 
 ```bash
 make up
@@ -86,3 +87,7 @@ topology; its image is used by `make check`.
 Copy `.env.example` to `.env` for local development if needed. Do not commit `.env` or real credentials.
 
 The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production. See `development/catalog-local-environment.md` and `development/database-operations.md` for operations and data-loss boundaries.
+
+The API readiness probe verifies PostgreSQL migration state for all three
+implemented modules and the MinIO bucket. Runtime persistence remains
+PostgreSQL-only; there is no memory database switch.

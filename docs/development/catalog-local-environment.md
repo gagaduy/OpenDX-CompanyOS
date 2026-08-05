@@ -18,20 +18,26 @@ console at `http://localhost:9001`. Local credentials are development-only and
 are declared in the Compose file and imported Keycloak realm.
 
 The seed is deterministic and safe to repeat. It creates NovaCommerce Company
-Operating Core data plus four Catalog categories, twelve draft products,
-twenty-four active variants/current VND prices, and twelve repository-owned
-product images in MinIO:
+Operating Core data plus six technology categories, twelve products, twenty-four
+active variants/current VND prices, twelve repository-owned product images in
+MinIO, and twenty-four initialized Inventory rows. Ten products are published;
+the fixtures intentionally include sold-out and reserved stock states:
 
 ```bash
 make db-seed
 make db-seed
 ```
 
-Use an `administrator` or `catalog_manager` account to enter `/catalog`. A
+Use an `administrator` or `catalog_manager` account to manage Products and
+Categories. Use the local `inventory@novacommerce.example` account with the
+temporary password configured by `KEYCLOAK_DEV_INVENTORY_PASSWORD` to enter
+`/inventory`; Keycloak requires changing the temporary password on first login. A
 signed-in user without either role may view the denied state but cannot mutate
-Catalog data. The console supports filtered product listing, category and
+Catalog data. Catalog Managers may read Inventory but only Administrators and
+Inventory Managers may receive or adjust stock. The console supports filtered product listing, category and
 product editing, variants, immutable price replacement, media upload/preview,
-and audit history.
+publication readiness/actions, audit history, Inventory filters, balance
+details, movements, receipts, and reasoned adjustments.
 
 ## Acceptance Commands
 
@@ -53,6 +59,12 @@ If media is unavailable, verify `http://localhost:9000/minio/health/live`, the
 `http://localhost:4000/health/ready`. If login fails, verify the imported
 `opendx` realm and that the browser-visible issuer remains
 `http://localhost:8080/realms/opendx`.
+
+The API uses PostgreSQL only. Reservation TTL is fixed at 900 seconds and the
+runtime expiry scan defaults to 30 seconds through
+`INVENTORY_RESERVATION_TTL_SECONDS` and
+`INVENTORY_EXPIRY_INTERVAL_SECONDS`. Temporal is not part of this Compose
+topology.
 
 ## Phase 3 Acceptance Evidence
 

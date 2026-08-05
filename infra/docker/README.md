@@ -28,10 +28,16 @@ make check
 make down
 ```
 
-PostgreSQL must become healthy before migrations. MinIO must become healthy
-before bucket bootstrap. The idempotent seed runs only after both jobs, then the
+PostgreSQL must become healthy before Catalog → Company Core → Inventory
+migrations. MinIO must become healthy before bucket bootstrap. The Company
+Core → Catalog → Inventory idempotent seed runs only after both jobs, then the
 API waits for Keycloak and seed completion before the console starts. Normal
 shutdown preserves the `opendx_postgres` and `opendx_minio` volumes.
+
+API readiness checks every module migration table and the MinIO bucket. The
+Inventory expiry worker uses a 900-second reservation TTL and a 30-second scan.
+No Temporal service is started. Use `POSTGRES_PORT=<free-port> make up` when
+host port 5432 is occupied; internal service connections remain on 5432.
 
 See `docs/development/catalog-local-environment.md` and
 `docs/development/database-operations.md` for seed, backup, restore, and

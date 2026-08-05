@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Document the Phase 4 Inventory, publication, Storefront Catalog, PostgreSQL
+  operations, runtime topology, and contributor source-build contracts.
 - Add role-aware Catalog publication controls with readiness checks, confirmed
   unpublishing, published filters, and explicit sold-out product status.
 - Add the role-aware Inventory console workspace with validated API mapping,

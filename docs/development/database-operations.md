@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Database Operations
 
-PostgreSQL is the only production/runtime persistence path for both Catalog and
-Company Operating Core. The API has no in-memory fallback. The migration job
-applies Catalog migrations before Company Core migrations; seed ordering is
-Company Core followed by Catalog.
+PostgreSQL is the only production/runtime persistence path for Catalog,
+Company Operating Core, and Inventory. The API has no in-memory fallback. The
+migration job applies Catalog, Company Core, then Inventory migrations. Seed
+ordering is Company Core, Catalog, then Inventory.
 
 ## Migrate, Roll Back, and Seed
 
@@ -26,7 +26,7 @@ docker compose -f infra/docker/docker-compose.yml run --rm api pnpm --filter @op
 docker compose -f infra/docker/docker-compose.yml run --rm seed
 ```
 
-Rollback removes one Company Core migration and then one Catalog migration.
+Rollback runs in the inverse order: Inventory, Company Core, then Catalog.
 It is destructive and intended for local development. Seeding is transactional
 and idempotent at the database boundary; Catalog image objects use stable MinIO
 keys.
@@ -45,6 +45,11 @@ matching database objects and can destroy newer local data. Stop writes and
 retain a separate backup before restoring. MinIO objects are not included in a
 PostgreSQL archive and need an independent object-storage backup for disaster
 recovery.
+
+The PostgreSQL archive includes Catalog publication state, Company Operating
+Core data, Inventory balances, movements, idempotency records, and
+reservations. After restore, run `make db-migrate` before starting writes if
+the archive predates the current schema.
 
 `make down` preserves named volumes. Removing Compose volumes, for example with
 `docker compose down --volumes`, permanently removes local PostgreSQL and MinIO

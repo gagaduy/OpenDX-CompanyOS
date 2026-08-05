@@ -25,13 +25,14 @@ docs/
 `apps/console` contains the React + TypeScript product console built with Vite.
 Its `src/app` directory owns application composition,
 `src/features/company-overview` owns the Mission Control-style company surface,
-`src/features/catalog` owns staff catalog workflows, and `src/shared` contains
+`src/features/catalog` owns staff catalog/publication workflows,
+`src/features/inventory` owns stock operations, and `src/shared` contains
 only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
-`modules/company-operating-core` and `modules/catalog` own their respective
+`modules/company-operating-core`, `modules/catalog`, and `modules/inventory` own their respective
 domain, application, infrastructure, presentation, seed, and test code. Both
-runtime repositories use shared PostgreSQL transaction infrastructure; Catalog
+commerce repositories use shared PostgreSQL transaction infrastructure; Catalog
 media storage remains behind its inward-facing storage port.
 
 `apps/storefront` is the approved future public commerce frontend. It will be

@@ -1077,7 +1077,7 @@ git commit -m "feat(console): add product publication controls"
   command equivalents.
 - Changes Phase 4 status only after Task 10 proves the exit gate.
 
-- [ ] **Step 1: Write the API contracts from implemented validators and DTOs**
+- [x] **Step 1: Write the API contracts from implemented validators and DTOs**
 
 Document receipt, adjustment, inventory list/detail/movements, publication,
 public categories/list/detail/media, pagination, role matrix, success examples,
@@ -1093,7 +1093,7 @@ and each stable error. Include a sold-out example:
 }
 ```
 
-- [ ] **Step 2: Document operations with exact direct commands**
+- [x] **Step 2: Document operations with exact direct commands**
 
 Record Catalog → Company Core → Inventory migration order, inverse rollback,
 Company Core → Catalog → Inventory seed order, 900-second TTL, 30-second expiry
@@ -1102,13 +1102,13 @@ coverage, and Docker health behavior. Remove the stale `TEMPORAL_ADDRESS` sample
 from `.env.example` if it remains unused after Task 6; do not add Temporal to
 Compose.
 
-- [ ] **Step 3: Update architecture and project structure to implemented facts**
+- [x] **Step 3: Update architecture and project structure to implemented facts**
 
 Record the Inventory module and console feature only after their source exists.
 Document Catalog-to-Inventory public port direction and anonymous storefront
 read boundary. Do not document `apps/storefront` as implemented.
 
-- [ ] **Step 4: Run documentation governance checks**
+- [x] **Step 4: Run documentation governance checks**
 
 Run: `git diff --check`
 
@@ -1116,7 +1116,7 @@ Run: `pnpm audit:repo`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit contributor documentation**
+- [x] **Step 5: Commit contributor documentation**
 
 ```bash
 git add README.md docs infra/docker/README.md CHANGELOG.md
