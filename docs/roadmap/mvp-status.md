@@ -46,7 +46,8 @@ Active commerce master plan:
 - Phase 3 focused design approved conceptually for a PostgreSQL-backed general-
   merchandise catalog; written-spec review remains pending.
 - Company Operating Core PostgreSQL persistence companion design approved;
-  detailed implementation planning is pending.
+  detailed companion implementation plan written for execution after Commerce
+  Tasks 1-4.
 
 ## Open Risks
 

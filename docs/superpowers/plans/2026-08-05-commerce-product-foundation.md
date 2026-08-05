@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Approved companion scope:** After Tasks 1-4, execute
+> `2026-08-05-company-operating-core-postgresql.md`, then resume Tasks 5-15.
+> Integrate the companion Docker/migration/seed requirements in Task 15.
+
 **Goal:** Deliver a full-container NovaCommerce staff workflow for managing a
 PostgreSQL-backed general-merchandise catalog with categories, products,
 variants, SKU, VND prices, MinIO media, Keycloak authorization, and audit.
@@ -43,8 +47,9 @@ Vitest 4, Testing Library, Supertest, Docker Compose, and GNU Make.
 - Full-container local mode is the supported workflow.
 - Root Makefile targets are limited to `help`, `up`, `down`, `logs`, `check`,
   `db-migrate`, `db-rollback`, `db-seed`, `db-backup`, and `db-restore`.
-- Do not implement Company Core persistence, inventory, storefront, cart,
-  checkout, SePay, shipping, refund, return, workflow, agent, or GraphRAG work.
+- Implement Company Core persistence only through the approved companion plan.
+  Do not implement inventory, storefront, cart, checkout, SePay, shipping,
+  refund, return, workflow, agent, or GraphRAG work.
 - New source files carry SPDX Apache-2.0 headers.
 - Use TDD: observe each focused test fail for the expected reason before adding
   the minimum implementation.
