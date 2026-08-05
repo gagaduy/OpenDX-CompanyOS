@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the approved Phase 4 Inventory and Product Publication design for a
+  technology storefront, one-location PostgreSQL inventory, 15-minute
+  reservations, sold-out product discovery, and oversell-safe publication
+  contracts.
 - Deliver the full-container Commerce Product Foundation with pinned non-root
   application images, PostgreSQL/MinIO/Keycloak health ordering, deterministic
   Company Core and twelve-product Catalog seeds, focused Make operations,
