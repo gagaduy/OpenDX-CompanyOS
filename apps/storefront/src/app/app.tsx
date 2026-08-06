@@ -9,6 +9,7 @@ import { CustomerAccountApi } from "../features/customer-account/api/customer-ac
 import { ApiClient } from "../shared/http/api-client";
 import { createAppRouter } from "./app-router";
 import type { StorefrontEnvironment } from "./environment";
+import { ThemeProvider } from "./theme-provider";
 
 export function App({
   environment,
@@ -26,5 +27,9 @@ export function App({
       ? {}
       : { googleClientId: environment.googleClientId }),
   });
-  return <RouterProvider router={router} />;
+  return (
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  );
 }

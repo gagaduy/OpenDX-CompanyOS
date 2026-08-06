@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { formatVnd } from "../../../shared/format/currency";
@@ -21,6 +22,7 @@ export function ProductDetailPage({
   const detail = useProductDetail(api, productSlug);
   const { add, loading: cartLoading, error: cartError } = useCart();
   const [selectedId, setSelectedId] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   useEffect(() => {
     if (detail.product !== undefined && selectedId === "")
@@ -49,7 +51,7 @@ export function ProductDetailPage({
   const submit = async () => {
     setAdded(false);
     try {
-      await add(selected.id);
+      await add(selected.id, quantity);
       setAdded(true);
     } catch {
       setAdded(false);
@@ -77,11 +79,38 @@ export function ProductDetailPage({
             ? `Còn ${selected.availableQuantity} sản phẩm`
             : "Tạm hết hàng"}
         </p>
+        <div className="purchase-quantity">
+          <span>Số lượng</span>
+          <div className="stepper">
+            <button
+              type="button"
+              aria-label="Giảm số lượng"
+              disabled={quantity <= 1}
+              onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+            >
+              <Minus />
+            </button>
+            <output aria-label="Số lượng đã chọn">{quantity}</output>
+            <button
+              type="button"
+              aria-label="Tăng số lượng"
+              disabled={quantity >= selected.availableQuantity}
+              onClick={() =>
+                setQuantity((current) =>
+                  Math.min(selected.availableQuantity, current + 1),
+                )
+              }
+            >
+              <Plus />
+            </button>
+          </div>
+        </div>
         <button
           className="button primary buy-button"
           disabled={!selected.purchasable || cartLoading}
           onClick={() => void submit()}
         >
+          <ShoppingCart />
           {cartLoading ? "Đang cập nhật..." : "Thêm vào giỏ"}
         </button>
         {added && (

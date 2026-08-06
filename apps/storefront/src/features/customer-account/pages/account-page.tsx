@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
 import type { CustomerAccountApi } from "../api/customer-account-api";
 import { ProfileForm } from "../components/profile-form";
+import { AccountWorkspace } from "../components/account-workspace";
 import { useCustomerAccount } from "../hooks/use-customer-account";
 
 export function AccountPage({ api }: { readonly api: CustomerAccountApi }) {
@@ -29,36 +31,40 @@ export function AccountPage({ api }: { readonly api: CustomerAccountApi }) {
     );
   }
   return (
-    <main id="main-content" className="content-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">Khách hàng</span>
-          <h1>Tài khoản</h1>
-        </div>
-        <button className="button secondary" onClick={() => void logout()}>
-          Đăng xuất
-        </button>
-      </div>
+    <AccountWorkspace
+      profile={account.profile}
+      active="profile"
+      onLogout={() => void logout()}
+    >
       {account.error && (
         <p role="alert" className="inline-alert">
           {account.error}
         </p>
       )}
-      <section className="account-section">
-        <h2>Hồ sơ</h2>
+      <section className="account-section account-profile-section">
+        <header className="account-section-heading">
+          <h2>Thông tin cá nhân</h2>
+          <p>Cập nhật thông tin liên hệ được sử dụng cho tài khoản.</p>
+        </header>
         <ProfileForm
           profile={account.profile}
           disabled={account.loading}
           onSubmit={account.saveProfile}
         />
       </section>
-      <section className="account-section">
-        <h2>Địa chỉ</h2>
-        <p>{account.addresses.length} địa chỉ đã lưu</p>
-        <Link className="button secondary" to="/account/addresses">
-          Quản lý địa chỉ
+      <section className="account-section account-address-summary">
+        <div>
+          <h2>Địa chỉ giao hàng</h2>
+          <p>
+            {account.addresses.length === 0
+              ? "Bạn chưa lưu địa chỉ giao hàng."
+              : `Bạn có ${account.addresses.length} địa chỉ đã lưu.`}
+          </p>
+        </div>
+        <Link to="/account/addresses">
+          Quản lý địa chỉ <ArrowRight />
         </Link>
       </section>
-    </main>
+    </AccountWorkspace>
   );
 }

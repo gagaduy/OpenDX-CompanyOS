@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { GoogleSignInButton } from "../components/google-sign-in-button";
 import { useCustomerSession } from "../hooks/customer-session-context";
 
@@ -37,13 +43,20 @@ export function SignInPage({
   );
   if (session.kind === "customer") return <Navigate replace to={returnTo} />;
   return (
-    <main id="main-content" className="content-page auth-page">
-      <section>
-        <span className="eyebrow">Tài khoản NovaCommerce</span>
-        <h1>Đăng nhập</h1>
+    <main id="main-content" className="auth-page">
+      <img
+        className="auth-backdrop"
+        src="/sign-in-product.png"
+        alt="Máy tính NovaCommerce trong không gian làm việc"
+      />
+      <span className="auth-scrim" />
+      <section className="auth-panel">
+        <span className="auth-brand">NovaCommerce</span>
+        <span className="eyebrow">Tài khoản khách hàng</span>
+        <h1>Đăng nhập NovaCommerce</h1>
         <p>
-          Đăng nhập để kiểm tra giỏ hàng trước khi chuyển sang quy trình đặt
-          hàng ở Phase 6.
+          Lưu giỏ hàng, quản lý địa chỉ và tiếp tục hành trình mua sắm trên mọi
+          thiết bị.
         </p>
         {error && (
           <p role="alert" className="inline-alert">
@@ -54,6 +67,9 @@ export function SignInPage({
           clientId={googleClientId}
           onCredential={(value) => void credential(value)}
         />
+        <Link className="auth-return" to="/">
+          <ArrowLeft /> Quay lại cửa hàng
+        </Link>
       </section>
     </main>
   );

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { FormEvent } from "react";
+import { CheckCircle2 } from "lucide-react";
 import type {
   CustomerProfile,
   ProfileInput,
@@ -28,9 +29,12 @@ export function ProfileForm({
   };
   return (
     <form className="account-form" onSubmit={submit}>
-      <label>
+      <label className="verified-email">
         Email đã xác minh
-        <input value={profile.email} readOnly />
+        <span>
+          <input value={profile.email} readOnly />
+          <CheckCircle2 aria-hidden="true" />
+        </span>
       </label>
       <label>
         Họ và tên
@@ -49,7 +53,7 @@ export function ProfileForm({
         />
       </label>
       <button className="button primary" disabled={disabled}>
-        Lưu hồ sơ
+        Lưu thay đổi
       </button>
     </form>
   );

@@ -35,6 +35,10 @@ Core → Catalog → Inventory idempotent seed runs only after both jobs, then t
 API waits for Keycloak and seed completion before the Console and Storefront start. Normal
 shutdown preserves the `opendx_postgres` and `opendx_minio` volumes.
 
+The development Storefront mounts both `apps/storefront/src` and its read-only
+`public` assets so UI and product-canvas changes appear without rebuilding the
+container image.
+
 API readiness checks every implemented module migration table and the MinIO bucket. The
 Inventory expiry worker uses a 900-second reservation TTL and a 30-second scan.
 No Temporal service is started. Use `POSTGRES_PORT=<free-port> make up` when

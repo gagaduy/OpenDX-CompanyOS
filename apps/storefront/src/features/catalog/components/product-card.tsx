@@ -29,14 +29,16 @@ export function ProductCard({
         />
       </Link>
       <div className="product-card-body">
-        <span className="product-category">{product.categoryName}</span>
+        <div className="product-card-meta">
+          <span className="product-category">{product.categoryName}</span>
+          <span className={available ? "stock in-stock" : "stock sold-out"}>
+            {available ? "Còn hàng" : "Tạm hết hàng"}
+          </span>
+        </div>
         <h2>
           <Link to={`/products/${product.slug}`}>{product.name}</Link>
         </h2>
         <p className="price">{formatVnd(lowestPrice)}</p>
-        <p className={available ? "stock in-stock" : "stock sold-out"}>
-          {available ? "Còn hàng" : "Tạm hết hàng"}
-        </p>
       </div>
     </article>
   );

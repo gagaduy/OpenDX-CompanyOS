@@ -120,12 +120,18 @@ async function main() {
         `${viewport.name}-${viewport.width}x${viewport.height}.png`,
       );
       await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
-      evidence.push({ ...result, screenshotPath });
+      const lightTheme = await captureLightTheme(
+        client,
+        outputDirectory,
+        viewport,
+      );
+      evidence.push({ ...result, screenshotPath, lightTheme });
     }
     const guestCart = await verifyGuestCart(client);
+    const signIn = await captureSignInSurface(client, outputDirectory);
     client.close();
     console.log(
-      JSON.stringify({ storefrontUrl, evidence, guestCart }, null, 2),
+      JSON.stringify({ storefrontUrl, evidence, guestCart, signIn }, null, 2),
     );
   } finally {
     await stopProcess(processHandle);
@@ -136,6 +142,100 @@ async function main() {
       retryDelay: 200,
     });
   }
+}
+
+async function captureSignInSurface(client, outputDirectory) {
+  const url = new URL("/sign-in", storefrontUrl).toString();
+  await client.send("Page.navigate", { url });
+  await waitForCondition(
+    client,
+    `document.querySelector('.auth-panel') !== null && [...document.images].every((image) => image.complete && image.naturalWidth > 0)`,
+    "Sign-in surface did not settle",
+  );
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector('[aria-label="Dùng giao diện sáng"]')?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.documentElement.dataset.theme === "light"`,
+    "Sign-in light theme did not activate",
+  );
+  const result = await evaluate(
+    client,
+    `(() => {
+      const panel = document.querySelector('.auth-panel')?.getBoundingClientRect();
+      const image = document.querySelector('.auth-backdrop');
+      return {
+        theme: document.documentElement.dataset.theme,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        panel: panel ? { width: panel.width, height: panel.height } : null,
+        image: image instanceof HTMLImageElement
+          ? { naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight }
+          : null,
+      };
+    })()`,
+  );
+  if (result.documentWidth > result.viewportWidth || result.panel === null) {
+    throw new Error("Sign-in light surface is outside its viewport");
+  }
+  const screenshot = await client.send("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: false,
+  });
+  const screenshotPath = join(outputDirectory, "sign-in-light-1440x900.png");
+  await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+  return { ...result, screenshotPath };
+}
+
+async function captureLightTheme(client, outputDirectory, viewport) {
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector('[aria-label="Dùng giao diện sáng"]')?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.documentElement.dataset.theme === "light"`,
+    `${viewport.name}: light theme did not activate`,
+  );
+  const result = await evaluate(
+    client,
+    `(() => ({
+      theme: document.documentElement.dataset.theme,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: innerWidth,
+      canvas: getComputedStyle(document.body).backgroundColor,
+      toggleLabel: document.querySelector('[aria-label="Dùng giao diện tối"]')?.getAttribute('aria-label') ?? null,
+    }))()`,
+  );
+  if (result.documentWidth > result.viewportWidth) {
+    throw new Error(
+      `${viewport.name} light: horizontal overflow ${result.documentWidth}px > ${result.viewportWidth}px`,
+    );
+  }
+  if (result.canvas !== "rgb(255, 255, 255)") {
+    throw new Error(`${viewport.name}: light canvas did not render: ${result.canvas}`);
+  }
+  if (result.toggleLabel !== "Dùng giao diện tối") {
+    throw new Error(`${viewport.name}: light theme toggle label is missing`);
+  }
+  const screenshot = await client.send("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: false,
+  });
+  const screenshotPath = join(
+    outputDirectory,
+    `${viewport.name}-light-${viewport.width}x${viewport.height}.png`,
+  );
+  await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector('[aria-label="Dùng giao diện tối"]')?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.documentElement.dataset.theme === "dark"`,
+    `${viewport.name}: dark theme did not restore`,
+  );
+  return { ...result, screenshotPath };
 }
 
 async function stopProcess(processHandle) {

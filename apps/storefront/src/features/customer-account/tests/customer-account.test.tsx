@@ -46,9 +46,20 @@ describe("customer account", () => {
     expect(
       await screen.findByDisplayValue("verified@example.com"),
     ).toHaveAttribute("readonly");
+    expect(
+      screen.getByRole("heading", { name: "Xin chào, Duy" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Hồ sơ" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    expect(screen.getByRole("link", { name: "Địa chỉ" })).toHaveAttribute(
+      "href",
+      "/account/addresses",
+    );
     await userEvent.clear(screen.getByLabelText("Họ và tên"));
     await userEvent.type(screen.getByLabelText("Họ và tên"), "Duy Nguyen");
-    await userEvent.click(screen.getByRole("button", { name: "Lưu hồ sơ" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     expect(updateProfile).toHaveBeenCalledWith({
       fullName: "Duy Nguyen",
       version: 1,
@@ -87,7 +98,7 @@ describe("customer account", () => {
     const name = await screen.findByLabelText("Họ và tên");
     await userEvent.clear(name);
     await userEvent.type(name, "Duy Nguyen");
-    await userEvent.click(screen.getByRole("button", { name: "Lưu hồ sơ" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Không thể lưu hồ sơ",
     );

@@ -14,6 +14,16 @@
     <title>NovaCommerce</title>
   </head>
   <body>
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("novacommerce-theme") === "light"
+            ? "light"
+            : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

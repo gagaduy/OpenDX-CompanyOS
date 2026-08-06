@@ -50,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the product-first NovaCommerce Storefront redesign with editorial catalog
+  discovery, a sticky product purchase surface, immersive customer sign-in,
+  structured profile/address workspaces, persistent light/dark themes, and
+  responsive browser evidence for both modes.
 - Add reproducible Chrome DevTools browser acceptance for Storefront image
   delivery, semantic layout, keyboard focus, and responsive overflow at mobile,
   tablet, and desktop viewports.

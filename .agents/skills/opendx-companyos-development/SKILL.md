@@ -52,7 +52,9 @@ Read the smallest relevant set before acting:
 
 ## Frontend Rules
 
-- Follow the Linear-inspired dark operational canvas in `docs/design/linear-product-canvas.md`.
+- Follow the Linear-inspired operational canvas in
+  `docs/design/linear-product-canvas.md`. Keep Console dark; preserve the
+  Storefront's shared light/dark token system and customer theme preference.
 - Use `#010102` as the canvas and `#5e6ad2` as a scarce accent for brand, primary action, focus, and link emphasis.
 - Prefer dense product surfaces, tables, timelines, graph views, sidebars, and status panels over marketing hero sections.
 - Do not introduce decorative gradients, orbs, broad purple washes, or unrelated chromatic accents.

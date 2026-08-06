@@ -27,11 +27,12 @@ export function GoogleSignInButton({
           },
         });
         identity.renderButton(parent.current, {
-          theme: "filled_black",
+          theme: "outline",
           size: "large",
           shape: "rectangular",
           text: "continue_with",
-          width: 320,
+          width: 360,
+          locale: "vi",
         });
       })
       .catch(() => active && setError("Không thể tải Google Sign-In."));

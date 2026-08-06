@@ -59,9 +59,10 @@ pnpm check:storefront-browser
 ```
 
 The check uses Chrome DevTools Protocol without an additional package. It
-validates seeded image delivery, semantic content, keyboard-visible focus, and
-horizontal overflow at 390x844, 768x1024, and 1440x900. Screenshots are written
-to `/tmp/opendx-storefront-browser` by default. Set `CHROME_BIN`,
+validates seeded image delivery, semantic content, keyboard-visible focus,
+dark/light theme switching, and horizontal overflow at 390x844, 768x1024, and
+1440x900. Dark and light screenshots are written to
+`/tmp/opendx-storefront-browser` by default. Set `CHROME_BIN`,
 `STOREFRONT_URL`, or `BROWSER_EVIDENCE_DIR` when local paths differ.
 
 ## Run Local Services
