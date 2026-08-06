@@ -7,6 +7,7 @@ import type {
   PublicMediaAuthorization,
   PublicProductListResult,
   PublicProductProjection,
+  StorefrontVariantProjection,
 } from "../../../application/repositories/interfaces/public-catalog.repository";
 import type { PublicProductListQuery } from "../../../application/dtos/requests/public-catalog-request.dto";
 import type { PublicCategoryDto } from "../../../application/dtos/responses/public-catalog-response.dto";
@@ -60,6 +61,13 @@ interface MediaRow {
   media_id: string;
   object_key: string;
   content_type: string;
+}
+
+interface StorefrontVariantRow extends VariantRow {
+  product_name: string;
+  product_slug: string;
+  primary_media_id: string;
+  primary_media_alt_text: string;
 }
 
 const completePublishedProduct = `p.status = 'published'
@@ -180,6 +188,21 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     if (query.category !== undefined && query.category.trim().length > 0) {
       filters.push(`lower(category.slug) = lower(${bind(query.category.trim())})`);
     }
+    if (query.minPriceVnd !== undefined || query.maxPriceVnd !== undefined) {
+      const priceConditions = [
+        "price_variant.product_id = p.id",
+        "price_variant.status = 'active'",
+        "price_filter.valid_from <= NOW()",
+        "(price_filter.valid_to IS NULL OR price_filter.valid_to > NOW())",
+      ];
+      if (query.minPriceVnd !== undefined) priceConditions.push(`price_filter.amount_minor >= ${bind(query.minPriceVnd)}`);
+      if (query.maxPriceVnd !== undefined) priceConditions.push(`price_filter.amount_minor <= ${bind(query.maxPriceVnd)}`);
+      filters.push(`EXISTS (
+        SELECT 1 FROM product_variants price_variant
+        JOIN product_prices price_filter ON price_filter.variant_id = price_variant.id
+        WHERE ${priceConditions.join(" AND ")}
+      )`);
+    }
     const where = filters.join(" AND ");
     const count = await session.query<{ total: string }>(
       `SELECT count(*)::text AS total FROM products p
@@ -189,12 +212,25 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     );
     const limit = bind(query.pageSize);
     const offset = bind((query.page - 1) * query.pageSize);
+    const orderBy = query.sort === "price_asc"
+      ? "minimum_price ASC, p.id"
+      : query.sort === "price_desc"
+        ? "minimum_price DESC, p.id"
+        : query.sort === "name_asc"
+          ? "lower(p.name) ASC, p.id"
+          : "p.updated_at DESC, p.id";
     const products = await session.query<ProductRow>(
       `SELECT ${productProjectionColumns}
+              ,(SELECT min(sort_price.amount_minor)
+                FROM product_variants sort_variant
+                JOIN product_prices sort_price ON sort_price.variant_id = sort_variant.id
+                WHERE sort_variant.product_id = p.id AND sort_variant.status = 'active'
+                  AND sort_price.valid_from <= NOW()
+                  AND (sort_price.valid_to IS NULL OR sort_price.valid_to > NOW())) AS minimum_price
        FROM products p
        ${productProjectionJoins}
        WHERE ${where}
-       ORDER BY p.updated_at DESC, p.id
+       ORDER BY ${orderBy}
        LIMIT ${limit} OFFSET ${offset}`,
       values,
     );
@@ -242,6 +278,58 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
           objectKey: row.object_key,
           contentType: row.content_type,
         };
+  }
+
+  async findStorefrontVariants(
+    session: DatabaseSession,
+    variantIds: readonly string[],
+  ): Promise<readonly StorefrontVariantProjection[]> {
+    if (variantIds.length === 0) return [];
+    const result = await session.query<StorefrontVariantRow>(
+      `SELECT variant.id, variant.product_id, variant.sku, variant.title,
+              variant.option_values, price.amount_minor::text, price.currency,
+              p.name AS product_name, p.slug AS product_slug,
+              primary_media.id AS primary_media_id,
+              primary_media.alt_text AS primary_media_alt_text
+       FROM product_variants variant
+       JOIN products p ON p.id = variant.product_id
+       JOIN categories category ON category.id = p.category_id
+       JOIN LATERAL (
+         SELECT candidate.amount_minor, candidate.currency
+         FROM product_prices candidate
+         WHERE candidate.variant_id = variant.id
+           AND candidate.valid_from <= NOW()
+           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
+         ORDER BY candidate.valid_from DESC
+         LIMIT 1
+       ) price ON true
+       JOIN LATERAL (
+         SELECT media.id, media.alt_text
+         FROM product_media media
+         WHERE media.product_id = p.id AND media.is_primary = true
+         LIMIT 1
+       ) primary_media ON true
+       WHERE variant.id = ANY($1::uuid[])
+         AND variant.status = 'active'
+         AND ${completePublishedProduct}
+       ORDER BY variant.id`,
+      [variantIds],
+    );
+    return result.rows.map((row) => {
+      const variant = mapVariant(row);
+      return {
+        variantId: variant.id,
+        productId: row.product_id,
+        productName: row.product_name,
+        productSlug: row.product_slug,
+        variantTitle: variant.title,
+        sku: variant.sku,
+        optionValues: variant.optionValues,
+        unitPriceVnd: variant.price.amountMinor,
+        primaryMediaId: row.primary_media_id,
+        primaryMediaAltText: row.primary_media_alt_text,
+      };
+    });
   }
 
   private async mapProducts(

@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 4 Inventory and Product Publication is complete after full source,
-container, PostgreSQL concurrency, HTTP, OIDC console, and backup/restore
-acceptance. Phase 5 has an approved focused design; its file-level
-implementation plan has not been created.
+Phase 4 Inventory and Product Publication is complete. Phase 5 Storefront,
+Customer, and Cart implementation plus credential-free acceptance are complete.
+The only remaining acceptance dependency is a contributor-owned Google OAuth
+client for one real login cycle before the pull request is merged.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -23,7 +23,7 @@ Active commerce master plan:
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
-| Phase 5: Storefront, Customer, and Cart | Design approved | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | External acceptance | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Pending real Google login and PR merge |
 | Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
@@ -93,11 +93,40 @@ Active commerce master plan:
   seven-day guest cart, Google customer registration, 30-day Commerce-owned
   sessions, explicit cart resolution, address ownership, and an authenticated
   checkout gate.
+- Phase 5 file-level implementation plan defines eleven ordered TDD units for
+  the Storefront scaffold, Customer/Cart schemas, secure sessions, authoritative
+  cart behavior, customer UI, Docker, documentation, and exit acceptance.
+- Phase 5 implementation adds the React Storefront, URL-backed Catalog filters,
+  product detail, opaque guest/customer sessions, Google verification,
+  profiles/addresses, PostgreSQL carts, explicit resolution, and a customer-only
+  checkout-readiness contract.
+- Phase 5 source gates on 2026-08-06 passed 166 API unit tests, 52 API
+  PostgreSQL/MinIO integration tests across 24 files, 41 Console tests, 13
+  Storefront tests, four shared-package tests, one Python test, strict
+  TypeScript checks, both frontend production builds, repository audit,
+  `git diff --check`, and Compose validation.
+- Full-container acceptance reported healthy PostgreSQL, Keycloak, MinIO, API,
+  Console, and Storefront. A guest cart retained the same cart ID, two-item
+  quantity, and 65,980,000 VND total across `make down`/`make up`. An atomic
+  custom-format restore stopped application writes and restored a probe from 2
+  to 1 using `infra/backups/opendx-20260806-003458.dump`.
+- Browser acceptance at 390x844, 768x1024, and 1440x900 rendered ten seeded
+  products with complete 1254x1254 images, semantic `main`, visible keyboard
+  focus, and no horizontal overflow. The same Chrome run created a real guest,
+  injected and migrated a legacy CSRF path cookie, added one available product,
+  displayed the success state, and updated the cart counter to one. Evidence is
+  reproducible with `pnpm check:storefront-browser`.
+- Independent review found seven Important issues in CORS isolation,
+  idempotency concurrency/retry, invalid-cookie fallback, cart media URLs,
+  environment validation, restore safety, and failed-login compensation. All
+  were fixed with regression coverage; re-review found no remaining Critical or
+  Important Phase 5 findings.
 
 ## Open Risks
 
-- Customer identity, cart, and the public storefront frontend are designed but
-  not implemented; the anonymous Storefront Catalog API is implemented.
+- Real Google login acceptance requires a contributor-owned OAuth client ID and
+  is intentionally unavailable in credential-free CI; all verifier and local
+  session behavior remains deterministically tested at the real application port.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
 - Shipping, refunds, returns, and electronic invoices are outside the current

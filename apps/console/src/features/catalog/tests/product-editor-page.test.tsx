@@ -25,7 +25,7 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
 describe("ProductEditorPage", () => {
   it("validates fields and creates a product with attributes", async () => {
     const client = api();
-    render(<MemoryRouter><ProductEditorPage api={client} /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={["/products/new"]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={client} />} /></Routes></MemoryRouter>);
     await screen.findByRole("option", { name: "Drinkware" });
     await userEvent.click(screen.getByRole("button", { name: /save product/i }));
     expect(screen.getByText(/name is required/i)).toBeVisible();
@@ -39,6 +39,7 @@ describe("ProductEditorPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /save product/i }));
     expect(client.createProduct).toHaveBeenCalledWith(expect.objectContaining({ name: "Travel Mug", attributes: { material: "steel" } }));
     expect(await screen.findByText(/product created/i)).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Media" })).toBeEnabled();
   });
 
   it.each([

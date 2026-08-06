@@ -27,6 +27,7 @@ describe("parseApiEnvironment", () => {
     expect(environment.mediaMaxBytes).toBe(10_485_760);
     expect(environment.inventoryReservationTtlSeconds).toBe(900);
     expect(environment.inventoryExpiryIntervalSeconds).toBe(30);
+    expect(environment.googleClientId).toBeUndefined();
   });
 
   it.each([
@@ -41,5 +42,26 @@ describe("parseApiEnvironment", () => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
     ).toThrow(expectedKey);
+  });
+
+  it.each([
+    ["COOKIE_SECURE", { OPENDX_ENV: "production", STOREFRONT_ORIGIN: "https://shop.example.com", COOKIE_SECURE: "false" }],
+    ["STOREFRONT_ORIGIN", { OPENDX_ENV: "production", STOREFRONT_ORIGIN: "http://shop.example.com", COOKIE_SECURE: "true" }],
+  ])("rejects unsafe production %s", (expectedKey, override) => {
+    expect(() => parseApiEnvironment({ ...validSource, ...override })).toThrow(expectedKey);
+  });
+
+  it("accepts an HTTPS production storefront with secure cookies", () => {
+    expect(parseApiEnvironment({
+      ...validSource,
+      OPENDX_ENV: "production",
+      STOREFRONT_ORIGIN: "https://shop.example.com",
+      COOKIE_SECURE: "true",
+      GOOGLE_CLIENT_ID: "",
+    })).toMatchObject({
+      environment: "production",
+      storefrontOrigin: "https://shop.example.com",
+      cookieSecure: true,
+    });
   });
 });

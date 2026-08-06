@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from "node:crypto";
+import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
 import { createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
@@ -13,6 +14,12 @@ import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import type { DependencyStatus } from "./shared/http/health.routes";
+import { createCustomerModule } from "./modules/customer";
+import type { CustomerCartLoginResolver } from "./modules/customer";
+import { createCartModule, type CartResolutionServiceContract } from "./modules/cart";
+import { NodeSessionTokenService } from "./modules/customer/infrastructure/security/node-session-token-service";
+import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
+import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -51,19 +58,62 @@ const catalog = createCatalogModule({
   mediaMaximumBytes: environment.mediaMaxBytes,
   availability: inventory.availability,
 });
+const storefrontCookies = {
+  guestName: environment.guestCookieName,
+  customerName: environment.customerCookieName,
+  csrfName: environment.csrfCookieName,
+  secure: environment.cookieSecure,
+};
+let cartResolution: CartResolutionServiceContract | undefined;
+const cartLoginResolver: CustomerCartLoginResolver = {
+  async inspect(...arguments_) {
+    return cartResolution === undefined
+      ? { status: "not_required" }
+      : cartResolution.inspect(...arguments_);
+  },
+};
+const customer = createCustomerModule({
+  transactions,
+  verifier: environment.googleClientId === undefined
+    ? new UnavailableGoogleIdentityVerifier()
+    : new GoogleJoseIdentityVerifier(environment.googleClientId),
+  tokens: new NodeSessionTokenService(),
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+  storefrontOrigin: environment.storefrontOrigin,
+  cookies: storefrontCookies,
+  authenticationRateLimit: environment.authenticationRateLimit,
+  cartLoginResolver,
+});
+const cart = createCartModule({
+  transactions,
+  variants: catalog.storefrontVariants,
+  availability: inventory.availability,
+  sessions: customer.sessions,
+  storefrontOrigin: environment.storefrontOrigin,
+  cookies: storefrontCookies,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
+cartResolution = cart.resolution;
+const storefront = Router();
+storefront.use(catalog.publicRouter);
+storefront.use(customer.router);
+storefront.use(cart.router);
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
+  storefrontOrigin: environment.storefrontOrigin,
   companyOperatingCoreRepository: repository,
   catalogAdminRouter: catalog.adminRouter,
-  storefrontRouter: catalog.publicRouter,
+  storefrontRouter: storefront,
   inventoryRouter: inventory.router,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
-      const result = await pool.query<{ catalog: string; company_core: string; inventory: string }>(
-        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory",
+      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string }>(
+        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart",
       );
-      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1) {
+      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1) {
         throw new Error("Database migrations are incomplete");
       }
     }),

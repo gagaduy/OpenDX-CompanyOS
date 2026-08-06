@@ -13,6 +13,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Pass the optional repository-root `.env` explicitly to Docker Compose so
+  local Google Sign-In configuration reaches API and Storefront containers
+  without changing relative build or bind-mount paths.
+- Make the double-submit CSRF cookie readable from the Storefront document path
+  while keeping guest and customer session cookies API-scoped and `HttpOnly`.
+  Expire the legacy API-path cookie and tolerate both values during migration,
+  restoring real-browser add-to-cart mutations for existing sessions.
+- Isolate credentialed Console and Storefront CORS audiences, clear invalid
+  customer cookies before guest restoration, and revoke newly issued sessions
+  when post-login cart inspection fails.
+- Serialize cart-resolution idempotency keys, preserve them across Storefront
+  retries, and return usable cart media content URLs.
+- Load validated Storefront configuration from the repository-root environment,
+  make database restore atomic while application writes are stopped, and make
+  integration migration runners wait safely for advisory locks.
+- Allow Commerce customers as audited actors in the Phase 5 schema, serialize
+  concurrent first Google login, avoid request-racing session rotation, and
+  reject insecure production customer-cookie configuration.
+- Refuse integration-test execution against non-test PostgreSQL databases or
+  MinIO buckets so cleanup cannot remove local runtime data.
+- Fail cart merge on stale optimistic versions and preserve profile mutation
+  input while surfacing recoverable Storefront errors.
+- Pin both React frontends to the maintained React Router v6 line outside the
+  high-severity unstable-RSC CSRF advisory range.
+- Navigate newly created products to their persistent editor URL so variants,
+  media, publication, and audit controls become available immediately.
 - Serialize reservation references, finalize expiry by complete groups, and
   reject consumption after the backend-owned TTL.
 - Apply public stock-status filtering before pagination and keep Catalog
@@ -24,6 +50,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the product-first NovaCommerce Storefront redesign with editorial catalog
+  discovery, a sticky product purchase surface, immersive customer sign-in,
+  structured profile/address workspaces, persistent light/dark themes, and
+  responsive browser evidence for both modes.
+- Add reproducible Chrome DevTools browser acceptance for Storefront image
+  delivery, semantic layout, keyboard focus, and responsive overflow at mobile,
+  tablet, and desktop viewports.
+- Add the NovaCommerce React storefront with URL-backed catalog discovery,
+  product detail, persistent guest cart, lazy Google identity sign-in,
+  checkout gating, customer profile/address workflows, and accessible cart
+  resolution controls.
+- Add CSRF-protected Cart APIs, explicit persisted guest/customer cart
+  resolution, login-time non-conflicting cart transfer, and customer-only
+  checkout-readiness validation without checkout, order, or payment state.
+- Add backend-authoritative Cart operations backed by PostgreSQL, batch Catalog
+  variant projections, live Inventory availability, stale-line markers, and
+  concurrency-safe first-cart creation.
+- Add Google-verified customer registration, hash-only rotating Commerce
+  sessions, guest sessions, CSRF/origin protection, owned profiles and address
+  APIs, authentication rate limiting, and credential-free audit events.
+- Add Customer, Commerce session, address, Cart, CartItem, and durable cart
+  resolution PostgreSQL schemas with matching domain invariants.
+- Scaffold the strict React, TypeScript, and Vite NovaCommerce Storefront with
+  validated public environment configuration and initial semantic app states.
+- Add reviewed cookie parsing and selected Express authentication rate-limiting
+  dependencies for the Phase 5 Commerce session boundary.
+- Add the Phase 5 file-level TDD implementation plan for the Storefront,
+  Customer identity and sessions, address ownership, authoritative Cart,
+  explicit cart resolution, Docker delivery, and acceptance evidence.
 - Add the approved Phase 5 Storefront, Customer, and Cart design with a
   catalog-first technology storefront, seven-day guest carts, Google customer
   registration, 30-day Commerce sessions, explicit cart resolution, and an

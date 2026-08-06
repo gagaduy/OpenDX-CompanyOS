@@ -60,6 +60,11 @@ PostgreSQL-backed catalog and one-location inventory, guest discovery and cart,
 Google-registered customers, authenticated checkout, orders, SePay payments,
 Operational CRM, support, dashboard, staff identity, authorization, and audit.
 
+The implemented Phase 5 boundary now includes public discovery, product detail,
+seven-day guest carts, Google-verified customer sessions, customer-owned
+profiles and addresses, explicit cart resolution, and checkout-readiness
+validation. Checkout, reservation, order, and payment creation begin in Phase 6.
+
 ## Company Model
 
 Each OpenDX CompanyOS deployment operates one configured company. `Company`

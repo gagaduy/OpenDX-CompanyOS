@@ -118,4 +118,23 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
       contentType: "image/png",
     });
   });
+
+  it("batch reads only active variants on complete published products", async () => {
+    const variants = await transactions.runReadOnly((session) =>
+      repository.findStorefrontVariants(session, [ids.variant]),
+    );
+    expect(variants).toEqual([expect.objectContaining({
+      variantId: ids.variant,
+      productId: ids.published,
+      productName: "Phone X",
+      sku: "TECH-PHONE-BLACK",
+      unitPriceVnd: 19_990_000,
+      primaryMediaId: ids.media,
+    })]);
+
+    await pool.query("UPDATE products SET status = 'draft' WHERE id = $1", [ids.published]);
+    await expect(
+      transactions.runReadOnly((session) => repository.findStorefrontVariants(session, [ids.variant])),
+    ).resolves.toEqual([]);
+  });
 });

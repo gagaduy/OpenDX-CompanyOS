@@ -8,6 +8,15 @@ x-api-environment: &api-environment
   API_PORT: "4000"
   DATABASE_URL: postgres://opendx_local:opendx_local_password@postgres:5432/opendx
   CONSOLE_ORIGIN: http://localhost:3000
+  STOREFRONT_ORIGIN: http://localhost:3100
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  CUSTOMER_COOKIE_NAME: opendx_customer
+  GUEST_COOKIE_NAME: opendx_guest
+  CSRF_COOKIE_NAME: opendx_csrf
+  COOKIE_SECURE: "false"
+  CUSTOMER_SESSION_TTL_SECONDS: "2592000"
+  GUEST_SESSION_TTL_SECONDS: "604800"
+  AUTH_RATE_LIMIT: "20"
   KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
   KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
   KEYCLOAK_AUDIENCE: opendx-api
@@ -154,6 +163,32 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  storefront:
+    build:
+      context: ../..
+      dockerfile: apps/storefront/Dockerfile
+      network: host
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+      VITE_STOREFRONT_ORIGIN: http://localhost:3100
+      VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "3100:3100"
+    volumes:
+      - ../../apps/storefront/src:/workspace/apps/storefront/src
+      - ../../apps/storefront/public:/workspace/apps/storefront/public:ro
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 4s
       retries: 24

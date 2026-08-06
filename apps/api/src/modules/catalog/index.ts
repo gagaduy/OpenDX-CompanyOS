@@ -4,9 +4,14 @@
 export {
   createCatalogModule,
   createCatalogVariantReader,
+  createStorefrontVariantReader,
   type CatalogModuleDependencies,
 } from "./catalog.module";
 export {
   type CatalogVariantReader,
   type CatalogVariantSummary,
 } from "./application/services/interfaces/catalog-variant-reader";
+export type {
+  StorefrontVariantReader,
+  StorefrontVariantSummary,
+} from "./application/services/interfaces/storefront-variant-reader";

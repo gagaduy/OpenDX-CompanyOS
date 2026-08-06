@@ -16,6 +16,18 @@ const apiEnvironmentSchema = z.object({
     message: "must be a PostgreSQL URL",
   }),
   CONSOLE_ORIGIN: z.url(),
+  STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
+  GOOGLE_CLIENT_ID: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.string().trim().min(1).optional(),
+  ),
+  CUSTOMER_COOKIE_NAME: z.string().trim().min(1).default("opendx_customer"),
+  GUEST_COOKIE_NAME: z.string().trim().min(1).default("opendx_guest"),
+  CSRF_COOKIE_NAME: z.string().trim().min(1).default("opendx_csrf"),
+  COOKIE_SECURE: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
+  CUSTOMER_SESSION_TTL_SECONDS: positiveInteger.default(2592000).refine((value) => value === 2592000),
+  GUEST_SESSION_TTL_SECONDS: positiveInteger.default(604800).refine((value) => value === 604800),
+  AUTH_RATE_LIMIT: positiveInteger.default(20),
   KEYCLOAK_ISSUER: z.url(),
   KEYCLOAK_JWKS_URL: z.url().optional(),
   KEYCLOAK_AUDIENCE: z.string().trim().min(1),
@@ -31,6 +43,22 @@ const apiEnvironmentSchema = z.object({
   INVENTORY_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
     z.number().int().min(5).max(300),
   ),
+}).superRefine((value, context) => {
+  if (value.OPENDX_ENV !== "production") return;
+  if (!value.COOKIE_SECURE) {
+    context.addIssue({
+      code: "custom",
+      path: ["COOKIE_SECURE"],
+      message: "must be true in production",
+    });
+  }
+  if (!value.STOREFRONT_ORIGIN.startsWith("https://")) {
+    context.addIssue({
+      code: "custom",
+      path: ["STOREFRONT_ORIGIN"],
+      message: "must use HTTPS in production",
+    });
+  }
 });
 
 export interface ApiEnvironment {
@@ -38,6 +66,15 @@ export interface ApiEnvironment {
   readonly apiPort: number;
   readonly databaseUrl: string;
   readonly consoleOrigin: string;
+  readonly storefrontOrigin: string;
+  readonly googleClientId?: string;
+  readonly customerCookieName: string;
+  readonly guestCookieName: string;
+  readonly csrfCookieName: string;
+  readonly cookieSecure: boolean;
+  readonly customerSessionTtlSeconds: number;
+  readonly guestSessionTtlSeconds: number;
+  readonly authenticationRateLimit: number;
   readonly keycloakIssuer: string;
   readonly keycloakJwksUrl: string;
   readonly keycloakAudience: string;
@@ -60,6 +97,15 @@ export function parseApiEnvironment(
     apiPort: value.API_PORT,
     databaseUrl: value.DATABASE_URL,
     consoleOrigin: value.CONSOLE_ORIGIN,
+    storefrontOrigin: value.STOREFRONT_ORIGIN,
+    ...(value.GOOGLE_CLIENT_ID === undefined ? {} : { googleClientId: value.GOOGLE_CLIENT_ID }),
+    customerCookieName: value.CUSTOMER_COOKIE_NAME,
+    guestCookieName: value.GUEST_COOKIE_NAME,
+    csrfCookieName: value.CSRF_COOKIE_NAME,
+    cookieSecure: value.COOKIE_SECURE,
+    customerSessionTtlSeconds: value.CUSTOMER_SESSION_TTL_SECONDS,
+    guestSessionTtlSeconds: value.GUEST_SESSION_TTL_SECONDS,
+    authenticationRateLimit: value.AUTH_RATE_LIMIT,
     keycloakIssuer: value.KEYCLOAK_ISSUER,
     keycloakJwksUrl:
       value.KEYCLOAK_JWKS_URL ??

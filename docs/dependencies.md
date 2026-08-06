@@ -13,6 +13,7 @@ Dependency manifests:
 
 - Root workspace: `package.json`
 - Console: `apps/console/package.json`
+- Storefront: `apps/storefront/package.json`
 - API: `apps/api/package.json`
 - Shared packages: `packages/*/package.json`
 - Lockfile: `pnpm-lock.yaml`
@@ -21,27 +22,34 @@ Current major dependencies:
 
 | Package | Used by | Purpose |
 | --- | --- | --- |
-| `react`, `react-dom` | `apps/console` | Console UI rendering |
-| `vite`, `@vitejs/plugin-react` | `apps/console` | Console development and production builds |
-| `lucide-react` | `apps/console` | Icon set for product UI controls and status surfaces |
-| `vitest`, `jsdom` | `apps/console` | Console unit test runner and browser-like test environment |
-| `@testing-library/react`, `@testing-library/jest-dom` | `apps/console` | User-facing component assertions |
+| `react`, `react-dom` | `apps/console`, `apps/storefront` | Console and Storefront UI rendering |
+| `vite`, `@vitejs/plugin-react` | `apps/console`, `apps/storefront` | Frontend development and production builds |
+| `lucide-react` | `apps/console`, `apps/storefront` | Icon set for product UI controls and status surfaces |
+| `vitest`, `jsdom` | `apps/console`, `apps/storefront` | Frontend unit test runner and browser-like test environment |
+| `@testing-library/react`, `@testing-library/jest-dom` | `apps/console`, `apps/storefront` | User-facing component assertions |
 | `express` | `apps/api` | HTTP API shell |
 | `typescript` | workspace | Type checking |
-| `vitest` | packages, API, and console | TypeScript tests |
+| `vitest` | packages, API, Console, and Storefront | TypeScript tests |
 | `supertest` | `apps/api` | API endpoint tests |
 | `tsx` | `apps/api` | Local TypeScript server execution |
 | `pg`, `@types/pg` | `apps/api` | PostgreSQL driver and TypeScript contracts (MIT) |
 | `node-pg-migrate` | `apps/api` | Versioned PostgreSQL migrations (MIT) |
-| `zod` | API and console | Runtime environment and boundary validation (MIT) |
+| `zod` | API, Console, and Storefront | Runtime environment, request, and response boundary validation (MIT) |
 | `jose` | `apps/api` | OIDC JWT and JWKS verification (MIT) |
 | `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
 | `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
 | `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
 | `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
+| `cookie` | `apps/api` | Standards-based HTTP cookie parsing and serialization for Commerce sessions (MIT) |
+| `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |
 | `oidc-client-ts` | `apps/console` | Staff Authorization Code with PKCE client (Apache-2.0) |
-| `react-router-dom` | `apps/console` | Authenticated console routing (MIT) |
-| `@testing-library/user-event` | `apps/console` | User-level interaction tests (MIT) |
+| `react-router-dom` | `apps/console`, `apps/storefront` | Console and Storefront routing (MIT) |
+| `@testing-library/user-event` | `apps/console`, `apps/storefront` | User-level interaction tests (MIT) |
+
+The Phase 5 API runs as one process, so `express-rate-limit` initially uses its
+built-in memory store for Google authentication abuse protection. A hosted
+multi-replica deployment must configure a reviewed shared store during Phase 8;
+the in-memory limiter is not treated as a cross-replica quota authority.
 
 ## Python
 
@@ -68,7 +76,7 @@ Current images:
 
 | Image | Purpose |
 | --- | --- |
-| `node:22.22.0-bookworm-slim` | Non-root API and console development images |
+| `node:22.22.0-bookworm-slim` | Non-root API, Console, and Storefront development images |
 | `python:3.13.12-slim-bookworm` | Non-root AI validation image |
 | `postgres:18.3-bookworm` | Operational and integration-test PostgreSQL |
 | `quay.io/keycloak/keycloak:26.4.2` | Local staff identity provider |
