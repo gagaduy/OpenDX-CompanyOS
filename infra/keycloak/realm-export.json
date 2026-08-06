@@ -8,7 +8,9 @@
     "realm": [
       { "name": "administrator" },
       { "name": "catalog_manager" },
-      { "name": "inventory_manager" }
+      { "name": "inventory_manager" },
+      { "name": "operations_manager" },
+      { "name": "finance_operator" }
     ]
   },
   "clients": [
@@ -110,6 +112,30 @@
         { "type": "password", "value": "opendx_inventory_change_me", "temporary": true }
       ],
       "realmRoles": ["inventory_manager"]
+    },
+    {
+      "username": "operations@novacommerce.example",
+      "email": "operations@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Operations Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_operations_change_me", "temporary": true }
+      ],
+      "realmRoles": ["operations_manager"]
+    },
+    {
+      "username": "finance@novacommerce.example",
+      "email": "finance@novacommerce.example",
+      "firstName": "NovaCommerce",
+      "lastName": "Finance Operator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_finance_change_me", "temporary": true }
+      ],
+      "realmRoles": ["finance_operator"]
     }
   ]
 }

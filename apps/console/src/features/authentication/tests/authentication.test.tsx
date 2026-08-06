@@ -76,6 +76,17 @@ describe("console authentication routes", () => {
     },
   );
 
+  it.each(["operations_manager", "finance_operator"] as const)(
+    "recognizes the %s as an authorized staff role",
+    async (role) => {
+      renderRoute("/company-overview", createClient({
+        ...catalogSession,
+        roles: [role],
+      }));
+      expect(await screen.findByRole("heading", { name: /company operating console/i })).toBeVisible();
+    },
+  );
+
   it("renders permission denied for authenticated users without a staff role", async () => {
     renderRoute(
       "/products",

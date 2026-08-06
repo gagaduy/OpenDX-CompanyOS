@@ -7,6 +7,7 @@ import { successResponse } from "../../../../shared/http/api-response";
 import { ApplicationError } from "../../../../shared/http/application-error";
 import { CatalogApplicationError } from "../../application/services/catalog-application.error";
 import type { ProductPublicationServiceContract } from "../../application/services/interfaces/product-publication.service";
+import type { PublicationCommandContext } from "../../application/services/interfaces/product-publication.service";
 import { parsePublicId, parsePublicationVersion } from "../validators/public-catalog.validator";
 
 export class ProductPublicationController {
@@ -30,7 +31,17 @@ export class ProductPublicationController {
 
 function context(locals: Record<string, unknown>) {
   const principal = locals.staffPrincipal as StaffPrincipal;
-  return { actorId: principal.subject, roles: principal.roles, correlationId: locals.correlationId as string };
+  return {
+    actorId: principal.subject,
+    roles: principal.roles.filter(isPublicationRole),
+    correlationId: locals.correlationId as string,
+  };
+}
+
+type PublicationRole = PublicationCommandContext["roles"][number];
+
+function isPublicationRole(role: StaffPrincipal["roles"][number]): role is PublicationRole {
+  return role === "administrator" || role === "catalog_manager" || role === "inventory_manager";
 }
 
 function toHttpError(error: unknown): unknown {

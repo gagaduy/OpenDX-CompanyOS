@@ -126,20 +126,21 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `.env.example`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing environment tests for SePay environment, checkout/API base
+- [x] Write failing environment tests for SePay environment, checkout/API base
   URLs, merchant ID, secret key, IPN secret, callback URLs, timeout, and fixed
   900-second checkout TTL.
-- [ ] Reject production with sandbox endpoints, missing secrets, non-HTTPS
+- [x] Reject production with sandbox endpoints, missing secrets, non-HTTPS
   callbacks, or an HTTP Storefront origin.
-- [ ] Permit development startup without contributor credentials, but expose an
-  explicit `PAYMENT_PROVIDER_NOT_CONFIGURED` checkout error.
-- [ ] Add `operations_manager` and `finance_operator` to backend/frontend role
+- [x] Permit development startup without contributor credentials and expose a
+  typed `configured: false` state; Task 7 maps it to the explicit
+  `PAYMENT_PROVIDER_NOT_CONFIGURED` checkout error.
+- [x] Add `operations_manager` and `finance_operator` to backend/frontend role
   parsing and local Keycloak fixtures. Keep audience isolation unchanged.
-- [ ] Add role tests proving unknown roles are discarded and role visibility
+- [x] Add role tests proving unknown roles are discarded and role visibility
   never replaces backend authorization.
-- [ ] Add no dependency. Use Node `crypto` and the existing HTTP/runtime stack.
-- [ ] Run API environment/auth and Console authentication tests.
-- [ ] Commit as `feat(identity): add commerce operations roles`.
+- [x] Add no dependency. Use Node `crypto` and the existing HTTP/runtime stack.
+- [x] Run API environment/auth and Console authentication tests.
+- [x] Commit as `feat(identity): add commerce operations roles`.
 
 ### Task 2: PostgreSQL Schemas and Migration Lifecycle
 
@@ -579,4 +580,3 @@ completion. Duplicate/reordered provider evidence, concurrent checkout,
 reconciliation, and expiry must converge without partial state. No shipping,
 refund, return, exchange, void, tracking, or electronic-invoice behavior may be
 present.
-

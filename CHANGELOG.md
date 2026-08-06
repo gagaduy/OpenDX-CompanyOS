@@ -50,6 +50,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add validated sandbox/production SePay environment contracts, fixed checkout
+  expiry, and local Operations Manager and Finance Operator staff identities
+  without requiring payment credentials for normal local startup.
 - Add the proposed Phase 6 Checkout, Order, and SePay focused design plus a
   13-task TDD implementation plan covering deterministic promotions, immutable
   order snapshots, atomic inventory reservation, server-signed SePay checkout,

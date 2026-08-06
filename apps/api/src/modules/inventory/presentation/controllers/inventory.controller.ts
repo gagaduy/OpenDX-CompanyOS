@@ -8,6 +8,7 @@ import { ApplicationError } from "../../../../shared/http/application-error";
 import { InventoryDomainError } from "../../domain/exceptions/inventory-domain.error";
 import { InventoryApplicationError } from "../../application/services/inventory-application.error";
 import type { InventoryServiceContract } from "../../application/services/interfaces/inventory.service";
+import type { InventoryStaffRole } from "../../application/dtos/inventory.dto";
 import {
   parseAdjustment,
   parseInventoryId,
@@ -67,9 +68,13 @@ function context(locals: Record<string, unknown>) {
   const principal = locals.staffPrincipal as StaffPrincipal;
   return {
     actorId: principal.subject,
-    roles: principal.roles,
+    roles: principal.roles.filter(isInventoryRole),
     correlationId: locals.correlationId as string,
   };
+}
+
+function isInventoryRole(role: StaffPrincipal["roles"][number]): role is InventoryStaffRole {
+  return role === "administrator" || role === "catalog_manager" || role === "inventory_manager";
 }
 
 function pagination(result: { page: number; pageSize: number; totalItems: number; totalPages: number }) {

@@ -8,7 +8,7 @@ export function ProtectedRoute() {
   const { loading, session } = useAuth();
   if (loading) return <main className="centeredState">Loading staff session…</main>;
   if (session === null) return <Navigate to="/sign-in" replace />;
-  if (!session.roles.some((role) => role === "administrator" || role === "catalog_manager" || role === "inventory_manager")) {
+  if (session.roles.length === 0) {
     return (
       <main className="centeredState">
         <div>
