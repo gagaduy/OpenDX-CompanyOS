@@ -106,7 +106,7 @@ function assertReplay(aggregate: PaymentAggregate, request: CreatePendingPayment
     aggregate.payment.expectedAmountVnd !== request.expectedAmountVnd
     || attempt.idempotencyKey !== request.idempotencyKey
     || attempt.expiresAt !== request.expiresAt
-    || attempt.paymentMethod !== request.paymentMethod
+    || (request.paymentMethod !== undefined && attempt.paymentMethod !== request.paymentMethod)
   ) {
     throw new PaymentApplicationError("IDEMPOTENCY_CONFLICT", "Order payment conflicts with an existing request");
   }

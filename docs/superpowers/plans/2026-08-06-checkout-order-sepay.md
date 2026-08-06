@@ -347,21 +347,21 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: module composition in `apps/api/src/app.ts` and `apps/api/src/server.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing tests for missing/stale address, non-checkout-ready cart,
+- [x] Write failing tests for missing/stale address, non-checkout-ready cart,
   unpublished/inactive variant, changed price, unavailable stock, invalid
   promotion, total overflow, expired session, and provider not configured.
-- [ ] Test idempotent replay returns the same checkout/order/attempt and changed
+- [x] Test idempotent replay returns the same checkout/order/attempt and changed
   input under the same key returns `IDEMPOTENCY_CONFLICT`.
-- [ ] In one transaction, lock/re-read facts; calculate totals; create checkout,
+- [x] In one transaction, lock/re-read facts; calculate totals; create checkout,
   immutable lines, order, order lines, payment, attempt, promotion hold, audit;
   and reserve Inventory.
-- [ ] Generate signed SePay fields only after commit. Provider/signing failure
+- [x] Generate signed SePay fields only after commit. Provider/signing failure
   leaves a recoverable pending order and the same idempotent payment attempt.
-- [ ] Implement safe payment-initiation replay for an unexpired pending attempt.
-- [ ] Add customer session, ownership, origin, CSRF, body-limit, and rate-limit
+- [x] Implement safe payment-initiation replay for an unexpired pending attempt.
+- [x] Add customer session, ownership, origin, CSRF, body-limit, and rate-limit
   coverage around checkout mutations.
-- [ ] Run domain/service/repository/API tests and scarce-stock concurrency tests.
-- [ ] Commit as `feat(checkout): create transactionally reserved orders`.
+- [x] Run domain/service/repository/API tests and scarce-stock concurrency tests.
+- [x] Commit as `feat(checkout): create transactionally reserved orders`.
 
 ### Task 8: Authenticated IPN and Exact-Once Paid Transition
 

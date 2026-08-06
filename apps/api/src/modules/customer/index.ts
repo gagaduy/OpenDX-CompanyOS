@@ -22,4 +22,4 @@ export {
   requireCsrf,
   requireStorefrontOrigin,
 } from "./presentation/middleware/storefront-mutation.middleware";
-export { requireCustomerSession } from "./presentation/middleware/customer-session.middleware";
+export { requireCustomerSession, customerState } from "./presentation/middleware/customer-session.middleware";

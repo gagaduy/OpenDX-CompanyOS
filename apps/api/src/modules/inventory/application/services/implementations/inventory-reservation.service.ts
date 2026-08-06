@@ -96,9 +96,12 @@ export class InventoryReservationService implements InventoryReservationPort, In
       }
     }
     const timestamp = this.now();
-    const expiresAt = new Date(
+    const expiresAt = request.expiresAt ?? new Date(
       new Date(timestamp).getTime() + this.reservationTtlMs,
     ).toISOString();
+    if (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.parse(timestamp)) {
+      throw new InventoryApplicationError("CONFLICT", "Reservation expiry is invalid");
+    }
     const reservations: InventoryReservation[] = [];
     for (const line of lines) {
       const current = await this.repository.lockByVariantId(
@@ -429,7 +432,8 @@ function assertMatchingRequest(
     .sort();
   if (
     expected.length !== actual.length ||
-    expected.some((value, index) => value !== actual[index])
+    expected.some((value, index) => value !== actual[index]) ||
+    (request.expiresAt !== undefined && existing.some(({ expiresAt }) => expiresAt !== request.expiresAt))
   ) {
     throw new InventoryApplicationError(
       "CONFLICT",

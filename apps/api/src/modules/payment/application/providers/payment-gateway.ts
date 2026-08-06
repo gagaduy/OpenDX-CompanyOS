@@ -43,7 +43,7 @@ export interface PaymentGateway {
   getOrderDetail(providerOrderId: string): Promise<ProviderOrderDetail>;
   normalizeNotification(payload: unknown): NormalizedPaymentNotification;
 }
-export type PaymentGatewayErrorCategory = "timeout" | "unauthorized" | "not_found" | "provider_error" | "invalid_response";
+export type PaymentGatewayErrorCategory = "not_configured" | "timeout" | "unauthorized" | "not_found" | "provider_error" | "invalid_response";
 export class PaymentGatewayError extends Error {
   constructor(readonly category: PaymentGatewayErrorCategory, message: string) {
     super(message);

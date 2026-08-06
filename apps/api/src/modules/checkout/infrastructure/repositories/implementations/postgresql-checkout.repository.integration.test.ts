@@ -1,0 +1,88 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { randomUUID } from "node:crypto";
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createCatalogVariantReader, type CheckoutCatalogReader } from "../../../../catalog";
+import type { CheckoutReadyCartReader } from "../../../../cart";
+import type { CheckoutCustomerReader } from "../../../../customer";
+import { InventoryReservationService } from "../../../../inventory/application/services/implementations/inventory-reservation.service";
+import { PostgresqlInventoryRepository } from "../../../../inventory/infrastructure/repositories/implementations/postgresql-inventory.repository";
+import { PostgresqlInventoryAuditRepository } from "../../../../inventory/infrastructure/repositories/implementations/postgresql-inventory-audit.repository";
+import { OrderService } from "../../../../order/application/services/implementations/order.service";
+import { PostgresqlOrderRepository } from "../../../../order/infrastructure/repositories/implementations/postgresql-order.repository";
+import { PaymentService } from "../../../../payment/application/services/implementations/payment.service";
+import type { PaymentGateway } from "../../../../payment";
+import { PostgresqlPaymentRepository } from "../../../../payment/infrastructure/repositories/implementations/postgresql-payment.repository";
+import type { PromotionCheckoutPort } from "../../../../promotion";
+import { runCartMigrations } from "../../../../cart/infrastructure/database/run-cart-migrations";
+import { runCustomerMigrations } from "../../../../customer/infrastructure/database/run-customer-migrations";
+import { runInventoryMigrations } from "../../../../inventory/infrastructure/database/run-inventory-migrations";
+import { runOrderMigrations } from "../../../../order/infrastructure/database/run-order-migrations";
+import { runPaymentMigrations } from "../../../../payment/infrastructure/database/run-payment-migrations";
+import { runPromotionMigrations } from "../../../../promotion/infrastructure/database/run-promotion-migrations";
+import { runCatalogMigrations, runCompanyCoreMigrations } from "../../../../../shared/database/run-migrations";
+import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
+import { CheckoutService } from "../../../application/services/implementations/checkout.service";
+import { runCheckoutMigrations } from "../../database/run-checkout-migrations";
+import { PostgresqlCheckoutRepository } from "./postgresql-checkout.repository";
+
+const databaseUrl = process.env.TEST_DATABASE_URL;
+const suite = databaseUrl === undefined ? describe.skip : describe;
+const now = "2026-08-06T08:00:00.000Z";
+const variantId = "d1300000-0000-4000-8000-000000000001";
+const customers = ["d1400000-0000-4000-8000-000000000001", "d1400000-0000-4000-8000-000000000002"] as const;
+const carts = ["d1500000-0000-4000-8000-000000000001", "d1500000-0000-4000-8000-000000000002"] as const;
+
+suite("atomic checkout PostgreSQL orchestration", () => {
+  const pool = new Pool({ connectionString: databaseUrl });
+  const transactions = new PostgresTransactionRunner(pool);
+  const cartReader: CheckoutReadyCartReader = {
+    getCheckoutReady: vi.fn(),
+    lockForCheckout: vi.fn(async (_session, customerId) => ({ cartId: carts[customerId === customers[0] ? 0 : 1], cartVersion: 1, items: [{ cartItemId: randomUUID(), variantId, quantity: 1, lastValidatedUnitPriceVnd: 100_000 }] })),
+  };
+  const customerReader: CheckoutCustomerReader = { readOwnedAddress: vi.fn(async (_session, customerId) => ({ customerId, contact: { email: `${customerId}@example.com` }, address: { addressId: "d1410000-0000-4000-8000-000000000001", recipientName: "Buyer", phoneNumber: "0901", addressLine: "1 Street", ward: "Ward", provinceOrCity: "City", version: 1 } })) };
+  const catalog: CheckoutCatalogReader = { getByIdsInSession: vi.fn(async () => new Map([[variantId, { variantId, productId: "d1200000-0000-4000-8000-000000000001", productName: "Nova Phone", productSlug: "nova-phone", variantTitle: "128 GB", sku: "NOVA-128", optionValues: {}, unitPriceVnd: 100_000, primaryMediaId: "d1250000-0000-4000-8000-000000000001", primaryMediaAltText: "Phone" }]])) };
+  const promotions: PromotionCheckoutPort = { hold: vi.fn(), commit: vi.fn(), release: vi.fn() };
+
+  beforeAll(async () => {
+    await runCatalogMigrations(databaseUrl!, "up"); await runCompanyCoreMigrations(databaseUrl!, "up"); await runInventoryMigrations(databaseUrl!, "up");
+    await runCustomerMigrations(databaseUrl!, "up"); await runCartMigrations(databaseUrl!, "up"); await runPromotionMigrations(databaseUrl!, "up");
+    await runCheckoutMigrations(databaseUrl!, "up"); await runOrderMigrations(databaseUrl!, "up"); await runPaymentMigrations(databaseUrl!, "up");
+  });
+  beforeEach(async () => {
+    await pool.query("TRUNCATE payments,orders,checkout_sessions,carts,customers,promotions,inventory_items,categories,audit_events CASCADE");
+    await pool.query("INSERT INTO categories(id,name,slug,sort_order,status,version,created_at,updated_at) VALUES('d1100000-0000-4000-8000-000000000001','Phones','phones',0,'active',1,$1,$1)", [now]);
+    await pool.query("INSERT INTO products(id,category_id,name,slug,description,status,version,created_at,updated_at) VALUES('d1200000-0000-4000-8000-000000000001','d1100000-0000-4000-8000-000000000001','Nova Phone','nova-phone','Phone','published',1,$1,$1)", [now]);
+    await pool.query("INSERT INTO product_variants(id,product_id,sku,title,option_values,status,version,created_at,updated_at) VALUES($1,'d1200000-0000-4000-8000-000000000001','NOVA-128','128 GB','{\"Storage\":\"128 GB\"}','active',1,$2,$2)", [variantId, now]);
+    for (let index=0; index<customers.length; index++) {
+      await pool.query("INSERT INTO customers(id,email,email_verified_at,status,version,created_at,updated_at) VALUES($1,$2,$3,'active',1,$3,$3)", [customers[index], `buyer${index}@example.com`, now]);
+      await pool.query("INSERT INTO carts(id,customer_id,status,version,expires_at,created_at,updated_at) VALUES($1,$2,'active',1,'2026-09-01T00:00:00.000Z',$3,$3)", [carts[index], customers[index], now]);
+    }
+    await pool.query("INSERT INTO inventory_items(id,variant_id,on_hand,reserved,version,created_at,updated_at) VALUES('d1350000-0000-4000-8000-000000000001',$1,1,0,1,$2,$2)", [variantId, now]);
+  });
+  afterAll(async () => {
+    await pool.query("TRUNCATE payments,orders,checkout_sessions,carts,customers,promotions,inventory_items,categories,audit_events CASCADE");
+    await runPaymentMigrations(databaseUrl!,"down"); await runOrderMigrations(databaseUrl!,"down"); await runCheckoutMigrations(databaseUrl!,"down"); await runPromotionMigrations(databaseUrl!,"down"); await runCartMigrations(databaseUrl!,"down"); await runCustomerMigrations(databaseUrl!,"down"); await runInventoryMigrations(databaseUrl!,"down"); await runCompanyCoreMigrations(databaseUrl!,"down"); await runCatalogMigrations(databaseUrl!,"down"); await pool.end();
+  });
+
+  it("lets one scarce-stock checkout commit and rolls the loser back without orphans", async () => {
+    const inventory = new InventoryReservationService(new PostgresqlInventoryRepository(), createCatalogVariantReader(), new PostgresqlInventoryAuditRepository(), transactions, randomUUID, () => now, 900_000);
+    const order = new OrderService(new PostgresqlOrderRepository(), transactions, randomUUID, () => now);
+    const gateway: PaymentGateway = {
+      createCheckout: vi.fn(async ({ invoiceNumber }) => {
+        const committed = await pool.query("SELECT 1 FROM payment_attempts WHERE provider_invoice_number=$1", [invoiceNumber]);
+        if (committed.rowCount !== 1) throw new Error("Payment initiation ran before commit");
+        return { actionUrl: "https://pay-sandbox.sepay.vn/v1/checkout/init", method: "POST" as const, fields: [{ name: "signature", value: "synthetic" }] };
+      }), getOrderDetail: vi.fn(), normalizeNotification: vi.fn(),
+    };
+    const payment = new PaymentService(new PostgresqlPaymentRepository(), transactions, gateway, randomUUID, () => now);
+    const checkout = new CheckoutService(new PostgresqlCheckoutRepository(), cartReader, customerReader, catalog, promotions, order, payment, inventory, transactions, randomUUID, () => now, 900_000);
+    const results = await Promise.allSettled(customers.map((customerId, index) => checkout.create({ addressId: "d1410000-0000-4000-8000-000000000001", idempotencyKey: `checkout-key-${index}` }, { customerId, customerExpiresAt: "2026-09-01T00:00:00.000Z", correlationId: `corr-${index}` })));
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
+    const counts = await pool.query<{ checkouts:string; orders:string; payments:string; reservations:string; reserved:number }>("SELECT (SELECT count(*)::text FROM checkout_sessions) checkouts,(SELECT count(*)::text FROM orders) orders,(SELECT count(*)::text FROM payments) payments,(SELECT count(*)::text FROM inventory_reservations) reservations,(SELECT reserved FROM inventory_items WHERE variant_id=$1) reserved", [variantId]);
+    expect(counts.rows[0]).toEqual({ checkouts:"1", orders:"1", payments:"1", reservations:"1", reserved:1 });
+  });
+});

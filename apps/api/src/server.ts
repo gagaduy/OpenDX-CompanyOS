@@ -22,6 +22,8 @@ import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/id
 import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
 import { createPromotionModule } from "./modules/promotion";
 import { createOrderModule } from "./modules/order";
+import { createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } from "./modules/payment";
+import { createCheckoutModule } from "./modules/checkout";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -112,11 +114,33 @@ const order = createOrderModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
+const paymentGateway = environment.sepay.configured
+  ? new SePayPaymentGateway({
+      checkoutUrl: environment.sepay.checkoutUrl,
+      apiBaseUrl: environment.sepay.apiBaseUrl,
+      merchantId: environment.sepay.merchantId,
+      secretKey: environment.sepay.secretKey,
+      successUrl: environment.sepay.successUrl,
+      errorUrl: environment.sepay.errorUrl,
+      cancelUrl: environment.sepay.cancelUrl,
+      requestTimeoutMs: environment.sepay.requestTimeoutMs,
+    })
+  : new UnavailablePaymentGateway();
+const payment = createPaymentModule({ transactions, gateway: paymentGateway, generateId: randomUUID, now: () => new Date().toISOString() });
+const checkout = createCheckoutModule({
+  transactions, carts: cart.checkoutReady, customers: customer.checkout,
+  catalog: catalog.storefrontVariants, promotions: promotion.checkout,
+  orders: order.checkout, payments: payment.checkout, inventory: inventory.reservations,
+  sessions: customer.sessions, cookies: storefrontCookies,
+  storefrontOrigin: environment.storefrontOrigin, generateId: randomUUID,
+  now: () => new Date().toISOString(), expirationMs: environment.checkoutTtlSeconds * 1_000,
+});
 const storefront = Router();
 storefront.use(catalog.publicRouter);
 storefront.use(customer.router);
 storefront.use(cart.router);
 storefront.use(order.customerRouter);
+storefront.use(checkout.router);
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
   storefrontOrigin: environment.storefrontOrigin,

@@ -14,6 +14,7 @@ export interface ReservationReference {
 }
 
 export interface ReserveInventoryRequest extends ReservationReference {
+  readonly expiresAt?: string;
   readonly lines: readonly {
     readonly variantId: string;
     readonly quantity: number;

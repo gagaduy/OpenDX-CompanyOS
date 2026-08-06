@@ -40,7 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Navigate newly created products to their persistent editor URL so variants,
   media, publication, and audit controls become available immediately.
 - Serialize reservation references, finalize expiry by complete groups, and
-  reject consumption after the backend-owned TTL.
+  reject consumption after the backend-owned TTL. Allow atomic checkout
+  orchestration to supply that same validated expiry to its order reservation.
 - Apply public stock-status filtering before pagination and keep Catalog
   dependencies on Inventory's exported module contract.
 - Route Inventory Managers to their authorized Inventory workspace after OIDC
@@ -50,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add authenticated, CSRF-protected Checkout APIs that revalidate owned
+  customer, cart, Catalog, promotion, price, and stock facts; atomically create
+  immutable checkout/order/payment snapshots with Inventory reservations; and
+  generate replay-safe SePay initiation only after commit.
 - Add a provider-neutral Payment core with immutable SePay attempts, replay-safe
   post-commit initiation, audited PostgreSQL persistence, ordered HMAC-SHA256
   checkout signing, timeout-safe Basic Auth reconciliation reads, and strictly
