@@ -309,20 +309,20 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Create: `apps/api/src/modules/payment/index.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Test payment/attempt state machines and invoice uniqueness before writing
+- [x] Test payment/attempt state machines and invoice uniqueness before writing
   infrastructure code.
-- [ ] Define provider-neutral ordered checkout fields, order-detail result,
+- [x] Define provider-neutral ordered checkout fields, order-detail result,
   normalized notification, and provider error categories.
-- [ ] Implement the documented SePay field order and Base64 HMAC-SHA256 with
+- [x] Implement the documented SePay field order and Base64 HMAC-SHA256 with
   Node `crypto`; compare against fixed synthetic vectors.
-- [ ] Implement sandbox/production endpoint selection and Basic Auth order-detail
+- [x] Implement sandbox/production endpoint selection and Basic Auth order-detail
   lookup with timeout/abort and no secret-bearing errors.
-- [ ] Return only action URL plus ordered form fields. Never expose the secret.
-- [ ] Redact Authorization, signature, full card fields, address, and provider
+- [x] Return only action URL plus ordered form fields. Never expose the secret.
+- [x] Redact Authorization, signature, full card fields, address, and provider
   raw values in logs and persisted event projections.
-- [ ] Run domain, fake-provider service, signing, mapping, timeout, redaction,
+- [x] Run domain, fake-provider service, signing, mapping, timeout, redaction,
   repository, and environment tests.
-- [ ] Commit as `feat(payment): add sepay gateway boundary`.
+- [x] Commit as `feat(payment): add sepay gateway boundary`.
 
 ### Task 7: Atomic Checkout Orchestration
 

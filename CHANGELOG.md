@@ -50,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add a provider-neutral Payment core with immutable SePay attempts, replay-safe
+  post-commit initiation, audited PostgreSQL persistence, ordered HMAC-SHA256
+  checkout signing, timeout-safe Basic Auth reconciliation reads, and strictly
+  redacted official-contract notification projections.
 - Add immutable Order and line snapshots, Order-owned public numbers, exact
   transition rules, optimistic and idempotent status updates, customer-owned
   reads, administrator/operations APIs, audited role denials, and a
