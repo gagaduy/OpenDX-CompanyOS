@@ -50,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add deterministic percentage and fixed-amount Promotion rules, concurrency-
+  safe usage holds, idempotent redemption lifecycle, audited PostgreSQL
+  persistence, a transaction-participating Checkout port, and administrator-
+  only management APIs.
 - Add constrained PostgreSQL schemas and ordered migration/rollback lifecycle
   for promotions, immutable checkout and order snapshots, payment attempts,
   provider events, and reconciliation evidence.

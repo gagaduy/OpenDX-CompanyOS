@@ -20,6 +20,7 @@ import { createCartModule, type CartResolutionServiceContract } from "./modules/
 import { NodeSessionTokenService } from "./modules/customer/infrastructure/security/node-session-token-service";
 import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
 import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
+import { createPromotionModule } from "./modules/promotion";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -96,6 +97,12 @@ const cart = createCartModule({
   now: () => new Date().toISOString(),
 });
 cartResolution = cart.resolution;
+const promotion = createPromotionModule({
+  transactions,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
 const storefront = Router();
 storefront.use(catalog.publicRouter);
 storefront.use(customer.router);
@@ -107,6 +114,7 @@ const app = createApiApp({
   catalogAdminRouter: catalog.adminRouter,
   storefrontRouter: storefront,
   inventoryRouter: inventory.router,
+  promotionAdminRouter: promotion.adminRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {

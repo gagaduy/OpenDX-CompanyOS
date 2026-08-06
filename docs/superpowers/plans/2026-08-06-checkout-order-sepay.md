@@ -202,19 +202,19 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `apps/api/src/app.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] First test percentage basis-point rounding, fixed discounts, cap, minimum
+- [x] First test percentage basis-point rounding, fixed discounts, cap, minimum
   subtotal, time windows, zero-total rejection, code normalization, and no
   stacking.
-- [ ] Test total/per-customer limits under concurrent holds and idempotent hold,
+- [x] Test total/per-customer limits under concurrent holds and idempotent hold,
   commit, release, and expiry.
-- [ ] Implement a session-aware Checkout port so Promotion participates in the
+- [x] Implement a session-aware Checkout port so Promotion participates in the
   outer transaction without exposing its repository.
-- [ ] Add administrator-only list/create/update APIs with version conflicts and
+- [x] Add administrator-only list/create/update APIs with version conflicts and
   audited writes.
 - [ ] Add deterministic `NOVA10` seed behavior later through the module's public
   seed entry point; do not hard-code it in application logic.
-- [ ] Run domain, service, repository, and API tests.
-- [ ] Commit as `feat(promotion): add deterministic promotion rules`.
+- [x] Run domain, service, repository, and API tests.
+- [x] Commit as `feat(promotion): add deterministic promotion rules`.
 
 ### Task 4: Transaction-Participating Customer, Cart, Catalog, and Inventory Ports
 
