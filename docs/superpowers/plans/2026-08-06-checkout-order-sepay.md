@@ -271,18 +271,18 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `apps/api/src/app.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Test the exact order transition allow-list and reject paid cancellation,
+- [x] Test the exact order transition allow-list and reject paid cancellation,
   skipping states, stale versions, duplicate commands, and unauthorized actors.
-- [ ] Test immutable line/address/contact/price/promotion snapshots and public
+- [x] Test immutable line/address/contact/price/promotion snapshots and public
   number uniqueness.
-- [ ] Implement customer-owned list/detail queries that always constrain by the
+- [x] Implement customer-owned list/detail queries that always constrain by the
   authenticated customer ID.
-- [ ] Implement administrator/operations-manager list/detail/transition routes
+- [x] Implement administrator/operations-manager list/detail/transition routes
   with filters, pagination, history, audited success, and audited denial.
-- [ ] Return purpose-specific DTOs; do not expose database rows or customer IDs
+- [x] Return purpose-specific DTOs; do not expose database rows or customer IDs
   unnecessarily.
-- [ ] Run Order domain, repository, service, API, ownership, and role tests.
-- [ ] Commit as `feat(order): add immutable order operations`.
+- [x] Run Order domain, repository, service, API, ownership, and role tests.
+- [x] Commit as `feat(order): add immutable order operations`.
 
 ### Task 6: Provider-Neutral Payment Core and SePay Signing Adapter
 

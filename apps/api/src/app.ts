@@ -23,6 +23,7 @@ export interface CreateApiAppOptions {
   readonly storefrontRouter?: Router;
   readonly inventoryRouter?: Router;
   readonly promotionAdminRouter?: Router;
+  readonly orderAdminRouter?: Router;
 }
 
 function createAudienceCors(allowedOrigin: string) {
@@ -66,6 +67,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.promotionAdminRouter !== undefined) {
     app.use("/v1/admin/promotions", consoleCors, options.promotionAdminRouter);
+  }
+  if (options.orderAdminRouter !== undefined) {
+    app.use("/v1/admin/orders", consoleCors, options.orderAdminRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

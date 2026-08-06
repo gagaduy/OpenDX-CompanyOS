@@ -50,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add immutable Order and line snapshots, Order-owned public numbers, exact
+  transition rules, optimistic and idempotent status updates, customer-owned
+  reads, administrator/operations APIs, audited role denials, and a
+  transaction-participating Checkout port.
 - Add transaction-participating Commerce ports for owned Customer address and
   contact snapshots, locked Cart snapshots, current Catalog variant facts, and
   atomic Inventory reserve/release/consume operations, including PostgreSQL

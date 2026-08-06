@@ -21,6 +21,7 @@ import { NodeSessionTokenService } from "./modules/customer/infrastructure/secur
 import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
 import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
 import { createPromotionModule } from "./modules/promotion";
+import { createOrderModule } from "./modules/order";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -103,10 +104,19 @@ const promotion = createPromotionModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
+const order = createOrderModule({
+  transactions,
+  staffTokenVerifier,
+  customerSessions: customer.sessions,
+  cookies: storefrontCookies,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
 const storefront = Router();
 storefront.use(catalog.publicRouter);
 storefront.use(customer.router);
 storefront.use(cart.router);
+storefront.use(order.customerRouter);
 const app = createApiApp({
   consoleOrigin: environment.consoleOrigin,
   storefrontOrigin: environment.storefrontOrigin,
@@ -115,6 +125,7 @@ const app = createApiApp({
   storefrontRouter: storefront,
   inventoryRouter: inventory.router,
   promotionAdminRouter: promotion.adminRouter,
+  orderAdminRouter: order.adminRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
