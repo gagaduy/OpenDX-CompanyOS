@@ -6,9 +6,11 @@ import type { PublicCatalogRepository } from "../../repositories/interfaces/publ
 import type {
   StorefrontVariantReader,
   StorefrontVariantSummary,
+  CheckoutCatalogReader,
 } from "../interfaces/storefront-variant-reader";
+import type { DatabaseSession } from "../../../../../shared/database/transaction";
 
-export class StorefrontVariantReaderService implements StorefrontVariantReader {
+export class StorefrontVariantReaderService implements StorefrontVariantReader, CheckoutCatalogReader {
   constructor(
     private readonly repository: PublicCatalogRepository,
     private readonly transactions: TransactionRunner,
@@ -20,9 +22,16 @@ export class StorefrontVariantReaderService implements StorefrontVariantReader {
     const uniqueIds = [...new Set(variantIds)];
     if (uniqueIds.length === 0) return new Map();
 
-    return this.transactions.runReadOnly(async (session) => {
-      const variants = await this.repository.findStorefrontVariants(session, uniqueIds);
-      return new Map(variants.map((variant) => [variant.variantId, variant]));
-    });
+    return this.transactions.runReadOnly((session) => this.getByIdsInSession(session, uniqueIds));
+  }
+
+  async getByIdsInSession(
+    session: DatabaseSession,
+    variantIds: readonly string[],
+  ): Promise<ReadonlyMap<string, StorefrontVariantSummary>> {
+    const uniqueIds = [...new Set(variantIds)];
+    if (uniqueIds.length === 0) return new Map();
+    const variants = await this.repository.findStorefrontVariants(session, uniqueIds);
+    return new Map(variants.map((variant) => [variant.variantId, variant]));
   }
 }

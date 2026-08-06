@@ -6,6 +6,7 @@ import type {
   InventoryReservationStatus,
 } from "../../../domain/entities/inventory-reservation";
 import type { InventorySystemContext } from "../../dtos/inventory.dto";
+import type { DatabaseSession } from "../../../../../shared/database/transaction";
 
 export interface ReservationReference {
   readonly referenceType: InventoryReservationReferenceType;
@@ -46,4 +47,10 @@ export interface InventoryReservationPort {
     context: InventorySystemContext,
   ): Promise<ReservationGroupDto>;
   expireDue(limit: number, context: InventorySystemContext): Promise<number>;
+}
+
+export interface InventoryCheckoutPort {
+  reserveInSession(session: DatabaseSession, request: ReserveInventoryRequest, context: InventorySystemContext): Promise<ReservationGroupDto>;
+  releaseInSession(session: DatabaseSession, reference: ReservationReference, context: InventorySystemContext): Promise<ReservationGroupDto>;
+  consumeInSession(session: DatabaseSession, reference: ReservationReference, context: InventorySystemContext): Promise<ReservationGroupDto>;
 }

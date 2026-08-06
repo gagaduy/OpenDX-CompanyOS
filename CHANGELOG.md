@@ -50,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add transaction-participating Commerce ports for owned Customer address and
+  contact snapshots, locked Cart snapshots, current Catalog variant facts, and
+  atomic Inventory reserve/release/consume operations, including PostgreSQL
+  rollback coverage for downstream checkout and paid-transition failures.
 - Add deterministic percentage and fixed-amount Promotion rules, concurrency-
   safe usage holds, idempotent redemption lifecycle, audited PostgreSQL
   persistence, a transaction-participating Checkout port, and administrator-

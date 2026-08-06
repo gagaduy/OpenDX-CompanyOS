@@ -97,8 +97,8 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
   }
 
-  async findCustomerById(s: DatabaseSession, id: string) {
-    const r = await s.query<Row>("SELECT * FROM customers WHERE id=$1", [id]);
+  async findCustomerById(s: DatabaseSession, id: string, lock = false) {
+    const r = await s.query<Row>(`SELECT * FROM customers WHERE id=$1${lock ? " FOR SHARE" : ""}`, [id]);
     return r.rows[0] === undefined ? undefined : customer(r.rows[0]);
   }
   async findCustomerByEmail(s: DatabaseSession, email: string) {
@@ -244,9 +244,9 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return r.rows.map(address);
   }
-  async findAddress(s: DatabaseSession, cid: string, id: string) {
+  async findAddress(s: DatabaseSession, cid: string, id: string, lock = false) {
     const r = await s.query<Row>(
-      "SELECT * FROM customer_addresses WHERE customer_id=$1 AND id=$2",
+      `SELECT * FROM customer_addresses WHERE customer_id=$1 AND id=$2${lock ? " FOR SHARE" : ""}`,
       [cid, id],
     );
     return r.rows[0] === undefined ? undefined : address(r.rows[0]);

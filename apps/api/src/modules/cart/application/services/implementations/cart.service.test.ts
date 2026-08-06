@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   StorefrontVariantReader,
   StorefrontVariantSummary,
@@ -103,6 +103,18 @@ describe("CartService", () => {
     ).rejects.toMatchObject({
       code: "INSUFFICIENT_STOCK",
     } satisfies Partial<CartApplicationError>);
+  });
+
+  it("locks a raw customer cart snapshot in the supplied checkout session", async () => {
+    const fixture = createFixture();
+    const customerOwner = { kind: "customer" as const, customerId: "customer-1", expiresAt: owner.expiresAt };
+    await fixture.service.addItem(customerOwner, variant.variantId, 2);
+    const suppliedSession: DatabaseSession = { query: vi.fn() };
+
+    await expect(fixture.service.lockForCheckout(suppliedSession, "customer-1", owner.expiresAt)).resolves.toMatchObject({
+      cartVersion: 2,
+      items: [{ variantId: variant.variantId, quantity: 2, lastValidatedUnitPriceVnd: 25_000_000 }],
+    });
   });
 });
 

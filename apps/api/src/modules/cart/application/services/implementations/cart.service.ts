@@ -13,7 +13,7 @@ import { emptyCart, mapCart } from "../../mappers/cart.mapper";
 import type { CartRepository } from "../../repositories/interfaces/cart.repository";
 import { CartApplicationError } from "../cart-application.error";
 import type { CartServiceContract } from "../interfaces/cart.service";
-import type { CheckoutReadyCartReader } from "../interfaces/checkout-ready-cart-reader";
+import type { CheckoutReadyCartReader, CheckoutReadyCartSnapshot } from "../interfaces/checkout-ready-cart-reader";
 
 export class CartService
   implements CartServiceContract, CheckoutReadyCartReader
@@ -134,6 +134,27 @@ export class CartService
       );
     }
     return cart;
+  }
+
+  async lockForCheckout(
+    session: DatabaseSession,
+    customerId: string,
+    expiresAt: string,
+  ): Promise<CheckoutReadyCartSnapshot> {
+    const cart = await this.repository.lockActiveByOwner(session, { kind: "customer", customerId, expiresAt });
+    if (cart === undefined) throw new CartApplicationError("CART_NOT_FOUND", "A customer cart is required");
+    const items = await this.repository.listItems(session, cart.id);
+    if (items.length === 0) throw new CartApplicationError("CART_NOT_FOUND", "A non-empty customer cart is required");
+    return {
+      cartId: cart.id,
+      cartVersion: cart.version,
+      items: items.map((item) => ({
+        cartItemId: item.id,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        lastValidatedUnitPriceVnd: item.lastValidatedUnitPriceVnd,
+      })),
+    };
   }
 
   private async mutateWithCreateRetry(

@@ -84,8 +84,8 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     })),
   };
   const transactions: TransactionRunner = {
-    run: (work) => work(session),
-    runReadOnly: (work) => work(session),
+    run: vi.fn((work) => work(session)),
+    runReadOnly: vi.fn((work) => work(session)),
   };
   let sequence = 0;
   const service = new InventoryReservationService(
@@ -97,7 +97,7 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     () => NOW,
     15 * 60 * 1000,
   );
-  return { auditEntries, repository, service };
+  return { auditEntries, repository, service, transactions };
 }
 
 describe("InventoryReservationService", () => {
@@ -139,6 +139,19 @@ describe("InventoryReservationService", () => {
         actorType: "system",
       }),
     ]);
+  });
+
+  it("reserves in the caller-supplied transaction without opening another one", async () => {
+    const { repository, service, transactions } = dependencies();
+
+    await service.reserveInSession(session, {
+      referenceType: "checkout",
+      referenceId: "checkout-1",
+      lines: [{ variantId: VARIANT_ID, quantity: 2 }],
+    }, context);
+
+    expect(repository.createReservation).toHaveBeenCalled();
+    expect(transactions.run).not.toHaveBeenCalled();
   });
 
   it("returns an existing terminal group without applying a second release", async () => {

@@ -4,3 +4,4 @@
 export { createInventoryModule, type InventoryModuleDependencies } from "./inventory.module";
 export type { InventoryAvailabilityReader } from "./application/services/interfaces/inventory-availability";
 export type { InventoryReservationPort } from "./application/services/interfaces/inventory-reservations";
+export type { InventoryCheckoutPort } from "./application/services/interfaces/inventory-reservations";

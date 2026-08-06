@@ -232,18 +232,18 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: Inventory reservation service/repository tests and `index.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing contract tests proving each port can re-read/lock its facts
+- [x] Write failing contract tests proving each port can re-read/lock its facts
   inside one caller-supplied `DatabaseSession`.
-- [ ] Keep current Phase 5 public methods behavior-compatible while adding only
+- [x] Keep current Phase 5 public methods behavior-compatible while adding only
   the narrow Phase 6 session-aware operations.
-- [ ] Add Customer owned-address snapshot, Cart checkout-ready snapshot, Catalog
+- [x] Add Customer owned-address snapshot, Cart checkout-ready snapshot, Catalog
   current variant snapshot, and Inventory reserve/consume/release operations.
-- [ ] Ensure Inventory still owns all stock SQL, movement, and audit writes.
-- [ ] Prove reserve rollback leaves no balance, movement, reservation, or audit
+- [x] Ensure Inventory still owns all stock SQL, movement, and audit writes.
+- [x] Prove reserve rollback leaves no balance, movement, reservation, or audit
   residue when a later order/payment write fails.
-- [ ] Prove consume rollback similarly leaves all paid effects unchanged.
-- [ ] Run Cart, Customer, Catalog, Inventory, transaction, and integration tests.
-- [ ] Commit as `refactor(commerce): expose atomic checkout ports`.
+- [x] Prove consume rollback similarly leaves all paid effects unchanged.
+- [x] Run Cart, Customer, Catalog, Inventory, transaction, and integration tests.
+- [x] Commit as `refactor(commerce): expose atomic checkout ports`.
 
 ### Task 5: Order Domain, Snapshots, and Staff Transitions
 
