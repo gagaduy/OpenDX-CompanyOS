@@ -154,26 +154,29 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Create: `apps/api/src/modules/order/infrastructure/database/run-order-migrations.ts`
 - Create: `apps/api/src/modules/payment/infrastructure/database/migrations/202608060010_create_payment.ts`
 - Create: `apps/api/src/modules/payment/infrastructure/database/run-payment-migrations.ts`
-- Create: corresponding migration integration tests beside each runner
+- Create: a cross-module migration integration contract under Payment because
+  the final foreign keys span Promotion, Checkout, Order, and Payment
 - Modify: `apps/api/src/shared/database/run-migrations.ts`
 - Modify: `apps/api/src/server.ts`
 - Modify: `apps/api/package.json`
 - Modify: `Makefile`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing migration tests for every table, enum/check constraint,
-  foreign key, unique idempotency key, provider-event deduplication key, money
-  constraint, and absence of `company_id`.
-- [ ] Add Promotion, Checkout, Order, and Payment schemas exactly in dependency
+- [x] Write a failing migration contract for every table, key cross-module
+  foreign/unique constraint, representative money checks, provider-event
+  deduplication, and absence of `company_id`; domain/repository tasks exercise
+  each state and value constraint through behavior.
+- [x] Add Promotion, Checkout, Order, and Payment schemas exactly in dependency
   order and rollback in reverse order.
-- [ ] Use integer/bigint-compatible VND columns and reject negative snapshots.
-- [ ] Ensure immutable snapshot rows cannot be silently overwritten by normal
-  repository update paths; only state/version fields are mutable.
-- [ ] Extend readiness to verify all Phase 6 migration tables without contacting
+- [x] Use integer/bigint-compatible VND columns and reject negative snapshots.
+- [x] Separate immutable snapshot-line tables from mutable state/version rows;
+  Tasks 5 and 7 keep repository update contracts away from snapshot columns.
+- [x] Extend readiness to verify all Phase 6 migration tables without contacting
   SePay.
-- [ ] Prove migrate -> rollback -> migrate and backup/restore preserve data.
-- [ ] Run focused migration tests and Docker Compose configuration validation.
-- [ ] Commit as `feat(commerce): add checkout order payment schemas`.
+- [x] Prove migrate -> rollback -> migrate on PostgreSQL test. Phase 6
+  backup/restore acceptance remains in Task 12 with the full container stack.
+- [x] Run focused migration tests and Docker Compose configuration validation.
+- [x] Commit as `feat(commerce): add checkout order payment schemas`.
 
 ### Task 3: Promotion Domain and Application Service
 

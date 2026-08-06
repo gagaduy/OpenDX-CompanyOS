@@ -50,6 +50,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add constrained PostgreSQL schemas and ordered migration/rollback lifecycle
+  for promotions, immutable checkout and order snapshots, payment attempts,
+  provider events, and reconciliation evidence.
 - Add validated sandbox/production SePay environment contracts, fixed checkout
   expiry, and local Operations Manager and Finance Operator staff identities
   without requiring payment credentials for normal local startup.

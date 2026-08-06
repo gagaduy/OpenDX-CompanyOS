@@ -110,10 +110,10 @@ const app = createApiApp({
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
-      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string }>(
-        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart",
+      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string; promotion: string; checkout: string; orders: string; payment: string }>(
+        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart, (SELECT count(*)::text FROM promotion_migrations) AS promotion, (SELECT count(*)::text FROM checkout_migrations) AS checkout, (SELECT count(*)::text FROM order_migrations) AS orders, (SELECT count(*)::text FROM payment_migrations) AS payment",
       );
-      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1) {
+      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 1 || Number(result.rows[0]?.orders ?? 0) < 1 || Number(result.rows[0]?.payment ?? 0) < 1) {
         throw new Error("Database migrations are incomplete");
       }
     }),
