@@ -18,6 +18,10 @@ function fixture() {
     create: vi.fn(async (_session, payment, attempt) => { aggregate = { payment, activeAttempt: attempt }; }),
     findById: vi.fn(async () => aggregate),
     findByOrderId: vi.fn(async () => aggregate),
+    findByInvoiceNumber: vi.fn(async () => aggregate),
+    insertEvent: vi.fn(async () => true),
+    linkEvent: vi.fn(),
+    updateEventResult: vi.fn(),
     updateState: vi.fn(async (_session, payment, attempt, expectedVersion) => {
       if (aggregate?.payment.version !== expectedVersion) return false;
       aggregate = { payment, activeAttempt: attempt };

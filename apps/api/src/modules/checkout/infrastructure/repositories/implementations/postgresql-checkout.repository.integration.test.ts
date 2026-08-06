@@ -6,6 +6,8 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCatalogVariantReader, type CheckoutCatalogReader } from "../../../../catalog";
 import type { CheckoutReadyCartReader } from "../../../../cart";
+import { CartService } from "../../../../cart/application/services/implementations/cart.service";
+import { PostgresqlCartRepository } from "../../../../cart/infrastructure/repositories/implementations/postgresql-cart.repository";
 import type { CheckoutCustomerReader } from "../../../../customer";
 import { InventoryReservationService } from "../../../../inventory/application/services/implementations/inventory-reservation.service";
 import { PostgresqlInventoryRepository } from "../../../../inventory/infrastructure/repositories/implementations/postgresql-inventory.repository";
@@ -13,7 +15,9 @@ import { PostgresqlInventoryAuditRepository } from "../../../../inventory/infras
 import { OrderService } from "../../../../order/application/services/implementations/order.service";
 import { PostgresqlOrderRepository } from "../../../../order/infrastructure/repositories/implementations/postgresql-order.repository";
 import { PaymentService } from "../../../../payment/application/services/implementations/payment.service";
+import { PaymentNotificationService } from "../../../../payment/application/services/implementations/payment-notification.service";
 import type { PaymentGateway } from "../../../../payment";
+import { SePayPaymentGateway } from "../../../../payment";
 import { PostgresqlPaymentRepository } from "../../../../payment/infrastructure/repositories/implementations/postgresql-payment.repository";
 import type { PromotionCheckoutPort } from "../../../../promotion";
 import { runCartMigrations } from "../../../../cart/infrastructure/database/run-cart-migrations";
@@ -84,5 +88,26 @@ suite("atomic checkout PostgreSQL orchestration", () => {
     expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
     const counts = await pool.query<{ checkouts:string; orders:string; payments:string; reservations:string; reserved:number }>("SELECT (SELECT count(*)::text FROM checkout_sessions) checkouts,(SELECT count(*)::text FROM orders) orders,(SELECT count(*)::text FROM payments) payments,(SELECT count(*)::text FROM inventory_reservations) reservations,(SELECT reserved FROM inventory_items WHERE variant_id=$1) reserved", [variantId]);
     expect(counts.rows[0]).toEqual({ checkouts:"1", orders:"1", payments:"1", reservations:"1", reserved:1 });
+  });
+
+  it("converges twenty duplicate IPNs to one complete paid transition", async () => {
+    const inventory = new InventoryReservationService(new PostgresqlInventoryRepository(), createCatalogVariantReader(), new PostgresqlInventoryAuditRepository(), transactions, randomUUID, () => now, 900_000);
+    const order = new OrderService(new PostgresqlOrderRepository(), transactions, randomUUID, () => now);
+    const gateway = new SePayPaymentGateway({ checkoutUrl:"https://pay-sandbox.sepay.vn/v1/checkout/init",apiBaseUrl:"https://pgapi-sandbox.sepay.vn",merchantId:"merchant",secretKey:"secret",successUrl:"https://example.test/success",errorUrl:"https://example.test/error",cancelUrl:"https://example.test/cancel",requestTimeoutMs:1000 });
+    const paymentRepository = new PostgresqlPaymentRepository();
+    const payment = new PaymentService(paymentRepository, transactions, gateway, randomUUID, () => now);
+    const checkout = new CheckoutService(new PostgresqlCheckoutRepository(), cartReader, customerReader, catalog, promotions, order, payment, inventory, transactions, randomUUID, () => now, 900_000);
+    await checkout.create({ addressId:"d1410000-0000-4000-8000-000000000001",idempotencyKey:"checkout-paid" }, { customerId:customers[0],customerExpiresAt:"2026-09-01T00:00:00.000Z",correlationId:"corr-checkout" });
+    const persisted = await pool.query<{provider_invoice_number:string;order_id:string}>("SELECT a.provider_invoice_number,p.order_id FROM payment_attempts a JOIN payments p ON p.id=a.payment_id");
+    const invoice = persisted.rows[0]!.provider_invoice_number;
+    const cartPaid = new CartService(new PostgresqlCartRepository(), { getByIds:vi.fn(async()=>new Map()) }, { getByVariantIds:vi.fn(async()=>new Map()) }, transactions, randomUUID, () => now);
+    const notification = new PaymentNotificationService(paymentRepository,gateway,order,inventory,promotions,checkout,cartPaid,transactions,randomUUID,()=>"2026-08-06T08:05:00.000Z");
+    const payload={timestamp:1757058220,notification_type:"ORDER_PAID",order:{id:"provider-event",order_id:"SEPAY-ORDER-1",order_status:"CAPTURED",order_currency:"VND",order_amount:"100000.00",order_invoice_number:invoice,ip_address:"14.1.2.3"},transaction:{id:"provider-event-transaction",transaction_id:"SEPAY-TXN-1",transaction_status:"APPROVED",transaction_amount:"100000",transaction_currency:"VND",card_number:"4111XXXXXXXX1111"},customer:{customer_id:customers[0]}};
+    const results=await Promise.all(Array.from({length:20},(_,index)=>notification.process(payload,`corr-ipn-${index}`)));
+    expect(results.filter(({result})=>result==="applied")).toHaveLength(1);
+    expect(results.filter(({result})=>result==="already_processed")).toHaveLength(19);
+    const states=await pool.query<{payment_status:string;order_status:string;checkout_status:string;cart_status:string;reservation_status:string;events:string;consume_movements:string;paid_audits:string}>(`SELECT p.status payment_status,o.status order_status,c.status checkout_status,cart.status cart_status,r.status reservation_status,(SELECT count(*)::text FROM payment_events) events,(SELECT count(*)::text FROM stock_movements WHERE movement_type='consume') consume_movements,(SELECT count(*)::text FROM audit_events WHERE action='payment.paid') paid_audits FROM payments p JOIN orders o ON o.id=p.order_id JOIN checkout_sessions c ON c.order_id=o.id JOIN carts cart ON cart.id=c.source_cart_id JOIN inventory_reservations r ON r.reference_id=o.id::text`);
+    expect(states.rows[0]).toEqual({payment_status:"paid",order_status:"paid",checkout_status:"completed",cart_status:"checkout_ready",reservation_status:"consumed",events:"1",consume_movements:"1",paid_audits:"1"});
+    expect(promotions.commit).toHaveBeenCalledTimes(1);
   });
 });

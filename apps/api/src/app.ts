@@ -24,6 +24,7 @@ export interface CreateApiAppOptions {
   readonly inventoryRouter?: Router;
   readonly promotionAdminRouter?: Router;
   readonly orderAdminRouter?: Router;
+  readonly sepayWebhookRouter?: Router;
 }
 
 function createAudienceCors(allowedOrigin: string) {
@@ -49,8 +50,11 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     options.storefrontOrigin ?? "http://localhost:3100",
   );
 
-  app.use(express.json({ limit: "1mb" }));
   app.use(correlationIdMiddleware);
+  if (options.sepayWebhookRouter !== undefined) {
+    app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
+  }
+  app.use(express.json({ limit: "1mb" }));
   app.use(createHealthRouter(options.readiness));
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(

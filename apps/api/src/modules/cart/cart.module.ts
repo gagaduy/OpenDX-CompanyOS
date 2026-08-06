@@ -57,5 +57,5 @@ export function createCartModule(dependencies: CartModuleDependencies) {
     requireCsrf(dependencies.cookies),
   );
   router.use(cartErrorMiddleware);
-  return { router, service, resolution, checkoutReady: service };
+  return { router, service, resolution, checkoutReady: service, paid: service };
 }

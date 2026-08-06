@@ -378,20 +378,20 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `apps/api/src/app.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] First test missing/wrong secret, constant-time verification path, malformed
+- [x] First test missing/wrong secret, constant-time verification path, malformed
   authenticated payload, unsupported notification, duplicate payload, duplicate
   transaction, out-of-order event, amount/currency/invoice/order mismatch, and
   database failure acknowledgement behavior.
-- [ ] Authenticate before business schema parsing and before any repository read.
-- [ ] Persist an allow-listed redacted event and deduplication identity.
-- [ ] For matching `ORDER_PAID` evidence, transactionally mark attempt/payment/
+- [x] Authenticate before business schema parsing and before any repository read.
+- [x] Persist an allow-listed redacted event and deduplication identity.
+- [x] For matching `ORDER_PAID` evidence, transactionally mark attempt/payment/
   order paid, consume reservation, commit promotion, finalize checkout/cart, and
   append one history/audit effect.
-- [ ] Acknowledge valid duplicate and unsupported-recorded events with HTTP 200.
-- [ ] Return HTTP 500 only when durable event processing did not commit.
-- [ ] Prove 20 concurrent duplicate IPNs converge to one paid transition, one
+- [x] Acknowledge valid duplicate and unsupported-recorded events with HTTP 200.
+- [x] Return HTTP 500 only when durable event processing did not commit.
+- [x] Prove 20 concurrent duplicate IPNs converge to one paid transition, one
   consume movement per line, one redemption commit, and one state-change audit.
-- [ ] Commit as `feat(payment): process sepay ipn exactly once`.
+- [x] Commit as `feat(payment): process sepay ipn exactly once`.
 
 ### Task 9: Expiry and Reconciliation
 

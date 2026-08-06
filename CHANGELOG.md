@@ -51,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add constant-time authenticated SePay IPN ingestion with strict pre-parse
+  authentication, allow-listed event projections, database deduplication, and
+  one atomic paid transition across Payment, Order, Inventory, Promotion,
+  Checkout, and Cart, including twenty-callback concurrency coverage.
 - Add authenticated, CSRF-protected Checkout APIs that revalidate owned
   customer, cart, Catalog, promotion, price, and stock facts; atomically create
   immutable checkout/order/payment snapshots with Inventory reservations; and

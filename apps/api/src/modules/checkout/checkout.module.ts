@@ -28,5 +28,5 @@ export function createCheckoutModule(dependencies: CheckoutModuleDependencies) {
   const mutationLimit = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
   const router = createCheckoutRouter(new CheckoutController(service), requireCustomerSession(dependencies.sessions, dependencies.cookies), requireStorefrontOrigin(dependencies.storefrontOrigin), requireCsrf(dependencies.cookies), mutationLimit);
   router.use(checkoutErrorMiddleware);
-  return { router, service };
+  return { router, service, paid: service };
 }

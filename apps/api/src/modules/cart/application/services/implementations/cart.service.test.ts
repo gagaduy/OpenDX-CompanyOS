@@ -181,6 +181,7 @@ function createFixture() {
 class MemoryCartRepository implements CartRepository {
   cart?: Cart;
   items: CartItem[] = [];
+  async findByIdForUpdate() { return this.cart; }
   async findActiveByOwner() {
     return this.cart;
   }

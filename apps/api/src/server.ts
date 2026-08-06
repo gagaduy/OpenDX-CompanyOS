@@ -135,6 +135,11 @@ const checkout = createCheckoutModule({
   storefrontOrigin: environment.storefrontOrigin, generateId: randomUUID,
   now: () => new Date().toISOString(), expirationMs: environment.checkoutTtlSeconds * 1_000,
 });
+const sepayWebhookRouter = payment.createWebhook({
+  orders: order.checkout, inventory: inventory.reservations,
+  promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
+  ...(environment.sepay.configured ? { ipnSecret: environment.sepay.ipnSecret } : {}),
+});
 const storefront = Router();
 storefront.use(catalog.publicRouter);
 storefront.use(customer.router);
@@ -150,6 +155,7 @@ const app = createApiApp({
   inventoryRouter: inventory.router,
   promotionAdminRouter: promotion.adminRouter,
   orderAdminRouter: order.adminRouter,
+  sepayWebhookRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {

@@ -7,6 +7,7 @@ import type { CartItem } from "../../../domain/entities/cart-item";
 import type { CartOwner } from "../../dtos/cart.dto";
 
 export interface CartRepository {
+  findByIdForUpdate(session: DatabaseSession, cartId: string): Promise<Cart | undefined>;
   findActiveByOwner(
     session: DatabaseSession,
     owner: CartOwner,

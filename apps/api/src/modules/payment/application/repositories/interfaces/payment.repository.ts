@@ -4,6 +4,7 @@
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { Payment } from "../../../domain/entities/payment";
 import type { PaymentAttempt } from "../../../domain/entities/payment-attempt";
+import type { PaymentEvent } from "../../../domain/entities/payment-event";
 
 export interface PaymentAggregate {
   readonly payment: Payment;
@@ -20,6 +21,10 @@ export interface PaymentRepository {
     attempt: PaymentAttempt,
     expectedPaymentVersion: number,
   ): Promise<boolean>;
+  findByInvoiceNumber(session: DatabaseSession, invoiceNumber: string, lock?: boolean): Promise<PaymentAggregate | undefined>;
+  insertEvent(session: DatabaseSession, event: PaymentEvent): Promise<boolean>;
+  linkEvent(session: DatabaseSession, eventId: string, paymentId: string, attemptId: string): Promise<void>;
+  updateEventResult(session: DatabaseSession, eventId: string, result: PaymentEvent["processingResult"], processedAt: string, failureReason?: string): Promise<void>;
   appendAudit(session: DatabaseSession, entry: {
     readonly id: string;
     readonly actorType: "customer" | "staff" | "system" | "provider";

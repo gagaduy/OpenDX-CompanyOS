@@ -19,10 +19,11 @@ import { toCheckoutDto } from "../../mappers/checkout.mapper";
 import type { CheckoutAggregate, CheckoutRepository } from "../../repositories/interfaces/checkout.repository";
 import { CheckoutApplicationError } from "../checkout-application.error";
 import type { CheckoutServiceContract } from "../interfaces/checkout.service";
+import type { CheckoutPaidPort, CompletedCheckoutReference } from "../interfaces/checkout-paid-port";
 
 interface CreatedCheckout { readonly aggregate: CheckoutAggregate; readonly payment: PendingPaymentDto; }
 
-export class CheckoutService implements CheckoutServiceContract {
+export class CheckoutService implements CheckoutServiceContract, CheckoutPaidPort {
   constructor(
     private readonly repository: CheckoutRepository,
     private readonly carts: CheckoutReadyCartReader,
@@ -62,6 +63,12 @@ export class CheckoutService implements CheckoutServiceContract {
       return { aggregate, payment };
     });
     return this.initiate(created, context);
+  }
+
+  async completePaid(session: Parameters<CheckoutPaidPort["completePaid"]>[0], checkoutId: string, orderId: string, now: string): Promise<CompletedCheckoutReference> {
+    const checkout = await this.repository.completePaid(session, checkoutId, orderId, now);
+    if (checkout === undefined) throw new CheckoutApplicationError("CHECKOUT_NOT_FOUND", "Pending checkout not found");
+    return { checkoutId, cartId: checkout.sourceCartId, customerId: checkout.customerId };
   }
 
   private async createInSession(session: Parameters<CheckoutRepository["create"]>[0], request: CreateCheckoutRequest, context: CheckoutCustomerContext): Promise<CreatedCheckout> {

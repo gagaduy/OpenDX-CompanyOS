@@ -26,6 +26,15 @@ export class PostgresqlCheckoutRepository implements CheckoutRepository {
     const result = await session.query("UPDATE checkout_sessions SET order_id=$2,status=$3,updated_at=$4 WHERE id=$1 AND status='created'", [checkout.id, checkout.orderId, checkout.status, checkout.updatedAt]);
     if (result.rowCount !== 1) throw new Error("Checkout state changed while attaching order");
   }
+  async completePaid(session: DatabaseSession, checkoutId: string, orderId: string, now: string): Promise<CheckoutSession | undefined> {
+    const current = await session.query<Row>(`SELECT ${columns} FROM checkout_sessions WHERE id=$1 AND order_id=$2 FOR UPDATE`, [checkoutId, orderId]);
+    if (current.rows[0] === undefined) return undefined;
+    const checkout = mapCheckout(current.rows[0]);
+    if (checkout.status === "completed") return checkout;
+    if (checkout.status !== "order_created") return undefined;
+    const updated = await session.query<Row>(`UPDATE checkout_sessions SET status='completed',completed_at=$3,updated_at=$3 WHERE id=$1 AND order_id=$2 RETURNING ${columns}`, [checkoutId, orderId, now]);
+    return updated.rows[0] === undefined ? undefined : mapCheckout(updated.rows[0]);
+  }
   async appendAudit(session: DatabaseSession, entry: Parameters<CheckoutRepository["appendAudit"]>[1]): Promise<void> {
     await session.query(`INSERT INTO audit_events(id,actor_type,actor_id,action,resource_type,resource_id,outcome,correlation_id,metadata,occurred_at) VALUES($1,'customer',$2,$3,'checkout',$4,'success',$5,$6::jsonb,$7)`, [entry.id, entry.actorId, entry.action, entry.resourceId, entry.correlationId, JSON.stringify(entry.metadata), entry.occurredAt]);
   }

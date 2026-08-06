@@ -14,9 +14,11 @@ import type { CartRepository } from "../../repositories/interfaces/cart.reposito
 import { CartApplicationError } from "../cart-application.error";
 import type { CartServiceContract } from "../interfaces/cart.service";
 import type { CheckoutReadyCartReader, CheckoutReadyCartSnapshot } from "../interfaces/checkout-ready-cart-reader";
+import type { CartPaidPort } from "../interfaces/cart-paid-port";
+import { transitionCart } from "../../../domain/services/cart-rules";
 
 export class CartService
-  implements CartServiceContract, CheckoutReadyCartReader
+  implements CartServiceContract, CheckoutReadyCartReader, CartPaidPort
 {
   constructor(
     private readonly repository: CartRepository,
@@ -155,6 +157,14 @@ export class CartService
         lastValidatedUnitPriceVnd: item.lastValidatedUnitPriceVnd,
       })),
     };
+  }
+
+  async finalizePaidCheckout(session: DatabaseSession, cartId: string, customerId: string, now: string): Promise<void> {
+    const cart = await this.repository.findByIdForUpdate(session, cartId);
+    if (cart === undefined || cart.customerId !== customerId) throw new CartApplicationError("CART_NOT_FOUND", "Customer cart not found");
+    if (cart.status === "checkout_ready") return;
+    const updated = transitionCart(cart, "checkout_ready", now);
+    if (!(await this.repository.updateCartVersion(session, updated, cart.version))) throw new CartApplicationError("CART_CONFLICT", "Cart version is stale");
   }
 
   private async mutateWithCreateRetry(

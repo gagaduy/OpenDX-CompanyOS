@@ -12,6 +12,7 @@ export interface CheckoutRepository {
   findOwnedById(session: DatabaseSession, customerId: string, checkoutId: string): Promise<CheckoutAggregate | undefined>;
   applyPromotion(session: DatabaseSession, checkout: CheckoutSession): Promise<void>;
   attachOrder(session: DatabaseSession, checkout: CheckoutSession): Promise<void>;
+  completePaid(session: DatabaseSession, checkoutId: string, orderId: string, now: string): Promise<CheckoutSession | undefined>;
   appendAudit(session: DatabaseSession, entry: {
     readonly id: string; readonly actorId: string; readonly action: string; readonly resourceId: string;
     readonly correlationId: string; readonly metadata: Readonly<Record<string, unknown>>; readonly occurredAt: string;

@@ -5,6 +5,7 @@ import type { DatabaseSession } from "../../../../../shared/database/transaction
 import type { PaymentAggregate, PaymentRepository } from "../../../application/repositories/interfaces/payment.repository";
 import type { Payment, PaymentStatus } from "../../../domain/entities/payment";
 import type { PaymentAttempt, PaymentMethod } from "../../../domain/entities/payment-attempt";
+import type { PaymentEvent } from "../../../domain/entities/payment-event";
 
 type Row = Record<string, unknown>;
 
@@ -30,6 +31,27 @@ export class PostgresqlPaymentRepository implements PaymentRepository {
 
   async findByOrderId(session: DatabaseSession, orderId: string, lock = false): Promise<PaymentAggregate | undefined> {
     return this.find(session, "p.order_id=$1", orderId, lock);
+  }
+  async findByInvoiceNumber(session: DatabaseSession, invoiceNumber: string, lock = false): Promise<PaymentAggregate | undefined> {
+    return this.find(session, "a.provider_invoice_number=$1", invoiceNumber, lock);
+  }
+
+  async insertEvent(session: DatabaseSession, event: PaymentEvent): Promise<boolean> {
+    const result = await session.query(
+      `INSERT INTO payment_events
+       (id,payment_id,attempt_id,provider,authentication_result,notification_type,provider_event_id,provider_order_id,provider_transaction_id,provider_invoice_number,amount_vnd,currency,redacted_payload,payload_hash,normalized_state,processing_result,failure_reason,correlation_id,received_at,processed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20)
+       ON CONFLICT DO NOTHING`,
+      [event.id,event.paymentId??null,event.attemptId??null,event.provider,event.authenticationResult,event.notificationType,event.providerEventId??null,event.providerOrderId??null,event.providerTransactionId??null,event.providerInvoiceNumber,event.amountVnd??null,event.currency??null,JSON.stringify(event.redactedPayload),event.payloadHash,event.normalizedState,event.processingResult,event.failureReason??null,event.correlationId,event.receivedAt,event.processedAt??null],
+    );
+    return result.rowCount === 1;
+  }
+  async linkEvent(session: DatabaseSession, eventId: string, paymentId: string, attemptId: string): Promise<void> {
+    await session.query("UPDATE payment_events SET payment_id=$2,attempt_id=$3 WHERE id=$1", [eventId,paymentId,attemptId]);
+  }
+
+  async updateEventResult(session: DatabaseSession, eventId: string, result: PaymentEvent["processingResult"], processedAt: string, failureReason?: string): Promise<void> {
+    await session.query("UPDATE payment_events SET processing_result=$2,processed_at=$3,failure_reason=$4 WHERE id=$1", [eventId,result,processedAt,failureReason??null]);
   }
 
   async updateState(session: DatabaseSession, payment: Payment, attempt: PaymentAttempt, expectedPaymentVersion: number): Promise<boolean> {

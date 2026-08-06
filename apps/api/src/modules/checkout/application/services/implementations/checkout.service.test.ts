@@ -25,6 +25,7 @@ function fixture() {
     findOwnedById: vi.fn(async () => stored),
     applyPromotion: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
     attachOrder: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
+    completePaid: vi.fn(async () => stored?.checkout),
     appendAudit: vi.fn(),
   };
   const carts: CheckoutReadyCartReader = {
