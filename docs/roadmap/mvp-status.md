@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 4 Inventory and Product Publication is complete. Phase 5 Storefront,
-Customer, and Cart implementation plus credential-free acceptance are complete.
-The only remaining acceptance dependency is a contributor-owned Google OAuth
-client for one real login cycle before the pull request is merged.
+Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
+Phase 6 Checkout, Order, and SePay has entered focused design review on
+`feat/checkout-order-sepay`; implementation has not started.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -23,8 +22,8 @@ Active commerce master plan:
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
-| Phase 5: Storefront, Customer, and Cart | External acceptance | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Pending real Google login and PR merge |
-| Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
+| Phase 6: Checkout, Order, and SePay | Design review | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Implement only after focused design and plan approval |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
@@ -121,6 +120,14 @@ Active commerce master plan:
   environment validation, restore safety, and failed-login compensation. All
   were fixed with regression coverage; re-review found no remaining Critical or
   Important Phase 5 findings.
+- Phase 5 customer-facing visual acceptance was expanded with an editorial
+  Storefront redesign, persistent light/dark themes, customer sign-in, account,
+  address, cart, catalog, and product-detail surfaces. Full `make check` passed,
+  the real Google-backed account journey was exercised, and pull request #4 was
+  merged into `develop` on 2026-08-06.
+- Phase 6 focused design and its 13-task file-level TDD plan were drafted on
+  2026-08-06 after checking the current official SePay sandbox, checkout
+  signing, IPN authentication, and order-detail reconciliation contracts.
 
 ## Open Risks
 

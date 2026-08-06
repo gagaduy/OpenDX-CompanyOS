@@ -50,6 +50,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the proposed Phase 6 Checkout, Order, and SePay focused design plus a
+  13-task TDD implementation plan covering deterministic promotions, immutable
+  order snapshots, atomic inventory reservation, server-signed SePay checkout,
+  authenticated exact-once IPN handling, reconciliation, Storefront/Console
+  workflows, Docker operations, and sandbox acceptance.
 - Add the product-first NovaCommerce Storefront redesign with editorial catalog
   discovery, a sticky product purchase surface, immersive customer sign-in,
   structured profile/address workspaces, persistent light/dark themes, and
