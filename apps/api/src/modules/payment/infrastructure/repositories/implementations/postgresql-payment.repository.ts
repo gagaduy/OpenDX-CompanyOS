@@ -6,6 +6,8 @@ import type { PaymentAggregate, PaymentRepository } from "../../../application/r
 import type { Payment, PaymentStatus } from "../../../domain/entities/payment";
 import type { PaymentAttempt, PaymentMethod } from "../../../domain/entities/payment-attempt";
 import type { PaymentEvent } from "../../../domain/entities/payment-event";
+import type { PaymentReconciliation } from "../../../domain/entities/payment-reconciliation";
+import type { PaymentListQuery, PaymentSummaryDto } from "../../../application/dtos/payment-admin.dto";
 
 type Row = Record<string, unknown>;
 
@@ -53,6 +55,112 @@ export class PostgresqlPaymentRepository implements PaymentRepository {
   async updateEventResult(session: DatabaseSession, eventId: string, result: PaymentEvent["processingResult"], processedAt: string, failureReason?: string): Promise<void> {
     await session.query("UPDATE payment_events SET processing_result=$2,processed_at=$3,failure_reason=$4 WHERE id=$1", [eventId,result,processedAt,failureReason??null]);
   }
+  async list(
+    session: DatabaseSession,
+    query: PaymentListQuery,
+  ): Promise<{ readonly items: readonly PaymentSummaryDto[]; readonly totalItems: number }> {
+    const values: unknown[] = [];
+    const clauses: string[] = [];
+    if (query.status !== undefined) {
+      values.push(query.status);
+      clauses.push(`p.status=$${values.length}`);
+    }
+    const where = clauses.length === 0 ? "TRUE" : clauses.join(" AND ");
+    const count = await session.query<{ total: string }>(
+      `SELECT count(*)::text total FROM payments p WHERE ${where}`,
+      values,
+    );
+    const rows = await session.query<Row>(
+      `SELECT p.id,p.order_id,p.status,p.expected_amount_vnd,p.updated_at,
+              a.provider_invoice_number,a.provider_order_id
+       FROM payments p JOIN payment_attempts a ON a.id=p.active_attempt_id
+       WHERE ${where} ORDER BY p.updated_at DESC,p.id
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    return {
+      items: rows.rows.map(mapSummary),
+      totalItems: Number(count.rows[0]?.total ?? 0),
+    };
+  }
+  async listReconciliations(
+    session: DatabaseSession,
+    paymentId: string,
+  ): Promise<readonly PaymentReconciliation[]> {
+    const result = await session.query<Row>(
+      "SELECT * FROM payment_reconciliations WHERE payment_id=$1 ORDER BY created_at DESC,id",
+      [paymentId],
+    );
+    return result.rows.map(mapReconciliation);
+  }
+  async insertReconciliation(
+    session: DatabaseSession,
+    reconciliation: PaymentReconciliation,
+  ): Promise<void> {
+    await session.query(
+      `INSERT INTO payment_reconciliations
+       (id,payment_id,attempt_id,trigger_actor_type,trigger_actor_id,
+        provider_order_id,internal_status,provider_status,internal_amount_vnd,
+        provider_amount_vnd,comparison_result,redacted_response,correlation_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14)`,
+      [
+        reconciliation.id, reconciliation.paymentId, reconciliation.attemptId,
+        reconciliation.triggerActorType, reconciliation.triggerActorId,
+        reconciliation.providerOrderId ?? null, reconciliation.internalStatus,
+        reconciliation.providerStatus ?? null, reconciliation.internalAmountVnd,
+        reconciliation.providerAmountVnd ?? null, reconciliation.comparisonResult,
+        reconciliation.redactedResponse === undefined
+          ? null
+          : JSON.stringify(reconciliation.redactedResponse),
+        reconciliation.correlationId, reconciliation.createdAt,
+      ],
+    );
+  }
+  async attachProviderOrderId(
+    session: DatabaseSession,
+    attemptId: string,
+    providerOrderId: string,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE payment_attempts SET provider_order_id=$2,updated_at=current_timestamp
+       WHERE id=$1 AND (provider_order_id IS NULL OR provider_order_id=$2)`,
+      [attemptId, providerOrderId],
+    );
+    return result.rowCount === 1;
+  }
+  async listDuePending(
+    session: DatabaseSession,
+    limit: number,
+  ): Promise<readonly PaymentAggregate[]> {
+    const result = await session.query<Row>(
+      `SELECT p.id payment_id,p.order_id,p.provider,p.expected_amount_vnd,
+              p.currency,p.status payment_status,p.active_attempt_id,p.paid_at,
+              p.version,p.created_at payment_created_at,p.updated_at payment_updated_at,
+              a.id attempt_id,a.provider_invoice_number,a.provider_order_id,
+              a.payment_method,a.state attempt_state,a.idempotency_key,a.expires_at,
+              a.created_at attempt_created_at,a.updated_at attempt_updated_at
+       FROM payments p JOIN payment_attempts a ON a.id=p.active_attempt_id
+       LEFT JOIN LATERAL (
+         SELECT count(*)::integer reconciliation_count,max(r.created_at) last_reconciled_at
+         FROM payment_reconciliations r WHERE r.payment_id=p.id
+       ) reconciliation ON TRUE
+       WHERE p.status='pending_provider' AND a.provider_order_id IS NOT NULL
+         AND (
+           reconciliation.reconciliation_count=0 OR
+           reconciliation.last_reconciled_at <= current_timestamp -
+             CASE LEAST(reconciliation.reconciliation_count,5)
+               WHEN 1 THEN interval '1 minute'
+               WHEN 2 THEN interval '2 minutes'
+               WHEN 3 THEN interval '4 minutes'
+               WHEN 4 THEN interval '8 minutes'
+               ELSE interval '16 minutes'
+             END
+         )
+       ORDER BY p.updated_at,p.id LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapAggregate);
+  }
 
   async updateState(session: DatabaseSession, payment: Payment, attempt: PaymentAttempt, expectedPaymentVersion: number): Promise<boolean> {
     const result = await session.query(
@@ -92,6 +200,45 @@ export class PostgresqlPaymentRepository implements PaymentRepository {
     );
     return result.rows[0] === undefined ? undefined : mapAggregate(result.rows[0]);
   }
+}
+
+function mapSummary(row: Row): PaymentSummaryDto {
+  return {
+    id: String(row.id), orderId: String(row.order_id), status: status(row.status),
+    expectedAmountVnd: money(row.expected_amount_vnd), currency: "VND",
+    invoiceNumber: String(row.provider_invoice_number),
+    ...(row.provider_order_id === null
+      ? {}
+      : { providerOrderId: String(row.provider_order_id) }),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+function mapReconciliation(row: Row): PaymentReconciliation {
+  return {
+    id: String(row.id), paymentId: String(row.payment_id),
+    attemptId: String(row.attempt_id),
+    triggerActorType: String(row.trigger_actor_type) as "staff" | "system",
+    triggerActorId: String(row.trigger_actor_id),
+    ...(row.provider_order_id === null
+      ? {}
+      : { providerOrderId: String(row.provider_order_id) }),
+    internalStatus: status(row.internal_status),
+    ...(row.provider_status === null
+      ? {}
+      : { providerStatus: String(row.provider_status) }),
+    internalAmountVnd: money(row.internal_amount_vnd),
+    ...(row.provider_amount_vnd === null
+      ? {}
+      : { providerAmountVnd: money(row.provider_amount_vnd) }),
+    comparisonResult: String(
+      row.comparison_result,
+    ) as PaymentReconciliation["comparisonResult"],
+    ...(row.redacted_response === null
+      ? {}
+      : { redactedResponse: row.redacted_response as Record<string, unknown> }),
+    correlationId: String(row.correlation_id), createdAt: iso(row.created_at),
+  };
 }
 
 function mapAggregate(row: Row): PaymentAggregate {

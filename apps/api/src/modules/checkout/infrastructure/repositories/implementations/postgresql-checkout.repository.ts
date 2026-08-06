@@ -35,8 +35,27 @@ export class PostgresqlCheckoutRepository implements CheckoutRepository {
     const updated = await session.query<Row>(`UPDATE checkout_sessions SET status='completed',completed_at=$3,updated_at=$3 WHERE id=$1 AND order_id=$2 RETURNING ${columns}`, [checkoutId, orderId, now]);
     return updated.rows[0] === undefined ? undefined : mapCheckout(updated.rows[0]);
   }
+  async listDue(session: DatabaseSession, now: string, limit: number): Promise<readonly CheckoutSession[]> {
+    const result = await session.query<Row>(
+      `SELECT ${columns} FROM checkout_sessions
+       WHERE status='order_created' AND expires_at <= $1
+       ORDER BY expires_at,id LIMIT $2`,
+      [now, limit],
+    );
+    return result.rows.map(mapCheckout);
+  }
+  async markExpired(session: DatabaseSession, checkoutId: string, now: string): Promise<boolean> {
+    const result = await session.query(
+      "UPDATE checkout_sessions SET status='expired',updated_at=$2 WHERE id=$1 AND status='order_created'",
+      [checkoutId, now],
+    );
+    return result.rowCount === 1;
+  }
   async appendAudit(session: DatabaseSession, entry: Parameters<CheckoutRepository["appendAudit"]>[1]): Promise<void> {
-    await session.query(`INSERT INTO audit_events(id,actor_type,actor_id,action,resource_type,resource_id,outcome,correlation_id,metadata,occurred_at) VALUES($1,'customer',$2,$3,'checkout',$4,'success',$5,$6::jsonb,$7)`, [entry.id, entry.actorId, entry.action, entry.resourceId, entry.correlationId, JSON.stringify(entry.metadata), entry.occurredAt]);
+    const actorType = entry.actorId.startsWith("system:")
+      ? "service_account"
+      : "customer";
+    await session.query(`INSERT INTO audit_events(id,actor_type,actor_id,action,resource_type,resource_id,outcome,correlation_id,metadata,occurred_at) VALUES($1,$2,$3,$4,'checkout',$5,'success',$6,$7::jsonb,$8)`, [entry.id, actorType, entry.actorId, entry.action, entry.resourceId, entry.correlationId, JSON.stringify(entry.metadata), entry.occurredAt]);
   }
   private async find(session: DatabaseSession, predicate: string, parameters: readonly unknown[], lock: boolean): Promise<CheckoutAggregate | undefined> {
     const result = await session.query<Row>(`SELECT ${columns} FROM checkout_sessions WHERE ${predicate}${lock ? " FOR UPDATE" : ""}`, parameters);

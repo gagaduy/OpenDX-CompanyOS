@@ -118,6 +118,41 @@ describeWithDatabase("PostgresqlPaymentRepository", () => {
     );
     expect(stored.rows[0]).toMatchObject({ payment_count: "1", attempt_count: "1" });
     expect(stored.rows[0]?.database_text).not.toMatch(/must-not-be-persisted|secret|signature/i);
+    await transactions.run(async (session) => {
+      await expect(
+        repository.attachProviderOrderId(
+          session,
+          created.attemptId,
+          "provider-order-1",
+        ),
+      ).resolves.toBe(true);
+    });
+    await expect(
+      transactions.runReadOnly((session) => repository.listDuePending(session, 25)),
+    ).resolves.toHaveLength(1);
+
+    const reconciledAt = new Date().toISOString();
+    await transactions.run((session) =>
+      repository.insertReconciliation(session, {
+        id: "c1950000-0000-4000-8000-000000000001",
+        paymentId: created.paymentId,
+        attemptId: created.attemptId,
+        triggerActorType: "system",
+        triggerActorId: "system:payment-reconciliation",
+        providerOrderId: "provider-order-1",
+        internalStatus: "pending_provider",
+        providerStatus: "PENDING",
+        internalAmountVnd: 100_000,
+        providerAmountVnd: 100_000,
+        comparisonResult: "still_pending",
+        redactedResponse: { status: "PENDING" },
+        correlationId: "corr-reconcile",
+        createdAt: reconciledAt,
+      }),
+    );
+    await expect(
+      transactions.runReadOnly((session) => repository.listDuePending(session, 25)),
+    ).resolves.toHaveLength(0);
     await expect(transactions.run((session) => service.createPending(session, { ...request, expectedAmountVnd: 99_999 }))).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
   });
 });

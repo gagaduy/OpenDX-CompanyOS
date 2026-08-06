@@ -69,6 +69,9 @@ const apiEnvironmentSchema = z.object({
   SEPAY_REQUEST_TIMEOUT_MS: positiveInteger.default(5000).pipe(
     z.number().int().min(500).max(30_000),
   ),
+  PAYMENT_RECONCILIATION_INTERVAL_SECONDS: positiveInteger.default(60).pipe(
+    z.number().int().min(10).max(3_600),
+  ),
 }).superRefine((value, context) => {
   const credentialFields = [
     ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
@@ -169,6 +172,7 @@ export interface ApiEnvironment {
   readonly inventoryReservationTtlSeconds: number;
   readonly inventoryExpiryIntervalSeconds: number;
   readonly checkoutTtlSeconds: number;
+  readonly paymentReconciliationIntervalSeconds: number;
   readonly sepay: SePayConfiguration;
 }
 
@@ -224,6 +228,8 @@ export function parseApiEnvironment(
     inventoryReservationTtlSeconds: value.INVENTORY_RESERVATION_TTL_SECONDS,
     inventoryExpiryIntervalSeconds: value.INVENTORY_EXPIRY_INTERVAL_SECONDS,
     checkoutTtlSeconds: value.CHECKOUT_TTL_SECONDS,
+    paymentReconciliationIntervalSeconds:
+      value.PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
     sepay: {
       environment: value.SEPAY_ENVIRONMENT,
       checkoutUrl,

@@ -22,6 +22,7 @@ function fixture() {
     insertEvent: vi.fn(async () => true),
     linkEvent: vi.fn(),
     updateEventResult: vi.fn(),
+    list: vi.fn(async()=>({items:[],totalItems:0})),listReconciliations:vi.fn(async()=>[]),insertReconciliation:vi.fn(),attachProviderOrderId:vi.fn(async()=>true),listDuePending:vi.fn(async()=>[]),
     updateState: vi.fn(async (_session, payment, attempt, expectedVersion) => {
       if (aggregate?.payment.version !== expectedVersion) return false;
       aggregate = { payment, activeAttempt: attempt };
@@ -97,5 +98,71 @@ describe("PaymentService", () => {
     await expect(service.initiate({ paymentId: pending.paymentId, customerId: "customer-1", orderDescription: "Order NVC-1", actorId: "customer-1", correlationId: "corr-init" })).rejects.toThrow("provider unavailable");
     expect(repository.updateState).not.toHaveBeenCalled();
     await expect(service.createPending(session, request)).resolves.toMatchObject({ status: "created", attemptId: pending.attemptId });
+  });
+
+  it("expires an unpaid payment once and refuses to expire a paid payment", async () => {
+    const first = fixture();
+    await first.service.createPending(session, first.request);
+    await expect(
+      first.service.expireByOrderInSession(
+        session,
+        "order-1",
+        "corr-expire",
+        expiresAt,
+      ),
+    ).resolves.toBe("expired");
+    await expect(
+      first.service.expireByOrderInSession(
+        session,
+        "order-1",
+        "corr-replay",
+        expiresAt,
+      ),
+    ).resolves.toBe("expired");
+    expect(first.repository.updateState).toHaveBeenCalledTimes(1);
+    expect(first.audits).toContain("payment.expired");
+
+    const paid = fixture();
+    await paid.service.createPending(session, paid.request);
+    await paid.service.initiate({
+      paymentId: "a1000000-0000-4000-8000-000000000001",
+      customerId: "customer-1",
+      orderDescription: "Order NVC-1",
+      actorId: "customer-1",
+      correlationId: "corr-init",
+    });
+    vi.mocked(paid.repository.findByOrderId).mockResolvedValueOnce({
+      payment: {
+        id: "payment-paid",
+        orderId: "order-1",
+        provider: "sepay",
+        expectedAmountVnd: 100_000,
+        currency: "VND",
+        status: "paid",
+        activeAttemptId: "attempt-paid",
+        paidAt: timestamp,
+        version: 3,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      activeAttempt: {
+        id: "attempt-paid",
+        paymentId: "payment-paid",
+        providerInvoiceNumber: "NVC-PAY-A1000000000040008000000000000002",
+        state: "paid",
+        idempotencyKey: "key",
+        expiresAt,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    });
+    await expect(
+      paid.service.expireByOrderInSession(
+        session,
+        "order-1",
+        "corr-expire",
+        expiresAt,
+      ),
+    ).resolves.toBe("paid");
   });
 });

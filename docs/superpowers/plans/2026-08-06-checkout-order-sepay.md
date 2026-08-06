@@ -408,21 +408,21 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `apps/api/src/server.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Test unpaid expiry releases/observes expired Inventory, releases promotion,
+- [x] Test unpaid expiry releases/observes expired Inventory, releases promotion,
   expires payment/order/checkout, and remains idempotent if Inventory expiry won
   the race.
-- [ ] Test reconciliation exact match, still pending, timeout, provider 4xx/5xx,
+- [x] Test reconciliation exact match, still pending, timeout, provider 4xx/5xx,
   amount/currency/invoice mismatch, unsupported state, already paid, and
   concurrent IPN/reconciliation.
-- [ ] Persist every reconciliation comparison with redacted provider evidence.
-- [ ] Call the same exact-once paid transition used by IPN; do not duplicate paid
+- [x] Persist every reconciliation comparison with redacted provider evidence.
+- [x] Call the same exact-once paid transition used by IPN; do not duplicate paid
   logic in the worker or controller.
-- [ ] Bound batches and external retries. Never hold a database transaction open
+- [x] Bound batches and external retries. Never hold a database transaction open
   during the provider HTTP request.
-- [ ] Add administrator/finance-operator payment list/detail/reconcile APIs with
+- [x] Add administrator/finance-operator payment list/detail/reconcile APIs with
   backend authorization and audit.
-- [ ] Run expiry, reconciliation, race, role, and API tests.
-- [ ] Commit as `feat(payment): reconcile pending sepay payments`.
+- [x] Run expiry, reconciliation, race, role, and API tests.
+- [x] Commit as `feat(payment): reconcile pending sepay payments`.
 
 ### Task 10: Storefront Checkout, Payment, and Orders
 

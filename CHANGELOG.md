@@ -51,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add bounded unpaid-checkout expiry and SePay reconciliation workers, including
+  idempotent Inventory-first cleanup, redacted provider comparisons, shared
+  exact-once paid transitions, administrator/finance payment APIs, audited role
+  enforcement, and PostgreSQL race coverage across IPN and reconciliation.
 - Add constant-time authenticated SePay IPN ingestion with strict pre-parse
   authentication, allow-listed event projections, database deduplication, and
   one atomic paid transition across Payment, Order, Inventory, Promotion,

@@ -10,8 +10,12 @@ import type { PaymentGateway } from "../../providers/payment-gateway";
 import type { PaymentAggregate, PaymentRepository } from "../../repositories/interfaces/payment.repository";
 import { PaymentApplicationError } from "../payment-application.error";
 import type { CreatePendingPaymentRequest, InitiatePaymentRequest, PaymentServiceContract } from "../interfaces/payment.service";
+import type {
+  PaymentExpiryPort,
+  PaymentExpiryResult,
+} from "../interfaces/payment-expiry-port";
 
-export class PaymentService implements PaymentServiceContract {
+export class PaymentService implements PaymentServiceContract, PaymentExpiryPort {
   constructor(
     private readonly repository: PaymentRepository,
     private readonly transactions: TransactionRunner,
@@ -97,6 +101,57 @@ export class PaymentService implements PaymentServiceContract {
     });
 
     return { ...mapPending(updated), status: "pending_provider", initiation };
+  }
+
+  async expireByOrderInSession(
+    session: DatabaseSession,
+    orderId: string,
+    correlationId: string,
+    now: string,
+  ): Promise<PaymentExpiryResult> {
+    const aggregate = await this.repository.findByOrderId(session, orderId, true);
+    if (aggregate === undefined) {
+      throw new PaymentApplicationError("PAYMENT_NOT_FOUND", "Payment not found");
+    }
+    if (aggregate.payment.status === "paid") return "paid";
+    if (aggregate.payment.status === "expired") return "expired";
+    if (
+      aggregate.payment.status !== "created" &&
+      aggregate.payment.status !== "pending_provider"
+    ) {
+      return "already_terminal";
+    }
+
+    const payment = transitionPayment(aggregate.payment, "expired", now);
+    const attempt = transitionPaymentAttempt(
+      aggregate.activeAttempt,
+      "expired",
+      now,
+    );
+    if (
+      !(await this.repository.updateState(
+        session,
+        payment,
+        attempt,
+        aggregate.payment.version,
+      ))
+    ) {
+      throw new PaymentApplicationError(
+        "STALE_VERSION",
+        "Payment version is stale",
+      );
+    }
+    await this.repository.appendAudit(session, {
+      id: this.generateId(),
+      actorType: "system",
+      actorId: "system:checkout-expiry",
+      action: "payment.expired",
+      resourceId: payment.id,
+      correlationId,
+      metadata: { orderId },
+      occurredAt: now,
+    });
+    return "expired";
   }
 }
 

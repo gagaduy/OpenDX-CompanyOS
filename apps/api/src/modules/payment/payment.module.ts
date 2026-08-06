@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { TransactionRunner } from "../../shared/database/transaction";
+import {
+  authenticateStaff,
+  type StaffTokenVerifier,
+} from "../../shared/auth/staff-auth.middleware";
 import { PaymentService } from "./application/services/implementations/payment.service";
 import type { PaymentGateway } from "./application/providers/payment-gateway";
 import { PostgresqlPaymentRepository } from "./infrastructure/repositories/implementations/postgresql-payment.repository";
@@ -14,6 +18,11 @@ import { PaymentNotificationService } from "./application/services/implementatio
 import { SePayIpnController } from "./presentation/controllers/sepay-ipn.controller";
 import { authenticateSePayIpn } from "./presentation/middleware/sepay-ipn-auth.middleware";
 import { createSePayIpnRouter } from "./presentation/routes/sepay-ipn.routes";
+import { PaymentReconciliationService } from "./application/services/implementations/payment-reconciliation.service";
+import { PaymentAdminController } from "./presentation/controllers/payment-admin.controller";
+import { createPaymentAdminRouter } from "./presentation/routes/payment-admin.routes";
+import { paymentErrorMiddleware } from "./presentation/middleware/payment-error.middleware";
+import { PaymentReconciliationWorker } from "./infrastructure/workers/payment-reconciliation.worker";
 
 export interface PaymentModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -22,8 +31,15 @@ export interface PaymentModuleDependencies {
   readonly now: () => string;
 }
 export interface PaymentNotificationModuleDependencies {
-  readonly orders: OrderCheckoutPort; readonly inventory: InventoryCheckoutPort; readonly promotions: PromotionCheckoutPort;
-  readonly checkouts: CheckoutPaidPort; readonly carts: CartPaidPort; readonly ipnSecret?: string;
+  readonly orders: OrderCheckoutPort;
+  readonly inventory: InventoryCheckoutPort;
+  readonly promotions: PromotionCheckoutPort;
+  readonly checkouts: CheckoutPaidPort;
+  readonly carts: CartPaidPort;
+  readonly staffTokenVerifier: StaffTokenVerifier;
+  readonly reconciliationIntervalMs: number;
+  readonly onWorkerError: (error: unknown) => void;
+  readonly ipnSecret?: string;
 }
 
 export function createPaymentModule(dependencies: PaymentModuleDependencies) {
@@ -37,9 +53,57 @@ export function createPaymentModule(dependencies: PaymentModuleDependencies) {
   );
   return {
     checkout: service,
-    createWebhook(notificationDependencies: PaymentNotificationModuleDependencies) {
-      const notifications = new PaymentNotificationService(repository, dependencies.gateway, notificationDependencies.orders, notificationDependencies.inventory, notificationDependencies.promotions, notificationDependencies.checkouts, notificationDependencies.carts, dependencies.transactions, dependencies.generateId, dependencies.now);
-      return createSePayIpnRouter(new SePayIpnController(notifications), authenticateSePayIpn(notificationDependencies.ipnSecret));
+    createOperations(notificationDependencies: PaymentNotificationModuleDependencies) {
+      const notifications = new PaymentNotificationService(
+        repository,
+        dependencies.gateway,
+        notificationDependencies.orders,
+        notificationDependencies.inventory,
+        notificationDependencies.promotions,
+        notificationDependencies.checkouts,
+        notificationDependencies.carts,
+        dependencies.transactions,
+        dependencies.generateId,
+        dependencies.now,
+      );
+      const reconciliation = new PaymentReconciliationService(
+        repository,
+        dependencies.gateway,
+        notifications,
+        dependencies.transactions,
+        dependencies.generateId,
+        dependencies.now,
+      );
+      const adminRouter = createPaymentAdminRouter(
+        new PaymentAdminController(reconciliation),
+        authenticateStaff(notificationDependencies.staffTokenVerifier),
+        (denied) =>
+          dependencies.transactions.run((session) =>
+            repository.appendAudit(session, {
+              id: dependencies.generateId(),
+              actorType: "staff",
+              actorId: denied.actorId,
+              action: denied.action,
+              resourceId: denied.resourceId,
+              correlationId: denied.correlationId,
+              metadata: {},
+              occurredAt: dependencies.now(),
+            }),
+          ),
+      );
+      adminRouter.use(paymentErrorMiddleware);
+      return {
+        adminRouter,
+        webhookRouter: createSePayIpnRouter(
+          new SePayIpnController(notifications),
+          authenticateSePayIpn(notificationDependencies.ipnSecret),
+        ),
+        reconciliationWorker: new PaymentReconciliationWorker(
+          reconciliation,
+          notificationDependencies.reconciliationIntervalMs,
+          notificationDependencies.onWorkerError,
+        ),
+      };
     },
   };
 }

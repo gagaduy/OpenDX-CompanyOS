@@ -13,6 +13,8 @@ export interface CheckoutRepository {
   applyPromotion(session: DatabaseSession, checkout: CheckoutSession): Promise<void>;
   attachOrder(session: DatabaseSession, checkout: CheckoutSession): Promise<void>;
   completePaid(session: DatabaseSession, checkoutId: string, orderId: string, now: string): Promise<CheckoutSession | undefined>;
+  listDue(session: DatabaseSession, now: string, limit: number): Promise<readonly CheckoutSession[]>;
+  markExpired(session: DatabaseSession, checkoutId: string, now: string): Promise<boolean>;
   appendAudit(session: DatabaseSession, entry: {
     readonly id: string; readonly actorId: string; readonly action: string; readonly resourceId: string;
     readonly correlationId: string; readonly metadata: Readonly<Record<string, unknown>>; readonly occurredAt: string;

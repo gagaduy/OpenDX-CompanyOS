@@ -134,10 +134,15 @@ const checkout = createCheckoutModule({
   sessions: customer.sessions, cookies: storefrontCookies,
   storefrontOrigin: environment.storefrontOrigin, generateId: randomUUID,
   now: () => new Date().toISOString(), expirationMs: environment.checkoutTtlSeconds * 1_000,
+  expiryIntervalMs: environment.inventoryExpiryIntervalSeconds * 1_000,
+  onWorkerError: (error) => console.error("Checkout expiry worker failed", error),
 });
-const sepayWebhookRouter = payment.createWebhook({
+const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
+  staffTokenVerifier,
+  reconciliationIntervalMs: environment.paymentReconciliationIntervalSeconds * 1_000,
+  onWorkerError: (error) => console.error("Payment reconciliation worker failed", error),
   ...(environment.sepay.configured ? { ipnSecret: environment.sepay.ipnSecret } : {}),
 });
 const storefront = Router();
@@ -155,7 +160,8 @@ const app = createApiApp({
   inventoryRouter: inventory.router,
   promotionAdminRouter: promotion.adminRouter,
   orderAdminRouter: order.adminRouter,
-  sepayWebhookRouter,
+  paymentAdminRouter: paymentOperations.adminRouter,
+  sepayWebhookRouter: paymentOperations.webhookRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
@@ -181,10 +187,14 @@ const app = createApiApp({
 const server = app.listen(environment.apiPort, () => {
   console.log(`OpenDX API listening on http://localhost:${environment.apiPort}`);
   inventory.expiryWorker.start();
+  checkout.expiryWorker.start();
+  if (environment.sepay.configured) paymentOperations.reconciliationWorker.start();
 });
 
 async function shutdown(): Promise<void> {
   inventory.expiryWorker.stop();
+  checkout.expiryWorker.stop();
+  paymentOperations.reconciliationWorker.stop();
   server.close(async () => {
     await pool.end();
   });

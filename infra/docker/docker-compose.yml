@@ -38,6 +38,7 @@ x-api-environment: &api-environment
   SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-http://localhost:3100/payment/return?outcome=error}
   SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-http://localhost:3100/payment/return?outcome=cancel}
   SEPAY_REQUEST_TIMEOUT_MS: ${SEPAY_REQUEST_TIMEOUT_MS:-5000}
+  PAYMENT_RECONCILIATION_INTERVAL_SECONDS: ${PAYMENT_RECONCILIATION_INTERVAL_SECONDS:-60}
 
 services:
   postgres:

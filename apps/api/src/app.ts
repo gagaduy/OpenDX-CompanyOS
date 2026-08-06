@@ -24,6 +24,7 @@ export interface CreateApiAppOptions {
   readonly inventoryRouter?: Router;
   readonly promotionAdminRouter?: Router;
   readonly orderAdminRouter?: Router;
+  readonly paymentAdminRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -74,6 +75,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.orderAdminRouter !== undefined) {
     app.use("/v1/admin/orders", consoleCors, options.orderAdminRouter);
+  }
+  if (options.paymentAdminRouter !== undefined) {
+    app.use("/v1/admin/payments", consoleCors, options.paymentAdminRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

@@ -26,6 +26,8 @@ function fixture() {
     applyPromotion: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
     attachOrder: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
     completePaid: vi.fn(async () => stored?.checkout),
+    listDue: vi.fn(async () => []),
+    markExpired: vi.fn(async () => true),
     appendAudit: vi.fn(),
   };
   const carts: CheckoutReadyCartReader = {

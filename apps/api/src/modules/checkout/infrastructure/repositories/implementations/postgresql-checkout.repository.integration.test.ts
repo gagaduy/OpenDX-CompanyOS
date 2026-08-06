@@ -16,6 +16,7 @@ import { OrderService } from "../../../../order/application/services/implementat
 import { PostgresqlOrderRepository } from "../../../../order/infrastructure/repositories/implementations/postgresql-order.repository";
 import { PaymentService } from "../../../../payment/application/services/implementations/payment.service";
 import { PaymentNotificationService } from "../../../../payment/application/services/implementations/payment-notification.service";
+import { PaymentReconciliationService } from "../../../../payment/application/services/implementations/payment-reconciliation.service";
 import type { PaymentGateway } from "../../../../payment";
 import { SePayPaymentGateway } from "../../../../payment";
 import { PostgresqlPaymentRepository } from "../../../../payment/infrastructure/repositories/implementations/postgresql-payment.repository";
@@ -29,6 +30,7 @@ import { runPromotionMigrations } from "../../../../promotion/infrastructure/dat
 import { runCatalogMigrations, runCompanyCoreMigrations } from "../../../../../shared/database/run-migrations";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { CheckoutService } from "../../../application/services/implementations/checkout.service";
+import { CheckoutExpiryService } from "../../../application/services/implementations/checkout-expiry.service";
 import { runCheckoutMigrations } from "../../database/run-checkout-migrations";
 import { PostgresqlCheckoutRepository } from "./postgresql-checkout.repository";
 
@@ -109,5 +111,212 @@ suite("atomic checkout PostgreSQL orchestration", () => {
     const states=await pool.query<{payment_status:string;order_status:string;checkout_status:string;cart_status:string;reservation_status:string;events:string;consume_movements:string;paid_audits:string}>(`SELECT p.status payment_status,o.status order_status,c.status checkout_status,cart.status cart_status,r.status reservation_status,(SELECT count(*)::text FROM payment_events) events,(SELECT count(*)::text FROM stock_movements WHERE movement_type='consume') consume_movements,(SELECT count(*)::text FROM audit_events WHERE action='payment.paid') paid_audits FROM payments p JOIN orders o ON o.id=p.order_id JOIN checkout_sessions c ON c.order_id=o.id JOIN carts cart ON cart.id=c.source_cart_id JOIN inventory_reservations r ON r.reference_id=o.id::text`);
     expect(states.rows[0]).toEqual({payment_status:"paid",order_status:"paid",checkout_status:"completed",cart_status:"checkout_ready",reservation_status:"consumed",events:"1",consume_movements:"1",paid_audits:"1"});
     expect(promotions.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it("expires unpaid checkout exactly once after inventory expiry wins the race", async () => {
+    const checkoutTime = now;
+    const expiryTime = "2026-08-06T08:16:00.000Z";
+    const inventoryRepository = new PostgresqlInventoryRepository();
+    const inventoryAudit = new PostgresqlInventoryAuditRepository();
+    const inventory = new InventoryReservationService(
+      inventoryRepository, createCatalogVariantReader(), inventoryAudit,
+      transactions, randomUUID, () => checkoutTime, 900_000,
+    );
+    const order = new OrderService(
+      new PostgresqlOrderRepository(), transactions, randomUUID, () => checkoutTime,
+    );
+    const gateway: PaymentGateway = {
+      createCheckout: vi.fn(async () => ({
+        actionUrl: "https://pay-sandbox.sepay.vn/v1/checkout/init",
+        method: "POST" as const,
+        fields: [{ name: "signature", value: "synthetic" }],
+      })),
+      getOrderDetail: vi.fn(),
+      normalizeNotification: vi.fn(),
+    };
+    const payment = new PaymentService(
+      new PostgresqlPaymentRepository(), transactions, gateway, randomUUID,
+      () => checkoutTime,
+    );
+    const checkoutRepository = new PostgresqlCheckoutRepository();
+    const checkout = new CheckoutService(
+      checkoutRepository, cartReader, customerReader, catalog, promotions,
+      order, payment, inventory, transactions, randomUUID,
+      () => checkoutTime, 900_000,
+    );
+    await checkout.create(
+      {
+        addressId: "d1410000-0000-4000-8000-000000000001",
+        idempotencyKey: "checkout-expiry",
+      },
+      {
+        customerId: customers[0],
+        customerExpiresAt: "2026-09-01T00:00:00.000Z",
+        correlationId: "corr-checkout-expiry",
+      },
+    );
+
+    const expiryInventory = new InventoryReservationService(
+      inventoryRepository, createCatalogVariantReader(), inventoryAudit,
+      transactions, randomUUID, () => expiryTime, 900_000,
+    );
+    await expect(
+      expiryInventory.expireDue(100, {
+        actorType: "system",
+        actorId: "system:inventory-expiry",
+        correlationId: "corr-inventory-expiry",
+      }),
+    ).resolves.toBe(1);
+
+    const expiry = new CheckoutExpiryService(
+      checkoutRepository, payment, order, expiryInventory, promotions,
+      transactions, randomUUID, () => expiryTime,
+    );
+    await expect(expiry.expireDue(100)).resolves.toBe(1);
+    await expect(expiry.expireDue(100)).resolves.toBe(0);
+
+    const states = await pool.query<{
+      payment_status: string;
+      order_status: string;
+      checkout_status: string;
+      reservation_status: string;
+      reserved: number;
+      payment_expired_audits: string;
+      checkout_expired_audits: string;
+    }>(
+      `SELECT p.status payment_status,o.status order_status,
+              c.status checkout_status,r.status reservation_status,i.reserved,
+              (SELECT count(*)::text FROM audit_events WHERE action='payment.expired') payment_expired_audits,
+              (SELECT count(*)::text FROM audit_events WHERE action='checkout.expired') checkout_expired_audits
+       FROM payments p JOIN orders o ON o.id=p.order_id
+       JOIN checkout_sessions c ON c.order_id=o.id
+       JOIN inventory_reservations r ON r.reference_id=o.id::text
+       JOIN inventory_items i ON i.variant_id=r.variant_id`,
+    );
+    expect(states.rows[0]).toEqual({
+      payment_status: "expired",
+      order_status: "expired",
+      checkout_status: "expired",
+      reservation_status: "expired",
+      reserved: 0,
+      payment_expired_audits: "1",
+      checkout_expired_audits: "1",
+    });
+    expect(promotions.release).toHaveBeenCalledOnce();
+  });
+
+  it("converges concurrent IPN and reconciliation to one paid transition", async () => {
+    const inventory = new InventoryReservationService(
+      new PostgresqlInventoryRepository(), createCatalogVariantReader(),
+      new PostgresqlInventoryAuditRepository(), transactions, randomUUID,
+      () => now, 900_000,
+    );
+    const order = new OrderService(
+      new PostgresqlOrderRepository(), transactions, randomUUID, () => now,
+    );
+    const normalizer = new SePayPaymentGateway({
+      checkoutUrl: "https://pay-sandbox.sepay.vn/v1/checkout/init",
+      apiBaseUrl: "https://pgapi-sandbox.sepay.vn",
+      merchantId: "merchant", secretKey: "secret",
+      successUrl: "https://example.test/success",
+      errorUrl: "https://example.test/error",
+      cancelUrl: "https://example.test/cancel", requestTimeoutMs: 1_000,
+    });
+    let invoiceNumber = "";
+    const gateway: PaymentGateway = {
+      createCheckout: vi.fn(async ({ invoiceNumber: invoice }) => {
+        invoiceNumber = invoice;
+        return {
+          actionUrl: "https://pay-sandbox.sepay.vn/v1/checkout/init",
+          method: "POST" as const,
+          fields: [{ name: "signature", value: "synthetic" }],
+        };
+      }),
+      normalizeNotification: (payload) => normalizer.normalizeNotification(payload),
+      getOrderDetail: vi.fn(async () => ({
+        providerOrderId: "SEPAY-ORDER-RACE", invoiceNumber,
+        status: "CAPTURED", amountVnd: 100_000, currency: "VND" as const,
+        transactionApproved: true, redactedEvidence: { status: "CAPTURED" },
+      })),
+    };
+    const paymentRepository = new PostgresqlPaymentRepository();
+    const payment = new PaymentService(
+      paymentRepository, transactions, gateway, randomUUID, () => now,
+    );
+    const checkout = new CheckoutService(
+      new PostgresqlCheckoutRepository(), cartReader, customerReader, catalog,
+      promotions, order, payment, inventory, transactions, randomUUID,
+      () => now, 900_000,
+    );
+    await checkout.create(
+      {
+        addressId: "d1410000-0000-4000-8000-000000000001",
+        idempotencyKey: "checkout-race",
+      },
+      {
+        customerId: customers[0],
+        customerExpiresAt: "2026-09-01T00:00:00.000Z",
+        correlationId: "corr-checkout-race",
+      },
+    );
+    const persisted = await pool.query<{ id: string }>("SELECT id FROM payments");
+    const cartPaid = new CartService(
+      new PostgresqlCartRepository(),
+      { getByIds: vi.fn(async () => new Map()) },
+      { getByVariantIds: vi.fn(async () => new Map()) },
+      transactions, randomUUID, () => now,
+    );
+    const paidTransition = new PaymentNotificationService(
+      paymentRepository, gateway, order, inventory, promotions, checkout,
+      cartPaid, transactions, randomUUID, () => "2026-08-06T08:05:00.000Z",
+    );
+    const reconciliation = new PaymentReconciliationService(
+      paymentRepository, gateway, paidTransition, transactions, randomUUID,
+      () => "2026-08-06T08:05:00.000Z",
+    );
+    const payload = {
+      timestamp: 1757058220,
+      notification_type: "ORDER_PAID",
+      order: {
+        id: "provider-event-race", order_id: "SEPAY-ORDER-RACE",
+        order_status: "CAPTURED", order_currency: "VND",
+        order_amount: "100000.00", order_invoice_number: invoiceNumber,
+      },
+      transaction: {
+        id: "provider-event-transaction-race",
+        transaction_id: "SEPAY-TXN-RACE", transaction_status: "APPROVED",
+        transaction_amount: "100000", transaction_currency: "VND",
+      },
+    };
+    await Promise.all([
+      paidTransition.process(payload, "corr-ipn-race"),
+      reconciliation.reconcile(
+        persisted.rows[0]!.id,
+        { providerOrderId: "SEPAY-ORDER-RACE" },
+        {
+          actorId: "finance-1", roles: ["finance_operator"],
+          correlationId: "corr-reconciliation-race",
+        },
+      ),
+    ]);
+
+    const counts = await pool.query<{
+      payment_status: string;
+      paid_audits: string;
+      consume_movements: string;
+      reconciliations: string;
+    }>(
+      `SELECT p.status payment_status,
+              (SELECT count(*)::text FROM audit_events WHERE action='payment.paid') paid_audits,
+              (SELECT count(*)::text FROM stock_movements WHERE movement_type='consume') consume_movements,
+              (SELECT count(*)::text FROM payment_reconciliations) reconciliations
+       FROM payments p`,
+    );
+    expect(counts.rows[0]).toEqual({
+      payment_status: "paid",
+      paid_audits: "1",
+      consume_movements: "1",
+      reconciliations: "1",
+    });
   });
 });
