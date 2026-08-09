@@ -179,6 +179,10 @@ suite("CRM migration", () => {
       [followupId, completedAt],
     )).rejects.toMatchObject({ code: "P0001" });
     await expect(pool.query(
+      "UPDATE crm_followups SET status = 'completed', completed_by_id = E'\\t', completed_at = $2, version = 3, updated_at = $2 WHERE id = $1",
+      [followupId, completedAt],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
       "UPDATE crm_followups SET status = 'completed', completed_by_id = ' ', completed_at = $2, version = 3, updated_at = $2 WHERE id = $1",
       [followupId, completedAt],
     )).rejects.toMatchObject({ code: "P0001" });
