@@ -81,6 +81,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the approved Phase 7 focused design for least-privilege Operational CRM,
+  staff-created Support tickets and SLA, private ClamAV-scanned attachments,
+  deterministic customer segments, and aggregate PostgreSQL-backed reporting.
 - Add an isolated Phase 6 checkout-to-paid exit gate covering scarce-stock
   concurrency, exact-once IPN replay, provider/expiry races, fail-closed API
   boundaries, paid-order backup/restore, and migration rollback/reapply, plus a

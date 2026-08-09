@@ -8,12 +8,15 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
-Phase 6 Checkout, Order, and SePay is complete on
-`feat/checkout-order-sepay` and ready to merge. Backend checkout, immutable
+Phase 6 Checkout, Order, and SePay is complete and merged into `develop`.
+Backend checkout, immutable
 orders, SePay payment processing, expiry, reconciliation, customer Storefront
 journey, staff Console operations, deterministic fixtures, container lifecycle,
 operational documentation, independent review, deterministic exit gates, and
 real SePay sandbox acceptance all pass.
+
+Phase 7 Operational CRM, Support, and Dashboard is active. Its focused design
+is approved; the file-level implementation plan has not yet been created.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -27,12 +30,16 @@ Active commerce master plan:
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
-| Phase 6: Checkout, Order, and SePay | Complete; feature branch ready to merge | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
-| Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
+| Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
+| Phase 7: Operational CRM, Support, and Dashboard | In progress; focused design approved | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | Not created | Pending implementation and exit validation |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
 ## Latest Validation Evidence
 
+- Phase 7 focused design is approved for least-privilege CRM, staff-created
+  support tickets, continuous SLA, private ClamAV-scanned attachments,
+  deterministic customer segments, and aggregate PostgreSQL-backed reporting.
+  The implementation plan remains gated on review of the written design.
 - Repository audit: run before each handoff.
 - Runtime validation: begins in Phase 1 after application scaffolding exists.
 - Phase 1 plan created; implementation validation begins after scaffold execution.
