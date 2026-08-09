@@ -8,13 +8,12 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
-Phase 6 Checkout, Order, and SePay is in progress on
-`feat/checkout-order-sepay`. Backend checkout, immutable orders, SePay payment
-processing, expiry, reconciliation, customer Storefront journey, staff Console
-operations, deterministic fixtures, container lifecycle, and operational
-documentation are complete through Task 12. Task 13 deterministic exit gates,
-paid-order backup/restore, and migration rollback/reapply pass; real SePay
-sandbox evidence and independent review remain external gates.
+Phase 6 Checkout, Order, and SePay is complete on
+`feat/checkout-order-sepay` and ready to merge. Backend checkout, immutable
+orders, SePay payment processing, expiry, reconciliation, customer Storefront
+journey, staff Console operations, deterministic fixtures, container lifecycle,
+operational documentation, independent review, deterministic exit gates, and
+real SePay sandbox acceptance all pass.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -28,7 +27,7 @@ Active commerce master plan:
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
-| Phase 6: Checkout, Order, and SePay | In progress: Task 13 external gates pending | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after real sandbox evidence, independent review, and merge |
+| Phase 6: Checkout, Order, and SePay | Complete; feature branch ready to merge | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
@@ -173,6 +172,12 @@ Active commerce master plan:
   disposable-database acceptance also verified a consistent financial lock
   order without deadlock. Two Minor provider-event persistence refinements are
   deferred to Phase 8 and documented in the focused Phase 6 plan.
+- Phase 6 real-provider acceptance on 2026-08-09 used contributor-owned SePay
+  sandbox credentials and a temporary public HTTPS callback. A 1,290,000 VND
+  checkout received one authenticated IPN event, transitioned to `paid`, and
+  retained `paid` after one reconciliation. The opt-in runner returned
+  `passed`; no credentials, customer data, provider payloads, or temporary URL
+  were persisted in repository evidence.
 
 ## Open Risks
 
@@ -181,9 +186,8 @@ Active commerce master plan:
   session behavior remains deterministically tested at the real application port.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
-- Phase 6 source and deterministic acceptance is complete, but formal phase
-  closure still requires contributor-owned SePay sandbox credentials and a
-  public HTTPS callback for redacted real-provider evidence.
+- SePay production still requires hosted public HTTPS endpoints, production
+  credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
 - Workflow, agent runtime, and GraphRAG are deferred until commerce Phase 8 is

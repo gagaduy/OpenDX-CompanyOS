@@ -12,9 +12,9 @@ NovaCommerce as a B2C single-store business.
 
 The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
 Storefront, Customer, Cart, Promotion, Checkout, immutable Order, SePay Payment,
-and staff commerce operations are implemented. The active roadmap continues
-with Phase 6 external acceptance, Operational CRM, support, dashboard, and
-production hardening.
+and staff commerce operations are implemented. Phase 6 real SePay sandbox
+acceptance passes. The active roadmap continues with Operational CRM, support,
+dashboard, and production hardening.
 
 ## What It Is
 

@@ -211,7 +211,7 @@ POST  /v1/admin/payments/:paymentId/reconciliations
   outer transaction without exposing its repository.
 - [x] Add administrator-only list/create/update APIs with version conflicts and
   audited writes.
-- [ ] Add deterministic `NOVA10` seed behavior later through the module's public
+- [x] Add deterministic `NOVA10` seed behavior later through the module's public
   seed entry point; do not hard-code it in application logic.
 - [x] Run domain, service, repository, and API tests.
 - [x] Commit as `feat(promotion): add deterministic promotion rules`.
@@ -563,7 +563,7 @@ POST  /v1/admin/payments/:paymentId/reconciliations
   customer ownership violation, and unauthorized staff action fail closed.
 - [x] Run browser acceptance for Storefront checkout/order and Console order/
   payment workflows at desktop, tablet, and mobile in required themes.
-- [ ] Run opt-in real SePay sandbox checkout/IPN/reconciliation using contributor
+- [x] Run opt-in real SePay sandbox checkout/IPN/reconciliation using contributor
   credentials and public HTTPS callback. Record redacted evidence only.
 - [x] Verify custom-format backup/restore across a paid-order probe and
   migration rollback/reapply on a disposable database.
@@ -572,7 +572,7 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - [x] Request independent review focused on financial correctness, idempotency,
   concurrency, authorization, secret handling, and unsupported-scope leakage.
 - [x] Fix Critical/Important findings with regression tests and rerun all gates.
-- [ ] Mark Phase 6 complete only after real sandbox evidence and review are
+- [x] Mark Phase 6 complete only after real sandbox evidence and review are
   recorded; otherwise retain an explicit external-acceptance status.
 - [x] Commit as `test(commerce): validate checkout to paid order`.
 
@@ -588,11 +588,15 @@ explicit classification of payload-hash versus provider-transaction unique
 conflicts. Customer rollback's deliberate removal of customer audit actors is
 already documented as destructive rollback behavior.
 
-**External acceptance status:** Source, deterministic integration, browser,
-backup/restore, migration, review, and repository gates are complete. The real
-SePay sandbox checkout/IPN/reconciliation item remains open until contributor-
-owned sandbox credentials and a public HTTPS callback are configured; Phase 6
-must not be marked complete before that evidence is recorded.
+**External acceptance evidence (2026-08-09):** A contributor-owned SePay
+sandbox merchant and temporary public HTTPS callback completed a 1,290,000 VND
+checkout. The authenticated IPN produced one persisted payment event, the
+backend transitioned Payment to `paid`, and one provider reconciliation
+retained the paid state. The acceptance runner returned `passed`; credentials,
+customer data, provider payloads, and the temporary callback URL were not
+recorded. Source, deterministic integration, browser, backup/restore,
+migration, independent review, repository, and real-provider gates are now
+complete.
 
 ## Exit Gate
 

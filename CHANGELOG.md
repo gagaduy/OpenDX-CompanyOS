@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
+  one authenticated IPN event, an authoritative paid transition, and successful
+  reconciliation through a temporary public HTTPS callback without recording
+  credentials or customer data.
+
 ### Fixed
 
 - Make pending-order cancellation converge atomically across Payment, Order,
