@@ -100,8 +100,16 @@ suite("Support migration", () => {
     await pool.query("INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES ($1, $2, '00000000-0000-4000-8000-000000000004', 'evidence.pdf', 'pdf', 'application/pdf', 10, 'quarantined', 'staff-1')", [attachmentId, ticketId]);
     await expect(pool.query("UPDATE support_attachments SET original_filename = 'changed.pdf', version = 2 WHERE id = $1", [attachmentId])).rejects.toMatchObject({ code: "P0001" });
     await expect(pool.query("UPDATE support_attachments SET status = 'clean', scanned_at = now(), version = 2 WHERE id = $1", [attachmentId])).resolves.toMatchObject({ rowCount: 1 });
+    await expect(pool.query("UPDATE support_attachments SET status = 'deleted', scanned_at = NULL, deleted_at = now(), version = 3 WHERE id = $1", [attachmentId]))
+      .rejects.toMatchObject({ code: "P0001" });
     await expect(pool.query("UPDATE support_attachments SET status = 'deleted', deleted_at = now(), version = 3 WHERE id = $1", [attachmentId])).resolves.toMatchObject({ rowCount: 1 });
     await expect(pool.query("DELETE FROM support_attachments WHERE id = $1", [attachmentId])).rejects.toMatchObject({ code: "P0001" });
+    const rejectedAttachmentId = "d7000000-0000-4000-8000-000000000007";
+    await pool.query("INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES ($1, $2, '00000000-0000-4000-8000-000000000007', 'rejected.pdf', 'pdf', 'application/pdf', 10, 'quarantined', 'staff-1')", [rejectedAttachmentId, ticketId]);
+    await pool.query("UPDATE support_attachments SET status = 'rejected', rejected_at = now(), version = 2 WHERE id = $1", [rejectedAttachmentId]);
+    await expect(pool.query("UPDATE support_attachments SET status = 'deleted', rejected_at = NULL, deleted_at = now(), version = 3 WHERE id = $1", [rejectedAttachmentId]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_attachments SET status = 'deleted', deleted_at = now(), version = 3 WHERE id = $1", [rejectedAttachmentId]);
 
     const countTicketId = "d7000000-0000-4000-8000-000000000005";
     await pool.query("INSERT INTO support_tickets (id, customer_id, subject, description, priority, status, version, created_by_id, created_at, updated_at) VALUES ($1, $2, 'Count limit', 'Description', 'normal', 'new', 1, 'staff-1', $3, $3)", [countTicketId, customerId, createdAt]);
@@ -116,5 +124,62 @@ suite("Support migration", () => {
       await pool.query("INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'evidence.pdf', 'pdf', 'application/pdf', 26214400, 'quarantined', 'staff-1')", [byteTicketId, `bytes-${sequence}`]);
     }
     await expect(pool.query("INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES (gen_random_uuid(), $1, 'bytes-9', 'evidence.pdf', 'pdf', 'application/pdf', 1, 'quarantined', 'staff-1')", [byteTicketId])).rejects.toMatchObject({ code: "P0001" });
+  });
+
+  it("enforces exact SLA state arithmetic for every legal clock transition", async () => {
+    const customerId = "d7000000-0000-4000-8000-000000000010";
+    const ticketId = "d7000000-0000-4000-8000-000000000011";
+    const createdAt = "2026-08-10T00:00:00.000Z";
+    await pool.query("INSERT INTO customers (id, email, email_verified_at) VALUES ($1, $2, $3)", [customerId, "support-sla@example.com", createdAt]);
+    await pool.query("INSERT INTO support_tickets (id, customer_id, subject, description, priority, status, version, created_by_id, created_at, updated_at) VALUES ($1, $2, 'SLA', 'Description', 'normal', 'new', 1, 'staff-1', $3, $3)", [ticketId, customerId, createdAt]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'assigned', version = 2, updated_at = $2, sla_paused_seconds = 99 WHERE id = $1", [ticketId, "2026-08-10T01:00:00.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'assigned', version = 2, updated_at = $2 WHERE id = $1", [ticketId, "2026-08-10T01:00:00.000Z"]);
+    await pool.query("UPDATE support_tickets SET status = 'in_progress', version = 3, updated_at = $2 WHERE id = $1", [ticketId, "2026-08-10T02:00:00.000Z"]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'waiting_customer', version = 4, updated_at = $2, sla_pause_started_at = $3 WHERE id = $1", [ticketId, "2026-08-10T03:00:00.000Z", "2026-08-10T02:59:59.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'waiting_customer', version = 4, updated_at = $2, sla_pause_started_at = $2 WHERE id = $1", [ticketId, "2026-08-10T03:00:00.000Z"]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'in_progress', version = 5, updated_at = $2, sla_paused_seconds = 1, sla_pause_started_at = NULL WHERE id = $1", [ticketId, "2026-08-10T04:00:00.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'in_progress', version = 5, updated_at = $2, sla_paused_seconds = 3600, sla_pause_started_at = NULL WHERE id = $1", [ticketId, "2026-08-10T04:00:00.000Z"]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'resolved', version = 6, updated_at = $2, sla_stopped_at = $3 WHERE id = $1", [ticketId, "2026-08-10T05:00:00.000Z", "2026-08-10T04:59:59.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'resolved', version = 6, updated_at = $2, sla_stopped_at = $2 WHERE id = $1", [ticketId, "2026-08-10T05:00:00.000Z"]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'in_progress', version = 7, updated_at = $2, sla_stopped_at = NULL, sla_stopped_seconds = 1 WHERE id = $1", [ticketId, "2026-08-10T06:00:00.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'in_progress', version = 7, updated_at = $2, sla_stopped_at = NULL, sla_stopped_seconds = 3600 WHERE id = $1", [ticketId, "2026-08-10T06:00:00.000Z"]);
+    await pool.query("UPDATE support_tickets SET status = 'resolved', version = 8, updated_at = $2, sla_stopped_at = $2 WHERE id = $1", [ticketId, "2026-08-10T07:00:00.000Z"]);
+    await expect(pool.query("UPDATE support_tickets SET status = 'closed', version = 9, updated_at = $2, closed_at = $3 WHERE id = $1", [ticketId, "2026-08-10T08:00:00.000Z", "2026-08-10T07:59:59.000Z"]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE support_tickets SET status = 'closed', version = 9, updated_at = $2, closed_at = $2 WHERE id = $1", [ticketId, "2026-08-10T08:00:00.000Z"]);
+  });
+
+  it("serializes concurrent attachment inserts at the per-ticket quota boundary", async () => {
+    const customerId = "d7000000-0000-4000-8000-000000000020";
+    const ticketId = "d7000000-0000-4000-8000-000000000021";
+    const createdAt = "2026-08-10T00:00:00.000Z";
+    await pool.query("INSERT INTO customers (id, email, email_verified_at) VALUES ($1, $2, $3)", [customerId, "support-quota@example.com", createdAt]);
+    await pool.query("INSERT INTO support_tickets (id, customer_id, subject, description, priority, status, version, created_by_id, created_at, updated_at) VALUES ($1, $2, 'Quota', 'Description', 'normal', 'new', 1, 'staff-1', $3, $3)", [ticketId, customerId, createdAt]);
+    for (let sequence = 0; sequence < 19; sequence += 1) {
+      await pool.query("INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'evidence.pdf', 'pdf', 'application/pdf', 1, 'quarantined', 'staff-1')", [ticketId, `race-${sequence}`]);
+    }
+    const holder = await pool.connect();
+    const first = await pool.connect();
+    const second = await pool.connect();
+    try {
+      await holder.query("BEGIN");
+      await holder.query("SELECT id FROM support_tickets WHERE id = $1 FOR NO KEY UPDATE", [ticketId]);
+      const insert = "INSERT INTO support_attachments (id, ticket_id, object_key, original_filename, format, media_type, byte_size, status, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'evidence.pdf', 'pdf', 'application/pdf', 1, 'quarantined', 'staff-1')";
+      const firstInsert = first.query(insert, [ticketId, "race-first"]);
+      const secondInsert = second.query(insert, [ticketId, "race-second"]);
+      await holder.query("COMMIT");
+      const results = await Promise.allSettled([firstInsert, secondInsert]);
+      expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+      expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
+      expect((await pool.query<{ count: string }>("SELECT count(*) FROM support_attachments WHERE ticket_id = $1", [ticketId])).rows[0]?.count).toBe("20");
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      first.release(); second.release(); holder.release();
+    }
   });
 });

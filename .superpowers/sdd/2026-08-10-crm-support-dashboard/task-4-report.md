@@ -22,6 +22,10 @@ object-storage, or ClamAV behavior.
   indexes, and single-company tables without `company_id`.
 - Support migration runners and package scripts, ordered after CRM on apply and
   before CRM on rollback.
+- Review hardening: PostgreSQL derives every SLA pause/stop timestamp and
+  accumulated second count from the prior ticket row, serializes attachment
+  quota checks by locking the parent ticket, and preserves scan/rejection
+  provenance through attachment tombstone deletion.
 
 ## Verification
 
@@ -32,5 +36,8 @@ object-storage, or ClamAV behavior.
 - PostgreSQL lifecycle: focused Support migration integration test on
   `opendx_test` passed, including apply, rollback, and reapply.
 - `pnpm --filter @opendx/api typecheck` passed.
+- Review regressions: the focused migration test now rejects forged SLA state,
+  proves a concurrent quota-boundary race admits exactly one attachment, and
+  rejects deletion that clears scanner provenance.
 
 The full `pnpm check` was intentionally not run for the task's quota constraint.

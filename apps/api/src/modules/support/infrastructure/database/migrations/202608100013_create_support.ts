@@ -20,7 +20,7 @@ export function up(pgm: MigrationBuilder): void {
   pgm.addConstraint("support_tickets", "support_tickets_priority_check", { check: "priority IN ('urgent', 'high', 'normal', 'low')" });
   pgm.addConstraint("support_tickets", "support_tickets_status_check", { check: "status IN ('new', 'assigned', 'in_progress', 'waiting_customer', 'waiting_internal', 'escalated', 'resolved', 'closed')" });
   pgm.addConstraint("support_tickets", "support_tickets_version_check", { check: "version > 0" });
-  pgm.addConstraint("support_tickets", "support_tickets_sla_check", { check: "sla_paused_seconds >= 0 AND sla_stopped_seconds >= 0 AND (status = 'waiting_customer') = (sla_pause_started_at IS NOT NULL) AND (status IN ('resolved', 'closed')) = (sla_stopped_at IS NOT NULL)" });
+  pgm.addConstraint("support_tickets", "support_tickets_sla_check", { check: "sla_paused_seconds >= 0 AND sla_stopped_seconds >= 0 AND (status = 'waiting_customer') = (sla_pause_started_at IS NOT NULL) AND (status IN ('resolved', 'closed')) = (sla_stopped_at IS NOT NULL) AND (status = 'closed') = (closed_at IS NOT NULL)" });
   pgm.createIndex("support_tickets", ["status", "priority", "created_at"], { name: "support_tickets_queue_idx" });
   pgm.createIndex("support_tickets", ["status", "sla_stopped_at", "created_at"], { name: "support_tickets_sla_claim_idx" });
 
@@ -67,6 +67,7 @@ export function up(pgm: MigrationBuilder): void {
 
   pgm.sql(`
     CREATE FUNCTION support_tickets_guard_lifecycle() RETURNS trigger LANGUAGE plpgsql AS $function$
+    DECLARE expected_paused_seconds integer; expected_stopped_seconds integer; expected_pause_started_at timestamptz; expected_stopped_at timestamptz; expected_closed_at timestamptz;
     BEGIN
       IF TG_OP = 'INSERT' THEN
         IF NEW.status <> 'new' OR NEW.version <> 1 OR NEW.assignee_id IS NOT NULL OR NEW.sla_paused_seconds <> 0 OR NEW.sla_stopped_seconds <> 0 OR NEW.sla_pause_started_at IS NOT NULL OR NEW.sla_stopped_at IS NOT NULL OR NEW.closed_at IS NOT NULL THEN RAISE EXCEPTION 'Support tickets must begin new and unassigned' USING ERRCODE = 'P0001'; END IF;
@@ -76,6 +77,12 @@ export function up(pgm: MigrationBuilder): void {
       IF NEW.id IS DISTINCT FROM OLD.id OR NEW.customer_id IS DISTINCT FROM OLD.customer_id OR NEW.order_id IS DISTINCT FROM OLD.order_id OR NEW.subject IS DISTINCT FROM OLD.subject OR NEW.description IS DISTINCT FROM OLD.description OR NEW.priority IS DISTINCT FROM OLD.priority OR NEW.created_by_id IS DISTINCT FROM OLD.created_by_id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN RAISE EXCEPTION 'Support ticket identity is immutable' USING ERRCODE = 'P0001'; END IF;
       IF NEW.updated_at < OLD.updated_at OR NEW.version <> OLD.version + 1 THEN RAISE EXCEPTION 'Support ticket version is invalid' USING ERRCODE = 'P0001'; END IF;
       IF NOT ((OLD.status = 'new' AND NEW.status IN ('assigned','escalated')) OR (OLD.status = 'assigned' AND NEW.status IN ('in_progress','escalated')) OR (OLD.status = 'in_progress' AND NEW.status IN ('waiting_customer','waiting_internal','escalated','resolved')) OR (OLD.status = 'waiting_customer' AND NEW.status IN ('in_progress','escalated','resolved')) OR (OLD.status = 'waiting_internal' AND NEW.status IN ('in_progress','escalated','resolved')) OR (OLD.status = 'escalated' AND NEW.status IN ('in_progress','waiting_customer','waiting_internal','resolved')) OR (OLD.status = 'resolved' AND NEW.status IN ('in_progress','closed'))) THEN RAISE EXCEPTION 'Illegal support ticket lifecycle transition' USING ERRCODE = 'P0001'; END IF;
+      expected_paused_seconds := OLD.sla_paused_seconds + CASE WHEN OLD.status = 'waiting_customer' THEN floor(extract(epoch FROM NEW.updated_at - OLD.sla_pause_started_at))::integer ELSE 0 END;
+      expected_stopped_seconds := OLD.sla_stopped_seconds + CASE WHEN OLD.status = 'resolved' AND NEW.status = 'in_progress' THEN floor(extract(epoch FROM NEW.updated_at - OLD.sla_stopped_at))::integer ELSE 0 END;
+      expected_pause_started_at := CASE WHEN NEW.status = 'waiting_customer' THEN NEW.updated_at ELSE NULL END;
+      expected_stopped_at := CASE WHEN NEW.status = 'resolved' THEN NEW.updated_at WHEN NEW.status = 'closed' THEN OLD.sla_stopped_at ELSE NULL END;
+      expected_closed_at := CASE WHEN NEW.status = 'closed' THEN NEW.updated_at ELSE NULL END;
+      IF NEW.sla_paused_seconds <> expected_paused_seconds OR NEW.sla_stopped_seconds <> expected_stopped_seconds OR NEW.sla_pause_started_at IS DISTINCT FROM expected_pause_started_at OR NEW.sla_stopped_at IS DISTINCT FROM expected_stopped_at OR NEW.closed_at IS DISTINCT FROM expected_closed_at THEN RAISE EXCEPTION 'Support ticket SLA state is invalid' USING ERRCODE = 'P0001'; END IF;
       RETURN NEW;
     END;
     $function$;
@@ -92,7 +99,7 @@ export function up(pgm: MigrationBuilder): void {
       END IF;
       IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'Support attachment tombstones cannot be deleted' USING ERRCODE = 'P0001'; END IF;
       IF NEW.id IS DISTINCT FROM OLD.id OR NEW.ticket_id IS DISTINCT FROM OLD.ticket_id OR NEW.object_key IS DISTINCT FROM OLD.object_key OR NEW.original_filename IS DISTINCT FROM OLD.original_filename OR NEW.format IS DISTINCT FROM OLD.format OR NEW.media_type IS DISTINCT FROM OLD.media_type OR NEW.byte_size IS DISTINCT FROM OLD.byte_size OR NEW.created_by_id IS DISTINCT FROM OLD.created_by_id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN RAISE EXCEPTION 'Support attachment metadata is immutable' USING ERRCODE = 'P0001'; END IF;
-      IF NEW.version <> OLD.version + 1 OR NOT ((OLD.status = 'quarantined' AND NEW.status IN ('clean','rejected')) OR (OLD.status IN ('clean','rejected') AND NEW.status = 'deleted')) OR (NEW.status = 'clean' AND (NEW.scanned_at IS NULL OR NEW.rejected_at IS NOT NULL OR NEW.deleted_at IS NOT NULL)) OR (NEW.status = 'rejected' AND (NEW.rejected_at IS NULL OR NEW.deleted_at IS NOT NULL)) OR (NEW.status = 'deleted' AND NEW.deleted_at IS NULL) THEN RAISE EXCEPTION 'Illegal support attachment lifecycle transition' USING ERRCODE = 'P0001'; END IF;
+      IF NEW.version <> OLD.version + 1 OR NOT ((OLD.status = 'quarantined' AND NEW.status IN ('clean','rejected')) OR (OLD.status IN ('clean','rejected') AND NEW.status = 'deleted')) OR (NEW.status = 'clean' AND (NEW.scanned_at IS NULL OR NEW.scanned_at < OLD.created_at OR NEW.rejected_at IS NOT NULL OR NEW.deleted_at IS NOT NULL)) OR (NEW.status = 'rejected' AND (NEW.scanned_at IS NOT NULL OR NEW.rejected_at IS NULL OR NEW.rejected_at < OLD.created_at OR NEW.deleted_at IS NOT NULL)) OR (NEW.status = 'deleted' AND (NEW.deleted_at IS NULL OR NEW.scanned_at IS DISTINCT FROM OLD.scanned_at OR NEW.rejected_at IS DISTINCT FROM OLD.rejected_at OR NEW.deleted_at < COALESCE(OLD.scanned_at, OLD.rejected_at, OLD.created_at))) THEN RAISE EXCEPTION 'Illegal support attachment lifecycle transition' USING ERRCODE = 'P0001'; END IF;
       RETURN NEW;
     END;
     $function$;
@@ -100,6 +107,7 @@ export function up(pgm: MigrationBuilder): void {
     CREATE FUNCTION support_attachments_enforce_ticket_limits() RETURNS trigger LANGUAGE plpgsql AS $function$
     DECLARE retained_count integer; retained_bytes bigint;
     BEGIN
+      PERFORM 1 FROM support_tickets WHERE id = NEW.ticket_id FOR UPDATE;
       SELECT count(*), COALESCE(sum(byte_size), 0) INTO retained_count, retained_bytes
       FROM support_attachments WHERE ticket_id = NEW.ticket_id AND status IN ('quarantined', 'clean');
       IF retained_count >= 20 OR retained_bytes + NEW.byte_size > 209715200 THEN
