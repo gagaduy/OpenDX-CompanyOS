@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the authenticated Operational CRM customer API with read-only Customer
+  360 composition, authoritative paid segments, immutable note corrections,
+  versioned self-claimed follow-ups, PostgreSQL concurrency controls, and
+  PII-minimized authorization audit evidence.
 - Add the reversible CRM schema for immutable customer notes, self-claimed
   follow-ups, and CRM audit events, together with deterministic segmentation
   and pure follow-up domain rules.

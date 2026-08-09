@@ -30,4 +30,26 @@ export class CustomerOrderOperationsReaderService implements CustomerOrderOperat
       createdAt: order.createdAt,
     };
   }
+
+  async getPaidCustomerFacts(customerId: string) {
+    return this.transactions.runReadOnly((session) =>
+      this.repository.getPaidCustomerFacts(session, customerId),
+    );
+  }
+
+  async listPaidSegmentCustomers(query: Parameters<CustomerOrderOperationsReader["listPaidSegmentCustomers"]>[0]) {
+    if (
+      !Number.isInteger(query.page) || query.page < 1
+      || !Number.isInteger(query.pageSize) || query.pageSize < 1 || query.pageSize > 100
+    ) {
+      throw new RangeError("Paid segment page must be at least 1 and page size must be between 1 and 100");
+    }
+    const parsed = new Date(query.asOf);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== query.asOf) {
+      throw new RangeError("Paid segment calculation time must be an ISO instant");
+    }
+    return this.transactions.runReadOnly((session) =>
+      this.repository.listPaidSegmentCustomers(session, query),
+    );
+  }
 }

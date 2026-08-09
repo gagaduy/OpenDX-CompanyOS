@@ -57,6 +57,13 @@ export class CustomerOperationsReaderService implements CustomerOperationsReader
     });
   }
 
+  async getMany(customerIds: readonly string[]): Promise<readonly CustomerOperationsSummary[]> {
+    if (customerIds.length === 0) return [];
+    return this.transactions.runReadOnly(async (session) =>
+      (await this.repository.findCustomersByIds(session, customerIds)).map(toSummary),
+    );
+  }
+
   async getSupportContext(customerId: string): Promise<Pick<
     CustomerOperationsSummary,
     "id" | "email" | "fullName" | "phoneNumber"

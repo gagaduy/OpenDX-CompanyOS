@@ -9,6 +9,73 @@ import { CustomerOrderOperationsReaderService } from "./customer-order-operation
 const session: DatabaseSession = { query: vi.fn() };
 
 describe("CustomerOrderOperationsReaderService", () => {
+  it("returns authoritative paid facts for one customer", async () => {
+    const repository = {
+      getPaidCustomerFacts: async () => ({
+        paidOrderCount: 2,
+        lifetimePaidVnd: 50_000_000,
+        latestPaidAt: "2026-08-01T00:00:00.000Z",
+      }),
+    } as unknown as OrderRepository;
+    const reader = new CustomerOrderOperationsReaderService(repository, transactionRunner());
+
+    await expect(reader.getPaidCustomerFacts("customer-a")).resolves.toEqual({
+      paidOrderCount: 2,
+      lifetimePaidVnd: 50_000_000,
+      latestPaidAt: "2026-08-01T00:00:00.000Z",
+    });
+  });
+
+  it("validates paid-segment pagination before repository access", async () => {
+    const listPaidSegmentCustomers = vi.fn();
+    const repository = { listPaidSegmentCustomers } as unknown as OrderRepository;
+    const reader = new CustomerOrderOperationsReaderService(repository, transactionRunner());
+
+    await expect(reader.listPaidSegmentCustomers({
+      segmentId: "repeat_customer",
+      asOf: "2026-08-10T00:00:00.000Z",
+      page: 0,
+      pageSize: 20,
+    })).rejects.toBeInstanceOf(RangeError);
+    await expect(reader.listPaidSegmentCustomers({
+      segmentId: "repeat_customer",
+      asOf: "2026-08-10T00:00:00.000Z",
+      page: 1,
+      pageSize: 101,
+    })).rejects.toBeInstanceOf(RangeError);
+    expect(listPaidSegmentCustomers).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable page of exact paid-segment facts", async () => {
+    const repository = {
+      listPaidSegmentCustomers: async () => ({
+        items: [{
+          customerId: "customer-b",
+          paidOrderCount: 1,
+          lifetimePaidVnd: 50_000_000,
+          latestPaidAt: "2026-08-01T00:00:00.000Z",
+        }],
+        totalItems: 3,
+      }),
+    } as unknown as OrderRepository;
+    const reader = new CustomerOrderOperationsReaderService(repository, transactionRunner());
+
+    await expect(reader.listPaidSegmentCustomers({
+      segmentId: "high_value",
+      asOf: "2026-08-10T00:00:00.000Z",
+      page: 2,
+      pageSize: 1,
+    })).resolves.toEqual({
+      items: [{
+        customerId: "customer-b",
+        paidOrderCount: 1,
+        lifetimePaidVnd: 50_000_000,
+        latestPaidAt: "2026-08-01T00:00:00.000Z",
+      }],
+      totalItems: 3,
+    });
+  });
+
   it("returns the newest customer orders with paid timestamps", async () => {
     const repository = {
       listOperationsByCustomer: async () => [{

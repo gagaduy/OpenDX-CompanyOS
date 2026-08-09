@@ -180,4 +180,76 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     const snapshots = await pool.query<{ address_snapshot: { recipientName: string }; sku: string }>("SELECT o.address_snapshot,l.sku FROM orders o JOIN order_lines l ON l.order_id=o.id WHERE o.id=$1", [created.id]);
     expect(snapshots.rows[0]).toEqual({ address_snapshot: expect.objectContaining({ recipientName: "Buyer" }), sku: "NOVA-128" });
   });
+
+  it("pages exact authoritative paid-customer segment cohorts with a stable customer ID tie break", async () => {
+    const customerIds = [
+      "b1400000-0000-4000-8000-000000000011",
+      "b1400000-0000-4000-8000-000000000012",
+      "b1400000-0000-4000-8000-000000000013",
+      "b1400000-0000-4000-8000-000000000014",
+    ];
+    for (const [index, customerId] of customerIds.entries()) {
+      const cartId = `b1500000-0000-4000-8000-${String(index + 11).padStart(12, "0")}`;
+      await pool.query(
+        `INSERT INTO customers(id,email,email_verified_at,status,version,created_at,updated_at)
+         VALUES($1,$2,NOW(),'active',1,NOW(),NOW())`,
+        [customerId, `segment-${index}@example.com`],
+      );
+      await pool.query(
+        `INSERT INTO carts(id,customer_id,status,version,expires_at,created_at,updated_at)
+         VALUES($1,$2,'active',1,'2026-08-20T00:00:00.000Z',$3,$3)`,
+        [cartId, customerId, now],
+      );
+      const paidOrders = index === 1 ? 2 : 1;
+      for (let orderIndex = 0; orderIndex < paidOrders; orderIndex += 1) {
+        const suffix = (index + 11) * 10 + orderIndex;
+        const checkoutId = `b1600000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+        const orderId = `b1700000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+        const totalVnd = index === 2 ? 50_000_000 : 1_000_000;
+        const paidAt = index === 3
+          ? "2026-05-12T12:00:00.000Z"
+          : `2026-08-0${orderIndex + 1}T00:00:00.000Z`;
+        await pool.query(
+          `INSERT INTO checkout_sessions
+           (id,customer_id,source_cart_id,source_cart_version,address_snapshot,contact_snapshot,
+            subtotal_vnd,discount_vnd,total_vnd,status,idempotency_key,request_fingerprint,
+            expires_at,created_at,updated_at)
+           VALUES($1,$2,$3,$4,'{}','{}',$5,0,$5,'order_created',$6,$7,
+                  '2026-08-20T00:00:00.000Z',$8,$8)`,
+          [checkoutId, customerId, cartId, orderIndex + 1, totalVnd, `segment-${suffix}`, String(suffix).padStart(64, "a"), now],
+        );
+        await pool.query(
+          `INSERT INTO orders
+           (id,public_number,customer_id,checkout_id,address_snapshot,contact_snapshot,
+            subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,reservation_expires_at,
+            paid_at,version,created_at,updated_at)
+           VALUES($1,$2,$3,$4,'{}','{}',$5,0,$5,'VND','included_not_separated','paid',
+                  '2026-08-20T00:00:00.000Z',$6,1,$7,$7)`,
+          [orderId, `NVC-20260810-${suffix.toString(16).toUpperCase().padStart(8, "0")}`, customerId, checkoutId, totalVnd, paidAt, now],
+        );
+      }
+    }
+
+    const asOf = "2026-08-10T12:00:00.000Z";
+    await expect(operations.getPaidCustomerFacts(customerIds[1]!)).resolves.toEqual({
+      paidOrderCount: 2,
+      lifetimePaidVnd: 2_000_000,
+      latestPaidAt: "2026-08-02T00:00:00.000Z",
+    });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "new_customer", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: ids.customer }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "repeat_customer", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[1] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "high_value", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[2] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "inactive_90d", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[3] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "first_time_buyer", asOf, page: 2, pageSize: 1,
+    })).resolves.toMatchObject({ totalItems: 3, items: [{ customerId: customerIds[2] }] });
+  });
 });

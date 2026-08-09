@@ -109,6 +109,15 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return r.rows[0] === undefined ? undefined : customer(r.rows[0]);
   }
+  async findCustomersByIds(s: DatabaseSession, ids: readonly string[]) {
+    const r = await s.query<Row>(
+      `SELECT * FROM customers
+       WHERE id = ANY($1::uuid[])
+       ORDER BY array_position($1::uuid[], id)`,
+      [ids],
+    );
+    return r.rows.map(customer);
+  }
   async searchOperations(s: DatabaseSession, query: CustomerOperationsSearchQuery) {
     const values: unknown[] = [];
     const clauses: string[] = [];
@@ -134,7 +143,7 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return {
       items: rows.rows.map(customer),
-      totalItems: Number(count.rows[0]?.total ?? 0),
+      totalItems: safeInteger(count.rows[0]?.total ?? "0", "customer total"),
     };
   }
   async findIdentity(
@@ -347,4 +356,12 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return true;
   }
+}
+
+function safeInteger(value: unknown, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`Unsafe persisted ${label}`);
+  }
+  return parsed;
 }

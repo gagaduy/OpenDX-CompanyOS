@@ -322,11 +322,23 @@ suite("customer API integration", () => {
         totalItems: 2,
         items: [{ id: "b2400000-0000-4000-8000-000000000002" }],
       });
+    await expect(operations.search({ search: "nova buyer", page: 2, pageSize: 1 }))
+      .resolves.toMatchObject({
+        totalItems: 2,
+        items: [{ id: "b2400000-0000-4000-8000-000000000001" }],
+      });
     await expect(operations.search({ search: "0901000001", page: 1, pageSize: 20 }))
       .resolves.toMatchObject({
         totalItems: 1,
         items: [{ id: "b2400000-0000-4000-8000-000000000001" }],
       });
+    await expect(operations.getMany([
+      "b2400000-0000-4000-8000-000000000001",
+      "b2400000-0000-4000-8000-000000000002",
+    ])).resolves.toMatchObject([
+      { id: "b2400000-0000-4000-8000-000000000001" },
+      { id: "b2400000-0000-4000-8000-000000000002" },
+    ]);
   });
 });
 

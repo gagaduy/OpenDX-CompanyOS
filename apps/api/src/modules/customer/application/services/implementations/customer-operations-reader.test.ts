@@ -20,6 +20,40 @@ const firstCustomer = {
 };
 
 describe("CustomerOperationsReaderService", () => {
+  it("batch-gets only the requested customers through the public operations DTO", async () => {
+    const secondCustomer = {
+      ...firstCustomer,
+      id: "customer-2",
+      email: "second@example.com",
+      fullName: undefined,
+      phoneNumber: undefined,
+    };
+    const repository = {
+      findCustomersByIds: async (_session: DatabaseSession, customerIds: readonly string[]) =>
+        customerIds.join(",") === "customer-2,customer-1"
+          ? [secondCustomer, firstCustomer]
+          : [],
+    } as unknown as CustomerRepository;
+    const reader = new CustomerOperationsReaderService(repository, transactionRunner());
+
+    await expect(reader.getMany(["customer-2", "customer-1"])).resolves.toEqual([
+      {
+        id: "customer-2",
+        email: "second@example.com",
+        status: "active",
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      {
+        id: "customer-1",
+        email: "nova@example.com",
+        fullName: "Nova Buyer",
+        phoneNumber: "0901000001",
+        status: "active",
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+    ]);
+  });
+
   it.each([
     { page: 0, pageSize: 1 },
     { page: 1, pageSize: 0 },

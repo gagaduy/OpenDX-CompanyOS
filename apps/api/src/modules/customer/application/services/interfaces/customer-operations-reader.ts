@@ -33,6 +33,7 @@ export interface CustomerOperationsReader {
     readonly totalItems: number;
   }>;
   get(customerId: string): Promise<CustomerOperationsDetail | undefined>;
+  getMany(customerIds: readonly string[]): Promise<readonly CustomerOperationsSummary[]>;
   getSupportContext(customerId: string): Promise<Pick<
     CustomerOperationsSummary,
     "id" | "email" | "fullName" | "phoneNumber"

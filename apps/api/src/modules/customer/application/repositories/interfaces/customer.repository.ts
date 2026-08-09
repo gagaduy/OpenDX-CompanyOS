@@ -37,6 +37,10 @@ export interface CustomerRepository {
     session: DatabaseSession,
     email: string,
   ): Promise<Customer | undefined>;
+  findCustomersByIds(
+    session: DatabaseSession,
+    ids: readonly string[],
+  ): Promise<readonly Customer[]>;
   searchOperations(
     session: DatabaseSession,
     query: CustomerOperationsSearchQuery,

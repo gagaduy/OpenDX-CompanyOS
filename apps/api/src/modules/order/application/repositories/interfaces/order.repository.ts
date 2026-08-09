@@ -6,6 +6,11 @@ import type { Order } from "../../../domain/entities/order";
 import type { OrderLine } from "../../../domain/entities/order-line";
 import type { OrderStatusHistory } from "../../../domain/entities/order-status-history";
 import type { AdminOrderSummaryDto, OrderListQuery, OrderSummaryDto } from "../../dtos/order.dto";
+import type {
+  PaidCustomerFacts,
+  PaidCustomerSegmentId,
+  PaidSegmentCustomerFacts,
+} from "../../services/interfaces/customer-order-operations-reader";
 
 export interface OrderAggregate {
   readonly order: Order;
@@ -38,6 +43,22 @@ export interface OrderRepository {
     customerId: string,
     orderId: string,
   ): Promise<CustomerOrderOperationsRecord | undefined>;
+  getPaidCustomerFacts(
+    session: DatabaseSession,
+    customerId: string,
+  ): Promise<PaidCustomerFacts>;
+  listPaidSegmentCustomers(
+    session: DatabaseSession,
+    query: {
+      readonly segmentId: PaidCustomerSegmentId;
+      readonly asOf: string;
+      readonly page: number;
+      readonly pageSize: number;
+    },
+  ): Promise<{
+    readonly items: readonly PaidSegmentCustomerFacts[];
+    readonly totalItems: number;
+  }>;
   findHistoryByIdempotencyKey(session: DatabaseSession, orderId: string, key: string): Promise<OrderStatusHistory | undefined>;
   updateStatus(session: DatabaseSession, order: Order, expectedVersion: number): Promise<boolean>;
   appendHistory(session: DatabaseSession, history: OrderStatusHistory): Promise<void>;
