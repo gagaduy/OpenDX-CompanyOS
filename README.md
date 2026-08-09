@@ -112,7 +112,13 @@ normal local startup.
 
 ```bash
 make check
+pnpm check:commerce-exit
 ```
+
+The second command creates isolated PostgreSQL databases, validates the
+checkout-to-paid concurrency and failure gates, proves paid-order backup and
+restore, then removes its databases. Real SePay sandbox acceptance remains
+opt-in through `pnpm check:sepay-sandbox`; see `docs/integrations/sepay.md`.
 
 Database operations are exposed through `make db-migrate`, `make db-rollback`,
 `make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. See

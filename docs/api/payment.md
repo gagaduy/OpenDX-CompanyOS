@@ -11,7 +11,7 @@ and idempotency truth. Browser redirects and query strings are informational.
 
 ## Provider Notification
 
-`POST /v1/webhooks/sepay/ipn` accepts JSON up to 64 KiB. When SePay is
+`POST /v1/webhooks/sepay` accepts JSON up to 64 KiB. When SePay is
 configured, `X-Secret-Key` must exactly match `SEPAY_IPN_SECRET`; comparison is
 timing-safe. Missing configuration returns `503`; failed authentication returns
 `401`; malformed or unsupported payloads fail closed.

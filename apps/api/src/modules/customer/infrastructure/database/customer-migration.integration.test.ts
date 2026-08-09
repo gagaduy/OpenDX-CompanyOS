@@ -3,7 +3,10 @@
 
 import { Pool } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
-import { runCatalogMigrations } from "../../../../shared/database/run-migrations";
+import {
+  runCatalogMigrations,
+  runCompanyCoreMigrations,
+} from "../../../../shared/database/run-migrations";
 import { runCustomerMigrations } from "./run-customer-migrations";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -14,12 +17,14 @@ suite("customer migration", () => {
 
   afterAll(async () => {
     await runCustomerMigrations(databaseUrl!, "down").catch(() => undefined);
+    await runCompanyCoreMigrations(databaseUrl!, "down").catch(() => undefined);
     await runCatalogMigrations(databaseUrl!, "down").catch(() => undefined);
     await pool.end();
   });
 
   it("creates hash-only customer storage, permits customer audit actors, and rolls back", async () => {
     await runCatalogMigrations(databaseUrl!, "up");
+    await runCompanyCoreMigrations(databaseUrl!, "up");
     await runCustomerMigrations(databaseUrl!, "up");
     const tables = await pool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
@@ -72,5 +77,19 @@ suite("customer migration", () => {
       (await pool.query("SELECT to_regclass('public.customers') AS name"))
         .rows[0],
     ).toEqual({ name: null });
+    expect(
+      (await pool.query(
+        "SELECT count(*)::text AS count FROM audit_events WHERE actor_type='customer'",
+      )).rows[0],
+    ).toEqual({ count: "0" });
+    await expect(
+      pool.query(`
+      INSERT INTO audit_events(
+        id, actor_type, actor_id, action, resource_type, resource_id,
+        outcome, correlation_id, metadata, occurred_at
+      ) VALUES ('customer-audit-after-rollback', 'customer', 'customer-1', 'invalid',
+        'resource', 'resource-1', 'denied', 'correlation-3', '{}', NOW())
+    `),
+    ).rejects.toMatchObject({ code: "23514" });
   });
 });

@@ -74,6 +74,10 @@ make db-seed
 
 Do not run rollback against a database whose data must be retained. Use
 `make db-backup` first and test restore with an explicit `BACKUP=...` path.
+Rolling the Customer migration below its schema version removes audit entries
+whose actor type is `customer`, because the older Company Core constraint
+cannot represent that actor. This is expected destructive rollback behavior;
+restore the backup instead when those records must be retained.
 
 `make down` preserves named volumes. Removing Compose volumes, for example with
 `docker compose -f infra/docker/docker-compose.yml down --volumes`, permanently

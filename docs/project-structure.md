@@ -75,9 +75,10 @@ archives created by the root `Makefile`.
 
 `scripts/audit` contains repository governance audit helpers.
 
-`scripts/dev` contains deterministic Storefront and Console browser validation
-scripts. They inject fixtures at the browser boundary and never claim provider
-payment confirmation.
+`scripts/dev` contains deterministic Storefront and Console browser validation,
+an isolated checkout-to-paid database exit gate, and an opt-in real SePay
+sandbox runner. Browser fixtures never claim provider payment confirmation;
+only the credential-owned sandbox runner waits for authoritative backend state.
 
 `docs` contains product, architecture, design, roadmap, build, dependency, and planning documentation.
 

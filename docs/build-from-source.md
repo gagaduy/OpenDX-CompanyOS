@@ -78,6 +78,21 @@ at 390x844 and 1440x900. Screenshots are written to
 `/tmp/opendx-console-browser` by default. Set `CONSOLE_URL` or
 `BROWSER_EVIDENCE_DIR` when local paths differ.
 
+Run the deterministic Phase 6 financial exit gate against isolated PostgreSQL
+databases with:
+
+```bash
+pnpm check:commerce-exit
+```
+
+It runs 20-way checkout concurrency, exact-once payment replay,
+IPN/reconciliation/expiry races, fail-closed API boundaries, a paid-order
+custom-format backup/restore, and full migration rollback/reapply. Evidence is
+written to `/tmp/opendx-commerce-exit` by default. The script requires the
+local PostgreSQL Compose service but never changes the normal `opendx`
+database. This deterministic gate does not replace the credential-owned SePay
+sandbox acceptance documented in `docs/integrations/sepay.md`.
+
 ## Run Local Services
 
 Start the full local stack, including all migrations through Payment and the

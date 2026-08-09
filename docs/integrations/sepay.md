@@ -45,7 +45,7 @@ SePay cannot call `localhost`. Run `make up`, expose API port 4000 through a
 trusted HTTPS tunnel, then configure this exact merchant IPN URL:
 
 ```text
-https://your-random-tunnel-host/v1/webhooks/sepay/ipn
+https://your-random-tunnel-host/v1/webhooks/sepay
 ```
 
 Set IPN auth to SECRET_KEY and use the same value as `SEPAY_IPN_SECRET`. Keep
@@ -76,13 +76,39 @@ SEPAY_CANCEL_URL=https://your-storefront-tunnel.example/payment/return?outcome=c
 ```
 
 Configure the Production IPN URL as
-`https://your-api-tunnel.example/v1/webhooks/sepay/ipn` and provide Production
+`https://your-api-tunnel.example/v1/webhooks/sepay` and provide Production
 credentials only through the local `.env`/secret environment. Run one bounded,
 low-value transaction while both tunnels and the local API remain available.
 Confirm the order from authenticated IPN/reconciliation evidence, not from the
 return page. This is an opt-in engineering acceptance, not approval to operate
 the store from a laptop. Stable hosting, managed secrets, TLS, monitoring,
 firewall policy, and incident operations remain Phase 8.
+
+## Opt-In Sandbox Acceptance
+
+The repository provides an interactive runner that creates a real sandbox
+checkout, opens an ephemeral auto-submit form when requested, waits for
+authoritative backend completion, then runs Finance reconciliation:
+
+```bash
+SEPAY_ACCEPTANCE_CONFIRM_SANDBOX=yes \
+SEPAY_ACCEPTANCE_CUSTOMER_COOKIE='opendx_customer=...; opendx_csrf=...' \
+SEPAY_ACCEPTANCE_CSRF_TOKEN='...' \
+SEPAY_ACCEPTANCE_ADDRESS_ID='00000000-0000-4000-8000-000000000000' \
+SEPAY_ACCEPTANCE_PUBLIC_API_URL='https://your-api-tunnel.example' \
+SEPAY_ACCEPTANCE_STAFF_BEARER='...' \
+SEPAY_ACCEPTANCE_OPEN_BROWSER=yes \
+pnpm check:sepay-sandbox
+```
+
+Before running it, configure the merchant callback as
+`https://your-api-tunnel.example/v1/webhooks/sepay`, place sandbox merchant
+credentials only in the runtime environment, sign in as a customer with a
+non-empty cart and owned address, and obtain a short-lived Finance or
+Administrator bearer token. Do not include the `Bearer ` prefix in the
+variable. The runner prints IDs, amount, field names, counts, and statuses only;
+field values, cookies, provider payloads, and credentials remain redacted. Its
+temporary form is mode `0600` and is deleted when the run exits.
 
 ## Evidence And Reconciliation
 

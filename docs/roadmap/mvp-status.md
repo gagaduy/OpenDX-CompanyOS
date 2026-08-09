@@ -12,8 +12,9 @@ Phase 6 Checkout, Order, and SePay is in progress on
 `feat/checkout-order-sepay`. Backend checkout, immutable orders, SePay payment
 processing, expiry, reconciliation, customer Storefront journey, staff Console
 operations, deterministic fixtures, container lifecycle, and operational
-documentation are complete through Task 12; exit acceptance and independent
-review are next.
+documentation are complete through Task 12. Task 13 deterministic exit gates,
+paid-order backup/restore, and migration rollback/reapply pass; real SePay
+sandbox evidence and independent review remain external gates.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -27,7 +28,7 @@ Active commerce master plan:
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
-| Phase 6: Checkout, Order, and SePay | In progress: Task 12 complete | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after end-to-end acceptance, real sandbox evidence, independent review, and merge |
+| Phase 6: Checkout, Order, and SePay | In progress: Task 13 external gates pending | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after real sandbox evidence, independent review, and merge |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
@@ -157,6 +158,13 @@ Active commerce master plan:
   true all-module rollback. Disposable-database acceptance proved clean
   migrate, repeated seed, custom backup/restore, complete rollback, reapply,
   and seed without modifying contributor runtime data.
+- Phase 6 Task 13 deterministic acceptance runs 20 checkouts against ten units,
+  proves exact-once paid effects under 20 IPN replays, converges IPN,
+  reconciliation, and expiry races, rejects amount/ownership/auth/role failures,
+  restores one paid order from a custom archive, and fully rolls migrations down
+  and up on disposable databases. It also found and fixed Customer rollback of
+  audit rows that the older actor constraint cannot represent. Real sandbox
+  evidence and independent review remain intentionally open.
 
 ## Open Risks
 

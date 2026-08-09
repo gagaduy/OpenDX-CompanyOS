@@ -551,30 +551,30 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `docs/roadmap/mvp-status.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Run all domain, application, repository, API, Storefront, Console, Python,
+- [x] Run all domain, application, repository, API, Storefront, Console, Python,
   audit, build, and Compose checks through `make check`.
-- [ ] Run 20-way scarce-stock checkout concurrency and prove successful orders
+- [x] Run 20-way scarce-stock checkout concurrency and prove successful orders
   never exceed available stock.
-- [ ] Replay valid IPN concurrently and prove one order/payment transition, one
+- [x] Replay valid IPN concurrently and prove one order/payment transition, one
   reservation consumption, one promotion commit, and one audit effect.
-- [ ] Race IPN, reconciliation, and expiry; prove one valid terminal outcome and
+- [x] Race IPN, reconciliation, and expiry; prove one valid terminal outcome and
   no partial stock/money/order state.
-- [ ] Prove invalid auth, malformed body, amount/currency/invoice mismatch,
+- [x] Prove invalid auth, malformed body, amount/currency/invoice mismatch,
   customer ownership violation, and unauthorized staff action fail closed.
-- [ ] Run browser acceptance for Storefront checkout/order and Console order/
+- [x] Run browser acceptance for Storefront checkout/order and Console order/
   payment workflows at desktop, tablet, and mobile in required themes.
 - [ ] Run opt-in real SePay sandbox checkout/IPN/reconciliation using contributor
   credentials and public HTTPS callback. Record redacted evidence only.
-- [ ] Verify `make db-backup`/`make db-restore` across a paid-order probe and
+- [x] Verify custom-format backup/restore across a paid-order probe and
   migration rollback/reapply on a disposable database.
-- [ ] Run `git diff --check`, `pnpm audit:repo`, secret scan, and dependency/
+- [x] Run `git diff --check`, `pnpm audit:repo`, secret scan, and dependency/
   license review.
 - [ ] Request independent review focused on financial correctness, idempotency,
   concurrency, authorization, secret handling, and unsupported-scope leakage.
 - [ ] Fix Critical/Important findings with regression tests and rerun all gates.
 - [ ] Mark Phase 6 complete only after real sandbox evidence and review are
   recorded; otherwise retain an explicit external-acceptance status.
-- [ ] Commit as `test(commerce): validate checkout to paid order`.
+- [x] Commit as `test(commerce): validate checkout to paid order`.
 
 ## Exit Gate
 

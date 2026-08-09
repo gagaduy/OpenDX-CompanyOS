@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Remove Customer audit actors while rolling back the Customer schema so the
+  older Company Core actor constraint can be restored on databases containing
+  real checkout and paid-order history.
 - Make `db:rollback:all` remove every migration in every module rather than
   leaving the first Catalog schema behind, while retaining one-step module
   rollback commands for focused development.
@@ -56,6 +59,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add an isolated Phase 6 checkout-to-paid exit gate covering scarce-stock
+  concurrency, exact-once IPN replay, provider/expiry races, fail-closed API
+  boundaries, paid-order backup/restore, and migration rollback/reapply, plus a
+  credential-redacted opt-in real SePay sandbox runner.
 - Add idempotent active/inactive NovaCommerce Promotion fixtures, independent
   Checkout expiry configuration, health-waiting full-container startup, and
   contributor documentation for Checkout, Order, Payment, Promotion, SePay
