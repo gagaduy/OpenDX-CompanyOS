@@ -111,4 +111,82 @@ suite("CRM migration", () => {
     await runCrmMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.crm_followups') AS name")).rows[0]).toEqual({ name: "crm_followups" });
   });
+
+  it("enforces immutable notes and the only legal follow-up lifecycle writes", async () => {
+    const customerId = "c7000000-0000-4000-8000-000000000001";
+    const noteId = "c7000000-0000-4000-8000-000000000002";
+    const followupId = "c7000000-0000-4000-8000-000000000003";
+    const createdAt = "2026-08-10T00:00:00.000Z";
+    const claimedAt = "2026-08-10T01:00:00.000Z";
+    const completedAt = "2026-08-10T02:00:00.000Z";
+
+    await pool.query(
+      "INSERT INTO customers (id, email, email_verified_at) VALUES ($1, $2, $3)",
+      [customerId, "crm-migration@example.com", createdAt],
+    );
+    await expect(pool.query(
+      "INSERT INTO crm_notes (id, customer_id, author_id, body) VALUES (gen_random_uuid(), $1, 'staff-1', ' ')",
+      [customerId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      "INSERT INTO crm_followups (id, customer_id, due_at, description, created_by_id) VALUES (gen_random_uuid(), $1, $2, ' ', 'staff-1')",
+      [customerId, "2026-08-11T00:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      "INSERT INTO crm_followups (id, customer_id, due_at, description, status, version, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'Follow up', 'invalid', 1, 'staff-1')",
+      [customerId, "2026-08-11T00:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "INSERT INTO crm_followups (id, customer_id, due_at, description, status, version, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'Follow up', 'open', 0, 'staff-1')",
+      [customerId, "2026-08-11T00:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "INSERT INTO crm_followups (id, customer_id, due_at, description, status, created_by_id) VALUES (gen_random_uuid(), $1, $2, 'Follow up', 'completed', 'staff-1')",
+      [customerId, "2026-08-11T00:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "INSERT INTO crm_followups (id, customer_id, due_at, description, status, created_by_id, assignee_id) VALUES (gen_random_uuid(), $1, $2, 'Follow up', 'open', 'staff-1', 'staff-operator')",
+      [customerId, "2026-08-11T00:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      "INSERT INTO crm_notes (id, customer_id, author_id, body, created_at) VALUES ($1, $2, 'staff-1', 'Original note', $3)",
+      [noteId, customerId, createdAt],
+    );
+    await expect(pool.query(
+      "UPDATE crm_notes SET body = 'Altered note' WHERE id = $1",
+      [noteId],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query("DELETE FROM crm_notes WHERE id = $1", [noteId]))
+      .rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      `INSERT INTO crm_followups
+       (id, customer_id, due_at, description, status, version, created_by_id, created_at, updated_at)
+       VALUES ($1, $2, '2026-08-11T00:00:00.000Z', 'Call customer', 'open', 1, 'staff-creator', $3, $3)`,
+      [followupId, customerId, createdAt],
+    );
+    await expect(pool.query(
+      "UPDATE crm_followups SET assignee_id = 'staff-operator', version = 2, updated_at = $2 WHERE id = $1",
+      [followupId, claimedAt],
+    )).resolves.toMatchObject({ rowCount: 1 });
+    await expect(pool.query(
+      "UPDATE crm_followups SET assignee_id = 'staff-other', version = 3, updated_at = $2 WHERE id = $1",
+      [followupId, completedAt],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "UPDATE crm_followups SET status = 'completed', completed_by_id = 'staff-operator', completed_at = $2, version = 2, updated_at = $2 WHERE id = $1",
+      [followupId, completedAt],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "UPDATE crm_followups SET status = 'completed', completed_by_id = 'staff-operator', completed_at = $2, version = 3, updated_at = $2 WHERE id = $1",
+      [followupId, completedAt],
+    )).resolves.toMatchObject({ rowCount: 1 });
+    await expect(pool.query(
+      "UPDATE crm_followups SET description = 'Changed', version = 4, updated_at = $2 WHERE id = $1",
+      [followupId, "2026-08-10T03:00:00.000Z"],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query("DELETE FROM crm_followups WHERE id = $1", [followupId]))
+      .rejects.toMatchObject({ code: "P0001" });
+  });
 });
