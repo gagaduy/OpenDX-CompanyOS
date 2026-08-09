@@ -85,7 +85,8 @@ export function up(pgm: MigrationBuilder): void {
 
       IF OLD.status = 'open' AND OLD.assignee_id IS NOT NULL
          AND NEW.status = 'completed' AND NEW.assignee_id = OLD.assignee_id
-         AND NEW.completed_by_id = NEW.assignee_id AND NEW.completed_at IS NOT NULL
+         AND NEW.completed_by_id IS NOT NULL AND btrim(NEW.completed_by_id) <> ''
+         AND NEW.completed_at IS NOT NULL
          AND NEW.version = OLD.version + 1 THEN
         RETURN NEW;
       END IF;
