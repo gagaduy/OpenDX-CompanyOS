@@ -57,6 +57,9 @@ const apiEnvironmentSchema = z.object({
     (value) => value === 900,
     { message: "must equal 900" },
   ),
+  CHECKOUT_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
+    z.number().int().min(5).max(300),
+  ),
   SEPAY_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   SEPAY_CHECKOUT_URL: z.url().optional(),
   SEPAY_API_BASE_URL: z.url().optional(),
@@ -172,6 +175,7 @@ export interface ApiEnvironment {
   readonly inventoryReservationTtlSeconds: number;
   readonly inventoryExpiryIntervalSeconds: number;
   readonly checkoutTtlSeconds: number;
+  readonly checkoutExpiryIntervalSeconds: number;
   readonly paymentReconciliationIntervalSeconds: number;
   readonly sepay: SePayConfiguration;
 }
@@ -228,6 +232,7 @@ export function parseApiEnvironment(
     inventoryReservationTtlSeconds: value.INVENTORY_RESERVATION_TTL_SECONDS,
     inventoryExpiryIntervalSeconds: value.INVENTORY_EXPIRY_INTERVAL_SECONDS,
     checkoutTtlSeconds: value.CHECKOUT_TTL_SECONDS,
+    checkoutExpiryIntervalSeconds: value.CHECKOUT_EXPIRY_INTERVAL_SECONDS,
     paymentReconciliationIntervalSeconds:
       value.PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
     sepay: {

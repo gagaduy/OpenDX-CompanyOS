@@ -80,8 +80,8 @@ at 390x844 and 1440x900. Screenshots are written to
 
 ## Run Local Services
 
-Start the full local stack, including Catalog → Company Core → Inventory →
-Customer → Cart migrations and Company Core → Catalog → Inventory seed jobs:
+Start the full local stack, including all migrations through Payment and the
+Company Core → Catalog → Inventory → Promotion seed jobs:
 
 ```bash
 make up
@@ -121,9 +121,14 @@ Copy `.env.example` to `.env` for local development if needed. Do not commit `.e
 
 The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production. See `development/catalog-local-environment.md` and `development/database-operations.md` for operations and data-loss boundaries.
 
-The API readiness probe verifies PostgreSQL migration state for Catalog,
-Company Core, Inventory, Customer, and Cart plus the MinIO bucket. Runtime
+The API readiness probe verifies every PostgreSQL migration family through
+Payment, Keycloak, and the MinIO bucket. It does not contact SePay. Runtime
 persistence remains PostgreSQL-only; there is no memory database switch.
 
 See `development/storefront-local-environment.md` for optional real Google
 identity setup. The normal stack and health checks do not require Google.
+
+See `integrations/sepay.md` for optional sandbox credentials and public HTTPS
+IPN setup. Normal startup does not require payment credentials. When configured,
+the API starts Checkout expiry and Payment reconciliation workers inside the
+same modular-monolith process and stops them during graceful shutdown.

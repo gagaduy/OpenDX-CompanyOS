@@ -134,7 +134,7 @@ const checkout = createCheckoutModule({
   sessions: customer.sessions, cookies: storefrontCookies,
   storefrontOrigin: environment.storefrontOrigin, generateId: randomUUID,
   now: () => new Date().toISOString(), expirationMs: environment.checkoutTtlSeconds * 1_000,
-  expiryIntervalMs: environment.inventoryExpiryIntervalSeconds * 1_000,
+  expiryIntervalMs: environment.checkoutExpiryIntervalSeconds * 1_000,
   onWorkerError: (error) => console.error("Checkout expiry worker failed", error),
 });
 const paymentOperations = payment.createOperations({

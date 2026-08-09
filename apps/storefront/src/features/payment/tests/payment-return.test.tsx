@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { PaymentApi } from "../api/payment-api";
@@ -40,7 +40,9 @@ describe("payment return", () => {
     expect(
       await screen.findByRole("heading", { name: "Thanh toán đã xác nhận" }),
     ).toBeVisible();
-    expect(localStorage.getItem("novacommerce.pending-checkout")).toBeNull();
+    await waitFor(() => {
+      expect(localStorage.getItem("novacommerce.pending-checkout")).toBeNull();
+    });
   });
 
   it("shows a terminal state for an expired checkout", async () => {

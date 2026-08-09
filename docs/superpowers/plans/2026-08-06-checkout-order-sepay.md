@@ -519,25 +519,25 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `README.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Add migration/seed dependencies and worker lifecycle to full-container
+- [x] Add migration/seed dependencies and worker lifecycle to full-container
   startup without adding a SePay container.
-- [ ] Keep API readiness local and deterministic; it must not fail because the
+- [x] Keep API readiness local and deterministic; it must not fail because the
   external sandbox is unavailable.
-- [ ] Keep the contributor Make surface focused on `up`, `down`, `db-migrate`,
+- [x] Keep the contributor Make surface focused on `up`, `down`, `db-migrate`,
   `db-rollback`, `db-backup`, `db-restore`, and validation commands already in
   use. Do not hide payment business logic in Make.
-- [ ] Seed a deterministic inactive/active promotion set and document fixture
+- [x] Seed a deterministic inactive/active promotion set and document fixture
   truth. Never seed merchant credentials or fake provider confirmation claims.
-- [ ] Document sandbox registration, environment variables, public HTTPS tunnel,
+- [x] Document sandbox registration, environment variables, public HTTPS tunnel,
   IPN configuration, credential rotation, redaction, local callback limits,
   reconciliation, and production switch deferred to Phase 8.
-- [ ] Document every route, DTO, state machine, authorization rule, idempotency
+- [x] Document every route, DTO, state machine, authorization rule, idempotency
   contract, migration order, rollback, backup/restore, and troubleshooting path.
-- [ ] Record that existing dependencies are reused; update dependency docs only
+- [x] Record that existing dependencies are reused; update dependency docs only
   if implementation proves a new reviewed package necessary.
-- [ ] Run Docker Compose config, clean migration/seed, repeated seed, rollback/
+- [x] Run Docker Compose config, clean migration/seed, repeated seed, rollback/
   reapply, custom backup/restore, and full-container health acceptance.
-- [ ] Commit as `docs(commerce): document checkout and sepay operations`.
+- [x] Commit as `docs(commerce): document checkout and sepay operations`.
 
 ### Task 13: Exit Acceptance, Review, and Phase Closure
 

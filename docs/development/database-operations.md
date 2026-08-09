@@ -5,11 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Database Operations
 
-PostgreSQL is the only production/runtime persistence path for Catalog,
-Company Operating Core, Inventory, Customer, and Cart. The API has no in-memory
-fallback. The migration job applies Catalog, Company Core, Inventory, Customer,
-then Cart migrations. Seed ordering is Company Core, Catalog, then Inventory;
-Customer and Cart begin empty and are populated by Storefront activity.
+PostgreSQL is the only runtime persistence path for Company Core and Commerce.
+The API has no in-memory fallback. Migration order is Catalog, Company Core,
+Inventory, Customer, Cart, Promotion, Checkout, Order, then Payment. Seed order
+is Company Core, Catalog, Inventory, then Promotion; Customer, Cart, Checkout,
+Order, and Payment begin without fabricated operational records.
 
 ## Migrate, Roll Back, and Seed
 
@@ -27,10 +27,12 @@ docker compose -f infra/docker/docker-compose.yml run --rm api pnpm --filter @op
 docker compose -f infra/docker/docker-compose.yml run --rm seed
 ```
 
-Rollback runs in the inverse order: Cart, Customer, Inventory, Company Core,
-then Catalog. It is destructive and intended for local development. Seeding is
-transactional and idempotent at the database boundary; Catalog image objects
-use stable MinIO keys.
+Rollback runs in exact inverse order: Payment, Order, Checkout, Promotion, Cart,
+Customer, Inventory, Company Core, then Catalog. It is destructive and intended
+for local development. Seeding is transactional and idempotent at the database
+boundary; Catalog image objects use stable MinIO keys. Promotion seeds are
+`NOVA10` active and `NOVA50K` inactive as documented in
+`../api/promotion.md`; they contain no merchant or payment evidence.
 
 ## Backup and Restore
 
@@ -51,9 +53,27 @@ recovery.
 
 The PostgreSQL archive includes Catalog publication state, Company Operating
 Core data, Inventory balances, movements, idempotency records, reservations,
-customers, hash-only sessions, addresses, carts, and resolution history. After
-restore, run `make db-migrate` before starting writes if the archive predates
-the current schema.
+customers, hash-only sessions, addresses, carts, promotions, immutable
+checkout/order snapshots, payment attempts, redacted provider events,
+reconciliations, and histories. After restore, run `make db-migrate` before
+starting writes if the archive predates the current schema. A PostgreSQL restore
+does not replay a provider event or independently prove that money moved.
+
+## Lifecycle Verification
+
+For a disposable local database, verify migration and seed idempotency with:
+
+```bash
+make db-migrate
+make db-seed
+make db-seed
+make db-rollback
+make db-migrate
+make db-seed
+```
+
+Do not run rollback against a database whose data must be retained. Use
+`make db-backup` first and test restore with an explicit `BACKUP=...` path.
 
 `make down` preserves named volumes. Removing Compose volumes, for example with
 `docker compose -f infra/docker/docker-compose.yml down --volumes`, permanently

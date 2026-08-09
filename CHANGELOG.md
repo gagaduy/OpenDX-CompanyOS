@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Make `db:rollback:all` remove every migration in every module rather than
+  leaving the first Catalog schema behind, while retaining one-step module
+  rollback commands for focused development.
+- Wait for the payment-return cleanup effect in its test so parallel workspace
+  execution cannot race the local pending-checkout assertion.
 - Pass the optional repository-root `.env` explicitly to Docker Compose so
   local Google Sign-In configuration reaches API and Storefront containers
   without changing relative build or bind-mount paths.
@@ -51,6 +56,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add idempotent active/inactive NovaCommerce Promotion fixtures, independent
+  Checkout expiry configuration, health-waiting full-container startup, and
+  contributor documentation for Checkout, Order, Payment, Promotion, SePay
+  sandbox, migration, backup, restore, and credential operations.
 - Add role-aware Console order and payment operations with legal order
   transitions, optimistic-version recovery, redacted provider-event evidence,
   reconciliation review, responsive dark operational surfaces, and

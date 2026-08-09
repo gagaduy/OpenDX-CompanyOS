@@ -31,16 +31,21 @@ only genuinely shared frontend concerns.
 
 `apps/api` contains the Express + TypeScript modular monolith. Its implemented
 `modules/company-operating-core`, `modules/catalog`, `modules/inventory`,
-`modules/customer`, and `modules/cart` own their respective
+`modules/customer`, `modules/cart`, `modules/promotion`, `modules/checkout`,
+`modules/order`, and `modules/payment` own their respective
 domain, application, infrastructure, presentation, seed, and test code. Both
 commerce repositories use shared PostgreSQL transaction infrastructure; Catalog
 media storage remains behind its inward-facing storage port.
 
 `apps/storefront` contains the React + TypeScript customer commerce surface.
-Its feature-owned Catalog, authentication, Cart, and customer-account areas
-consume runtime-validated API envelopes; `src/app` owns composition and
-`src/shared` contains only HTTP, formatting, and global style concerns used by
-multiple features.
+Its feature-owned Catalog, authentication, Cart, customer-account, Checkout,
+and Order areas consume runtime-validated API envelopes; `src/app` owns
+composition and `src/shared` contains only HTTP, formatting, and global style
+concerns used by multiple features.
+
+The Console adds role-aware Order and Payment operation features. Operations
+and Finance enter through public feature APIs and cannot import backend or
+another feature's private implementation.
 
 ## Services
 
@@ -70,7 +75,9 @@ archives created by the root `Makefile`.
 
 `scripts/audit` contains repository governance audit helpers.
 
-`scripts/dev` contains developer validation scripts.
+`scripts/dev` contains deterministic Storefront and Console browser validation
+scripts. They inject fixtures at the browser boundary and never claim provider
+payment confirmation.
 
 `docs` contains product, architecture, design, roadmap, build, dependency, and planning documentation.
 

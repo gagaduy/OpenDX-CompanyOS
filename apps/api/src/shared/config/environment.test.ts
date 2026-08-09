@@ -28,6 +28,7 @@ describe("parseApiEnvironment", () => {
     expect(environment.inventoryReservationTtlSeconds).toBe(900);
     expect(environment.inventoryExpiryIntervalSeconds).toBe(30);
     expect(environment.checkoutTtlSeconds).toBe(900);
+    expect(environment.checkoutExpiryIntervalSeconds).toBe(30);
     expect(environment.paymentReconciliationIntervalSeconds).toBe(60);
     expect(environment.sepay).toMatchObject({
       environment: "sandbox",
@@ -48,6 +49,7 @@ describe("parseApiEnvironment", () => {
     ["INVENTORY_RESERVATION_TTL_SECONDS", { INVENTORY_RESERVATION_TTL_SECONDS: "600" }],
     ["INVENTORY_EXPIRY_INTERVAL_SECONDS", { INVENTORY_EXPIRY_INTERVAL_SECONDS: "4" }],
     ["CHECKOUT_TTL_SECONDS", { CHECKOUT_TTL_SECONDS: "600" }],
+    ["CHECKOUT_EXPIRY_INTERVAL_SECONDS", { CHECKOUT_EXPIRY_INTERVAL_SECONDS: "4" }],
     ["SEPAY_REQUEST_TIMEOUT_MS", { SEPAY_REQUEST_TIMEOUT_MS: "499" }],
     ["PAYMENT_RECONCILIATION_INTERVAL_SECONDS", { PAYMENT_RECONCILIATION_INTERVAL_SECONDS: "9" }],
   ])("rejects invalid %s", (expectedKey, override) => {
