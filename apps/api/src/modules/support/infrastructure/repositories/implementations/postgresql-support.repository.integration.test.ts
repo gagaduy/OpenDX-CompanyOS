@@ -70,6 +70,25 @@ suite("PostgresqlSupportRepository", () => {
     await expect(transactions.run(s=>repository.appendMessage(s,{ id:"f1000000-0000-4000-8000-000000000008", ticketId, authorId:"support", body:"Late message", createdAt:"2026-08-10T01:01:00.000Z" }))).rejects.toMatchObject({ code: "P0001" });
   });
 
+  it("persists, scans, retains, and tombstones attachment metadata", async () => {
+    await insert();
+    const attachmentId = "f1000000-0000-4000-8000-000000000009";
+
+    await transactions.run(s=>repository.createAttachment(s,{ id:attachmentId,ticketId,objectKey:"support/ticket/file.pdf",originalFilename:"file.pdf",format:"pdf",mediaType:"application/pdf",byteSize:9,status:"quarantined",createdById:"support-a",createdAt:at }));
+    await expect(transactions.runReadOnly(s=>repository.findAttachment(s,ticketId,attachmentId))).resolves.toMatchObject({ id:attachmentId,status:"quarantined" });
+    await expect(transactions.run(s=>repository.claimAttachmentsForScan(s,at,20))).resolves.toMatchObject([{ id:attachmentId, objectKey:"support/ticket/file.pdf", version:1 }]);
+    await expect(transactions.run(s=>repository.markAttachmentClean(s,attachmentId,1,"2026-08-10T00:10:00.000Z"))).resolves.toBe(true);
+
+    await pool.query("UPDATE support_tickets SET status='assigned',version=2,updated_at='2026-08-10T00:20:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='in_progress',version=3,updated_at='2026-08-10T00:30:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='resolved',version=4,updated_at='2026-08-10T00:40:00.000Z',sla_stopped_at='2026-08-10T00:40:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='closed',version=5,updated_at='2026-08-10T00:50:00.000Z',closed_at='2026-08-10T00:50:00.000Z' WHERE id=$1",[ticketId]);
+
+    await expect(transactions.run(s=>repository.claimAttachmentsForRetention(s,"2027-08-10T00:50:00.000Z",20))).resolves.toMatchObject([{ id:attachmentId, version:2 }]);
+    await expect(transactions.run(s=>repository.markAttachmentDeleted(s,attachmentId,2,"2027-08-10T00:51:00.000Z"))).resolves.toBe(true);
+    await expect(transactions.runReadOnly(s=>repository.findAttachment(s,ticketId,attachmentId))).resolves.toMatchObject({ status:"deleted" });
+  });
+
   it("claims one breached ticket once across concurrent workers with a deterministic key and caps a tick at 100", async () => {
     await insert(ticketId,"new",1,"2026-08-09T00:00:00.000Z");
     await pool.query("UPDATE support_tickets SET status='assigned',version=2,updated_at='2026-08-09T00:01:00.000Z' WHERE id=$1",[ticketId]);

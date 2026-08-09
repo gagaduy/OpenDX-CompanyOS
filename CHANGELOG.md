@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add private Support ticket attachment upload/download services, ClamD scan
+  adapter, MinIO storage adapter, and scan/retention workers.
 - Add staff Support ticket operations, PostgreSQL concurrency controls, and SLA escalation worker.
 - Add verified Support PostgreSQL, worker, and HTTP route coverage for role
   boundaries, version races, idempotency, chronological history, and SLA claims.

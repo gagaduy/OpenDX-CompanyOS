@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import express, { type RequestHandler } from "express";
+import { Readable } from "node:stream";
 import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +21,8 @@ import { runPromotionMigrations } from "../../promotion/infrastructure/database/
 import { SupportApplicationError } from "../application/services/support-application.error";
 import type { SupportServiceContract } from "../application/services/interfaces/support.service";
 import { SupportService } from "../application/services/implementations/support.service";
+import type { SupportAttachmentServiceContract } from "../application/services/interfaces/support-attachment.service";
+import type { SupportAttachment } from "../domain/entities/support-attachment";
 import { runSupportMigrations } from "../infrastructure/database/run-support-migrations";
 import { PostgresqlSupportRepository } from "../infrastructure/repositories/implementations/postgresql-support.repository";
 import { SupportController } from "../presentation/controllers/support.controller";
@@ -50,6 +53,24 @@ describe("Support ticket API", () => {
     expect(current.service.reassign).toHaveBeenCalledWith(ticketId, { assigneeId: "support-b", version: 2, idempotencyKey: "reassign-1" }, expect.objectContaining({ actorId: "staff-administrator" }));
     expect(current.service.transition).not.toHaveBeenCalled();
   });
+  it("uploads one attachment and streams clean attachment content", async () => {
+    const current = fixture("support_operator");
+
+    const upload = await request(current.app)
+      .post(`/v1/admin/support/tickets/${ticketId}/attachments`)
+      .set("authorization", "Bearer support_operator")
+      .attach("file", Buffer.from("%PDF-1.7\n"), { filename: "evidence.pdf", contentType: "application/pdf" })
+      .expect(201);
+    expect(upload.body.data.status).toBe("quarantined");
+    expect(current.attachments.upload).toHaveBeenCalledWith(ticketId, expect.objectContaining({ originalFilename: "evidence.pdf", mediaType: "application/pdf", bytes: expect.any(Buffer) }), expect.objectContaining({ actorId: "staff-support_operator" }));
+
+    const content = await request(current.app)
+      .get(`/v1/admin/support/tickets/${ticketId}/attachments/94000000-0000-4000-8000-000000000001/content`)
+      .set("authorization", "Bearer support_operator")
+      .expect(200);
+    expect(content.headers["content-type"]).toContain("application/pdf");
+    expect(content.headers["content-disposition"]).toContain("evidence.pdf");
+  });
   it("allows CRM create and creator-owned detail but denies queue and workflow", async () => {
     const current=fixture("crm_operator"); const auth={authorization:"Bearer crm_operator"};
     await request(current.app).post("/v1/admin/support/tickets").set(auth).send(createBody()).expect(201);
@@ -72,7 +93,7 @@ describe("Support ticket API", () => {
   it.each([["STALE_VERSION",409],["ALREADY_CLAIMED",409],["TICKET_NOT_FOUND",404],["FORBIDDEN",403]] as const)("maps %s stably", async (code,status) => { const current=fixture("support_operator"); current.service.detail.mockRejectedValueOnce(new SupportApplicationError(code,code)); const response=await request(current.app).get(`/v1/admin/support/tickets/${ticketId}`).set("authorization","Bearer support_operator").expect(status); expect(response.body.errorCode).toBe(code); });
 });
 function createBody(){return {customerId,subject:"Support request",description:"Need assistance",priority:"normal"};}
-function fixture(role:string){ const ticket={id:ticketId,customerId,subject:"Support request",description:"Need assistance",priority:"normal",status:"assigned",version:1,createdById:"staff-crm_operator",createdAt:"2026-08-10T00:00:00.000Z",updatedAt:"2026-08-10T00:00:00.000Z"}; const workflow=async()=>{if(role==="crm_operator")throw new SupportApplicationError("FORBIDDEN","FORBIDDEN");return ticket;}; const service={list:vi.fn(async()=>{if(role==="crm_operator")throw new SupportApplicationError("FORBIDDEN","FORBIDDEN");return {items:[],page:1,pageSize:20,totalItems:0,totalPages:0};}),create:vi.fn(async()=>ticket),detail:vi.fn(async()=>({ticket,context:{customer:{id:customerId,email:"buyer@example.com"}},messages:[],events:[]})),claim:vi.fn(workflow),transition:vi.fn(workflow),reassign:vi.fn(workflow),appendMessage:vi.fn(async()=>({id:"message",authorId:"staff",body:"Investigating",createdAt:ticket.createdAt}))} as unknown as {[K in keyof SupportServiceContract]:ReturnType<typeof vi.fn>}; const authenticate:RequestHandler=(q,r,n)=>{if(q.header("authorization")){r.locals.staffPrincipal={subject:`staff-${role}`,displayName:"Staff",roles:[role]};}n();}; const denied=vi.fn(async()=>undefined);const app=express();app.use(express.json());app.use(correlationIdMiddleware);app.use("/v1/admin/support/tickets",createSupportRouter(new SupportController(service as unknown as SupportServiceContract),authenticate,denied));app.use(supportErrorMiddleware);app.use(createErrorHandler());return {app,service,denied}; }
+function fixture(role:string){ const ticket={id:ticketId,customerId,subject:"Support request",description:"Need assistance",priority:"normal",status:"assigned",version:1,createdById:"staff-crm_operator",createdAt:"2026-08-10T00:00:00.000Z",updatedAt:"2026-08-10T00:00:00.000Z"}; const attachment:SupportAttachment={id:"94000000-0000-4000-8000-000000000001",ticketId,objectKey:"hidden",originalFilename:"evidence.pdf",format:"pdf",mediaType:"application/pdf",byteSize:9,status:"quarantined",createdById:"staff-support_operator",createdAt:ticket.createdAt}; const workflow=async()=>{if(role==="crm_operator")throw new SupportApplicationError("FORBIDDEN","FORBIDDEN");return ticket;}; const service={list:vi.fn(async()=>{if(role==="crm_operator")throw new SupportApplicationError("FORBIDDEN","FORBIDDEN");return {items:[],page:1,pageSize:20,totalItems:0,totalPages:0};}),create:vi.fn(async()=>ticket),detail:vi.fn(async()=>({ticket,context:{customer:{id:customerId,email:"buyer@example.com"}},messages:[],events:[]})),claim:vi.fn(workflow),transition:vi.fn(workflow),reassign:vi.fn(workflow),appendMessage:vi.fn(async()=>({id:"message",authorId:"staff",body:"Investigating",createdAt:ticket.createdAt}))} as unknown as {[K in keyof SupportServiceContract]:ReturnType<typeof vi.fn>}; const attachments:SupportAttachmentServiceContract={upload:vi.fn(async()=>attachment),download:vi.fn(async()=>({attachment:{...attachment,status:"clean" as const},content:Readable.from([Buffer.from("%PDF-1.7\n")])}))}; const authenticate:RequestHandler=(q,r,n)=>{if(q.header("authorization")){r.locals.staffPrincipal={subject:`staff-${role}`,displayName:"Staff",roles:[role]};}n();}; const denied=vi.fn(async()=>undefined);const app=express();app.use(express.json());app.use(correlationIdMiddleware);app.use("/v1/admin/support/tickets",createSupportRouter(new SupportController(service as unknown as SupportServiceContract,attachments),authenticate,denied));app.use(supportErrorMiddleware);app.use(createErrorHandler());return {app,service,attachments,denied}; }
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const realSuite = databaseUrl === undefined ? describe.skip : describe;

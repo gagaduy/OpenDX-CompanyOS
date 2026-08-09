@@ -204,6 +204,8 @@ const server = app.listen(environment.apiPort, () => {
   checkout.expiryWorker.start();
   if (environment.sepay.configured) paymentOperations.reconciliationWorker.start();
   support.escalationWorker.start();
+  support.attachmentScanWorker.start();
+  support.attachmentRetentionWorker.start();
 });
 
 async function shutdown(): Promise<void> {
@@ -211,6 +213,8 @@ async function shutdown(): Promise<void> {
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
   support.escalationWorker.stop();
+  support.attachmentScanWorker.stop();
+  support.attachmentRetentionWorker.stop();
   server.close(async () => {
     await pool.end();
   });
