@@ -93,6 +93,16 @@ export class PostgresqlPaymentRepository implements PaymentRepository {
     );
     return result.rows.map(mapReconciliation);
   }
+  async listEvents(
+    session: DatabaseSession,
+    paymentId: string,
+  ): Promise<readonly PaymentEvent[]> {
+    const result = await session.query<Row>(
+      "SELECT * FROM payment_events WHERE payment_id=$1 ORDER BY received_at DESC,id",
+      [paymentId],
+    );
+    return result.rows.map(mapEvent);
+  }
   async insertReconciliation(
     session: DatabaseSession,
     reconciliation: PaymentReconciliation,
@@ -238,6 +248,31 @@ function mapReconciliation(row: Row): PaymentReconciliation {
       ? {}
       : { redactedResponse: row.redacted_response as Record<string, unknown> }),
     correlationId: String(row.correlation_id), createdAt: iso(row.created_at),
+  };
+}
+
+function mapEvent(row: Row): PaymentEvent {
+  return {
+    id: String(row.id),
+    ...(row.payment_id === null ? {} : { paymentId: String(row.payment_id) }),
+    ...(row.attempt_id === null ? {} : { attemptId: String(row.attempt_id) }),
+    provider: "sepay",
+    authenticationResult: String(row.authentication_result) as PaymentEvent["authenticationResult"],
+    notificationType: String(row.notification_type),
+    ...(row.provider_event_id === null ? {} : { providerEventId: String(row.provider_event_id) }),
+    ...(row.provider_order_id === null ? {} : { providerOrderId: String(row.provider_order_id) }),
+    ...(row.provider_transaction_id === null ? {} : { providerTransactionId: String(row.provider_transaction_id) }),
+    providerInvoiceNumber: String(row.provider_invoice_number),
+    ...(row.amount_vnd === null ? {} : { amountVnd: money(row.amount_vnd) }),
+    ...(row.currency === null ? {} : { currency: "VND" as const }),
+    redactedPayload: row.redacted_payload as Record<string, unknown>,
+    payloadHash: String(row.payload_hash),
+    normalizedState: String(row.normalized_state) as PaymentEvent["normalizedState"],
+    processingResult: String(row.processing_result) as PaymentEvent["processingResult"],
+    ...(row.failure_reason === null ? {} : { failureReason: String(row.failure_reason) }),
+    correlationId: String(row.correlation_id),
+    receivedAt: iso(row.received_at),
+    ...(row.processed_at === null ? {} : { processedAt: iso(row.processed_at) }),
   };
 }
 

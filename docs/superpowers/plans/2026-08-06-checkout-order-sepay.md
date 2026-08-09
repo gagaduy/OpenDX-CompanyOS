@@ -469,25 +469,28 @@ POST  /v1/admin/payments/:paymentId/reconciliations
   list/detail/history components, page, and tests
 - Create: `apps/console/src/features/payments/` API, schema, types, mapper, hooks,
   list/detail/events/reconciliation components, page, and tests
+- Modify: Payment admin DTO, repository, service, and tests to expose the
+  already-persisted redacted provider events required by the approved Console
+  evidence view
 - Modify: `apps/console/src/app/app-router.tsx`
 - Modify: `apps/console/src/app/console-shell.tsx`
 - Modify: `apps/console/src/shared/styles/globals.css`
 - Create or modify: Console browser acceptance script
 - Modify: `CHANGELOG.md`
 
-- [ ] Test role-aware routes for administrator, operations manager, finance
+- [x] Test role-aware routes for administrator, operations manager, finance
   operator, catalog manager, inventory manager, and unauthorized staff.
-- [ ] Build a dense order table/detail/status-history workspace with only the
+- [x] Build a dense order table/detail/status-history workspace with only the
   next legal authorized transition.
-- [ ] Build payment/event/reconciliation views emphasizing pending, mismatch,
+- [x] Build payment/event/reconciliation views emphasizing pending, mismatch,
   review-required, and paid evidence.
-- [ ] Do not render refund, void, return, shipping, label, or tracking actions.
-- [ ] Add explicit loading, empty, error, denied, stale-version, retry, and
+- [x] Do not render refund, void, return, shipping, label, or tracking actions.
+- [x] Add explicit loading, empty, error, denied, stale-version, retry, and
   success states.
-- [ ] Verify responsive desktop/mobile layouts, stable table controls, keyboard
+- [x] Verify responsive desktop/mobile layouts, stable table controls, keyboard
   focus, no overlap, and no horizontal document overflow.
-- [ ] Run Console tests, typecheck, production build, and browser acceptance.
-- [ ] Commit as `feat(console): add order and payment operations`.
+- [x] Run Console tests, typecheck, production build, and browser acceptance.
+- [x] Commit as `feat(console): add order and payment operations`.
 
 ### Task 12: Seeds, Docker, Make, and Documentation
 

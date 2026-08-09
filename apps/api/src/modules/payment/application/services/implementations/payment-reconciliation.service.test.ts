@@ -34,6 +34,7 @@ function fixture(providerStatus = "CAPTURED") {
     findByInvoiceNumber: vi.fn(async () => aggregate), updateState: vi.fn(),
     insertEvent: vi.fn(async () => true), linkEvent: vi.fn(), updateEventResult: vi.fn(),
     list: vi.fn(async () => ({ items: [], totalItems: 0 })),
+    listEvents: vi.fn(async () => []),
     listReconciliations: vi.fn(async () => reconciliations),
     insertReconciliation: vi.fn(async (_session, record) => { reconciliations.push(record); }),
     attachProviderOrderId: vi.fn(async () => true),
@@ -77,6 +78,42 @@ const financeContext = {
 };
 
 describe("PaymentReconciliationService", () => {
+  it("returns redacted provider events as finance evidence", async () => {
+    const current = fixture();
+    vi.mocked(current.repository.listEvents).mockResolvedValueOnce([{
+      id: "event-1",
+      paymentId: "payment-1",
+      attemptId: "attempt-1",
+      provider: "sepay",
+      authenticationResult: "authenticated",
+      notificationType: "ORDER_PAID",
+      providerEventId: "provider-event-1",
+      providerOrderId: "provider-order-1",
+      providerTransactionId: "transaction-1",
+      providerInvoiceNumber: aggregate.activeAttempt.providerInvoiceNumber,
+      amountVnd: 100_000,
+      currency: "VND",
+      redactedPayload: { status: "CAPTURED", card: "[REDACTED]" },
+      payloadHash: "internal-hash",
+      normalizedState: "paid",
+      processingResult: "applied",
+      correlationId: "corr-event",
+      receivedAt: now,
+      processedAt: now,
+    }]);
+
+    const detail = await current.service.get("payment-1", financeContext);
+
+    expect(detail.events).toEqual([expect.objectContaining({
+      id: "event-1",
+      notificationType: "ORDER_PAID",
+      processingResult: "applied",
+      redactedPayload: { status: "CAPTURED", card: "[REDACTED]" },
+    })]);
+    expect(detail.events[0]).not.toHaveProperty("payloadHash");
+    expect(detail.events[0]).not.toHaveProperty("authenticationResult");
+  });
+
   it("persists exact evidence and reuses the trusted paid transition", async () => {
     const current = fixture();
     await current.service.reconcile("payment-1", {}, financeContext);

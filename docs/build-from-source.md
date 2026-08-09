@@ -65,6 +65,19 @@ dark/light theme switching, and horizontal overflow at 390x844, 768x1024, and
 `/tmp/opendx-storefront-browser` by default. Set `CHROME_BIN`,
 `STOREFRONT_URL`, or `BROWSER_EVIDENCE_DIR` when local paths differ.
 
+Repeat the responsive Console commerce-operations acceptance with:
+
+```bash
+pnpm check:console-browser
+```
+
+This check injects a deterministic staff session and redacted API fixtures at
+the browser boundary. It validates Orders and Payments list/detail surfaces,
+visible keyboard focus, role denial before API access, and horizontal overflow
+at 390x844 and 1440x900. Screenshots are written to
+`/tmp/opendx-console-browser` by default. Set `CONSOLE_URL` or
+`BROWSER_EVIDENCE_DIR` when local paths differ.
+
 ## Run Local Services
 
 Start the full local stack, including Catalog → Company Core → Inventory →

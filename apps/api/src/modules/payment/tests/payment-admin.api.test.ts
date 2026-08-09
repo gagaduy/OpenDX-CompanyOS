@@ -20,7 +20,7 @@ function fixture(role: StaffRole) {
     expectedAmountVnd: 100_000, currency: "VND" as const,
     invoiceNumber: "NVC-PAY-A1000000000040008000000000000001",
     updatedAt: "2026-08-06T08:00:00.000Z", attemptId: "attempt-1",
-    expiresAt: "2026-08-06T08:15:00.000Z", reconciliations: [],
+    expiresAt: "2026-08-06T08:15:00.000Z", events: [], reconciliations: [],
   };
   const service: PaymentReconciliationServiceContract = {
     list: vi.fn(async () => ({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 })),

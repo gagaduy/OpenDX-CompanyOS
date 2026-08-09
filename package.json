@@ -14,6 +14,7 @@
     "test:ts": "pnpm --filter './packages/**' --filter './apps/**' test",
     "test:py": "cd services/ai-runtime && python3 -m pytest",
     "check:storefront-browser": "node scripts/dev/storefront-browser-check.mjs",
+    "check:console-browser": "node scripts/dev/console-browser-check.mjs",
     "check": "bash scripts/dev/check.sh"
   },
   "devDependencies": {

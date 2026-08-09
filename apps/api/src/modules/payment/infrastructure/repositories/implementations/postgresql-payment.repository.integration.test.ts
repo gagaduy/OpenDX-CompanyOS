@@ -119,6 +119,34 @@ describeWithDatabase("PostgresqlPaymentRepository", () => {
     expect(stored.rows[0]).toMatchObject({ payment_count: "1", attempt_count: "1" });
     expect(stored.rows[0]?.database_text).not.toMatch(/must-not-be-persisted|secret|signature/i);
     await transactions.run(async (session) => {
+      await repository.insertEvent(session, {
+        id: "c1900000-0000-4000-8000-000000000001",
+        paymentId: created.paymentId,
+        attemptId: created.attemptId,
+        provider: "sepay",
+        authenticationResult: "authenticated",
+        notificationType: "ORDER_PAID",
+        providerEventId: "provider-event-1",
+        providerInvoiceNumber: created.invoiceNumber,
+        amountVnd: 100_000,
+        currency: "VND",
+        redactedPayload: { status: "CAPTURED" },
+        payloadHash: "b".repeat(64),
+        normalizedState: "paid",
+        processingResult: "applied",
+        correlationId: "corr-event",
+        receivedAt: now,
+        processedAt: now,
+      });
+    });
+    await expect(
+      transactions.runReadOnly((session) => repository.listEvents(session, created.paymentId)),
+    ).resolves.toEqual([expect.objectContaining({
+      notificationType: "ORDER_PAID",
+      processingResult: "applied",
+      redactedPayload: { status: "CAPTURED" },
+    })]);
+    await transactions.run(async (session) => {
       await expect(
         repository.attachProviderOrderId(
           session,

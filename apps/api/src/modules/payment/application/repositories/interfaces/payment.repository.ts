@@ -34,6 +34,10 @@ export interface PaymentRepository {
     readonly items: readonly PaymentSummaryDto[];
     readonly totalItems: number;
   }>;
+  listEvents(
+    session: DatabaseSession,
+    paymentId: string,
+  ): Promise<readonly PaymentEvent[]>;
   listReconciliations(
     session: DatabaseSession,
     paymentId: string,

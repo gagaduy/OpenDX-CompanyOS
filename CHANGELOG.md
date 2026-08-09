@@ -51,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add role-aware Console order and payment operations with legal order
+  transitions, optimistic-version recovery, redacted provider-event evidence,
+  reconciliation review, responsive dark operational surfaces, and
+  deterministic browser acceptance.
 - Add the authenticated Storefront checkout and order journey with owned address
   selection, promotion feedback, immutable backend totals, ordered SePay form
   submission, bounded authoritative payment polling, customer order history,

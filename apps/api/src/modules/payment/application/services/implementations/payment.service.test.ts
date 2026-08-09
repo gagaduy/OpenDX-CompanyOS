@@ -22,7 +22,7 @@ function fixture() {
     insertEvent: vi.fn(async () => true),
     linkEvent: vi.fn(),
     updateEventResult: vi.fn(),
-    list: vi.fn(async()=>({items:[],totalItems:0})),listReconciliations:vi.fn(async()=>[]),insertReconciliation:vi.fn(),attachProviderOrderId:vi.fn(async()=>true),listDuePending:vi.fn(async()=>[]),
+    list: vi.fn(async()=>({items:[],totalItems:0})),listEvents:vi.fn(async()=>[]),listReconciliations:vi.fn(async()=>[]),insertReconciliation:vi.fn(),attachProviderOrderId:vi.fn(async()=>true),listDuePending:vi.fn(async()=>[]),
     updateState: vi.fn(async (_session, payment, attempt, expectedVersion) => {
       if (aggregate?.payment.version !== expectedVersion) return false;
       aggregate = { payment, activeAttempt: attempt };

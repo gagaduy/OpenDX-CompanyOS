@@ -28,7 +28,30 @@ export interface PaymentSummaryDto {
 export interface PaymentDetailDto extends PaymentSummaryDto {
   readonly attemptId: string;
   readonly expiresAt: string;
+  readonly events: readonly PaymentEventDto[];
   readonly reconciliations: readonly PaymentReconciliationDto[];
+}
+
+export interface PaymentEventDto {
+  readonly id: string;
+  readonly notificationType: string;
+  readonly providerEventId?: string;
+  readonly providerOrderId?: string;
+  readonly providerTransactionId?: string;
+  readonly amountVnd?: number;
+  readonly currency?: "VND";
+  readonly normalizedState: "paid" | "unsupported" | "invalid";
+  readonly processingResult:
+    | "received"
+    | "applied"
+    | "already_processed"
+    | "review_required"
+    | "rejected";
+  readonly failureReason?: string;
+  readonly redactedPayload: Readonly<Record<string, unknown>>;
+  readonly correlationId: string;
+  readonly receivedAt: string;
+  readonly processedAt?: string;
 }
 
 export interface PaymentReconciliationDto {

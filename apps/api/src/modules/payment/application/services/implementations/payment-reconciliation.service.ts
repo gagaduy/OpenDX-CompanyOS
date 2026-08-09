@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { TransactionRunner } from "../../../../../shared/database/transaction";
+import type { PaymentEvent } from "../../../domain/entities/payment-event";
 import type { PaymentReconciliation } from "../../../domain/entities/payment-reconciliation";
 import type {
   PaymentDetailDto,
@@ -65,9 +66,14 @@ export class PaymentReconciliationService
     return this.transactions.runReadOnly(async (session) => {
       const aggregate = await this.repository.findById(session, paymentId);
       if (aggregate === undefined) notFound();
+      const [events, reconciliations] = await Promise.all([
+        this.repository.listEvents(session, paymentId),
+        this.repository.listReconciliations(session, paymentId),
+      ]);
       return detail(
         aggregate,
-        await this.repository.listReconciliations(session, paymentId),
+        events,
+        reconciliations,
       );
     });
   }
@@ -294,6 +300,7 @@ function buildReconciliation(
 
 function detail(
   aggregate: PaymentAggregate,
+  events: readonly PaymentEvent[],
   reconciliations: readonly PaymentReconciliation[],
 ): PaymentDetailDto {
   return {
@@ -309,6 +316,22 @@ function detail(
     updatedAt: aggregate.payment.updatedAt,
     attemptId: aggregate.activeAttempt.id,
     expiresAt: aggregate.activeAttempt.expiresAt,
+    events: events.map((event) => ({
+      id: event.id,
+      notificationType: event.notificationType,
+      ...(event.providerEventId === undefined ? {} : { providerEventId: event.providerEventId }),
+      ...(event.providerOrderId === undefined ? {} : { providerOrderId: event.providerOrderId }),
+      ...(event.providerTransactionId === undefined ? {} : { providerTransactionId: event.providerTransactionId }),
+      ...(event.amountVnd === undefined ? {} : { amountVnd: event.amountVnd }),
+      ...(event.currency === undefined ? {} : { currency: event.currency }),
+      normalizedState: event.normalizedState,
+      processingResult: event.processingResult,
+      ...(event.failureReason === undefined ? {} : { failureReason: event.failureReason }),
+      redactedPayload: structuredClone(event.redactedPayload),
+      correlationId: event.correlationId,
+      receivedAt: event.receivedAt,
+      ...(event.processedAt === undefined ? {} : { processedAt: event.processedAt }),
+    })),
     reconciliations: reconciliations.map((record) => ({
       id: record.id,
       triggerActorType: record.triggerActorType,
