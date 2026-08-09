@@ -30,7 +30,7 @@ describe("authenticateStaff", () => {
       const token = new SignJWT({
         name: "Catalog Manager",
         email: "catalog@novacommerce.example",
-        realm_access: { roles: ["catalog_manager", "offline_access"] },
+        realm_access: claims.realm_access ?? { roles: ["catalog_manager", "offline_access"] },
       })
         .setProtectedHeader({ alg: "RS256" })
         .setSubject("user_catalog")
@@ -43,6 +43,19 @@ describe("authenticateStaff", () => {
       if (claims.exp !== undefined) token.setExpirationTime(claims.exp);
       return token.sign(privateKey);
     };
+  });
+
+  it("accepts commerce operations roles and discards unknown roles", async () => {
+    const response = await request(createApp())
+      .get("/staff")
+      .set("authorization", `Bearer ${await sign({
+        realm_access: {
+          roles: ["operations_manager", "finance_operator", "offline_access"],
+        },
+      })}`)
+      .expect(200);
+
+    expect(response.body.roles).toEqual(["operations_manager", "finance_operator"]);
   });
 
   function createApp() {

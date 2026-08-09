@@ -11,9 +11,10 @@ NovaCommerce as a B2C single-store business.
 ## Status
 
 The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
-product publication, Storefront, Customer, and Cart foundation are implemented.
-The active roadmap continues with checkout, SePay payment, Operational
-CRM, support, dashboard, and production hardening phases.
+Storefront, Customer, Cart, Promotion, Checkout, immutable Order, SePay Payment,
+and staff commerce operations are implemented. Phase 6 real SePay sandbox
+acceptance passes. The active roadmap continues with Operational CRM, support,
+dashboard, and production hardening.
 
 ## What It Is
 
@@ -66,6 +67,11 @@ See:
 - `docs/api/catalog.md`
 - `docs/api/inventory.md`
 - `docs/api/storefront-catalog.md`
+- `docs/api/checkout.md`
+- `docs/api/order.md`
+- `docs/api/payment.md`
+- `docs/api/promotion.md`
+- `docs/integrations/sepay.md`
 
 ## Development
 
@@ -97,15 +103,22 @@ make up
 
 Open the staff Console at `http://localhost:3000` and Storefront at
 `http://localhost:3100`. The stack includes
-PostgreSQL, Keycloak, MinIO, migrations, deterministic technology-product and
-Inventory seeds, API, Console, and Storefront. Customer and Cart APIs are
-available under `http://localhost:4000/v1/storefront`.
+PostgreSQL, Keycloak, MinIO, ordered migrations, deterministic product,
+Inventory, and Promotion seeds, API, Console, and Storefront. `make up` waits
+for the complete stack to become healthy. SePay credentials are optional for
+normal local startup.
 
 ### Run Validation
 
 ```bash
 make check
+pnpm check:commerce-exit
 ```
+
+The second command creates isolated PostgreSQL databases, validates the
+checkout-to-paid concurrency and failure gates, proves paid-order backup and
+restore, then removes its databases. Real SePay sandbox acceptance remains
+opt-in through `pnpm check:sepay-sandbox`; see `docs/integrations/sepay.md`.
 
 Database operations are exposed through `make db-migrate`, `make db-rollback`,
 `make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. See

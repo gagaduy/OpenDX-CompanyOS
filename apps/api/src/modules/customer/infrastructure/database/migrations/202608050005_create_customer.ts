@@ -163,6 +163,7 @@ export function down(pgm: MigrationBuilder): void {
   pgm.dropTable("customer_external_identities");
   pgm.dropTable("customers");
   pgm.sql(`
+    DELETE FROM audit_events WHERE actor_type = 'customer';
     ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS audit_events_actor_type_check;
     DO $block$
     BEGIN

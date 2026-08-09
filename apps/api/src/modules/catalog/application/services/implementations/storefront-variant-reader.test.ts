@@ -32,4 +32,17 @@ describe("StorefrontVariantReaderService", () => {
     expect(result.get("variant-1")?.unitPriceVnd).toBe(25_000_000);
     expect(result.has("missing")).toBe(false);
   });
+
+  it("uses the caller-supplied session for checkout reads", async () => {
+    const suppliedSession = { query: vi.fn() };
+    const findStorefrontVariants = vi.fn().mockResolvedValue([]);
+    const repository = { findStorefrontVariants } as unknown as PublicCatalogRepository;
+    const transactions = { runReadOnly: vi.fn() } as unknown as TransactionRunner;
+    const service = new StorefrontVariantReaderService(repository, transactions);
+
+    await service.getByIdsInSession(suppliedSession, ["variant-1", "variant-1"]);
+
+    expect(findStorefrontVariants).toHaveBeenCalledWith(suppliedSession, ["variant-1"]);
+    expect(transactions.runReadOnly).not.toHaveBeenCalled();
+  });
 });

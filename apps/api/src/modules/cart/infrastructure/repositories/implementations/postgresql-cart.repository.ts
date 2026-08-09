@@ -50,6 +50,11 @@ function ownerPredicate(owner: CartOwner): { sql: string; value: string } {
 }
 
 export class PostgresqlCartRepository implements CartRepository {
+  async findByIdForUpdate(session: DatabaseSession, cartId: string): Promise<Cart | undefined> {
+    const result = await session.query<Row>("SELECT * FROM carts WHERE id=$1 FOR UPDATE", [cartId]);
+    return result.rows[0] === undefined ? undefined : mapCart(result.rows[0]);
+  }
+
   async findActiveByOwner(
     session: DatabaseSession,
     owner: CartOwner,

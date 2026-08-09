@@ -11,8 +11,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
+  one authenticated IPN event, an authoritative paid transition, and successful
+  reconciliation through a temporary public HTTPS callback without recording
+  credentials or customer data.
+
 ### Fixed
 
+- Make pending-order cancellation converge atomically across Payment, Order,
+  Inventory, Promotion, and Checkout while preserving the winning paid result
+  under concurrent authenticated SePay IPN processing.
+- Permit only one checkout per immutable cart snapshot, keep a cart active when
+  it changes after checkout, and prevent a later payment from finalizing that
+  newer cart version.
+- Require SePay transaction amount and VND currency to match provider order
+  evidence before IPN or reconciliation can confirm payment, and persist a
+  mismatch when the trusted paid transition rejects the provider result.
+- Use bigint intermediate arithmetic for percentage discounts and proportional
+  order-line allocation so valid VND values near JavaScript's safe-integer
+  boundary cannot overflow during calculation.
+- Use a consistent Payment-before-Attempt lock order for reconciliation,
+  notification, expiry, and cancellation paths to prevent financial-state
+  deadlocks under concurrent workers.
+- Remove Customer audit actors while rolling back the Customer schema so the
+  older Company Core actor constraint can be restored on databases containing
+  real checkout and paid-order history.
+- Make `db:rollback:all` remove every migration in every module rather than
+  leaving the first Catalog schema behind, while retaining one-step module
+  rollback commands for focused development.
+- Wait for the payment-return cleanup effect in its test so parallel workspace
+  execution cannot race the local pending-checkout assertion.
 - Pass the optional repository-root `.env` explicitly to Docker Compose so
   local Google Sign-In configuration reaches API and Storefront containers
   without changing relative build or bind-mount paths.
@@ -40,7 +70,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Navigate newly created products to their persistent editor URL so variants,
   media, publication, and audit controls become available immediately.
 - Serialize reservation references, finalize expiry by complete groups, and
-  reject consumption after the backend-owned TTL.
+  reject consumption after the backend-owned TTL. Allow atomic checkout
+  orchestration to supply that same validated expiry to its order reservation.
 - Apply public stock-status filtering before pagination and keep Catalog
   dependencies on Inventory's exported module contract.
 - Route Inventory Managers to their authorized Inventory workspace after OIDC
@@ -50,6 +81,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add an isolated Phase 6 checkout-to-paid exit gate covering scarce-stock
+  concurrency, exact-once IPN replay, provider/expiry races, fail-closed API
+  boundaries, paid-order backup/restore, and migration rollback/reapply, plus a
+  credential-redacted opt-in real SePay sandbox runner.
+- Add idempotent active/inactive NovaCommerce Promotion fixtures, independent
+  Checkout expiry configuration, health-waiting full-container startup, and
+  contributor documentation for Checkout, Order, Payment, Promotion, SePay
+  sandbox, migration, backup, restore, and credential operations.
+- Add role-aware Console order and payment operations with legal order
+  transitions, optimistic-version recovery, redacted provider-event evidence,
+  reconciliation review, responsive dark operational surfaces, and
+  deterministic browser acceptance.
+- Add the authenticated Storefront checkout and order journey with owned address
+  selection, promotion feedback, immutable backend totals, ordered SePay form
+  submission, bounded authoritative payment polling, customer order history,
+  responsive light/dark surfaces, and reproducible browser evidence.
+- Add bounded unpaid-checkout expiry and SePay reconciliation workers, including
+  idempotent Inventory-first cleanup, redacted provider comparisons, shared
+  exact-once paid transitions, administrator/finance payment APIs, audited role
+  enforcement, and PostgreSQL race coverage across IPN and reconciliation.
+- Add constant-time authenticated SePay IPN ingestion with strict pre-parse
+  authentication, allow-listed event projections, database deduplication, and
+  one atomic paid transition across Payment, Order, Inventory, Promotion,
+  Checkout, and Cart, including twenty-callback concurrency coverage.
+- Add authenticated, CSRF-protected Checkout APIs that revalidate owned
+  customer, cart, Catalog, promotion, price, and stock facts; atomically create
+  immutable checkout/order/payment snapshots with Inventory reservations; and
+  generate replay-safe SePay initiation only after commit.
+- Add a provider-neutral Payment core with immutable SePay attempts, replay-safe
+  post-commit initiation, audited PostgreSQL persistence, ordered HMAC-SHA256
+  checkout signing, timeout-safe Basic Auth reconciliation reads, and strictly
+  redacted official-contract notification projections.
+- Add immutable Order and line snapshots, Order-owned public numbers, exact
+  transition rules, optimistic and idempotent status updates, customer-owned
+  reads, administrator/operations APIs, audited role denials, and a
+  transaction-participating Checkout port.
+- Add transaction-participating Commerce ports for owned Customer address and
+  contact snapshots, locked Cart snapshots, current Catalog variant facts, and
+  atomic Inventory reserve/release/consume operations, including PostgreSQL
+  rollback coverage for downstream checkout and paid-transition failures.
+- Add deterministic percentage and fixed-amount Promotion rules, concurrency-
+  safe usage holds, idempotent redemption lifecycle, audited PostgreSQL
+  persistence, a transaction-participating Checkout port, and administrator-
+  only management APIs.
+- Add constrained PostgreSQL schemas and ordered migration/rollback lifecycle
+  for promotions, immutable checkout and order snapshots, payment attempts,
+  provider events, and reconciliation evidence.
+- Add validated sandbox/production SePay environment contracts, fixed checkout
+  expiry, and local Operations Manager and Finance Operator staff identities
+  without requiring payment credentials for normal local startup.
+- Add the proposed Phase 6 Checkout, Order, and SePay focused design plus a
+  13-task TDD implementation plan covering deterministic promotions, immutable
+  order snapshots, atomic inventory reservation, server-signed SePay checkout,
+  authenticated exact-once IPN handling, reconciliation, Storefront/Console
+  workflows, Docker operations, and sandbox acceptance.
 - Add the product-first NovaCommerce Storefront redesign with editorial catalog
   discovery, a sticky product purchase surface, immersive customer sign-in,
   structured profile/address workspaces, persistent light/dark themes, and

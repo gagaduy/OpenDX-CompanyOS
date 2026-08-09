@@ -28,5 +28,6 @@ Resolution requests require a bounded idempotency key; reused keys must retain
 the same fingerprint. Superseded carts and line history are retained.
 
 Checkout readiness requires an authenticated customer, resolved non-empty
-cart, current products/prices, and sufficient stock. Phase 5 creates no
-checkout, inventory reservation, promotion, order, payment, or event.
+cart, current products/prices, and sufficient stock. It is a read-only preview;
+`POST /v1/storefront/checkouts` performs the Phase 6 locked revalidation and
+atomic checkout, reservation, promotion, order, payment, and audit writes.

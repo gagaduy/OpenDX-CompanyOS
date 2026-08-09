@@ -22,6 +22,10 @@ export interface CreateApiAppOptions {
   readonly catalogAdminRouter?: Router;
   readonly storefrontRouter?: Router;
   readonly inventoryRouter?: Router;
+  readonly promotionAdminRouter?: Router;
+  readonly orderAdminRouter?: Router;
+  readonly paymentAdminRouter?: Router;
+  readonly sepayWebhookRouter?: Router;
 }
 
 function createAudienceCors(allowedOrigin: string) {
@@ -47,8 +51,11 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     options.storefrontOrigin ?? "http://localhost:3100",
   );
 
-  app.use(express.json({ limit: "1mb" }));
   app.use(correlationIdMiddleware);
+  if (options.sepayWebhookRouter !== undefined) {
+    app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
+  }
+  app.use(express.json({ limit: "1mb" }));
   app.use(createHealthRouter(options.readiness));
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(
@@ -62,6 +69,15 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.inventoryRouter !== undefined) {
     app.use("/v1/admin/inventory", consoleCors, options.inventoryRouter);
+  }
+  if (options.promotionAdminRouter !== undefined) {
+    app.use("/v1/admin/promotions", consoleCors, options.promotionAdminRouter);
+  }
+  if (options.orderAdminRouter !== undefined) {
+    app.use("/v1/admin/orders", consoleCors, options.orderAdminRouter);
+  }
+  if (options.paymentAdminRouter !== undefined) {
+    app.use("/v1/admin/payments", consoleCors, options.paymentAdminRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

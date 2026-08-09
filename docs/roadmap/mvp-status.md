@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current Phase
 
-Phase 4 Inventory and Product Publication is complete. Phase 5 Storefront,
-Customer, and Cart implementation plus credential-free acceptance are complete.
-The only remaining acceptance dependency is a contributor-owned Google OAuth
-client for one real login cycle before the pull request is merged.
+Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
+Phase 6 Checkout, Order, and SePay is complete on
+`feat/checkout-order-sepay` and ready to merge. Backend checkout, immutable
+orders, SePay payment processing, expiry, reconciliation, customer Storefront
+journey, staff Console operations, deterministic fixtures, container lifecycle,
+operational documentation, independent review, deterministic exit gates, and
+real SePay sandbox acceptance all pass.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -23,8 +26,8 @@ Active commerce master plan:
 | Phase 2: Company Operating Core | Complete | `docs/superpowers/specs/2026-08-04-code-structure-refactor-design.md` | `docs/superpowers/plans/2026-08-04-api-clean-architecture-refactor.md` | Complete after single-company validation |
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
-| Phase 5: Storefront, Customer, and Cart | External acceptance | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Pending real Google login and PR merge |
-| Phase 6: Checkout, Order, and SePay | Not started | Master design only | Not created | Not decided |
+| Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
+| Phase 6: Checkout, Order, and SePay | Complete; feature branch ready to merge | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
@@ -121,6 +124,60 @@ Active commerce master plan:
   environment validation, restore safety, and failed-login compensation. All
   were fixed with regression coverage; re-review found no remaining Critical or
   Important Phase 5 findings.
+- Phase 5 customer-facing visual acceptance was expanded with an editorial
+  Storefront redesign, persistent light/dark themes, customer sign-in, account,
+  address, cart, catalog, and product-detail surfaces. Full `make check` passed,
+  the real Google-backed account journey was exercised, and pull request #4 was
+  merged into `develop` on 2026-08-06.
+- Phase 6 focused design and its 13-task file-level TDD plan were drafted on
+  2026-08-06 after checking the current official SePay sandbox, checkout
+  signing, IPN authentication, and order-detail reconciliation contracts.
+- Phase 6 implementation through Task 9 adds constrained Promotion, Checkout,
+  immutable Order, Payment attempt/event/reconciliation persistence; atomic
+  Inventory and Promotion transitions; server-signed SePay initiation;
+  authenticated exactly-once IPN processing; bounded checkout expiry; and
+  automatic/manual reconciliation. API source gates passed 265 unit tests and
+  63 PostgreSQL/MinIO integration tests before Storefront work began.
+- Phase 6 Storefront Task 10 adds address and promotion checkout input,
+  immutable review totals, ordered provider form submission, bounded backend
+  payment-state polling, and customer order list/detail timelines. On
+  2026-08-09, 27 Storefront tests, strict typecheck, production build, and
+  Chrome acceptance passed. Checkout and order surfaces rendered in light and
+  dark modes without horizontal overflow at 390x844, 768x1024, and 1440x900;
+  the same run retained real seeded-product catalog and guest-cart checks.
+- Phase 6 Console Task 11 adds role-aware Order and Payment workspaces, legal
+  optimistic order transitions, redacted payment-event evidence, and manual
+  reconciliation review. Console tests, strict typecheck, production build,
+  and Chrome acceptance cover administrator, Operations, Finance, denied staff,
+  loading/error/empty/stale/success states, visible focus, and no horizontal
+  overflow at 390x844 and 1440x900.
+- Phase 6 Task 12 adds repeatable active/inactive Promotion fixtures, separate
+  Checkout worker timing, health-waiting full-container startup, complete
+  Checkout/Order/Payment/Promotion and SePay operations documentation, and a
+  true all-module rollback. Disposable-database acceptance proved clean
+  migrate, repeated seed, custom backup/restore, complete rollback, reapply,
+  and seed without modifying contributor runtime data.
+- Phase 6 Task 13 deterministic acceptance runs 20 checkouts against ten units,
+  proves exact-once paid effects under 20 IPN replays, converges IPN,
+  reconciliation, and expiry races, rejects amount/ownership/auth/role failures,
+  restores one paid order from a custom archive, and fully rolls migrations down
+  and up on disposable databases. It also found and fixed Customer rollback of
+  audit rows that the older actor constraint cannot represent. Real sandbox
+  evidence remains intentionally open.
+- Phase 6 independent review reported no Critical findings and six Important
+  findings. Regression fixes now coordinate cancellation across all checkout
+  resources, enforce one checkout per cart snapshot, preserve post-checkout cart
+  mutations, validate SePay transaction money evidence, persist truthful
+  reconciliation outcomes, and use overflow-safe VND arithmetic. Repeated
+  disposable-database acceptance also verified a consistent financial lock
+  order without deadlock. Two Minor provider-event persistence refinements are
+  deferred to Phase 8 and documented in the focused Phase 6 plan.
+- Phase 6 real-provider acceptance on 2026-08-09 used contributor-owned SePay
+  sandbox credentials and a temporary public HTTPS callback. A 1,290,000 VND
+  checkout received one authenticated IPN event, transitioned to `paid`, and
+  retained `paid` after one reconciliation. The opt-in runner returned
+  `passed`; no credentials, customer data, provider payloads, or temporary URL
+  were persisted in repository evidence.
 
 ## Open Risks
 
@@ -129,6 +186,8 @@ Active commerce master plan:
   session behavior remains deterministically tested at the real application port.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
+- SePay production still requires hosted public HTTPS endpoints, production
+  credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
 - Workflow, agent runtime, and GraphRAG are deferred until commerce Phase 8 is

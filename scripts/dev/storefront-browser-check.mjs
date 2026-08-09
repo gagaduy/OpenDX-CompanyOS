@@ -129,9 +129,14 @@ async function main() {
     }
     const guestCart = await verifyGuestCart(client);
     const signIn = await captureSignInSurface(client, outputDirectory);
+    const commerce = await captureCommerceSurfaces(client, outputDirectory);
     client.close();
     console.log(
-      JSON.stringify({ storefrontUrl, evidence, guestCart, signIn }, null, 2),
+      JSON.stringify(
+        { storefrontUrl, evidence, guestCart, signIn, commerce },
+        null,
+        2,
+      ),
     );
   } finally {
     await stopProcess(processHandle);
@@ -142,6 +147,260 @@ async function main() {
       retryDelay: 200,
     });
   }
+}
+
+async function captureCommerceSurfaces(client, outputDirectory) {
+  const fixtures = Object.fromEntries(
+    [
+      "/v1/storefront/session",
+      "/v1/storefront/cart",
+      "/v1/storefront/account",
+      "/v1/storefront/account/addresses",
+      "/v1/storefront/orders/order-1",
+    ].map((path) => [path, commerceFixture(path)]),
+  );
+  const fixtureScript = await client.send(
+    "Page.addScriptToEvaluateOnNewDocument",
+    {
+      source: `(() => {
+      const fixtures = ${JSON.stringify(fixtures)};
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const rawUrl = typeof input === 'string' || input instanceof URL
+          ? String(input)
+          : input.url;
+        const url = new URL(rawUrl, location.href);
+        const fixture = fixtures[url.pathname];
+        if (fixture === undefined) return originalFetch(input, init);
+        return new Response(JSON.stringify(fixture), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      };
+    })();`,
+    },
+  );
+  const evidence = [];
+  try {
+    for (const viewport of [
+      { width: 390, height: 844, name: "mobile" },
+      { width: 768, height: 1024, name: "tablet" },
+      { width: 1440, height: 900, name: "desktop" },
+    ]) {
+      await client.send("Emulation.setDeviceMetricsOverride", {
+        width: viewport.width,
+        height: viewport.height,
+        deviceScaleFactor: 1,
+        mobile: viewport.width < 768,
+      });
+      for (const theme of ["dark", "light"]) {
+        await client.send("Page.navigate", {
+          url: new URL("/checkout", storefrontUrl).toString(),
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.checkout-layout') !== null`,
+          `${viewport.name}: checkout surface did not settle`,
+        );
+        await setTheme(client, theme);
+        const checkout = await inspectCommerceSurface(
+          client,
+          ".checkout-layout",
+          "Hoàn tất đơn hàng",
+        );
+        assertCommerceViewport(checkout, viewport, "checkout", theme);
+        const checkoutPath = join(
+          outputDirectory,
+          `checkout-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+        );
+        await saveScreenshot(client, checkoutPath);
+
+        await client.send("Page.navigate", {
+          url: new URL("/orders/order-1", storefrontUrl).toString(),
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.order-detail-layout') !== null`,
+          `${viewport.name}: order detail surface did not settle`,
+        );
+        await setTheme(client, theme);
+        const order = await inspectCommerceSurface(
+          client,
+          ".order-detail-layout",
+          "NVC-20260806-A1B2C3D4",
+        );
+        assertCommerceViewport(order, viewport, "order", theme);
+        const orderPath = join(
+          outputDirectory,
+          `order-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+        );
+        await saveScreenshot(client, orderPath);
+        evidence.push({
+          viewport,
+          theme,
+          checkout: { ...checkout, screenshotPath: checkoutPath },
+          order: { ...order, screenshotPath: orderPath },
+        });
+      }
+    }
+    return evidence;
+  } finally {
+    await client.send("Page.removeScriptToEvaluateOnNewDocument", {
+      identifier: fixtureScript.identifier,
+    });
+  }
+}
+
+function commerceFixture(pathname) {
+  const envelope = (data) => ({ success: true, message: "Fixture", data });
+  if (pathname === "/v1/storefront/session") {
+    return envelope({
+      kind: "customer",
+      customerId: "customer-1",
+      email: "duy@example.com",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      cartResolution: "not_required",
+    });
+  }
+  if (pathname === "/v1/storefront/cart") {
+    return envelope({
+      id: "cart-1",
+      ownerKind: "customer",
+      version: 2,
+      status: "checkout_ready",
+      items: [],
+      itemCount: 1,
+      totalVnd: 32990000,
+      requiresAction: false,
+    });
+  }
+  if (pathname === "/v1/storefront/account") {
+    return envelope({
+      id: "customer-1",
+      email: "duy@example.com",
+      fullName: "Duy Duong",
+      phoneNumber: "0901000001",
+      version: 1,
+    });
+  }
+  if (pathname === "/v1/storefront/account/addresses") {
+    return envelope([
+      {
+        id: "address-1",
+        customerId: "customer-1",
+        recipientName: "Duy Duong",
+        phoneNumber: "0901000001",
+        addressLine: "1 Nguyen Hue",
+        ward: "Ben Nghe",
+        provinceOrCity: "Ho Chi Minh",
+        isDefault: true,
+        version: 1,
+        createdAt: "2026-08-06T08:00:00.000Z",
+        updatedAt: "2026-08-06T08:00:00.000Z",
+      },
+    ]);
+  }
+  if (pathname === "/v1/storefront/orders/order-1") {
+    return envelope({
+      id: "order-1",
+      publicNumber: "NVC-20260806-A1B2C3D4",
+      status: "paid",
+      totalVnd: 32990000,
+      currency: "VND",
+      createdAt: "2026-08-06T08:00:00.000Z",
+      updatedAt: "2026-08-06T08:05:00.000Z",
+      checkoutId: "checkout-1",
+      addressSnapshot: {},
+      contactSnapshot: {},
+      subtotalVnd: 34990000,
+      discountVnd: 2000000,
+      taxMode: "included_not_separated",
+      reservationExpiresAt: "2026-08-06T09:00:00.000Z",
+      paidAt: "2026-08-06T08:05:00.000Z",
+      version: 2,
+      lines: [
+        {
+          id: "line-1",
+          variantId: "variant-1",
+          sku: "NOVA-001-1",
+          productTitle: "Nova Laptop Pro",
+          variantLabel: "16 GB / 512 GB",
+          quantity: 1,
+          unitPriceVnd: 34990000,
+          discountAllocationVnd: 2000000,
+          lineTotalVnd: 32990000,
+          linePosition: 0,
+        },
+      ],
+      history: [
+        {
+          previousStatus: "pending_payment",
+          newStatus: "paid",
+          actorType: "provider",
+          reasonCode: "PAYMENT_CONFIRMED",
+          occurredAt: "2026-08-06T08:05:00.000Z",
+        },
+      ],
+    });
+  }
+  return undefined;
+}
+
+async function inspectCommerceSurface(client, selector, heading) {
+  return evaluate(
+    client,
+    `(() => ({
+      theme: document.documentElement.dataset.theme,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: innerWidth,
+      hasSurface: document.querySelector(${JSON.stringify(selector)}) !== null,
+      heading: document.querySelector('h1')?.textContent?.trim() ?? null,
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+      expectedHeading: ${JSON.stringify(heading)},
+    }))()`,
+  );
+}
+
+function assertCommerceViewport(result, viewport, surface, theme) {
+  if (!result.hasSurface || result.heading !== result.expectedHeading) {
+    throw new Error(`${viewport.name} ${theme}: ${surface} content is missing`);
+  }
+  if (result.alert !== null) {
+    throw new Error(`${viewport.name} ${theme}: ${surface} alert: ${result.alert}`);
+  }
+  if (result.documentWidth > viewport.width) {
+    throw new Error(
+      `${viewport.name} ${theme}: ${surface} overflow ${result.documentWidth}px > ${viewport.width}px`,
+    );
+  }
+  if (result.theme !== theme) {
+    throw new Error(`${viewport.name}: ${surface} did not render in ${theme}`);
+  }
+}
+
+async function setTheme(client, theme) {
+  const current = await evaluate(
+    client,
+    "document.documentElement.dataset.theme",
+  );
+  if (current === theme) return;
+  const targetLabel = theme === "light" ? "Dùng giao diện sáng" : "Dùng giao diện tối";
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector('[aria-label=${JSON.stringify(targetLabel)}]')?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.documentElement.dataset.theme === ${JSON.stringify(theme)}`,
+    `Theme did not change to ${theme}`,
+  );
+}
+
+async function saveScreenshot(client, path) {
+  const screenshot = await client.send("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: false,
+  });
+  await writeFile(path, Buffer.from(screenshot.data, "base64"));
 }
 
 async function captureSignInSurface(client, outputDirectory) {
@@ -313,7 +572,17 @@ async function waitForCondition(client, expression, timeoutMessage) {
     if (await evaluate(client, expression)) return;
     await delay(100);
   }
-  throw new Error(timeoutMessage);
+  const diagnostics = await evaluate(
+    client,
+    `({
+      url: location.href,
+      title: document.title,
+      heading: document.querySelector('h1')?.textContent?.trim() ?? null,
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+      status: document.querySelector('[role="status"]')?.textContent?.trim() ?? null,
+    })`,
+  );
+  throw new Error(`${timeoutMessage}: ${JSON.stringify(diagnostics)}`);
 }
 
 class CdpClient {

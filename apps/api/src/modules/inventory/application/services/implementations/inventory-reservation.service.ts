@@ -22,12 +22,13 @@ import type { InventoryRepository } from "../../repositories/interfaces/inventor
 import { InventoryApplicationError } from "../inventory-application.error";
 import type {
   InventoryReservationPort,
+  InventoryCheckoutPort,
   ReservationGroupDto,
   ReservationReference,
   ReserveInventoryRequest,
 } from "../interfaces/inventory-reservations";
 
-export class InventoryReservationService implements InventoryReservationPort {
+export class InventoryReservationService implements InventoryReservationPort, InventoryCheckoutPort {
   constructor(
     private readonly repository: InventoryRepository,
     private readonly variants: CatalogVariantReader,
@@ -44,85 +45,9 @@ export class InventoryReservationService implements InventoryReservationPort {
   ): Promise<ReservationGroupDto> {
     assertReservationLines(request.lines);
     try {
-      return await this.transactions.run(async (session) => {
-        await this.repository.lockReservationReference(
-          session,
-          request.referenceType,
-          request.referenceId,
-        );
-        const existing = await this.repository.findReservationGroup(
-          session,
-          request.referenceType,
-          request.referenceId,
-        );
-        if (existing.length > 0) {
-          assertMatchingRequest(existing, request);
-          return mapGroup(existing);
-        }
-
-        const lines = [...request.lines].sort((left, right) =>
-          left.variantId.localeCompare(right.variantId),
-        );
-        for (const line of lines) {
-          const variant = await this.variants.findById(session, line.variantId);
-          if (variant === undefined || variant.status !== "active") {
-            throw new InventoryApplicationError(
-              variant === undefined ? "VARIANT_NOT_FOUND" : "VARIANT_NOT_ACTIVE",
-              variant === undefined ? "Variant not found" : "Variant is not active",
-            );
-          }
-        }
-
-        const timestamp = this.now();
-        const expiresAt = new Date(
-          new Date(timestamp).getTime() + this.reservationTtlMs,
-        ).toISOString();
-        const reservations: InventoryReservation[] = [];
-        for (const line of lines) {
-          const current = await this.repository.lockByVariantId(session, line.variantId);
-          if (current === undefined) {
-            throw new InventoryApplicationError(
-              "INVENTORY_ITEM_NOT_FOUND",
-              "Inventory item not found",
-            );
-          }
-          const reservation: InventoryReservation = {
-            id: this.generateId(),
-            referenceType: request.referenceType,
-            referenceId: request.referenceId,
-            variantId: line.variantId,
-            quantity: line.quantity,
-            status: "active",
-            expiresAt,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          };
-          const updated = applyReservation(current, line.quantity, timestamp);
-          await this.persistBalance(session, current, updated);
-          await this.repository.createReservation(session, reservation);
-          await this.appendMovement(
-            session,
-            current.id,
-            reservation,
-            "reservation",
-            0,
-            line.quantity,
-            "INVENTORY_RESERVED",
-            context,
-            timestamp,
-          );
-          await this.appendAudit(
-            session,
-            current.id,
-            reservation,
-            "inventory.stock.reserved",
-            context,
-            timestamp,
-          );
-          reservations.push(reservation);
-        }
-        return mapGroup(reservations);
-      });
+      return await this.transactions.run((session) =>
+        this.reserveInSession(session, request, context),
+      );
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       return this.transactions.runReadOnly(async (session) => {
@@ -138,6 +63,82 @@ export class InventoryReservationService implements InventoryReservationPort {
     }
   }
 
+  async reserveInSession(
+    session: DatabaseSession,
+    request: ReserveInventoryRequest,
+    context: InventorySystemContext,
+  ): Promise<ReservationGroupDto> {
+    assertReservationLines(request.lines);
+    await this.repository.lockReservationReference(
+      session,
+      request.referenceType,
+      request.referenceId,
+    );
+    const existing = await this.repository.findReservationGroup(
+      session,
+      request.referenceType,
+      request.referenceId,
+    );
+    if (existing.length > 0) {
+      assertMatchingRequest(existing, request);
+      return mapGroup(existing);
+    }
+    const lines = [...request.lines].sort((left, right) =>
+      left.variantId.localeCompare(right.variantId),
+    );
+    for (const line of lines) {
+      const variant = await this.variants.findById(session, line.variantId);
+      if (variant === undefined || variant.status !== "active") {
+        throw new InventoryApplicationError(
+          variant === undefined ? "VARIANT_NOT_FOUND" : "VARIANT_NOT_ACTIVE",
+          variant === undefined ? "Variant not found" : "Variant is not active",
+        );
+      }
+    }
+    const timestamp = this.now();
+    const expiresAt = request.expiresAt ?? new Date(
+      new Date(timestamp).getTime() + this.reservationTtlMs,
+    ).toISOString();
+    if (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.parse(timestamp)) {
+      throw new InventoryApplicationError("CONFLICT", "Reservation expiry is invalid");
+    }
+    const reservations: InventoryReservation[] = [];
+    for (const line of lines) {
+      const current = await this.repository.lockByVariantId(
+        session,
+        line.variantId,
+      );
+      if (current === undefined) {
+        throw new InventoryApplicationError(
+          "INVENTORY_ITEM_NOT_FOUND",
+          "Inventory item not found",
+        );
+      }
+      const reservation: InventoryReservation = {
+        id: this.generateId(), referenceType: request.referenceType,
+        referenceId: request.referenceId, variantId: line.variantId,
+        quantity: line.quantity, status: "active", expiresAt,
+        createdAt: timestamp, updatedAt: timestamp,
+      };
+      await this.persistBalance(
+        session,
+        current,
+        applyReservation(current, line.quantity, timestamp),
+      );
+      await this.repository.createReservation(session, reservation);
+      await this.appendMovement(
+        session, current.id, reservation, "reservation", 0, line.quantity,
+        "INVENTORY_RESERVED", context, timestamp,
+      );
+      await this.appendAudit(
+        session, current.id, reservation, "inventory.stock.reserved",
+        context, timestamp,
+      );
+      reservations.push(reservation);
+    }
+    return mapGroup(reservations);
+  }
+
   release(
     reference: ReservationReference,
     context: InventorySystemContext,
@@ -150,6 +151,22 @@ export class InventoryReservationService implements InventoryReservationPort {
     context: InventorySystemContext,
   ): Promise<ReservationGroupDto> {
     return this.finalize(reference, "consumed", context);
+  }
+
+  releaseInSession(
+    session: DatabaseSession,
+    reference: ReservationReference,
+    context: InventorySystemContext,
+  ): Promise<ReservationGroupDto> {
+    return this.finalizeInSession(session, reference, "released", context);
+  }
+
+  consumeInSession(
+    session: DatabaseSession,
+    reference: ReservationReference,
+    context: InventorySystemContext,
+  ): Promise<ReservationGroupDto> {
+    return this.finalizeInSession(session, reference, "consumed", context);
   }
 
   async expireDue(
@@ -210,90 +227,111 @@ export class InventoryReservationService implements InventoryReservationPort {
     terminalStatus: Extract<InventoryReservationTerminalStatus, "released" | "consumed">,
     context: InventorySystemContext,
   ): Promise<ReservationGroupDto> {
-    return this.transactions.run(async (session) => {
-      const reservations = await this.repository.lockReservationGroup(
-        session,
-        reference.referenceType,
-        reference.referenceId,
-      );
-      if (reservations.length === 0) {
-        throw new InventoryApplicationError(
-          "RESERVATION_NOT_FOUND",
-          "Inventory reservation not found",
-        );
-      }
-      if (reservations.every(({ status }) => status !== "active")) {
-        return mapGroup(reservations);
-      }
-      if (reservations.some(({ status }) => status !== "active")) {
-        throw new InventoryApplicationError(
-          "CONFLICT",
-          "Reservation group has inconsistent states",
-        );
-      }
+    return this.transactions.run((session) =>
+      this.finalizeInSession(session, reference, terminalStatus, context),
+    );
+  }
 
-      const timestamp = this.now();
-      const overdue = reservations.some(
-        ({ expiresAt }) => new Date(expiresAt).getTime() <= new Date(timestamp).getTime(),
+  private async finalizeInSession(
+    session: DatabaseSession,
+    reference: ReservationReference,
+    terminalStatus: Extract<InventoryReservationTerminalStatus, "released" | "consumed">,
+    context: InventorySystemContext,
+  ): Promise<ReservationGroupDto> {
+    const reservations = await this.repository.lockReservationGroup(
+      session,
+      reference.referenceType,
+      reference.referenceId,
+    );
+    if (reservations.length === 0) {
+      throw new InventoryApplicationError(
+        "RESERVATION_NOT_FOUND",
+        "Inventory reservation not found",
       );
-      if (overdue && terminalStatus === "consumed") {
+    }
+    if (reservations.every(({ status }) => status !== "active")) {
+      return mapGroup(reservations);
+    }
+    if (reservations.some(({ status }) => status !== "active")) {
+      throw new InventoryApplicationError(
+        "CONFLICT",
+        "Reservation group has inconsistent states",
+      );
+    }
+
+    const timestamp = this.now();
+    const overdue = reservations.some(
+      ({ expiresAt }) =>
+        new Date(expiresAt).getTime() <= new Date(timestamp).getTime(),
+    );
+    if (overdue && terminalStatus === "consumed") {
+      throw new InventoryApplicationError(
+        "RESERVATION_EXPIRED",
+        "Inventory reservation has expired",
+      );
+    }
+    const effectiveStatus: InventoryReservationTerminalStatus = overdue
+      ? "expired"
+      : terminalStatus;
+    const ordered = [...reservations].sort((left, right) =>
+      left.variantId.localeCompare(right.variantId),
+    );
+    const finalized: InventoryReservation[] = [];
+    for (const reservation of ordered) {
+      const current = await this.repository.lockByVariantId(
+        session,
+        reservation.variantId,
+      );
+      if (current === undefined) {
         throw new InventoryApplicationError(
-          "RESERVATION_EXPIRED",
-          "Inventory reservation has expired",
+          "INVENTORY_ITEM_NOT_FOUND",
+          "Inventory item not found",
         );
       }
-      const effectiveStatus: InventoryReservationTerminalStatus = overdue
-        ? "expired"
-        : terminalStatus;
-      const ordered = [...reservations].sort((left, right) =>
-        left.variantId.localeCompare(right.variantId),
+      const updated = effectiveStatus === "consumed"
+        ? applyConsume(current, reservation.quantity, timestamp)
+        : applyRelease(current, reservation.quantity, timestamp);
+      await this.persistBalance(session, current, updated);
+      const terminal = finalizeReservation(
+        reservation,
+        effectiveStatus,
+        timestamp,
       );
-      const finalized: InventoryReservation[] = [];
-      for (const reservation of ordered) {
-        const current = await this.repository.lockByVariantId(
-          session,
-          reservation.variantId,
-        );
-        if (current === undefined) {
-          throw new InventoryApplicationError(
-            "INVENTORY_ITEM_NOT_FOUND",
-            "Inventory item not found",
-          );
-        }
-        const updated =
-          effectiveStatus === "consumed"
-            ? applyConsume(current, reservation.quantity, timestamp)
-            : applyRelease(current, reservation.quantity, timestamp);
-        await this.persistBalance(session, current, updated);
-        const terminal = finalizeReservation(reservation, effectiveStatus, timestamp);
-        await this.repository.updateReservation(session, terminal);
-        await this.appendMovement(
-          session,
-          current.id,
-          reservation,
-          effectiveStatus === "consumed" ? "consume" : effectiveStatus === "expired" ? "expiry" : "release",
-          effectiveStatus === "consumed" ? -reservation.quantity : 0,
-          -reservation.quantity,
-          effectiveStatus === "consumed" ? "RESERVATION_CONSUMED" : effectiveStatus === "expired" ? "RESERVATION_EXPIRED" : "RESERVATION_RELEASED",
-          context,
-          timestamp,
-        );
-        await this.appendAudit(
-          session,
-          current.id,
-          terminal,
-          effectiveStatus === "consumed"
-            ? "inventory.stock.consumed"
-            : effectiveStatus === "expired"
-              ? "inventory.stock.expired"
-              : "inventory.stock.released",
-          context,
-          timestamp,
-        );
-        finalized.push(terminal);
-      }
-      return mapGroup(finalized);
-    });
+      await this.repository.updateReservation(session, terminal);
+      const movementType = effectiveStatus === "consumed"
+        ? "consume"
+        : effectiveStatus === "expired" ? "expiry" : "release";
+      const reasonCode = effectiveStatus === "consumed"
+        ? "RESERVATION_CONSUMED"
+        : effectiveStatus === "expired"
+          ? "RESERVATION_EXPIRED"
+          : "RESERVATION_RELEASED";
+      await this.appendMovement(
+        session,
+        current.id,
+        reservation,
+        movementType,
+        effectiveStatus === "consumed" ? -reservation.quantity : 0,
+        -reservation.quantity,
+        reasonCode,
+        context,
+        timestamp,
+      );
+      await this.appendAudit(
+        session,
+        current.id,
+        terminal,
+        effectiveStatus === "consumed"
+          ? "inventory.stock.consumed"
+          : effectiveStatus === "expired"
+            ? "inventory.stock.expired"
+            : "inventory.stock.released",
+        context,
+        timestamp,
+      );
+      finalized.push(terminal);
+    }
+    return mapGroup(finalized);
   }
 
   private async persistBalance(
@@ -394,7 +432,8 @@ function assertMatchingRequest(
     .sort();
   if (
     expected.length !== actual.length ||
-    expected.some((value, index) => value !== actual[index])
+    expected.some((value, index) => value !== actual[index]) ||
+    (request.expiresAt !== undefined && existing.some(({ expiresAt }) => expiresAt !== request.expiresAt))
   ) {
     throw new InventoryApplicationError(
       "CONFLICT",

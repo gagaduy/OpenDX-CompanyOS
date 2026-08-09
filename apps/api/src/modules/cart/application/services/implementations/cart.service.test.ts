@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   StorefrontVariantReader,
   StorefrontVariantSummary,
@@ -104,6 +104,46 @@ describe("CartService", () => {
       code: "INSUFFICIENT_STOCK",
     } satisfies Partial<CartApplicationError>);
   });
+
+  it("locks a raw customer cart snapshot in the supplied checkout session", async () => {
+    const fixture = createFixture();
+    const customerOwner = { kind: "customer" as const, customerId: "customer-1", expiresAt: owner.expiresAt };
+    await fixture.service.addItem(customerOwner, variant.variantId, 2);
+    const suppliedSession: DatabaseSession = { query: vi.fn() };
+
+    await expect(fixture.service.lockForCheckout(suppliedSession, "customer-1", owner.expiresAt)).resolves.toMatchObject({
+      cartVersion: 2,
+      items: [{ variantId: variant.variantId, quantity: 2, lastValidatedUnitPriceVnd: 25_000_000 }],
+    });
+  });
+
+  it("does not finalize a cart changed after checkout", async () => {
+    const fixture = createFixture();
+    const customerOwner = {
+      kind: "customer" as const,
+      customerId: "customer-1",
+      expiresAt: owner.expiresAt,
+    };
+    await fixture.service.addItem(customerOwner, variant.variantId, 1);
+    const checkedOutVersion = fixture.repository.cart!.version;
+    await fixture.service.addItem(customerOwner, variant.variantId, 1);
+
+    await fixture.service.finalizePaidCheckout(
+      {} as DatabaseSession,
+      fixture.repository.cart!.id,
+      checkedOutVersion,
+      "customer-1",
+      "2026-08-05T00:05:00.000Z",
+    );
+
+    expect(fixture.repository.cart).toMatchObject({
+      status: "active",
+      version: checkedOutVersion + 1,
+    });
+    await expect(fixture.service.get(customerOwner)).resolves.toMatchObject({
+      itemCount: 2,
+    });
+  });
 });
 
 function createFixture() {
@@ -169,6 +209,7 @@ function createFixture() {
 class MemoryCartRepository implements CartRepository {
   cart?: Cart;
   items: CartItem[] = [];
+  async findByIdForUpdate() { return this.cart; }
   async findActiveByOwner() {
     return this.cart;
   }

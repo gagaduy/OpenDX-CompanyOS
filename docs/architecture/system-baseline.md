@@ -45,9 +45,8 @@ risk level.
 ## Backend Modules
 
 - Existing: PostgreSQL-backed Company Operating Core, Catalog, Inventory,
-  Customer, and Cart.
-- Commerce roadmap: Promotion,
-  Checkout, Order, Payment, CRM, Support, Reporting, and Audit.
+  Customer, Cart, Promotion, Checkout, Order, and Payment.
+- Commerce roadmap: CRM, Support, Reporting, and broader Audit surfaces.
 - Post-commerce: Workflow, Agent, Skill, Policy, Graph, and Integration.
 
 ## Core Entity Families
@@ -90,8 +89,9 @@ provenance-bearing records.
 
 The local Commerce runtime runs PostgreSQL 18, Keycloak, MinIO, an
 Express API, React Console, and React Storefront through Docker Compose. One-shot jobs apply
-Catalog, Company Core, Inventory, Customer, then Cart migrations, bootstrap MinIO, and seed
-Company Core, Catalog, then Inventory before API readiness can succeed.
+Catalog, Company Core, Inventory, Customer, Cart, Promotion, Checkout, Order,
+then Payment migrations, bootstrap MinIO, and seed Company Core, Catalog,
+Inventory, then Promotion before API readiness can succeed.
 Production composition uses PostgreSQL repositories only and has no in-memory
 fallback.
 
@@ -101,4 +101,7 @@ Catalog internals. Anonymous `/v1/storefront` reads pass through public Catalog
 DTOs, include live Inventory availability, and authorize media only for
 published products. Customer identity remains separate from staff Keycloak;
 opaque Commerce sessions, owned profiles/addresses, and backend-authoritative
-guest/customer carts are implemented without checkout, order, or payment state.
+guest/customer carts feed transactional Checkout. Immutable Order and Payment
+state converge through authenticated SePay IPN, bounded reconciliation, expiry,
+idempotency, and optimistic versioning. External SePay availability is not a
+local readiness dependency.

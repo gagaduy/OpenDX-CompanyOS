@@ -18,12 +18,22 @@ import { CheckoutGate } from "../features/authentication/components/checkout-gat
 import type { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
 import { AccountPage } from "../features/customer-account/pages/account-page";
 import { AddressPage } from "../features/customer-account/pages/address-page";
+import type { CheckoutApi } from "../features/checkout/api/checkout-api";
+import { CheckoutPage } from "../features/checkout/pages/checkout-page";
+import type { PaymentApi } from "../features/payment/api/payment-api";
+import { PaymentReturnPage } from "../features/payment/pages/payment-return-page";
+import type { OrderApi } from "../features/order/api/order-api";
+import { OrderListPage } from "../features/order/pages/order-list-page";
+import { OrderDetailPage } from "../features/order/pages/order-detail-page";
 
 export function createAppRouter(dependencies: {
   readonly catalogApi: StorefrontCatalogApi;
   readonly cartApi: CartApi;
   readonly sessionApi: CustomerSessionApi;
   readonly accountApi: CustomerAccountApi;
+  readonly checkoutApi: CheckoutApi;
+  readonly paymentApi: PaymentApi;
+  readonly orderApi: OrderApi;
   readonly apiBaseUrl: string;
   readonly googleClientId?: string;
 }) {
@@ -78,6 +88,41 @@ export function createAppRouter(dependencies: {
           element: (
             <CheckoutGate>
               <AddressPage api={dependencies.accountApi} />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/checkout",
+          element: (
+            <CheckoutGate>
+              <CheckoutPage
+                api={dependencies.checkoutApi}
+                accountApi={dependencies.accountApi}
+              />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/payment/return",
+          element: (
+            <CheckoutGate>
+              <PaymentReturnPage api={dependencies.paymentApi} />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/orders",
+          element: (
+            <CheckoutGate>
+              <OrderListPage api={dependencies.orderApi} />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/orders/:orderId",
+          element: (
+            <CheckoutGate>
+              <OrderDetailPage api={dependencies.orderApi} />
             </CheckoutGate>
           ),
         },

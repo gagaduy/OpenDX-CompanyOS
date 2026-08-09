@@ -29,22 +29,27 @@ make check
 make down
 ```
 
-PostgreSQL must become healthy before Catalog → Company Core → Inventory → Customer → Cart
-migrations. MinIO must become healthy before bucket bootstrap. The Company
-Core → Catalog → Inventory idempotent seed runs only after both jobs, then the
-API waits for Keycloak and seed completion before the Console and Storefront start. Normal
-shutdown preserves the `opendx_postgres` and `opendx_minio` volumes.
+PostgreSQL must become healthy before Catalog → Company Core → Inventory →
+Customer → Cart → Promotion → Checkout → Order → Payment migrations. MinIO must
+become healthy before bucket bootstrap. The Company Core → Catalog → Inventory
+→ Promotion idempotent seed runs only after both jobs, then the API waits for
+Keycloak and seed completion before the Console and Storefront start. `make up`
+waits for service health; normal shutdown preserves the `opendx_postgres` and
+`opendx_minio` volumes.
 
 The development Storefront mounts both `apps/storefront/src` and its read-only
 `public` assets so UI and product-canvas changes appear without rebuilding the
 container image.
 
-API readiness checks every implemented module migration table and the MinIO bucket. The
-Inventory expiry worker uses a 900-second reservation TTL and a 30-second scan.
-No Temporal service is started. Use `POSTGRES_PORT=<free-port> make up` when
-host port 5432 is occupied; internal service connections remain on 5432.
+API readiness checks every implemented module migration table, Keycloak, and
+the MinIO bucket. It never probes the external SePay sandbox. Inventory and
+Checkout expiry workers use the same 900-second authority window with separate
+30-second scan settings. Reconciliation starts only when all three SePay
+credentials are configured. No SePay or Temporal container is started. Use
+`POSTGRES_PORT=<free-port> make up` when host port 5432 is occupied; internal
+service connections remain on 5432.
 
 See `docs/development/catalog-local-environment.md` and
 `docs/development/storefront-local-environment.md` plus
-`docs/development/database-operations.md` for seed, identity, backup, restore, and
-troubleshooting workflows.
+`docs/development/database-operations.md` and `docs/integrations/sepay.md` for
+seed, identity, payment, backup, restore, and troubleshooting workflows.

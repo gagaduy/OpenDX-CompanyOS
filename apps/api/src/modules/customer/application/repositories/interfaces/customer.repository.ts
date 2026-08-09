@@ -25,6 +25,7 @@ export interface CustomerRepository {
   findCustomerById(
     session: DatabaseSession,
     id: string,
+    lock?: boolean,
   ): Promise<Customer | undefined>;
   findCustomerByEmail(
     session: DatabaseSession,
@@ -86,6 +87,7 @@ export interface CustomerRepository {
     session: DatabaseSession,
     customerId: string,
     addressId: string,
+    lock?: boolean,
   ): Promise<CustomerAddress | undefined>;
   createAddress(
     session: DatabaseSession,

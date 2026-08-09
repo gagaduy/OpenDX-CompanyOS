@@ -46,7 +46,7 @@ Current major dependencies:
 | `react-router-dom` | `apps/console`, `apps/storefront` | Console and Storefront routing (MIT) |
 | `@testing-library/user-event` | `apps/console`, `apps/storefront` | User-level interaction tests (MIT) |
 
-The Phase 5 API runs as one process, so `express-rate-limit` initially uses its
+The Commerce Foundation API runs as one process, so `express-rate-limit` initially uses its
 built-in memory store for Google authentication abuse protection. A hosted
 multi-replica deployment must configure a reviewed shared store during Phase 8;
 the in-memory limiter is not treated as a cross-replica quota authority.
@@ -86,6 +86,12 @@ Current images:
 Compose and Dockerfiles pin these reviewed tags to immutable image digests.
 Temporal and pgvector are not runtime dependencies of the Commerce Product
 Foundation.
+
+Phase 6 reuses Node `crypto`, native `fetch`, PostgreSQL transactions, existing
+Zod validation, and the existing React test/build stack for SePay, Checkout,
+Order, Payment, and browser acceptance. No SePay SDK, scheduler, queue, tunnel,
+or additional package is bundled. A contributor may run an external HTTPS
+tunnel locally, but it is not a repository dependency.
 
 ## Dependency Policy
 

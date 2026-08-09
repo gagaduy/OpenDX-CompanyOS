@@ -14,4 +14,5 @@ export {
 export type {
   StorefrontVariantReader,
   StorefrontVariantSummary,
+  CheckoutCatalogReader,
 } from "./application/services/interfaces/storefront-variant-reader";

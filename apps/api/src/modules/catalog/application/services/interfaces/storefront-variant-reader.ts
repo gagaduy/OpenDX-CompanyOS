@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { VariantOptions } from "../../../domain/entities/product-variant";
+import type { DatabaseSession } from "../../../../../shared/database/transaction";
 
 export interface StorefrontVariantSummary {
   readonly variantId: string;
@@ -18,6 +19,13 @@ export interface StorefrontVariantSummary {
 
 export interface StorefrontVariantReader {
   getByIds(
+    variantIds: readonly string[],
+  ): Promise<ReadonlyMap<string, StorefrontVariantSummary>>;
+}
+
+export interface CheckoutCatalogReader {
+  getByIdsInSession(
+    session: DatabaseSession,
     variantIds: readonly string[],
   ): Promise<ReadonlyMap<string, StorefrontVariantSummary>>;
 }

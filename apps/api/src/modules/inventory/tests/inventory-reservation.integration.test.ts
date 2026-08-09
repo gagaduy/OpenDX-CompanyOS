@@ -300,4 +300,61 @@ describeWithDatabase("inventory reservation concurrency", () => {
     );
     expect(rows.rows[0]).toEqual({ count: "1" });
   });
+
+  it("rolls back every reservation effect when later checkout work fails", async () => {
+    await inventory.receive(
+      { variantId: ids.variant, quantity: 2, idempotencyKey: "receive-rollback" },
+      staffContext,
+    );
+    const reservations = new InventoryReservationService(
+      repository, variants, audit, transactions, randomUUID,
+      () => "2026-08-05T00:00:00.000Z", 900_000,
+    );
+
+    await expect(transactions.run(async (session) => {
+      await reservations.reserveInSession(session, {
+        referenceType: "checkout",
+        referenceId: "checkout-rollback",
+        lines: [{ variantId: ids.variant, quantity: 2 }],
+      }, systemContext);
+      throw new Error("later checkout write failed");
+    })).rejects.toThrow("later checkout write failed");
+
+    const balance = await pool.query<{ on_hand: number; reserved: number }>(
+      "SELECT on_hand,reserved FROM inventory_items WHERE variant_id=$1", [ids.variant],
+    );
+    expect(balance.rows[0]).toEqual({ on_hand: 2, reserved: 0 });
+    await expect(pool.query("SELECT 1 FROM inventory_reservations WHERE reference_id='checkout-rollback'")).resolves.toMatchObject({ rowCount: 0 });
+    await expect(pool.query("SELECT 1 FROM stock_movements WHERE movement_type='reservation'")).resolves.toMatchObject({ rowCount: 0 });
+    await expect(pool.query("SELECT 1 FROM audit_events WHERE action='inventory.stock.reserved'")).resolves.toMatchObject({ rowCount: 0 });
+  });
+
+  it("rolls back every consume effect when later paid work fails", async () => {
+    await inventory.receive(
+      { variantId: ids.variant, quantity: 2, idempotencyKey: "receive-consume-rollback" },
+      staffContext,
+    );
+    const reservations = new InventoryReservationService(
+      repository, variants, audit, transactions, randomUUID,
+      () => "2026-08-05T00:00:00.000Z", 900_000,
+    );
+    const reference = { referenceType: "checkout" as const, referenceId: "checkout-consume-rollback" };
+    await reservations.reserve({ ...reference, lines: [{ variantId: ids.variant, quantity: 2 }] }, systemContext);
+
+    await expect(transactions.run(async (session) => {
+      await reservations.consumeInSession(session, reference, systemContext);
+      throw new Error("later paid write failed");
+    })).rejects.toThrow("later paid write failed");
+
+    const balance = await pool.query<{ on_hand: number; reserved: number }>(
+      "SELECT on_hand,reserved FROM inventory_items WHERE variant_id=$1", [ids.variant],
+    );
+    expect(balance.rows[0]).toEqual({ on_hand: 2, reserved: 2 });
+    const state = await pool.query<{ status: string }>(
+      "SELECT status FROM inventory_reservations WHERE reference_id=$1", [reference.referenceId],
+    );
+    expect(state.rows).toEqual([{ status: "active" }]);
+    await expect(pool.query("SELECT 1 FROM stock_movements WHERE movement_type='consume'")).resolves.toMatchObject({ rowCount: 0 });
+    await expect(pool.query("SELECT 1 FROM audit_events WHERE action='inventory.stock.consumed'")).resolves.toMatchObject({ rowCount: 0 });
+  });
 });

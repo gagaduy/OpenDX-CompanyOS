@@ -342,40 +342,40 @@ payment transitions and transactional stock handling.
 
 **Checklist:**
 
-- [ ] Define promotion precedence, usage limits, checkout expiry, reservation
+- [x] Define promotion precedence, usage limits, checkout expiry, reservation
   duration, idempotency keys, invoice-number format, SePay field signing,
   webhook authentication, reconciliation, and mismatch escalation.
-- [ ] Define and test exact order, payment, payment-attempt, payment-event, and
+- [x] Define and test exact order, payment, payment-attempt, payment-event, and
   reservation state machines before transport implementation.
-- [ ] Create a pending order and active inventory reservation in one PostgreSQL
+- [x] Create a pending order and active inventory reservation in one PostgreSQL
   transaction after server-side price/promotion/customer/address validation.
-- [ ] Store immutable order-line SKU/title/variant/quantity/price and order-level
+- [x] Store immutable order-line SKU/title/variant/quantity/price and order-level
   discount/tax/total snapshots.
-- [ ] Initiate SePay checkout only from server-generated fields and secrets.
-- [ ] Verify webhook authentication before business parsing; deduplicate raw
+- [x] Initiate SePay checkout only from server-generated fields and secrets.
+- [x] Verify webhook authentication before business parsing; deduplicate raw
   provider events and validate invoice, VND currency, amount, and order.
-- [ ] Use one idempotent application transition for both valid IPN confirmation
+- [x] Use one idempotent application transition for both valid IPN confirmation
   and successful reconciliation.
-- [ ] Treat redirects as display/navigation only and show pending until backend
+- [x] Treat redirects as display/navigation only and show pending until backend
   payment state becomes authoritative.
-- [ ] Record unsupported void, reversal, or post-payment provider events for
+- [x] Record unsupported void, reversal, or post-payment provider events for
   Finance review without applying refund-like state transitions.
-- [ ] Do not expose refund, return, exchange, carrier, tracking, or electronic-
+- [x] Do not expose refund, return, exchange, carrier, tracking, or electronic-
   invoice API/UI behavior.
-- [ ] Build checkout address/contact, promotion, review, redirect, pending,
+- [x] Build checkout address/contact, promotion, review, redirect, pending,
   confirmed, failed, canceled, and expired storefront states.
-- [ ] Build staff order list/detail/transition and payment reconciliation views
+- [x] Build staff order list/detail/transition and payment reconciliation views
   with authorization and audit.
-- [ ] Add signing and webhook contract fixtures derived from official SePay
+- [x] Add signing and webhook contract fixtures derived from official SePay
   documentation, with no captured production customer data.
-- [ ] Add tests for duplicate/out-of-order events, amount mismatch, invalid
+- [x] Add tests for duplicate/out-of-order events, amount mismatch, invalid
   signature/secret, timeout, retry, expired reservation, and concurrent payment
   processing.
-- [ ] Add an explicit SePay sandbox integration test profile that is separate
+- [x] Add an explicit SePay sandbox integration test profile that is separate
   from deterministic fake-provider CI tests.
-- [ ] Document sandbox setup, callback exposure for local testing, credential
+- [x] Document sandbox setup, callback exposure for local testing, credential
   rotation, redacted logging, and hosted HTTPS production switch.
-- [ ] Demonstrate authenticated customer cart to paid order in sandbox and
+- [x] Demonstrate authenticated customer cart to paid order in sandbox and
   prove duplicate IPNs do not duplicate payment, order, stock, or audit
   effects.
 
@@ -570,10 +570,10 @@ the repository documentation, with no undocumented manual intervention.
 
 - [x] Phase 1: Repository Foundation
 - [x] Phase 2: Company Operating Core
-- [ ] Phase 3: Commerce Product Foundation
-- [ ] Phase 4: Inventory and Product Publication
-- [ ] Phase 5: Storefront, Customer, and Cart
-- [ ] Phase 6: Checkout, Order, and SePay
+- [x] Phase 3: Commerce Product Foundation
+- [x] Phase 4: Inventory and Product Publication
+- [x] Phase 5: Storefront, Customer, and Cart
+- [x] Phase 6: Checkout, Order, and SePay
 - [ ] Phase 7: Operational CRM, Support, and Dashboard
 - [ ] Phase 8: Production Hardening and Hosting Readiness
 - [ ] Master acceptance and milestone review

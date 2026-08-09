@@ -10,7 +10,7 @@ help:
 	@echo "help up down logs check db-migrate db-rollback db-seed db-backup db-restore"
 
 up:
-	$(COMPOSE) up --build -d
+	$(COMPOSE) up --build -d --wait
 
 down:
 	$(COMPOSE) down --remove-orphans

@@ -8,7 +8,12 @@ import {
 } from "oidc-client-ts";
 import type { ConsoleEnvironment } from "../../../app/environment";
 
-export type StaffRole = "administrator" | "catalog_manager" | "inventory_manager";
+export type StaffRole =
+  | "administrator"
+  | "catalog_manager"
+  | "inventory_manager"
+  | "operations_manager"
+  | "finance_operator";
 
 export interface AuthSession {
   readonly accessToken: string;
@@ -74,5 +79,9 @@ function mapUser(user: User): AuthSession {
 }
 
 function isStaffRole(value: unknown): value is StaffRole {
-  return value === "administrator" || value === "catalog_manager" || value === "inventory_manager";
+  return value === "administrator" ||
+    value === "catalog_manager" ||
+    value === "inventory_manager" ||
+    value === "operations_manager" ||
+    value === "finance_operator";
 }
