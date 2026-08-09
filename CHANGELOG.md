@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 - Add staff Support ticket operations, PostgreSQL concurrency controls, and SLA escalation worker.
+- Add verified Support PostgreSQL, worker, and HTTP route coverage for role
+  boundaries, version races, idempotency, chronological history, and SLA claims.
 
 ### Added
 
@@ -36,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   credentials or customer data.
 
 ### Fixed
+
+- Use the effective SLA breach instant in automatic escalation keys, preserve
+  escalated status while a support operator claims unassigned work, and require
+  Support migrations before API readiness succeeds.
 
 - Make pending-order cancellation converge atomically across Payment, Order,
   Inventory, Promotion, and Checkout while preserving the winning paid result

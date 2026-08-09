@@ -64,4 +64,11 @@ describe("API route audiences", () => {
       ).headers["access-control-allow-origin"],
     ).toBeUndefined();
   });
+
+  it("mounts Support tickets exactly below the staff admin prefix", async () => {
+    const support = Router().get("/", (_request, response) => response.json({ audience: "support" }));
+    const supportApp = createApiApp({ supportAdminRouter: support });
+    await request(supportApp).get("/v1/admin/support/tickets").expect(200, { audience: "support" });
+    await request(supportApp).get("/v1/admin/support").expect(404);
+  });
 });

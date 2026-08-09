@@ -13,8 +13,16 @@ tickets. PostgreSQL updates use optimistic versions, event idempotency keys,
 stable chronological event reads, and `FOR UPDATE SKIP LOCKED` escalation
 claims capped at 100 tickets per tick.
 
-## Verification
+## Follow-up verification
 
-- Focused Support service test (RED on missing implementation, then GREEN).
-- API TypeScript typecheck.
-- Repository audit and whitespace diff check.
+- PostgreSQL integration now proves concurrent self-claim has one winner,
+  duplicate event-key convergence, stale-version loss, `(occurred_at,id)`
+  history ordering, and exactly-once automatic SLA escalation with
+  `FOR UPDATE SKIP LOCKED`.
+- The SLA worker uses the deterministic effective breach instant in its event
+  key and claims no more than 100 rows per tick.
+- HTTP integration covers list, create, detail, claim, transition, and message
+  routes, staff authentication, role boundaries, ownership, invalid inputs,
+  and stable errors.
+- Focused Support worker/service/PostgreSQL/API tests and API typecheck pass;
+  `pnpm check` was intentionally not run under the Task 5 constraint.
