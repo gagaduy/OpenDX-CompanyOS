@@ -444,22 +444,22 @@ POST  /v1/admin/payments/:paymentId/reconciliations
 - Modify: `scripts/dev/storefront-browser-check.mjs`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write failing user-visible tests for address selection, promotion apply/
+- [x] Write failing user-visible tests for address selection, promotion apply/
   reject, immutable review, changed-cart conflict, stock conflict, submit lock,
   payment form field order, and provider-not-configured state.
-- [ ] Submit the backend-provided ordered fields to the backend-provided SePay
+- [x] Submit the backend-provided ordered fields to the backend-provided SePay
   action URL without recalculating, sorting, or editing them.
-- [ ] Implement success/error/cancel return pages as navigation outcomes only;
+- [x] Implement success/error/cancel return pages as navigation outcomes only;
   poll backend payment/order state with bounded backoff and show pending until
   authoritative confirmation.
-- [ ] Add customer order list/detail with immutable lines, total, payment state,
+- [x] Add customer order list/detail with immutable lines, total, payment state,
   and internal processing timeline. Do not display shipping promises.
-- [ ] Preserve loading, empty, recoverable error, expired, conflict, paid, and
+- [x] Preserve loading, empty, recoverable error, expired, conflict, paid, and
   terminal states plus keyboard focus and semantic structure.
-- [ ] Verify light/dark themes and no overflow at 390x844, 768x1024, and
+- [x] Verify light/dark themes and no overflow at 390x844, 768x1024, and
   1440x900 with real seeded products.
-- [ ] Run Storefront tests, typecheck, production build, and browser acceptance.
-- [ ] Commit as `feat(storefront): add checkout and order journey`.
+- [x] Run Storefront tests, typecheck, production build, and browser acceptance.
+- [x] Commit as `feat(storefront): add checkout and order journey`.
 
 ### Task 11: Console Order and Payment Operations
 

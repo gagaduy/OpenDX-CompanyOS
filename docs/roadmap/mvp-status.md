@@ -8,8 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
-Phase 6 Checkout, Order, and SePay has entered focused design review on
-`feat/checkout-order-sepay`; implementation has not started.
+Phase 6 Checkout, Order, and SePay is in progress on
+`feat/checkout-order-sepay`. Backend checkout, immutable orders, SePay payment
+processing, expiry, reconciliation, and the customer Storefront journey are
+complete through Task 10; Console operations are next.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -23,7 +25,7 @@ Active commerce master plan:
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
-| Phase 6: Checkout, Order, and SePay | Design review | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Implement only after focused design and plan approval |
+| Phase 6: Checkout, Order, and SePay | In progress: Task 10 complete | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after sandbox payment, expiry/reconciliation, Console operations, full validation, review, and merge |
 | Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
@@ -128,6 +130,19 @@ Active commerce master plan:
 - Phase 6 focused design and its 13-task file-level TDD plan were drafted on
   2026-08-06 after checking the current official SePay sandbox, checkout
   signing, IPN authentication, and order-detail reconciliation contracts.
+- Phase 6 implementation through Task 9 adds constrained Promotion, Checkout,
+  immutable Order, Payment attempt/event/reconciliation persistence; atomic
+  Inventory and Promotion transitions; server-signed SePay initiation;
+  authenticated exactly-once IPN processing; bounded checkout expiry; and
+  automatic/manual reconciliation. API source gates passed 265 unit tests and
+  63 PostgreSQL/MinIO integration tests before Storefront work began.
+- Phase 6 Storefront Task 10 adds address and promotion checkout input,
+  immutable review totals, ordered provider form submission, bounded backend
+  payment-state polling, and customer order list/detail timelines. On
+  2026-08-09, 27 Storefront tests, strict typecheck, production build, and
+  Chrome acceptance passed. Checkout and order surfaces rendered in light and
+  dark modes without horizontal overflow at 390x844, 768x1024, and 1440x900;
+  the same run retained real seeded-product catalog and guest-cart checks.
 
 ## Open Risks
 

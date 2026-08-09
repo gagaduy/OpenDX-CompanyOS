@@ -6,6 +6,9 @@ import { CustomerSessionApi } from "../features/authentication/api/customer-sess
 import { CartApi } from "../features/cart/api/cart-api";
 import { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
 import { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
+import { CheckoutApi } from "../features/checkout/api/checkout-api";
+import { OrderApi } from "../features/order/api/order-api";
+import { PaymentApi } from "../features/payment/api/payment-api";
 import { ApiClient } from "../shared/http/api-client";
 import { createAppRouter } from "./app-router";
 import type { StorefrontEnvironment } from "./environment";
@@ -22,6 +25,9 @@ export function App({
     cartApi: new CartApi(client),
     sessionApi: new CustomerSessionApi(client),
     accountApi: new CustomerAccountApi(client),
+    checkoutApi: new CheckoutApi(client),
+    paymentApi: new PaymentApi(client),
+    orderApi: new OrderApi(client),
     apiBaseUrl: environment.apiBaseUrl,
     ...(environment.googleClientId === undefined
       ? {}

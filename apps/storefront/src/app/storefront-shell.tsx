@@ -99,6 +99,7 @@ export function StorefrontShell({
           <Link to="/">Sản phẩm</Link>
           <Link to="/#categories">Danh mục</Link>
           <Link to="/account">Tài khoản</Link>
+          <Link to="/orders">Đơn hàng</Link>
           <Link to="/cart">Giỏ hàng</Link>
         </nav>
       </footer>

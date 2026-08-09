@@ -45,7 +45,7 @@ export function CartPage({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
     }
     try {
       await checkoutReadiness();
-      navigate("/cart?checkout=ready", { replace: true });
+      navigate("/checkout");
     } catch {
       /* Context renders the stable error. */
     }

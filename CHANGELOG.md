@@ -51,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the authenticated Storefront checkout and order journey with owned address
+  selection, promotion feedback, immutable backend totals, ordered SePay form
+  submission, bounded authoritative payment polling, customer order history,
+  responsive light/dark surfaces, and reproducible browser evidence.
 - Add bounded unpaid-checkout expiry and SePay reconciliation workers, including
   idempotent Inventory-first cleanup, redacted provider comparisons, shared
   exact-once paid transitions, administrator/finance payment APIs, audited role
