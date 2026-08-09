@@ -6,7 +6,10 @@ export type StaffRole =
   | "catalog_manager"
   | "inventory_manager"
   | "operations_manager"
-  | "finance_operator";
+  | "finance_operator"
+  | "crm_operator"
+  | "support_operator"
+  | "executive_viewer";
 
 export interface StaffPrincipal {
   readonly subject: string;

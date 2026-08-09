@@ -15,6 +15,12 @@ export interface ExternalIdentityRecord {
   readonly providerEmail: string;
 }
 
+export interface CustomerOperationsSearchQuery {
+  readonly search?: string;
+  readonly page: number;
+  readonly pageSize: number;
+}
+
 export interface CustomerRepository {
   lockIdentityRegistration(
     session: DatabaseSession,
@@ -31,6 +37,10 @@ export interface CustomerRepository {
     session: DatabaseSession,
     email: string,
   ): Promise<Customer | undefined>;
+  searchOperations(
+    session: DatabaseSession,
+    query: CustomerOperationsSearchQuery,
+  ): Promise<{ readonly items: readonly Customer[]; readonly totalItems: number }>;
   findIdentity(
     session: DatabaseSession,
     provider: "google",

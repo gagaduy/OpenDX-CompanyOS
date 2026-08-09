@@ -6,8 +6,29 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppRouter } from "../../../app/app-router";
-import type { AuthClient, AuthSession } from "../api/oidc-manager";
+import {
+  createOidcAuthClient,
+  type AuthClient,
+  type AuthSession,
+} from "../api/oidc-manager";
 import { AuthProvider } from "../hooks/auth-context";
+
+const oidc = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  signinRedirect: vi.fn(),
+  signinRedirectCallback: vi.fn(),
+  signoutRedirect: vi.fn(),
+}));
+
+vi.mock("oidc-client-ts", () => ({
+  UserManager: class {
+    getUser = oidc.getUser;
+    signinRedirect = oidc.signinRedirect;
+    signinRedirectCallback = oidc.signinRedirectCallback;
+    signoutRedirect = oidc.signoutRedirect;
+  },
+  WebStorageStateStore: class {},
+}));
 
 const catalogSession: AuthSession = {
   accessToken: "signed-token",
@@ -42,6 +63,31 @@ function renderRoute(path: string, client: AuthClient) {
 }
 
 describe("console authentication routes", () => {
+  it("keeps only approved Phase 7 realm roles in a restored session", async () => {
+    oidc.getUser.mockResolvedValueOnce({
+      access_token: "phase-seven-token",
+      expired: false,
+      profile: {
+        sub: "phase-seven-user",
+        name: "Phase Seven User",
+        realm_access: {
+          roles: ["crm_operator", "support_operator", "executive_viewer", "offline_access"],
+        },
+      },
+    });
+    const client = createOidcAuthClient({
+      apiBaseUrl: "http://localhost",
+      oidcAuthority: "https://identity.example.test/realms/opendx",
+      oidcClientId: "opendx-console",
+      oidcRedirectUri: "http://localhost/auth/callback",
+      oidcPostLogoutRedirectUri: "http://localhost/sign-in",
+    });
+
+    await expect(client.getSession()).resolves.toMatchObject({
+      roles: ["crm_operator", "support_operator", "executive_viewer"],
+    });
+  });
+
   it("redirects anonymous staff to sign in and starts OIDC login", async () => {
     const client = createClient(null);
     renderRoute("/products", client);
@@ -76,7 +122,13 @@ describe("console authentication routes", () => {
     },
   );
 
-  it.each(["operations_manager", "finance_operator"] as const)(
+  it.each([
+    "operations_manager",
+    "finance_operator",
+    "crm_operator",
+    "support_operator",
+    "executive_viewer",
+  ] as const)(
     "recognizes the %s as an authorized staff role",
     async (role) => {
       renderRoute("/company-overview", createClient({

@@ -10,7 +10,10 @@
       { "name": "catalog_manager" },
       { "name": "inventory_manager" },
       { "name": "operations_manager" },
-      { "name": "finance_operator" }
+      { "name": "finance_operator" },
+      { "name": "crm_operator" },
+      { "name": "support_operator" },
+      { "name": "executive_viewer" }
     ]
   },
   "clients": [

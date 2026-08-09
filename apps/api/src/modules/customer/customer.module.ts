@@ -9,6 +9,7 @@ import { CustomerAuthenticationService } from "./application/services/implementa
 import { CustomerProfileService } from "./application/services/implementations/customer-profile.service";
 import { CustomerSessionService } from "./application/services/implementations/customer-session.service";
 import { CheckoutCustomerReaderService } from "./application/services/implementations/checkout-customer-reader";
+import { CustomerOperationsReaderService } from "./application/services/implementations/customer-operations-reader";
 import type { CustomerCartLoginResolver } from "./application/services/interfaces/customer-cart-login-resolver";
 import { PostgresqlCustomerAuditRepository } from "./infrastructure/repositories/implementations/postgresql-customer-audit.repository";
 import { PostgresqlCustomerRepository } from "./infrastructure/repositories/implementations/postgresql-customer.repository";
@@ -63,6 +64,7 @@ export function createCustomerModule(dependencies: CustomerModuleDependencies) {
     dependencies.now,
   );
   const checkout = new CheckoutCustomerReaderService(repository);
+  const operations = new CustomerOperationsReaderService(repository, dependencies.transactions);
   const origin = requireStorefrontOrigin(dependencies.storefrontOrigin);
   const csrf = requireCsrf(dependencies.cookies);
   const customer = requireCustomerSession(sessions, dependencies.cookies);
@@ -89,5 +91,5 @@ export function createCustomerModule(dependencies: CustomerModuleDependencies) {
     ),
   );
   router.use(customerErrorMiddleware);
-  return { router, sessions, profile, checkout };
+  return { router, sessions, profile, checkout, operations };
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Promotion, PromotionStatus } from "../../domain/entities/promotion";
+import type { StaffRole } from "../../../../shared/auth/staff-principal";
 
 export interface PromotionDto {
   readonly id: string;
@@ -31,6 +32,6 @@ export type UpdatePromotionRequest = CreatePromotionRequest & { readonly version
 
 export interface PromotionCommandContext {
   readonly actorId: string;
-  readonly roles: readonly ("administrator" | "catalog_manager" | "inventory_manager" | "operations_manager" | "finance_operator")[];
+  readonly roles: readonly StaffRole[];
   readonly correlationId: string;
 }

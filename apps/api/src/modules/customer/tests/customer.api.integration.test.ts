@@ -11,6 +11,7 @@ import { createPostgresPool } from "../../../shared/database/postgres";
 import { PostgresTransactionRunner } from "../../../shared/database/transaction";
 import type { GoogleIdentityVerifier } from "../application/identity/google-identity-verifier";
 import { createCustomerModule } from "../customer.module";
+import type { CustomerOperationsReader } from "../application/services/interfaces/customer-operations-reader";
 import { runCustomerMigrations } from "../infrastructure/database/run-customer-migrations";
 import { NodeSessionTokenService } from "../infrastructure/security/node-session-token-service";
 
@@ -27,6 +28,7 @@ const cookies = {
 suite("customer API integration", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   let app: ReturnType<typeof createApiApp>;
+  let operations: CustomerOperationsReader;
 
   beforeAll(async () => {
     await runCatalogMigrations(databaseUrl!, "up");
@@ -55,6 +57,7 @@ suite("customer API integration", () => {
       cookies,
       authenticationRateLimit: 100,
     });
+    operations = module.operations;
     app = createApiApp({
       storefrontOrigin: origin,
       storefrontRouter: module.router,
@@ -303,6 +306,27 @@ suite("customer API integration", () => {
       .get("/v1/storefront/account")
       .set("Authorization", "Bearer staff-token")
       .expect(401);
+  });
+
+  it("searches normalized customer operations data with stable PostgreSQL pagination", async () => {
+    await pool.query(
+      `INSERT INTO customers
+       (id,email,email_verified_at,full_name,phone_number,status,version,created_at,updated_at)
+       VALUES
+       ('b2400000-0000-4000-8000-000000000001','first@example.com',NOW(),'Nova Buyer','0901000001','active',1,'2026-08-09T00:00:00.000Z','2026-08-09T00:00:00.000Z'),
+       ('b2400000-0000-4000-8000-000000000002','second@example.com',NOW(),'Nova Buyer Two','0901000002','active',1,'2026-08-10T00:00:00.000Z','2026-08-10T00:00:00.000Z')`,
+    );
+
+    await expect(operations.search({ search: "  NOVA BUYER  ", page: 1, pageSize: 1 }))
+      .resolves.toMatchObject({
+        totalItems: 2,
+        items: [{ id: "b2400000-0000-4000-8000-000000000002" }],
+      });
+    await expect(operations.search({ search: "0901000001", page: 1, pageSize: 20 }))
+      .resolves.toMatchObject({
+        totalItems: 1,
+        items: [{ id: "b2400000-0000-4000-8000-000000000001" }],
+      });
   });
 });
 

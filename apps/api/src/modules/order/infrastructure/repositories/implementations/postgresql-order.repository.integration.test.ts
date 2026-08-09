@@ -10,6 +10,7 @@ import { runCartMigrations } from "../../../../cart/infrastructure/database/run-
 import { runPromotionMigrations } from "../../../../promotion/infrastructure/database/run-promotion-migrations";
 import { runCheckoutMigrations } from "../../../../checkout/infrastructure/database/run-checkout-migrations";
 import { OrderService } from "../../../application/services/implementations/order.service";
+import { CustomerOrderOperationsReaderService } from "../../../application/services/implementations/customer-order-operations-reader";
 import type { Order } from "../../../domain/entities/order";
 import type { OrderLine } from "../../../domain/entities/order-line";
 import { runOrderMigrations } from "../../database/run-order-migrations";
@@ -37,6 +38,10 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     new PostgresqlOrderRepository(), transactions,
     () => `b1900000-0000-4000-8000-${String(++sequence).padStart(12, "0")}`,
     () => now,
+  );
+  const operations = new CustomerOrderOperationsReaderService(
+    new PostgresqlOrderRepository(),
+    transactions,
   );
 
   beforeAll(async () => {
@@ -112,6 +117,19 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     await expect(service.getForCustomer("b1400000-0000-4000-8000-000000000002", created.id)).rejects.toMatchObject({ code: "ORDER_NOT_FOUND" });
     await expect(service.listForCustomer(ids.customer, { status: "processing", page: 1, pageSize: 20 })).resolves.toMatchObject({ totalItems: 1, items: [{ id: created.id }] });
     await expect(service.listForStaff({ status: "processing", page: 1, pageSize: 20 }, context)).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: ids.customer, customerEmail: "buyer@example.com" }] });
+    await expect(operations.listByCustomer(ids.customer, 10)).resolves.toEqual([
+      expect.objectContaining({
+        id: created.id,
+        status: "processing",
+        paidAt: "2026-08-06T08:05:00.000Z",
+      }),
+    ]);
+    await expect(operations.getOwned(ids.customer, created.id)).resolves.toEqual(
+      expect.objectContaining({ id: created.id, publicNumber: created.publicNumber }),
+    );
+    await expect(
+      operations.getOwned("b1400000-0000-4000-8000-000000000002", created.id),
+    ).resolves.toBeUndefined();
     const history = await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM order_status_history WHERE order_id=$1", [created.id]);
     expect(history.rows[0]?.count).toBe("3");
     const snapshots = await pool.query<{ address_snapshot: { recipientName: string }; sku: string }>("SELECT o.address_snapshot,l.sku FROM orders o JOIN order_lines l ON l.order_id=o.id WHERE o.id=$1", [created.id]);

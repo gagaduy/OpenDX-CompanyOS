@@ -81,6 +81,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Phase 7 CRM, Support, and Executive staff roles plus PostgreSQL-backed
+  Customer and Order operations readers with least-privilege public contracts.
 - Add the approved twelve-task Phase 7 implementation plan covering public
   operations readers, CRM, Support SLA and attachments, ClamAV, Reporting,
   role-aware Console surfaces, and deterministic exit acceptance.
