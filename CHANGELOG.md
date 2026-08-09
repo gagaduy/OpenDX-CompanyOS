@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the reversible Support PostgreSQL schema for staff-created tickets,
+  append-only messages/events/audit history, exact lifecycle/version guards,
+  continuous SLA pause/stop state, and quarantined attachment tombstones.
+- Add pure Support ticket/SLA and attachment rules covering approved workflow
+  transitions, boundary breaches, allow-listed formats, limits, and retention.
 - Add the authenticated Operational CRM customer API with read-only Customer
   360 composition, authoritative paid segments, immutable note corrections,
   versioned self-claimed follow-ups, PostgreSQL concurrency controls, and

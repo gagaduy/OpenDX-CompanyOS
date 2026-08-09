@@ -17,6 +17,10 @@ const crmMigrationsDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../modules/crm/infrastructure/database/migrations",
 );
+const supportMigrationsDirectory = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../modules/support/infrastructure/database/migrations",
+);
 
 export async function runCatalogMigrations(
   databaseUrl: string,
@@ -73,4 +77,12 @@ export async function runCrmMigrations(
     singleTransaction: true,
     log: () => undefined,
   });
+}
+
+export async function runSupportMigrations(
+  databaseUrl: string,
+  direction: "up" | "down",
+  count?: number,
+): Promise<void> {
+  await runner({ databaseUrl, direction, count, dir: supportMigrationsDirectory, migrationsTable: "support_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
 }
