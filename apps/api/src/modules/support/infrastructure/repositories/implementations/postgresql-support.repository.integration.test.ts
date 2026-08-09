@@ -47,9 +47,27 @@ suite("PostgresqlSupportRepository", () => {
 
   it("keeps CRM ownership constrained, converges duplicate transition keys, and orders events by occurred_at then ID", async () => {
     await insert();
+    const secondTicketId = "f1000000-0000-4000-8000-000000000006";
+    await insert(secondTicketId);
     await expect(transactions.runReadOnly(s=>repository.find(s,"f1000000-0000-4000-8000-000000000099"))).resolves.toBeUndefined();
-    await transactions.run(async s => { const event=(id:string,key:string)=>repository.appendEvent(s,{id,ticketId,actorId:"support",fromStatus:"new",toStatus:"assigned",source:"manual",idempotencyKey:key,occurredAt:"2026-08-10T01:00:00.000Z"}); expect(await event("f1000000-0000-4000-8000-000000000004","duplicate")).toBe(true); expect(await event("f1000000-0000-4000-8000-000000000005","duplicate")).toBe(false); await event("f1000000-0000-4000-8000-000000000003","other"); });
+    await transactions.run(async s => {
+      const event=(id:string,currentTicketId:string,key:string)=>repository.appendEvent(s,{id,ticketId:currentTicketId,actorId:"support",fromStatus:"new",toStatus:"assigned",source:"manual",idempotencyKey:key,occurredAt:"2026-08-10T01:00:00.000Z"});
+      expect(await event("f1000000-0000-4000-8000-000000000004",ticketId,"duplicate")).toBe(true);
+      expect(await event("f1000000-0000-4000-8000-000000000005",ticketId,"duplicate")).toBe(false);
+      expect(await event("f1000000-0000-4000-8000-000000000007",secondTicketId,"duplicate")).toBe(true);
+      await event("f1000000-0000-4000-8000-000000000003",ticketId,"other");
+    });
     await expect(transactions.runReadOnly(s=>repository.listEvents(s,ticketId))).resolves.toMatchObject([{id:"f1000000-0000-4000-8000-000000000003"},{id:"f1000000-0000-4000-8000-000000000004"}]);
+  });
+
+  it("rejects messages for closed tickets at the database boundary", async () => {
+    await insert(ticketId,"new",1);
+    await pool.query("UPDATE support_tickets SET status='assigned',version=2,updated_at='2026-08-10T00:10:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='in_progress',version=3,updated_at='2026-08-10T00:20:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='resolved',version=4,updated_at='2026-08-10T00:30:00.000Z',sla_stopped_at='2026-08-10T00:30:00.000Z' WHERE id=$1",[ticketId]);
+    await pool.query("UPDATE support_tickets SET status='closed',version=5,updated_at='2026-08-10T01:00:00.000Z',closed_at='2026-08-10T01:00:00.000Z' WHERE id=$1",[ticketId]);
+
+    await expect(transactions.run(s=>repository.appendMessage(s,{ id:"f1000000-0000-4000-8000-000000000008", ticketId, authorId:"support", body:"Late message", createdAt:"2026-08-10T01:01:00.000Z" }))).rejects.toMatchObject({ code: "P0001" });
   });
 
   it("claims one breached ticket once across concurrent workers with a deterministic key and caps a tick at 100", async () => {

@@ -17,12 +17,17 @@ claims capped at 100 tickets per tick.
 
 - PostgreSQL integration now proves concurrent self-claim has one winner,
   duplicate event-key convergence, stale-version loss, `(occurred_at,id)`
-  history ordering, and exactly-once automatic SLA escalation with
-  `FOR UPDATE SKIP LOCKED`.
+  history ordering, per-ticket idempotency key scope, closed-ticket message
+  rejection, and exactly-once automatic SLA escalation with `FOR UPDATE SKIP
+  LOCKED`.
 - The SLA worker uses the deterministic effective breach instant in its event
   key and claims no more than 100 rows per tick.
 - HTTP integration covers list, create, detail, claim, transition, and message
   routes, staff authentication, role boundaries, ownership, invalid inputs,
-  and stable errors.
+  stable errors, administrator reassignment, and a real route-to-service-to-
+  PostgreSQL workflow.
+- Service tests cover CRM queue denial, Support owned-or-available access,
+  stable `ORDER_NOT_OWNED_BY_CUSTOMER`, closed-ticket message denial, duplicate
+  transition convergence after row locking, and administrator reassignment.
 - Focused Support worker/service/PostgreSQL/API tests and API typecheck pass;
   `pnpm check` was intentionally not run under the Task 5 constraint.

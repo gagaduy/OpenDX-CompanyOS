@@ -20,6 +20,6 @@ describe("SupportEscalationWorker", () => {
 
     await worker.tick();
 
-    expect(repository.findEventByKey).toHaveBeenCalledWith(expect.anything(), "sla-escalation:" + ticket.id + ":2026-08-10T02:00:00.000Z");
+    expect(repository.findEventByKey).toHaveBeenCalledWith(expect.anything(), ticket.id, "sla-escalation:" + ticket.id + ":2026-08-10T02:00:00.000Z");
   });
 });

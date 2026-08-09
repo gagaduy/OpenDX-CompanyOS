@@ -42,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Use the effective SLA breach instant in automatic escalation keys, preserve
   escalated status while a support operator claims unassigned work, and require
   Support migrations before API readiness succeeds.
+- Scope Support ticket idempotency keys per ticket, reject closed-ticket
+  messages at service and PostgreSQL boundaries, enforce owned-or-available
+  Support operator access, and route administrator reassignment through the
+  staff ticket PATCH API.
 
 - Make pending-order cancellation converge atomically across Payment, Order,
   Inventory, Promotion, and Checkout while preserving the winning paid result

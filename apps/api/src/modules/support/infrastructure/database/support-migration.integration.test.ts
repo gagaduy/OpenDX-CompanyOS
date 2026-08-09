@@ -48,7 +48,7 @@ suite("Support migration", () => {
     const constraints = (await pool.query<{ constraint_name: string }>("SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = 'public' AND table_name = ANY($1::text[])", [tables])).rows.map(({ constraint_name }) => constraint_name);
     expect(constraints).toEqual(expect.arrayContaining(["support_tickets_priority_check", "support_tickets_status_check", "support_tickets_version_check", "support_tickets_sla_check", "support_ticket_messages_body_check", "support_ticket_events_status_check", "support_attachments_status_check", "support_attachments_bytes_check"]));
     const indexes = (await pool.query<{ indexname: string }>("SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = ANY($1::text[])", [tables])).rows.map(({ indexname }) => indexname);
-    expect(indexes).toEqual(expect.arrayContaining(["support_tickets_queue_idx", "support_tickets_sla_claim_idx", "support_ticket_events_ticket_occurred_at_idx", "support_attachments_scan_claim_idx", "support_attachments_retention_claim_idx", "support_attachments_object_key_key", "support_ticket_events_idempotency_key_key"]));
+    expect(indexes).toEqual(expect.arrayContaining(["support_tickets_queue_idx", "support_tickets_sla_claim_idx", "support_ticket_events_ticket_occurred_at_idx", "support_attachments_scan_claim_idx", "support_attachments_retention_claim_idx", "support_attachments_object_key_key", "support_ticket_events_ticket_idempotency_key_key"]));
     const foreignKeys = await pool.query<{ table_name: string; constraint_name: string }>("SELECT table_name, constraint_name FROM information_schema.table_constraints WHERE table_schema = 'public' AND constraint_type = 'FOREIGN KEY' AND table_name = ANY($1::text[])", [tables]);
     expect(foreignKeys.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ table_name: "support_tickets", constraint_name: "support_tickets_customer_id_fkey" }),
@@ -58,7 +58,7 @@ suite("Support migration", () => {
     ]));
     expect((await pool.query("SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ANY($1::text[]) AND column_name = 'company_id'", [tables])).rowCount).toBe(0);
 
-    await runSupportMigrations(databaseUrl!, "down");
+    await runSupportMigrations(databaseUrl!, "down", 999999);
     expect((await pool.query("SELECT to_regclass('public.support_tickets') AS name")).rows[0]).toEqual({ name: null });
     await runSupportMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.support_tickets') AS name")).rows[0]).toEqual({ name: "support_tickets" });
