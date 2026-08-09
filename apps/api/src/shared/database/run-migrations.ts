@@ -13,6 +13,10 @@ const companyCoreMigrationsDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../modules/company-operating-core/infrastructure/database/migrations",
 );
+const crmMigrationsDirectory = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../modules/crm/infrastructure/database/migrations",
+);
 
 export async function runCatalogMigrations(
   databaseUrl: string,
@@ -46,6 +50,24 @@ export async function runCompanyCoreMigrations(
     count,
     dir: companyCoreMigrationsDirectory,
     migrationsTable: "company_core_migrations",
+    advisoryLockMode: "wait",
+    checkOrder: true,
+    singleTransaction: true,
+    log: () => undefined,
+  });
+}
+
+export async function runCrmMigrations(
+  databaseUrl: string,
+  direction: "up" | "down",
+  count?: number,
+): Promise<void> {
+  await runner({
+    databaseUrl,
+    direction,
+    count,
+    dir: crmMigrationsDirectory,
+    migrationsTable: "crm_migrations",
     advisoryLockMode: "wait",
     checkOrder: true,
     singleTransaction: true,

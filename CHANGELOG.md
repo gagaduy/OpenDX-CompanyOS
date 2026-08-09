@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Add the reversible CRM schema for immutable customer notes, self-claimed
+  follow-ups, and CRM audit events, together with deterministic segmentation
+  and pure follow-up domain rules.
+
 ### Changed
 
 - Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
