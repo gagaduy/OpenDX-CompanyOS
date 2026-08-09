@@ -25,7 +25,11 @@ const ids = {
   customer: "b1400000-0000-4000-8000-000000000001",
   cart: "b1500000-0000-4000-8000-000000000001",
   checkout: "b1600000-0000-4000-8000-000000000001",
+  checkoutTieLow: "b1600000-0000-4000-8000-000000000002",
+  checkoutTieHigh: "b1600000-0000-4000-8000-000000000003",
   order: "b1700000-0000-4000-8000-000000000001",
+  orderTieLow: "b1700000-0000-4000-8000-000000000002",
+  orderTieHigh: "b1700000-0000-4000-8000-000000000003",
   line: "b1800000-0000-4000-8000-000000000001",
 } as const;
 const now = "2026-08-06T08:00:00.000Z";
@@ -80,6 +84,47 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     await runCompanyCoreMigrations(databaseUrl!, "down");
     await runCatalogMigrations(databaseUrl!, "down");
     await pool.end();
+  });
+
+  it("lists customer operations newest first with a deterministic descending ID tie break", async () => {
+    await pool.query(
+      `INSERT INTO checkout_sessions
+       (id,customer_id,source_cart_id,source_cart_version,address_snapshot,contact_snapshot,subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,idempotency_key,request_fingerprint,expires_at,created_at,updated_at)
+       VALUES
+       ($1,$2,$3,2,'{}','{}',100000,0,100000,'VND','included_not_separated','order_created','checkout-tie-low',$4,'2026-08-06T08:15:00.000Z',$5,$5),
+       ($6,$2,$3,3,'{}','{}',100000,0,100000,'VND','included_not_separated','order_created','checkout-tie-high',$4,'2026-08-06T08:15:00.000Z',$5,$5)`,
+      [
+        ids.checkoutTieLow,
+        ids.customer,
+        ids.cart,
+        "b".repeat(64),
+        now,
+        ids.checkoutTieHigh,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO orders
+       (id,public_number,customer_id,checkout_id,address_snapshot,contact_snapshot,subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,reservation_expires_at,version,created_at,updated_at)
+       VALUES
+       ($1,'NVC-20260806-00000001',$2,$3,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T09:00:00.000Z','2026-08-06T09:00:00.000Z'),
+       ($4,'NVC-20260806-00000002',$2,$5,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T10:00:00.000Z','2026-08-06T10:00:00.000Z'),
+       ($6,'NVC-20260806-00000003',$2,$7,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T10:00:00.000Z','2026-08-06T10:00:00.000Z')`,
+      [
+        ids.order,
+        ids.customer,
+        ids.checkout,
+        ids.orderTieLow,
+        ids.checkoutTieLow,
+        ids.orderTieHigh,
+        ids.checkoutTieHigh,
+      ],
+    );
+
+    await expect(operations.listByCustomer(ids.customer, 10)).resolves.toMatchObject([
+      { id: ids.orderTieHigh },
+      { id: ids.orderTieLow },
+      { id: ids.order },
+    ]);
   });
 
   it("persists immutable snapshots, owned reads, and idempotent transitions", async () => {
