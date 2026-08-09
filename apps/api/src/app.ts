@@ -26,6 +26,7 @@ export interface CreateApiAppOptions {
   readonly orderAdminRouter?: Router;
   readonly paymentAdminRouter?: Router;
   readonly crmAdminRouter?: Router;
+  readonly supportAdminRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -83,6 +84,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   if (options.crmAdminRouter !== undefined) {
     app.use("/v1/admin/customers", consoleCors, options.crmAdminRouter);
   }
+  if (options.supportAdminRouter !== undefined) app.use("/v1/admin/support/tickets", consoleCors, options.supportAdminRouter);
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);
   }

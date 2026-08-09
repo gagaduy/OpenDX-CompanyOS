@@ -25,6 +25,7 @@ import { createOrderModule } from "./modules/order";
 import { createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } from "./modules/payment";
 import { createCheckoutModule } from "./modules/checkout";
 import { createCrmModule } from "./modules/crm";
+import { createSupportModule } from "./modules/support";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -147,6 +148,7 @@ const crm = createCrmModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
+const support = createSupportModule({ transactions, customers: customer.operations, orders: order.operations, staffTokenVerifier, generateId: randomUUID, now: () => new Date().toISOString() });
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
@@ -172,6 +174,7 @@ const app = createApiApp({
   orderAdminRouter: order.adminRouter,
   paymentAdminRouter: paymentOperations.adminRouter,
   crmAdminRouter: crm.router,
+  supportAdminRouter: support.router,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
@@ -200,12 +203,14 @@ const server = app.listen(environment.apiPort, () => {
   inventory.expiryWorker.start();
   checkout.expiryWorker.start();
   if (environment.sepay.configured) paymentOperations.reconciliationWorker.start();
+  support.escalationWorker.start();
 });
 
 async function shutdown(): Promise<void> {
   inventory.expiryWorker.stop();
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
+  support.escalationWorker.stop();
   server.close(async () => {
     await pool.end();
   });

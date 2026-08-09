@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add staff Support ticket operations, PostgreSQL concurrency controls, and SLA escalation worker.
+
 ### Added
 
 - Add the reversible Support PostgreSQL schema for staff-created tickets,
