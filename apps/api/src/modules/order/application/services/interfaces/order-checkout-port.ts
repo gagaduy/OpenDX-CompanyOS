@@ -28,5 +28,5 @@ export interface CreatePendingOrderRequest {
 }
 export interface OrderCheckoutPort {
   createPending(session: DatabaseSession, request: CreatePendingOrderRequest): Promise<Order>;
-  transitionInSession(session: DatabaseSession, orderId: string, targetStatus: "paid" | "canceled" | "expired", actorType: OrderActorType, actorId: string, reasonCode: string, idempotencyKey: string, correlationId: string, now: string): Promise<Order>;
+  transitionInSession(session: DatabaseSession, orderId: string, targetStatus: "paid" | "canceled" | "expired", actorType: OrderActorType, actorId: string, reasonCode: string, idempotencyKey: string, correlationId: string, now: string, expectedVersion?: number): Promise<Order>;
 }

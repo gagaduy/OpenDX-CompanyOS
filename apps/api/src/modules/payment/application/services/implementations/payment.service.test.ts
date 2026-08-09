@@ -165,4 +165,29 @@ describe("PaymentService", () => {
       ),
     ).resolves.toBe("paid");
   });
+
+  it("cancels an unpaid payment exactly once", async () => {
+    const current = fixture();
+    await current.service.createPending(session, current.request);
+    await expect(
+      current.service.cancelByOrderInSession(
+        session,
+        "order-1",
+        "ops-1",
+        "corr-cancel",
+        timestamp,
+      ),
+    ).resolves.toBe("canceled");
+    await expect(
+      current.service.cancelByOrderInSession(
+        session,
+        "order-1",
+        "ops-1",
+        "corr-cancel-replay",
+        timestamp,
+      ),
+    ).resolves.toBe("already_canceled");
+    expect(current.repository.updateState).toHaveBeenCalledTimes(1);
+    expect(current.audits).toContain("payment.canceled");
+  });
 });

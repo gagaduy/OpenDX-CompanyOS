@@ -15,4 +15,16 @@ describe("checkout rules", () => {
   it("rejects unsafe monetary multiplication", () => {
     expect(() => calculateSubtotal([{ quantity: 2, unitPriceVnd: Number.MAX_SAFE_INTEGER }])).toThrowError(expect.objectContaining({ code: "MONEY_OVERFLOW" }));
   });
+
+  it("allocates exactly near the safe-integer boundary", () => {
+    const subtotal = Number.MAX_SAFE_INTEGER;
+    const lines = [subtotal - 2, 2];
+    const discount = subtotal - 1;
+    const allocation = allocateOrderDiscount(lines, discount);
+    const first = Number(
+      (BigInt(discount) * BigInt(lines[0]!)) / BigInt(subtotal),
+    );
+    expect(allocation).toEqual([first, discount - first]);
+    expect(allocation[0]! + allocation[1]!).toBe(discount);
+  });
 });

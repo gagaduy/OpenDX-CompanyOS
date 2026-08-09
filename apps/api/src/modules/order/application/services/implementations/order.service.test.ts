@@ -7,6 +7,7 @@ import type { Order } from "../../../domain/entities/order";
 import type { OrderLine } from "../../../domain/entities/order-line";
 import type { OrderStatusHistory } from "../../../domain/entities/order-status-history";
 import type { OrderRepository } from "../../repositories/interfaces/order.repository";
+import type { PendingOrderCancellationPort } from "../interfaces/pending-order-cancellation-port";
 import { OrderService } from "./order.service";
 
 const now = "2026-08-06T08:00:00.000Z";
@@ -20,7 +21,7 @@ const order: Order = {
 };
 const line: OrderLine = { id: "line-1", orderId: order.id, variantId: "variant-1", sku: "NOVA", productTitle: "Phone", variantLabel: "128 GB", quantity: 1, unitPriceVnd: 100_000, discountAllocationVnd: 0, lineTotalVnd: 100_000, linePosition: 0 };
 
-function fixture() {
+function fixture(cancellation?: PendingOrderCancellationPort) {
   let current = order;
   const history: OrderStatusHistory[] = [];
   const repository = {
@@ -38,8 +39,8 @@ function fixture() {
   } as unknown as OrderRepository;
   const transactions: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
   let id = 0;
-  const service = new OrderService(repository, transactions, () => `id-${++id}`, () => now);
-  return { repository, service };
+  const service = new OrderService(repository, transactions, () => `id-${++id}`, () => now, cancellation);
+  return { repository, service, transactions };
 }
 
 describe("OrderService", () => {
@@ -63,5 +64,40 @@ describe("OrderService", () => {
     await expect(service.getForCustomer("other-customer", order.id)).rejects.toMatchObject({ code: "ORDER_NOT_FOUND" });
     await expect(service.getForCustomer("customer-1", order.id)).resolves.not.toHaveProperty("customerId");
     expect(repository.findById).toHaveBeenCalledWith(session, order.id);
+  });
+
+  it("delegates cancellation to the coordinated transaction boundary", async () => {
+    const cancellation = {
+      cancelInSession: vi.fn(async () => "canceled" as const),
+    };
+    const { service } = fixture(cancellation);
+    const context = { actorId: "ops", roles: ["operations_manager"] as const, correlationId: "corr-cancel" };
+
+    await expect(service.transition(order.id, {
+      targetStatus: "canceled", reasonCode: "CUSTOMER_REQUEST",
+      version: 1, idempotencyKey: "cancel-1",
+    }, context)).resolves.toMatchObject({ id: order.id });
+    expect(cancellation.cancelInSession).toHaveBeenCalledWith(session, {
+      orderId: order.id,
+      expectedVersion: 1,
+      actorId: "ops",
+      reasonCode: "CUSTOMER_REQUEST",
+      idempotencyKey: "cancel-1",
+      correlationId: "corr-cancel",
+      now,
+    });
+  });
+
+  it.each([
+    ["already_paid", "ORDER_ALREADY_PAID"],
+    ["not_cancelable", "ORDER_NOT_CANCELABLE"],
+  ] as const)("maps coordinated cancellation result %s to %s", async (result, code) => {
+    const cancellation = { cancelInSession: vi.fn(async () => result) };
+    const { service } = fixture(cancellation);
+
+    await expect(service.transition(order.id, {
+      targetStatus: "canceled", reasonCode: "CUSTOMER_REQUEST",
+      version: 1, idempotencyKey: "cancel-1",
+    }, { actorId: "ops", roles: ["operations_manager"], correlationId: "corr-cancel" })).rejects.toMatchObject({ code });
   });
 });

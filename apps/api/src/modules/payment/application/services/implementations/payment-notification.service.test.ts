@@ -22,7 +22,7 @@ function fixture(notification = paidNotification, providerOrderId?: string) {
   const orders = { createPending:vi.fn(),transitionInSession:vi.fn(async()=>({ id:"order-1",publicNumber:"NVC-1",customerId:"customer-1",checkoutId:"checkout-1",addressSnapshot:{addressId:"a",recipientName:"Buyer",phoneNumber:"0",addressLine:"1",ward:"w",provinceOrCity:"c",version:1},contactSnapshot:{email:"buyer@example.com"},subtotalVnd:100_000,discountVnd:0,totalVnd:100_000,currency:"VND" as const,taxMode:"included_not_separated" as const,status:"paid" as const,reservationExpiresAt:"2026-08-06T08:15:00.000Z",paidAt:now,version:2,createdAt:now,updatedAt:now})) };
   const inventory={reserveInSession:vi.fn(),releaseInSession:vi.fn(),consumeInSession:vi.fn()};
   const promotions={hold:vi.fn(),release:vi.fn(),commit:vi.fn()};
-  const checkouts={completePaid:vi.fn(async()=>({checkoutId:"checkout-1",cartId:"cart-1",customerId:"customer-1"}))};
+  const checkouts={completePaid:vi.fn(async()=>({checkoutId:"checkout-1",cartId:"cart-1",cartVersion:2,customerId:"customer-1"}))};
   const carts={finalizePaidCheckout:vi.fn()};
   const transactions:TransactionRunner={run:(work)=>work(session),runReadOnly:(work)=>work(session)};
   const service=new PaymentNotificationService(repository,gateway,orders,inventory,promotions,checkouts,carts,transactions,()=>"event-id",()=>now);

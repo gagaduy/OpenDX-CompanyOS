@@ -68,7 +68,7 @@ export class CheckoutService implements CheckoutServiceContract, CheckoutPaidPor
   async completePaid(session: Parameters<CheckoutPaidPort["completePaid"]>[0], checkoutId: string, orderId: string, now: string): Promise<CompletedCheckoutReference> {
     const checkout = await this.repository.completePaid(session, checkoutId, orderId, now);
     if (checkout === undefined) throw new CheckoutApplicationError("CHECKOUT_NOT_FOUND", "Pending checkout not found");
-    return { checkoutId, cartId: checkout.sourceCartId, customerId: checkout.customerId };
+    return { checkoutId, cartId: checkout.sourceCartId, cartVersion: checkout.sourceCartVersion, customerId: checkout.customerId };
   }
 
   private async createInSession(session: Parameters<CheckoutRepository["create"]>[0], request: CreateCheckoutRequest, context: CheckoutCustomerContext): Promise<CreatedCheckout> {
@@ -86,6 +86,18 @@ export class CheckoutService implements CheckoutServiceContract, CheckoutPaidPor
         ...(request.paymentMethod === undefined ? {} : { paymentMethod: request.paymentMethod }),
       });
       return { aggregate: existing, payment };
+    }
+    const existingSnapshot = await this.repository.findByCartSnapshot(
+      session,
+      cart.cartId,
+      cart.cartVersion,
+      true,
+    );
+    if (existingSnapshot !== undefined) {
+      throw new CheckoutApplicationError(
+        "CART_ALREADY_CHECKED_OUT",
+        "This cart version already belongs to another checkout",
+      );
     }
     const [customer, variants] = await Promise.all([
       this.customers.readOwnedAddress(session, context.customerId, request.addressId),

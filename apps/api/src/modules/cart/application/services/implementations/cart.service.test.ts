@@ -116,6 +116,34 @@ describe("CartService", () => {
       items: [{ variantId: variant.variantId, quantity: 2, lastValidatedUnitPriceVnd: 25_000_000 }],
     });
   });
+
+  it("does not finalize a cart changed after checkout", async () => {
+    const fixture = createFixture();
+    const customerOwner = {
+      kind: "customer" as const,
+      customerId: "customer-1",
+      expiresAt: owner.expiresAt,
+    };
+    await fixture.service.addItem(customerOwner, variant.variantId, 1);
+    const checkedOutVersion = fixture.repository.cart!.version;
+    await fixture.service.addItem(customerOwner, variant.variantId, 1);
+
+    await fixture.service.finalizePaidCheckout(
+      {} as DatabaseSession,
+      fixture.repository.cart!.id,
+      checkedOutVersion,
+      "customer-1",
+      "2026-08-05T00:05:00.000Z",
+    );
+
+    expect(fixture.repository.cart).toMatchObject({
+      status: "active",
+      version: checkedOutVersion + 1,
+    });
+    await expect(fixture.service.get(customerOwner)).resolves.toMatchObject({
+      itemCount: 2,
+    });
+  });
 });
 
 function createFixture() {

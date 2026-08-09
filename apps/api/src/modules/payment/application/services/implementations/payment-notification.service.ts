@@ -204,6 +204,7 @@ export class PaymentNotificationService
     await this.carts.finalizePaidCheckout(
       session,
       checkout.cartId,
+      checkout.cartVersion,
       checkout.customerId,
       processedAt,
     );

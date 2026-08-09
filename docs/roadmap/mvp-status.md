@@ -164,7 +164,15 @@ Active commerce master plan:
   restores one paid order from a custom archive, and fully rolls migrations down
   and up on disposable databases. It also found and fixed Customer rollback of
   audit rows that the older actor constraint cannot represent. Real sandbox
-  evidence and independent review remain intentionally open.
+  evidence remains intentionally open.
+- Phase 6 independent review reported no Critical findings and six Important
+  findings. Regression fixes now coordinate cancellation across all checkout
+  resources, enforce one checkout per cart snapshot, preserve post-checkout cart
+  mutations, validate SePay transaction money evidence, persist truthful
+  reconciliation outcomes, and use overflow-safe VND arithmetic. Repeated
+  disposable-database acceptance also verified a consistent financial lock
+  order without deadlock. Two Minor provider-event persistence refinements are
+  deferred to Phase 8 and documented in the focused Phase 6 plan.
 
 ## Open Risks
 
@@ -173,6 +181,9 @@ Active commerce master plan:
   session behavior remains deterministically tested at the real application port.
 - SePay production requires a hosted public HTTPS endpoint and production
   merchant credentials; local development uses sandbox.
+- Phase 6 source and deterministic acceptance is complete, but formal phase
+  closure still requires contributor-owned SePay sandbox credentials and a
+  public HTTPS callback for redacted real-provider evidence.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
 - Workflow, agent runtime, and GraphRAG are deferred until commerce Phase 8 is

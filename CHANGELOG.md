@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Make pending-order cancellation converge atomically across Payment, Order,
+  Inventory, Promotion, and Checkout while preserving the winning paid result
+  under concurrent authenticated SePay IPN processing.
+- Permit only one checkout per immutable cart snapshot, keep a cart active when
+  it changes after checkout, and prevent a later payment from finalizing that
+  newer cart version.
+- Require SePay transaction amount and VND currency to match provider order
+  evidence before IPN or reconciliation can confirm payment, and persist a
+  mismatch when the trusted paid transition rejects the provider result.
+- Use bigint intermediate arithmetic for percentage discounts and proportional
+  order-line allocation so valid VND values near JavaScript's safe-integer
+  boundary cannot overflow during calculation.
+- Use a consistent Payment-before-Attempt lock order for reconciliation,
+  notification, expiry, and cancellation paths to prevent financial-state
+  deadlocks under concurrent workers.
 - Remove Customer audit actors while rolling back the Customer schema so the
   older Company Core actor constraint can be restored on databases containing
   real checkout and paid-order history.

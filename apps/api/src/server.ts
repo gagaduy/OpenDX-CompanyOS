@@ -137,6 +137,7 @@ const checkout = createCheckoutModule({
   expiryIntervalMs: environment.checkoutExpiryIntervalSeconds * 1_000,
   onWorkerError: (error) => console.error("Checkout expiry worker failed", error),
 });
+order.connectCancellation(checkout.cancellation);
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,

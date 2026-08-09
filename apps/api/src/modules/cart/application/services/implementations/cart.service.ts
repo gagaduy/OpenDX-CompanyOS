@@ -159,10 +159,11 @@ export class CartService
     };
   }
 
-  async finalizePaidCheckout(session: DatabaseSession, cartId: string, customerId: string, now: string): Promise<void> {
+  async finalizePaidCheckout(session: DatabaseSession, cartId: string, cartVersion: number, customerId: string, now: string): Promise<void> {
     const cart = await this.repository.findByIdForUpdate(session, cartId);
     if (cart === undefined || cart.customerId !== customerId) throw new CartApplicationError("CART_NOT_FOUND", "Customer cart not found");
     if (cart.status === "checkout_ready") return;
+    if (cart.status !== "active" || cart.version !== cartVersion) return;
     const updated = transitionCart(cart, "checkout_ready", now);
     if (!(await this.repository.updateCartVersion(session, updated, cart.version))) throw new CartApplicationError("CART_CONFLICT", "Cart version is stale");
   }

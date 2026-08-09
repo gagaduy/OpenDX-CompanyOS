@@ -70,7 +70,7 @@ suite("atomic checkout PostgreSQL orchestration", () => {
   });
   afterAll(async () => {
     await pool.query("TRUNCATE payments,orders,checkout_sessions,carts,customers,promotions,inventory_items,categories,audit_events CASCADE");
-    await runPaymentMigrations(databaseUrl!,"down"); await runOrderMigrations(databaseUrl!,"down"); await runCheckoutMigrations(databaseUrl!,"down"); await runPromotionMigrations(databaseUrl!,"down"); await runCartMigrations(databaseUrl!,"down"); await runCustomerMigrations(databaseUrl!,"down"); await runInventoryMigrations(databaseUrl!,"down"); await runCompanyCoreMigrations(databaseUrl!,"down"); await runCatalogMigrations(databaseUrl!,"down"); await pool.end();
+    await runPaymentMigrations(databaseUrl!,"down"); await runOrderMigrations(databaseUrl!,"down"); await runCheckoutMigrations(databaseUrl!,"down",999999); await runPromotionMigrations(databaseUrl!,"down"); await runCartMigrations(databaseUrl!,"down"); await runCustomerMigrations(databaseUrl!,"down"); await runInventoryMigrations(databaseUrl!,"down"); await runCompanyCoreMigrations(databaseUrl!,"down"); await runCatalogMigrations(databaseUrl!,"down"); await pool.end();
   });
 
   it("lets one scarce-stock checkout commit and rolls the loser back without orphans", async () => {

@@ -207,6 +207,7 @@ describeWithDatabase("Phase 6 checkout-to-paid exit acceptance", () => {
     expiryIntervalMs: 30_000,
     onWorkerError: () => undefined,
   });
+  order.connectCancellation(checkout.cancellation);
   const notifications = new PaymentNotificationService(
     paymentRepository,
     gateway,
@@ -258,7 +259,7 @@ describeWithDatabase("Phase 6 checkout-to-paid exit acceptance", () => {
     await pool.query("TRUNCATE audit_events CASCADE");
     await runPaymentMigrations(databaseUrl!, "down");
     await runOrderMigrations(databaseUrl!, "down");
-    await runCheckoutMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down", 999999);
     await runPromotionMigrations(databaseUrl!, "down");
     await runCartMigrations(databaseUrl!, "down");
     await runCustomerMigrations(databaseUrl!, "down");
@@ -448,6 +449,104 @@ describeWithDatabase("Phase 6 checkout-to-paid exit acceptance", () => {
       state?.order_status === "paid"
         ? { on_hand: 9, reserved: 0 }
         : { on_hand: 10, reserved: 0 },
+    );
+  });
+
+  it("creates one order per cart snapshot and preserves a cart changed before payment", async () => {
+    await seedCustomers(pool, 1);
+    const attempts = await Promise.allSettled([
+      createCheckout(1),
+      checkout.service.create(
+        {
+          addressId: customerAddressId(1),
+          promotionCode: "NOVA10",
+          idempotencyKey: "different-key-same-cart",
+        },
+        {
+          customerId: customerId(1),
+          customerExpiresAt: "2026-09-09T08:00:00.000Z",
+          correlationId: "different-key-same-cart",
+        },
+      ),
+    ]);
+    expect(attempts.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    expect(attempts.filter(({ status }) => status === "rejected")).toHaveLength(1);
+    await expectScalar("SELECT count(*) FROM orders", 1);
+    const created = attempts.find(
+      (attempt): attempt is PromiseFulfilledResult<Awaited<ReturnType<typeof createCheckout>>> =>
+        attempt.status === "fulfilled",
+    )!.value;
+    const target = await paymentForOrder(created.orderId);
+    await pool.query(
+      "UPDATE carts SET version=version+1,updated_at=$2 WHERE id=$1",
+      [fixtureId("c3", 1), "2026-08-09T08:01:00.000Z"],
+    );
+    await expect(
+      notifications.process(
+        notificationFor(target, "changed-cart-paid"),
+        "changed-cart-paid",
+      ),
+    ).resolves.toEqual({ result: "applied" });
+    await expectRow(
+      "SELECT status,version FROM carts WHERE id=$1",
+      [fixtureId("c3", 1)],
+      { status: "active", version: 2 },
+    );
+  });
+
+  it("converges pending-order cancellation against a paid IPN", async () => {
+    await seedCustomers(pool, 1);
+    const created = await createCheckout(1);
+    const target = await paymentForOrder(created.orderId);
+    const race = await Promise.allSettled([
+      transactions.run((session) => checkout.cancellation.cancelInSession(session, {
+        orderId: created.orderId,
+        expectedVersion: 1,
+        actorId: "acceptance-ops",
+        reasonCode: "CUSTOMER_REQUEST",
+        idempotencyKey: "acceptance-cancel",
+        correlationId: "acceptance-cancel",
+        now: startTime,
+      })),
+      notifications.process(
+        notificationFor(target, "cancel-race-paid"),
+        "cancel-race-paid",
+      ),
+    ]);
+    expect(race.every(({ status }) => status === "fulfilled")).toBe(true);
+    const state = await pool.query<{
+      order_status: string;
+      payment_status: string;
+      checkout_status: string;
+      reservation_status: string;
+      promotion_status: string;
+    }>(
+      `SELECT o.status AS order_status,p.status AS payment_status,
+              c.status AS checkout_status,r.status AS reservation_status,
+              pr.state AS promotion_status
+       FROM orders o
+       JOIN payments p ON p.order_id=o.id
+       JOIN checkout_sessions c ON c.id=o.checkout_id
+       JOIN inventory_reservations r ON r.reference_type='order' AND r.reference_id=o.id::text
+       JOIN promotion_redemptions pr ON pr.checkout_id=c.id
+       WHERE o.id=$1`,
+      [created.orderId],
+    );
+    expect([
+      {
+        order_status: "paid", payment_status: "paid",
+        checkout_status: "completed", reservation_status: "consumed",
+        promotion_status: "committed",
+      },
+      {
+        order_status: "canceled", payment_status: "canceled",
+        checkout_status: "canceled", reservation_status: "released",
+        promotion_status: "released",
+      },
+    ]).toContainEqual(state.rows[0]);
+    await expectScalar(
+      "SELECT count(*) FROM stock_movements WHERE movement_type IN ('consume','release')",
+      1,
     );
   });
 

@@ -29,7 +29,7 @@ suite("Phase 6 commerce migrations", () => {
   afterAll(async () => {
     await runPaymentMigrations(databaseUrl!, "down").catch(() => undefined);
     await runOrderMigrations(databaseUrl!, "down").catch(() => undefined);
-    await runCheckoutMigrations(databaseUrl!, "down").catch(() => undefined);
+    await runCheckoutMigrations(databaseUrl!, "down", 999999).catch(() => undefined);
     await runPromotionMigrations(databaseUrl!, "down").catch(() => undefined);
     await runCartMigrations(databaseUrl!, "down");
     await runCustomerMigrations(databaseUrl!, "down");
@@ -78,6 +78,7 @@ suite("Phase 6 commerce migrations", () => {
       "promotions_code_unique",
       "promotion_redemptions_checkout_unique",
       "checkout_sessions_customer_key_unique",
+      "checkout_sessions_source_cart_version_unique",
       "orders_public_number_unique",
       "order_status_history_idempotency_unique",
       "payment_attempts_invoice_unique",
@@ -90,7 +91,7 @@ suite("Phase 6 commerce migrations", () => {
 
     await runPaymentMigrations(databaseUrl!, "down");
     await runOrderMigrations(databaseUrl!, "down");
-    await runCheckoutMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down", 999999);
     await runPromotionMigrations(databaseUrl!, "down");
     expect((await pool.query("SELECT to_regclass('public.payments') AS name")).rows[0]).toEqual({ name: null });
     expect((await pool.query("SELECT to_regclass('public.promotions') AS name")).rows[0]).toEqual({ name: null });

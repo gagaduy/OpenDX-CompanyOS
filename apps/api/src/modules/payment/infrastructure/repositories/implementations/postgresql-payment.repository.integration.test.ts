@@ -87,7 +87,7 @@ describeWithDatabase("PostgresqlPaymentRepository", () => {
     await pool.query("TRUNCATE payments, orders, checkout_sessions, carts, customers, promotions, categories, audit_events CASCADE");
     await runPaymentMigrations(databaseUrl!, "down");
     await runOrderMigrations(databaseUrl!, "down");
-    await runCheckoutMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down", 999999);
     await runPromotionMigrations(databaseUrl!, "down");
     await runCartMigrations(databaseUrl!, "down");
     await runCustomerMigrations(databaseUrl!, "down");

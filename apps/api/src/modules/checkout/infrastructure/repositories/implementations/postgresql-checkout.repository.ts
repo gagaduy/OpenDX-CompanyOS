@@ -18,6 +18,7 @@ export class PostgresqlCheckoutRepository implements CheckoutRepository {
     );
   }
   findByCustomerAndKey(session: DatabaseSession, customerId: string, key: string, lock = false): Promise<CheckoutAggregate | undefined> { return this.find(session, "customer_id=$1 AND idempotency_key=$2", [customerId, key], lock); }
+  findByCartSnapshot(session: DatabaseSession, sourceCartId: string, sourceCartVersion: number, lock = false): Promise<CheckoutAggregate | undefined> { return this.find(session, "source_cart_id=$1 AND source_cart_version=$2", [sourceCartId, sourceCartVersion], lock); }
   findOwnedById(session: DatabaseSession, customerId: string, checkoutId: string): Promise<CheckoutAggregate | undefined> { return this.find(session, "customer_id=$1 AND id=$2", [customerId, checkoutId], false); }
   async applyPromotion(session: DatabaseSession, checkout: CheckoutSession): Promise<void> {
     await session.query("UPDATE checkout_sessions SET promotion_id=$2,promotion_code=$3,promotion_version=$4,discount_vnd=$5,total_vnd=$6,updated_at=$7 WHERE id=$1 AND status='created'", [checkout.id, checkout.promotionId ?? null, checkout.promotionCode ?? null, checkout.promotionVersion ?? null, checkout.discountVnd, checkout.totalVnd, checkout.updatedAt]);
@@ -50,6 +51,18 @@ export class PostgresqlCheckoutRepository implements CheckoutRepository {
       [checkoutId, now],
     );
     return result.rowCount === 1;
+  }
+  async markCanceled(session: DatabaseSession, checkoutId: string, orderId: string, now: string): Promise<boolean> {
+    const result = await session.query(
+      "UPDATE checkout_sessions SET status='canceled',updated_at=$3 WHERE id=$1 AND order_id=$2 AND status='order_created'",
+      [checkoutId, orderId, now],
+    );
+    if (result.rowCount === 1) return true;
+    const current = await session.query<{ status: string }>(
+      "SELECT status FROM checkout_sessions WHERE id=$1 AND order_id=$2",
+      [checkoutId, orderId],
+    );
+    return current.rows[0]?.status === "canceled";
   }
   async appendAudit(session: DatabaseSession, entry: Parameters<CheckoutRepository["appendAudit"]>[1]): Promise<void> {
     const actorType = entry.actorId.startsWith("system:")

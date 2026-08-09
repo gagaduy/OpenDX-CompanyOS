@@ -18,10 +18,15 @@ export function calculateSubtotal(lines: readonly Pick<CheckoutLine, "quantity" 
 
 export function allocateOrderDiscount(lineSubtotals: readonly number[], discountVnd: number): readonly number[] {
   const subtotal = lineSubtotals.reduce((sum, value) => sum + value, 0);
+  if (!Number.isSafeInteger(subtotal) || lineSubtotals.some((value) => !Number.isSafeInteger(value) || value < 0)) invalid("Checkout subtotal is invalid");
   if (!Number.isSafeInteger(discountVnd) || discountVnd < 0 || discountVnd > subtotal || subtotal <= 0) invalid("Checkout discount is invalid");
   let allocated = 0;
   return lineSubtotals.map((lineSubtotal, index) => {
-    const amount = index === lineSubtotals.length - 1 ? discountVnd - allocated : Math.floor((discountVnd * lineSubtotal) / subtotal);
+    const amount = index === lineSubtotals.length - 1
+      ? discountVnd - allocated
+      : Number(
+          (BigInt(discountVnd) * BigInt(lineSubtotal)) / BigInt(subtotal),
+        );
     allocated += amount;
     return amount;
   });

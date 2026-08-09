@@ -143,8 +143,11 @@ async function main() {
           fullRollbackReapply: true,
           covered: [
             "checkout-to-order atomicity",
+            "one checkout per cart snapshot",
+            "changed cart preservation after payment",
             "IPN replay",
             "IPN-reconciliation-expiry race",
+            "cancellation-IPN convergence",
             "amount mismatch",
             "customer ownership",
             "webhook authentication and malformed payload",

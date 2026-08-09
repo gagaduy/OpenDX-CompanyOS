@@ -59,7 +59,10 @@ export function evaluatePromotion(
   }
 
   const calculated = promotion.type === "percentage"
-    ? Math.floor(input.subtotalVnd * promotion.percentageBps / 10_000)
+    ? Number(
+        (BigInt(input.subtotalVnd) * BigInt(promotion.percentageBps)) /
+          10_000n,
+      )
     : promotion.fixedAmountVnd;
   const capped = promotion.maximumDiscountVnd === undefined
     ? calculated

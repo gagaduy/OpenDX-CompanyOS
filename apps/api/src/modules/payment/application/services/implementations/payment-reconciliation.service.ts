@@ -148,37 +148,18 @@ export class PaymentReconciliationService
       return;
     }
 
-    const comparison = compare(aggregate, provider, providerOrderId);
+    const initialComparison = compare(aggregate, provider, providerOrderId);
     await this.transactions.run(async (session) => {
-      const record = buildReconciliation(
-        this.generateId(),
-        aggregate,
-        actor,
-        comparison,
-        provider,
-        providerOrderId,
-        this.now(),
-      );
-      await this.repository.insertReconciliation(session, record);
-      if (comparison !== "mismatch") {
-        if (
-          !(await this.repository.attachProviderOrderId(
-            session,
-            aggregate.activeAttempt.id,
-            providerOrderId,
-          ))
-        ) {
-          throw new Error("Payment attempt provider ownership changed");
-        }
-      }
-      if (comparison === "matched_paid") {
-        await this.paidTransition.applyTrustedInSession(
+      const reconciliationId = this.generateId();
+      let finalComparison = initialComparison;
+      if (initialComparison === "matched_paid") {
+        const transition = await this.paidTransition.applyTrustedInSession(
           session,
           {
             notificationType: "RECONCILIATION",
-            providerEventId: record.id,
+            providerEventId: reconciliationId,
             providerOrderId: provider.providerOrderId,
-            providerTransactionId: `reconciliation:${record.id}`,
+            providerTransactionId: `reconciliation:${reconciliationId}`,
             invoiceNumber: provider.invoiceNumber,
             orderStatus: provider.status,
             transactionStatus: provider.transactionApproved
@@ -191,8 +172,38 @@ export class PaymentReconciliationService
           },
           actor.correlationId,
         );
+        if (transition.result === "review_required") {
+          finalComparison = "mismatch";
+        }
       }
-      await this.appendAudit(session, aggregate.payment.id, actor, comparison, record.createdAt);
+      if (initialComparison !== "mismatch") {
+        if (
+          !(await this.repository.attachProviderOrderId(
+            session,
+            aggregate.activeAttempt.id,
+            providerOrderId,
+          ))
+        ) {
+          throw new Error("Payment attempt provider ownership changed");
+        }
+      }
+      const record = buildReconciliation(
+        reconciliationId,
+        aggregate,
+        actor,
+        finalComparison,
+        provider,
+        providerOrderId,
+        this.now(),
+      );
+      await this.repository.insertReconciliation(session, record);
+      await this.appendAudit(
+        session,
+        aggregate.payment.id,
+        actor,
+        finalComparison,
+        record.createdAt,
+      );
     });
   }
 

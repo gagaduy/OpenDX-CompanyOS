@@ -11,6 +11,7 @@ import type { OrderAggregate, OrderRepository } from "../../repositories/interfa
 import { OrderApplicationError } from "../order-application.error";
 import type { CreatePendingOrderRequest, OrderCheckoutPort } from "../interfaces/order-checkout-port";
 import type { OrderServiceContract } from "../interfaces/order.service";
+import type { PendingOrderCancellationPort } from "../interfaces/pending-order-cancellation-port";
 
 export class OrderService implements OrderServiceContract, OrderCheckoutPort {
   constructor(
@@ -18,6 +19,7 @@ export class OrderService implements OrderServiceContract, OrderCheckoutPort {
     private readonly transactions: TransactionRunner,
     private readonly generateId: () => string,
     private readonly now: () => string,
+    private readonly cancellation?: PendingOrderCancellationPort,
   ) {}
 
   async listForCustomer(customerId: string, query: OrderListQuery): Promise<OrderListResult<OrderSummaryDto>> {
@@ -48,6 +50,32 @@ export class OrderService implements OrderServiceContract, OrderCheckoutPort {
 
   async transition(orderId: string, request: TransitionOrderRequest, context: StaffOrderContext): Promise<AdminOrderDetailDto> {
     requireOperations(context);
+    if (request.targetStatus === "canceled") {
+      if (this.cancellation === undefined) {
+        throw new Error("Order cancellation is not configured");
+      }
+      const aggregate = await this.transactions.run(async (session) => {
+        const result = await this.cancellation!.cancelInSession(session, {
+          orderId,
+          expectedVersion: request.version,
+          actorId: context.actorId,
+          reasonCode: request.reasonCode,
+          idempotencyKey: request.idempotencyKey,
+          correlationId: context.correlationId,
+          now: this.now(),
+        });
+        if (result === "already_paid") {
+          throw new OrderApplicationError("ORDER_ALREADY_PAID", "A paid order cannot be canceled");
+        }
+        if (result === "not_cancelable") {
+          throw new OrderApplicationError("ORDER_NOT_CANCELABLE", "Order is not cancelable");
+        }
+        const current = await this.repository.findById(session, orderId);
+        if (current === undefined) notFound();
+        return current;
+      });
+      return toAdminOrderDetail(aggregate);
+    }
     const aggregate = await this.transactions.run((session) => this.applyTransition(
       session, orderId, request.targetStatus, "staff", context.actorId,
       request.reasonCode, request.idempotencyKey, context.correlationId,
@@ -107,8 +135,9 @@ export class OrderService implements OrderServiceContract, OrderCheckoutPort {
     idempotencyKey: string,
     correlationId: string,
     now: string,
+    expectedVersion?: number,
   ): Promise<Order> {
-    return (await this.applyTransition(session, orderId, targetStatus, actorType, actorId, reasonCode, idempotencyKey, correlationId, now)).order;
+    return (await this.applyTransition(session, orderId, targetStatus, actorType, actorId, reasonCode, idempotencyKey, correlationId, now, expectedVersion)).order;
   }
 
   private async applyTransition(

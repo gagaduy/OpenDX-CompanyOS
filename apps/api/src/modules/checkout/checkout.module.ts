@@ -17,6 +17,7 @@ import { checkoutErrorMiddleware } from "./presentation/middleware/checkout-erro
 import { createCheckoutRouter } from "./presentation/routes/checkout.routes";
 import { CheckoutExpiryService } from "./application/services/implementations/checkout-expiry.service";
 import { CheckoutExpiryWorker } from "./infrastructure/workers/checkout-expiry.worker";
+import { CheckoutCancellationService } from "./application/services/implementations/checkout-cancellation.service";
 
 export interface CheckoutModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -62,6 +63,14 @@ export function createCheckoutModule(dependencies: CheckoutModuleDependencies) {
     dependencies.generateId,
     dependencies.now,
   );
+  const cancellation = new CheckoutCancellationService(
+    repository,
+    dependencies.payments,
+    dependencies.orders,
+    dependencies.inventory,
+    dependencies.promotions,
+    dependencies.generateId,
+  );
   const mutationLimit = rateLimit({
     windowMs: 60_000,
     limit: 20,
@@ -80,6 +89,7 @@ export function createCheckoutModule(dependencies: CheckoutModuleDependencies) {
     router,
     service,
     paid: service,
+    cancellation,
     expiryService,
     expiryWorker: new CheckoutExpiryWorker(
       expiryService,

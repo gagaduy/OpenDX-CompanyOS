@@ -19,12 +19,16 @@ const dueCheckout = {
 
 function fixture(paymentResult: "expired" | "paid" = "expired") {
   const repository: CheckoutRepository = {
-    create: vi.fn(), findByCustomerAndKey: vi.fn(), findOwnedById: vi.fn(),
+    create: vi.fn(), findByCustomerAndKey: vi.fn(), findByCartSnapshot: vi.fn(), findOwnedById: vi.fn(),
     applyPromotion: vi.fn(), attachOrder: vi.fn(), completePaid: vi.fn(),
     listDue: vi.fn(async () => [dueCheckout]), markExpired: vi.fn(async () => true),
+    markCanceled: vi.fn(async () => true),
     appendAudit: vi.fn(),
   };
-  const payments = { expireByOrderInSession: vi.fn(async () => paymentResult) };
+  const payments = {
+    expireByOrderInSession: vi.fn(async () => paymentResult),
+    cancelByOrderInSession: vi.fn(),
+  };
   const orders = { createPending: vi.fn(), transitionInSession: vi.fn() };
   const inventory = { reserveInSession: vi.fn(), releaseInSession: vi.fn(), consumeInSession: vi.fn() };
   const promotions = { hold: vi.fn(), commit: vi.fn(), release: vi.fn() };

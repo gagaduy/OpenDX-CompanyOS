@@ -22,12 +22,14 @@ function fixture() {
   const repository: CheckoutRepository = {
     create: vi.fn(async (_session, checkout, lines) => { stored = { checkout, lines }; }),
     findByCustomerAndKey: vi.fn(async () => stored),
+    findByCartSnapshot: vi.fn(async () => stored),
     findOwnedById: vi.fn(async () => stored),
     applyPromotion: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
     attachOrder: vi.fn(async (_session, checkout) => { stored = { checkout, lines: stored!.lines }; }),
     completePaid: vi.fn(async () => stored?.checkout),
     listDue: vi.fn(async () => []),
     markExpired: vi.fn(async () => true),
+    markCanceled: vi.fn(async () => true),
     appendAudit: vi.fn(),
   };
   const carts: CheckoutReadyCartReader = {
@@ -80,5 +82,14 @@ describe("CheckoutService", () => {
     await expect(service.create(request, context)).rejects.toMatchObject({ code: "PAYMENT_PROVIDER_NOT_CONFIGURED" });
     expect(repository.attachOrder).toHaveBeenCalledOnce();
     await expect(service.get("id-1", context)).resolves.toMatchObject({ status: "order_created", orderId: "order-1" });
+  });
+
+  it("rejects a second checkout key for the same cart snapshot", async () => {
+    const { repository, request, service, context } = fixture();
+    await service.create(request, context);
+    vi.mocked(repository.findByCustomerAndKey).mockResolvedValueOnce(undefined);
+    await expect(
+      service.create({ ...request, idempotencyKey: "another-key" }, context),
+    ).rejects.toMatchObject({ code: "CART_ALREADY_CHECKED_OUT" });
   });
 });

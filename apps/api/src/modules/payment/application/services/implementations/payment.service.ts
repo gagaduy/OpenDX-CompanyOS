@@ -153,6 +153,37 @@ export class PaymentService implements PaymentServiceContract, PaymentExpiryPort
     });
     return "expired";
   }
+
+  async cancelByOrderInSession(
+    session: DatabaseSession,
+    orderId: string,
+    actorId: string,
+    correlationId: string,
+    now: string,
+  ): Promise<"canceled" | "already_canceled" | "paid" | "already_terminal"> {
+    const aggregate = await this.repository.findByOrderId(session, orderId, true);
+    if (aggregate === undefined) {
+      throw new PaymentApplicationError("PAYMENT_NOT_FOUND", "Payment not found");
+    }
+    if (aggregate.payment.status === "paid") return "paid";
+    if (aggregate.payment.status === "canceled") return "already_canceled";
+    if (
+      aggregate.payment.status !== "created" &&
+      aggregate.payment.status !== "pending_provider"
+    ) return "already_terminal";
+
+    const payment = transitionPayment(aggregate.payment, "canceled", now);
+    const attempt = transitionPaymentAttempt(aggregate.activeAttempt, "canceled", now);
+    if (!(await this.repository.updateState(session, payment, attempt, aggregate.payment.version))) {
+      throw new PaymentApplicationError("STALE_VERSION", "Payment version is stale");
+    }
+    await this.repository.appendAudit(session, {
+      id: this.generateId(), actorType: "staff", actorId,
+      action: "payment.canceled", resourceId: payment.id, correlationId,
+      metadata: { orderId }, occurredAt: now,
+    });
+    return "canceled";
+  }
 }
 
 function assertReplay(aggregate: PaymentAggregate, request: CreatePendingPaymentRequest): void {

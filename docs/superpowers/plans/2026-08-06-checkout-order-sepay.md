@@ -569,12 +569,30 @@ POST  /v1/admin/payments/:paymentId/reconciliations
   migration rollback/reapply on a disposable database.
 - [x] Run `git diff --check`, `pnpm audit:repo`, secret scan, and dependency/
   license review.
-- [ ] Request independent review focused on financial correctness, idempotency,
+- [x] Request independent review focused on financial correctness, idempotency,
   concurrency, authorization, secret handling, and unsupported-scope leakage.
-- [ ] Fix Critical/Important findings with regression tests and rerun all gates.
+- [x] Fix Critical/Important findings with regression tests and rerun all gates.
 - [ ] Mark Phase 6 complete only after real sandbox evidence and review are
   recorded; otherwise retain an explicit external-acceptance status.
 - [x] Commit as `test(commerce): validate checkout to paid order`.
+
+**Independent-review disposition (2026-08-09):** No Critical finding was
+reported. All six Important findings were fixed with regression coverage:
+coordinated cancellation, one checkout per cart snapshot, changed-cart
+preservation, SePay transaction amount/currency validation, truthful
+reconciliation results, and safe-integer financial arithmetic. Repeated
+disposable-database acceptance passed after standardizing Payment-before-
+Attempt lock order. Two non-blocking Minor persistence improvements remain for
+Phase 8: durable storage of authenticated but structurally malformed IPNs and
+explicit classification of payload-hash versus provider-transaction unique
+conflicts. Customer rollback's deliberate removal of customer audit actors is
+already documented as destructive rollback behavior.
+
+**External acceptance status:** Source, deterministic integration, browser,
+backup/restore, migration, review, and repository gates are complete. The real
+SePay sandbox checkout/IPN/reconciliation item remains open until contributor-
+owned sandbox credentials and a public HTTPS callback are configured; Phase 6
+must not be marked complete before that evidence is recorded.
 
 ## Exit Gate
 

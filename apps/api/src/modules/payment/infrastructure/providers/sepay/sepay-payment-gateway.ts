@@ -24,8 +24,8 @@ const detailSchema = z.object({ data: z.object({
   order_currency: z.literal("VND"),
   transactions: z.array(z.object({
     transaction_status: z.string(),
-    transaction_amount: z.string().optional(),
-    transaction_currency: z.string().optional(),
+    transaction_amount: z.string().regex(/^\d+(?:\.0+)?$/),
+    transaction_currency: z.literal("VND"),
     card_number: z.string().optional(),
     card_holder_name: z.string().optional(),
     card_expiry: z.string().optional(),
@@ -41,7 +41,8 @@ const notificationSchema = z.object({
   }).passthrough(),
   transaction: z.object({
     id: z.string().min(1), transaction_id: z.string().min(1), transaction_status: z.string().min(1),
-    transaction_amount: z.string().optional(), transaction_currency: z.string().optional(),
+    transaction_amount: z.string().regex(/^\d+(?:\.0+)?$/),
+    transaction_currency: z.literal("VND"),
   }).passthrough(),
   customer: z.unknown().optional(),
 }).passthrough();
@@ -80,9 +81,12 @@ export class SePayPaymentGateway implements PaymentGateway {
     if (!response.ok) throw new PaymentGatewayError("provider_error", "SePay returned an unsuccessful response");
     try {
       const parsed = detailSchema.parse(await response.json()).data;
-      const amountVnd = Number(parsed.order_amount);
-      if (!Number.isSafeInteger(amountVnd)) throw new Error("unsafe amount");
-      const approved = parsed.transactions.some(({ transaction_status }) => transaction_status === "APPROVED");
+      const amountVnd = parseVndAmount(parsed.order_amount);
+      const approved = parsed.transactions.some((transaction) =>
+        transaction.transaction_status === "APPROVED" &&
+        parseVndAmount(transaction.transaction_amount) === amountVnd &&
+        transaction.transaction_currency === parsed.order_currency
+      );
       return {
         providerOrderId: parsed.order_id,
         invoiceNumber: parsed.order_invoice_number,
@@ -97,6 +101,7 @@ export class SePayPaymentGateway implements PaymentGateway {
           order_amount: parsed.order_amount,
           order_currency: parsed.order_currency,
           transaction_statuses: parsed.transactions.map(({ transaction_status }) => transaction_status),
+          matching_approved_transaction: approved,
         },
       };
     } catch (error) {
@@ -108,11 +113,15 @@ export class SePayPaymentGateway implements PaymentGateway {
   normalizeNotification(payload: unknown): NormalizedPaymentNotification {
     try {
       const parsed = notificationSchema.parse(payload);
-      const amountVnd = Number(parsed.order.order_amount);
-      if (!Number.isSafeInteger(amountVnd)) throw new Error("unsafe amount");
+      const orderAmountVnd = parseVndAmount(parsed.order.order_amount);
+      const transactionAmountVnd = parseVndAmount(
+        parsed.transaction.transaction_amount,
+      );
       const paid = parsed.notification_type === "ORDER_PAID"
         && parsed.order.order_status === "CAPTURED"
-        && parsed.transaction.transaction_status === "APPROVED";
+        && parsed.transaction.transaction_status === "APPROVED"
+        && transactionAmountVnd === orderAmountVnd
+        && parsed.transaction.transaction_currency === parsed.order.order_currency;
       return {
         notificationType: parsed.notification_type,
         providerEventId: parsed.transaction.id,
@@ -121,8 +130,8 @@ export class SePayPaymentGateway implements PaymentGateway {
         invoiceNumber: parsed.order.order_invoice_number,
         orderStatus: parsed.order.order_status,
         transactionStatus: parsed.transaction.transaction_status,
-        amountVnd,
-        currency: parsed.order.order_currency,
+        amountVnd: transactionAmountVnd,
+        currency: parsed.transaction.transaction_currency,
         state: paid ? "paid" : "unsupported",
         redactedPayload: {
           timestamp: parsed.timestamp,
@@ -146,3 +155,8 @@ export class SePayPaymentGateway implements PaymentGateway {
   }
 }
 function isAbort(error: unknown): boolean { return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"); }
+function parseVndAmount(value: string): number {
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount)) throw new Error("unsafe amount");
+  return amount;
+}

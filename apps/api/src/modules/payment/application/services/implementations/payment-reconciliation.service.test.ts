@@ -202,6 +202,22 @@ describe("PaymentReconciliationService", () => {
     expect(current.paid.applyTrustedInSession).toHaveBeenCalledOnce();
   });
 
+  it("does not record matched paid when the trusted transition rejects terminal state", async () => {
+    const current = fixture();
+    vi.mocked(current.paid.applyTrustedInSession).mockResolvedValueOnce({
+      result: "review_required",
+      reason: "PAYMENT_TERMINAL",
+    });
+    await current.service.reconcile("payment-1", {}, financeContext);
+    expect(current.reconciliations[0]?.comparisonResult).toBe("mismatch");
+    expect(current.repository.appendAudit).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({
+        metadata: { comparisonResult: "mismatch" },
+      }),
+    );
+  });
+
   it("enforces finance authorization and bounded worker batches", async () => {
     const current = fixture();
     await expect(

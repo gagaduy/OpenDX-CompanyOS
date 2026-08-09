@@ -68,7 +68,7 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
   afterAll(async () => {
     await pool.query("TRUNCATE orders, checkout_sessions, carts, customers, promotions, categories, audit_events CASCADE");
     await runOrderMigrations(databaseUrl!, "down");
-    await runCheckoutMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down", 999999);
     await runPromotionMigrations(databaseUrl!, "down");
     await runCartMigrations(databaseUrl!, "down");
     await runCustomerMigrations(databaseUrl!, "down");

@@ -42,6 +42,25 @@ describe("promotion rules", () => {
     expect(evaluatePromotion(base, { subtotalVnd: 2_000_000, now, totalUsageCount: 0, customerUsageCount: 0 })).toEqual({ discountVnd: 150_000, totalVnd: 1_850_000 });
   });
 
+  it("keeps percentage arithmetic exact near the safe-integer boundary", () => {
+    const subtotalVnd = Number.MAX_SAFE_INTEGER;
+    const promotion: Promotion = {
+      ...base,
+      percentageBps: 9_999,
+      maximumDiscountVnd: undefined,
+      minimumSubtotalVnd: 1,
+    };
+    const expected = Number((BigInt(subtotalVnd) * 9_999n) / 10_000n);
+    expect(
+      evaluatePromotion(promotion, {
+        subtotalVnd,
+        now,
+        totalUsageCount: 0,
+        customerUsageCount: 0,
+      }),
+    ).toEqual({ discountVnd: expected, totalVnd: subtotalVnd - expected });
+  });
+
   it("clamps a fixed discount to subtotal but rejects a zero-total order", () => {
     const fixed: Promotion = { ...base, type: "fixed_amount", fixedAmountVnd: 99_999, minimumSubtotalVnd: 1 };
     expect(evaluatePromotion(fixed, { subtotalVnd: 100_000, now, totalUsageCount: 0, customerUsageCount: 0 })).toEqual({ discountVnd: 99_999, totalVnd: 1 });
