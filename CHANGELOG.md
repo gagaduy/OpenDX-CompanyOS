@@ -81,6 +81,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the approved twelve-task Phase 7 implementation plan covering public
+  operations readers, CRM, Support SLA and attachments, ClamAV, Reporting,
+  role-aware Console surfaces, and deterministic exit acceptance.
 - Add the approved Phase 7 focused design for least-privilege Operational CRM,
   staff-created Support tickets and SLA, private ClamAV-scanned attachments,
   deterministic customer segments, and aggregate PostgreSQL-backed reporting.
