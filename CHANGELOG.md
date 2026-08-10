@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add Phase 8 authorization matrix documentation and a source check covering
+  staff, customer, guest, anonymous, and SePay provider boundaries.
 - Add Phase 8 PII-safe API observability with structured logs, bounded request
   metrics, optional `/metrics`, and operations documentation.
 - Add Phase 8 API runtime hardening with security headers, configurable JSON
