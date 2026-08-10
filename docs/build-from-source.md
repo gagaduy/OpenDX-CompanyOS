@@ -80,6 +80,19 @@ at 390x844 and 1440x900. Screenshots are written to
 `/tmp/opendx-console-browser` by default. Set `CONSOLE_URL` or
 `BROWSER_EVIDENCE_DIR` when local paths differ.
 
+Run the Phase 8 combined browser accessibility gate and API performance gate
+with the local stack running:
+
+```bash
+pnpm check:phase8-accessibility
+pnpm check:phase8-performance
+```
+
+The accessibility gate delegates to the existing Storefront, Console
+orders/payments, and CRM/Support/Dashboard browser checks. The performance gate
+checks p95 latency for public catalog, categories, and anonymous cart API
+requests.
+
 Run the deterministic Phase 6 financial exit gate against isolated PostgreSQL
 databases with:
 

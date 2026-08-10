@@ -46,3 +46,15 @@ Core signals:
 - Increasing 5xx request metrics indicate application or dependency incidents.
 - Long request duration sums with stable request counts indicate downstream
   latency.
+
+## Phase 8 Local Gates
+
+With the local stack running, use:
+
+```bash
+pnpm check:phase8-accessibility
+pnpm check:phase8-performance
+```
+
+The performance gate runs 20 sequential requests per public API target and
+fails when p95 latency exceeds the configured threshold.

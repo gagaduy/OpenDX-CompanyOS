@@ -26,6 +26,8 @@
     "check:production-compose": "node scripts/dev/production-compose-check.mjs",
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
+    "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
+    "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "check": "bash scripts/dev/check.sh"
   },
   "devDependencies": {
