@@ -21,6 +21,8 @@
     "test:crm-support-dashboard-exit": "node --test scripts/dev/crm-support-dashboard-exit-check.test.mjs",
     "check:crm-support-dashboard": "pnpm test:crm-support-dashboard-exit && node scripts/dev/crm-support-dashboard-exit-check.mjs",
     "check:sepay-sandbox": "node scripts/dev/sepay-sandbox-acceptance.mjs",
+    "test:sepay-production-acceptance": "node --test scripts/dev/sepay-production-acceptance.test.mjs",
+    "check:sepay-production": "pnpm test:sepay-production-acceptance && node scripts/dev/sepay-production-acceptance.mjs",
     "check:production-compose": "node scripts/dev/production-compose-check.mjs",
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check": "bash scripts/dev/check.sh"
