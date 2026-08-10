@@ -10,9 +10,10 @@ const querySchema = z.object({
   query: z.string().trim().min(1).max(200).optional(),
   category: z.string().trim().min(1).max(220).optional(),
   stockStatus: z.enum(["in_stock", "out_of_stock"]).optional(),
+  discountStatus: z.enum(["on_sale"]).optional(),
   minPriceVnd: z.coerce.number().int().nonnegative().safe().optional(),
   maxPriceVnd: z.coerce.number().int().nonnegative().safe().optional(),
-  sort: z.enum(["newest", "price_asc", "price_desc", "name_asc"]).default("newest"),
+  sort: z.enum(["newest", "best_selling", "price_asc", "price_desc", "name_asc"]).default("newest"),
   page: page.default(1),
   pageSize: page.max(100).default(20),
 }).refine(

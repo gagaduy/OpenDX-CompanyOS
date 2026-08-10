@@ -56,14 +56,16 @@ function fixture() {
 describe("Public Catalog API", () => {
   it("validates and forwards storefront discovery filters", async () => {
     const { app, service } = fixture();
-    await request(app).get("/v1/storefront/products?query=phone&category=phones&minPriceVnd=1000000&maxPriceVnd=20000000&stockStatus=in_stock&sort=price_asc&page=2&pageSize=12").expect(200);
+    await request(app).get("/v1/storefront/products?query=phone&category=phones&minPriceVnd=1000000&maxPriceVnd=20000000&stockStatus=in_stock&sort=best_selling&discountStatus=on_sale&page=2&pageSize=12").expect(200);
     expect(service.listProducts).toHaveBeenCalledWith({
       query: "phone", category: "phones", minPriceVnd: 1_000_000,
-      maxPriceVnd: 20_000_000, stockStatus: "in_stock", sort: "price_asc",
+      maxPriceVnd: 20_000_000, stockStatus: "in_stock",
+      sort: "best_selling", discountStatus: "on_sale",
       page: 2, pageSize: 12,
     });
     await request(app).get("/v1/storefront/products?minPriceVnd=20&maxPriceVnd=10").expect(400);
     await request(app).get("/v1/storefront/products?sort=random").expect(400);
+    await request(app).get("/v1/storefront/products?discountStatus=clearance").expect(400);
   });
 
   it("serves a sold-out product anonymously without protected fields", async () => {
