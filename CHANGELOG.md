@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix Storefront startup so cart loading waits for customer session
+  restoration, preventing rotated customer cookies from being cleared by a
+  concurrent stale cart request.
 - Add guarded Phase 7 CRM/Support/Dashboard source preflight commands and
   operations documentation for exit evidence collection, with test coverage for
   isolated-environment enforcement, command ordering, focused API/Console

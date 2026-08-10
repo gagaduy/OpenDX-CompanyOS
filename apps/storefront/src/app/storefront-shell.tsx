@@ -11,13 +11,16 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTheme } from "./theme-provider";
 
 export function StorefrontShell({
   cartCount = 0,
+  children,
 }: {
   readonly cartCount?: number;
+  readonly children?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -89,7 +92,7 @@ export function StorefrontShell({
           </Link>
         </div>
       </header>
-      <Outlet />
+      {children ?? <Outlet />}
       <footer className="footer">
         <div className="footer-brand">
           <strong>NovaCommerce</strong>

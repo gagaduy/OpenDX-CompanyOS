@@ -12,7 +12,10 @@ import { CartProvider, useCart } from "../features/cart/hooks/cart-context";
 import { CartPage } from "../features/cart/pages/cart-page";
 import { ProductDetailPage } from "../features/catalog/pages/product-detail-page";
 import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
-import { CustomerSessionProvider } from "../features/authentication/hooks/customer-session-context";
+import {
+  CustomerSessionProvider,
+  useCustomerSession,
+} from "../features/authentication/hooks/customer-session-context";
 import { SignInPage } from "../features/authentication/pages/sign-in-page";
 import { CheckoutGate } from "../features/authentication/components/checkout-gate";
 import type { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
@@ -41,9 +44,7 @@ export function createAppRouter(dependencies: {
     {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
-          <CartProvider api={dependencies.cartApi}>
-            <ShellWithCart />
-          </CartProvider>
+          <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
         </CustomerSessionProvider>
       ),
       children: [
@@ -130,6 +131,26 @@ export function createAppRouter(dependencies: {
       ],
     },
   ]);
+}
+
+function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
+  const { loading } = useCustomerSession();
+  if (loading) {
+    return (
+      <StorefrontShell cartCount={0}>
+        <main id="main-content">
+          <p role="status" className="state-panel">
+            Đang tải cửa hàng...
+          </p>
+        </main>
+      </StorefrontShell>
+    );
+  }
+  return (
+    <CartProvider api={cartApi}>
+      <ShellWithCart />
+    </CartProvider>
+  );
 }
 
 function ShellWithCart() {
