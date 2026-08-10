@@ -20,13 +20,13 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../features/authentication/hooks/auth-context";
 
 const consoleThemeStorageKey = "opendx.console.theme";
-type ConsoleTheme = "dark" | "night";
+type ConsoleTheme = "light" | "night";
 
 function readInitialConsoleTheme(): ConsoleTheme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   return window.localStorage.getItem(consoleThemeStorageKey) === "night"
     ? "night"
-    : "dark";
+    : "light";
 }
 
 export function ConsoleShell() {
@@ -71,7 +71,7 @@ export function ConsoleShell() {
               type="button"
               title={nightModeEnabled ? "Tắt chế độ night" : "Bật chế độ night"}
               aria-label={nightModeEnabled ? "Tắt chế độ night" : "Bật chế độ night"}
-              onClick={() => setTheme(nightModeEnabled ? "dark" : "night")}
+              onClick={() => setTheme(nightModeEnabled ? "light" : "night")}
             >
               {nightModeEnabled ? <Sun size={16} /> : <Moon size={16} />}
             </button>

@@ -84,9 +84,25 @@ textarea:focus-visible {
   overflow-x: hidden;
   grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.consoleLayout[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f5f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e8ebf0;
+  --hairline: #d8dde6;
+  --ink: #111827;
+  --ink-muted: #374151;
+  --ink-subtle: #667085;
+  --ink-tertiary: #98a2b3;
 }
 
 .consoleLayout[data-theme="night"] {
+  color-scheme: dark;
   --canvas: #000;
   --surface-1: #070809;
   --surface-2: #0b0c0d;

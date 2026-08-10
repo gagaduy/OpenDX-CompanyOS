@@ -11,8 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Add a persisted Console night-mode toggle for staff who want a deeper
-  operational dark canvas.
+- Add a persisted Console light/night-mode toggle so staff can switch from a
+  light admin canvas into night mode.
 - Make the Storefront discovery filter toggle expose explicit open/closed state
   so the sidebar panel opens reliably from the rail button.
 - Make the Storefront discovery sidebar rail icons actionable for catalog

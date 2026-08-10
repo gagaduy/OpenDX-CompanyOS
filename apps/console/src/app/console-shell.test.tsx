@@ -72,7 +72,7 @@ describe("ConsoleShell", () => {
     );
 
     const layout = await screen.findByTestId("console-layout");
-    expect(layout).toHaveAttribute("data-theme", "dark");
+    expect(layout).toHaveAttribute("data-theme", "light");
 
     await userEvent.click(
       screen.getByRole("button", { name: "Bật chế độ night" }),
@@ -94,7 +94,7 @@ describe("ConsoleShell", () => {
 
     expect(await screen.findByTestId("console-layout")).toHaveAttribute(
       "data-theme",
-      "dark",
+      "light",
     );
   });
 });
