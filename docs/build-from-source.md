@@ -118,6 +118,12 @@ databases with:
 pnpm check:commerce-exit
 ```
 
+If local PostgreSQL is exposed on a non-default host port, pass it explicitly:
+
+```bash
+POSTGRES_PORT=55432 pnpm check:commerce-exit
+```
+
 It runs 20-way checkout concurrency, exact-once payment replay,
 IPN/reconciliation/expiry races, fail-closed API boundaries, a paid-order
 custom-format backup/restore, and full migration rollback/reapply. Evidence is

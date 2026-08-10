@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Complete Phase 8 hardening readiness on `phuong` with exit preflight, root
+  source validation, local commerce acceptance, and recorded production SePay
+  acceptance decision.
 - Add Phase 8 exit preflight wiring and closure documentation for hardening
   readiness evidence.
 - Add Phase 8 CI and security workflows with environment-contract and committed

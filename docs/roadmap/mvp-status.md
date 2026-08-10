@@ -19,10 +19,10 @@ Phase 7 Operational CRM, Support, and Dashboard is complete on `phuong` after
 focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose,
 and documentation exit evidence.
 
-Phase 8 Production Hardening and Hosting Readiness is the active phase on
-`phuong`. Focused implementation is present, but closure still requires
-`pnpm check:phase8-exit`, root `pnpm check`, full local commerce acceptance,
-and an explicit production SePay acceptance decision.
+Phase 8 Production Hardening and Hosting Readiness is complete on `phuong`
+after exit preflight, root source validation, local commerce acceptance, and an
+explicit decision not to run real production SePay acceptance without real
+merchant/VPS prerequisites and human confirmation.
 
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
@@ -38,7 +38,7 @@ Active commerce master plan:
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
-| Phase 8: Production Hardening and Hosting Readiness | In progress on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Pending `pnpm check:phase8-exit`, root `pnpm check`, commerce acceptance, and production SePay decision |
+| Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
 
 ## Latest Validation Evidence
 
@@ -46,13 +46,19 @@ Active commerce master plan:
   `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.
 - Phase 8 implementation plan:
   `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md`.
+- Phase 8 commit range on `phuong`: `2d093e1..e1676d6`, plus final closure
+  evidence commit.
 - Phase 8 preflight evidence on 2026-08-10: `pnpm check:phase8-exit` passed
   with production Compose, authorization matrix, SePay production guard tests,
   backup/restore safety, browser accessibility, performance, env/secret audits,
   repository audit, and `git diff --check`; root `pnpm check` also passed.
-- Phase 8 remains in progress until `pnpm check:phase8-exit`, full local
-  commerce acceptance, and explicit production SePay acceptance decision are
-  recorded.
+- Phase 8 local commerce acceptance on 2026-08-10:
+  `POSTGRES_PORT=55432 pnpm check:commerce-exit` passed and wrote evidence to
+  `/tmp/opendx-commerce-exit/deterministic.json`.
+- Production SePay real-money acceptance was not run: no real VPS/domain,
+  merchant production credentials, and explicit human confirmation were
+  provided. The opt-in guard test `pnpm test:sepay-production-acceptance`
+  passed and remains outside default CI/exit gates.
 - Phase 7 focused design is complete for least-privilege CRM, staff-created
   support tickets, continuous SLA, private ClamAV-scanned attachments,
   deterministic customer segments, aggregate PostgreSQL-backed reporting, and
