@@ -199,6 +199,8 @@ const app = createApiApp({
   supportAdminRouter: support.router,
   reportingAdminRouter: reporting.router,
   sepayWebhookRouter: paymentOperations.webhookRouter,
+  jsonBodyLimit: environment.jsonBodyLimit,
+  readinessTimeoutMs: environment.readinessTimeoutMs,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
@@ -235,16 +237,28 @@ const server = app.listen(environment.apiPort, () => {
   support.attachmentRetentionWorker.start();
 });
 
-async function shutdown(): Promise<void> {
+function shutdown(signal: NodeJS.Signals): void {
+  console.info(`Received ${signal}; shutting down`);
   inventory.expiryWorker.stop();
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
   support.escalationWorker.stop();
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
-  server.close(async () => {
-    await pool.end();
+  server.close((error) => {
+    void pool.end().finally(() => {
+      if (error !== undefined) {
+        console.error("HTTP server shutdown failed", error);
+        process.exit(1);
+      }
+      process.exit(0);
+    });
   });
+
+  setTimeout(() => {
+    console.error("Graceful shutdown timed out");
+    process.exit(1);
+  }, 10_000).unref();
 }
 
 process.once("SIGINT", shutdown);

@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add Phase 8 API runtime hardening with security headers, configurable JSON
+  body limits, readiness timeouts, and graceful shutdown cleanup.
 - Add Phase 8 VPS production-candidate Docker targets, Caddy routing, Compose
   topology validation, and production deployment documentation.
 - Add the Phase 8 production environment contract baseline with fail-closed

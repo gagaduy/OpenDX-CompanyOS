@@ -34,6 +34,16 @@ export function createErrorHandler(): ErrorRequestHandler {
       return;
     }
 
+    if (isPayloadTooLargeError(error)) {
+      response.status(413).json({
+        success: false,
+        message: "Request body is too large",
+        errorCode: "PAYLOAD_TOO_LARGE",
+        errors: [],
+      });
+      return;
+    }
+
     response.status(500).json({
       success: false,
       message: "An unexpected error occurred",
@@ -41,4 +51,13 @@ export function createErrorHandler(): ErrorRequestHandler {
       errors: [],
     });
   };
+}
+
+function isPayloadTooLargeError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    (error as { readonly type?: unknown }).type === "entity.too.large"
+  );
 }

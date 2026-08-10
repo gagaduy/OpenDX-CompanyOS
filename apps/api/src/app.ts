@@ -13,11 +13,14 @@ import {
   createHealthRouter,
   type ReadinessProbe,
 } from "./shared/http/health.routes";
+import { securityHeaders } from "./shared/http/security-headers.middleware";
 
 export interface CreateApiAppOptions {
   readonly consoleOrigin?: string;
   readonly storefrontOrigin?: string;
   readonly readiness?: ReadinessProbe;
+  readonly readinessTimeoutMs?: number;
+  readonly jsonBodyLimit?: string;
   readonly companyOperatingCoreRepository?: ICompanyOperatingCoreRepository;
   readonly catalogAdminRouter?: Router;
   readonly storefrontRouter?: Router;
@@ -55,11 +58,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   );
 
   app.use(correlationIdMiddleware);
+  app.use(securityHeaders());
   if (options.sepayWebhookRouter !== undefined) {
     app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
   }
-  app.use(express.json({ limit: "1mb" }));
-  app.use(createHealthRouter(options.readiness));
+  app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
+  app.use(
+    createHealthRouter(options.readiness, {
+      timeoutMs: options.readinessTimeoutMs ?? 2_000,
+    }),
+  );
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(
       "/v1",

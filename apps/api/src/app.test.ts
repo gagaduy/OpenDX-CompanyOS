@@ -16,6 +16,29 @@ describe("api health", () => {
       service: "opendx-api",
     });
   });
+
+  it("fails readiness when the readiness probe exceeds the configured timeout", async () => {
+    const app = createApiApp({
+      readinessTimeoutMs: 1,
+      readiness: () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                postgres: "up",
+                keycloak: "up",
+                minio: "up",
+                migrations: "up",
+              }),
+            50,
+          ),
+        ),
+    });
+
+    const response = await request(app).get("/health/ready").expect(503);
+
+    expect(response.body.dependencies.readiness).toBe("down");
+  });
 });
 
 describe("API route audiences", () => {
@@ -70,5 +93,15 @@ describe("API route audiences", () => {
     const supportApp = createApiApp({ supportAdminRouter: support });
     await request(supportApp).get("/v1/admin/support/tickets").expect(200, { audience: "support" });
     await request(supportApp).get("/v1/admin/support").expect(404);
+  });
+
+  it("applies the configured JSON body limit", async () => {
+    const limitedApp = createApiApp({ jsonBodyLimit: "10b" });
+
+    await request(limitedApp)
+      .post("/v1/storefront/cart/items")
+      .set("Content-Type", "application/json")
+      .send({ payload: "larger than ten bytes" })
+      .expect(413);
   });
 });
