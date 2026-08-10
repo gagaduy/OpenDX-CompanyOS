@@ -58,3 +58,7 @@ pnpm check:phase8-performance
 
 The performance gate runs 20 sequential requests per public API target and
 fails when p95 latency exceeds the configured threshold.
+
+`pnpm check:phase8-exit` combines the production topology, authorization,
+payment guard, backup/restore safety, browser accessibility, performance, and
+repository audit gates without running real production SePay acceptance.

@@ -30,6 +30,8 @@
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
+    "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",
+    "check:phase8-exit": "pnpm test:phase8-exit && node scripts/dev/phase8-exit-check.mjs",
     "check": "bash scripts/dev/check.sh"
   },
   "devDependencies": {

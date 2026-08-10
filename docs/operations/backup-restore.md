@@ -79,3 +79,6 @@ bash -n scripts/ops/postgres-backup.sh scripts/ops/postgres-restore.sh scripts/o
 
 Install `pg_dump`, `pg_restore`, and `mc` on the operator machine before a full
 runtime backup/restore exercise.
+
+The Phase 8 exit preflight runs the static safety check. A full restore drill
+must still be recorded against an explicitly disposable target before go-live.

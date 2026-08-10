@@ -102,6 +102,15 @@ orders/payments, and CRM/Support/Dashboard browser checks. The performance gate
 checks p95 latency for public catalog, categories, and anonymous cart API
 requests.
 
+Run the Phase 8 exit preflight with the local stack and Chrome available:
+
+```bash
+pnpm check:phase8-exit
+```
+
+This gate intentionally excludes `pnpm check:sepay-production`; real-money
+SePay acceptance remains an explicit operator decision.
+
 Run the deterministic Phase 6 financial exit gate against isolated PostgreSQL
 databases with:
 

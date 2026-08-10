@@ -47,6 +47,10 @@ Security and authorization tests, payment idempotency, inventory concurrency,
 backup/restore, observability, accessibility, performance, deterministic
 seed/reset, production SePay readiness, and hosted HTTPS documentation.
 
+Phase 8 is the current active phase until `pnpm check:phase8-exit`, root
+`pnpm check`, local commerce acceptance, and the production SePay acceptance
+decision are recorded.
+
 ## Post-Commerce
 
 Workflow/iPaaS, Digital Employees, Skill and Tool registries, GraphRAG, company

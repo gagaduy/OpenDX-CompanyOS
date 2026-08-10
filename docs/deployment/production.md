@@ -48,6 +48,9 @@ with real HTTPS domains in `.env.production`.
     browsing.
 
 Deployment is manual in Phase 8. GitHub Actions must not SSH into the VPS.
+Phase 8 closure requires `pnpm check:phase8-exit`, root `pnpm check`, and a
+recorded production SePay acceptance decision; a successful production Compose
+config check alone is not a go-live approval.
 
 The production-candidate files live under `infra/deploy/`:
 
