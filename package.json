@@ -25,6 +25,7 @@
     "check:sepay-production": "pnpm test:sepay-production-acceptance && node scripts/dev/sepay-production-acceptance.mjs",
     "check:production-compose": "node scripts/dev/production-compose-check.mjs",
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
+    "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "check": "bash scripts/dev/check.sh"
   },
   "devDependencies": {

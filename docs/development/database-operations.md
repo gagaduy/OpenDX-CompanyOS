@@ -51,6 +51,11 @@ data, so retain a separate backup first. MinIO objects are not included in a
 PostgreSQL archive and need an independent object-storage backup for disaster
 recovery.
 
+Phase 8 production-style backup and restore scripts are documented in
+[`../operations/backup-restore.md`](../operations/backup-restore.md). Use those
+scripts for explicit PostgreSQL and MinIO backup/restore operations that need
+path validation and restore target guardrails.
+
 The PostgreSQL archive includes Catalog publication state, Company Operating
 Core data, Inventory balances, movements, idempotency records, reservations,
 customers, hash-only sessions, addresses, carts, promotions, immutable

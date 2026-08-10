@@ -178,6 +178,8 @@ remains PostgreSQL-only; there is no memory database switch.
 
 Runtime logs, readiness checks, and optional `/metrics` operations are
 documented in [`operations/observability.md`](operations/observability.md).
+PostgreSQL and MinIO backup/restore safety scripts are documented in
+[`operations/backup-restore.md`](operations/backup-restore.md).
 
 ClamAV uses the pinned local Compose image and keeps virus signatures on a
 persistent Docker volume. First startup can spend several minutes downloading
