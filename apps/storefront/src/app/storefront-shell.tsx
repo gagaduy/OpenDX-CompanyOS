@@ -10,6 +10,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -32,6 +33,24 @@ export function StorefrontShell({
   const navigate = useNavigate();
   const location = useLocation();
   const { resolvedTheme, toggleTheme } = useTheme();
+
+  function submitHeaderSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const query = String(form.get("query") ?? "").trim();
+    const next = new URLSearchParams(location.search);
+
+    if (query.length > 0) {
+      next.set("query", query);
+      next.set("page", "1");
+    } else {
+      next.delete("query");
+      next.delete("page");
+    }
+
+    const queryString = next.toString();
+    navigate(`/${queryString.length > 0 ? `?${queryString}` : ""}#catalog`);
+  }
 
   useEffect(() => {
     if (location.hash.length <= 1) return;
@@ -89,13 +108,23 @@ export function StorefrontShell({
             >
               {menuOpen ? <X /> : <Menu />}
             </button>
-            <button
-              className="icon-button search-button"
-              aria-label="Tìm kiếm"
-              onClick={() => navigate("/search")}
+            <form
+              className="header-search"
+              role="search"
+              aria-label="Tìm kiếm sản phẩm"
+              onSubmit={submitHeaderSearch}
             >
-              <Search />
-            </button>
+              <Search aria-hidden="true" />
+              <input
+                aria-label="Tìm kiếm sản phẩm"
+                name="query"
+                type="search"
+                defaultValue={
+                  new URLSearchParams(location.search).get("query") ?? ""
+                }
+                placeholder="Tìm sản phẩm"
+              />
+            </form>
             <button
               className="icon-button theme-toggle"
               aria-label={
@@ -137,13 +166,6 @@ export function StorefrontShell({
           <Link to="/?discountStatus=on_sale#catalog">Đang giảm</Link>
           <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
           <Link to="/#support">Hỗ trợ</Link>
-          <button
-            className="taskbar-search"
-            type="button"
-            onClick={() => navigate("/search")}
-          >
-            Tìm nhanh sản phẩm
-          </button>
         </div>
       </nav>
       {children ?? <Outlet />}

@@ -204,6 +204,45 @@ img {
   gap: 4px;
 }
 
+.header-search {
+  width: clamp(190px, 18vw, 280px);
+  height: 38px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--ink-muted);
+}
+
+.header-search:focus-within {
+  border-color: var(--primary);
+  color: var(--ink);
+}
+
+.header-search svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.header-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.header-search input::placeholder {
+  color: var(--ink-subtle);
+}
+
 .discovery-taskbar {
   position: sticky;
   top: 76px;
@@ -230,8 +269,7 @@ img {
   display: none;
 }
 
-.discovery-taskbar a,
-.taskbar-search {
+.discovery-taskbar a {
   min-height: 30px;
   padding: 0 12px;
   display: inline-flex;
@@ -246,16 +284,9 @@ img {
 }
 
 .discovery-taskbar a:hover,
-.taskbar-search:hover,
-.discovery-taskbar a:focus-visible,
-.taskbar-search:focus-visible {
+.discovery-taskbar a:focus-visible {
   border-color: var(--primary);
   color: var(--ink);
-}
-
-.taskbar-search {
-  margin-left: auto;
-  cursor: pointer;
 }
 
 .icon-button {
@@ -1887,10 +1918,6 @@ img {
     padding: 8px 16px;
   }
 
-  .taskbar-search {
-    margin-left: 0;
-  }
-
   .discovery-sidebar {
     top: 106px;
     bottom: 16px;
@@ -1917,7 +1944,11 @@ img {
     display: inline-flex;
   }
 
-  .search-button,
+  .header-search {
+    width: min(32vw, 118px);
+  }
+
+  .theme-toggle,
   .account-button {
     display: none;
   }

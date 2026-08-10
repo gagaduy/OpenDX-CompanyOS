@@ -3,7 +3,7 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StorefrontShell } from "./storefront-shell";
 import { ThemeProvider } from "./theme-provider";
@@ -98,8 +98,46 @@ describe("StorefrontShell", () => {
       within(taskbar).getByRole("link", { name: "Hỗ trợ" }),
     ).toHaveAttribute("href", "/#support");
     expect(
-      within(taskbar).getByRole("button", { name: "Tìm nhanh sản phẩm" }),
-    ).toHaveClass("taskbar-search");
+      within(taskbar).queryByRole("button", { name: "Tìm nhanh sản phẩm" }),
+    ).toBeNull();
     expect(document.getElementById("support")).toBeInstanceOf(HTMLElement);
+  });
+
+  it("submits customer search from the Storefront header", async () => {
+    function LocationProbe() {
+      const currentLocation = useLocation();
+      return (
+        <output aria-label="current location">
+          {currentLocation.pathname}
+          {currentLocation.search}
+          {currentLocation.hash}
+        </output>
+      );
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <ThemeProvider>
+          <StorefrontShell cartCount={0}>
+            <main id="main-content">
+              <LocationProbe />
+            </main>
+          </StorefrontShell>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const search = screen.getByRole("searchbox", {
+      name: "Tìm kiếm sản phẩm",
+    });
+
+    await userEvent.type(search, "laptop gaming");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("current location")).toHaveTextContent(
+        "/?query=laptop+gaming&page=1#catalog",
+      ),
+    );
   });
 });

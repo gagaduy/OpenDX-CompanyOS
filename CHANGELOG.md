@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Replace the Storefront header search icon and duplicate quick-search chip with
+  a usable product search field that applies the catalog query directly.
 - Back Storefront `Sản phẩm mới`, `Bán chạy`, and `Đang giảm` shortcuts with
   authoritative catalog, order, and price-history queries.
 - Align the Storefront header and discovery shortcut row into one compact
