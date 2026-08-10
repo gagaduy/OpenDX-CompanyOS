@@ -22,6 +22,7 @@ export function DiscoverySidebar({
   return (
     <aside
       className={open ? "discovery-sidebar open" : "discovery-sidebar"}
+      data-state={open ? "open" : "closed"}
       aria-label="Danh mục và bộ lọc sản phẩm"
     >
       <button
@@ -46,7 +47,12 @@ export function DiscoverySidebar({
           <Laptop aria-hidden="true" />
         </Link>
       </div>
-      <div id="discovery-sidebar-panel" className="sidebar-panel">
+      <div
+        id="discovery-sidebar-panel"
+        className="sidebar-panel"
+        data-testid="discovery-sidebar-panel"
+        aria-hidden={open ? "false" : "true"}
+      >
         <div className="sidebar-section">
           <span className="eyebrow">Danh mục</span>
           <div className="sidebar-category-list">

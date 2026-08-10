@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Make the Storefront discovery filter toggle expose explicit open/closed state
+  so the sidebar panel opens reliably from the rail button.
 - Make the Storefront discovery sidebar rail icons actionable for catalog
   navigation instead of decorative-only controls.
 - Replace the Storefront header search icon and duplicate quick-search chip with

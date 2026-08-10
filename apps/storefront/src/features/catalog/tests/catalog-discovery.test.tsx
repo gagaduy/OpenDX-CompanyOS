@@ -95,6 +95,12 @@ describe("catalog discovery", () => {
       within(sidebar).getByRole("button", { name: "Đóng bộ lọc sản phẩm" }),
     ).toHaveAttribute("aria-expanded", "true");
     expect(
+      within(sidebar).getByTestId("discovery-sidebar-panel"),
+    ).toHaveAttribute("aria-hidden", "false");
+    expect(
+      within(sidebar).getByRole("button", { name: "Đóng bộ lọc sản phẩm" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
       within(sidebar).getByRole("link", { name: "Phones" }),
     ).toHaveAttribute("href", "/?category=phones&pageSize=12#catalog");
 

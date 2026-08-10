@@ -572,7 +572,7 @@ img {
   transition: width 180ms ease;
 }
 
-.discovery-sidebar.open,
+.discovery-sidebar[data-state="open"],
 .discovery-sidebar:hover,
 .discovery-sidebar:focus-within {
   width: min(360px, calc(100vw - 32px));
@@ -640,7 +640,7 @@ img {
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.discovery-sidebar.open .sidebar-panel,
+.discovery-sidebar[data-state="open"] .sidebar-panel,
 .discovery-sidebar:hover .sidebar-panel,
 .discovery-sidebar:focus-within .sidebar-panel {
   opacity: 1;
