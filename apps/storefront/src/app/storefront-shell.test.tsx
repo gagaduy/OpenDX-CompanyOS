@@ -62,4 +62,39 @@ describe("StorefrontShell", () => {
       document.getElementById("catalog"),
     );
   });
+
+  it("renders customer discovery taskbar shortcuts below the Storefront header", () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <ThemeProvider>
+          <StorefrontShell cartCount={0}>
+            <main id="main-content">
+              <section id="catalog" aria-label="Catalog" />
+            </main>
+          </StorefrontShell>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const taskbar = screen.getByRole("navigation", {
+      name: "Lối tắt khám phá",
+    });
+
+    expect(
+      within(taskbar).getByRole("link", { name: "Sản phẩm mới" }),
+    ).toHaveAttribute("href", "/?sort=newest#catalog");
+    expect(
+      within(taskbar).getByRole("link", { name: "Bán chạy" }),
+    ).toHaveAttribute("href", "/#catalog");
+    expect(
+      within(taskbar).getByRole("link", { name: "Đang giảm" }),
+    ).toHaveAttribute("href", "/#catalog");
+    expect(
+      within(taskbar).getByRole("link", { name: "Còn hàng" }),
+    ).toHaveAttribute("href", "/?stockStatus=in_stock#catalog");
+    expect(
+      within(taskbar).getByRole("link", { name: "Hỗ trợ" }),
+    ).toHaveAttribute("href", "/#support");
+    expect(document.getElementById("support")).toBeInstanceOf(HTMLElement);
+  });
 });

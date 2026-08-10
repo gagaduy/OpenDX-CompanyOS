@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a Storefront customer discovery taskbar and collapsible catalog filter
+  sidebar design implementation.
 - Fix Storefront header hash navigation so customer `Danh mục` and `Khám phá`
   links scroll to their discovery sections after React Router navigation.
 - Complete Phase 8 hardening readiness on `phuong` with exit preflight, root

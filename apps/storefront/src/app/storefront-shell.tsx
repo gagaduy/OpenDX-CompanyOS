@@ -128,8 +128,26 @@ export function StorefrontShell({
           </Link>
         </div>
       </header>
+      <nav className="discovery-taskbar" aria-label="Lối tắt khám phá">
+        <Link to="/?sort=newest#catalog">Sản phẩm mới</Link>
+        <Link to="/#catalog" title="Sắp có dữ liệu bán chạy">
+          Bán chạy
+        </Link>
+        <Link to="/#catalog" title="Sắp có dữ liệu khuyến mãi">
+          Đang giảm
+        </Link>
+        <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
+        <Link to="/#support">Hỗ trợ</Link>
+        <button
+          className="taskbar-search"
+          type="button"
+          onClick={() => navigate("/search")}
+        >
+          Tìm nhanh sản phẩm
+        </button>
+      </nav>
       {children ?? <Outlet />}
-      <footer className="footer">
+      <footer id="support" className="footer">
         <div className="footer-brand">
           <strong>NovaCommerce</strong>
           <span>Nền tảng thương mại điện tử của OpenDX CompanyOS</span>
