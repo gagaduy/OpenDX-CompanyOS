@@ -13,10 +13,12 @@ independent-review evidence remain open.
 - Added `pnpm check:crm-support-dashboard`.
 - Added `make check-crm-support-dashboard`.
 - Extended the Phase 7 runner to require isolated PostgreSQL, private Support
-  MinIO details, and `RUN_REPORTING_SCALE=1`.
+  MinIO details, ClamAV details, and `RUN_REPORTING_SCALE=1`.
 - Added focused API unit, real PostgreSQL/MinIO integration, reporting
-  100k-customer/1m-order scale, Console Phase 7, typecheck/build, audit, and
-  diff-check commands to the runner.
+  100k-customer/1m-order scale, ClamAV clean/EICAR scan, Console Phase 7,
+  typecheck/build, audit, and diff-check commands to the runner.
+- Fixed `make check-crm-support-dashboard` to rebuild the API image from the
+  current source and pass isolated product/support MinIO bucket names.
 - Updated repository audit Make target allowlist.
 - Added `docs/operations/crm-support-dashboard.md`.
 - Updated README, build-from-source, dependencies, Docker README, roadmap, and
@@ -38,6 +40,20 @@ independent-review evidence remain open.
   - Console production build passed.
   - Repository audit passed.
   - `git diff --check` passed.
+- `make check-crm-support-dashboard`
+  - Rebuilt the API image from the current source.
+  - Exit runner tests passed: 5/5.
+  - Focused API unit suites passed: 75 files, 383 tests.
+  - Focused API PostgreSQL/MinIO/ClamAV integration suites passed: 9 files, 58
+    tests, 0 skipped.
+  - ClamAV accepted a clean stream and rejected the EICAR test signature.
+  - Reporting scale query-plan test passed with 100k customers and 1m orders.
+  - Focused Console Phase 7 suites passed: 20 files, 97 tests.
+  - API typecheck passed.
+  - Console typecheck passed.
+  - Console production build passed.
+  - Repository audit passed.
+  - `git diff --check` passed.
 - `pnpm test:crm-support-dashboard-exit`
   - Exit runner tests passed: 5/5.
   - Covered isolated environment rejection, no secret leakage in diagnostics,
@@ -47,7 +63,6 @@ independent-review evidence remain open.
 ## Remaining Task 12 work
 
 - Full HTTP/browser chain.
-- ClamAV clean and EICAR paths.
 - Stack restart persistence proof.
 - Custom-format backup/restore.
 - CRM/Support rollback then forward migration proof.

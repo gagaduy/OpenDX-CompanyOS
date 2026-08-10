@@ -26,14 +26,12 @@ The command refuses to run without an isolated test database, Support MinIO
 bucket, MinIO connection details, and `RUN_REPORTING_SCALE=1`. It records a run
 UUID and avoids printing credentials or customer PII. The preflight covers
 focused CRM/Support/Reporting API unit tests, real PostgreSQL integration and
-concurrency tests, private Support attachment MinIO storage, 100k-customer/
-1m-order reporting query plans, Console Phase 7 tests, typecheck/build, repo
-audit, and `git diff --check`.
+concurrency tests, private Support attachment MinIO storage, ClamAV clean and
+EICAR rejection paths, 100k-customer/1m-order reporting query plans, Console
+Phase 7 tests, typecheck/build, repo audit, and `git diff --check`.
 
 The full Phase 7 exit evidence must also include:
 
-- ClamAV clean and EICAR
-  rejection paths.
 - Console browser checks at 390x844, 768x1024, and 1440x900 for Customer,
   Support, and Dashboard.
 - Stack restart persistence.

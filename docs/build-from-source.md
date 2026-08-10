@@ -101,11 +101,12 @@ Run the Phase 7 CRM, Support, and Dashboard focused exit preflight with:
 make check-crm-support-dashboard
 ```
 
-It requires isolated PostgreSQL, MinIO, and reporting-scale test resources,
-runs the Phase 7 focused API, PostgreSQL/MinIO, Console, source/build, audit,
-and query-plan checks, and prints a run UUID without exposing credentials or
-customer PII. Full Phase 7 closure additionally requires the browser, restart,
-backup/restore, and rollback/forward migration evidence documented in
+It builds the API image from the current source, requires isolated PostgreSQL,
+MinIO, ClamAV, and reporting-scale test resources, runs the Phase 7 focused API,
+PostgreSQL/MinIO/ClamAV, Console, source/build, audit, and query-plan checks,
+and prints a run UUID without exposing credentials or customer PII. Full Phase 7
+closure additionally requires the browser, restart, backup/restore, and
+rollback/forward migration evidence documented in
 `docs/operations/crm-support-dashboard.md`.
 
 ## Run Local Services

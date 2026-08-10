@@ -29,11 +29,13 @@ check:
 check-crm-support-dashboard:
 	$(COMPOSE) up -d postgres minio clamav
 	$(COMPOSE) run --rm minio-bootstrap
+	$(COMPOSE) build api
 	CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR=/tmp/opendx-crm-support-dashboard-exit \
 	TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test \
+	MINIO_BUCKET=product-media-test \
 	MINIO_SUPPORT_BUCKET=support-attachments-test \
 	RUN_REPORTING_SCALE=1 \
-	$(COMPOSE) run --rm -e TEST_DATABASE_URL -e MINIO_SUPPORT_BUCKET -e CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR -e RUN_REPORTING_SCALE api pnpm check:crm-support-dashboard
+	$(COMPOSE) run --rm -e TEST_DATABASE_URL -e MINIO_BUCKET -e MINIO_SUPPORT_BUCKET -e CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR -e RUN_REPORTING_SCALE api pnpm run check:crm-support-dashboard
 
 db-migrate:
 	$(COMPOSE) run --rm migrate

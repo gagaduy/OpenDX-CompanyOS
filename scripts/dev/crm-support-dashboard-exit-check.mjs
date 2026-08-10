@@ -13,7 +13,10 @@ export const REQUIRED_ENVIRONMENT = [
   { name: "MINIO_ENDPOINT", pattern: /localhost|127\.0\.0\.1|minio/i },
   { name: "MINIO_ACCESS_KEY", pattern: /.+/ },
   { name: "MINIO_SECRET_KEY", pattern: /.+/ },
+  { name: "MINIO_BUCKET", pattern: /-test$/ },
   { name: "MINIO_SUPPORT_BUCKET", pattern: /test|support/i },
+  { name: "CLAMAV_HOST", pattern: /^(localhost|127\.0\.0\.1|clamav)$/i },
+  { name: "CLAMAV_PORT", pattern: /^[1-9][0-9]{1,4}$/ },
   { name: "RUN_REPORTING_SCALE", pattern: /^1$/ },
 ];
 
@@ -74,6 +77,7 @@ export function buildCommands() {
         "src/modules/crm/tests/crm.api.integration.test.ts",
         "src/modules/support/infrastructure/database/support-migration.integration.test.ts",
         "src/modules/support/infrastructure/repositories/implementations/postgresql-support.repository.integration.test.ts",
+        "src/modules/support/infrastructure/security/clamd-support-attachment.scanner.integration.test.ts",
         "src/modules/support/infrastructure/storage/minio-support-attachment.storage.integration.test.ts",
         "src/modules/support/tests/support.api.integration.test.ts",
         "src/modules/reporting/infrastructure/repositories/implementations/postgresql-reporting.repository.integration.test.ts",
