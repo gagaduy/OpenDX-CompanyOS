@@ -14,6 +14,22 @@ const optionalSecret = z.preprocess(
   z.string().trim().min(1).optional(),
 );
 
+const bodyLimit = z
+  .string()
+  .trim()
+  .regex(/^\d+(b|kb|mb)$/i);
+const optionalProductionConfirmation = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().trim().optional(),
+);
+const forbiddenExampleHostnames = new Set([
+  "shop.example.com",
+  "console.example.com",
+  "api.example.com",
+  "auth.example.com",
+  "storage.example.com",
+]);
+
 const SEPAY_SANDBOX_CHECKOUT_URL = "https://pay-sandbox.sepay.vn/v1/checkout/init";
 const SEPAY_SANDBOX_API_URL = "https://pgapi-sandbox.sepay.vn";
 const SEPAY_PRODUCTION_CHECKOUT_URL = "https://pay.sepay.vn/v1/checkout/init";
@@ -82,6 +98,14 @@ const apiEnvironmentSchema = z.object({
   PAYMENT_RECONCILIATION_INTERVAL_SECONDS: positiveInteger.default(60).pipe(
     z.number().int().min(10).max(3_600),
   ),
+  LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
+  METRICS_PATH: z.string().trim().regex(/^\/[a-z0-9/_-]*$/i).default("/metrics"),
+  READINESS_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(250).max(10_000)).default(2_000),
+  JSON_BODY_LIMIT: bodyLimit.default("1mb"),
+  PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: positiveInteger.default(10_000),
+  PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: optionalProductionConfirmation,
 }).superRefine((value, context) => {
   const credentialFields = [
     ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
@@ -101,6 +125,21 @@ const apiEnvironmentSchema = z.object({
   }
 
   if (value.OPENDX_ENV !== "production") return;
+  for (const [field, rawUrl] of [
+    ["CONSOLE_ORIGIN", value.CONSOLE_ORIGIN],
+    ["STOREFRONT_ORIGIN", value.STOREFRONT_ORIGIN],
+    ["KEYCLOAK_ISSUER", value.KEYCLOAK_ISSUER],
+    ["MINIO_ENDPOINT", value.MINIO_ENDPOINT],
+  ] as const) {
+    const hostname = new URL(rawUrl).hostname;
+    if (forbiddenExampleHostnames.has(hostname)) {
+      context.addIssue({
+        code: "custom",
+        path: [field],
+        message: "must not use a placeholder production domain",
+      });
+    }
+  }
   if (!value.COOKIE_SECURE) {
     context.addIssue({
       code: "custom",
@@ -194,6 +233,20 @@ export interface ApiEnvironment {
   readonly checkoutTtlSeconds: number;
   readonly checkoutExpiryIntervalSeconds: number;
   readonly paymentReconciliationIntervalSeconds: number;
+  readonly logging: {
+    readonly format: "pretty" | "json";
+    readonly level: "debug" | "info" | "warn" | "error";
+  };
+  readonly metrics: {
+    readonly enabled: boolean;
+    readonly path: string;
+  };
+  readonly readinessTimeoutMs: number;
+  readonly jsonBodyLimit: string;
+  readonly productionSePayAcceptance: {
+    readonly amountVnd: number;
+    readonly confirmation?: string;
+  };
   readonly sepay: SePayConfiguration;
 }
 
@@ -259,6 +312,22 @@ export function parseApiEnvironment(
     checkoutExpiryIntervalSeconds: value.CHECKOUT_EXPIRY_INTERVAL_SECONDS,
     paymentReconciliationIntervalSeconds:
       value.PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
+    logging: {
+      format: value.LOG_FORMAT,
+      level: value.LOG_LEVEL,
+    },
+    metrics: {
+      enabled: value.METRICS_ENABLED,
+      path: value.METRICS_PATH,
+    },
+    readinessTimeoutMs: value.READINESS_TIMEOUT_MS,
+    jsonBodyLimit: value.JSON_BODY_LIMIT,
+    productionSePayAcceptance: {
+      amountVnd: value.PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND,
+      ...(value.PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION === undefined
+        ? {}
+        : { confirmation: value.PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION }),
+    },
     sepay: {
       environment: value.SEPAY_ENVIRONMENT,
       checkoutUrl,

@@ -165,6 +165,12 @@ Copy `.env.example` to `.env` for local development if needed. Do not commit `.e
 
 The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production. See `development/catalog-local-environment.md` and `development/database-operations.md` for operations and data-loss boundaries.
 
+Phase 8 production readiness uses a separate production environment contract
+documented in [`deployment/production.md`](deployment/production.md). Production
+mode requires HTTPS origins, secure cookies, real non-placeholder domains,
+explicit SePay production settings, and PII-safe observability settings.
+GitHub Actions checks do not deploy to a VPS in Phase 8.
+
 The API readiness probe verifies every PostgreSQL migration family through
 CRM/Support, Keycloak, ClamAV, the product-media MinIO bucket, and the private
 `support-attachments` bucket. It does not contact SePay. Runtime persistence

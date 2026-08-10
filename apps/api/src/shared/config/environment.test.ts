@@ -106,22 +106,97 @@ describe("parseApiEnvironment", () => {
     expect(parseApiEnvironment({
       ...validSource,
       OPENDX_ENV: "production",
-      STOREFRONT_ORIGIN: "https://shop.example.com",
+      CONSOLE_ORIGIN: "https://console.novacommerce.local",
+      STOREFRONT_ORIGIN: "https://shop.novacommerce.local",
       COOKIE_SECURE: "true",
       GOOGLE_CLIENT_ID: "",
+      KEYCLOAK_ISSUER: "https://auth.novacommerce.local/realms/opendx",
+      KEYCLOAK_JWKS_URL:
+        "https://auth.novacommerce.local/realms/opendx/protocol/openid-connect/certs",
+      MINIO_ENDPOINT: "https://storage.novacommerce.local",
       SEPAY_ENVIRONMENT: "production",
       SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
       SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
       SEPAY_MERCHANT_ID: "production-merchant",
       SEPAY_SECRET_KEY: "production-secret",
       SEPAY_IPN_SECRET: "production-ipn-secret",
-      SEPAY_SUCCESS_URL: "https://shop.example.com/payment/return?outcome=success",
-      SEPAY_ERROR_URL: "https://shop.example.com/payment/return?outcome=error",
-      SEPAY_CANCEL_URL: "https://shop.example.com/payment/return?outcome=cancel",
+      SEPAY_SUCCESS_URL: "https://shop.novacommerce.local/payment/return?outcome=success",
+      SEPAY_ERROR_URL: "https://shop.novacommerce.local/payment/return?outcome=error",
+      SEPAY_CANCEL_URL: "https://shop.novacommerce.local/payment/return?outcome=cancel",
     })).toMatchObject({
       environment: "production",
-      storefrontOrigin: "https://shop.example.com",
+      storefrontOrigin: "https://shop.novacommerce.local",
       cookieSecure: true,
+    });
+  });
+
+  it("rejects placeholder production domains", () => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        OPENDX_ENV: "production",
+        COOKIE_SECURE: "true",
+        CONSOLE_ORIGIN: "https://console.example.com",
+        STOREFRONT_ORIGIN: "https://shop.example.com",
+        KEYCLOAK_ISSUER: "https://auth.example.com/realms/opendx",
+        KEYCLOAK_JWKS_URL:
+          "https://auth.example.com/realms/opendx/protocol/openid-connect/certs",
+        MINIO_ENDPOINT: "https://storage.example.com",
+        SEPAY_ENVIRONMENT: "production",
+        SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
+        SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
+        SEPAY_MERCHANT_ID: "merchant",
+        SEPAY_SECRET_KEY: "secret",
+        SEPAY_IPN_SECRET: "ipn-secret",
+        SEPAY_SUCCESS_URL:
+          "https://shop.example.com/payment/return?outcome=success",
+        SEPAY_ERROR_URL: "https://shop.example.com/payment/return?outcome=error",
+        SEPAY_CANCEL_URL:
+          "https://shop.example.com/payment/return?outcome=cancel",
+      }),
+    ).toThrow(/placeholder production domain/i);
+  });
+
+  it("parses production observability and body limit settings", () => {
+    const environment = parseApiEnvironment({
+      ...validSource,
+      OPENDX_ENV: "production",
+      COOKIE_SECURE: "true",
+      CONSOLE_ORIGIN: "https://console.novacommerce.local",
+      STOREFRONT_ORIGIN: "https://shop.novacommerce.local",
+      KEYCLOAK_ISSUER: "https://auth.novacommerce.local/realms/opendx",
+      KEYCLOAK_JWKS_URL:
+        "https://auth.novacommerce.local/realms/opendx/protocol/openid-connect/certs",
+      MINIO_ENDPOINT: "https://storage.novacommerce.local",
+      SEPAY_ENVIRONMENT: "production",
+      SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
+      SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
+      SEPAY_MERCHANT_ID: "merchant",
+      SEPAY_SECRET_KEY: "secret",
+      SEPAY_IPN_SECRET: "ipn-secret",
+      SEPAY_SUCCESS_URL:
+        "https://shop.novacommerce.local/payment/return?outcome=success",
+      SEPAY_ERROR_URL:
+        "https://shop.novacommerce.local/payment/return?outcome=error",
+      SEPAY_CANCEL_URL:
+        "https://shop.novacommerce.local/payment/return?outcome=cancel",
+      LOG_FORMAT: "json",
+      LOG_LEVEL: "info",
+      METRICS_ENABLED: "true",
+      METRICS_PATH: "/metrics",
+      READINESS_TIMEOUT_MS: "2500",
+      JSON_BODY_LIMIT: "1mb",
+      PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: "10000",
+      PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION:
+        "I_UNDERSTAND_THIS_CREATES_A_REAL_PAYMENT",
+    });
+    expect(environment.logging).toEqual({ format: "json", level: "info" });
+    expect(environment.metrics).toEqual({ enabled: true, path: "/metrics" });
+    expect(environment.readinessTimeoutMs).toBe(2500);
+    expect(environment.jsonBodyLimit).toBe("1mb");
+    expect(environment.productionSePayAcceptance).toEqual({
+      amountVnd: 10000,
+      confirmation: "I_UNDERSTAND_THIS_CREATES_A_REAL_PAYMENT",
     });
   });
 

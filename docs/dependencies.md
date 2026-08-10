@@ -98,6 +98,11 @@ Phase 7 CRM, Support, Dashboard, and the exit preflight reuse the existing Node,
 React, PostgreSQL, MinIO, ClamAV, Zod, and Console test/build stack. No new
 runtime or build dependency is added for the Phase 7 acceptance runner.
 
+Phase 8 production environment validation and deployment documentation reuse
+the existing Zod, Docker Compose, PostgreSQL, MinIO, Keycloak, ClamAV, and
+Node.js script stack. No new runtime, build, or infrastructure dependency is
+added for the production environment contract baseline.
+
 ## Dependency Policy
 
 - Prefer established open-source libraries over hand-rolled infrastructure.

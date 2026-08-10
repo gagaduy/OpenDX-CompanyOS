@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Phase 8 production environment contract baseline with fail-closed
+  production validation for placeholder domains and typed observability,
+  request-size, readiness, and production SePay acceptance settings.
 - Fix Storefront startup so cart loading waits for customer session
   restoration, preventing rotated customer cookies from being cleared by a
   concurrent stale cart request.
