@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add authoritative aggregate Reporting APIs for commerce, products, customers,
+  and operations under `/v1/admin/reporting`, with Administrator/Executive
+  access, PII-free DTOs, VND integer arithmetic, PostgreSQL-backed query
+  coverage, and scale query-plan verification.
 - Add the ClamAV local scanning lifecycle, private Support attachment MinIO
   bucket readiness, and Support worker interval environment configuration.
 - Add private Support ticket attachment upload/download services, ClamD scan

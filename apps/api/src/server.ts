@@ -26,6 +26,7 @@ import { createOrderModule } from "./modules/order";
 import { createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } from "./modules/payment";
 import { createCheckoutModule } from "./modules/checkout";
 import { createCrmModule } from "./modules/crm";
+import { createReportingModule } from "./modules/reporting";
 import { createSupportModule } from "./modules/support";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
@@ -164,6 +165,12 @@ const support = createSupportModule({
   attachmentScanIntervalMs: environment.supportAttachmentScanIntervalSeconds * 1_000,
   attachmentRetentionIntervalMs: environment.supportAttachmentRetentionIntervalSeconds * 1_000,
 });
+const reporting = createReportingModule({
+  database: pool,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
@@ -190,6 +197,7 @@ const app = createApiApp({
   paymentAdminRouter: paymentOperations.adminRouter,
   crmAdminRouter: crm.router,
   supportAdminRouter: support.router,
+  reportingAdminRouter: reporting.router,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
