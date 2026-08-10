@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+# SPDX-License-Identifier: Apache-2.0
+
+{
+	email admin@example.com
+}
+
+shop.example.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy storefront:3100
+}
+
+console.example.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy console:3000
+}
+
+api.example.com {
+	encode zstd gzip
+	request_body {
+		max_size 11MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy api:4000
+}
+
+auth.example.com {
+	encode zstd gzip
+	reverse_proxy keycloak:8080
+}

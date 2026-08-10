@@ -49,6 +49,18 @@ with real HTTPS domains in `.env.production`.
 
 Deployment is manual in Phase 8. GitHub Actions must not SSH into the VPS.
 
+The production-candidate files live under `infra/deploy/`:
+
+```bash
+pnpm check:production-compose
+docker compose --env-file .env.production -f infra/deploy/compose.production.yml config --quiet
+docker compose --env-file .env.production -f infra/deploy/compose.production.yml up --build -d
+```
+
+The examples include placeholders so contributors can inspect the topology from
+source. The API still refuses to start in `OPENDX_ENV=production` until those
+placeholder domains are replaced with real HTTPS domains.
+
 ## Required Production Environment Groups
 
 - Public origins: `CONSOLE_ORIGIN`, `STOREFRONT_ORIGIN`, Keycloak issuer, and
@@ -83,4 +95,3 @@ Local development may use HTTP, local-only credentials, Vite dev servers, and
 sandbox SePay. Production uses HTTPS origins, secure cookies, real DNS, Caddy,
 production-safe secrets, persistent Docker volumes, explicit backup/restore,
 and opt-in payment acceptance.
-

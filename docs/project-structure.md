@@ -70,6 +70,10 @@ entities belong to their API module rather than this package.
 `infra/docker` contains the pinned full local Docker Compose topology,
 PostgreSQL test-database initialization, and Keycloak realm import.
 
+`infra/deploy` contains the Phase 8 VPS/VM production-candidate Docker Compose
+and Caddy examples. It is separate from local development infrastructure and
+uses environment variables for all production-specific domains and secrets.
+
 `infra/backups` is the ignored local destination for custom-format PostgreSQL
 archives created by the root `Makefile`.
 

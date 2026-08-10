@@ -1,0 +1,236 @@
+# SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: opendx-companyos-production
+
+x-api-environment: &api-environment
+  OPENDX_ENV: production
+  API_PORT: "4000"
+  LOG_FORMAT: json
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  METRICS_ENABLED: ${METRICS_ENABLED:-true}
+  METRICS_PATH: ${METRICS_PATH:-/metrics}
+  READINESS_TIMEOUT_MS: ${READINESS_TIMEOUT_MS:-2000}
+  JSON_BODY_LIMIT: ${JSON_BODY_LIMIT:-1mb}
+  DATABASE_URL: postgres://opendx:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/opendx
+  CONSOLE_ORIGIN: ${CONSOLE_ORIGIN:-https://console.example.com}
+  STOREFRONT_ORIGIN: ${STOREFRONT_ORIGIN:-https://shop.example.com}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+  CUSTOMER_COOKIE_NAME: ${CUSTOMER_COOKIE_NAME:-opendx_customer}
+  GUEST_COOKIE_NAME: ${GUEST_COOKIE_NAME:-opendx_guest}
+  CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-opendx_csrf}
+  COOKIE_SECURE: "true"
+  CUSTOMER_SESSION_TTL_SECONDS: "2592000"
+  GUEST_SESSION_TTL_SECONDS: "604800"
+  AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-20}
+  KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.example.com/realms/opendx}
+  KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-https://auth.example.com/realms/opendx/protocol/openid-connect/certs}
+  KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-opendx-api}
+  MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-opendx_minio}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+  MINIO_BUCKET: ${MINIO_BUCKET:-product-media}
+  MINIO_SUPPORT_BUCKET: ${MINIO_SUPPORT_BUCKET:-support-attachments}
+  MEDIA_MAX_BYTES: ${MEDIA_MAX_BYTES:-10485760}
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: "3310"
+  CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
+  SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: ${SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS:-30}
+  SUPPORT_ESCALATION_INTERVAL_SECONDS: ${SUPPORT_ESCALATION_INTERVAL_SECONDS:-30}
+  SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: ${SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS:-3600}
+  INVENTORY_RESERVATION_TTL_SECONDS: "900"
+  INVENTORY_EXPIRY_INTERVAL_SECONDS: ${INVENTORY_EXPIRY_INTERVAL_SECONDS:-30}
+  CHECKOUT_TTL_SECONDS: "900"
+  CHECKOUT_EXPIRY_INTERVAL_SECONDS: ${CHECKOUT_EXPIRY_INTERVAL_SECONDS:-30}
+  SEPAY_ENVIRONMENT: production
+  SEPAY_CHECKOUT_URL: ${SEPAY_CHECKOUT_URL:-https://pay.sepay.vn/v1/checkout/init}
+  SEPAY_API_BASE_URL: ${SEPAY_API_BASE_URL:-https://pgapi.sepay.vn}
+  SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:?SEPAY_MERCHANT_ID is required}
+  SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:?SEPAY_SECRET_KEY is required}
+  SEPAY_IPN_SECRET: ${SEPAY_IPN_SECRET:?SEPAY_IPN_SECRET is required}
+  SEPAY_SUCCESS_URL: ${SEPAY_SUCCESS_URL:-https://shop.example.com/payment/return?outcome=success}
+  SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-https://shop.example.com/payment/return?outcome=error}
+  SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-https://shop.example.com/payment/return?outcome=cancel}
+  SEPAY_REQUEST_TIMEOUT_MS: ${SEPAY_REQUEST_TIMEOUT_MS:-5000}
+  PAYMENT_RECONCILIATION_INTERVAL_SECONDS: ${PAYMENT_RECONCILIATION_INTERVAL_SECONDS:-60}
+  PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: ${PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND:-10000}
+  PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: ${PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION:-}
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      console:
+        condition: service_healthy
+      storefront:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    environment:
+      POSTGRES_DB: opendx
+      POSTGRES_USER: opendx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - opendx_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opendx -d opendx"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
+    command: ["start", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-opendx_admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-https://auth.example.com}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/opendx-realm.json:ro
+      - keycloak_data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-opendx_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - opendx_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  minio-bootstrap:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-opendx_minio} ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required};
+        mc mb --ignore-existing local/${MINIO_BUCKET:-product-media};
+        mc mb --ignore-existing local/${MINIO_SUPPORT_BUCKET:-support-attachments}
+
+  clamav:
+    image: clamav/clamav:1.5.3-debian13-slim@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
+    volumes:
+      - opendx_clamav_signatures:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec \"exec 3<>/dev/tcp/127.0.0.1/3310 && printf 'zPING\\0' >&3 && head -c 20 <&3 | grep -q PONG\""]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 2m
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: production
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:migrate:all"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: production
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:seed:all"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: production
+    environment: *api-environment
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 24
+
+  console:
+    build:
+      context: ../..
+      dockerfile: apps/console/Dockerfile
+      target: production
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.example.com}
+      VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-https://auth.example.com/realms/opendx}
+      VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-opendx-console}
+      VITE_OIDC_REDIRECT_URI: ${VITE_OIDC_REDIRECT_URI:-https://console.example.com/auth/callback}
+      VITE_OIDC_POST_LOGOUT_REDIRECT_URI: ${VITE_OIDC_POST_LOGOUT_REDIRECT_URI:-https://console.example.com/sign-in}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 24
+
+  storefront:
+    build:
+      context: ../..
+      dockerfile: apps/storefront/Dockerfile
+      target: production
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.example.com}
+      VITE_STOREFRONT_ORIGIN: ${VITE_STOREFRONT_ORIGIN:-https://shop.example.com}
+      VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 24
+
+volumes:
+  caddy_data:
+  caddy_config:
+  opendx_postgres:
+  opendx_minio:
+  keycloak_data:
+  opendx_clamav_signatures:

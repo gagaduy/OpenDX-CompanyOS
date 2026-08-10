@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 # SPDX-License-Identifier: Apache-2.0
 
-FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94
+FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94 AS base
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=/pnpm:$PATH
@@ -19,5 +19,11 @@ COPY --chown=node:node . .
 USER node
 RUN pnpm install --frozen-lockfile
 
+FROM base AS production
+RUN pnpm --filter @opendx/storefront build
+EXPOSE 3100
+CMD ["pnpm", "--filter", "@opendx/storefront", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "3100"]
+
+FROM base AS development
 EXPOSE 3100
 CMD ["pnpm", "--filter", "@opendx/storefront", "dev", "--host", "0.0.0.0"]

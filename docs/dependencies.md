@@ -83,6 +83,7 @@ Current images:
 | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | Local product-media object storage |
 | `minio/mc:RELEASE.2025-04-16T18-13-26Z` | Idempotent local bucket bootstrap |
 | `clamav/clamav:1.5.3-debian13-slim` | Local Support attachment malware scanning |
+| `caddy:2.10.2-alpine` | Phase 8 VPS HTTPS reverse proxy example |
 
 Compose and Dockerfiles pin these reviewed tags to immutable image digests.
 Temporal and pgvector are not runtime dependencies of the Commerce Product
@@ -100,8 +101,9 @@ runtime or build dependency is added for the Phase 7 acceptance runner.
 
 Phase 8 production environment validation and deployment documentation reuse
 the existing Zod, Docker Compose, PostgreSQL, MinIO, Keycloak, ClamAV, and
-Node.js script stack. No new runtime, build, or infrastructure dependency is
-added for the production environment contract baseline.
+Node.js script stack. The production-candidate deployment example adds Caddy as
+the approved VPS HTTPS reverse proxy. No new application runtime or package
+dependency is added for the production environment contract baseline.
 
 ## Dependency Policy
 
