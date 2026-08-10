@@ -1,12 +1,37 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { BarChart3, Boxes, Building2, CreditCard, FolderTree, Headphones, LogOut, PackageSearch, ShoppingBag, Users } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  Building2,
+  CreditCard,
+  FolderTree,
+  Headphones,
+  LogOut,
+  Moon,
+  PackageSearch,
+  ShoppingBag,
+  Sun,
+  Users,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../features/authentication/hooks/auth-context";
 
+const consoleThemeStorageKey = "opendx.console.theme";
+type ConsoleTheme = "dark" | "night";
+
+function readInitialConsoleTheme(): ConsoleTheme {
+  if (typeof window === "undefined") return "dark";
+  return window.localStorage.getItem(consoleThemeStorageKey) === "night"
+    ? "night"
+    : "dark";
+}
+
 export function ConsoleShell() {
   const { session, signOut } = useAuth();
+  const [theme, setTheme] = useState<ConsoleTheme>(readInitialConsoleTheme);
   const canUseCatalog = session?.roles.some((role) => role === "administrator" || role === "catalog_manager") === true;
   const canReadInventory = session?.roles.some((role) => role === "administrator" || role === "catalog_manager" || role === "inventory_manager") === true;
   const canOperateOrders = session?.roles.some((role) => role === "administrator" || role === "operations_manager") === true;
@@ -14,8 +39,18 @@ export function ConsoleShell() {
   const canOperateCustomers = session?.roles.some((role) => role === "administrator" || role === "crm_operator") === true;
   const canOperateSupport = session?.roles.some((role) => role === "administrator" || role === "support_operator" || role === "crm_operator") === true;
   const canReadDashboard = session?.roles.some((role) => role === "administrator" || role === "executive_viewer") === true;
+  useEffect(() => {
+    window.localStorage.setItem(consoleThemeStorageKey, theme);
+  }, [theme]);
+
+  const nightModeEnabled = theme === "night";
+
   return (
-    <div className="consoleLayout">
+    <div
+      className="consoleLayout"
+      data-theme={theme}
+      data-testid="console-layout"
+    >
       <aside className="consoleSidebar">
         <div className="consoleBrand"><span className="brandMark">DX</span><span>NovaCommerce</span></div>
         <nav aria-label="Primary navigation">
@@ -31,7 +66,24 @@ export function ConsoleShell() {
         </nav>
         <div className="staffIdentity">
           <span>{session?.displayName}</span>
-          <button type="button" title="Sign out" aria-label="Sign out" onClick={() => void signOut()}><LogOut size={16} /></button>
+          <div className="staffActions">
+            <button
+              type="button"
+              title={nightModeEnabled ? "Tắt chế độ night" : "Bật chế độ night"}
+              aria-label={nightModeEnabled ? "Tắt chế độ night" : "Bật chế độ night"}
+              onClick={() => setTheme(nightModeEnabled ? "dark" : "night")}
+            >
+              {nightModeEnabled ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button
+              type="button"
+              title="Sign out"
+              aria-label="Sign out"
+              onClick={() => void signOut()}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </aside>
       <main className="consoleContent"><Outlet /></main>

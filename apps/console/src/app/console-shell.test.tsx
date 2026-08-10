@@ -4,7 +4,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouter } from "./app-router";
 import type {
   AuthClient,
@@ -13,6 +13,10 @@ import type {
 import { AuthProvider } from "../features/authentication/hooks/auth-context";
 
 describe("ConsoleShell", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("prioritizes catalog navigation and supports logout", async () => {
     const session: AuthSession = {
       accessToken: "token",
@@ -42,5 +46,55 @@ describe("ConsoleShell", () => {
     expect(screen.getByRole("link", { name: /company overview/i })).toHaveTextContent("Alpha");
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
     expect(client.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("toggles and persists the Console night mode", async () => {
+    const session: AuthSession = {
+      accessToken: "token",
+      subject: "user_admin",
+      displayName: "Administrator",
+      roles: ["administrator"],
+    };
+    const client: AuthClient = {
+      getSession: vi.fn(async () => session),
+      signIn: vi.fn(async () => undefined),
+      completeSignIn: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      signOut: vi.fn(async () => undefined),
+    };
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/products"]}>
+        <AuthProvider client={client}>
+          <AppRouter />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const layout = await screen.findByTestId("console-layout");
+    expect(layout).toHaveAttribute("data-theme", "dark");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Bật chế độ night" }),
+    );
+
+    expect(layout).toHaveAttribute("data-theme", "night");
+    expect(window.localStorage.getItem("opendx.console.theme")).toBe("night");
+
+    unmount();
+    window.localStorage.setItem("opendx.console.theme", "invalid");
+
+    render(
+      <MemoryRouter initialEntries={["/products"]}>
+        <AuthProvider client={client}>
+          <AppRouter />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId("console-layout")).toHaveAttribute(
+      "data-theme",
+      "dark",
+    );
   });
 });

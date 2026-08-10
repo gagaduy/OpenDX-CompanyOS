@@ -86,6 +86,18 @@ textarea:focus-visible {
   min-height: 100vh;
 }
 
+.consoleLayout[data-theme="night"] {
+  --canvas: #000;
+  --surface-1: #070809;
+  --surface-2: #0b0c0d;
+  --surface-3: #111214;
+  --hairline: #1a1c20;
+  --ink: #fbfbfc;
+  --ink-muted: #c7ced8;
+  --ink-subtle: #858b96;
+  --ink-tertiary: #565b64;
+}
+
 .consoleSidebar {
   position: sticky;
   top: 0;
@@ -158,6 +170,12 @@ textarea:focus-visible {
   border-top: 1px solid var(--hairline);
   color: var(--ink-muted);
   font-size: 12px;
+}
+
+.staffActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .staffIdentity button {
