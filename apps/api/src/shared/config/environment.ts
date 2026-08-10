@@ -45,7 +45,14 @@ const apiEnvironmentSchema = z.object({
   MINIO_ACCESS_KEY: z.string().trim().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().trim().min(1),
+  MINIO_SUPPORT_BUCKET: z.string().trim().min(1).default("support-attachments"),
   MEDIA_MAX_BYTES: positiveInteger,
+  CLAMAV_HOST: z.string().trim().min(1).default("clamav"),
+  CLAMAV_PORT: positiveInteger.pipe(z.number().int().max(65_535)).default(3310),
+  CLAMAV_TIMEOUT_SECONDS: positiveInteger.pipe(z.number().int().min(1).max(60)).default(30),
+  SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: positiveInteger.default(30),
+  SUPPORT_ESCALATION_INTERVAL_SECONDS: positiveInteger.default(30),
+  SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: positiveInteger.default(3600),
   INVENTORY_RESERVATION_TTL_SECONDS: positiveInteger.default(900).refine(
     (value) => value === 900,
     { message: "must equal 900" },
@@ -88,6 +95,9 @@ const apiEnvironmentSchema = z.object({
         context.addIssue({ code: "custom", path: [field], message: "is required when SePay is configured" });
       }
     }
+  }
+  if (value.MINIO_SUPPORT_BUCKET === value.MINIO_BUCKET) {
+    context.addIssue({ code: "custom", path: ["MINIO_SUPPORT_BUCKET"], message: "must be distinct from MINIO_BUCKET" });
   }
 
   if (value.OPENDX_ENV !== "production") return;
@@ -171,7 +181,14 @@ export interface ApiEnvironment {
   readonly minioAccessKey: string;
   readonly minioSecretKey: string;
   readonly minioBucket: string;
+  readonly minioSupportBucket: string;
   readonly mediaMaxBytes: number;
+  readonly clamavHost: string;
+  readonly clamavPort: number;
+  readonly clamavTimeoutMs: number;
+  readonly supportAttachmentScanIntervalSeconds: number;
+  readonly supportEscalationIntervalSeconds: number;
+  readonly supportAttachmentRetentionIntervalSeconds: number;
   readonly inventoryReservationTtlSeconds: number;
   readonly inventoryExpiryIntervalSeconds: number;
   readonly checkoutTtlSeconds: number;
@@ -228,7 +245,14 @@ export function parseApiEnvironment(
     minioAccessKey: value.MINIO_ACCESS_KEY,
     minioSecretKey: value.MINIO_SECRET_KEY,
     minioBucket: value.MINIO_BUCKET,
+    minioSupportBucket: value.MINIO_SUPPORT_BUCKET,
     mediaMaxBytes: value.MEDIA_MAX_BYTES,
+    clamavHost: value.CLAMAV_HOST,
+    clamavPort: value.CLAMAV_PORT,
+    clamavTimeoutMs: value.CLAMAV_TIMEOUT_SECONDS * 1_000,
+    supportAttachmentScanIntervalSeconds: value.SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS,
+    supportEscalationIntervalSeconds: value.SUPPORT_ESCALATION_INTERVAL_SECONDS,
+    supportAttachmentRetentionIntervalSeconds: value.SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS,
     inventoryReservationTtlSeconds: value.INVENTORY_RESERVATION_TTL_SECONDS,
     inventoryExpiryIntervalSeconds: value.INVENTORY_EXPIRY_INTERVAL_SECONDS,
     checkoutTtlSeconds: value.CHECKOUT_TTL_SECONDS,

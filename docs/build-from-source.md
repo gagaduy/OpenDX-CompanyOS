@@ -44,6 +44,8 @@ This runs:
 - Python tests for `services/ai-runtime`
 - Repository governance audit
 - Docker Compose config validation
+- ClamAV and private Support attachment bucket readiness through the Compose API
+  health checks
 
 The faster host gate remains available after installing dependencies:
 
@@ -137,8 +139,15 @@ Copy `.env.example` to `.env` for local development if needed. Do not commit `.e
 The example credentials in `infra/docker/docker-compose.yml` are local-only and must not be reused in production. See `development/catalog-local-environment.md` and `development/database-operations.md` for operations and data-loss boundaries.
 
 The API readiness probe verifies every PostgreSQL migration family through
-Payment, Keycloak, and the MinIO bucket. It does not contact SePay. Runtime
-persistence remains PostgreSQL-only; there is no memory database switch.
+CRM/Support, Keycloak, ClamAV, the product-media MinIO bucket, and the private
+`support-attachments` bucket. It does not contact SePay. Runtime persistence
+remains PostgreSQL-only; there is no memory database switch.
+
+ClamAV uses the pinned local Compose image and keeps virus signatures on a
+persistent Docker volume. First startup can spend several minutes downloading
+signatures and should have about 4 GB of Docker memory available. Support
+attachment uploads fail closed while scanning is unavailable: files remain
+quarantined and cannot be downloaded until a clean scan is recorded.
 
 See `development/storefront-local-environment.md` for optional real Google
 identity setup. The normal stack and health checks do not require Google.

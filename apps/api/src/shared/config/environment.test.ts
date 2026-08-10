@@ -30,6 +30,13 @@ describe("parseApiEnvironment", () => {
     expect(environment.checkoutTtlSeconds).toBe(900);
     expect(environment.checkoutExpiryIntervalSeconds).toBe(30);
     expect(environment.paymentReconciliationIntervalSeconds).toBe(60);
+    expect(environment.clamavHost).toBe("clamav");
+    expect(environment.clamavPort).toBe(3310);
+    expect(environment.clamavTimeoutMs).toBe(30_000);
+    expect(environment.supportAttachmentScanIntervalSeconds).toBe(30);
+    expect(environment.supportEscalationIntervalSeconds).toBe(30);
+    expect(environment.supportAttachmentRetentionIntervalSeconds).toBe(3_600);
+    expect(environment.minioSupportBucket).toBe("support-attachments");
     expect(environment.sepay).toMatchObject({
       environment: "sandbox",
       configured: false,
@@ -52,6 +59,15 @@ describe("parseApiEnvironment", () => {
     ["CHECKOUT_EXPIRY_INTERVAL_SECONDS", { CHECKOUT_EXPIRY_INTERVAL_SECONDS: "4" }],
     ["SEPAY_REQUEST_TIMEOUT_MS", { SEPAY_REQUEST_TIMEOUT_MS: "499" }],
     ["PAYMENT_RECONCILIATION_INTERVAL_SECONDS", { PAYMENT_RECONCILIATION_INTERVAL_SECONDS: "9" }],
+    ["CLAMAV_HOST", { CLAMAV_HOST: "" }],
+    ["CLAMAV_PORT", { CLAMAV_PORT: "0" }],
+    ["CLAMAV_PORT", { CLAMAV_PORT: "70000" }],
+    ["CLAMAV_TIMEOUT_SECONDS", { CLAMAV_TIMEOUT_SECONDS: "0" }],
+    ["CLAMAV_TIMEOUT_SECONDS", { CLAMAV_TIMEOUT_SECONDS: "61" }],
+    ["SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS", { SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: "0" }],
+    ["SUPPORT_ESCALATION_INTERVAL_SECONDS", { SUPPORT_ESCALATION_INTERVAL_SECONDS: "0" }],
+    ["SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS", { SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: "0" }],
+    ["MINIO_SUPPORT_BUCKET", { MINIO_SUPPORT_BUCKET: "product-media" }],
   ])("rejects invalid %s", (expectedKey, override) => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
@@ -114,6 +130,7 @@ describe("parseApiEnvironment", () => {
     ["SEPAY_CHECKOUT_URL", { SEPAY_CHECKOUT_URL: "https://pay-sandbox.sepay.vn/v1/checkout/init" }],
     ["SEPAY_API_BASE_URL", { SEPAY_API_BASE_URL: "https://pgapi-sandbox.sepay.vn" }],
     ["SEPAY_SUCCESS_URL", { SEPAY_SUCCESS_URL: "http://shop.example.com/payment/return" }],
+    ["MINIO_SUPPORT_BUCKET", { MINIO_SUPPORT_BUCKET: "product-media" }],
   ])("rejects unsafe production %s", (expectedKey, override) => {
     expect(() => parseApiEnvironment({
       ...validSource,

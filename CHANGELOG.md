@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the ClamAV local scanning lifecycle, private Support attachment MinIO
+  bucket readiness, and Support worker interval environment configuration.
 - Add private Support ticket attachment upload/download services, ClamD scan
   adapter, MinIO storage adapter, and scan/retention workers.
 - Add staff Support ticket operations, PostgreSQL concurrency controls, and SLA escalation worker.

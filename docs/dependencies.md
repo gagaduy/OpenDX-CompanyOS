@@ -82,6 +82,7 @@ Current images:
 | `quay.io/keycloak/keycloak:26.4.2` | Local staff identity provider |
 | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | Local product-media object storage |
 | `minio/mc:RELEASE.2025-04-16T18-13-26Z` | Idempotent local bucket bootstrap |
+| `clamav/clamav:1.5.3-debian13-slim` | Local Support attachment malware scanning |
 
 Compose and Dockerfiles pin these reviewed tags to immutable image digests.
 Temporal and pgvector are not runtime dependencies of the Commerce Product

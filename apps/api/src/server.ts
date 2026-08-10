@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from "node:crypto";
+import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
@@ -26,6 +27,8 @@ import { createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } f
 import { createCheckoutModule } from "./modules/checkout";
 import { createCrmModule } from "./modules/crm";
 import { createSupportModule } from "./modules/support";
+import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
+import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
 const environment = parseApiEnvironment(process.env);
 const pool = createPostgresPool(environment);
@@ -148,7 +151,19 @@ const crm = createCrmModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
-const support = createSupportModule({ transactions, customers: customer.operations, orders: order.operations, staffTokenVerifier, generateId: randomUUID, now: () => new Date().toISOString() });
+const support = createSupportModule({
+  transactions,
+  customers: customer.operations,
+  orders: order.operations,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+  attachmentStorage: new MinioSupportAttachmentStorage(minio, environment.minioSupportBucket),
+  attachmentScanner: new ClamdSupportAttachmentScanner(environment.clamavHost, environment.clamavPort, environment.clamavTimeoutMs),
+  escalationIntervalMs: environment.supportEscalationIntervalSeconds * 1_000,
+  attachmentScanIntervalMs: environment.supportAttachmentScanIntervalSeconds * 1_000,
+  attachmentRetentionIntervalMs: environment.supportAttachmentRetentionIntervalSeconds * 1_000,
+});
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
@@ -182,7 +197,7 @@ const app = createApiApp({
       const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string; promotion: string; checkout: string; orders: string; payment: string; crm: string; support: string }>(
         "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart, (SELECT count(*)::text FROM promotion_migrations) AS promotion, (SELECT count(*)::text FROM checkout_migrations) AS checkout, (SELECT count(*)::text FROM order_migrations) AS orders, (SELECT count(*)::text FROM payment_migrations) AS payment, (SELECT count(*)::text FROM crm_migrations) AS crm, (SELECT count(*)::text FROM support_migrations) AS support",
       );
-      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 1 || Number(result.rows[0]?.orders ?? 0) < 1 || Number(result.rows[0]?.payment ?? 0) < 1 || Number(result.rows[0]?.crm ?? 0) < 1 || Number(result.rows[0]?.support ?? 0) < 1) {
+      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 1 || Number(result.rows[0]?.orders ?? 0) < 1 || Number(result.rows[0]?.payment ?? 0) < 1 || Number(result.rows[0]?.crm ?? 0) < 1 || Number(result.rows[0]?.support ?? 0) < 2) {
         throw new Error("Database migrations are incomplete");
       }
     }),
@@ -194,7 +209,11 @@ const app = createApiApp({
       if (!(await minio.bucketExists(environment.minioBucket))) {
         throw new Error("Product media bucket is unavailable");
       }
+      if (!(await minio.bucketExists(environment.minioSupportBucket))) {
+        throw new Error("Support attachment bucket is unavailable");
+      }
     }),
+    clamav: await probe(() => pingClamav(environment.clamavHost, environment.clamavPort, environment.clamavTimeoutMs)),
   }),
 });
 
@@ -230,4 +249,25 @@ async function probe(operation: () => Promise<void>): Promise<DependencyStatus> 
   } catch {
     return "down";
   }
+}
+
+async function pingClamav(host: string, port: number, timeoutMs: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const socket = connect({ host, port });
+    const timer = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("ClamAV readiness timed out"));
+    }, timeoutMs);
+    socket.on("error", error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    socket.on("data", chunk => {
+      const response = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+      clearTimeout(timer);
+      socket.destroy();
+      response.includes("PONG") ? resolve() : reject(new Error("ClamAV readiness failed"));
+    });
+    socket.on("connect", () => socket.write("zPING\0"));
+  });
 }

@@ -24,7 +24,14 @@ x-api-environment: &api-environment
   MINIO_ACCESS_KEY: opendx_minio
   MINIO_SECRET_KEY: opendx_minio_password
   MINIO_BUCKET: product-media
+  MINIO_SUPPORT_BUCKET: support-attachments
   MEDIA_MAX_BYTES: "10485760"
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: "3310"
+  CLAMAV_TIMEOUT_SECONDS: "30"
+  SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: "30"
+  SUPPORT_ESCALATION_INTERVAL_SECONDS: "30"
+  SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: "3600"
   INVENTORY_RESERVATION_TTL_SECONDS: "900"
   INVENTORY_EXPIRY_INTERVAL_SECONDS: "30"
   CHECKOUT_TTL_SECONDS: "900"
@@ -103,7 +110,19 @@ services:
     command:
       - >-
         mc alias set local http://minio:9000 opendx_minio opendx_minio_password;
-        mc mb --ignore-existing local/product-media
+        mc mb --ignore-existing local/product-media;
+        mc mb --ignore-existing local/support-attachments
+
+  clamav:
+    image: clamav/clamav:1.5.3-debian13-slim@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
+    volumes:
+      - opendx_clamav_signatures:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec \"exec 3<>/dev/tcp/127.0.0.1/3310 && printf 'zPING\\0' >&3 && head -c 20 <&3 | grep -q PONG\""]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 2m
 
   migrate:
     build:
@@ -144,6 +163,8 @@ services:
       - ../../packages/ui/src:/workspace/packages/ui/src
     depends_on:
       keycloak:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
       seed:
         condition: service_completed_successfully
@@ -216,3 +237,4 @@ services:
 volumes:
   opendx_postgres:
   opendx_minio:
+  opendx_clamav_signatures:
