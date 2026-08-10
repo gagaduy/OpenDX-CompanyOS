@@ -19,6 +19,8 @@ independent-review evidence remain open.
   typecheck/build, audit, and diff-check commands to the runner.
 - Fixed `make check-crm-support-dashboard` to rebuild the API image from the
   current source and pass isolated product/support MinIO bucket names.
+- Added `scripts/dev/crm-support-dashboard-browser-check.mjs` and
+  `pnpm check:crm-support-dashboard-browser` for Phase 7 browser evidence.
 - Updated repository audit Make target allowlist.
 - Added `docs/operations/crm-support-dashboard.md`.
 - Updated README, build-from-source, dependencies, Docker README, roadmap, and
@@ -59,10 +61,16 @@ independent-review evidence remain open.
   - Covered isolated environment rejection, no secret leakage in diagnostics,
     deterministic command ordering, fail-fast status propagation, and command
     suppression when the environment is unsafe.
+- `CONSOLE_URL=http://127.0.0.1:3001 pnpm check:crm-support-dashboard-browser`
+  - Verified Customers list, Customer detail, Support queue, Support detail,
+    and Dashboard at 390x844, 768x1024, and 1440x900.
+  - Wrote 15 screenshots under `/tmp/opendx-crm-support-dashboard-browser`.
+  - Verified no horizontal document overflow, one main landmark, navigation
+    landmark, visible keyboard focus, and denied Dashboard route with zero
+    Phase 7 API calls.
 
 ## Remaining Task 12 work
 
-- Full HTTP/browser chain.
 - Stack restart persistence proof.
 - Custom-format backup/restore.
 - CRM/Support rollback then forward migration proof.

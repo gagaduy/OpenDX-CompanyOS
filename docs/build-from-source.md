@@ -109,6 +109,13 @@ closure additionally requires the browser, restart, backup/restore, and
 rollback/forward migration evidence documented in
 `docs/operations/crm-support-dashboard.md`.
 
+When the Console dev server is running with the documented Vite environment,
+run the Phase 7 browser check with:
+
+```bash
+pnpm check:crm-support-dashboard-browser
+```
+
 ## Run Local Services
 
 Start the full local stack, including all migrations through Payment and the

@@ -1,0 +1,193 @@
+#!/usr/bin/env node
+/*
+ * SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { constants } from "node:fs";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+
+const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
+const outputDirectory = process.env.BROWSER_EVIDENCE_DIR ?? join(tmpdir(), "opendx-crm-support-dashboard-browser");
+const authority = "http://localhost:8080/realms/opendx";
+const clientId = "opendx-console";
+const ids = {
+  customer: "b1000000-0000-4000-8000-000000000001",
+  address: "b1100000-0000-4000-8000-000000000001",
+  order: "d1000000-0000-4000-8000-000000000001",
+  ticket: "f2000000-0000-4000-8000-000000000001",
+  attachment: "f3000000-0000-4000-8000-000000000001",
+  note: "f4000000-0000-4000-8000-000000000001",
+  followup: "f5000000-0000-4000-8000-000000000001",
+};
+const viewports = [
+  { name: "mobile", width: 390, height: 844 },
+  { name: "tablet", width: 768, height: 1024 },
+  { name: "desktop", width: 1440, height: 900 },
+];
+const surfaces = [
+  { name: "customers", path: "/customers", heading: "Customers", role: "crm_operator" },
+  { name: "customer-detail", path: `/customers/${ids.customer}`, heading: "Private Buyer", role: "crm_operator" },
+  { name: "support", path: "/support", heading: "Support tickets", role: "support_operator" },
+  { name: "support-detail", path: `/support/${ids.ticket}`, heading: "Shipment question", role: "support_operator" },
+  { name: "dashboard", path: "/dashboard", heading: "Commerce dashboard", role: "executive_viewer" },
+];
+
+async function main() {
+  const chrome = await findChrome();
+  const profile = await mkdtemp(join(tmpdir(), "opendx-phase7-chrome-"));
+  const port = 20_000 + Math.floor(Math.random() * 500);
+  const chromeProcess = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+  try {
+    await waitForChrome(port);
+    await mkdir(outputDirectory, { recursive: true });
+    const target = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(consoleUrl)}`, { method: "PUT" }).then(requireOk).then((response) => response.json());
+    const client = new CdpClient(target.webSocketDebuggerUrl);
+    await client.connect();
+    await client.send("Page.enable");
+    await client.send("Runtime.enable");
+    const sessionKey = `oidc.user:${authority}:${clientId}`;
+    await client.send("Page.addScriptToEvaluateOnNewDocument", { source: fixtureScript(sessionKey) });
+    await waitForConsoleOrigin(client);
+    const evidence = [];
+
+    for (const viewport of viewports) {
+      await client.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.width < 700 });
+      for (const surface of surfaces) {
+        await setSession(client, sessionKey, surface.role);
+        await client.send("Page.navigate", { url: `${consoleUrl}${surface.path}` });
+        await waitForHeading(client, surface.heading);
+        await keyboardProbe(client);
+        const result = await evaluate(client, surfaceProbeExpression());
+        assertSurface(result, surface, viewport);
+        const screenshot = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+        const screenshotPath = join(outputDirectory, `${surface.name}-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+        await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
+        evidence.push({ surface: surface.name, viewport, heading: result.heading, landmarks: result.landmarks, screenshotPath });
+      }
+    }
+
+    await setSession(client, sessionKey, "catalog_manager");
+    await client.send("Page.navigate", { url: `${consoleUrl}/dashboard` });
+    await waitForHeading(client, "Permission denied");
+    const denied = await evaluate(client, `({ heading: document.querySelector('h1')?.textContent?.trim(), apiCalls: window.__phase7ApiCalls ?? [] })`);
+    if (denied.apiCalls.length !== 0) throw new Error(`Denied dashboard route called APIs: ${JSON.stringify(denied.apiCalls)}`);
+    client.close();
+    console.log(JSON.stringify({ consoleUrl, outputDirectory, evidence, denied }, null, 2));
+  } finally {
+    chromeProcess.kill("SIGTERM");
+    await new Promise((resolve) => chromeProcess.once("exit", resolve));
+    await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+}
+
+async function setSession(client, sessionKey, role) {
+  await evaluate(client, `sessionStorage.setItem(${JSON.stringify(sessionKey)}, ${JSON.stringify(session(role))})`);
+}
+
+function session(role) {
+  return JSON.stringify({ access_token: "phase7-browser-token", token_type: "Bearer", scope: "openid", profile: { sub: `staff-${role}`, name: "Phase 7 Browser", realm_access: { roles: [role] } }, expires_at: Math.floor(Date.now() / 1000) + 3600 });
+}
+
+function fixtureScript(sessionKey) {
+  const fixtures = fixturesByPath();
+  return `(() => { const key=${JSON.stringify(sessionKey)}; window.__phase7Errors=[]; addEventListener('error', event => window.__phase7Errors.push(event.message)); addEventListener('unhandledrejection', event => window.__phase7Errors.push(String(event.reason?.message ?? event.reason))); if (sessionStorage.getItem(key) === null) sessionStorage.setItem(key, ${JSON.stringify(session("administrator"))}); window.__phase7ApiCalls=[]; const fixtures=${JSON.stringify(fixtures)}; const original=window.fetch.bind(window); window.fetch=async (input, init) => { const url=new URL(typeof input==='string'||input instanceof URL?String(input):input.url, location.href); if (!url.pathname.startsWith('/v1/admin/customers') && !url.pathname.startsWith('/v1/admin/support') && !url.pathname.startsWith('/v1/admin/reporting')) return original(input, init); window.__phase7ApiCalls.push(url.pathname); const method=init?.method??'GET'; const key=url.pathname+(method==='POST'?'#POST':method==='PATCH'?'#PATCH':''); if (url.pathname.endsWith('/content')) return new Response(new Blob(['clean evidence'], {type:'application/pdf'}), {status:200}); const value=fixtures[key] ?? fixtures[url.pathname]; return new Response(JSON.stringify(value ?? {success:false,message:'missing fixture',errorCode:'NOT_FOUND'}), {status:value===undefined?404:200,headers:{'Content-Type':'application/json'}}); }; })();`;
+}
+
+function fixturesByPath() {
+  const customer = { id: ids.customer, email: "buyer@example.com", fullName: "Private Buyer", phoneNumber: "0901000001", status: "active", createdAt: "2026-08-01T00:00:00.000Z" };
+  const ticket = { id: ids.ticket, customerId: ids.customer, orderId: ids.order, subject: "Shipment question", description: "Where is my laptop?", priority: "urgent", status: "assigned", version: 1, createdById: "staff-crm", assigneeId: "staff-support", createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:05:00.000Z" };
+  const range = { start: "2026-08-01", end: "2026-08-10", timezone: "Asia/Ho_Chi_Minh" };
+  const refreshedAt = "2026-08-10T00:00:00.000Z";
+  return {
+    "/v1/admin/customers": { success: true, message: "ok", data: { items: [customer], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } },
+    "/v1/admin/customers/segments": { success: true, message: "ok", data: { calculatedAt: refreshedAt, items: [{ id: "repeat_customer", name: "Repeat customers", description: "Bought more than once", customerCount: 1 }] } },
+    [`/v1/admin/customers/${ids.customer}`]: { success: true, message: "ok", data: { customer: { ...customer, addresses: [{ id: ids.address, recipientName: "Private Buyer", phoneNumber: "0901000001", addressLine: "1 Nguyen Hue", ward: "Ben Nghe", provinceOrCity: "Ho Chi Minh", isDefault: true }] }, orders: [{ id: ids.order, publicNumber: "NVC-20260810-0001", status: "paid", totalVnd: 32990000, createdAt: "2026-08-10T00:00:00.000Z", paidAt: "2026-08-10T00:10:00.000Z" }], paidFacts: { paidOrderCount: 2, lifetimePaidVnd: 65980000, latestPaidAt: "2026-08-10T00:10:00.000Z" }, segments: ["repeat_customer"], calculatedAt: refreshedAt, notes: [{ id: ids.note, customerId: ids.customer, authorId: "staff-crm", body: "Called customer", createdAt: refreshedAt }], followups: [{ id: ids.followup, customerId: ids.customer, dueAt: "2026-08-11T00:00:00.000Z", description: "Confirm delivery", status: "open", version: 1, createdById: "staff-crm", createdAt: refreshedAt, updatedAt: refreshedAt }] } },
+    "/v1/admin/support/tickets": { success: true, message: "ok", data: { items: [ticket], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } },
+    [`/v1/admin/support/tickets/${ids.ticket}`]: { success: true, message: "ok", data: { ticket, context: { customer, order: { id: ids.order, publicNumber: "NVC-20260810-0001", status: "paid", totalVnd: 32990000, createdAt: refreshedAt } }, messages: [{ id: "message-1", authorId: "staff-support", body: "Investigating", createdAt: refreshedAt }], events: [{ id: "event-1", actorId: "staff-support", fromStatus: "new", toStatus: "assigned", source: "manual", occurredAt: refreshedAt }], attachments: [{ id: ids.attachment, ticketId: ids.ticket, originalFilename: "invoice.pdf", format: "pdf", mediaType: "application/pdf", byteSize: 12, status: "clean", version: 1, createdById: "staff-support", createdAt: refreshedAt }] } },
+    "/v1/admin/reporting/commerce": { range, refreshedAt, data: { grossPaidRevenueVnd: 32990000, paidOrderCount: 1, averageOrderValueVnd: 32990000, conversionRateBasisPoints: 5000, paymentStatuses: [{ status: "paid", count: 1 }] } },
+    "/v1/admin/reporting/products": { range, refreshedAt, data: { items: [{ sku: "NOVA-001", productTitle: "Nova Laptop Pro", quantitySold: 1, paidRevenueVnd: 32990000 }], inventory: { onHand: 5, reserved: 1, available: 4, soldOutCount: 0 } } },
+    "/v1/admin/reporting/customers": { range, refreshedAt, data: { totalRegisteredCustomers: 10, repeatCustomers: 3, lifetimeValueVnd: 65980000, lifetimeValueBuckets: [{ bucket: "high", count: 1 }] } },
+    "/v1/admin/reporting/operations": { range, refreshedAt, data: { openTickets: 1, overdueFollowups: 1, slaBreaches: 0 } },
+  };
+}
+
+async function keyboardProbe(client) {
+  await client.send("Runtime.evaluate", { expression: "document.body.focus(); document.documentElement.scrollTop = 0" });
+  await client.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+  await client.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 });
+}
+
+function surfaceProbeExpression() {
+  return `(() => { const active=document.activeElement; const style=active instanceof HTMLElement?getComputedStyle(active):undefined; return { heading:document.querySelector('h1')?.textContent?.trim()??null, documentWidth:document.documentElement.scrollWidth, viewportWidth:innerWidth, alert:document.querySelector('[role="alert"]')?.textContent?.trim()??null, landmarks:{main:document.querySelectorAll('main').length, nav:document.querySelectorAll('nav').length}, focus:{tag:active?.tagName??null, visible:active?.matches(':focus-visible')??false, outline:style?.outline??null} }; })()`;
+}
+
+function assertSurface(result, surface, viewport) {
+  if (result.heading !== surface.heading) throw new Error(`${surface.name}: wrong heading ${result.heading}`);
+  if (result.alert !== null && !/older than 60 seconds/i.test(result.alert)) throw new Error(`${surface.name}: alert ${result.alert}`);
+  if (result.documentWidth > viewport.width) throw new Error(`${surface.name}: horizontal overflow ${result.documentWidth} > ${viewport.width}`);
+  if (result.landmarks.main !== 1 || result.landmarks.nav < 1) throw new Error(`${surface.name}: semantic landmarks missing`);
+  if (["BODY", "HTML"].includes(result.focus.tag) || !result.focus.visible) throw new Error(`${surface.name}: keyboard focus is not visible`);
+}
+
+async function waitForHeading(client, heading) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (await evaluate(client, `document.querySelector('h1')?.textContent?.trim() === ${JSON.stringify(heading)}`)) return;
+    await delay(100);
+  }
+  const state = await evaluate(client, `({url:location.href,heading:document.querySelector('h1')?.textContent?.trim(),body:document.body.innerText.slice(0,500),errors:window.__phase7Errors??[]})`);
+  throw new Error(`Console surface did not settle: ${JSON.stringify(state)}`);
+}
+
+async function waitForConsoleOrigin(client) {
+  const expected = new URL(consoleUrl).origin;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (await evaluate(client, `location.origin === ${JSON.stringify(expected)}`)) return;
+    await delay(100);
+  }
+  throw new Error(`Console origin did not load: ${expected}`);
+}
+
+class CdpClient {
+  constructor(url) { this.url = url; this.nextId = 1; this.pending = new Map(); }
+  async connect() {
+    this.socket = new WebSocket(this.url);
+    this.socket.addEventListener("message", (event) => {
+      const message = JSON.parse(String(event.data));
+      if (message.id === undefined) return;
+      const pending = this.pending.get(message.id);
+      if (!pending) return;
+      this.pending.delete(message.id);
+      message.error === undefined ? pending.resolve(message.result) : pending.reject(new Error(message.error.message));
+    });
+    await new Promise((resolve, reject) => { this.socket.addEventListener("open", resolve, { once: true }); this.socket.addEventListener("error", reject, { once: true }); });
+  }
+  send(method, params = {}) { const id = this.nextId++; return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.socket.send(JSON.stringify({ id, method, params })); }); }
+  close() { this.socket.close(); }
+}
+
+async function evaluate(client, expression) {
+  const response = await client.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+  if (response.exceptionDetails) throw new Error(`Browser evaluation failed: ${JSON.stringify(response.exceptionDetails)}`);
+  return response.result.value;
+}
+async function findChrome() {
+  for (const candidate of [process.env.CHROME_BIN, "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"].filter(Boolean)) {
+    try { await access(candidate, constants.X_OK); return candidate; } catch {}
+  }
+  throw new Error("Chrome not found; set CHROME_BIN");
+}
+async function waitForChrome(port) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    try { if ((await fetch(`http://127.0.0.1:${port}/json/version`)).ok) return; } catch {}
+    await delay(100);
+  }
+  throw new Error("Chrome DevTools endpoint did not become ready");
+}
+function requireOk(response) { if (!response.ok) throw new Error(`Chrome DevTools request failed with ${response.status}`); return response; }
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+await main();

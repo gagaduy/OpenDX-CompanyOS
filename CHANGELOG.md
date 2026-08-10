@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   isolated-environment enforcement, command ordering, focused API/Console
   suites, PostgreSQL/MinIO/ClamAV integration, EICAR rejection, and reporting
   scale query plans.
+- Add a Phase 7 CRM/Support/Dashboard browser check covering Customer, Support,
+  and Dashboard surfaces at 390x844, 768x1024, and 1440x900 with focus,
+  landmark, overflow, screenshot, and denied-route evidence.
 - Add the Executive Dashboard Console workspace with Administrator/Executive
   route gating, default 30-day reporting range, max-range validation,
   PII-free aggregate commerce/product/customer/operations metrics, stale

@@ -32,12 +32,25 @@ Phase 7 tests, typecheck/build, repo audit, and `git diff --check`.
 
 The full Phase 7 exit evidence must also include:
 
-- Console browser checks at 390x844, 768x1024, and 1440x900 for Customer,
-  Support, and Dashboard.
 - Stack restart persistence.
 - Custom-format backup/restore.
 - CRM/Support rollback then forward migration without changing earlier commerce
   truth.
+
+## Browser evidence
+
+Start the Console with the normal Vite environment and run:
+
+```bash
+pnpm check:crm-support-dashboard-browser
+```
+
+The browser check uses fixture API responses and Chromium. It records screenshots
+under `/tmp/opendx-crm-support-dashboard-browser` by default and verifies
+Customer list/detail, Support queue/detail, and Dashboard surfaces at 390x844,
+768x1024, and 1440x900. It also verifies visible keyboard focus, semantic
+landmarks, no horizontal document overflow, and a denied Dashboard route that
+does not call Phase 7 APIs.
 
 Do not mark Phase 7 complete until those evidence items are captured.
 
