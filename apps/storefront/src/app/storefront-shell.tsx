@@ -67,84 +67,88 @@ export function StorefrontShell({
         Bỏ qua đến nội dung
       </a>
       <header className="topbar">
-        <Link className="brand" to="/">
-          <span>NovaCommerce</span>
-        </Link>
-        <nav
-          className={menuOpen ? "main-nav open" : "main-nav"}
-          aria-label="Điều hướng chính"
-        >
-          <NavLink to="/" end>
-            Sản phẩm
-          </NavLink>
-          <Link to="/#categories">Danh mục</Link>
-          <Link to="/#catalog">Khám phá</Link>
-        </nav>
-        <div className="topbar-actions">
-          <button
-            className="icon-button mobile-menu"
-            aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            {menuOpen ? <X /> : <Menu />}
-          </button>
-          <button
-            className="icon-button search-button"
-            aria-label="Tìm kiếm"
-            onClick={() => navigate("/search")}
-          >
-            <Search />
-          </button>
-          <button
-            className="icon-button theme-toggle"
-            aria-label={
-              resolvedTheme === "dark"
-                ? "Dùng giao diện sáng"
-                : "Dùng giao diện tối"
-            }
-            title={
-              resolvedTheme === "dark"
-                ? "Dùng giao diện sáng"
-                : "Dùng giao diện tối"
-            }
-            onClick={toggleTheme}
-          >
-            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
-          </button>
-          <Link
-            className="icon-button account-button"
-            aria-label="Tài khoản"
-            to="/account"
-          >
-            <UserRound />
+        <div className="topbar-inner">
+          <Link className="brand" to="/">
+            <span>NovaCommerce</span>
           </Link>
-          <Link
-            className="icon-button cart-button"
-            aria-label={`Giỏ hàng, ${cartCount} sản phẩm`}
-            to="/cart"
+          <nav
+            className={menuOpen ? "main-nav open" : "main-nav"}
+            aria-label="Điều hướng chính"
           >
-            <ShoppingBag />
-            <span>{cartCount}</span>
-          </Link>
+            <NavLink to="/" end>
+              Sản phẩm
+            </NavLink>
+            <Link to="/#categories">Danh mục</Link>
+            <Link to="/#catalog">Khám phá</Link>
+          </nav>
+          <div className="topbar-actions">
+            <button
+              className="icon-button mobile-menu"
+              aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              {menuOpen ? <X /> : <Menu />}
+            </button>
+            <button
+              className="icon-button search-button"
+              aria-label="Tìm kiếm"
+              onClick={() => navigate("/search")}
+            >
+              <Search />
+            </button>
+            <button
+              className="icon-button theme-toggle"
+              aria-label={
+                resolvedTheme === "dark"
+                  ? "Dùng giao diện sáng"
+                  : "Dùng giao diện tối"
+              }
+              title={
+                resolvedTheme === "dark"
+                  ? "Dùng giao diện sáng"
+                  : "Dùng giao diện tối"
+              }
+              onClick={toggleTheme}
+            >
+              {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+            </button>
+            <Link
+              className="icon-button account-button"
+              aria-label="Tài khoản"
+              to="/account"
+            >
+              <UserRound />
+            </Link>
+            <Link
+              className="icon-button cart-button"
+              aria-label={`Giỏ hàng, ${cartCount} sản phẩm`}
+              to="/cart"
+            >
+              <ShoppingBag />
+              <span>{cartCount}</span>
+            </Link>
+          </div>
         </div>
       </header>
       <nav className="discovery-taskbar" aria-label="Lối tắt khám phá">
-        <Link to="/?sort=newest#catalog">Sản phẩm mới</Link>
-        <Link to="/#catalog" title="Sắp có dữ liệu bán chạy">
-          Bán chạy
-        </Link>
-        <Link to="/#catalog" title="Sắp có dữ liệu khuyến mãi">
-          Đang giảm
-        </Link>
-        <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
-        <Link to="/#support">Hỗ trợ</Link>
-        <button
-          className="taskbar-search"
-          type="button"
-          onClick={() => navigate("/search")}
-        >
-          Tìm nhanh sản phẩm
-        </button>
+        <div className="discovery-taskbar-inner">
+          <Link to="/?sort=newest#catalog">Sản phẩm mới</Link>
+          <Link to="/#catalog" title="Sắp có dữ liệu bán chạy">
+            Bán chạy
+          </Link>
+          <Link to="/#catalog" title="Sắp có dữ liệu khuyến mãi">
+            Đang giảm
+          </Link>
+          <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
+          <Link to="/#support">Hỗ trợ</Link>
+          <button
+            className="taskbar-search"
+            type="button"
+            onClick={() => navigate("/search")}
+          >
+            Tìm nhanh sản phẩm
+          </button>
+        </div>
       </nav>
       {children ?? <Outlet />}
       <footer id="support" className="footer">

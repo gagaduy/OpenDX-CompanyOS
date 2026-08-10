@@ -80,6 +80,8 @@ describe("StorefrontShell", () => {
       name: "Lối tắt khám phá",
     });
 
+    expect(document.querySelector(".topbar-inner")).not.toBeNull();
+    expect(taskbar.querySelector(".discovery-taskbar-inner")).not.toBeNull();
     expect(
       within(taskbar).getByRole("link", { name: "Sản phẩm mới" }),
     ).toHaveAttribute("href", "/?sort=newest#catalog");
@@ -95,6 +97,9 @@ describe("StorefrontShell", () => {
     expect(
       within(taskbar).getByRole("link", { name: "Hỗ trợ" }),
     ).toHaveAttribute("href", "/#support");
+    expect(
+      within(taskbar).getByRole("button", { name: "Tìm nhanh sản phẩm" }),
+    ).toHaveClass("taskbar-search");
     expect(document.getElementById("support")).toBeInstanceOf(HTMLElement);
   });
 });

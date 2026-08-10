@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Align the Storefront header and discovery shortcut row into one compact
+  commerce navigation layout.
 - Add a Storefront customer discovery taskbar and collapsible catalog filter
   sidebar design implementation.
 - Fix Storefront header hash navigation so customer `Danh mục` and `Khám phá`
