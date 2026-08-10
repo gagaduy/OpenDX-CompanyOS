@@ -39,10 +39,17 @@ describe("catalog discovery", () => {
     const catalog = screen.getByRole("region", {
       name: "Sản phẩm công nghệ",
     });
+    await userEvent.selectOptions(
+      within(catalog).getByLabelText("Tồn kho"),
+      "in_stock",
+    );
     await userEvent.click(
       within(catalog).getByRole("button", { name: "Áp dụng" }),
     );
     await waitFor(() => expect(products).toHaveBeenCalledTimes(2));
+    expect(
+      (products.mock.calls[1]?.[0] as URLSearchParams).get("stockStatus"),
+    ).toBe("in_stock");
   });
 
   it("exposes a collapsed filter sidebar that applies existing catalog query parameters", async () => {
@@ -86,17 +93,21 @@ describe("catalog discovery", () => {
     ).toHaveAttribute("href", "/?category=phones&pageSize=12#catalog");
 
     await userEvent.selectOptions(
-      within(sidebar).getByLabelText("Tồn kho"),
-      "in_stock",
+      within(sidebar).getByLabelText("Sắp xếp"),
+      "best_selling",
+    );
+    await userEvent.selectOptions(
+      within(sidebar).getByLabelText("Ưu đãi"),
+      "on_sale",
     );
     await userEvent.click(
       within(sidebar).getByRole("button", { name: "Áp dụng" }),
     );
 
     await waitFor(() => expect(products).toHaveBeenCalledTimes(2));
-    expect(
-      (products.mock.calls[1]?.[0] as URLSearchParams).get("stockStatus"),
-    ).toBe("in_stock");
+    const submitted = products.mock.calls[1]?.[0] as URLSearchParams;
+    expect(submitted.get("sort")).toBe("best_selling");
+    expect(submitted.get("discountStatus")).toBe("on_sale");
   });
 });
 

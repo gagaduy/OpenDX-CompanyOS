@@ -23,6 +23,7 @@ export function CatalogFilters({
       "minPriceVnd",
       "maxPriceVnd",
       "stockStatus",
+      "discountStatus",
       "sort",
       "pageSize",
     ]) {
@@ -90,9 +91,20 @@ export function CatalogFilters({
         </select>
       </label>
       <label>
+        Ưu đãi
+        <select
+          name="discountStatus"
+          defaultValue={parameters.get("discountStatus") ?? ""}
+        >
+          <option value="">Tất cả</option>
+          <option value="on_sale">Đang giảm</option>
+        </select>
+      </label>
+      <label>
         Sắp xếp
         <select name="sort" defaultValue={parameters.get("sort") ?? "newest"}>
           <option value="newest">Mới cập nhật</option>
+          <option value="best_selling">Bán chạy</option>
           <option value="price_asc">Giá tăng dần</option>
           <option value="price_desc">Giá giảm dần</option>
           <option value="name_asc">Tên A-Z</option>

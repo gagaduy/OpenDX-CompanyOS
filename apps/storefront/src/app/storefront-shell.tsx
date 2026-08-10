@@ -133,12 +133,8 @@ export function StorefrontShell({
       <nav className="discovery-taskbar" aria-label="Lối tắt khám phá">
         <div className="discovery-taskbar-inner">
           <Link to="/?sort=newest#catalog">Sản phẩm mới</Link>
-          <Link to="/#catalog" title="Sắp có dữ liệu bán chạy">
-            Bán chạy
-          </Link>
-          <Link to="/#catalog" title="Sắp có dữ liệu khuyến mãi">
-            Đang giảm
-          </Link>
+          <Link to="/?sort=best_selling#catalog">Bán chạy</Link>
+          <Link to="/?discountStatus=on_sale#catalog">Đang giảm</Link>
           <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
           <Link to="/#support">Hỗ trợ</Link>
           <button

@@ -87,10 +87,10 @@ describe("StorefrontShell", () => {
     ).toHaveAttribute("href", "/?sort=newest#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Bán chạy" }),
-    ).toHaveAttribute("href", "/#catalog");
+    ).toHaveAttribute("href", "/?sort=best_selling#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Đang giảm" }),
-    ).toHaveAttribute("href", "/#catalog");
+    ).toHaveAttribute("href", "/?discountStatus=on_sale#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Còn hàng" }),
     ).toHaveAttribute("href", "/?stockStatus=in_stock#catalog");
