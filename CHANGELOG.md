@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Executive Dashboard Console workspace with Administrator/Executive
+  route gating, default 30-day reporting range, max-range validation,
+  PII-free aggregate commerce/product/customer/operations metrics, stale
+  refresh warnings, and responsive dashboard cards.
 - Add the Support Console workspace with role-gated Support routes, ticket
   queue/create/detail views, workflow actions, append-only timeline rendering,
   stale mutation recovery, and authenticated attachment upload/download UI.

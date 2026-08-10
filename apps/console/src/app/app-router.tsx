@@ -15,6 +15,7 @@ import { ProductEditorPage } from "../features/catalog/pages/product-editor-page
 import { ProductListPage } from "../features/catalog/pages/product-list-page";
 import { createCrmOperationsApi, CustomerDetailPage } from "../features/crm";
 import { createCustomerOperationsApi, CustomerListPage } from "../features/customers";
+import { createDashboardApi, DashboardPage } from "../features/dashboard";
 import { createInventoryApi, InventoryPage } from "../features/inventory";
 import { createOrderOperationsApi } from "../features/orders/api/order-operations-api";
 import { OrderDetailPage } from "../features/orders/pages/order-detail-page";
@@ -46,6 +47,7 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/customers/:customerId" element={<CustomerRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/support" element={<SupportRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/support/:ticketId" element={<SupportRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/dashboard" element={<DashboardRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
         </Route>
       </Route>
@@ -59,6 +61,8 @@ function HomeRedirect() {
   const roles = session?.roles ?? [];
   const target = roles.includes("administrator") || roles.includes("catalog_manager")
     ? "/products"
+    : roles.includes("executive_viewer")
+      ? "/dashboard"
     : roles.includes("operations_manager")
       ? "/orders"
       : roles.includes("finance_operator")
@@ -112,4 +116,10 @@ function SupportRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: str
   const { session } = useAuth();
   const api = useMemo(() => createSupportOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   return <StaffRoleRoute allowed={["administrator", "support_operator", "crm_operator"]}>{detail ? <TicketDetailPage api={api} roles={session?.roles ?? []} /> : <SupportPage api={api} roles={session?.roles ?? []} />}</StaffRoleRoute>;
+}
+
+function DashboardRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createDashboardApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "executive_viewer"]}><DashboardPage api={api} /></StaffRoleRoute>;
 }

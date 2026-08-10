@@ -82,6 +82,18 @@ describe("commerce operations routes", () => {
     renderRoute(role, "/support");
     expect(await screen.findByRole("heading", { name: "Permission denied" })).toBeVisible();
   });
+
+  it.each(["administrator", "executive_viewer"] as const)("allows %s to open dashboard routes", async (role) => {
+    renderRoute(role, "/dashboard");
+    expect(await screen.findByRole("heading", { name: "Commerce dashboard" })).toBeVisible();
+    expect(screen.getByRole("main")).toBeVisible();
+    expect(screen.getByRole("link", { name: /dashboard/i })).toBeVisible();
+  });
+
+  it.each(["crm_operator", "support_operator", "operations_manager", "finance_operator", "catalog_manager", "inventory_manager"] as const)("denies %s at dashboard routes", async (role) => {
+    renderRoute(role, "/dashboard");
+    expect(await screen.findByRole("heading", { name: "Permission denied" })).toBeVisible();
+  });
 });
 
 function json(data: unknown) {

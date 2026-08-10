@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Boxes, Building2, CreditCard, FolderTree, Headphones, LogOut, PackageSearch, ShoppingBag, Users } from "lucide-react";
+import { BarChart3, Boxes, Building2, CreditCard, FolderTree, Headphones, LogOut, PackageSearch, ShoppingBag, Users } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../features/authentication/hooks/auth-context";
 
@@ -13,6 +13,7 @@ export function ConsoleShell() {
   const canOperatePayments = session?.roles.some((role) => role === "administrator" || role === "finance_operator") === true;
   const canOperateCustomers = session?.roles.some((role) => role === "administrator" || role === "crm_operator") === true;
   const canOperateSupport = session?.roles.some((role) => role === "administrator" || role === "support_operator" || role === "crm_operator") === true;
+  const canReadDashboard = session?.roles.some((role) => role === "administrator" || role === "executive_viewer") === true;
   return (
     <div className="consoleLayout">
       <aside className="consoleSidebar">
@@ -25,6 +26,7 @@ export function ConsoleShell() {
           {canOperatePayments && <NavLink to="/payments" title="Payments"><CreditCard size={17} aria-hidden="true" /> Payments</NavLink>}
           {canOperateCustomers && <NavLink to="/customers" title="Customers"><Users size={17} aria-hidden="true" /> Customers</NavLink>}
           {canOperateSupport && <NavLink to="/support" title="Support"><Headphones size={17} aria-hidden="true" /> Support</NavLink>}
+          {canReadDashboard && <NavLink to="/dashboard" title="Dashboard"><BarChart3 size={17} aria-hidden="true" /> Dashboard</NavLink>}
           <NavLink to="/company-overview" title="Company Overview"><Building2 size={17} aria-hidden="true" /> Company Overview <span className="alphaBadge">Alpha</span></NavLink>
         </nav>
         <div className="staffIdentity">

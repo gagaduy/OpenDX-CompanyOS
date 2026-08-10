@@ -1220,8 +1220,26 @@ ul {
   font-size: 12px;
 }
 
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.metricCard strong,
+.dashboardGrid strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
 @media (max-width: 768px) {
   .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardGrid {
     grid-template-columns: 1fr;
   }
 
