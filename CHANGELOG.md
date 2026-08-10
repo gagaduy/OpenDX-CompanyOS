@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add Phase 8 CI and security workflows with environment-contract and committed
+  secret-fixture audits.
 - Add Phase 8 accessibility and performance gates for local Storefront,
   Console, CRM/Support/Dashboard, and public Storefront API checks.
 - Add Phase 8 PostgreSQL and MinIO backup/restore scripts with path validation,

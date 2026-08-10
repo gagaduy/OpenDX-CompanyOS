@@ -34,6 +34,15 @@ Node.js or Python:
 make check
 ```
 
+GitHub CI runs source lint, typecheck, TypeScript tests, repo audit, and
+production Compose topology validation without deployment secrets. The security
+workflow runs environment documentation and committed secret-fixture audits:
+
+```bash
+pnpm audit:env
+pnpm audit:secrets
+```
+
 This runs:
 
 - `git diff --check`

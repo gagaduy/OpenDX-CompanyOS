@@ -22,3 +22,8 @@ Maintainers will acknowledge valid reports as soon as practical, investigate imp
 ## Sensitive Data
 
 Never include secrets, real credentials, private endpoints, personal data, `.env` files, signing keys, or production dumps in reports, tests, fixtures, prompts, workflow JSON, or documentation.
+
+Repository security workflows intentionally do not deploy and do not reference
+SSH keys, server IPs, or production secrets. Use `pnpm audit:env` and
+`pnpm audit:secrets` before opening a pull request that changes configuration,
+fixtures, or operations documentation.

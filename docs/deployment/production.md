@@ -74,7 +74,8 @@ placeholder domains are replaced with real HTTPS domains.
 - Identity: Keycloak issuer, JWKS URL, API audience, Console OIDC values, and
   optional Google client ID.
 - Payment: SePay environment, provider URLs, merchant ID, secret key, IPN
-  secret, callback URLs, timeout, and production acceptance guard settings.
+  secret, callback URLs, timeout, `PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND`, and
+  optional `PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION`.
 - Observability: `LOG_FORMAT`, `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_PATH`,
   `READINESS_TIMEOUT_MS`, and `JSON_BODY_LIMIT`.
 

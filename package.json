@@ -8,6 +8,8 @@
   },
   "scripts": {
     "audit:repo": "bash scripts/audit/repo.sh",
+    "audit:env": "node scripts/audit/env-example-check.mjs",
+    "audit:secrets": "node scripts/audit/no-secret-fixtures.mjs",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
