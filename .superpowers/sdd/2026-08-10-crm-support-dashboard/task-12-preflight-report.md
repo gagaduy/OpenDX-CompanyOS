@@ -6,6 +6,8 @@ the full Task 12 acceptance closure.
 ## Delivered
 
 - Added `scripts/dev/crm-support-dashboard-exit-check.mjs`.
+- Added `scripts/dev/crm-support-dashboard-exit-check.test.mjs` and wired it
+  into `pnpm check:crm-support-dashboard`.
 - Added `pnpm check:crm-support-dashboard`.
 - Added `make check-crm-support-dashboard`.
 - Updated repository audit Make target allowlist.
@@ -23,6 +25,11 @@ the full Task 12 acceptance closure.
   - Console production build passed.
   - Repository audit passed.
   - `git diff --check` passed.
+- `pnpm test:crm-support-dashboard-exit`
+  - Exit runner tests passed: 5/5.
+  - Covered isolated environment rejection, no secret leakage in diagnostics,
+    deterministic command ordering, fail-fast status propagation, and command
+    suppression when the environment is unsafe.
 
 ## Remaining Task 12 work
 

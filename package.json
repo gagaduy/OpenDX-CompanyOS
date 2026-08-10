@@ -16,7 +16,8 @@
     "check:storefront-browser": "node scripts/dev/storefront-browser-check.mjs",
     "check:console-browser": "node scripts/dev/console-browser-check.mjs",
     "check:commerce-exit": "node scripts/dev/commerce-exit-check.mjs",
-    "check:crm-support-dashboard": "node scripts/dev/crm-support-dashboard-exit-check.mjs",
+    "test:crm-support-dashboard-exit": "node --test scripts/dev/crm-support-dashboard-exit-check.test.mjs",
+    "check:crm-support-dashboard": "pnpm test:crm-support-dashboard-exit && node scripts/dev/crm-support-dashboard-exit-check.mjs",
     "check:sepay-sandbox": "node scripts/dev/sepay-sandbox-acceptance.mjs",
     "check": "bash scripts/dev/check.sh"
   },
