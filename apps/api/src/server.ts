@@ -15,6 +15,8 @@ import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import type { DependencyStatus } from "./shared/http/health.routes";
+import { createLogger } from "./shared/observability/logger";
+import { createMetricsRegistry } from "./shared/observability/metrics";
 import { createCustomerModule } from "./modules/customer";
 import type { CustomerCartLoginResolver } from "./modules/customer";
 import { createCartModule, type CartResolutionServiceContract } from "./modules/cart";
@@ -32,6 +34,8 @@ import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
 const environment = parseApiEnvironment(process.env);
+const logger = createLogger(environment.logging);
+const metrics = environment.metrics.enabled ? createMetricsRegistry() : undefined;
 const pool = createPostgresPool(environment);
 const transactions = new PostgresTransactionRunner(pool);
 const repository = new PostgresqlCompanyOperatingCoreRepository(transactions);
@@ -201,6 +205,8 @@ const app = createApiApp({
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,
+  logger,
+  ...(metrics === undefined ? {} : { metrics, metricsPath: environment.metrics.path }),
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {

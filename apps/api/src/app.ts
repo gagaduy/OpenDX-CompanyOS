@@ -13,7 +13,11 @@ import {
   createHealthRouter,
   type ReadinessProbe,
 } from "./shared/http/health.routes";
+import { createMetricsRouter } from "./shared/http/metrics.routes";
+import { requestLogging } from "./shared/http/request-logging.middleware";
 import { securityHeaders } from "./shared/http/security-headers.middleware";
+import type { Logger } from "./shared/observability/logger";
+import type { MetricsRegistry } from "./shared/observability/metrics";
 
 export interface CreateApiAppOptions {
   readonly consoleOrigin?: string;
@@ -21,6 +25,9 @@ export interface CreateApiAppOptions {
   readonly readiness?: ReadinessProbe;
   readonly readinessTimeoutMs?: number;
   readonly jsonBodyLimit?: string;
+  readonly logger?: Logger;
+  readonly metrics?: MetricsRegistry;
+  readonly metricsPath?: string;
   readonly companyOperatingCoreRepository?: ICompanyOperatingCoreRepository;
   readonly catalogAdminRouter?: Router;
   readonly storefrontRouter?: Router;
@@ -59,6 +66,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
   app.use(correlationIdMiddleware);
   app.use(securityHeaders());
+  if (options.logger !== undefined) {
+    app.use(requestLogging(options.logger, options.metrics));
+  }
   if (options.sepayWebhookRouter !== undefined) {
     app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
   }
@@ -68,6 +78,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       timeoutMs: options.readinessTimeoutMs ?? 2_000,
     }),
   );
+  if (options.metrics !== undefined) {
+    app.use(options.metricsPath ?? "/metrics", createMetricsRouter(options.metrics));
+  }
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(
       "/v1",

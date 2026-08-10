@@ -176,6 +176,9 @@ CRM/Support, Keycloak, ClamAV, the product-media MinIO bucket, and the private
 `support-attachments` bucket. It does not contact SePay. Runtime persistence
 remains PostgreSQL-only; there is no memory database switch.
 
+Runtime logs, readiness checks, and optional `/metrics` operations are
+documented in [`operations/observability.md`](operations/observability.md).
+
 ClamAV uses the pinned local Compose image and keeps virus signatures on a
 persistent Docker volume. First startup can spend several minutes downloading
 signatures and should have about 4 GB of Docker memory available. Support
