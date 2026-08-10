@@ -1158,6 +1158,81 @@ ul {
 .operationsTable tr:last-child td { border-bottom: 0; }
 .operationsTable td > strong,
 .operationsTable td > small { display: block; }
+
+.customerWorkspace {
+  min-width: 0;
+}
+
+.customerWorkspace .operationsTable {
+  min-width: 760px;
+}
+
+.customerWorkspace .operationsTable td,
+.customerWorkspace .detailCard,
+.customerWorkspace .activityItem,
+.customerWorkspace address,
+.customerWorkspace .timelineList li {
+  overflow-wrap: anywhere;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.detailCard {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-1);
+}
+
+.detailCard h2,
+.detailCard h3,
+.detailCard p {
+  margin-top: 0;
+}
+
+.detailCard address {
+  color: var(--ink-muted);
+  font-style: normal;
+  line-height: 1.7;
+}
+
+.timelineList {
+  display: grid;
+  gap: 12px;
+  padding-left: 18px;
+}
+
+.timelineList li,
+.activityItem {
+  display: grid;
+  gap: 5px;
+}
+
+.timelineList time,
+.subtleText {
+  color: var(--ink-subtle);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .customerWorkspace .filterBar {
+    justify-content: stretch;
+  }
+
+  .customerWorkspace .filterBar label {
+    width: 100%;
+  }
+}
 .operationsTable td > small { margin-top: 4px; overflow: hidden; color: var(--ink-subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
 .iconButton {

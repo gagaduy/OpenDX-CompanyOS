@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Customer and CRM Console workspace with role-gated customer routes,
+  URL-backed search and segment filters, read-only Customer 360, note
+  correction timeline, versioned follow-up claiming, and responsive dark UI.
 - Add authoritative aggregate Reporting APIs for commerce, products, customers,
   and operations under `/v1/admin/reporting`, with Administrator/Executive
   access, PII-free DTOs, VND integer arithmetic, PostgreSQL-backed query

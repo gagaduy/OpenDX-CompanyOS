@@ -13,6 +13,8 @@ import { createCatalogApi } from "../features/catalog/api/catalog-api";
 import { CategoryPage } from "../features/catalog/pages/category-page";
 import { ProductEditorPage } from "../features/catalog/pages/product-editor-page";
 import { ProductListPage } from "../features/catalog/pages/product-list-page";
+import { createCrmOperationsApi, CustomerDetailPage } from "../features/crm";
+import { createCustomerOperationsApi, CustomerListPage } from "../features/customers";
 import { createInventoryApi, InventoryPage } from "../features/inventory";
 import { createOrderOperationsApi } from "../features/orders/api/order-operations-api";
 import { OrderDetailPage } from "../features/orders/pages/order-detail-page";
@@ -39,6 +41,8 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/orders/:orderId" element={<OrderRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/payments" element={<PaymentRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/payments/:paymentId" element={<PaymentRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/customers" element={<CustomerRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/customers/:customerId" element={<CustomerRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
         </Route>
       </Route>
@@ -56,7 +60,9 @@ function HomeRedirect() {
       ? "/orders"
       : roles.includes("finance_operator")
         ? "/payments"
-        : "/inventory";
+        : roles.includes("crm_operator")
+          ? "/customers"
+          : "/inventory";
   return <Navigate to={target} replace />;
 }
 
@@ -87,4 +93,12 @@ function PaymentRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: str
   const { session } = useAuth();
   const api = useMemo(() => createPaymentOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   return <StaffRoleRoute allowed={["administrator", "finance_operator"]}>{detail ? <PaymentDetailPage api={api} /> : <PaymentOperationsPage api={api} />}</StaffRoleRoute>;
+}
+
+function CustomerRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: string; readonly detail?: boolean }) {
+  const { session } = useAuth();
+  const accessToken = session?.accessToken ?? "";
+  const customerApi = useMemo(() => createCustomerOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
+  const crmApi = useMemo(() => createCrmOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "crm_operator"]}>{detail ? <CustomerDetailPage api={crmApi} /> : <CustomerListPage api={customerApi} />}</StaffRoleRoute>;
 }
