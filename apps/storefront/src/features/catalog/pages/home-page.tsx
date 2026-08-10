@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
 import { CatalogFilters } from "../components/catalog-filters";
 import { CategoryShowcase } from "../components/category-showcase";
+import { DiscoverySidebar } from "../components/discovery-sidebar";
 import { ProductGrid } from "../components/product-grid";
 import { StorefrontHero } from "../components/storefront-hero";
 import { useProductDiscovery } from "../hooks/use-product-discovery";
@@ -26,6 +27,11 @@ export function HomePage({
   const products = discovery.page?.items ?? [];
   return (
     <main id="main-content">
+      <DiscoverySidebar
+        categories={discovery.categories}
+        parameters={normalized}
+        onSubmit={setParameters}
+      />
       {!discovery.loading && landing && products[0] !== undefined && (
         <>
           <StorefrontHero product={products[0]} apiBaseUrl={apiBaseUrl} />

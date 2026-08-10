@@ -510,6 +510,104 @@ img {
   font-size: 12px;
 }
 
+.discovery-sidebar {
+  position: fixed;
+  top: 118px;
+  bottom: 24px;
+  left: 0;
+  z-index: 26;
+  width: 56px;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--hairline);
+  border-left: 0;
+  border-radius: 0 16px 16px 0;
+  background: var(--surface-2);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 18%);
+  transition: width 180ms ease;
+}
+
+.discovery-sidebar.open,
+.discovery-sidebar:hover,
+.discovery-sidebar:focus-within {
+  width: min(360px, calc(100vw - 32px));
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 12px;
+  left: 8px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sidebar-toggle svg,
+.sidebar-icon-rail svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-icon-rail {
+  width: 56px;
+  padding-top: 64px;
+  display: flex;
+  align-items: center;
+  flex: none;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--ink-muted);
+}
+
+.sidebar-panel {
+  width: 304px;
+  padding: 64px 18px 20px;
+  overflow-y: auto;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.discovery-sidebar.open .sidebar-panel,
+.discovery-sidebar:hover .sidebar-panel,
+.discovery-sidebar:focus-within .sidebar-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 22px;
+}
+
+.sidebar-category-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-category-list a {
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--ink);
+}
+
+.sidebar-category-list a:hover,
+.sidebar-category-list a:focus-visible {
+  border-color: var(--primary);
+}
+
 .catalog-page {
   width: min(1320px, calc(100% - 64px));
   margin: 0 auto;
@@ -1773,6 +1871,28 @@ img {
 
   .taskbar-search {
     margin-left: 0;
+  }
+
+  .discovery-sidebar {
+    top: 106px;
+    bottom: 16px;
+    width: 48px;
+  }
+
+  .discovery-sidebar.open,
+  .discovery-sidebar:hover,
+  .discovery-sidebar:focus-within {
+    width: min(340px, calc(100vw - 24px));
+  }
+
+  .sidebar-icon-rail {
+    width: 48px;
+  }
+
+  .sidebar-panel {
+    width: calc(min(340px, calc(100vw - 24px)) - 48px);
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
   .mobile-menu {

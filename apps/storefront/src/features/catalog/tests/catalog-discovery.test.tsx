@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -36,8 +36,67 @@ describe("catalog discovery", () => {
     expect(
       (products.mock.calls[0]?.[0] as URLSearchParams).get("category"),
     ).toBe("phones");
-    await userEvent.click(screen.getByRole("button", { name: "Áp dụng" }));
+    const catalog = screen.getByRole("region", {
+      name: "Sản phẩm công nghệ",
+    });
+    await userEvent.click(
+      within(catalog).getByRole("button", { name: "Áp dụng" }),
+    );
     await waitFor(() => expect(products).toHaveBeenCalledTimes(2));
+  });
+
+  it("exposes a collapsed filter sidebar that applies existing catalog query parameters", async () => {
+    const products = vi.fn(async (parameters: URLSearchParams) => ({
+      items: [product],
+      page: Number(parameters.get("page") ?? "1"),
+      pageSize: 12,
+      totalItems: 1,
+      totalPages: 1,
+    }));
+    const api = {
+      products,
+      categories: vi.fn(async () => [
+        { id: "category-1", name: "Phones", slug: "phones", sortOrder: 0 },
+        { id: "category-2", name: "Laptops", slug: "laptops", sortOrder: 1 },
+      ]),
+    } as unknown as StorefrontCatalogApi;
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <HomePage api={api} apiBaseUrl="http://localhost:4000" />
+      </MemoryRouter>,
+    );
+
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Danh mục và bộ lọc sản phẩm",
+    });
+    expect(
+      within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(
+      within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
+    );
+
+    expect(
+      within(sidebar).getByRole("button", { name: "Đóng bộ lọc sản phẩm" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(sidebar).getByRole("link", { name: "Phones" }),
+    ).toHaveAttribute("href", "/?category=phones&pageSize=12#catalog");
+
+    await userEvent.selectOptions(
+      within(sidebar).getByLabelText("Tồn kho"),
+      "in_stock",
+    );
+    await userEvent.click(
+      within(sidebar).getByRole("button", { name: "Áp dụng" }),
+    );
+
+    await waitFor(() => expect(products).toHaveBeenCalledTimes(2));
+    expect(
+      (products.mock.calls[1]?.[0] as URLSearchParams).get("stockStatus"),
+    ).toBe("in_stock");
   });
 });
 
