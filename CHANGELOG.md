@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Make the Storefront discovery sidebar rail icons actionable for catalog
+  navigation instead of decorative-only controls.
 - Replace the Storefront header search icon and duplicate quick-search chip with
   a usable product search field that applies the catalog query directly.
 - Back Storefront `Sản phẩm mới`, `Bán chạy`, and `Đang giảm` shortcuts with

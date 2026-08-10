@@ -80,6 +80,12 @@ describe("catalog discovery", () => {
     expect(
       within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
     ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      within(sidebar).getByRole("link", { name: "Xem danh mục sản phẩm" }),
+    ).toHaveAttribute("href", "/#categories");
+    expect(
+      within(sidebar).getByRole("link", { name: "Xem danh sách sản phẩm" }),
+    ).toHaveAttribute("href", "/#catalog");
 
     await userEvent.click(
       within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),

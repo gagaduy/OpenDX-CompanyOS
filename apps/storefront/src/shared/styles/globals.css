@@ -612,6 +612,24 @@ img {
   color: var(--ink-muted);
 }
 
+.sidebar-icon-rail a {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+}
+
+.sidebar-icon-rail a:hover,
+.sidebar-icon-rail a:focus-visible {
+  border-color: var(--hairline-strong);
+  background: var(--surface-1);
+  color: var(--ink);
+}
+
 .sidebar-panel {
   width: 304px;
   padding: 64px 18px 20px;

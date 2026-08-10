@@ -38,9 +38,13 @@ export function DiscoverySidebar({
           <SlidersHorizontal aria-hidden="true" />
         )}
       </button>
-      <div className="sidebar-icon-rail" aria-hidden="true">
-        <Filter />
-        <Laptop />
+      <div className="sidebar-icon-rail">
+        <Link to="/#categories" aria-label="Xem danh mục sản phẩm">
+          <Filter aria-hidden="true" />
+        </Link>
+        <Link to="/#catalog" aria-label="Xem danh sách sản phẩm">
+          <Laptop aria-hidden="true" />
+        </Link>
       </div>
       <div id="discovery-sidebar-panel" className="sidebar-panel">
         <div className="sidebar-section">
