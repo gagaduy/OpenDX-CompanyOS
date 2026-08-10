@@ -32,7 +32,7 @@ for required_file in "${required_files[@]}"; do
   fi
 done
 
-expected_make_targets="check db-backup db-migrate db-restore db-rollback db-seed down help logs up"
+expected_make_targets="check check-crm-support-dashboard db-backup db-migrate db-restore db-rollback db-seed down help logs up"
 actual_make_targets="$(sed -n 's/^\([a-z][a-z-]*\):.*/\1/p' Makefile | sort -u | tr '\n' ' ' | sed 's/ $//')"
 if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
   echo "Repository audit failed: Makefile targets must be exactly: ${expected_make_targets}" >&2

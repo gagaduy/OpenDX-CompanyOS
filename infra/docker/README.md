@@ -27,6 +27,7 @@ local-development values and must not be reused in production.
 make up
 make logs
 make check
+make check-crm-support-dashboard
 make down
 ```
 
@@ -62,5 +63,6 @@ persistent `opendx_clamav_signatures` volume.
 
 See `docs/development/catalog-local-environment.md` and
 `docs/development/storefront-local-environment.md` plus
-`docs/development/database-operations.md` and `docs/integrations/sepay.md` for
-seed, identity, payment, backup, restore, and troubleshooting workflows.
+`docs/development/database-operations.md`, `docs/integrations/sepay.md`, and
+`docs/operations/crm-support-dashboard.md` for seed, identity, payment, CRM,
+Support, Dashboard, backup, restore, and troubleshooting workflows.

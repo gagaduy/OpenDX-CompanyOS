@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add guarded Phase 7 CRM/Support/Dashboard source preflight commands and
+  operations documentation for exit evidence collection.
 - Add the Executive Dashboard Console workspace with Administrator/Executive
   route gating, default 30-day reporting range, max-range validation,
   PII-free aggregate commerce/product/customer/operations metrics, stale

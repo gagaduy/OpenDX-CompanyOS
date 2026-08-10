@@ -94,6 +94,10 @@ Order, Payment, and browser acceptance. No SePay SDK, scheduler, queue, tunnel,
 or additional package is bundled. A contributor may run an external HTTPS
 tunnel locally, but it is not a repository dependency.
 
+Phase 7 CRM, Support, Dashboard, and the exit preflight reuse the existing Node,
+React, PostgreSQL, MinIO, ClamAV, Zod, and Console test/build stack. No new
+runtime or build dependency is added for the Phase 7 acceptance runner.
+
 ## Dependency Policy
 
 - Prefer established open-source libraries over hand-rolled infrastructure.

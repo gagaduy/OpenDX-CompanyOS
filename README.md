@@ -113,12 +113,16 @@ normal local startup.
 ```bash
 make check
 pnpm check:commerce-exit
+pnpm check:crm-support-dashboard
 ```
 
 The second command creates isolated PostgreSQL databases, validates the
 checkout-to-paid concurrency and failure gates, proves paid-order backup and
 restore, then removes its databases. Real SePay sandbox acceptance remains
 opt-in through `pnpm check:sepay-sandbox`; see `docs/integrations/sepay.md`.
+The Phase 7 command requires isolated CRM/Support test resources and verifies
+the source/build preflight before full browser, restart, and backup/restore
+evidence is recorded.
 
 Database operations are exposed through `make db-migrate`, `make db-rollback`,
 `make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. See

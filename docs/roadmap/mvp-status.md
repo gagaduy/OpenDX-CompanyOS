@@ -31,7 +31,7 @@ Active commerce master plan:
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
-| Phase 7: Operational CRM, Support, and Dashboard | In progress; plan ready for execution | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Pending implementation and exit validation |
+| Phase 7: Operational CRM, Support, and Dashboard | In progress; implementation through Dashboard and source preflight wiring | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Pending full browser/restart/backup/restore exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
 
 ## Latest Validation Evidence
@@ -39,7 +39,11 @@ Active commerce master plan:
 - Phase 7 focused design is approved for least-privilege CRM, staff-created
   support tickets, continuous SLA, private ClamAV-scanned attachments,
   deterministic customer segments, and aggregate PostgreSQL-backed reporting.
-  Its twelve-task TDD implementation plan is ready for execution on `phuong`.
+  Implementation now includes staff roles, CRM, Support, private attachment
+  scanning, aggregate Reporting, Customer/Support/Dashboard Console workspaces,
+  and a guarded Phase 7 source preflight command. Full Phase 7 closure still
+  requires browser, restart, backup/restore, and rollback/forward migration
+  evidence.
 - Repository audit: run before each handoff.
 - Runtime validation: begins in Phase 1 after application scaffolding exists.
 - Phase 1 plan created; implementation validation begins after scaffold execution.
