@@ -7,7 +7,10 @@ set -euo pipefail
 git diff --check
 pnpm lint
 pnpm typecheck
-pnpm test
+pnpm --filter './packages/**' test
+pnpm --filter @opendx/api test
+pnpm --filter @opendx/console test
+pnpm --filter @opendx/storefront test
 pnpm --filter @opendx/console build
 pnpm --filter @opendx/storefront build
 pnpm test:py

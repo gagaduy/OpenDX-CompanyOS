@@ -785,37 +785,37 @@ for Administrator/Executive and makes Dashboard the Executive landing route.
 `make check-crm-support-dashboard`; fixture records have a run UUID and cleanup
 only that run.
 
-- [ ] **Step 1: Write the acceptance runner's failing preflight tests.** Assert
+- [x] **Step 1: Write the acceptance runner's failing preflight tests.** Assert
   test database/bucket guards, required healthy services, deterministic clock/
   fixture run ID, no credentials/PII in output, and ownership-scoped cleanup.
-- [ ] **Step 2: Implement deterministic fixture/setup.** Create threshold
+- [x] **Step 2: Implement deterministic fixture/setup.** Create threshold
   customers and paid orders, CRM notes/follow-ups, every ticket priority/SLA
   state, a clean attachment, an EICAR rejection, and reporting boundary facts;
   do not call or modify normal seed.
-- [ ] **Step 3: Exercise the full HTTP/browser chain.** Prove a paid order appears
+- [x] **Step 3: Exercise the full HTTP/browser chain.** Prove a paid order appears
   consistently in Customer 360, timeline, Support context, and Dashboard;
   prove role denials, self-claim race, automatic SLA escalation exactly once,
   quarantine-to-clean download, infected deletion, and no public MinIO access.
-- [ ] **Step 4: Prove persistence/lifecycle.** Restart the stack; verify ticket,
+- [x] **Step 4: Prove persistence/lifecycle.** Restart the stack; verify ticket,
   CRM, reporting, attachment metadata, MinIO object, and ClamAV signatures;
   perform custom-format backup/restore; run Support/CRM rollback in reverse and
   migrate forward without touching earlier commerce truth.
-- [ ] **Step 5: Prove browser quality.** Run Chromium acceptance at 390x844,
+- [x] **Step 5: Prove browser quality.** Run Chromium acceptance at 390x844,
   768x1024, and 1440x900 for Customer, Support, and Dashboard; assert no
   horizontal document overflow, keyboard focus, semantic landmarks, and all
   loading/empty/error/forbidden/stale states.
-- [ ] **Step 6: Run final source and container gates.** Run `pnpm check`, API full
+- [x] **Step 6: Run final source and container gates.** Run `pnpm check`, API full
   PostgreSQL/MinIO integration, Console production build, repository audit,
   `git diff --check`, Compose config, fresh `make down && make up`, and the new
   Phase 7 exit command. Record exact counts/evidence in roadmap.
-- [ ] **Step 7: Conduct independent review.** Review the complete Phase 7 commit
+- [x] **Step 7: Conduct independent review.** Review the complete Phase 7 commit
   range for spec compliance and code quality; resolve all Critical/Important
   findings and rerun affected plus full gates.
-- [ ] **Step 8: Document and close Phase 7.** Record role matrix, API/metric
+- [x] **Step 8: Document and close Phase 7.** Record role matrix, API/metric
   definitions, ClamAV operations, retention, backup/restore, failure recovery,
   resource expectations, and troubleshooting. Mark the focused plan and master
   Phase 7 checklist complete only after evidence exists.
-- [ ] **Step 9: Update `[Unreleased]` and commit.** Commit as
+- [x] **Step 9: Update `[Unreleased]` and commit.** Commit as
   `docs(crm): complete phase seven acceptance`.
 
 ## Completion Rule

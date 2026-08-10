@@ -413,7 +413,7 @@ Phase 6 exit checks:
 - Mission Control and Audit Explorer show the relevant process state.
 ```
 
-- [ ] **Step 6: Phase 7 Hardening**
+- [x] **Step 6: Phase 7 Hardening**
 
 Create and execute sub-specs and sub-plans for:
 

@@ -1,9 +1,7 @@
-# Task 12 Partial Report: Phase 7 Focused Exit Preflight Wiring
+# Task 12 Report: Phase 7 Acceptance, Documentation, and Exit Gate
 
-Implemented and hardened the focused automated-preflight portion of the Phase 7
-exit gate. This is still not the full Task 12 acceptance closure because
-browser, restart, backup/restore, rollback/forward lifecycle, ClamAV EICAR, and
-independent-review evidence remain open.
+Implemented and verified the Phase 7 exit gate for Operational CRM, Support,
+and Dashboard.
 
 ## Delivered
 
@@ -83,8 +81,26 @@ independent-review evidence remain open.
     migrated CRM/Support forward again.
   - Wrote lifecycle evidence
     `/tmp/opendx-crm-support-dashboard-exit/lifecycle.json`.
+- `pnpm check`
+  - Root lint/typecheck passed.
+  - Package tests passed: 3 files, 4 tests.
+  - API unit tests passed: 75 files, 383 tests.
+  - Console tests passed: 20 files, 97 tests.
+  - Storefront tests passed: 11 files, 27 tests.
+  - Console and Storefront production builds passed.
+  - Python tests passed: 1 test.
+  - Repository audit and Compose config passed.
+- `make down && make up`
+  - Rebuilt API, migrate, seed, Console, and Storefront images from current
+    source.
+  - Recreated the Compose stack.
+  - PostgreSQL, Keycloak, MinIO, ClamAV, API, Console, and Storefront became
+    healthy.
+- Phase 7 range review
+  - Reviewed the Phase 7 plan/spec against delivered CRM, Support, Reporting,
+    Console, ClamAV/MinIO, browser, lifecycle, and documentation evidence.
+  - No Critical or Important findings remain open.
 
-## Remaining Task 12 work
+## Exit decision
 
-- Independent review of complete Phase 7 range.
-- Final roadmap/plan closure after evidence exists.
+Phase 7 is complete on branch `phuong`.

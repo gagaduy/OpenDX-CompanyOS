@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add a Phase 7 lifecycle check for disposable PostgreSQL restart persistence,
   custom-format backup/restore, and CRM/Support rollback-forward migration
   while preserving earlier commerce tables.
+- Run root source checks with sequential workspace test execution to keep UI
+  tests stable under local validation load.
 - Add the Executive Dashboard Console workspace with Administrator/Executive
   route gating, default 30-day reporting range, max-range validation,
   PII-free aggregate commerce/product/customer/operations metrics, stale
