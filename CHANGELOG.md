@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix Storefront header hash navigation so customer `Danh mục` and `Khám phá`
+  links scroll to their discovery sections after React Router navigation.
 - Complete Phase 8 hardening readiness on `phuong` with exit preflight, root
   source validation, local commerce acceptance, and recorded production SePay
   acceptance decision.

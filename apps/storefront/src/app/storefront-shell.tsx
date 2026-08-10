@@ -10,9 +10,15 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useTheme } from "./theme-provider";
 
 export function StorefrontShell({
@@ -24,7 +30,37 @@ export function StorefrontShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { resolvedTheme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (location.hash.length <= 1) return;
+    const sectionId = decodeURIComponent(location.hash.slice(1));
+    let cancelled = false;
+    let attempts = 0;
+    let timer: number | undefined;
+
+    const scrollToSection = () => {
+      if (cancelled) return;
+      const section = document.getElementById(sectionId);
+      if (section !== null) {
+        section.scrollIntoView({ block: "start", behavior: "smooth" });
+        return;
+      }
+      attempts += 1;
+      if (attempts < 20) {
+        timer = window.setTimeout(scrollToSection, 50);
+      }
+    };
+
+    timer = window.setTimeout(scrollToSection, 0);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [location.hash, location.pathname, location.search]);
+
   return (
     <div className="storefront-shell">
       <a className="skip-link" href="#main-content">
