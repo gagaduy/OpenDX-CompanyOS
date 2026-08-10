@@ -95,16 +95,17 @@ local PostgreSQL Compose service but never changes the normal `opendx`
 database. This deterministic gate does not replace the credential-owned SePay
 sandbox acceptance documented in `docs/integrations/sepay.md`.
 
-Run the Phase 7 CRM, Support, and Dashboard source preflight with:
+Run the Phase 7 CRM, Support, and Dashboard focused exit preflight with:
 
 ```bash
 make check-crm-support-dashboard
 ```
 
-It requires isolated test resources, runs the Phase 7 source/build checks, and
-prints a run UUID without exposing credentials or customer PII. Full Phase 7
-closure additionally requires the browser, restart, backup/restore, and
-rollback/forward migration evidence documented in
+It requires isolated PostgreSQL, MinIO, and reporting-scale test resources,
+runs the Phase 7 focused API, PostgreSQL/MinIO, Console, source/build, audit,
+and query-plan checks, and prints a run UUID without exposing credentials or
+customer PII. Full Phase 7 closure additionally requires the browser, restart,
+backup/restore, and rollback/forward migration evidence documented in
 `docs/operations/crm-support-dashboard.md`.
 
 ## Run Local Services

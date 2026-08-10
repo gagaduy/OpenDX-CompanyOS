@@ -1,7 +1,9 @@
-# Task 12 Partial Report: Phase 7 Exit Preflight Wiring
+# Task 12 Partial Report: Phase 7 Focused Exit Preflight Wiring
 
-Implemented the source-preflight portion of the Phase 7 exit gate. This is not
-the full Task 12 acceptance closure.
+Implemented and hardened the focused automated-preflight portion of the Phase 7
+exit gate. This is still not the full Task 12 acceptance closure because
+browser, restart, backup/restore, rollback/forward lifecycle, ClamAV EICAR, and
+independent-review evidence remain open.
 
 ## Delivered
 
@@ -10,6 +12,11 @@ the full Task 12 acceptance closure.
   into `pnpm check:crm-support-dashboard`.
 - Added `pnpm check:crm-support-dashboard`.
 - Added `make check-crm-support-dashboard`.
+- Extended the Phase 7 runner to require isolated PostgreSQL, private Support
+  MinIO details, and `RUN_REPORTING_SCALE=1`.
+- Added focused API unit, real PostgreSQL/MinIO integration, reporting
+  100k-customer/1m-order scale, Console Phase 7, typecheck/build, audit, and
+  diff-check commands to the runner.
 - Updated repository audit Make target allowlist.
 - Added `docs/operations/crm-support-dashboard.md`.
 - Updated README, build-from-source, dependencies, Docker README, roadmap, and
@@ -19,7 +26,13 @@ the full Task 12 acceptance closure.
 
 ## Verification
 
-- `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test MINIO_SUPPORT_BUCKET=support-attachments-test pnpm check:crm-support-dashboard`
+- `TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test MINIO_ENDPOINT=http://localhost:9000 MINIO_ACCESS_KEY=opendx_minio MINIO_SECRET_KEY=opendx_minio_password MINIO_SUPPORT_BUCKET=support-attachments-test RUN_REPORTING_SCALE=1 pnpm check:crm-support-dashboard`
+  - Exit runner tests passed: 5/5.
+  - Focused API unit suites passed: 75 files, 383 tests.
+  - Focused API PostgreSQL/MinIO integration suites passed: 8 files, 57 tests,
+    0 skipped.
+  - Reporting scale query-plan test passed with 100k customers and 1m orders.
+  - Focused Console Phase 7 suites passed: 20 files, 97 tests.
   - API typecheck passed.
   - Console typecheck passed.
   - Console production build passed.
@@ -33,9 +46,8 @@ the full Task 12 acceptance closure.
 
 ## Remaining Task 12 work
 
-- Deterministic acceptance fixture creation.
 - Full HTTP/browser chain.
-- MinIO/ClamAV clean and EICAR paths.
+- ClamAV clean and EICAR paths.
 - Stack restart persistence proof.
 - Custom-format backup/restore.
 - CRM/Support rollback then forward migration proof.

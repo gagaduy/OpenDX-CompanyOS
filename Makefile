@@ -32,7 +32,8 @@ check-crm-support-dashboard:
 	CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR=/tmp/opendx-crm-support-dashboard-exit \
 	TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test \
 	MINIO_SUPPORT_BUCKET=support-attachments-test \
-	$(COMPOSE) run --rm -e TEST_DATABASE_URL -e MINIO_SUPPORT_BUCKET -e CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR api pnpm check:crm-support-dashboard
+	RUN_REPORTING_SCALE=1 \
+	$(COMPOSE) run --rm -e TEST_DATABASE_URL -e MINIO_SUPPORT_BUCKET -e CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR -e RUN_REPORTING_SCALE api pnpm check:crm-support-dashboard
 
 db-migrate:
 	$(COMPOSE) run --rm migrate

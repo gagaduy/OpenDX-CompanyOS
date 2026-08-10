@@ -17,19 +17,32 @@ import {
 
 const validEnvironment = {
   TEST_DATABASE_URL: "postgres://opendx_local:secret@localhost:55432/opendx_test",
+  MINIO_ENDPOINT: "http://localhost:9000",
+  MINIO_ACCESS_KEY: "opendx_minio",
+  MINIO_SECRET_KEY: "local-only-secret",
   MINIO_SUPPORT_BUCKET: "support-attachments-test",
+  RUN_REPORTING_SCALE: "1",
 };
 
 test("requires isolated database and support attachment bucket", () => {
   assert.deepEqual(
     REQUIRED_ENVIRONMENT.map(({ name }) => name),
-    ["TEST_DATABASE_URL", "MINIO_SUPPORT_BUCKET"],
+    [
+      "TEST_DATABASE_URL",
+      "MINIO_ENDPOINT",
+      "MINIO_ACCESS_KEY",
+      "MINIO_SECRET_KEY",
+      "MINIO_SUPPORT_BUCKET",
+      "RUN_REPORTING_SCALE",
+    ],
   );
 
   assert.deepEqual(validateEnvironment(validEnvironment), { ok: true });
   assert.equal(validateEnvironment({ ...validEnvironment, TEST_DATABASE_URL: "postgres://prod" }).ok, false);
+  assert.equal(validateEnvironment({ ...validEnvironment, MINIO_ENDPOINT: "https://object-store.example.com" }).ok, false);
   assert.equal(validateEnvironment({ ...validEnvironment, MINIO_SUPPORT_BUCKET: "prod-bucket" }).ok, false);
-  assert.equal(validateEnvironment({ MINIO_SUPPORT_BUCKET: "support-attachments-test" }).ok, false);
+  assert.equal(validateEnvironment({ ...validEnvironment, RUN_REPORTING_SCALE: "0" }).ok, false);
+  assert.equal(validateEnvironment({ MINIO_SUPPORT_BUCKET: "support-attachments-test", MINIO_ENDPOINT: "http://localhost:9000" }).ok, false);
 });
 
 test("redacts environment values before diagnostics", () => {
@@ -39,6 +52,53 @@ test("redacts environment values before diagnostics", () => {
 
 test("builds deterministic command list for the source exit preflight", () => {
   assert.deepEqual(buildCommands(), [
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/api",
+        "test",
+        "--",
+        "src/modules/crm",
+        "src/modules/support",
+        "src/modules/reporting",
+      ],
+    ],
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/api",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "src/modules/crm/infrastructure/database/crm-migration.integration.test.ts",
+        "src/modules/crm/infrastructure/repositories/implementations/postgresql-crm.repository.integration.test.ts",
+        "src/modules/crm/tests/crm.api.integration.test.ts",
+        "src/modules/support/infrastructure/database/support-migration.integration.test.ts",
+        "src/modules/support/infrastructure/repositories/implementations/postgresql-support.repository.integration.test.ts",
+        "src/modules/support/infrastructure/storage/minio-support-attachment.storage.integration.test.ts",
+        "src/modules/support/tests/support.api.integration.test.ts",
+        "src/modules/reporting/infrastructure/repositories/implementations/postgresql-reporting.repository.integration.test.ts",
+      ],
+    ],
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/console",
+        "test",
+        "--",
+        "src/features/authentication/tests/commerce-operations-routing.test.tsx",
+        "src/features/customers/tests/customer-list-page.test.tsx",
+        "src/features/crm/tests/customer-detail-page.test.tsx",
+        "src/features/support/tests/support-page.test.tsx",
+        "src/features/support/tests/ticket-detail-page.test.tsx",
+        "src/features/dashboard/tests/dashboard-page.test.tsx",
+      ],
+    ],
     ["pnpm", ["--filter", "@opendx/api", "typecheck"]],
     ["pnpm", ["--filter", "@opendx/console", "typecheck"]],
     ["pnpm", ["--filter", "@opendx/console", "build"]],
@@ -67,9 +127,10 @@ test("runs commands in order and returns the failing command status", () => {
   assert.equal(stdout[0], "Phase 7 exit run: crm-support-dashboard-fixed-id");
   assert.equal(stdout.some((line) => line.includes("secret")), false);
   assert.equal(stderr.at(-1), "Command failed: pnpm audit:repo");
+  const failingCommandIndex = buildCommands().findIndex(([command, args]) => command === "pnpm" && args.includes("audit:repo"));
   assert.deepEqual(
     calls.map(([command, args]) => [command, args]),
-    buildCommands().slice(0, 4),
+    buildCommands().slice(0, failingCommandIndex + 1),
   );
 });
 
@@ -78,7 +139,14 @@ test("stops before running commands when environment is unsafe", () => {
   const stderr = [];
   const status = runExitCheck({
     cwd: "/repo",
-    env: { TEST_DATABASE_URL: "postgres://user:pass@localhost:5432/prod", MINIO_SUPPORT_BUCKET: "prod" },
+    env: {
+      TEST_DATABASE_URL: "postgres://user:pass@localhost:5432/prod",
+      MINIO_ENDPOINT: "https://object-store.example.com",
+      MINIO_ACCESS_KEY: "prod-user",
+      MINIO_SECRET_KEY: "prod-pass",
+      MINIO_SUPPORT_BUCKET: "prod",
+      RUN_REPORTING_SCALE: "0",
+    },
     randomUUID: () => "fixed-id",
     spawnSync: () => {
       calls.push("spawned");

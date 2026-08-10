@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Add guarded Phase 7 CRM/Support/Dashboard source preflight commands and
   operations documentation for exit evidence collection, with test coverage for
-  isolated-environment enforcement and command ordering.
+  isolated-environment enforcement, command ordering, focused API/Console
+  suites, PostgreSQL/MinIO integration, and reporting scale query plans.
 - Add the Executive Dashboard Console workspace with Administrator/Executive
   route gating, default 30-day reporting range, max-range validation,
   PII-free aggregate commerce/product/customer/operations metrics, stale

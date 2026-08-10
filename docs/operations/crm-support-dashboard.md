@@ -16,19 +16,23 @@ Phase 7 adds least-privilege operational workspaces for NovaCommerce staff:
 
 ## Local exit check
 
-Run the Phase 7 source preflight with isolated test resources:
+Run the Phase 7 focused exit preflight with isolated test resources:
 
 ```bash
 make check-crm-support-dashboard
 ```
 
-The command refuses to run without an isolated test database and Support MinIO
-bucket. It records a run UUID and avoids printing credentials or customer PII.
+The command refuses to run without an isolated test database, Support MinIO
+bucket, MinIO connection details, and `RUN_REPORTING_SCALE=1`. It records a run
+UUID and avoids printing credentials or customer PII. The preflight covers
+focused CRM/Support/Reporting API unit tests, real PostgreSQL integration and
+concurrency tests, private Support attachment MinIO storage, 100k-customer/
+1m-order reporting query plans, Console Phase 7 tests, typecheck/build, repo
+audit, and `git diff --check`.
 
 The full Phase 7 exit evidence must also include:
 
-- PostgreSQL CRM/Support/reporting integration tests.
-- MinIO private Support attachment upload/download with ClamAV clean and EICAR
+- ClamAV clean and EICAR
   rejection paths.
 - Console browser checks at 390x844, 768x1024, and 1440x900 for Customer,
   Support, and Dashboard.

@@ -10,7 +10,11 @@ import { pathToFileURL } from "node:url";
 
 export const REQUIRED_ENVIRONMENT = [
   { name: "TEST_DATABASE_URL", pattern: /opendx_test|crm|support/i },
+  { name: "MINIO_ENDPOINT", pattern: /localhost|127\.0\.0\.1|minio/i },
+  { name: "MINIO_ACCESS_KEY", pattern: /.+/ },
+  { name: "MINIO_SECRET_KEY", pattern: /.+/ },
   { name: "MINIO_SUPPORT_BUCKET", pattern: /test|support/i },
+  { name: "RUN_REPORTING_SCALE", pattern: /^1$/ },
 ];
 
 export function redactEnvironmentValue(value) {
@@ -43,6 +47,53 @@ export function buildRunId(uuid = randomUUID) {
 
 export function buildCommands() {
   return [
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/api",
+        "test",
+        "--",
+        "src/modules/crm",
+        "src/modules/support",
+        "src/modules/reporting",
+      ],
+    ],
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/api",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "src/modules/crm/infrastructure/database/crm-migration.integration.test.ts",
+        "src/modules/crm/infrastructure/repositories/implementations/postgresql-crm.repository.integration.test.ts",
+        "src/modules/crm/tests/crm.api.integration.test.ts",
+        "src/modules/support/infrastructure/database/support-migration.integration.test.ts",
+        "src/modules/support/infrastructure/repositories/implementations/postgresql-support.repository.integration.test.ts",
+        "src/modules/support/infrastructure/storage/minio-support-attachment.storage.integration.test.ts",
+        "src/modules/support/tests/support.api.integration.test.ts",
+        "src/modules/reporting/infrastructure/repositories/implementations/postgresql-reporting.repository.integration.test.ts",
+      ],
+    ],
+    [
+      "pnpm",
+      [
+        "--filter",
+        "@opendx/console",
+        "test",
+        "--",
+        "src/features/authentication/tests/commerce-operations-routing.test.tsx",
+        "src/features/customers/tests/customer-list-page.test.tsx",
+        "src/features/crm/tests/customer-detail-page.test.tsx",
+        "src/features/support/tests/support-page.test.tsx",
+        "src/features/support/tests/ticket-detail-page.test.tsx",
+        "src/features/dashboard/tests/dashboard-page.test.tsx",
+      ],
+    ],
     ["pnpm", ["--filter", "@opendx/api", "typecheck"]],
     ["pnpm", ["--filter", "@opendx/console", "typecheck"]],
     ["pnpm", ["--filter", "@opendx/console", "build"]],
