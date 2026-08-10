@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Support Console workspace with role-gated Support routes, ticket
+  queue/create/detail views, workflow actions, append-only timeline rendering,
+  stale mutation recovery, and authenticated attachment upload/download UI.
 - Add the Customer and CRM Console workspace with role-gated customer routes,
   URL-backed search and segment filters, read-only Customer 360, note
   correction timeline, versioned follow-up claiming, and responsive dark UI.

@@ -70,6 +70,18 @@ describe("commerce operations routes", () => {
     renderRoute(role, "/customers");
     expect(await screen.findByRole("heading", { name: "Permission denied" })).toBeVisible();
   });
+
+  it.each(["administrator", "support_operator", "crm_operator"] as const)("allows %s to open support routes", async (role) => {
+    renderRoute(role, "/support");
+    expect(await screen.findByRole("heading", { name: "Support tickets" })).toBeVisible();
+    expect(screen.getByRole("main")).toBeVisible();
+    expect(screen.getByRole("link", { name: /support/i })).toBeVisible();
+  });
+
+  it.each(["executive_viewer", "operations_manager", "finance_operator", "catalog_manager", "inventory_manager"] as const)("denies %s at support routes", async (role) => {
+    renderRoute(role, "/support");
+    expect(await screen.findByRole("heading", { name: "Permission denied" })).toBeVisible();
+  });
 });
 
 function json(data: unknown) {

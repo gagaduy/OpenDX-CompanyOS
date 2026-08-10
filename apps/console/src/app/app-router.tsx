@@ -22,6 +22,7 @@ import { OrderOperationsPage } from "../features/orders/pages/order-operations-p
 import { createPaymentOperationsApi } from "../features/payments/api/payment-operations-api";
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
+import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -43,6 +44,8 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/payments/:paymentId" element={<PaymentRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/customers" element={<CustomerRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/customers/:customerId" element={<CustomerRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/support" element={<SupportRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/support/:ticketId" element={<SupportRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
         </Route>
       </Route>
@@ -62,7 +65,9 @@ function HomeRedirect() {
         ? "/payments"
         : roles.includes("crm_operator")
           ? "/customers"
-          : "/inventory";
+          : roles.includes("support_operator")
+            ? "/support"
+            : "/inventory";
   return <Navigate to={target} replace />;
 }
 
@@ -101,4 +106,10 @@ function CustomerRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: st
   const customerApi = useMemo(() => createCustomerOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
   const crmApi = useMemo(() => createCrmOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
   return <StaffRoleRoute allowed={["administrator", "crm_operator"]}>{detail ? <CustomerDetailPage api={crmApi} /> : <CustomerListPage api={customerApi} />}</StaffRoleRoute>;
+}
+
+function SupportRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: string; readonly detail?: boolean }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createSupportOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "support_operator", "crm_operator"]}>{detail ? <TicketDetailPage api={api} roles={session?.roles ?? []} /> : <SupportPage api={api} roles={session?.roles ?? []} />}</StaffRoleRoute>;
 }
