@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add a Phase 7 CRM/Support/Dashboard browser check covering Customer, Support,
   and Dashboard surfaces at 390x844, 768x1024, and 1440x900 with focus,
   landmark, overflow, screenshot, and denied-route evidence.
+- Add a Phase 7 lifecycle check for disposable PostgreSQL restart persistence,
+  custom-format backup/restore, and CRM/Support rollback-forward migration
+  while preserving earlier commerce tables.
 - Add the Executive Dashboard Console workspace with Administrator/Executive
   route gating, default 30-day reporting range, max-range validation,
   PII-free aggregate commerce/product/customer/operations metrics, stale

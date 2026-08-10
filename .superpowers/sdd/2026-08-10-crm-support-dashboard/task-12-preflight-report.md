@@ -21,6 +21,9 @@ independent-review evidence remain open.
   current source and pass isolated product/support MinIO bucket names.
 - Added `scripts/dev/crm-support-dashboard-browser-check.mjs` and
   `pnpm check:crm-support-dashboard-browser` for Phase 7 browser evidence.
+- Added `scripts/dev/crm-support-dashboard-lifecycle-check.mjs` and
+  `pnpm check:crm-support-dashboard-lifecycle` for restart, backup/restore, and
+  CRM/Support migration lifecycle evidence.
 - Updated repository audit Make target allowlist.
 - Added `docs/operations/crm-support-dashboard.md`.
 - Updated README, build-from-source, dependencies, Docker README, roadmap, and
@@ -68,11 +71,20 @@ independent-review evidence remain open.
   - Verified no horizontal document overflow, one main landmark, navigation
     landmark, visible keyboard focus, and denied Dashboard route with zero
     Phase 7 API calls.
+- `pnpm check:crm-support-dashboard-lifecycle`
+  - Created disposable database `opendx_phase7_lifecycle_<pid>_test`.
+  - Migrated through all modules including CRM and Support.
+  - Inserted CRM note/follow-up and Support ticket fixture.
+  - Restarted PostgreSQL Compose service and verified persisted Support data.
+  - Wrote custom-format dump
+    `/tmp/opendx-crm-support-dashboard-exit/crm-support-dashboard.dump`.
+  - Restored into disposable restore database and verified CRM/Support counts.
+  - Rolled back Support and CRM, verified earlier `orders` table remained, then
+    migrated CRM/Support forward again.
+  - Wrote lifecycle evidence
+    `/tmp/opendx-crm-support-dashboard-exit/lifecycle.json`.
 
 ## Remaining Task 12 work
 
-- Stack restart persistence proof.
-- Custom-format backup/restore.
-- CRM/Support rollback then forward migration proof.
 - Independent review of complete Phase 7 range.
 - Final roadmap/plan closure after evidence exists.

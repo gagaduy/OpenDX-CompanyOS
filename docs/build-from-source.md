@@ -116,6 +116,12 @@ run the Phase 7 browser check with:
 pnpm check:crm-support-dashboard-browser
 ```
 
+Run the Phase 7 PostgreSQL lifecycle check with:
+
+```bash
+pnpm check:crm-support-dashboard-lifecycle
+```
+
 ## Run Local Services
 
 Start the full local stack, including all migrations through Payment and the

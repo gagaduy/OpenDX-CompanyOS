@@ -32,10 +32,7 @@ Phase 7 tests, typecheck/build, repo audit, and `git diff --check`.
 
 The full Phase 7 exit evidence must also include:
 
-- Stack restart persistence.
-- Custom-format backup/restore.
-- CRM/Support rollback then forward migration without changing earlier commerce
-  truth.
+- Independent review of the full Phase 7 commit range.
 
 ## Browser evidence
 
@@ -51,6 +48,20 @@ Customer list/detail, Support queue/detail, and Dashboard surfaces at 390x844,
 768x1024, and 1440x900. It also verifies visible keyboard focus, semantic
 landmarks, no horizontal document overflow, and a denied Dashboard route that
 does not call Phase 7 APIs.
+
+## Lifecycle evidence
+
+Run:
+
+```bash
+pnpm check:crm-support-dashboard-lifecycle
+```
+
+The lifecycle check creates disposable PostgreSQL databases only. It migrates
+forward through CRM/Support, inserts a minimal CRM/Support fixture, restarts the
+PostgreSQL Compose service, verifies persistence, writes a custom-format dump,
+restores it into another disposable database, rolls CRM/Support back, verifies
+earlier commerce tables remain, then migrates CRM/Support forward again.
 
 Do not mark Phase 7 complete until those evidence items are captured.
 
