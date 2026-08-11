@@ -11,6 +11,7 @@ export interface HomepageModelPresentation {
   readonly desktopWidthFraction: number;
   readonly compactWidthFraction: number;
   readonly maxHeightFraction: number;
+  readonly darkBaseColor: string;
 }
 
 export interface HomepageModelFitInput {
@@ -29,6 +30,7 @@ export const homepageModelPresentations = {
     desktopWidthFraction: 0.32,
     compactWidthFraction: 0.26,
     maxHeightFraction: 0.52,
+    darkBaseColor: "#6578d9",
   },
   laptop: {
     baseRotation: [0, 0, 0],
@@ -36,6 +38,7 @@ export const homepageModelPresentations = {
     desktopWidthFraction: 0.34,
     compactWidthFraction: 0.28,
     maxHeightFraction: 0.48,
+    darkBaseColor: "#b7bdc8",
   },
   headphones: {
     baseRotation: [0, 0, 0],
@@ -43,6 +46,7 @@ export const homepageModelPresentations = {
     desktopWidthFraction: 0.31,
     compactWidthFraction: 0.25,
     maxHeightFraction: 0.48,
+    darkBaseColor: "#c46a32",
   },
   "game-controller": {
     baseRotation: [-0.18, 0, 0],
@@ -50,6 +54,7 @@ export const homepageModelPresentations = {
     desktopWidthFraction: 0.32,
     compactWidthFraction: 0.25,
     maxHeightFraction: 0.42,
+    darkBaseColor: "#969eb2",
   },
 } as const satisfies Readonly<
   Record<HomepageModelId, HomepageModelPresentation>
