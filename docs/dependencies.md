@@ -25,6 +25,7 @@ Current major dependencies:
 | `react`, `react-dom` | `apps/console`, `apps/storefront` | Console and Storefront UI rendering |
 | `three` `0.185.1` | `apps/storefront` | MIT-licensed WebGL renderer for the Storefront 3D homepage |
 | `@react-three/fiber` `9.7.0` | `apps/storefront` | MIT-licensed React renderer for the Storefront Three.js scene graph |
+| `@types/three` `0.185.4` | `apps/storefront` | MIT-licensed TypeScript declarations for Three.js and GLTFLoader |
 | `vite`, `@vitejs/plugin-react` | `apps/console`, `apps/storefront` | Frontend development and production builds |
 | `lucide-react` | `apps/console`, `apps/storefront` | Icon set for product UI controls and status surfaces |
 | `vitest`, `jsdom` | `apps/console`, `apps/storefront` | Frontend unit test runner and browser-like test environment |
