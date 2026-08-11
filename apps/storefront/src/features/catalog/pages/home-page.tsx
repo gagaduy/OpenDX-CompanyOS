@@ -9,6 +9,7 @@ import { DiscoverySidebar } from "../components/discovery-sidebar";
 import { ProductGrid } from "../components/product-grid";
 import { StorefrontHero } from "../components/storefront-hero";
 import { useProductDiscovery } from "../hooks/use-product-discovery";
+import { useHeroSlides } from "../hooks/use-hero-slides";
 
 export function HomePage({
   api,
@@ -24,6 +25,7 @@ export function HomePage({
   const landing =
     [...normalized.keys()].every((key) => key === "page" || key === "pageSize") &&
     (normalized.get("page") ?? "1") === "1";
+  const hero = useHeroSlides(api, landing);
   const products = discovery.page?.items ?? [];
   return (
     <main id="main-content">
@@ -32,9 +34,15 @@ export function HomePage({
         parameters={normalized}
         onSubmit={setParameters}
       />
-      {!discovery.loading && landing && products[0] !== undefined && (
+      {!discovery.loading &&
+        landing &&
+        (hero.slides.length > 0 || products[0] !== undefined) && (
         <>
-          <StorefrontHero product={products[0]} apiBaseUrl={apiBaseUrl} />
+          <StorefrontHero
+            slides={hero.slides}
+            fallbackProduct={products[0]}
+            apiBaseUrl={apiBaseUrl}
+          />
           <CategoryShowcase
             categories={discovery.categories}
             products={products}

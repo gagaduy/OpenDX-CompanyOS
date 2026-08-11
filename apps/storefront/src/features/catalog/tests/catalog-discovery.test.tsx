@@ -17,8 +17,10 @@ describe("catalog discovery", () => {
       totalItems: 1,
       totalPages: 1,
     }));
+    const heroSlides = vi.fn(async () => []);
     const api = {
       products,
+      heroSlides,
       categories: vi.fn(async () => [
         { id: "category-1", name: "Phones", slug: "phones", sortOrder: 0 },
       ]),
@@ -38,6 +40,7 @@ describe("catalog discovery", () => {
     expect(
       (products.mock.calls[0]?.[0] as URLSearchParams).get("category"),
     ).toBe("phones");
+    expect(heroSlides).not.toHaveBeenCalled();
     const catalog = screen.getByRole("region", {
       name: "Sản phẩm công nghệ",
     });
@@ -62,8 +65,10 @@ describe("catalog discovery", () => {
       totalItems: 1,
       totalPages: 1,
     }));
+    const heroSlides = vi.fn(async () => []);
     const api = {
       products,
+      heroSlides,
       categories: vi.fn(async () => [
         { id: "category-1", name: "Phones", slug: "phones", sortOrder: 0 },
         { id: "category-2", name: "Laptops", slug: "laptops", sortOrder: 1 },
@@ -79,6 +84,7 @@ describe("catalog discovery", () => {
     const sidebar = await screen.findByRole("complementary", {
       name: "Danh mục và bộ lọc sản phẩm",
     });
+    await waitFor(() => expect(heroSlides).toHaveBeenCalledOnce());
     expect(
       within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
     ).toHaveAttribute("aria-expanded", "false");
