@@ -5,7 +5,12 @@ import { Canvas } from "@react-three/fiber";
 import type { MutableRefObject } from "react";
 import type { HomepagePreferences } from "../../hooks/use-homepage-preferences";
 import { ExperienceErrorBoundary } from "./experience-error-boundary";
+import { AudioScene } from "./scenes/audio-scene";
+import { ComputingScene } from "./scenes/computing-scene";
+import { FeaturedScene } from "./scenes/featured-scene";
+import { GamingScene } from "./scenes/gaming-scene";
 import { IntroScene } from "./scenes/intro-scene";
+import { SmartphoneScene } from "./scenes/smartphone-scene";
 import { ShowroomEnvironment } from "./showroom-environment";
 
 export function ExperienceCanvas({
@@ -38,7 +43,36 @@ export function ExperienceCanvas({
             theme={preferences.theme}
             budget={preferences.budget}
           />
-          <IntroScene progress={progress} budget={preferences.budget} />
+          <IntroScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
+          <SmartphoneScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
+          <ComputingScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
+          <AudioScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
+          <GamingScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
+          <FeaturedScene
+            progress={progress}
+            theme={preferences.theme}
+            budget={preferences.budget}
+          />
         </Canvas>
       </ExperienceErrorBoundary>
     </div>
