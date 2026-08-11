@@ -24,7 +24,7 @@ export interface HomepageModelFitInput {
 
 export const homepageModelPresentations = {
   smartphone: {
-    baseRotation: [-Math.PI / 2, 0, 0],
+    baseRotation: [-Math.PI / 2, 0.18, 0],
     turn: [-0.18, 0.2],
     desktopWidthFraction: 0.32,
     compactWidthFraction: 0.26,

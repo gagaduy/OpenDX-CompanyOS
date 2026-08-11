@@ -6,6 +6,9 @@ import { HomepageModelScene, type HomepageSceneProps } from "./homepage-model-sc
 export const gamingSceneDefinition = {
   scene: "gaming",
   modelId: "game-controller",
+  side: "right",
+  depthOffset: -1.2,
+  horizontalPositionFraction: 0.17,
 } as const;
 
 export function GamingScene(props: HomepageSceneProps) {
@@ -13,9 +16,7 @@ export function GamingScene(props: HomepageSceneProps) {
     <HomepageModelScene
       {...props}
       {...gamingSceneDefinition}
-      position={[1.25, -0.1, 0]}
-      targetSize={3.2}
-      rotation={[-0.75, 0.8]}
+      verticalOffset={-0.1}
       accent
     />
   );

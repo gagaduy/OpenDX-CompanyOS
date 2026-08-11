@@ -6,6 +6,7 @@ import { HomepageModelScene, type HomepageSceneProps } from "./homepage-model-sc
 export const audioSceneDefinition = {
   scene: "audio",
   modelId: "headphones",
+  side: "left",
 } as const;
 
 export function AudioScene(props: HomepageSceneProps) {
@@ -13,9 +14,6 @@ export function AudioScene(props: HomepageSceneProps) {
     <HomepageModelScene
       {...props}
       {...audioSceneDefinition}
-      position={[-1.35, 0, 0]}
-      targetSize={3.1}
-      rotation={[-0.45, 0.75]}
     />
   );
 }

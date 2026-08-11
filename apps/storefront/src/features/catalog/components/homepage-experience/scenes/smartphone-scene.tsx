@@ -6,6 +6,8 @@ import { HomepageModelScene, type HomepageSceneProps } from "./homepage-model-sc
 export const smartphoneSceneDefinition = {
   scene: "smartphones",
   modelId: "smartphone",
+  side: "left",
+  accent: true,
 } as const;
 
 export function SmartphoneScene(props: HomepageSceneProps) {
@@ -13,9 +15,6 @@ export function SmartphoneScene(props: HomepageSceneProps) {
     <HomepageModelScene
       {...props}
       {...smartphoneSceneDefinition}
-      position={[-1.45, 0, 0]}
-      targetSize={3.4}
-      rotation={[-0.8, 0.9]}
     />
   );
 }

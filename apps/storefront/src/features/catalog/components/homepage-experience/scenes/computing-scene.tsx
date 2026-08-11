@@ -6,6 +6,7 @@ import { HomepageModelScene, type HomepageSceneProps } from "./homepage-model-sc
 export const computingSceneDefinition = {
   scene: "computing",
   modelId: "laptop",
+  side: "right",
 } as const;
 
 export function ComputingScene(props: HomepageSceneProps) {
@@ -13,9 +14,7 @@ export function ComputingScene(props: HomepageSceneProps) {
     <HomepageModelScene
       {...props}
       {...computingSceneDefinition}
-      position={[1.35, -0.2, 0]}
-      targetSize={3.3}
-      rotation={[0.7, -0.55]}
+      verticalOffset={-0.2}
     />
   );
 }

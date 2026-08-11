@@ -16,10 +16,21 @@ describe("homepage 3D scene composition", () => {
       audioSceneDefinition,
       gamingSceneDefinition,
     ]).toEqual([
-      { scene: "smartphones", modelId: "smartphone" },
-      { scene: "computing", modelId: "laptop" },
-      { scene: "audio", modelId: "headphones" },
-      { scene: "gaming", modelId: "game-controller" },
+      {
+        scene: "smartphones",
+        modelId: "smartphone",
+        side: "left",
+        accent: true,
+      },
+      { scene: "computing", modelId: "laptop", side: "right" },
+      { scene: "audio", modelId: "headphones", side: "left" },
+      {
+        scene: "gaming",
+        modelId: "game-controller",
+        side: "right",
+        depthOffset: -1.2,
+        horizontalPositionFraction: 0.17,
+      },
     ]);
   });
 

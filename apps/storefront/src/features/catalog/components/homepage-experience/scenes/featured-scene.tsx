@@ -15,33 +15,33 @@ export function FeaturedScene(props: HomepageSceneProps) {
         {...props}
         scene="featured"
         modelId="smartphone"
+        side="left"
         position={[-2.1, 0.75, 0]}
-        targetSize={1.55}
-        rotation={[-0.5, 0.5]}
+        widthFraction={0.12}
       />
       <HomepageModelScene
         {...props}
         scene="featured"
         modelId="laptop"
+        side="left"
         position={[-0.7, -0.7, 0]}
-        targetSize={1.7}
-        rotation={[0.35, -0.3]}
+        widthFraction={0.12}
       />
       <HomepageModelScene
         {...props}
         scene="featured"
         modelId="headphones"
+        side="right"
         position={[0.9, 0.65, 0]}
-        targetSize={1.55}
-        rotation={[-0.35, 0.45]}
+        widthFraction={0.12}
       />
       <HomepageModelScene
         {...props}
         scene="featured"
         modelId="game-controller"
+        side="right"
         position={[2.15, -0.7, 0]}
-        targetSize={1.6}
-        rotation={[0.5, -0.45]}
+        widthFraction={0.12}
       />
     </group>
   );

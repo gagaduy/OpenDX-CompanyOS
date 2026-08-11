@@ -635,6 +635,9 @@ async function captureHomepageThemes(client, outputDirectory, viewport) {
   const evidence = [];
   for (const theme of ["dark", "light"]) {
     await setTheme(client, theme);
+    await client.send("Runtime.evaluate", {
+      expression: "document.documentElement.scrollTop = 0",
+    });
     const result = await evaluate(
       client,
       `(() => ({
@@ -676,9 +679,79 @@ async function captureHomepageThemes(client, outputDirectory, viewport) {
       `homepage-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
     );
     await saveScreenshot(client, screenshotPath);
-    evidence.push({ ...result, screenshotPath });
+    const sceneEvidence = [];
+    const sampledScenes = viewport.width < 768
+      ? ["smartphones", "gaming"]
+      : viewport.width >= 1_440
+        ? ["smartphones", "audio", "gaming"]
+        : [];
+    for (const scene of sampledScenes) {
+      await client.send("Runtime.evaluate", {
+        expression: `(() => {
+          const journey = document.querySelector('.homepage-experience-journey');
+          if (!(journey instanceof HTMLElement)) return;
+          const sceneIndex = ${JSON.stringify([
+            "intro",
+            "smartphones",
+            "computing",
+            "audio",
+            "gaming",
+            "featured",
+          ])}.indexOf(${JSON.stringify(scene)});
+          const journeyTop = scrollY + journey.getBoundingClientRect().top;
+          const scrollRange = Math.max(1, journey.scrollHeight - innerHeight);
+          const sceneMidpoint = (sceneIndex + 0.5) / 6;
+          scrollTo({ top: journeyTop + scrollRange * sceneMidpoint });
+        })()`,
+      });
+      await delay(250);
+      await client.send("Runtime.evaluate", {
+        expression: "window.dispatchEvent(new Event('scroll'))",
+      });
+      await waitForCondition(
+        client,
+        `document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+          ?.textContent?.trim() === ${JSON.stringify(homepageSceneLabel(scene))}
+          && document.querySelector('[role="alert"]') === null
+          && (
+            document.querySelector('main')?.dataset.experienceMode === 'static'
+            || document.querySelector('.homepage-experience-canvas canvas') !== null
+          )`,
+        `${viewport.name} ${theme}: ${scene} scene did not settle`,
+      );
+      await delay(250);
+      const sample = await evaluate(
+        client,
+        `({
+          scene: ${JSON.stringify(scene)},
+          activeLabel: document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+            ?.textContent?.trim() ?? null,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: innerWidth,
+          alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+        })`,
+      );
+      if (sample.documentWidth > sample.viewportWidth || sample.alert !== null) {
+        throw new Error(`${viewport.name} ${theme}: ${scene} scene is outside its viewport`);
+      }
+      const samplePath = join(
+        outputDirectory,
+        `homepage-${viewport.name}-${theme}-${scene}.png`,
+      );
+      await saveScreenshot(client, samplePath);
+      sceneEvidence.push({ ...sample, screenshotPath: samplePath });
+    }
+    evidence.push({ ...result, screenshotPath, sceneEvidence });
   }
   return evidence;
+}
+
+function homepageSceneLabel(scene) {
+  return {
+    smartphones: "Điện thoại",
+    audio: "Âm thanh",
+    gaming: "Gaming",
+  }[scene];
 }
 
 async function verifyStaticHomepageFallback(client) {
@@ -733,6 +806,16 @@ async function waitForCondition(client, expression, timeoutMessage) {
       heading: document.querySelector('h1')?.textContent?.trim() ?? null,
       alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
       status: document.querySelector('[role="status"]')?.textContent?.trim() ?? null,
+      scrollY,
+      activeScene: document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+        ?.textContent?.trim() ?? null,
+      smartphoneTop: document.getElementById('homepage-smartphones')
+        ?.getBoundingClientRect().top ?? null,
+      journeyTop: document.querySelector('.homepage-experience-journey')
+        ?.getBoundingClientRect().top ?? null,
+      journeyHeight: document.querySelector('.homepage-experience-journey')
+        ?.scrollHeight ?? null,
+      innerHeight,
     })`,
   );
   throw new Error(`${timeoutMessage}: ${JSON.stringify(diagnostics)}`);

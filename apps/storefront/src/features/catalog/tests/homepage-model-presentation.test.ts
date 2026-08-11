@@ -12,7 +12,7 @@ describe("homepage model presentation", () => {
   it("turns the smartphone source Z height into an upright screen pose", () => {
     expect(homepageModelPresentations.smartphone.baseRotation).toEqual([
       -Math.PI / 2,
-      0,
+      0.18,
       0,
     ]);
   });

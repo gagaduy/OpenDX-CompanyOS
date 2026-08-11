@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useFrame } from "@react-three/fiber";
-import { Box3, Group, Vector3 } from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Group } from "three";
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { homepageModelAssets } from "../../../data/homepage-model-assets";
 import { useHomepageModel } from "../../../hooks/use-homepage-model";
+import { homepageModelPresentations } from "../../../lib/homepage-model-presentation";
+import { normalizeHomepageModel } from "../../../lib/normalize-homepage-model";
 import type { ExperienceBudget } from "../../../lib/homepage-quality";
 import {
   lerpKeyframes,
@@ -30,33 +32,52 @@ export function HomepageModelScene({
   budget,
   scene,
   modelId,
+  side,
   position,
-  targetSize,
-  rotation,
+  verticalOffset = 0,
+  depthOffset = 0,
+  horizontalPositionFraction = 0.22,
+  widthFraction,
   accent = false,
 }: HomepageSceneProps & {
   readonly scene: HomepageSceneId;
   readonly modelId: HomepageModelId;
-  readonly position: readonly [number, number, number];
-  readonly targetSize: number;
-  readonly rotation: readonly [number, number];
+  readonly side: "left" | "right";
+  readonly position?: readonly [number, number, number];
+  readonly verticalOffset?: number;
+  readonly depthOffset?: number;
+  readonly horizontalPositionFraction?: number;
+  readonly widthFraction?: number;
   readonly accent?: boolean;
 }) {
   const group = useRef<Group>(null);
+  const viewport = useThree((state) => state.viewport);
   const asset = homepageModelAssets.find((candidate) => candidate.id === modelId);
   if (asset === undefined) throw new Error(`Unknown homepage model ${modelId}`);
+  const presentation = homepageModelPresentations[modelId];
   const model = useHomepageModel(asset);
   const normalizedScene = useMemo(() => {
     if (model.status !== "ready") return undefined;
-    const loadedScene = model.scene;
-    const bounds = new Box3().setFromObject(loadedScene);
-    const size = bounds.getSize(new Vector3());
-    const center = bounds.getCenter(new Vector3());
-    const longestSide = Math.max(size.x, size.y, size.z, 1);
-    loadedScene.position.copy(center.multiplyScalar(-1));
-    loadedScene.scale.setScalar(targetSize / longestSide);
-    return loadedScene;
-  }, [model, targetSize]);
+    return normalizeHomepageModel(
+      model.scene,
+      presentation,
+      {
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        browserWidth: window.innerWidth,
+      },
+      widthFraction,
+    );
+  }, [model, presentation, viewport.height, viewport.width, widthFraction]);
+
+  const basePosition = position ?? [
+    viewport.width *
+      (side === "right"
+        ? horizontalPositionFraction
+        : -horizontalPositionFraction),
+    verticalOffset,
+    depthOffset,
+  ];
 
   useFrame((state) => {
     if (group.current === null) return;
@@ -69,21 +90,21 @@ export function HomepageModelScene({
       : 0;
     group.current.rotation.y =
       lerpKeyframes(localProgress, [
-        [0, rotation[0]],
-        [1, rotation[1]],
+        [0, presentation.turn[0]],
+        [1, presentation.turn[1]],
       ]) + idle;
     group.current.rotation.x = budget.idleMotion
       ? state.pointer.y * 0.07
       : 0;
     group.current.position.x =
-      position[0] + (budget.idleMotion ? state.pointer.x * 0.14 : 0);
+      basePosition[0] + (budget.idleMotion ? state.pointer.x * 0.14 : 0);
   });
 
   return (
     <group
       ref={group}
       name={`${scene}-${modelId}`}
-      position={[...position]}
+      position={[...basePosition]}
       visible={scene === "intro"}
     >
       {accent ? (
@@ -96,7 +117,15 @@ export function HomepageModelScene({
       {normalizedScene === undefined ? (
         model.status === "error" ? <ModelFallback modelId={modelId} /> : null
       ) : (
-        <primitive object={normalizedScene} dispose={null} />
+        <group rotation={[...presentation.baseRotation]}>
+          <group scale={normalizedScene.scale}>
+            <primitive
+              object={normalizedScene.scene}
+              position={[...normalizedScene.centeredPosition]}
+              dispose={null}
+            />
+          </group>
+        </group>
       )}
     </group>
   );
