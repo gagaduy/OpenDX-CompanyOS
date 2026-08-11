@@ -77,6 +77,11 @@ async function main() {
       );
       await client.send("Page.navigate", { url: catalogUrl });
       await waitForCatalog(client);
+      const categoryHero = await verifyCategoryHero(
+        client,
+        outputDirectory,
+        viewport,
+      );
       await setTheme(client, "dark");
       await client.send("Runtime.evaluate", {
         expression:
@@ -137,7 +142,13 @@ async function main() {
         outputDirectory,
         viewport,
       );
-      evidence.push({ ...result, screenshotPath, lightTheme, homepage });
+      evidence.push({
+        ...result,
+        screenshotPath,
+        lightTheme,
+        homepage,
+        categoryHero,
+      });
     }
     const staticHomepageFallback = await verifyStaticHomepageFallback(client);
     const guestCart = await verifyGuestCart(client);
@@ -1001,6 +1012,7 @@ async function waitForCatalog(client) {
       `
       document.readyState === 'complete'
       && (document.querySelectorAll('article').length > 0 || document.querySelector('[role="alert"]') !== null)
+      && document.querySelector('.hero-category-selector') !== null
       && [...document.images].every((image) => image.complete)
     `,
     );
@@ -1010,6 +1022,88 @@ async function waitForCatalog(client) {
   throw new Error(
     "Storefront catalog did not settle before browser-check timeout",
   );
+}
+
+async function verifyCategoryHero(client, outputDirectory, viewport) {
+  const evidence = [];
+  for (const theme of ["dark", "light"]) {
+    await setTheme(client, theme);
+    await client.send("Runtime.evaluate", {
+      expression:
+        "document.querySelectorAll('.hero-category-selector button')[0]?.click()",
+    });
+    await waitForCondition(
+      client,
+      `document.querySelector('.hero-category-selector button[aria-pressed="true"]')
+        === document.querySelectorAll('.hero-category-selector button')[0]`,
+      `${viewport.name} ${theme}: first hero category did not settle`,
+    );
+    const initial = await evaluate(
+      client,
+      `(() => {
+        const buttons = [...document.querySelectorAll('.hero-category-selector button')];
+        return {
+          buttonCount: buttons.length,
+          title: document.querySelector('.storefront-hero h1')?.textContent?.trim() ?? null,
+          image: document.querySelector('.storefront-hero > img')?.getAttribute('src') ?? null,
+          selected: buttons.find((button) => button.getAttribute('aria-pressed') === 'true')?.textContent?.trim() ?? null,
+        };
+      })()`,
+    );
+    if (
+      initial.buttonCount < 2 ||
+      initial.title === null ||
+      initial.image === null
+    ) {
+      throw new Error(
+        `${viewport.name} ${theme}: category hero is incomplete: ${JSON.stringify(initial)}`,
+      );
+    }
+    await client.send("Runtime.evaluate", {
+      expression:
+        "document.querySelectorAll('.hero-category-selector button')[1]?.click()",
+    });
+    await waitForCondition(
+      client,
+      `document.querySelector('.storefront-hero h1')?.textContent?.trim() !== ${JSON.stringify(initial.title)}
+        && document.querySelector('.storefront-hero > img')?.getAttribute('src') !== ${JSON.stringify(initial.image)}
+        && document.querySelector('.storefront-hero > img')?.complete === true
+        && document.querySelector('.storefront-hero > img')?.naturalWidth > 0`,
+      `${viewport.name} ${theme}: category hero did not change slide`,
+    );
+    const selected = await evaluate(
+      client,
+      `(() => {
+        const button = [...document.querySelectorAll('.hero-category-selector button')]
+          .find((candidate) => candidate.getAttribute('aria-pressed') === 'true');
+        const href = document.querySelector('.storefront-hero a.button.primary')?.getAttribute('href') ?? null;
+        return {
+          category: button?.textContent?.trim() ?? null,
+          href,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: innerWidth,
+        };
+      })()`,
+    );
+    if (
+      selected.category === null ||
+      !selected.href?.startsWith("/products?category=") ||
+      !selected.href.endsWith("#catalog") ||
+      selected.documentWidth > selected.viewportWidth
+    ) {
+      throw new Error(
+        `${viewport.name} ${theme}: selected category hero is invalid: ${JSON.stringify(selected)}`,
+      );
+    }
+    await delay(300);
+    const screenshotPath = join(
+      outputDirectory,
+      `category-hero-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+    );
+    await saveScreenshot(client, screenshotPath);
+    evidence.push({ theme, initial, selected, screenshotPath });
+  }
+  return evidence;
 }
 
 function assertViewport(result, expected) {

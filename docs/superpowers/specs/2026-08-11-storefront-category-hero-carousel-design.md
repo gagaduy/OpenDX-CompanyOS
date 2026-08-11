@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Storefront Category Hero Carousel
 
-- **Status:** Approved for implementation
+- **Status:** Implemented and verified
 - **Date:** 2026-08-11
 - **Scope:** NovaCommerce Storefront catalog hero and its public Catalog read model
 
