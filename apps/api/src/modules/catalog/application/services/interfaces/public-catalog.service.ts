@@ -6,11 +6,13 @@ import type {
   PaginatedPublicProductsDto,
   PublicCategoryDto,
   PublicProductDto,
+  StorefrontHeroSlideDto,
 } from "../../dtos/responses/public-catalog-response.dto";
 import type { PublicMediaAuthorization } from "../../repositories/interfaces/public-catalog.repository";
 
 export interface PublicCatalogServiceContract {
   listCategories(): Promise<readonly PublicCategoryDto[]>;
+  listHeroSlides(): Promise<readonly StorefrontHeroSlideDto[]>;
   listProducts(query: PublicProductListQuery): Promise<PaginatedPublicProductsDto>;
   getProductBySlug(slug: string): Promise<PublicProductDto>;
   getMediaContentAuthorization(

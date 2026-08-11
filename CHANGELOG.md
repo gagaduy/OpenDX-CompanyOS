@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add an authoritative public Catalog read model that selects the newest
+  eligible product in every active category for Storefront hero merchandising.
 - Collapse the Storefront navigation behind its existing hamburger at
   intermediate widths so navigation labels cannot overlap product search.
 - Add reviewed local GLB assets, MIT WebGL dependencies, deterministic scene

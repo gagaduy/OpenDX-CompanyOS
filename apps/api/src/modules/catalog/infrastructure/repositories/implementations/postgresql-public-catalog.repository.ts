@@ -4,6 +4,7 @@
 import type {
   PublicationReadinessSnapshot,
   PublicCatalogRepository,
+  PublicHeroSlideProjection,
   PublicMediaAuthorization,
   PublicProductListResult,
   PublicProductProjection,
@@ -44,6 +45,10 @@ interface ProductRow {
   attributes: unknown;
   primary_media_id: string;
   primary_media_alt_text: string;
+}
+
+interface HeroProductRow extends ProductRow {
+  category_slug: string;
 }
 
 interface VariantRow {
@@ -195,6 +200,38 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
       slug: row.slug,
       ...(row.description === null ? {} : { description: row.description }),
       sortOrder: row.sort_order,
+    }));
+  }
+
+  async listHeroSlides(
+    session: DatabaseSession,
+  ): Promise<readonly PublicHeroSlideProjection[]> {
+    const result = await session.query<HeroProductRow>(
+      `WITH eligible_products AS (
+         SELECT p.id,
+                row_number() OVER (
+                  PARTITION BY p.category_id
+                  ORDER BY p.created_at DESC, p.id ASC
+                ) AS category_rank
+         FROM products p
+         JOIN categories category ON category.id = p.category_id
+         WHERE ${completePublishedProduct}
+       )
+       SELECT ${productProjectionColumns}, category.slug AS category_slug
+       FROM eligible_products eligible
+       JOIN products p ON p.id = eligible.id
+       ${productProjectionJoins}
+       WHERE eligible.category_rank = 1
+       ORDER BY category.sort_order ASC, category.id ASC`,
+    );
+    const products = await this.mapProducts(session, result.rows);
+    return result.rows.map((row, index) => ({
+      category: {
+        id: row.category_id,
+        name: row.category_name,
+        slug: row.category_slug,
+      },
+      product: products[index]!,
     }));
   }
 

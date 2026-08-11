@@ -200,6 +200,127 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
     );
   });
 
+  it("selects one newest eligible product per active category in stable category order", async () => {
+    const laptopCategory = "e1000000-0000-4000-8000-000000000002";
+    const inactiveCategory = "e1000000-0000-4000-8000-000000000003";
+    await pool.query("UPDATE categories SET sort_order = 1 WHERE id = $1", [
+      ids.category,
+    ]);
+    await pool.query(
+      `INSERT INTO categories
+        (id, name, slug, sort_order, status, created_at, updated_at, version)
+       VALUES
+        ($1, 'Laptops', 'laptops', 0, 'active', NOW(), NOW(), 1),
+        ($2, 'Archived', 'archived', 2, 'archived', NOW(), NOW(), 1)`,
+      [laptopCategory, inactiveCategory],
+    );
+    await pool.query(
+      "UPDATE products SET created_at = '2026-07-01T00:00:00.000Z' WHERE id = $1",
+      [ids.published],
+    );
+
+    const fixtures: readonly {
+      readonly sequence: number;
+      readonly categoryId: string;
+      readonly name: string;
+      readonly slug: string;
+      readonly createdAt: string;
+      readonly updatedAt?: string;
+    }[] = [
+      {
+        sequence: 30,
+        categoryId: ids.category,
+        name: "Newest Phone",
+        slug: "newest-phone",
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      {
+        sequence: 31,
+        categoryId: ids.category,
+        name: "Older Updated Phone",
+        slug: "older-updated-phone",
+        createdAt: "2026-08-09T00:00:00.000Z",
+        updatedAt: "2026-08-11T00:00:00.000Z",
+      },
+      {
+        sequence: 40,
+        categoryId: laptopCategory,
+        name: "Stable Laptop Winner",
+        slug: "stable-laptop-winner",
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      {
+        sequence: 41,
+        categoryId: laptopCategory,
+        name: "Stable Laptop Runner Up",
+        slug: "stable-laptop-runner-up",
+        createdAt: "2026-08-10T00:00:00.000Z",
+      },
+      {
+        sequence: 50,
+        categoryId: ids.category,
+        name: "Newer Draft",
+        slug: "newer-draft",
+        createdAt: "2026-08-11T00:00:00.000Z",
+      },
+      {
+        sequence: 51,
+        categoryId: inactiveCategory,
+        name: "Inactive Category Product",
+        slug: "inactive-category-product",
+        createdAt: "2026-08-11T00:00:00.000Z",
+      },
+      {
+        sequence: 52,
+        categoryId: ids.category,
+        name: "Missing Media",
+        slug: "missing-media",
+        createdAt: "2026-08-11T00:00:00.000Z",
+      },
+      {
+        sequence: 53,
+        categoryId: ids.category,
+        name: "Missing Current Price",
+        slug: "missing-current-price",
+        createdAt: "2026-08-11T00:00:00.000Z",
+      },
+    ];
+    for (const fixture of fixtures) {
+      await insertCompleteProduct(pool, {
+        productId: `e2000000-0000-4000-8000-${String(fixture.sequence).padStart(12, "0")}`,
+        variantId: `e3000000-0000-4000-8000-${String(fixture.sequence).padStart(12, "0")}`,
+        priceId: `e4000000-0000-4000-8000-${String(fixture.sequence).padStart(12, "0")}`,
+        mediaId: `e5000000-0000-4000-8000-${String(fixture.sequence).padStart(12, "0")}`,
+        categoryId: fixture.categoryId,
+        name: fixture.name,
+        slug: fixture.slug,
+        amountMinor: 10_000_000 + fixture.sequence,
+        createdAt: fixture.createdAt,
+        ...(fixture.updatedAt === undefined
+          ? {}
+          : { updatedAt: fixture.updatedAt }),
+      });
+    }
+    await pool.query("UPDATE products SET status = 'draft' WHERE slug = 'newer-draft'");
+    await pool.query("DELETE FROM product_media WHERE product_id = $1", [
+      "e2000000-0000-4000-8000-000000000052",
+    ]);
+    await pool.query("DELETE FROM product_prices WHERE variant_id = $1", [
+      "e3000000-0000-4000-8000-000000000053",
+    ]);
+
+    const slides = await transactions.runReadOnly((session) =>
+      repository.listHeroSlides(session),
+    );
+
+    expect(
+      slides.map(({ category, product }) => [category.slug, product.id]),
+    ).toEqual([
+      ["laptops", "e2000000-0000-4000-8000-000000000040"],
+      ["phones", "e2000000-0000-4000-8000-000000000030"],
+    ]);
+  });
+
   it("orders best-selling products by all-time paid order quantities", async () => {
     const products = {
       top: "e2000000-0000-4000-8000-000000000020",
@@ -329,6 +450,7 @@ async function insertCompleteProduct(
   pool: Pool,
   input: {
     readonly productId: string;
+    readonly categoryId?: string;
     readonly variantId: string;
     readonly priceId: string;
     readonly previousPriceId?: string;
@@ -347,7 +469,7 @@ async function insertCompleteProduct(
        created_at, updated_at, version)
      VALUES ($1, $2, $3, $4, 'Nova', 'Technology product', '{}',
        'published', $5, $6, 1)`,
-    [input.productId, ids.category, input.name, input.slug, input.createdAt, input.updatedAt ?? input.createdAt],
+    [input.productId, input.categoryId ?? ids.category, input.name, input.slug, input.createdAt, input.updatedAt ?? input.createdAt],
   );
   await pool.query(
      `INSERT INTO product_variants

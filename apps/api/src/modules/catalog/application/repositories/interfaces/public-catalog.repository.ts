@@ -46,6 +46,15 @@ export interface PublicProductListResult {
   readonly totalItems: number;
 }
 
+export interface PublicHeroSlideProjection {
+  readonly category: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
+  readonly product: PublicProductProjection;
+}
+
 export interface PublicMediaAuthorization {
   readonly productId: string;
   readonly mediaId: string;
@@ -72,6 +81,9 @@ export interface PublicCatalogRepository {
     productId: string,
   ): Promise<PublicationReadinessSnapshot | undefined>;
   listCategories(session: DatabaseSession): Promise<readonly PublicCategoryDto[]>;
+  listHeroSlides(
+    session: DatabaseSession,
+  ): Promise<readonly PublicHeroSlideProjection[]>;
   listProducts(
     session: DatabaseSession,
     query: PublicProductListQuery,

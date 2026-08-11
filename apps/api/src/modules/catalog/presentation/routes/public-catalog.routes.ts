@@ -7,6 +7,7 @@ import type { PublicCatalogController } from "../controllers/public-catalog.cont
 export function createPublicCatalogRouter(controller: PublicCatalogController): Router {
   const router = Router();
   router.get("/categories", controller.categories);
+  router.get("/hero-slides", controller.heroSlides);
   router.get("/products", controller.products);
   router.get("/products/:productId/media/:mediaId/content", controller.media);
   router.get("/products/:slug", controller.product);

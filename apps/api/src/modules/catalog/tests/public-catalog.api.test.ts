@@ -39,6 +39,7 @@ const product = {
 function fixture() {
   const service: PublicCatalogServiceContract = {
     listCategories: vi.fn(async () => []),
+    listHeroSlides: vi.fn(async () => []),
     listProducts: vi.fn(async (query) => ({ items: [product], ...query, totalItems: 1, totalPages: 1 })),
     getProductBySlug: vi.fn(async () => product),
     getMediaContentAuthorization: vi.fn(async () => ({ productId, mediaId, objectKey: "private/phone-x.png", contentType: "image/png" })),
@@ -54,6 +55,36 @@ function fixture() {
 }
 
 describe("Public Catalog API", () => {
+  it("serves purpose-safe ordered hero slides anonymously", async () => {
+    const { app, service } = fixture();
+    vi.mocked(service.listHeroSlides).mockResolvedValue([
+      {
+        category: {
+          id: product.categoryId,
+          name: "Phones",
+          slug: "phones",
+        },
+        product,
+      },
+    ]);
+
+    const response = await request(app)
+      .get("/v1/storefront/hero-slides")
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      success: true,
+      message: "Hero slides retrieved",
+      data: [
+        {
+          category: { name: "Phones", slug: "phones" },
+          product: { slug: "phone-x" },
+        },
+      ],
+    });
+    expect(JSON.stringify(response.body)).not.toContain("objectKey");
+  });
+
   it("validates and forwards storefront discovery filters", async () => {
     const { app, service } = fixture();
     await request(app).get("/v1/storefront/products?query=phone&category=phones&minPriceVnd=1000000&maxPriceVnd=20000000&stockStatus=in_stock&sort=best_selling&discountStatus=on_sale&page=2&pageSize=12").expect(200);
