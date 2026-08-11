@@ -23,6 +23,8 @@ Current major dependencies:
 | Package | Used by | Purpose |
 | --- | --- | --- |
 | `react`, `react-dom` | `apps/console`, `apps/storefront` | Console and Storefront UI rendering |
+| `three` `0.185.1` | `apps/storefront` | MIT-licensed WebGL renderer for the Storefront 3D homepage |
+| `@react-three/fiber` `9.7.0` | `apps/storefront` | MIT-licensed React renderer for the Storefront Three.js scene graph |
 | `vite`, `@vitejs/plugin-react` | `apps/console`, `apps/storefront` | Frontend development and production builds |
 | `lucide-react` | `apps/console`, `apps/storefront` | Icon set for product UI controls and status surfaces |
 | `vitest`, `jsdom` | `apps/console`, `apps/storefront` | Frontend unit test runner and browser-like test environment |
@@ -104,6 +106,11 @@ the existing Zod, Docker Compose, PostgreSQL, MinIO, Keycloak, ClamAV, and
 Node.js script stack. The production-candidate deployment example adds Caddy as
 the approved VPS HTTPS reverse proxy. No new application runtime or package
 dependency is added for the production environment contract baseline.
+
+The Storefront Nexora-inspired homepage uses native browser scroll and animation
+frame APIs with Three.js and React Three Fiber. It does not introduce GSAP or a
+runtime dependency on a third-party model host; reviewed GLB assets are stored
+locally with their provenance and licenses.
 
 ## Dependency Policy
 

@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add reviewed local GLB assets and MIT WebGL dependencies for the approved
+  Storefront six-scene 3D homepage.
 - Define the approved Nexora-inspired six-scene 3D Storefront homepage design,
   including real Catalog data, light/dark presentation, licensed GLB assets,
   progressive loading, reduced motion, and static failure fallback.
