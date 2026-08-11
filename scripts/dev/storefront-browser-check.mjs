@@ -66,8 +66,14 @@ async function main() {
         deviceScaleFactor: 1,
         mobile: viewport.width < 768,
       });
+      const homepage = await captureHomepageThemes(
+        client,
+        outputDirectory,
+        viewport,
+      );
       await client.send("Page.navigate", { url: catalogUrl });
       await waitForCatalog(client);
+      await setTheme(client, "dark");
       await client.send("Runtime.evaluate", {
         expression:
           "document.body.focus(); document.documentElement.scrollTop = 0",
@@ -127,15 +133,23 @@ async function main() {
         outputDirectory,
         viewport,
       );
-      evidence.push({ ...result, screenshotPath, lightTheme });
+      evidence.push({ ...result, screenshotPath, lightTheme, homepage });
     }
+    const staticHomepageFallback = await verifyStaticHomepageFallback(client);
     const guestCart = await verifyGuestCart(client);
     const signIn = await captureSignInSurface(client, outputDirectory);
     const commerce = await captureCommerceSurfaces(client, outputDirectory);
     client.close();
     console.log(
       JSON.stringify(
-        { storefrontUrl, evidence, guestCart, signIn, commerce },
+        {
+          storefrontUrl,
+          evidence,
+          staticHomepageFallback,
+          guestCart,
+          signIn,
+          commerce,
+        },
         null,
         2,
       ),
@@ -512,6 +526,8 @@ async function stopProcess(processHandle) {
 }
 
 async function verifyGuestCart(client) {
+  await client.send("Page.navigate", { url: catalogUrl });
+  await waitForCatalog(client);
   const productUrl = await evaluate(
     client,
     "document.querySelector('article a')?.href ?? null",
@@ -575,7 +591,9 @@ async function verifyIntroHomepage(client) {
     client,
     `
       document.readyState === 'complete'
-      && document.querySelector('main h1')?.textContent?.includes('website bán đồ công nghệ tổng hợp')
+      && document.querySelector('main h1')?.textContent?.includes('Bước vào tương lai')
+      && document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+      && ['3d', 'static'].includes(document.querySelector('main')?.dataset.experienceMode)
       && [...document.querySelectorAll('a')].some(
         (link) => link.textContent?.trim() === 'Xem sản phẩm'
           && new URL(link.href).pathname === '/products'
@@ -583,6 +601,123 @@ async function verifyIntroHomepage(client) {
     `,
     "Storefront introduction homepage did not expose the product discovery CTA",
   );
+}
+
+async function captureHomepageThemes(client, outputDirectory, viewport) {
+  await client.send("Page.navigate", { url: storefrontUrl });
+  await waitForCondition(
+    client,
+    `document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+      && (
+        document.querySelector('main')?.dataset.experienceMode === 'static'
+        || (
+          document.querySelector('.homepage-experience-canvas canvas') !== null
+          && document.querySelector('[aria-label="Đang tải không gian 3D"]') === null
+        )
+      )`,
+    `${viewport.name}: homepage scenes did not settle`,
+  );
+  await client.send("Runtime.evaluate", {
+    expression: "document.body.focus(); document.documentElement.scrollTop = 0",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+  });
+  const evidence = [];
+  for (const theme of ["dark", "light"]) {
+    await setTheme(client, theme);
+    const result = await evaluate(
+      client,
+      `(() => ({
+        theme: document.documentElement.dataset.theme,
+        mode: document.querySelector('main')?.dataset.experienceMode ?? null,
+        sceneCount: document.querySelectorAll('[data-testid="homepage-scene"]').length,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        hasCanvas: document.querySelector('.homepage-experience-canvas canvas') !== null,
+        alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+        focusVisible: document.activeElement?.matches(':focus-visible') ?? false,
+        ctas: [...document.querySelectorAll('.homepage-scene-intro a')].map(
+          (link) => new URL(link.href).pathname + new URL(link.href).hash
+        ),
+      }))()`,
+    );
+    if (result.sceneCount !== 6 || !["3d", "static"].includes(result.mode)) {
+      throw new Error(`${viewport.name} ${theme}: homepage journey is incomplete`);
+    }
+    if (result.mode === "3d" && !result.hasCanvas) {
+      throw new Error(`${viewport.name} ${theme}: 3D mode has no canvas`);
+    }
+    if (result.alert !== null || !result.focusVisible) {
+      throw new Error(`${viewport.name} ${theme}: homepage accessibility state failed`);
+    }
+    if (
+      !result.ctas.includes("/products")
+      || !result.ctas.includes("/products#categories")
+    ) {
+      throw new Error(`${viewport.name} ${theme}: homepage Catalog CTAs are missing`);
+    }
+    if (result.documentWidth > result.viewportWidth) {
+      throw new Error(
+        `${viewport.name} ${theme}: homepage overflow ${result.documentWidth}px > ${result.viewportWidth}px`,
+      );
+    }
+    const screenshotPath = join(
+      outputDirectory,
+      `homepage-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+    );
+    await saveScreenshot(client, screenshotPath);
+    evidence.push({ ...result, screenshotPath });
+  }
+  return evidence;
+}
+
+async function verifyStaticHomepageFallback(client) {
+  const script = await client.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      configurable: true,
+      value: () => null,
+    });`,
+  });
+  try {
+    await client.send("Page.navigate", { url: storefrontUrl });
+    await waitForCondition(
+      client,
+      `document.querySelector('main')?.dataset.experienceMode === 'static'
+        && document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+        && [...document.querySelectorAll('.homepage-scene-intro a')].some(
+          (link) => new URL(link.href).pathname === '/products' && new URL(link.href).hash === ''
+        )
+        && [...document.querySelectorAll('.homepage-scene-intro a')].some(
+          (link) => new URL(link.href).pathname === '/products'
+            && new URL(link.href).hash === '#categories'
+        )`,
+      "Homepage did not preserve its semantic journey without WebGL",
+    );
+    return evaluate(
+      client,
+      `({
+        mode: document.querySelector('main')?.dataset.experienceMode,
+        sceneCount: document.querySelectorAll('[data-testid="homepage-scene"]').length,
+        ctas: [...document.querySelectorAll('.homepage-scene-intro a')].map(
+          (link) => new URL(link.href).pathname + new URL(link.href).hash
+        ),
+      })`,
+    );
+  } finally {
+    await client.send("Page.removeScriptToEvaluateOnNewDocument", {
+      identifier: script.identifier,
+    });
+  }
 }
 
 async function waitForCondition(client, expression, timeoutMessage) {

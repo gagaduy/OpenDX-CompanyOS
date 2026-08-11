@@ -15,6 +15,8 @@ export type HomepageModelId =
   | "headphones"
   | "game-controller";
 
+export type HomepagePreloadStage = 0 | 1 | 2;
+
 export interface HomepageModelAsset {
   readonly id: HomepageModelId;
   readonly path: `/models/homepage/${string}.glb`;

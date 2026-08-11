@@ -9,11 +9,15 @@ import {
   type RefObject,
 } from "react";
 import { clampProgress, sceneAtProgress } from "../lib/homepage-scene-progress";
-import type { HomepageSceneId } from "../types/homepage-experience.types";
+import type {
+  HomepagePreloadStage,
+  HomepageSceneId,
+} from "../types/homepage-experience.types";
 
 export interface HomepageScrollDirector {
   readonly progress: React.MutableRefObject<number>;
   readonly activeScene: HomepageSceneId;
+  readonly preloadStage: HomepagePreloadStage;
   readonly selectScene: (scene: HomepageSceneId) => void;
 }
 
@@ -24,6 +28,7 @@ export function useHomepageScroll(
   const progress = useRef(0);
   const scheduledFrame = useRef<number | undefined>(undefined);
   const [activeScene, setActiveScene] = useState<HomepageSceneId>("intro");
+  const [preloadStage, setPreloadStage] = useState<HomepagePreloadStage>(0);
 
   const updateProgress = useCallback(() => {
     const container = containerRef.current;
@@ -35,8 +40,13 @@ export function useHomepageScroll(
     );
     progress.current = nextProgress;
     const nextScene = sceneAtProgress(nextProgress);
+    const nextPreloadStage: HomepagePreloadStage =
+      nextProgress >= 0.4 ? 2 : nextProgress >= 0.08 ? 1 : 0;
     setActiveScene((current) =>
       current === nextScene ? current : nextScene,
+    );
+    setPreloadStage((current) =>
+      current === nextPreloadStage ? current : nextPreloadStage,
     );
   }, [containerRef]);
 
@@ -72,5 +82,5 @@ export function useHomepageScroll(
     [reducedMotion],
   );
 
-  return { progress, activeScene, selectScene };
+  return { progress, activeScene, preloadStage, selectScene };
 }

@@ -13,6 +13,7 @@ export function IntroScene(props: HomepageSceneProps) {
       position={[1.35, -0.2, 0]}
       targetSize={3.2}
       rotation={[-0.55, 0.45]}
+      accent
     />
   );
 }

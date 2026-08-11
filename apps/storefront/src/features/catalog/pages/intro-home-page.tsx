@@ -43,6 +43,7 @@ export function IntroHomePage({
         <Suspense fallback={null}>
           <ExperienceCanvas
             progress={scroll.progress}
+            preloadStage={scroll.preloadStage}
             preferences={preferences}
             onFatalError={() => setCanvasFailed(true)}
           />
