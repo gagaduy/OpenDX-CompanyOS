@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the approved Nexora-inspired six-scene 3D Storefront homepage design,
+  including real Catalog data, light/dark presentation, licensed GLB assets,
+  progressive loading, reduced motion, and static failure fallback.
 - Add a dedicated Storefront introduction homepage at `/` and move customer
   product discovery/catalog navigation to `/products`.
 - Add a persisted Console light/night-mode toggle so staff can switch from a
