@@ -53,6 +53,10 @@ async function main() {
       sameSite: "Lax",
     });
     await verifyIntroHomepage(client);
+    const intermediateHeader = await verifyIntermediateHeader(
+      client,
+      outputDirectory,
+    );
 
     const evidence = [];
     for (const viewport of [
@@ -144,6 +148,7 @@ async function main() {
       JSON.stringify(
         {
           storefrontUrl,
+          intermediateHeader,
           evidence,
           staticHomepageFallback,
           guestCart,
@@ -601,6 +606,129 @@ async function verifyIntroHomepage(client) {
     `,
     "Storefront introduction homepage did not expose the product discovery CTA",
   );
+}
+
+async function verifyIntermediateHeader(client, outputDirectory) {
+  const evidence = [];
+  for (const viewport of [
+    { width: 800, height: 500, mode: "collapsed" },
+    { width: 1024, height: 600, mode: "collapsed" },
+    { width: 1100, height: 700, mode: "collapsed" },
+    { width: 1200, height: 700, mode: "wide" },
+  ]) {
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      width: viewport.width,
+      height: viewport.height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await client.send("Page.navigate", { url: storefrontUrl });
+    await waitForCondition(
+      client,
+      `document.querySelector('.topbar-inner') !== null`,
+      `${viewport.width}px: header did not settle`,
+    );
+
+    for (const theme of ["dark", "light"]) {
+      await setTheme(client, theme);
+      const closed = await evaluate(
+        client,
+        `(() => {
+          const visible = (element) => element instanceof HTMLElement
+            && getComputedStyle(element).display !== 'none'
+            && element.getBoundingClientRect().width > 0
+            && element.getBoundingClientRect().height > 0;
+          const nav = document.querySelector('.main-nav');
+          const search = document.querySelector('.header-search');
+          const menu = document.querySelector('.mobile-menu');
+          const navRect = nav?.getBoundingClientRect();
+          const searchRect = search?.getBoundingClientRect();
+          return {
+            viewportWidth: innerWidth,
+            menuVisible: visible(menu),
+            navVisible: visible(nav),
+            searchVisible: visible(search),
+            navRect: navRect ? { left: navRect.left, right: navRect.right } : null,
+            searchRect: searchRect ? { left: searchRect.left, right: searchRect.right } : null,
+            overlaps: Boolean(
+              visible(nav)
+              && visible(search)
+              && navRect.right > searchRect.left
+              && navRect.left < searchRect.right
+              && navRect.bottom > searchRect.top
+              && navRect.top < searchRect.bottom
+            ),
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        })()`,
+      );
+      const collapsed = viewport.mode === "collapsed";
+      if (
+        closed.menuVisible !== collapsed
+        || closed.navVisible === collapsed
+        || !closed.searchVisible
+        || closed.overlaps
+        || closed.documentWidth > viewport.width
+      ) {
+        throw new Error(
+          `${viewport.width}px ${theme}: invalid ${viewport.mode} header ${JSON.stringify(closed)}`,
+        );
+      }
+
+      const closedPath = join(
+        outputDirectory,
+        `header-${viewport.width}-${theme}-closed.png`,
+      );
+      await saveScreenshot(client, closedPath);
+      const result = { ...viewport, theme, closed, closedPath };
+
+      if (collapsed) {
+        await client.send("Runtime.evaluate", {
+          expression: `document.querySelector('[aria-label="Mở menu"]')?.click()`,
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.main-nav.open') !== null
+            && document.querySelector('[aria-label="Đóng menu"]') !== null`,
+          `${viewport.width}px ${theme}: intermediate menu did not open`,
+        );
+        const open = await evaluate(
+          client,
+          `(() => {
+            const nav = document.querySelector('.main-nav.open');
+            return {
+              display: nav ? getComputedStyle(nav).display : null,
+              linkCount: nav?.querySelectorAll('a').length ?? 0,
+              top: nav?.getBoundingClientRect().top ?? null,
+            };
+          })()`,
+        );
+        if (open.display !== "flex" || open.linkCount !== 4 || open.top !== 76) {
+          throw new Error(
+            `${viewport.width}px ${theme}: invalid open intermediate menu ${JSON.stringify(open)}`,
+          );
+        }
+        const openPath = join(
+          outputDirectory,
+          `header-${viewport.width}-${theme}-open.png`,
+        );
+        await saveScreenshot(client, openPath);
+        result.open = open;
+        result.openPath = openPath;
+        await client.send("Runtime.evaluate", {
+          expression: `document.querySelector('[aria-label="Đóng menu"]')?.click()`,
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.main-nav.open') === null
+            && document.querySelector('[aria-label="Mở menu"]') !== null`,
+          `${viewport.width}px ${theme}: intermediate menu did not close`,
+        );
+      }
+      evidence.push(result);
+    }
+  }
+  return evidence;
 }
 
 async function captureHomepageThemes(client, outputDirectory, viewport) {

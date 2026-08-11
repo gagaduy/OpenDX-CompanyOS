@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Collapse the Storefront navigation behind its existing hamburger at
+  intermediate widths so navigation labels cannot overlap product search.
 - Add reviewed local GLB assets, MIT WebGL dependencies, deterministic scene
   progress, device quality budgets, and a six-section semantic journey backed
   by authoritative Catalog product queries, native scroll coordination, and

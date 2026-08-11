@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Storefront Intermediate Header Navigation
 
-- **Status:** Approved design, awaiting written-spec review
+- **Status:** Implemented and verified
 - **Date:** 2026-08-11
 - **Scope:** NovaCommerce Storefront header between mobile and wide desktop widths
 
@@ -24,7 +24,9 @@ or page-content defect.
 
 ## Approved Outcome
 
-- At `1200px` and wider, the current wide-desktop header remains unchanged.
+- At `1200px` and wider, the current wide-desktop header structure remains;
+  only its navigation gap may compact at the narrow edge to prevent contact
+  with product search.
 - From `769px` through `1199px`, the desktop navigation is collapsed behind the
   existing hamburger control.
 - The intermediate header keeps the brand on the left and the hamburger,
@@ -55,6 +57,10 @@ The `max-width: 768px` rules remain responsible for smaller header dimensions,
 the `64px` dropdown offset, narrow search width, and hidden theme/account
 controls. No JavaScript breakpoint logic or duplicate navigation component is
 introduced.
+
+At the narrow edge of the wide layout (`1200px` through `1279px`), compact only
+the existing navigation gap enough to preserve the same wide structure without
+allowing the final navigation label to touch product search.
 
 ## Ownership and Structure
 

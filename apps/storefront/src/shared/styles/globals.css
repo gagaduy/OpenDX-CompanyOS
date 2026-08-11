@@ -2109,6 +2109,47 @@ img {
   }
 }
 
+@media (min-width: 769px) and (max-width: 1199px) {
+  .topbar-inner {
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    padding: 0 clamp(20px, 3vw, 32px);
+  }
+
+  .main-nav {
+    position: absolute;
+    top: 76px;
+    right: 0;
+    left: 0;
+    height: auto;
+    padding: 20px clamp(20px, 3vw, 32px);
+    display: none;
+    align-items: start;
+    flex-direction: column;
+    gap: 18px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--surface-2);
+  }
+
+  .main-nav.open {
+    display: flex;
+  }
+
+  .main-nav a::after {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 1200px) and (max-width: 1279px) {
+  .main-nav {
+    gap: 28px;
+  }
+}
+
 @media (max-width: 768px) {
   .topbar-inner {
     min-height: 64px;
