@@ -51,7 +51,12 @@ export function createAppRouter(dependencies: {
       children: [
         {
           path: "/",
-          element: <IntroHomePage />,
+          element: (
+            <IntroHomePage
+              api={dependencies.catalogApi}
+              apiBaseUrl={dependencies.apiBaseUrl}
+            />
+          ),
         },
         {
           path: "/products",

@@ -10,13 +10,16 @@ describe("IntroHomePage", () => {
   it("introduces NovaCommerce and sends customers to product discovery", () => {
     render(
       <MemoryRouter>
-        <IntroHomePage />
+        <IntroHomePage
+          api={{ products: async () => ({ items: [], page: 1, pageSize: 0, totalItems: 0, totalPages: 0 }) }}
+          apiBaseUrl="http://localhost:4000"
+        />
       </MemoryRouter>,
     );
 
     expect(
       screen.getByRole("heading", {
-        name: "NovaCommerce - website bán đồ công nghệ tổng hợp",
+        name: "Bước vào tương lai",
       }),
     ).toBeVisible();
     expect(
@@ -25,5 +28,6 @@ describe("IntroHomePage", () => {
     expect(
       screen.getByRole("link", { name: "Khám phá danh mục" }),
     ).toHaveAttribute("href", "/products#categories");
+    expect(screen.getAllByTestId("homepage-scene")).toHaveLength(6);
   });
 });
