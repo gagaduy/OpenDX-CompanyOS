@@ -5,6 +5,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import type { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
 import { CategoryPage } from "../features/catalog/pages/category-page";
 import { HomePage } from "../features/catalog/pages/home-page";
+import { IntroHomePage } from "../features/catalog/pages/intro-home-page";
 import { SearchPage } from "../features/catalog/pages/search-page";
 import { StorefrontShell } from "./storefront-shell";
 import type { CartApi } from "../features/cart/api/cart-api";
@@ -50,6 +51,10 @@ export function createAppRouter(dependencies: {
       children: [
         {
           path: "/",
+          element: <IntroHomePage />,
+        },
+        {
+          path: "/products",
           element: (
             <HomePage
               api={dependencies.catalogApi}

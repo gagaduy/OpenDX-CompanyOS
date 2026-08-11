@@ -40,10 +40,10 @@ export function DiscoverySidebar({
         )}
       </button>
       <div className="sidebar-icon-rail">
-        <Link to="/#categories" aria-label="Xem danh mục sản phẩm">
+        <Link to="/products#categories" aria-label="Xem danh mục sản phẩm">
           <Filter aria-hidden="true" />
         </Link>
-        <Link to="/#catalog" aria-label="Xem danh sách sản phẩm">
+        <Link to="/products#catalog" aria-label="Xem danh sách sản phẩm">
           <Laptop aria-hidden="true" />
         </Link>
       </div>
@@ -59,7 +59,7 @@ export function DiscoverySidebar({
             {categories.map((category) => (
               <Link
                 key={category.id}
-                to={`/?category=${encodeURIComponent(category.slug)}&pageSize=${encodeURIComponent(pageSize)}#catalog`}
+                to={`/products?category=${encodeURIComponent(category.slug)}&pageSize=${encodeURIComponent(pageSize)}#catalog`}
               >
                 {category.name}
               </Link>

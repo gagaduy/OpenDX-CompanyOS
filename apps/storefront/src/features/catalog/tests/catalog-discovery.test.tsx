@@ -24,7 +24,9 @@ describe("catalog discovery", () => {
       ]),
     } as unknown as StorefrontCatalogApi;
     render(
-      <MemoryRouter initialEntries={["/?category=phones&page=2&pageSize=12"]}>
+      <MemoryRouter
+        initialEntries={["/products?category=phones&page=2&pageSize=12"]}
+      >
         <HomePage api={api} apiBaseUrl="http://localhost:3000" />
       </MemoryRouter>,
     );
@@ -82,10 +84,10 @@ describe("catalog discovery", () => {
     ).toHaveAttribute("aria-expanded", "false");
     expect(
       within(sidebar).getByRole("link", { name: "Xem danh mục sản phẩm" }),
-    ).toHaveAttribute("href", "/#categories");
+    ).toHaveAttribute("href", "/products#categories");
     expect(
       within(sidebar).getByRole("link", { name: "Xem danh sách sản phẩm" }),
-    ).toHaveAttribute("href", "/#catalog");
+    ).toHaveAttribute("href", "/products#catalog");
 
     await userEvent.click(
       within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
@@ -102,7 +104,7 @@ describe("catalog discovery", () => {
     ).toHaveAttribute("aria-expanded", "true");
     expect(
       within(sidebar).getByRole("link", { name: "Phones" }),
-    ).toHaveAttribute("href", "/?category=phones&pageSize=12#catalog");
+    ).toHaveAttribute("href", "/products?category=phones&pageSize=12#catalog");
 
     await userEvent.selectOptions(
       within(sidebar).getByLabelText("Sắp xếp"),

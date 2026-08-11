@@ -13,7 +13,7 @@ describe("StorefrontShell", () => {
     vi.restoreAllMocks();
   });
 
-  it("scrolls to customer discovery sections when header hash links are selected", async () => {
+  it("links the Storefront navigation to home and product discovery routes", async () => {
     Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: vi.fn(),
@@ -39,6 +39,13 @@ describe("StorefrontShell", () => {
       name: "Điều hướng chính",
     });
 
+    expect(
+      within(mainNavigation).getByRole("link", { name: "Trang chủ" }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      within(mainNavigation).getByRole("link", { name: "Sản phẩm" }),
+    ).toHaveAttribute("href", "/products");
+
     await userEvent.click(
       within(mainNavigation).getByRole("link", { name: "Danh mục" }),
     );
@@ -52,6 +59,9 @@ describe("StorefrontShell", () => {
     expect(scrollIntoView.mock.instances[0]).toBe(
       document.getElementById("categories"),
     );
+    expect(
+      within(mainNavigation).getByRole("link", { name: "Danh mục" }),
+    ).toHaveAttribute("href", "/products#categories");
 
     await userEvent.click(
       within(mainNavigation).getByRole("link", { name: "Khám phá" }),
@@ -61,6 +71,9 @@ describe("StorefrontShell", () => {
     expect(scrollIntoView.mock.instances[1]).toBe(
       document.getElementById("catalog"),
     );
+    expect(
+      within(mainNavigation).getByRole("link", { name: "Khám phá" }),
+    ).toHaveAttribute("href", "/products#catalog");
   });
 
   it("renders customer discovery taskbar shortcuts below the Storefront header", () => {
@@ -84,19 +97,19 @@ describe("StorefrontShell", () => {
     expect(taskbar.querySelector(".discovery-taskbar-inner")).not.toBeNull();
     expect(
       within(taskbar).getByRole("link", { name: "Sản phẩm mới" }),
-    ).toHaveAttribute("href", "/?sort=newest#catalog");
+    ).toHaveAttribute("href", "/products?sort=newest#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Bán chạy" }),
-    ).toHaveAttribute("href", "/?sort=best_selling#catalog");
+    ).toHaveAttribute("href", "/products?sort=best_selling#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Đang giảm" }),
-    ).toHaveAttribute("href", "/?discountStatus=on_sale#catalog");
+    ).toHaveAttribute("href", "/products?discountStatus=on_sale#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Còn hàng" }),
-    ).toHaveAttribute("href", "/?stockStatus=in_stock#catalog");
+    ).toHaveAttribute("href", "/products?stockStatus=in_stock#catalog");
     expect(
       within(taskbar).getByRole("link", { name: "Hỗ trợ" }),
-    ).toHaveAttribute("href", "/#support");
+    ).toHaveAttribute("href", "/products#support");
     expect(
       within(taskbar).queryByRole("button", { name: "Tìm nhanh sản phẩm" }),
     ).toBeNull();
@@ -136,7 +149,7 @@ describe("StorefrontShell", () => {
 
     await waitFor(() =>
       expect(screen.getByLabelText("current location")).toHaveTextContent(
-        "/?query=laptop+gaming&page=1#catalog",
+        "/products?query=laptop+gaming&page=1#catalog",
       ),
     );
   });

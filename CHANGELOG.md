@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a dedicated Storefront introduction homepage at `/` and move customer
+  product discovery/catalog navigation to `/products`.
 - Add a persisted Console light/night-mode toggle so staff can switch from a
   light admin canvas into night mode.
 - Make the Storefront discovery filter toggle expose explicit open/closed state

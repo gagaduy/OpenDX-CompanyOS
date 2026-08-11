@@ -51,7 +51,7 @@ export function CategoryShowcase({
             <Link
               className={index === 0 ? "category-tile featured" : "category-tile"}
               key={category.id}
-              to={`/?category=${encodeURIComponent(category.slug)}#catalog`}
+              to={`/products?category=${encodeURIComponent(category.slug)}#catalog`}
             >
               <img
                 src={new URL(product.primaryMedia.contentUrl, apiBaseUrl).toString()}

@@ -72,7 +72,7 @@ export function PaymentReturnPage({ api }: { readonly api: PaymentApi }) {
           <Link className="button primary" to="/orders">
             Xem đơn hàng
           </Link>
-          <Link className="button secondary" to="/">
+          <Link className="button secondary" to="/products">
             Tiếp tục mua sắm
           </Link>
         </div>

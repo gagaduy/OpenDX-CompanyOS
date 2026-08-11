@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 const storefrontUrl = process.env.STOREFRONT_URL ?? "http://localhost:3100";
+const catalogUrl = new URL("/products", storefrontUrl).toString();
 const outputDirectory =
   process.env.BROWSER_EVIDENCE_DIR ??
   join(tmpdir(), "opendx-storefront-browser");
@@ -51,6 +52,7 @@ async function main() {
       path: "/v1/storefront",
       sameSite: "Lax",
     });
+    await verifyIntroHomepage(client);
 
     const evidence = [];
     for (const viewport of [
@@ -64,7 +66,7 @@ async function main() {
         deviceScaleFactor: 1,
         mobile: viewport.width < 768,
       });
-      await client.send("Page.navigate", { url: storefrontUrl });
+      await client.send("Page.navigate", { url: catalogUrl });
       await waitForCatalog(client);
       await client.send("Runtime.evaluate", {
         expression:
@@ -565,6 +567,22 @@ async function verifyGuestCart(client) {
     throw new Error("Storefront cannot read its CSRF cookie");
   }
   return result;
+}
+
+async function verifyIntroHomepage(client) {
+  await client.send("Page.navigate", { url: storefrontUrl });
+  await waitForCondition(
+    client,
+    `
+      document.readyState === 'complete'
+      && document.querySelector('main h1')?.textContent?.includes('website bán đồ công nghệ tổng hợp')
+      && [...document.querySelectorAll('a')].some(
+        (link) => link.textContent?.trim() === 'Xem sản phẩm'
+          && new URL(link.href).pathname === '/products'
+      )
+    `,
+    "Storefront introduction homepage did not expose the product discovery CTA",
+  );
 }
 
 async function waitForCondition(client, expression, timeoutMessage) {

@@ -49,7 +49,9 @@ export function StorefrontShell({
     }
 
     const queryString = next.toString();
-    navigate(`/${queryString.length > 0 ? `?${queryString}` : ""}#catalog`);
+    navigate(
+      `/products${queryString.length > 0 ? `?${queryString}` : ""}#catalog`,
+    );
   }
 
   useEffect(() => {
@@ -95,10 +97,13 @@ export function StorefrontShell({
             aria-label="Điều hướng chính"
           >
             <NavLink to="/" end>
+              Trang chủ
+            </NavLink>
+            <NavLink to="/products">
               Sản phẩm
             </NavLink>
-            <Link to="/#categories">Danh mục</Link>
-            <Link to="/#catalog">Khám phá</Link>
+            <Link to="/products#categories">Danh mục</Link>
+            <Link to="/products#catalog">Khám phá</Link>
           </nav>
           <div className="topbar-actions">
             <button
@@ -161,11 +166,11 @@ export function StorefrontShell({
       </header>
       <nav className="discovery-taskbar" aria-label="Lối tắt khám phá">
         <div className="discovery-taskbar-inner">
-          <Link to="/?sort=newest#catalog">Sản phẩm mới</Link>
-          <Link to="/?sort=best_selling#catalog">Bán chạy</Link>
-          <Link to="/?discountStatus=on_sale#catalog">Đang giảm</Link>
-          <Link to="/?stockStatus=in_stock#catalog">Còn hàng</Link>
-          <Link to="/#support">Hỗ trợ</Link>
+          <Link to="/products?sort=newest#catalog">Sản phẩm mới</Link>
+          <Link to="/products?sort=best_selling#catalog">Bán chạy</Link>
+          <Link to="/products?discountStatus=on_sale#catalog">Đang giảm</Link>
+          <Link to="/products?stockStatus=in_stock#catalog">Còn hàng</Link>
+          <Link to="/products#support">Hỗ trợ</Link>
         </div>
       </nav>
       {children ?? <Outlet />}
@@ -175,8 +180,9 @@ export function StorefrontShell({
           <span>Nền tảng thương mại điện tử của OpenDX CompanyOS</span>
         </div>
         <nav aria-label="Điều hướng chân trang">
-          <Link to="/">Sản phẩm</Link>
-          <Link to="/#categories">Danh mục</Link>
+          <Link to="/">Trang chủ</Link>
+          <Link to="/products">Sản phẩm</Link>
+          <Link to="/products#categories">Danh mục</Link>
           <Link to="/account">Tài khoản</Link>
           <Link to="/orders">Đơn hàng</Link>
           <Link to="/cart">Giỏ hàng</Link>

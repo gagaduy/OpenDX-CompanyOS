@@ -82,7 +82,7 @@ export function CartPage({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
       ) : cart.items.length === 0 ? (
         <div className="state-panel">
           <p>Giỏ hàng đang trống.</p>
-          <Link className="button primary" to="/">
+          <Link className="button primary" to="/products">
             Xem sản phẩm
           </Link>
         </div>
