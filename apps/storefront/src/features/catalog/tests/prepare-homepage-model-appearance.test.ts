@@ -57,12 +57,18 @@ describe("homepage model appearance", () => {
     expect(second.material).toBe(resultMaterial);
     expect(resultMaterial.color.getHexString()).toBe("6578d9");
     expect(resultMaterial.map).toBe(texture);
+    expect(resultMaterial.emissive.getHexString()).toBe("6578d9");
+    expect(resultMaterial.emissiveIntensity).toBe(0.28);
     expect(resultMaterial.roughness).toBe(0.37);
     expect(sourceMaterial.color.getHexString()).toBe("ffffff");
   });
 
   it("preserves authored light colors while still isolating the material", () => {
-    const sourceMaterial = new MeshStandardMaterial({ color: "#c46a32" });
+    const sourceMaterial = new MeshStandardMaterial({
+      color: "#c46a32",
+      emissive: "#112233",
+      emissiveIntensity: 0.42,
+    });
     const source = new Group();
     source.add(new Mesh(new BoxGeometry(), sourceMaterial));
 
@@ -76,6 +82,8 @@ describe("homepage model appearance", () => {
 
     expect(resultMaterial).not.toBe(sourceMaterial);
     expect(resultMaterial.color.getHexString()).toBe("c46a32");
+    expect(resultMaterial.emissive.getHexString()).toBe("112233");
+    expect(resultMaterial.emissiveIntensity).toBe(0.42);
     expect(sourceMaterial.color.getHexString()).toBe("c46a32");
   });
 

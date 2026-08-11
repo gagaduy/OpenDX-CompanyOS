@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Storefront Dark-Theme 3D Material Contrast
 
-- **Status:** Approved design, awaiting written-spec review
+- **Status:** Implemented
 - **Date:** 2026-08-11
 - **Scope:** NovaCommerce Storefront homepage 3D model color treatment in dark mode
 
@@ -66,8 +66,12 @@ theme and returns a scene prepared for that theme.
 - In dark mode, color-bearing materials receive the model's approved base color.
   A bounded shade derived from the authored material luminance preserves
   differences between panels and parts while enforcing a visible minimum.
-- Texture maps, transparency, side mode, metalness, roughness, and other
-  supported material properties remain intact.
+- Because the smartphone and headphones contain dark base-color textures,
+  textured emissive-capable materials also receive the same palette color at a
+  restrained `0.28` emissive intensity. This prevents dark texels from
+  cancelling the palette while retaining the texture map.
+- Texture maps, transparency, side mode, metalness, and roughness remain
+  intact. Authored emissive values remain unchanged in light mode.
 - The cached loader template and its materials are never mutated.
 - Materials without a color channel pass through as independent clones rather
   than being coerced into a different Three.js material class.

@@ -8,6 +8,7 @@ import { homepageModelAssets } from "../../../data/homepage-model-assets";
 import { useHomepageModel } from "../../../hooks/use-homepage-model";
 import { homepageModelPresentations } from "../../../lib/homepage-model-presentation";
 import { normalizeHomepageModel } from "../../../lib/normalize-homepage-model";
+import { prepareHomepageModelAppearance } from "../../../lib/prepare-homepage-model-appearance";
 import type { ExperienceBudget } from "../../../lib/homepage-quality";
 import {
   lerpKeyframes,
@@ -58,8 +59,13 @@ export function HomepageModelScene({
   const model = useHomepageModel(asset);
   const normalizedScene = useMemo(() => {
     if (model.status !== "ready") return undefined;
-    return normalizeHomepageModel(
+    const preparedScene = prepareHomepageModelAppearance(
       model.scene,
+      presentation,
+      theme,
+    );
+    return normalizeHomepageModel(
+      preparedScene,
       presentation,
       {
         viewportWidth: viewport.width,
@@ -68,7 +74,14 @@ export function HomepageModelScene({
       },
       widthFraction,
     );
-  }, [model, presentation, viewport.height, viewport.width, widthFraction]);
+  }, [
+    model,
+    presentation,
+    theme,
+    viewport.height,
+    viewport.width,
+    widthFraction,
+  ]);
 
   const basePosition = position ?? [
     viewport.width *

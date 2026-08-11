@@ -1,13 +1,37 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Color, Mesh, type Material, type Object3D } from "three";
+import {
+  Color,
+  Mesh,
+  Texture,
+  type Material,
+  type Object3D,
+} from "three";
 import type { HomepageModelPresentation } from "./homepage-model-presentation";
 
 type ColorMaterial = Material & { readonly color: Color };
+type TexturedEmissiveMaterial = ColorMaterial & {
+  readonly emissive: Color;
+  emissiveIntensity: number;
+  readonly map: Texture;
+};
 
 function hasColor(material: Material): material is ColorMaterial {
   return "color" in material && material.color instanceof Color;
+}
+
+function hasTexturedEmissive(
+  material: ColorMaterial,
+): material is TexturedEmissiveMaterial {
+  return (
+    "map" in material &&
+    material.map instanceof Texture &&
+    "emissive" in material &&
+    material.emissive instanceof Color &&
+    "emissiveIntensity" in material &&
+    typeof material.emissiveIntensity === "number"
+  );
 }
 
 function shadeFor(color: Color): number {
@@ -36,6 +60,10 @@ export function prepareHomepageModelAppearance(
       if (theme === "dark" && hasColor(clone)) {
         const shade = shadeFor(clone.color);
         clone.color.set(presentation.darkBaseColor).multiplyScalar(shade);
+        if (hasTexturedEmissive(clone)) {
+          clone.emissive.set(presentation.darkBaseColor);
+          clone.emissiveIntensity = 0.28;
+        }
       }
       materialClones.set(sourceMaterial, clone);
       return clone;

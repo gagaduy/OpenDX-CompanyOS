@@ -446,3 +446,18 @@ git commit -m "fix(storefront): improve dark 3D model contrast"
 
 Confirm `git status --short --branch` is clean and keep the rebuilt Storefront
 running at `http://localhost:3100` for user testing.
+
+## Execution Refinement
+
+The first real browser pass exposed a GLB detail that unit geometry could not
+show: the smartphone and headphones use dark `baseColorTexture` images, so the
+texture multiplied the new base color back toward black. The controller and
+laptop have no base-color texture and rendered correctly.
+
+Before completing Task 2, add a failing assertion that a textured
+`MeshStandardMaterial` receives the model palette through `emissive` at an
+intensity of exactly `0.28` in dark mode. Implement that minimum branch only
+for color-bearing, textured, emissive-capable materials. Add a light-mode
+assertion proving authored emissive color and intensity remain unchanged.
+Re-run the focused tests, typecheck, rebuild, browser check, and visual
+inspection before the repository completion gate.

@@ -20,8 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   progressive scroll-driven model loading, hidden-tab rendering suspension,
   reduced-motion behavior, responsive showroom overlays, and browser evidence
   for both themes and the no-WebGL fallback on the approved Storefront 3D
-  homepage, with upright per-asset poses and viewport-bounded model fitting so
-  products remain recognizable and fully visible.
+  homepage, with upright per-asset poses, viewport-bounded model fitting, and
+  isolated model-specific dark palettes so products remain recognizable and
+  fully visible without changing their authored light-theme materials.
 - Define the approved Nexora-inspired six-scene 3D Storefront homepage design,
   including real Catalog data, light/dark presentation, licensed GLB assets,
   progressive loading, reduced motion, and static failure fallback.

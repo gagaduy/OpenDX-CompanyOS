@@ -680,11 +680,7 @@ async function captureHomepageThemes(client, outputDirectory, viewport) {
     );
     await saveScreenshot(client, screenshotPath);
     const sceneEvidence = [];
-    const sampledScenes = viewport.width < 768
-      ? ["smartphones", "gaming"]
-      : viewport.width >= 1_440
-        ? ["smartphones", "audio", "gaming"]
-        : [];
+    const sampledScenes = ["smartphones", "computing", "audio", "gaming"];
     for (const scene of sampledScenes) {
       await client.send("Runtime.evaluate", {
         expression: `(() => {
@@ -749,6 +745,7 @@ async function captureHomepageThemes(client, outputDirectory, viewport) {
 function homepageSceneLabel(scene) {
   return {
     smartphones: "Điện thoại",
+    computing: "Máy tính",
     audio: "Âm thanh",
     gaming: "Gaming",
   }[scene];
