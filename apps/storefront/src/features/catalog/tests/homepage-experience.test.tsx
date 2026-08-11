@@ -3,13 +3,39 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { useRef, type ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "../../../app/theme-provider";
+import { ExperienceCanvas } from "../components/homepage-experience/experience-canvas";
+import { ExperienceErrorBoundary } from "../components/homepage-experience/experience-error-boundary";
+import { ExperienceLoadingStatus } from "../components/homepage-experience/experience-loading-status";
 import { ExperienceSceneNavigation } from "../components/homepage-experience/experience-scene-navigation";
+import { useHomepagePreferences } from "../hooks/use-homepage-preferences";
 import { useHomepageScroll } from "../hooks/use-homepage-scroll";
 import { HOMEPAGE_SCENE_IDS } from "../types/homepage-experience.types";
 
+vi.mock("@react-three/fiber", () => ({
+  Canvas: ({
+    children: _children,
+    dpr,
+  }: {
+    readonly children?: ReactNode;
+    readonly dpr?: number;
+  }) => (
+    <div data-testid="mock-canvas" data-dpr={String(dpr)} />
+  ),
+  useFrame: vi.fn(),
+}));
+
 describe("homepage scroll experience", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => mediaQuery(false)),
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -75,6 +101,75 @@ describe("homepage scroll experience", () => {
   });
 });
 
+describe("homepage rendering preferences", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => mediaQuery(false)),
+    });
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1_440,
+    });
+    Object.defineProperty(navigator, "hardwareConcurrency", {
+      configurable: true,
+      value: 8,
+    });
+  });
+
+  it("selects the static experience when WebGL is unavailable", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    render(
+      <ThemeProvider>
+        <PreferencesProbe />
+      </ThemeProvider>,
+    );
+    expect(screen.getByTestId("preferences")).toHaveTextContent("dark|static|false");
+  });
+
+  it("propagates light showroom theme and renderer budget", () => {
+    const progress = { current: 0 };
+    render(
+      <ExperienceCanvas
+        progress={progress}
+        preferences={{
+          theme: "light",
+          reducedMotion: false,
+          tier: "high",
+          budget: { dpr: 1.75, shadows: true, idleMotion: true },
+        }}
+        onFatalError={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("homepage-canvas-layer")).toHaveAttribute(
+      "data-showroom-theme",
+      "light",
+    );
+    expect(screen.getByTestId("mock-canvas")).toHaveAttribute("data-dpr", "1.75");
+  });
+
+  it("isolates a fatal canvas child error", () => {
+    const onFatalError = vi.fn();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(
+      <ExperienceErrorBoundary onFatalError={onFatalError}>
+        <BrokenExperience />
+      </ExperienceErrorBoundary>,
+    );
+    expect(onFatalError).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("unreachable")).not.toBeInTheDocument();
+  });
+
+  it("clamps and exposes critical model loading progress", () => {
+    const { rerender } = render(<ExperienceLoadingStatus progress={42.8} />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+    expect(screen.getByText("42%")).toBeVisible();
+    rerender(<ExperienceLoadingStatus progress={120} />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+  });
+});
+
 function ScrollHarness({ reducedMotion }: { readonly reducedMotion: boolean }) {
   const journeyRef = useRef<HTMLDivElement>(null);
   const director = useHomepageScroll(journeyRef, { reducedMotion });
@@ -111,5 +206,31 @@ function rectangle({
     width: 1_000,
     height,
     toJSON: () => ({}),
+  };
+}
+
+function PreferencesProbe() {
+  const preferences = useHomepagePreferences();
+  return (
+    <output data-testid="preferences">
+      {preferences.theme}|{preferences.tier}|{String(preferences.reducedMotion)}
+    </output>
+  );
+}
+
+function BrokenExperience(): never {
+  throw new Error("canvas failed");
+}
+
+function mediaQuery(matches: boolean): MediaQueryList {
+  return {
+    matches,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   };
 }

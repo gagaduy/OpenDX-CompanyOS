@@ -15,7 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   progress, device quality budgets, and a six-section semantic journey backed
   by authoritative Catalog product queries, native scroll coordination, and
   accessible scene shortcuts, plus bounded GLB loading, shared caching, and
-  deterministic GPU disposal for the approved Storefront 3D homepage.
+  deterministic GPU disposal, lazy WebGL delivery, theme-aware lighting, and
+  an adaptive intro scene for the approved Storefront 3D homepage.
 - Define the approved Nexora-inspired six-scene 3D Storefront homepage design,
   including real Catalog data, light/dark presentation, licensed GLB assets,
   progressive loading, reduced motion, and static failure fallback.
