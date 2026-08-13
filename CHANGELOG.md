@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign the NovaCommerce Console shell with grouped role-aware navigation,
+  contextual route headers, a responsive mobile drawer, and night mode by
+  default while preserving the persisted light theme.
 - Add the file-level TDD implementation plan for the approved NovaCommerce
   Console Obsidian Flux redesign.
 - Define the approved Obsidian Flux redesign for all NovaCommerce Console

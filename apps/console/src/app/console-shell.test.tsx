@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,14 +72,14 @@ describe("ConsoleShell", () => {
     );
 
     const layout = await screen.findByTestId("console-layout");
-    expect(layout).toHaveAttribute("data-theme", "light");
+    expect(layout).toHaveAttribute("data-theme", "night");
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Bật chế độ night" }),
+      screen.getByRole("button", { name: "Use light theme" }),
     );
 
-    expect(layout).toHaveAttribute("data-theme", "night");
-    expect(window.localStorage.getItem("opendx.console.theme")).toBe("night");
+    expect(layout).toHaveAttribute("data-theme", "light");
+    expect(window.localStorage.getItem("opendx.console.theme")).toBe("light");
 
     unmount();
     window.localStorage.setItem("opendx.console.theme", "invalid");
@@ -94,7 +94,80 @@ describe("ConsoleShell", () => {
 
     expect(await screen.findByTestId("console-layout")).toHaveAttribute(
       "data-theme",
-      "light",
+      "night",
     );
+  });
+
+  it("groups role-aware navigation and identifies the current workspace", async () => {
+    const session: AuthSession = {
+      accessToken: "token",
+      subject: "user_admin",
+      displayName: "Administrator",
+      roles: ["administrator"],
+    };
+    const client: AuthClient = {
+      getSession: vi.fn(async () => session),
+      signIn: vi.fn(async () => undefined),
+      completeSignIn: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      signOut: vi.fn(async () => undefined),
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/products"]}>
+        <AuthProvider client={client}>
+          <AppRouter />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("NovaCommerce")).toBeVisible();
+    const navigation = screen.getByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(within(navigation).getByText("Overview")).toBeVisible();
+    expect(within(navigation).getByText("Catalog")).toBeVisible();
+    expect(within(navigation).getByText("Operations")).toBeVisible();
+    expect(screen.getByRole("banner", { name: "Workspace context" }))
+      .toHaveTextContent("Products");
+  });
+
+  it("closes mobile navigation with Escape and restores trigger focus", async () => {
+    const user = userEvent.setup();
+    const session: AuthSession = {
+      accessToken: "token",
+      subject: "user_admin",
+      displayName: "Administrator",
+      roles: ["administrator"],
+    };
+    const client: AuthClient = {
+      getSession: vi.fn(async () => session),
+      signIn: vi.fn(async () => undefined),
+      completeSignIn: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      signOut: vi.fn(async () => undefined),
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/products"]}>
+        <AuthProvider client={client}>
+          <AppRouter />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const trigger = await screen.findByRole("button", {
+      name: "Open navigation",
+    });
+    await user.click(trigger);
+    expect(screen.getByRole("navigation", { name: "Primary navigation" }))
+      .toHaveAttribute("data-mobile-open", "true");
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("navigation", { name: "Primary navigation" }))
+      .toHaveAttribute("data-mobile-open", "false");
+    expect(trigger).toHaveFocus();
   });
 });

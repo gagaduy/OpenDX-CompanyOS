@@ -82,7 +82,7 @@ textarea:focus-visible {
   display: grid;
   width: 100%;
   overflow-x: hidden;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
@@ -103,11 +103,11 @@ textarea:focus-visible {
 
 .consoleLayout[data-theme="night"] {
   color-scheme: dark;
-  --canvas: #000;
-  --surface-1: #070809;
-  --surface-2: #0b0c0d;
-  --surface-3: #111214;
-  --hairline: #1a1c20;
+  --canvas: #010102;
+  --surface-1: #08090a;
+  --surface-2: #0d0e10;
+  --surface-3: #141518;
+  --hairline: #24262c;
   --ink: #fbfbfc;
   --ink-muted: #c7ced8;
   --ink-subtle: #858b96;
@@ -120,6 +120,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  z-index: 30;
   padding: 18px 12px;
   border-right: 1px solid var(--hairline);
   background: var(--surface-1);
@@ -139,6 +140,11 @@ textarea:focus-visible {
   font-weight: 650;
 }
 
+.mobileCloseButton,
+.mobileMenuButton {
+  display: none;
+}
+
 .brandMark {
   display: inline-grid;
   width: 28px;
@@ -151,9 +157,23 @@ textarea:focus-visible {
   font-weight: 750;
 }
 
-.consoleSidebar nav {
+.consoleSidebar nav,
+.navGroup {
   display: grid;
   gap: 3px;
+}
+
+.consoleSidebar nav {
+  gap: 18px;
+}
+
+.navGroupLabel {
+  margin: 0 9px 5px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .consoleSidebar nav a {
@@ -209,6 +229,121 @@ textarea:focus-visible {
 .consoleContent {
   min-width: 0;
   padding: 28px 32px;
+}
+
+.consoleWorkspace {
+  min-width: 0;
+}
+
+.consoleTopbar {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 32px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--canvas) 92%, transparent);
+}
+
+.consoleTopbar p {
+  margin: 0 0 3px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.consoleTopbar strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.consoleMobileBackdrop {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .consoleLayout {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .consoleSidebar {
+    padding-inline: 8px;
+  }
+
+  .consoleBrand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .consoleSidebar .navText,
+  .consoleSidebar .navGroupLabel,
+  .consoleSidebar .alphaBadge {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .consoleSidebar nav a,
+  .staffIdentity {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .staffActions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 767px) {
+  .consoleLayout {
+    display: block;
+  }
+
+  .consoleSidebar {
+    position: fixed;
+    left: 0;
+    width: min(280px, 86vw);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .consoleSidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+
+  .mobileCloseButton,
+  .mobileMenuButton {
+    display: inline-grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    background: var(--surface-1);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .mobileCloseButton {
+    margin-left: auto;
+  }
+
+  .consoleMobileBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: block;
+    border: 0;
+    background: rgb(0 0 0 / 68%);
+  }
+
+  .consoleTopbar,
+  .consoleContent {
+    padding-inline: 18px;
+  }
 }
 
 .workspaceHeader h1,
