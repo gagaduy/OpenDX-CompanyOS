@@ -9,7 +9,11 @@ export type StaffRole =
   | "finance_operator"
   | "crm_operator"
   | "support_operator"
-  | "executive_viewer";
+  | "executive_viewer"
+  | "agentic_operator"
+  | "agentic_approver"
+  | "agentic_governance_admin"
+  | "agentic_auditor";
 
 export interface StaffPrincipal {
   readonly subject: string;

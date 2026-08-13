@@ -45,7 +45,7 @@ describe("authenticateStaff", () => {
     };
   });
 
-  it("accepts Phase 7 roles and discards unknown roles", async () => {
+  it("accepts Agentic staff roles and discards unknown roles", async () => {
     const response = await request(createApp())
       .get("/staff")
       .set("authorization", `Bearer ${await sign({
@@ -54,6 +54,10 @@ describe("authenticateStaff", () => {
             "crm_operator",
             "support_operator",
             "executive_viewer",
+            "agentic_operator",
+            "agentic_approver",
+            "agentic_governance_admin",
+            "agentic_auditor",
             "offline_access",
           ],
         },
@@ -64,6 +68,10 @@ describe("authenticateStaff", () => {
       "crm_operator",
       "support_operator",
       "executive_viewer",
+      "agentic_operator",
+      "agentic_approver",
+      "agentic_governance_admin",
+      "agentic_auditor",
     ]);
   });
 

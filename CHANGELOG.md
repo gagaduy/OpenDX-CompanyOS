@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add distinct Agentic staff roles and an isolated Digital Employee service
+  principal boundary that cannot trust a payload-provided Agent identity.
 - Add the Agent Governance Foundation file-level TDD plan covering separate
   identities, domain rules, PostgreSQL constraints, policy/tool/budget checks,
   two-person approvals, task ownership, staff APIs, and phase-exit validation.

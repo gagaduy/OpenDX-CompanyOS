@@ -29,6 +29,10 @@ const STAFF_ROLES = new Set<StaffRole>([
   "crm_operator",
   "support_operator",
   "executive_viewer",
+  "agentic_operator",
+  "agentic_approver",
+  "agentic_governance_admin",
+  "agentic_auditor",
 ]);
 
 export function createRemoteStaffTokenVerifier(
