@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the Post-Commerce Agentic Workforce design for a rule-first AI CEO,
+  six read-only Department Agents, Temporal orchestration, OpenRouter model
+  governance, approval-bound file intake, Tool Registry mediation, Quality
+  Gate, scoped memory, and auditable Store Health Review workflow.
 - Add a transaction-safe, idempotent PostgreSQL commerce fixture for testing
   current and previous dashboard reporting windows without replacing contributor data.
 - Extend authoritative Reporting responses with equal-length prior-period
