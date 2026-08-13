@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the file-level TDD implementation plan for the approved NovaCommerce
+  Console Obsidian Flux redesign.
 - Define the approved Obsidian Flux redesign for all NovaCommerce Console
   routes, preserving real role-aware commerce behavior while clearly disabling
   unsupported Stitch reference controls.
