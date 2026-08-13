@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -40,6 +40,16 @@ describe("ProductEditorPage", () => {
     expect(client.createProduct).toHaveBeenCalledWith(expect.objectContaining({ name: "Travel Mug", attributes: { material: "steel" } }));
     expect(await screen.findByText(/product created/i)).toBeVisible();
     expect(screen.getByRole("tab", { name: "Media" })).toBeEnabled();
+  });
+
+  it("organizes product setup into named operational groups with progress context", async () => {
+    render(<MemoryRouter initialEntries={["/products/new"]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={api()} />} /></Routes></MemoryRouter>);
+
+    await screen.findByRole("option", { name: "Drinkware" });
+    expect(within(screen.getByRole("group", { name: "Basic details" })).getByLabelText("Name")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Classification" })).getByLabelText("Category")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Description and attributes" })).getByLabelText("Description")).toBeVisible();
+    expect(screen.getByRole("complementary", { name: "Product setup progress" })).toBeVisible();
   });
 
   it.each([

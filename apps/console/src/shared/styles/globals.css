@@ -996,11 +996,7 @@ textarea {
 
 .editorForm {
   display: grid;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: var(--surface-1);
+  gap: 14px;
 }
 
 .editorForm label,
@@ -1020,14 +1016,36 @@ textarea {
 
 .editorForm fieldset {
   display: grid;
-  gap: 10px;
+  gap: 16px;
   margin: 0;
-  padding: 14px;
+  padding: 18px 20px 20px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: var(--surface-1);
 }
 
-.editorForm legend { padding: 0 5px; color: var(--ink-muted); font-size: 12px; }
+.editorForm legend {
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.attributeEditor {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+
+.fieldLabel {
+  margin: 0;
+  color: var(--ink-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .editorForm fieldset .secondaryButton { justify-self: start; }
 .formActions { display: flex; justify-content: flex-end; }
 .formError { color: #f0a6a6; font-size: 12px; }

@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Restructure the Console product editor into clear basic-details,
+  classification, and description-and-attributes setup panels.
 - Refine Console navigation emphasis, technical typography, and desktop table
   density to more closely match the approved Obsidian Flux operations canvas.
 - Expand deterministic Console browser acceptance to all 17 routes at mobile,
