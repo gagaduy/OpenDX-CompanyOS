@@ -72,6 +72,36 @@ suite("PostgresqlAgenticRepository", () => {
     expect(page.items.map(({ id }) => id)).toEqual([ownedId]);
   });
 
+  it("replaces draft task graphs only for the owner and resolves assigned ready tasks", async () => {
+    const taskId = randomUUID();
+    const first = randomUUID();
+    const second = randomUUID();
+    const at = "2026-08-14T00:00:00.000Z";
+    const task = { id: taskId, state: "draft" as const, createdBy: "operator-a", goal: "Review", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at };
+    await transactions.run((session) => repository.createTask(session, task));
+    const subtasks = [
+      { id: first, taskId, agentKind: "catalog" as const, title: "Catalog", version: 1, createdAt: at },
+      { id: second, taskId, agentKind: "inventory" as const, title: "Inventory", version: 1, createdAt: at },
+    ];
+    await expect(transactions.run((session) => repository.replaceTaskGraph(session, taskId, "operator-b", subtasks, [])))
+      .resolves.toBe(false);
+    await expect(transactions.run((session) => repository.replaceTaskGraph(session, taskId, "operator-a", subtasks, [{ taskId, from: first, to: second }])))
+      .resolves.toBe(true);
+    const graph = await transactions.runReadOnly((session) => repository.listTaskGraph(session, taskId));
+    expect(graph.subtasks.map(({ id }) => id).sort()).toEqual([first, second].sort());
+    expect(graph.dependencies).toMatchObject([{ from: first, to: second }]);
+
+    const revisionId = randomUUID();
+    await pool.query("INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest,decided_by,decided_at) VALUES($1,'active','admin-a',$2,'admin-b',now())", [revisionId, "c".repeat(64)]);
+    await transactions.run((session) => repository.updateTask(session, {
+      ...task, state: "ready", configurationRevisionId: revisionId, version: 2, updatedAt: "2026-08-14T01:00:00.000Z",
+    }, 1));
+    await expect(transactions.runReadOnly((session) => repository.findTaskForAgent(session, taskId, "catalog")))
+      .resolves.toMatchObject({ id: taskId, state: "ready" });
+    await expect(transactions.runReadOnly((session) => repository.findTaskForAgent(session, taskId, "support")))
+      .resolves.toBeUndefined();
+  });
+
   it("activates one configuration revision and supersedes the previous active revision atomically", async () => {
     const activeId = randomUUID();
     const candidateA = randomUUID();

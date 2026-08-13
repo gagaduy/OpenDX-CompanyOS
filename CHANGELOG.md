@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add owner-scoped, non-executing Agent task intake with validated dependency
+  graphs, active-configuration pinning, cancellation, and audit evidence.
 - Add two-person Agent configuration decisions, bound action approvals, and
   Administrator or Governance Admin approved-request emergency revocation.
 - Add deny-by-default Agent policy evaluation, inert typed-tool authorization,

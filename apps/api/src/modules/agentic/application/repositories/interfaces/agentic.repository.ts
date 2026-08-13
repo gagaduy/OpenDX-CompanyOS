@@ -117,6 +117,21 @@ export interface BudgetReservationInput {
   readonly occurredAt: string;
 }
 
+export interface AgentSubtaskRecord {
+  readonly id: string;
+  readonly taskId: string;
+  readonly agentKind: AgentKind;
+  readonly title: string;
+  readonly version: number;
+  readonly createdAt: string;
+}
+
+export interface AgentSubtaskDependencyRecord {
+  readonly taskId: string;
+  readonly from: string;
+  readonly to: string;
+}
+
 export interface BudgetSettlementInput {
   readonly id: string;
   readonly reservationId: string;
@@ -129,9 +144,14 @@ export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   createTask(session: DatabaseSession, task: AgentTask): Promise<void>;
   findTask(session: DatabaseSession, taskId: string, ownerId: string): Promise<AgentTask | undefined>;
+  findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;
+  findTaskForApproval(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;
   findTaskForAgent(session: DatabaseSession, taskId: string, agentKind: AgentKind): Promise<AgentTask | undefined>;
   listTasks(session: DatabaseSession, ownerId: string, page: number, pageSize: number): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }>;
+  listAllTasks(session: DatabaseSession, page: number, pageSize: number): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }>;
   updateTask(session: DatabaseSession, task: AgentTask, expectedVersion: number): Promise<boolean>;
+  replaceTaskGraph(session: DatabaseSession, taskId: string, ownerId: string, subtasks: readonly AgentSubtaskRecord[], dependencies: readonly AgentSubtaskDependencyRecord[]): Promise<boolean>;
+  listTaskGraph(session: DatabaseSession, taskId: string): Promise<{ readonly subtasks: readonly AgentSubtaskRecord[]; readonly dependencies: readonly AgentSubtaskDependencyRecord[] }>;
   createRevision(session: DatabaseSession, revision: ConfigurationRevision): Promise<void>;
   findRevision(session: DatabaseSession, revisionId: string): Promise<ConfigurationRevision | undefined>;
   findActiveRevision(session: DatabaseSession): Promise<ConfigurationRevision | undefined>;

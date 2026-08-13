@@ -4,6 +4,8 @@
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type {
   AgenticRepository,
+  AgentSubtaskDependencyRecord,
+  AgentSubtaskRecord,
   AuditEventRecord,
   BudgetLimitRecord,
   BudgetReservationInput,
@@ -58,6 +60,21 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
   }
 
+  async findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined> {
+    const result = await session.query<Row>("SELECT * FROM agentic_tasks WHERE id=$1", [taskId]);
+    return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
+  }
+
+  async findTaskForApproval(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined> {
+    const result = await session.query<Row>(
+      `SELECT t.* FROM agentic_tasks t WHERE t.id=$1 AND EXISTS (
+        SELECT 1 FROM agentic_approval_requests a WHERE a.task_id=t.id AND a.state='pending'
+      )`,
+      [taskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
+  }
+
   async findTaskForAgent(
     session: DatabaseSession,
     taskId: string,
@@ -91,6 +108,19 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return { items: result.rows.map(mapTask), totalItems: Number(count.rows[0]?.total ?? 0) };
   }
 
+  async listAllTasks(
+    session: DatabaseSession,
+    page: number,
+    pageSize: number,
+  ): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }> {
+    const count = await session.query<{ total: string }>("SELECT count(*)::text total FROM agentic_tasks");
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_tasks ORDER BY created_at DESC,id LIMIT $1 OFFSET $2",
+      [pageSize, (page - 1) * pageSize],
+    );
+    return { items: result.rows.map(mapTask), totalItems: Number(count.rows[0]?.total ?? 0) };
+  }
+
   async updateTask(
     session: DatabaseSession,
     task: AgentTask,
@@ -106,6 +136,58 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
         task.createdBy, expectedVersion],
     );
     return result.rowCount === 1;
+  }
+
+  async replaceTaskGraph(
+    session: DatabaseSession,
+    taskId: string,
+    ownerId: string,
+    subtasks: readonly AgentSubtaskRecord[],
+    dependencies: readonly AgentSubtaskDependencyRecord[],
+  ): Promise<boolean> {
+    const task = await session.query(
+      "SELECT id FROM agentic_tasks WHERE id=$1 AND created_by=$2 AND state='draft' FOR UPDATE",
+      [taskId, ownerId],
+    );
+    if (task.rowCount !== 1) return false;
+    await session.query("DELETE FROM agentic_subtasks WHERE task_id=$1", [taskId]);
+    for (const subtask of subtasks) {
+      await session.query(
+        `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title,version,created_at)
+         VALUES($1,$2,$3,$4,$5,$6)`,
+        [subtask.id, taskId, subtask.agentKind, subtask.title, subtask.version, subtask.createdAt],
+      );
+    }
+    for (const dependency of dependencies) {
+      await session.query(
+        `INSERT INTO agentic_subtask_dependencies(task_id,from_subtask_id,to_subtask_id)
+         VALUES($1,$2,$3)`,
+        [taskId, dependency.from, dependency.to],
+      );
+    }
+    return true;
+  }
+
+  async listTaskGraph(
+    session: DatabaseSession,
+    taskId: string,
+  ): Promise<{ readonly subtasks: readonly AgentSubtaskRecord[]; readonly dependencies: readonly AgentSubtaskDependencyRecord[] }> {
+    const subtasks = await session.query<Row>(
+      "SELECT * FROM agentic_subtasks WHERE task_id=$1 ORDER BY created_at,id", [taskId],
+    );
+    const dependencies = await session.query<Row>(
+      `SELECT task_id,from_subtask_id,to_subtask_id FROM agentic_subtask_dependencies
+       WHERE task_id=$1 ORDER BY from_subtask_id,to_subtask_id`, [taskId],
+    );
+    return {
+      subtasks: subtasks.rows.map((row) => ({
+        id: String(row.id), taskId: String(row.task_id), agentKind: row.agent_kind as AgentKind,
+        title: String(row.title), version: Number(row.version), createdAt: toIso(row.created_at),
+      })),
+      dependencies: dependencies.rows.map((row) => ({
+        taskId: String(row.task_id), from: String(row.from_subtask_id), to: String(row.to_subtask_id),
+      })),
+    };
   }
 
   async createRevision(
