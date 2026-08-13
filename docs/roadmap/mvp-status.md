@@ -48,6 +48,12 @@ and
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
 | Post-Commerce: Agentic Workforce | Master planning complete; runtime not started | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Awaiting Phase A focused-design kickoff |
 
+Focused Agentic delivery status:
+
+| Phase | Status | Focused Spec | Focused Plan | Exit Decision |
+| --- | --- | --- | --- | --- |
+| Phase A: Agent Governance Foundation | Focused design approved in conversation; runtime not started | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | Not created | Awaiting written-spec review |
+
 ## Latest Validation Evidence
 
 - The Post-Commerce Agentic Workforce design defines rule-first AI CEO
@@ -59,6 +65,11 @@ and
   Console surfaces, and deterministic acceptance behind focused phase gates.
 - No Agentic runtime module or dependency has been added before written-spec
   approval, the committed master plan, and Phase A focused-design approval.
+- Phase A defines four human Agentic roles, seven distinct Keycloak service
+  identities, two-person versioned governance, deterministic deny-first policy,
+  task/configuration pinning, emergency revocation, Tool Registry authorization,
+  budget accounting, bound approvals, and append-only audit/provenance without
+  starting runtime execution.
 
 - Phase 8 focused design:
   `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.
@@ -241,5 +252,6 @@ and
   credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
-- Workflow and agent runtime remain unimplemented while Phase A awaits focused
-  design and plan approval. GraphRAG remains deferred to a later focused phase.
+- Workflow and agent runtime remain unimplemented while Phase A awaits written
+  focused-spec review and its file-level plan. GraphRAG remains deferred to a
+  later focused phase.

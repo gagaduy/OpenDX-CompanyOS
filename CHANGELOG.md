@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the Agent Governance Foundation focused design with separate human and
+  Digital Employee identities, two-person configuration control, deterministic
+  policy, versioned tasks, tool grants, budgets, approvals, audit, provenance,
+  and emergency revocation before runtime execution.
 - Add the Post-Commerce Agentic Workforce master implementation plan with eight
   gated delivery phases from governance foundation through deterministic
   cross-department acceptance.
