@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the dual-format `make db-backup` and extension-aware `make db-restore`
+  contract for safe local SQL and custom-archive database recovery.
 - Harden Agent governance with immutable identities, assigned approval scopes,
   exact configuration diffs, intake provenance, filtered audit, and model revocation.
 - Document Phase A Agent governance architecture, staff API, migration order,
