@@ -129,6 +129,8 @@ describe("ConsoleShell", () => {
     expect(within(navigation).getByText("Overview")).toBeVisible();
     expect(within(navigation).getByText("Catalog")).toBeVisible();
     expect(within(navigation).getByText("Operations")).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: "Products" }))
+      .toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("banner", { name: "Workspace context" }))
       .toHaveTextContent("Products");
   });

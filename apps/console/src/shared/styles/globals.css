@@ -177,6 +177,7 @@ textarea:focus-visible {
 }
 
 .consoleSidebar nav a {
+  border-left: 2px solid transparent;
   gap: 9px;
   min-height: 36px;
   padding: 0 9px;
@@ -190,6 +191,18 @@ textarea:focus-visible {
 .consoleSidebar nav a:hover {
   background: var(--surface-3);
   color: var(--ink);
+}
+
+.consoleSidebar nav a.active {
+  border-left-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-1));
+}
+
+.technicalText {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
 }
 
 .alphaBadge {
@@ -722,6 +735,7 @@ textarea {
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 12px;
+  line-height: 1.15;
 }
 
 .inventoryTable {
@@ -734,8 +748,9 @@ textarea {
 
 .inventoryTable th,
 .inventoryTable td {
-  min-height: 56px;
-  padding: 10px 12px;
+  height: 42px;
+  min-height: 42px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;
@@ -816,8 +831,8 @@ textarea {
 
 .productTable th,
 .productTable td {
-  height: 56px;
-  padding: 8px 12px;
+  height: 28px;
+  padding: 1px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;
@@ -867,10 +882,15 @@ textarea {
   font-size: 10px;
 }
 
+.productTable .productIdentity small {
+  margin-top: 1px;
+  line-height: 1.1;
+}
+
 .thumbnail {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--hairline);
@@ -914,6 +934,12 @@ textarea {
   background: transparent;
   color: var(--ink-subtle);
   cursor: pointer;
+}
+
+.productTable .rowActions a,
+.productTable .rowActions button {
+  width: 24px;
+  height: 24px;
 }
 
 .pagination {
@@ -1573,8 +1599,8 @@ ul {
 
 .operationsTable th,
 .operationsTable td {
-  height: 58px;
-  padding: 9px 12px;
+  height: 42px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;

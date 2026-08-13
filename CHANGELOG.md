@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Refine Console navigation emphasis, technical typography, and desktop table
+  density to more closely match the approved Obsidian Flux operations canvas.
 - Expand deterministic Console browser acceptance to all 17 routes at mobile,
   tablet, and desktop widths in both themes, and fix the responsive product
   table and mobile navigation cascade issues exposed by those checks.
