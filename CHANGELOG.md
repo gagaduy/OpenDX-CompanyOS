@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add two-person Agent configuration decisions, bound action approvals, and
+  Administrator or Governance Admin approved-request emergency revocation.
 - Add deny-by-default Agent policy evaluation, inert typed-tool authorization,
   idempotent integer-micro budget accounting, and mandatory safe evidence.
 - Add the reversible PostgreSQL Agent governance schema and migration chain for

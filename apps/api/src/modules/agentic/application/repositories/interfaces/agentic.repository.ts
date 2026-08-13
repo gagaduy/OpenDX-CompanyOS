@@ -134,9 +134,11 @@ export interface AgenticRepository {
   updateTask(session: DatabaseSession, task: AgentTask, expectedVersion: number): Promise<boolean>;
   createRevision(session: DatabaseSession, revision: ConfigurationRevision): Promise<void>;
   findRevision(session: DatabaseSession, revisionId: string): Promise<ConfigurationRevision | undefined>;
+  findActiveRevision(session: DatabaseSession): Promise<ConfigurationRevision | undefined>;
   updateRevision(session: DatabaseSession, revision: ConfigurationRevision, expectedVersion: number): Promise<boolean>;
   replaceRevisionChildren(session: DatabaseSession, revisionId: string, children: RevisionChildren): Promise<boolean>;
   activateRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, decidedAt: string): Promise<boolean>;
+  rejectRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   listPolicies(session: DatabaseSession, revisionId: string): Promise<readonly PolicyRecord[]>;
   registerTool(session: DatabaseSession, tool: ToolRecord): Promise<"created" | "duplicate">;
   findTool(session: DatabaseSession, name: string, version: number): Promise<ToolRecord | undefined>;
@@ -145,6 +147,7 @@ export interface AgenticRepository {
   findBudgetLimit(session: DatabaseSession, revisionId: string, agentKind: AgentKind): Promise<BudgetLimitRecord | undefined>;
   createApproval(session: DatabaseSession, approval: ApprovalRequest): Promise<void>;
   findApproval(session: DatabaseSession, approvalId: string): Promise<ApprovalRequest | undefined>;
+  listApprovals(session: DatabaseSession, page: number, pageSize: number, requesterId?: string): Promise<{ readonly items: readonly ApprovalRequest[]; readonly totalItems: number }>;
   decideApproval(session: DatabaseSession, approvalId: string, expectedVersion: number, state: Exclude<ApprovalState, "pending">, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   createRevocation(session: DatabaseSession, revocation: RevocationRecord): Promise<"created" | "duplicate">;
   findActiveRevocation(session: DatabaseSession, targetType: RevocationRecord["targetType"], targetId: string): Promise<RevocationRecord | undefined>;

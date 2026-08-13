@@ -133,6 +133,13 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapRevision(result.rows[0]);
   }
 
+  async findActiveRevision(session: DatabaseSession): Promise<ConfigurationRevision | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_configuration_revisions WHERE state='active' LIMIT 1",
+    );
+    return result.rows[0] === undefined ? undefined : mapRevision(result.rows[0]);
+  }
+
   async updateRevision(
     session: DatabaseSession,
     revision: ConfigurationRevision,
@@ -140,9 +147,9 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<boolean> {
     const result = await session.query(
       `UPDATE agentic_configuration_revisions
-       SET payload_digest=$2,version=$3,updated_at=$4
-       WHERE id=$1 AND state='draft' AND created_by=$5 AND version=$6`,
-      [revision.id, revision.payloadDigest, revision.version, revision.updatedAt,
+       SET state=$2,payload_digest=$3,version=$4,updated_at=$5
+       WHERE id=$1 AND state='draft' AND created_by=$6 AND version=$7`,
+      [revision.id, revision.state, revision.payloadDigest, revision.version, revision.updatedAt,
         revision.createdBy, expectedVersion],
     );
     return result.rowCount === 1;
@@ -208,6 +215,24 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [revisionId],
     );
     return result.rows.map(mapPolicy);
+  }
+
+  async rejectRevision(
+    session: DatabaseSession,
+    revisionId: string,
+    expectedVersion: number,
+    decidedBy: string,
+    reason: string,
+    decidedAt: string,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE agentic_configuration_revisions
+       SET state='rejected',decided_by=$3,decision_reason=$4,decided_at=$5,
+           version=version+1,updated_at=$5
+       WHERE id=$1 AND state='pending_approval' AND version=$2 AND created_by<>$3`,
+      [revisionId, expectedVersion, decidedBy, reason, decidedAt],
+    );
+    return result.rowCount === 1;
   }
 
   async findTool(
@@ -306,6 +331,26 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [approvalId],
     );
     return result.rows[0] === undefined ? undefined : mapApproval(result.rows[0]);
+  }
+
+  async listApprovals(
+    session: DatabaseSession,
+    page: number,
+    pageSize: number,
+    requesterId?: string,
+  ): Promise<{ readonly items: readonly ApprovalRequest[]; readonly totalItems: number }> {
+    const where = requesterId === undefined ? "TRUE" : "requester_id=$1";
+    const values: unknown[] = requesterId === undefined ? [] : [requesterId];
+    const count = await session.query<{ total: string }>(
+      `SELECT count(*)::text total FROM agentic_approval_requests WHERE ${where}`,
+      values,
+    );
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_approval_requests WHERE ${where}
+       ORDER BY created_at DESC,id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, pageSize, (page - 1) * pageSize],
+    );
+    return { items: result.rows.map(mapApproval), totalItems: Number(count.rows[0]?.total ?? 0) };
   }
 
   async decideApproval(

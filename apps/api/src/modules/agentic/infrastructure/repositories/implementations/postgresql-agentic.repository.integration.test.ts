@@ -92,6 +92,27 @@ suite("PostgresqlAgenticRepository", () => {
     expect((await pool.query("SELECT state FROM agentic_configuration_revisions WHERE id=$1", [activeId])).rows[0]?.state).toBe("superseded");
   });
 
+  it("submits owned drafts and allows one concurrent rejection", async () => {
+    const revisionId = randomUUID();
+    const draft = {
+      id: revisionId, state: "draft" as const, createdBy: "admin-a",
+      payloadDigest: "a".repeat(64), version: 1,
+      createdAt: "2026-08-14T00:00:00.000Z", updatedAt: "2026-08-14T00:00:00.000Z",
+    };
+    await transactions.run((session) => repository.createRevision(session, draft));
+    await expect(transactions.run((session) => repository.updateRevision(session, {
+      ...draft, state: "pending_approval", version: 2,
+      updatedAt: "2026-08-14T01:00:00.000Z",
+    }, 1))).resolves.toBe(true);
+    const results = await Promise.all([
+      transactions.run((session) => repository.rejectRevision(session, revisionId, 2, "admin-b", "Not safe", "2026-08-14T02:00:00.000Z")),
+      transactions.run((session) => repository.rejectRevision(session, revisionId, 2, "admin-c", "Incomplete", "2026-08-14T02:00:00.000Z")),
+    ]);
+    expect(results.sort()).toEqual([false, true]);
+    await expect(transactions.runReadOnly((session) => repository.findRevision(session, revisionId)))
+      .resolves.toMatchObject({ state: "rejected", version: 3 });
+  });
+
   it("allows exactly one concurrent approval decision", async () => {
     const revisionId = randomUUID();
     const approvalId = randomUUID();
