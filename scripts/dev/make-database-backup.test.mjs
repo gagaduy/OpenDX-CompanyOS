@@ -47,8 +47,8 @@ if (format !== undefined && process.env.EMPTY_DUMP_FORMAT !== format) {
     backupDirectory,
     dockerLog,
     cleanup: () => rmSync(root, { recursive: true, force: true }),
-    runMake(target, environment = {}) {
-      return spawnSync("make", ["-f", makefile, target], {
+    runMake(target, environment = {}, makeVariables = []) {
+      return spawnSync("make", ["-f", makefile, target, ...makeVariables], {
         cwd: root,
         encoding: "utf8",
         env: {
@@ -133,4 +133,55 @@ test("db-backup rejects a final-path collision without overwriting it", (context
   assert.notEqual(result.status, 0);
   assert.equal(harness.readNamedBackup(`opendx-${fixedTimestamp}.sql`), "keep-me");
   assert.deepEqual(harness.temporaryBackupNames(), []);
+});
+
+test("db-restore sends SQL to psql with fail-fast transaction flags", (context) => {
+  const harness = createHarness();
+  context.after(harness.cleanup);
+  const backup = harness.seedBackup("backup with spaces.sql", "SELECT 1;");
+
+  const result = harness.runMake("db-restore", {}, [`BACKUP=${backup}`]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert(harness.dockerCalls().some((call) =>
+    ["psql", "-X", "--set", "ON_ERROR_STOP=1", "--single-transaction"]
+      .every((argument) => call.includes(argument))));
+  assert(!harness.dockerCalls().some((call) => call.includes("pg_restore")));
+});
+
+test("db-restore sends custom archives to pg_restore", (context) => {
+  const harness = createHarness();
+  context.after(harness.cleanup);
+  const backup = harness.seedBackup("backup.dump", "custom backup");
+
+  const result = harness.runMake("db-restore", {}, [`BACKUP=${backup}`]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert(harness.dockerCalls().some((call) =>
+    ["pg_restore", "--clean", "--if-exists", "--no-owner", "--exit-on-error", "--single-transaction"]
+      .every((argument) => call.includes(argument))));
+});
+
+test("db-restore rejects unsupported formats before stopping services", (context) => {
+  const harness = createHarness();
+  context.after(harness.cleanup);
+  const backup = harness.seedBackup("backup.zip", "not supported");
+
+  const result = harness.runMake("db-restore", {}, [`BACKUP=${backup}`]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must end in \.sql or \.dump/);
+  assert.deepEqual(harness.dockerCalls(), []);
+});
+
+test("db-restore treats shell metacharacters in a SQL path as literal data", (context) => {
+  const harness = createHarness();
+  context.after(harness.cleanup);
+  const backup = harness.seedBackup("backup-`touch PWNED`.sql", "SELECT 1;");
+
+  const result = harness.runMake("db-restore", {}, [`BACKUP=${backup}`]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert(!readdirSync(harness.root).includes("PWNED"));
+  assert(harness.dockerCalls().some((call) => call.includes("psql")));
 });

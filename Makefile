@@ -3,6 +3,7 @@
 
 COMPOSE_ENV := $(if $(wildcard .env),--env-file .env,)
 COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
+export BACKUP
 
 .PHONY: help up down logs check check-crm-support-dashboard db-migrate db-rollback db-seed db-backup db-restore
 
@@ -70,9 +71,20 @@ db-backup:
 
 db-restore:
 	@set -eu; \
-	test -n "$(BACKUP)" || (echo "BACKUP path is required" >&2; exit 1); \
-	test -f "$(BACKUP)" || (echo "Backup not found: $(BACKUP)" >&2; exit 1); \
+	backup_path="$${BACKUP:-}"; \
+	test -n "$${backup_path}" || { echo "BACKUP path is required" >&2; exit 1; }; \
+	test -f "$${backup_path}" || { echo "Backup not found: $${backup_path}" >&2; exit 1; }; \
+	case "$${backup_path}" in \
+		*.sql) restore_format=sql ;; \
+		*.dump) restore_format=dump ;; \
+		*) echo "BACKUP must end in .sql or .dump" >&2; exit 1 ;; \
+	esac; \
 	$(COMPOSE) stop api console storefront; \
 	trap '$(COMPOSE) start api console storefront' EXIT; \
-	$(COMPOSE) exec -T postgres pg_restore -U opendx_local -d opendx \
-		--clean --if-exists --no-owner --exit-on-error --single-transaction < "$(BACKUP)"
+	if [ "$${restore_format}" = sql ]; then \
+		$(COMPOSE) exec -T postgres psql -X -U opendx_local -d opendx \
+			--set ON_ERROR_STOP=1 --single-transaction < "$${backup_path}"; \
+	else \
+		$(COMPOSE) exec -T postgres pg_restore -U opendx_local -d opendx \
+			--clean --if-exists --no-owner --exit-on-error --single-transaction < "$${backup_path}"; \
+	fi
