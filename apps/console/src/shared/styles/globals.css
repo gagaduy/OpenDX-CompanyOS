@@ -1655,6 +1655,29 @@ ul {
   line-height: 1.7;
 }
 
+.supportDetailGrid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.75fr);
+}
+
+.supportDetailSide {
+  display: grid;
+  gap: 14px;
+}
+
+.supportComposerPanel {
+  width: min(100%, calc(100% - 320px));
+  margin-top: 14px;
+}
+
+.supportMessageComposer label,
+.supportMessageComposer textarea {
+  width: 100%;
+}
+
+.supportMessageComposer textarea {
+  min-height: 112px;
+}
+
 .timelineList {
   display: grid;
   gap: 12px;
@@ -1690,6 +1713,10 @@ ul {
 @media (max-width: 768px) {
   .detailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .supportComposerPanel {
+    width: 100%;
   }
 
   .dashboardGrid {

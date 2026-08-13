@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -46,11 +46,39 @@ describe("TicketDetailPage", () => {
     expect(screen.queryByText(/High value|Repeat customer|Original immutable note/i)).not.toBeInTheDocument();
     expect(screen.getByText("Append-only support message")).toBeVisible();
     expect(screen.getByText("new → assigned")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Ticket timeline" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Attachments" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Internal note.*Coming soon/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Wait for customer" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Start progress" }));
     expect(api.update).toHaveBeenCalledWith(ticket.id, { status: "in_progress", version: 3, idempotencyKey: expect.stringContaining("support-transition") });
     await userEvent.click(screen.getByRole("button", { name: "Download bien-ban-kiem-tra-phan-cung-rat-dai.pdf" }));
     expect(api.downloadAttachment).toHaveBeenCalledWith(ticket.id, "attachment-1");
+  });
+
+  it("sends a trimmed customer reply and appends the authoritative message", async () => {
+    const sent = { id: "message-2", authorId: "staff-support", body: "Customer update", createdAt: "2026-08-10T02:00:00.000Z" };
+    const api = fixture({ message: vi.fn(async () => sent) });
+    renderDetail(api);
+
+    await userEvent.type(await screen.findByRole("textbox", { name: "Reply" }), "  Customer update  ");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+    expect(api.message).toHaveBeenCalledWith(ticket.id, "Customer update");
+    expect(await screen.findByText("Customer update")).toBeVisible();
+  });
+
+  it("retains a failed reply and exposes an explicit retry", async () => {
+    const sent = { id: "message-2", authorId: "staff-support", body: "Retry update", createdAt: "2026-08-10T02:00:00.000Z" };
+    const message = vi.fn().mockRejectedValueOnce(new SupportApiError("UNAVAILABLE", "offline")).mockResolvedValueOnce(sent);
+    renderDetail(fixture({ message }));
+
+    await userEvent.type(await screen.findByRole("textbox", { name: "Reply" }), "Retry update");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    await userEvent.click(screen.getByRole("button", { name: "Retry reply" }));
+    expect(message).toHaveBeenCalledTimes(2);
+    expect(await within(screen.getByRole("region", { name: "Ticket timeline" })).findByText("Retry update")).toBeVisible();
   });
 
   it("uploads one allowed file, shows quarantine/rejected states, and recovers stale mutation", async () => {
@@ -69,6 +97,7 @@ describe("TicketDetailPage", () => {
     await userEvent.upload(screen.getByLabelText("Upload support attachment"), file);
     expect(api.uploadAttachment).toHaveBeenCalledWith(ticket.id, file);
     expect(await screen.findByText("quarantined")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Download anh-loi.png" })).not.toBeInTheDocument();
     expect(screen.getByText("Allowed: JPG, PNG, PDF, DOCX, TXT; one file per upload.")).toBeVisible();
   });
 });

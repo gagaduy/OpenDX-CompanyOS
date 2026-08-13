@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -34,6 +34,7 @@ describe("SupportPage", () => {
     expect(await screen.findByRole("heading", { name: "Support tickets" })).toBeVisible();
     expect(api.list).toHaveBeenCalledWith({ status: "new", priority: "urgent", assignment: "unassigned", page: 2, pageSize: 20 }, expect.any(AbortSignal));
     expect(screen.getByText("Máy tính lỗi màn hình")).toBeVisible();
+    expect(screen.getByRole("table", { name: "Support tickets" })).toBeVisible();
     expect(screen.getByLabelText("Ticket status")).toHaveValue("new");
     expect(screen.getByLabelText("Ticket priority")).toHaveValue("urgent");
 
@@ -56,10 +57,13 @@ describe("SupportPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("No support tickets match this view.")).toBeVisible();
 
+    await userEvent.click(screen.getByRole("button", { name: "Create ticket" }));
+    const dialog = screen.getByRole("dialog", { name: "Create ticket" });
+    expect(dialog).toBeVisible();
     await userEvent.type(screen.getByLabelText("Customer ID"), ticket.customerId);
     await userEvent.type(screen.getByLabelText("Subject"), "Máy in không nhận lệnh");
     await userEvent.type(screen.getByLabelText("Description"), "Khách báo lỗi sau khi thanh toán");
-    await userEvent.click(screen.getByRole("button", { name: "Create ticket" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Create ticket" }));
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ customerId: ticket.customerId, priority: "normal" }));
   });
 });

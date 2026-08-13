@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign Support operations with a ticket-creation drawer, accessible queue
+  and evidence regions, clean-only attachment downloads, and a retryable real
+  customer reply composer while future internal notes remain disabled.
 - Redesign Customer operations as an accessible searchable list and a
   three-region Customer 360 workspace while preserving URL-backed segments
   and optimistic follow-up claiming.
