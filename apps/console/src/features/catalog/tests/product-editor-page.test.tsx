@@ -59,8 +59,12 @@ describe("ProductEditorPage", () => {
     const client = api();
     render(<MemoryRouter initialEntries={[`/products/${product.id}`]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={client} />} /></Routes></MemoryRouter>);
     await screen.findByDisplayValue("Steel Bottle");
+    expect(screen.getByRole("tablist", { name: "Product editor sections" })).toBeVisible();
+    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: /Product tags.*Coming soon/i })).toBeDisabled();
     await userEvent.click(screen.getByRole("tab", { name: /variants and prices/i }));
     expect(screen.getByLabelText("SKU")).toBeVisible();
+    expect(screen.getByRole("button", { name: /Import.*Coming soon/i })).toBeDisabled();
     await userEvent.click(screen.getByRole("tab", { name: "Media" }));
     expect(screen.getByLabelText("Product image")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Publication" }));
@@ -70,5 +74,6 @@ describe("ProductEditorPage", () => {
     expect(await screen.findByText("Product published.")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Audit" }));
     expect(await screen.findByText(/no audit activity yet/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /Export CSV.*Coming soon/i })).toBeDisabled();
   });
 });

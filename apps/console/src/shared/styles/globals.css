@@ -1056,6 +1056,51 @@ textarea {
   opacity: 0.4;
 }
 
+.editorCanvas,
+.editorTabContent {
+  display: grid;
+  gap: 18px;
+}
+
+.editorCanvasWithRail {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+}
+
+.setupRail {
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.setupRail > div,
+.editorPanelToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.setupRail > div {
+  color: var(--ink-subtle);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.setupRail ol {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 0;
+  padding-left: 22px;
+  color: var(--ink-tertiary);
+  font-size: 12px;
+}
+
+.setupRail li.active { color: var(--ink); }
+.editorPanelToolbar h2 { margin: 0; font-size: 18px; }
+.editorPanelToolbar .sectionKicker { margin-bottom: 3px; }
+
 .editorPanel {
   display: grid;
   gap: 16px;
@@ -1063,6 +1108,11 @@ textarea {
   border: 1px solid var(--hairline);
   border-radius: 12px;
   background: var(--surface-1);
+}
+
+@media (max-width: 960px) {
+  .editorCanvasWithRail { grid-template-columns: 1fr; }
+  .setupRail { order: -1; }
 }
 
 .publicationPanel > header,
