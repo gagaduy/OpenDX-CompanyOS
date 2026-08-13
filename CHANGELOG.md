@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add deny-by-default Agent policy evaluation, inert typed-tool authorization,
+  idempotent integer-micro budget accounting, and mandatory safe evidence.
 - Add the reversible PostgreSQL Agent governance schema and migration chain for
   identities, tasks, configuration, policy, tools, models, budgets, approvals,
   revocations, audit, and provenance.

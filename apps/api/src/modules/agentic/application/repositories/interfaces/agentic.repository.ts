@@ -129,6 +129,7 @@ export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   createTask(session: DatabaseSession, task: AgentTask): Promise<void>;
   findTask(session: DatabaseSession, taskId: string, ownerId: string): Promise<AgentTask | undefined>;
+  findTaskForAgent(session: DatabaseSession, taskId: string, agentKind: AgentKind): Promise<AgentTask | undefined>;
   listTasks(session: DatabaseSession, ownerId: string, page: number, pageSize: number): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }>;
   updateTask(session: DatabaseSession, task: AgentTask, expectedVersion: number): Promise<boolean>;
   createRevision(session: DatabaseSession, revision: ConfigurationRevision): Promise<void>;
@@ -150,6 +151,7 @@ export interface AgenticRepository {
   reserveBudget(session: DatabaseSession, input: BudgetReservationInput): Promise<"reserved" | "duplicate" | "exceeded">;
   settleBudget(session: DatabaseSession, input: BudgetSettlementInput): Promise<"settled" | "duplicate" | "stale">;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
+  countToolInvocations(session: DatabaseSession, taskId: string, actorId: string, resourceId: string): Promise<number>;
   listAudit(session: DatabaseSession, limit: number): Promise<readonly AuditEventRecord[]>;
   appendProvenance(session: DatabaseSession, record: ProvenanceRecord): Promise<void>;
   listProvenance(session: DatabaseSession, taskId: string): Promise<readonly ProvenanceRecord[]>;

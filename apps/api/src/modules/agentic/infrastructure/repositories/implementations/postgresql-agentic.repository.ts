@@ -58,6 +58,21 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
   }
 
+  async findTaskForAgent(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+  ): Promise<AgentTask | undefined> {
+    const result = await session.query<Row>(
+      `SELECT t.* FROM agentic_tasks t
+       WHERE t.id=$1 AND t.state='ready' AND EXISTS (
+         SELECT 1 FROM agentic_subtasks s WHERE s.task_id=t.id AND s.agent_kind=$2
+       )`,
+      [taskId, agentKind],
+    );
+    return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
+  }
+
   async listTasks(
     session: DatabaseSession,
     ownerId: string,
@@ -446,6 +461,21 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [limit],
     );
     return result.rows.map(mapAudit);
+  }
+
+  async countToolInvocations(
+    session: DatabaseSession,
+    taskId: string,
+    actorId: string,
+    resourceId: string,
+  ): Promise<number> {
+    const result = await session.query<{ total: string }>(
+      `SELECT count(*)::text total FROM agentic_audit_events
+       WHERE task_id=$1 AND actor_id=$2 AND action='tool.invoke'
+         AND resource_id=$3 AND outcome='allowed'`,
+      [taskId, actorId, resourceId],
+    );
+    return Number(result.rows[0]?.total ?? 0);
   }
 
   async appendProvenance(
