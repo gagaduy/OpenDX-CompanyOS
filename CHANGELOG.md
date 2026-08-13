@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Move Phase 7 implementation evidence from the hidden `.superpowers`
+  tool-output directory into `docs/superpowers/reports`, and document the
+  distinction between normative specs/plans and historical execution reports.
 - Add an authoritative public Catalog read model that selects the newest
   eligible product in every active category for Storefront hero merchandising.
 - Rotate the Storefront catalog hero through active categories with accessible

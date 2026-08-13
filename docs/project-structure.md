@@ -84,7 +84,12 @@ an isolated checkout-to-paid database exit gate, and an opt-in real SePay
 sandbox runner. Browser fixtures never claim provider payment confirmation;
 only the credential-owned sandbox runner waits for authoritative backend state.
 
-`docs` contains product, architecture, design, roadmap, build, dependency, and planning documentation.
+`docs` contains product, architecture, design, roadmap, build, dependency, and
+planning documentation. `docs/superpowers/specs` and
+`docs/superpowers/plans` hold approved implementation direction, while
+`docs/superpowers/reports` holds non-normative historical implementation and
+validation evidence. Repository documentation must not be stored in hidden
+tool-specific directories at the repository root.
 
 `.agents/skills` contains repo-local skill instructions for AI coding agents.
 
