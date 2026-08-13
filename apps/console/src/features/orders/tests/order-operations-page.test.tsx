@@ -59,6 +59,7 @@ describe("order operations", () => {
   it("shows immutable evidence and only the next legal transition", async () => {
     renderDetail(api());
     expect(await screen.findByText("Nova Laptop Pro")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "NVC-20260809-00000001" })).toHaveClass("technicalText");
     expect(screen.getByRole("region", { name: "Order status history" })).toBeVisible();
     expect(screen.getByRole("complementary", { name: "Order snapshot" })).toBeVisible();
     expect(screen.getByText("buyer@example.com")).toBeVisible();

@@ -1711,6 +1711,11 @@ ul {
   margin: -10px 0 18px;
 }
 
+.ticketVersion {
+  color: var(--ink-subtle);
+  font-weight: 500;
+}
+
 .ticketState,
 .ticketPriority {
   padding: 4px 8px;

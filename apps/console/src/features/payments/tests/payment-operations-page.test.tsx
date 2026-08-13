@@ -41,6 +41,7 @@ describe("payment operations", () => {
   it("shows review-required event and mismatch reconciliation evidence", async () => {
     render(<MemoryRouter initialEntries={["/payments/payment-1"]}><Routes><Route path="/payments/:paymentId" element={<PaymentDetailPage api={api()} />} /></Routes></MemoryRouter>);
     expect(await screen.findByText("ORDER_PAID")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "NVC-PAY-0001" })).toHaveClass("technicalText");
     expect(screen.getByRole("region", { name: "Provider events" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Reconciliation history" })).toBeVisible();
     expect(screen.getByRole("button", { name: /View receipt.*Coming soon/i })).toBeDisabled();

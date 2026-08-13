@@ -44,7 +44,7 @@ function renderPage(client: InventoryApi, roles: readonly StaffRole[] = ["invent
 describe("InventoryPage", () => {
   it("shows balances and opens movement history", async () => {
     renderPage(api());
-    expect(await screen.findByText("TECH-PHONE-BLACK")).toBeVisible();
+    expect(await screen.findByText("TECH-PHONE-BLACK")).toHaveClass("technicalText");
     expect(screen.getByRole("region", { name: "Inventory summary" })).toBeVisible();
     expect(screen.getByRole("table", { name: "Inventory stock levels" })).toBeVisible();
     expect(screen.getByText("5 available")).toBeVisible();
