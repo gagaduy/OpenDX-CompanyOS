@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Date:** 2026-08-13
 
-**Status:** Draft for user review
+**Status:** Approved
 
 **Area:** NovaCommerce Reporting and Operations Console
 
@@ -58,9 +58,9 @@ This change does not add:
 
 The dataset is development-only and is invoked by the existing
 `db:seed:all` composition path used by `make up`. A seed orchestrator may
-coordinate the minimum Customer, Order, Order Line, Checkout, and Payment rows
-needed for a coherent reporting fixture, but it is not imported by business
-modules and exposes no runtime API.
+coordinate the minimum Customer, Cart, Checkout, Order, Order Line, and Payment
+rows needed for a coherent reporting fixture, but it is not imported by
+business modules and exposes no runtime API.
 
 The seed must follow database foreign-key order and use the existing published
 NovaCommerce SKUs. It must not publish draft products or create new catalog
@@ -242,7 +242,7 @@ permission states continue to use the Console's existing system-state patterns.
 make up
   -> db:seed:all
   -> transactional deterministic demo seed
-  -> PostgreSQL orders / order lines / payments / customers
+  -> PostgreSQL customers / carts / checkouts / orders / order lines / payments
 
 Console date range
   -> existing Reporting HTTP endpoints
@@ -331,4 +331,3 @@ The change is complete when:
 7. The dashboard remains accessible, responsive, and visually consistent with
    the approved Obsidian Flux redesign in light and dark themes.
 8. All focused and repository-wide validation gates pass.
-
