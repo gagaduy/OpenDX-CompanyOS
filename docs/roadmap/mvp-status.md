@@ -27,10 +27,12 @@ merchant/VPS prerequisites and human confirmation.
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
 
-The Post-Commerce Agentic Workforce master design is approved in conversation
-and awaiting written-spec review. Runtime implementation and its plan have not
-started:
-`docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`.
+The Post-Commerce Agentic Workforce master design is approved and its master
+implementation plan is defined. Runtime implementation has not started; each
+phase still requires its focused design and file-level plan:
+`docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
+and
+`docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
 
 ## Phase Status
 
@@ -44,7 +46,7 @@ started:
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Design review | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | Not created | Awaiting written-spec approval |
+| Post-Commerce: Agentic Workforce | Master planning complete; runtime not started | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Awaiting Phase A focused-design kickoff |
 
 ## Latest Validation Evidence
 
@@ -52,8 +54,11 @@ started:
   delegation, six read-only Department Agents, Temporal orchestration,
   OpenRouter model governance, Tool Registry mediation, file-preview approval,
   Quality Gate, scoped memory, and a Store Health Review acceptance workflow.
+- Its master plan sequences Agent Governance, Temporal workflow, read-only
+  department tools, OpenRouter runtime, file intake, AI CEO coordination,
+  Console surfaces, and deterministic acceptance behind focused phase gates.
 - No Agentic runtime module or dependency has been added before written-spec
-  approval and a committed implementation plan.
+  approval, the committed master plan, and Phase A focused-design approval.
 
 - Phase 8 focused design:
   `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.
@@ -236,6 +241,5 @@ started:
   credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
-- Workflow and agent runtime remain unimplemented while the approved
-  Post-Commerce design awaits written-spec review and a detailed plan. GraphRAG
-  remains deferred to a later focused phase.
+- Workflow and agent runtime remain unimplemented while Phase A awaits focused
+  design and plan approval. GraphRAG remains deferred to a later focused phase.

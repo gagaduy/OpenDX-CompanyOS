@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Post-Commerce Agentic Workforce master implementation plan with eight
+  gated delivery phases from governance foundation through deterministic
+  cross-department acceptance.
 - Define the Post-Commerce Agentic Workforce design for a rule-first AI CEO,
   six read-only Department Agents, Temporal orchestration, OpenRouter model
   governance, approval-bound file intake, Tool Registry mediation, Quality
