@@ -14,6 +14,7 @@ pnpm --filter @opendx/storefront test
 pnpm --filter @opendx/console build
 pnpm --filter @opendx/storefront build
 pnpm test:py
+pnpm test:make-database-backup
 pnpm audit:repo
 compose_env=()
 if [[ -f .env ]]; then

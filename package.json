@@ -28,6 +28,7 @@
     "check:production-compose": "node scripts/dev/production-compose-check.mjs",
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
+    "test:make-database-backup": "node --test scripts/dev/make-database-backup.test.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",

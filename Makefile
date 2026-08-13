@@ -48,9 +48,25 @@ db-seed:
 
 db-backup:
 	@mkdir -p infra/backups
-	@set -eu; backup_path="infra/backups/opendx-$$(date +%Y%m%d-%H%M%S).dump"; \
-	$(COMPOSE) exec -T postgres pg_dump -U opendx_local -d opendx --format=custom > "$${backup_path}"; \
-	echo "Created $${backup_path}"
+	@set -eu; \
+	stamp="$$(date -u +%Y%m%d-%H%M%S)"; \
+	sql_path="infra/backups/opendx-$${stamp}.sql"; \
+	dump_path="infra/backups/opendx-$${stamp}.dump"; \
+	sql_tmp="$${sql_path}.tmp.$$$$"; \
+	dump_tmp="$${dump_path}.tmp.$$$$"; \
+	cleanup() { rm -f -- "$${sql_tmp}" "$${dump_tmp}"; }; \
+	trap cleanup EXIT HUP INT TERM; \
+	test ! -e "$${sql_path}" && test ! -e "$${dump_path}" || { echo "Backup already exists for $${stamp}" >&2; exit 1; }; \
+	$(COMPOSE) exec -T postgres pg_dump -U opendx_local -d opendx --format=plain --clean --if-exists --no-owner --no-privileges > "$${sql_tmp}"; \
+	test -s "$${sql_tmp}" || { echo "SQL backup is empty" >&2; exit 1; }; \
+	$(COMPOSE) exec -T postgres pg_dump -U opendx_local -d opendx --format=custom --no-owner --no-privileges > "$${dump_tmp}"; \
+	test -s "$${dump_tmp}" || { echo "Custom backup is empty" >&2; exit 1; }; \
+	ln "$${sql_tmp}" "$${sql_path}"; \
+	if ! ln "$${dump_tmp}" "$${dump_path}"; then rm -f -- "$${sql_path}"; exit 1; fi; \
+	cleanup; \
+	trap - EXIT HUP INT TERM; \
+	echo "Created $${sql_path}"; \
+	echo "Created $${dump_path}"
 
 db-restore:
 	@set -eu; \
