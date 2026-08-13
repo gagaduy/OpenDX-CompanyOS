@@ -21,9 +21,9 @@ describe("Reporting admin API", () => {
       const current = fixture(role);
       const authorization = { authorization: `Bearer ${role}` };
 
-      await request(current.app).get("/v1/admin/reporting/commerce").set(authorization).query(range).expect(200);
+      const commerce = await request(current.app).get("/v1/admin/reporting/commerce").set(authorization).query(range).expect(200);
       await request(current.app).get("/v1/admin/reporting/products").set(authorization).query(range).expect(200);
-      await request(current.app).get("/v1/admin/reporting/customers").set(authorization).query(range).expect(200);
+      const customers = await request(current.app).get("/v1/admin/reporting/customers").set(authorization).query(range).expect(200);
       const operations = await request(current.app)
         .get("/v1/admin/reporting/operations")
         .set(authorization)
@@ -31,6 +31,23 @@ describe("Reporting admin API", () => {
         .expect(200);
 
       expect(operations.body.refreshedAt).toMatch(/^2026-08-10T05:00:/);
+      expect(commerce.body.data).toMatchObject({
+        comparison: {
+          previousGrossPaidRevenueVnd: 0,
+          previousPaidOrderCount: 0,
+          previousAverageOrderValueVnd: 0,
+          grossPaidRevenueChangeBasisPoints: 0,
+          paidOrderCountChangeBasisPoints: 0,
+          averageOrderValueChangeBasisPoints: 0,
+        },
+        daily: [],
+      });
+      expect(customers.body.data).toMatchObject({
+        newCustomersInRange: 0,
+        previousNewCustomersInRange: 0,
+        newCustomersChangeBasisPoints: 0,
+        dailyNewCustomers: [],
+      });
       expect(current.service.getCommerce).toHaveBeenCalledWith(
         range,
         { actorId: `staff-${role}`, roles: [role], correlationId: expect.any(String) },
@@ -98,6 +115,15 @@ function fixture(role: StaffRole) {
         paidOrderCount: 0,
         averageOrderValueVnd: 0,
         conversionRateBasisPoints: 0,
+        comparison: {
+          previousGrossPaidRevenueVnd: 0,
+          previousPaidOrderCount: 0,
+          previousAverageOrderValueVnd: 0,
+          grossPaidRevenueChangeBasisPoints: 0,
+          paidOrderCountChangeBasisPoints: 0,
+          averageOrderValueChangeBasisPoints: 0,
+        },
+        daily: [],
         paymentStatuses: [],
       },
     })),
@@ -107,7 +133,16 @@ function fixture(role: StaffRole) {
     })),
     getCustomers: vi.fn(async () => ({
       ...response,
-      data: { totalRegisteredCustomers: 0, repeatCustomers: 0, lifetimeValueVnd: 0, lifetimeValueBuckets: [] },
+      data: {
+        totalRegisteredCustomers: 0,
+        repeatCustomers: 0,
+        lifetimeValueVnd: 0,
+        lifetimeValueBuckets: [],
+        newCustomersInRange: 0,
+        previousNewCustomersInRange: 0,
+        newCustomersChangeBasisPoints: 0,
+        dailyNewCustomers: [],
+      },
     })),
     getOperations: vi.fn(async () => ({
       ...response,

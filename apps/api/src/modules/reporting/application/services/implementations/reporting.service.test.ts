@@ -49,6 +49,9 @@ describe("ReportingService", () => {
         paidOrderCount: 0,
         createdOrderCount: 0,
         paidCreatedOrderCount: 0,
+        previousGrossPaidRevenueVnd: 0,
+        previousPaidOrderCount: 0,
+        daily: [],
         paymentStatuses: [],
       },
     });
@@ -72,6 +75,9 @@ describe("ReportingService", () => {
         paidOrderCount: 2,
         createdOrderCount: 3,
         paidCreatedOrderCount: 2,
+        previousGrossPaidRevenueVnd: 0,
+        previousPaidOrderCount: 0,
+        daily: [],
         paymentStatuses: [{ status: "paid", count: 2 }],
       },
     });
@@ -82,6 +88,79 @@ describe("ReportingService", () => {
     expect(result.data.conversionRateBasisPoints).toBe(6667);
   });
 
+  it("maps previous-period comparisons and backend-complete daily commerce facts", async () => {
+    const commerce = {
+      grossPaidRevenueVnd: 100_000,
+      paidOrderCount: 10,
+      createdOrderCount: 12,
+      paidCreatedOrderCount: 10,
+      previousGrossPaidRevenueVnd: 80_000,
+      previousPaidOrderCount: 8,
+      daily: [{ date: "2026-08-01", grossPaidRevenueVnd: 0, paidOrderCount: 0 }],
+      paymentStatuses: [{ status: "paid", count: 10 }],
+    } as unknown as RepositoryResponses["commerce"];
+    const { service } = fixture({ commerce });
+
+    const result = await service.getCommerce({ start: "2026-08-01", end: "2026-08-02" });
+
+    expect(result.data).toMatchObject({
+      comparison: {
+        previousGrossPaidRevenueVnd: 80_000,
+        previousPaidOrderCount: 8,
+        previousAverageOrderValueVnd: 10_000,
+        grossPaidRevenueChangeBasisPoints: 2500,
+        paidOrderCountChangeBasisPoints: 2500,
+        averageOrderValueChangeBasisPoints: 0,
+      },
+      daily: [{ date: "2026-08-01", grossPaidRevenueVnd: 0, paidOrderCount: 0 }],
+    });
+  });
+
+  it("represents zero-denominator and negative comparisons without false growth", async () => {
+    const zeroPrevious = fixture({
+      commerce: commerceFacts({ grossPaidRevenueVnd: 10_000, paidOrderCount: 1 }),
+    });
+    const negative = fixture({
+      commerce: commerceFacts({
+        grossPaidRevenueVnd: 5_000,
+        paidOrderCount: 1,
+        previousGrossPaidRevenueVnd: 10_000,
+        previousPaidOrderCount: 1,
+      }),
+    });
+
+    const zeroPreviousResult = await zeroPrevious.service.getCommerce({ start: "2026-08-01", end: "2026-08-02" });
+    const negativeResult = await negative.service.getCommerce({ start: "2026-08-01", end: "2026-08-02" });
+
+    expect(zeroPreviousResult.data.comparison.grossPaidRevenueChangeBasisPoints).toBeNull();
+    expect(zeroPreviousResult.data.comparison.paidOrderCountChangeBasisPoints).toBeNull();
+    expect(negativeResult.data.comparison.grossPaidRevenueChangeBasisPoints).toBe(-5000);
+  });
+
+  it("maps customer acquisition separately from the lifetime customer headline", async () => {
+    const { service } = fixture({
+      customers: {
+        totalRegisteredCustomers: 40,
+        repeatCustomers: 12,
+        lifetimeValueVnd: 64_000_000,
+        lifetimeValueBuckets: [{ bucket: "high", count: 2 }],
+        newCustomersInRange: 24,
+        previousNewCustomersInRange: 16,
+        dailyNewCustomers: [{ date: "2026-08-01", newCustomerCount: 1 }],
+      },
+    });
+
+    const result = await service.getCustomers({ start: "2026-08-01", end: "2026-08-02" });
+
+    expect(result.data).toMatchObject({
+      totalRegisteredCustomers: 40,
+      newCustomersInRange: 24,
+      previousNewCustomersInRange: 16,
+      newCustomersChangeBasisPoints: 5000,
+      dailyNewCustomers: [{ date: "2026-08-01", newCustomerCount: 1 }],
+    });
+  });
+
   it("rejects unsafe integer aggregates before mapping public DTOs", async () => {
     const { service } = fixture({
       customers: {
@@ -89,6 +168,9 @@ describe("ReportingService", () => {
         repeatCustomers: 0,
         lifetimeValueVnd: 0,
         lifetimeValueBuckets: [],
+        newCustomersInRange: 0,
+        previousNewCustomersInRange: 0,
+        dailyNewCustomers: [],
       },
     });
 
@@ -104,6 +186,9 @@ function fixture(overrides: Partial<RepositoryResponses> = {}) {
       paidOrderCount: 0,
       createdOrderCount: 0,
       paidCreatedOrderCount: 0,
+      previousGrossPaidRevenueVnd: 0,
+      previousPaidOrderCount: 0,
+      daily: [],
       paymentStatuses: [],
     },
     products: { items: [], inventory: { onHand: 0, reserved: 0, available: 0, soldOutCount: 0 } },
@@ -112,6 +197,9 @@ function fixture(overrides: Partial<RepositoryResponses> = {}) {
       repeatCustomers: 0,
       lifetimeValueVnd: 0,
       lifetimeValueBuckets: [],
+      newCustomersInRange: 0,
+      previousNewCustomersInRange: 0,
+      dailyNewCustomers: [],
     },
     operations: {
       openTickets: 0,
@@ -137,4 +225,20 @@ interface RepositoryResponses {
   readonly products: Awaited<ReturnType<ReportingRepository["getProducts"]>>;
   readonly customers: Awaited<ReturnType<ReportingRepository["getCustomers"]>>;
   readonly operations: Awaited<ReturnType<ReportingRepository["getOperations"]>>;
+}
+
+function commerceFacts(
+  overrides: Partial<RepositoryResponses["commerce"]>,
+): RepositoryResponses["commerce"] {
+  return {
+    grossPaidRevenueVnd: 0,
+    paidOrderCount: 0,
+    createdOrderCount: 0,
+    paidCreatedOrderCount: 0,
+    previousGrossPaidRevenueVnd: 0,
+    previousPaidOrderCount: 0,
+    daily: [],
+    paymentStatuses: [],
+    ...overrides,
+  };
 }

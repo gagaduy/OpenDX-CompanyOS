@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
-  CustomerReportDto,
   OperationsReportDto,
   ProductReportDto,
   ReportingQueryRange,
 } from "../../../application/dtos/reporting.dto";
 import type {
   CommerceReportFacts,
+  CustomerReportFacts,
   ReportingRepository,
 } from "../../../application/repositories/interfaces/reporting.repository";
 
@@ -23,7 +23,7 @@ export class PostgresqlReportingRepository implements ReportingRepository {
   constructor(private readonly database: Queryable) {}
 
   async getCommerce(range: ReportingQueryRange): Promise<CommerceReportFacts> {
-    const [paid, created, statuses] = await Promise.all([
+    const [paid, created, statuses, previousPaid, daily] = await Promise.all([
       this.database.query<{ revenue: string; count: string }>(
         `SELECT COALESCE(SUM(total_vnd),0)::text AS revenue, COUNT(*)::text AS count
          FROM orders
@@ -50,6 +50,37 @@ export class PostgresqlReportingRepository implements ReportingRepository {
          ORDER BY p.status = 'paid' DESC, p.status ASC`,
         [range.start, range.end],
       ),
+      this.database.query<{ revenue: string; count: string }>(
+        `SELECT COALESCE(SUM(total_vnd),0)::text AS revenue, COUNT(*)::text AS count
+         FROM orders
+         WHERE paid_at >= $1::timestamptz - ($2::timestamptz - $1::timestamptz)
+           AND paid_at < $1
+           AND status IN ('paid','processing','ready_for_fulfillment','completed')`,
+        [range.start, range.end],
+      ),
+      this.database.query<{ date: string; revenue: string; count: string }>(
+        `WITH days AS (
+           SELECT generate_series(
+             ($1::timestamptz AT TIME ZONE $3)::date,
+             (($2::timestamptz AT TIME ZONE $3)::date - 1),
+             interval '1 day'
+           )::date AS day
+         ), paid AS (
+           SELECT (paid_at AT TIME ZONE $3)::date AS day,
+                  COALESCE(SUM(total_vnd),0)::text AS revenue,
+                  COUNT(*)::text AS count
+           FROM orders
+           WHERE paid_at >= $1 AND paid_at < $2
+             AND status IN ('paid','processing','ready_for_fulfillment','completed')
+           GROUP BY 1
+         )
+         SELECT days.day::text AS date,
+                COALESCE(paid.revenue,'0') AS revenue,
+                COALESCE(paid.count,'0') AS count
+         FROM days LEFT JOIN paid USING (day)
+         ORDER BY days.day`,
+        [range.start, range.end, range.timezone],
+      ),
     ]);
 
     return {
@@ -57,6 +88,13 @@ export class PostgresqlReportingRepository implements ReportingRepository {
       paidOrderCount: parseSafeInteger(paid.rows[0]?.count ?? "0"),
       createdOrderCount: parseSafeInteger(created.rows[0]?.created_count ?? "0"),
       paidCreatedOrderCount: parseSafeInteger(created.rows[0]?.paid_count ?? "0"),
+      previousGrossPaidRevenueVnd: parseSafeInteger(previousPaid.rows[0]?.revenue ?? "0"),
+      previousPaidOrderCount: parseSafeInteger(previousPaid.rows[0]?.count ?? "0"),
+      daily: daily.rows.map((row) => ({
+        date: row.date,
+        grossPaidRevenueVnd: parseSafeInteger(row.revenue),
+        paidOrderCount: parseSafeInteger(row.count),
+      })),
       paymentStatuses: statuses.rows.map((row) => ({
         status: row.status,
         count: parseSafeInteger(row.count),
@@ -113,8 +151,8 @@ export class PostgresqlReportingRepository implements ReportingRepository {
     };
   }
 
-  async getCustomers(_range: ReportingQueryRange): Promise<CustomerReportDto> {
-    const [counts, lifetime, buckets] = await Promise.all([
+  async getCustomers(range: ReportingQueryRange): Promise<CustomerReportFacts> {
+    const [counts, lifetime, buckets, acquisition, dailyNewCustomers] = await Promise.all([
       this.database.query<{ total: string; repeat: string }>(
         `WITH paid_by_customer AS (
            SELECT customer_id, COUNT(*) AS paid_count
@@ -155,6 +193,36 @@ export class PostgresqlReportingRepository implements ReportingRepository {
          GROUP BY bucket
          ORDER BY CASE bucket WHEN 'low' THEN 1 WHEN 'mid' THEN 2 WHEN 'high' THEN 3 ELSE 4 END`,
       ),
+      this.database.query<{ current_count: string; previous_count: string }>(
+        `SELECT
+           COUNT(*) FILTER (WHERE created_at >= $1 AND created_at < $2)::text AS current_count,
+           COUNT(*) FILTER (
+             WHERE created_at >= $1::timestamptz - ($2::timestamptz - $1::timestamptz)
+               AND created_at < $1
+           )::text AS previous_count
+         FROM customers
+         WHERE created_at >= $1::timestamptz - ($2::timestamptz - $1::timestamptz)
+           AND created_at < $2`,
+        [range.start, range.end],
+      ),
+      this.database.query<{ date: string; count: string }>(
+        `WITH days AS (
+           SELECT generate_series(
+             ($1::timestamptz AT TIME ZONE $3)::date,
+             (($2::timestamptz AT TIME ZONE $3)::date - 1),
+             interval '1 day'
+           )::date AS day
+         ), registrations AS (
+           SELECT (created_at AT TIME ZONE $3)::date AS day, COUNT(*)::text AS count
+           FROM customers
+           WHERE created_at >= $1 AND created_at < $2
+           GROUP BY 1
+         )
+         SELECT days.day::text AS date, COALESCE(registrations.count,'0') AS count
+         FROM days LEFT JOIN registrations USING (day)
+         ORDER BY days.day`,
+        [range.start, range.end, range.timezone],
+      ),
     ]);
 
     return {
@@ -164,6 +232,12 @@ export class PostgresqlReportingRepository implements ReportingRepository {
       lifetimeValueBuckets: buckets.rows.map((row) => ({
         bucket: row.bucket,
         count: parseSafeInteger(row.count),
+      })),
+      newCustomersInRange: parseSafeInteger(acquisition.rows[0]?.current_count ?? "0"),
+      previousNewCustomersInRange: parseSafeInteger(acquisition.rows[0]?.previous_count ?? "0"),
+      dailyNewCustomers: dailyNewCustomers.rows.map((row) => ({
+        date: row.date,
+        newCustomerCount: parseSafeInteger(row.count),
       })),
     };
   }

@@ -76,6 +76,9 @@ suite("PostgresqlReportingRepository", () => {
       paidOrderCount: 1,
       createdOrderCount: 2,
       paidCreatedOrderCount: 1,
+      previousGrossPaidRevenueVnd: 0,
+      previousPaidOrderCount: 0,
+      daily: [{ date: "2026-08-01", grossPaidRevenueVnd: 1000, paidOrderCount: 1 }],
       paymentStatuses: [
         { status: "paid", count: 1 },
         { status: "pending_provider", count: 1 },
@@ -105,6 +108,9 @@ suite("PostgresqlReportingRepository", () => {
         { bucket: "low", count: 1 },
         { bucket: "zero", count: 1 },
       ],
+      newCustomersInRange: 2,
+      previousNewCustomersInRange: 0,
+      dailyNewCustomers: [{ date: "2026-08-01", newCustomerCount: 2 }],
     });
 
     const operations = await repository.getOperations(range);
@@ -114,6 +120,30 @@ suite("PostgresqlReportingRepository", () => {
       slaBreaches: 1,
     });
     expect(JSON.stringify({ operations })).not.toMatch(/customer@example|090|ticket message|support-attachment/);
+  });
+
+  it("zero-fills local calendar gaps and aligns the immediately preceding range", async () => {
+    const threeDays = {
+      start: "2026-07-31T17:00:00.000Z",
+      end: "2026-08-03T17:00:00.000Z",
+      timezone: "Asia/Ho_Chi_Minh" as const,
+    };
+
+    const commerce = await repository.getCommerce(threeDays);
+    const customers = await repository.getCustomers(threeDays);
+
+    expect(commerce.previousGrossPaidRevenueVnd).toBe(2000);
+    expect(commerce.previousPaidOrderCount).toBe(1);
+    expect(commerce.daily).toEqual([
+      { date: "2026-08-01", grossPaidRevenueVnd: 1000, paidOrderCount: 1 },
+      { date: "2026-08-02", grossPaidRevenueVnd: 0, paidOrderCount: 0 },
+      { date: "2026-08-03", grossPaidRevenueVnd: 0, paidOrderCount: 0 },
+    ]);
+    expect(customers.dailyNewCustomers).toEqual([
+      { date: "2026-08-01", newCustomerCount: 2 },
+      { date: "2026-08-02", newCustomerCount: 0 },
+      { date: "2026-08-03", newCustomerCount: 0 },
+    ]);
   });
 
   it.skipIf(process.env.RUN_REPORTING_SCALE !== "1")(

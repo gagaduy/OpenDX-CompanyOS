@@ -10,7 +10,7 @@ import type {
   ReportingQueryRange,
   ReportingRange,
 } from "../../dtos/reporting.dto";
-import { assertReportingDtoSafe, mapCommerceReport } from "../../mappers/reporting.mapper";
+import { assertReportingDtoSafe, mapCommerceReport, mapCustomerReport } from "../../mappers/reporting.mapper";
 import type { ReportingRepository } from "../../repositories/interfaces/reporting.repository";
 import { ReportingApplicationError } from "../reporting-application.error";
 import type { ReportingRequestRange, ReportingServiceContract } from "../interfaces/reporting.service";
@@ -40,9 +40,11 @@ export class ReportingService implements ReportingServiceContract {
 
   async getCustomers(range: ReportingRequestRange): Promise<ReportingEnvelope<CustomerReportDto>> {
     const resolved = resolveRange(range, this.now());
-    const data = await this.repository.getCustomers(resolved.query);
-    assertReportingDtoSafe(data);
-    return envelope(data, resolved.publicRange, this.now());
+    return envelope(
+      mapCustomerReport(await this.repository.getCustomers(resolved.query)),
+      resolved.publicRange,
+      this.now(),
+    );
   }
 
   async getOperations(range: ReportingRequestRange): Promise<ReportingEnvelope<OperationsReportDto>> {

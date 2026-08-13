@@ -24,7 +24,24 @@ export interface CommerceReportDto {
   readonly paidOrderCount: number;
   readonly averageOrderValueVnd: number;
   readonly conversionRateBasisPoints: number;
+  readonly comparison: CommerceComparisonDto;
+  readonly daily: readonly CommerceDailyPointDto[];
   readonly paymentStatuses: readonly PaymentStatusCountDto[];
+}
+
+export interface CommerceComparisonDto {
+  readonly previousGrossPaidRevenueVnd: number;
+  readonly previousPaidOrderCount: number;
+  readonly previousAverageOrderValueVnd: number;
+  readonly grossPaidRevenueChangeBasisPoints: number | null;
+  readonly paidOrderCountChangeBasisPoints: number | null;
+  readonly averageOrderValueChangeBasisPoints: number | null;
+}
+
+export interface CommerceDailyPointDto {
+  readonly date: string;
+  readonly grossPaidRevenueVnd: number;
+  readonly paidOrderCount: number;
 }
 
 export interface PaymentStatusCountDto {
@@ -56,6 +73,15 @@ export interface CustomerReportDto {
   readonly repeatCustomers: number;
   readonly lifetimeValueVnd: number;
   readonly lifetimeValueBuckets: readonly LifetimeValueBucketDto[];
+  readonly newCustomersInRange: number;
+  readonly previousNewCustomersInRange: number;
+  readonly newCustomersChangeBasisPoints: number | null;
+  readonly dailyNewCustomers: readonly CustomerDailyPointDto[];
+}
+
+export interface CustomerDailyPointDto {
+  readonly date: string;
+  readonly newCustomerCount: number;
 }
 
 export interface LifetimeValueBucketDto {
