@@ -1803,16 +1803,92 @@ ul {
   background: color-mix(in srgb, #5bd39a 8%, var(--surface-1));
 }
 
+.dashboardSecondaryMetrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metricCardBody,
+.dashboardChartHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricSparkline {
+  width: 92px;
+  flex: 0 0 92px;
+  color: #5bd39a;
+}
+
+.metricSparkline polyline {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.metricChange {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metricChange-positive { color: #5bd39a; }
+.metricChange-negative { color: #ff8c8c; }
+.metricChange-neutral { color: var(--ink-muted); }
+
 .dashboardOperationalGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboardPerformanceGrid {
   display: grid;
-  grid-template-columns: minmax(180px, 0.55fr) minmax(180px, 0.55fr) minmax(0, 1.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 14px 0;
   align-items: stretch;
+}
+
+.dashboardProductPerformance {
+  grid-column: 1 / -1;
+}
+
+.dashboardChartCard {
+  min-height: 300px;
+  overflow: hidden;
+}
+
+.dashboardChartCard svg[role="img"] {
+  display: block;
+  width: 100%;
+  min-height: 190px;
+}
+
+.dashboardChartHeader h2 {
+  margin: 2px 0 0;
+}
+
+.dashboardChartHeader > strong {
+  font-size: 16px;
+}
+
+.dashboardChartArea {
+  fill: color-mix(in srgb, #5e6ad2 13%, transparent);
+}
+
+.dashboardChartLine {
+  stroke: #5bd39a;
+  stroke-width: 3;
+}
+
+.dashboardChartBar {
+  fill: #5e6ad2;
+}
+
+.dashboardChartEmpty {
+  display: grid;
+  min-height: 190px;
+  place-items: center;
+  color: var(--ink-muted);
 }
 
 .dashboardPerformanceGrid > section {
