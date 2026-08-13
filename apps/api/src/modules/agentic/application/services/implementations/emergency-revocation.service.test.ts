@@ -45,6 +45,19 @@ describe("EmergencyRevocationService", () => {
     await expect(service.request({ ...input, approvalId: requested.id }, principal("governance", "agentic_governance_admin")))
       .resolves.toMatchObject({ kind: "revocation", revocation: { approvalId: requested.id } });
   });
+
+  it("rejects approval evidence assigned to a different action scope", async () => {
+    const { service, repository } = harness();
+    const requested = await service.request(input, principal("governance", "agentic_governance_admin"));
+    if (requested.kind !== "approval") throw new Error("Expected approval");
+    repository.findApproval.mockResolvedValueOnce({
+      ...requested, state: "approved", approverScope: "tool_invocation",
+      decidedBy: "approver", decidedAt: "2026-08-14T11:00:00.000Z", version: 2,
+    });
+
+    await expect(service.request({ ...input, approvalId: requested.id }, principal("governance", "agentic_governance_admin")))
+      .rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
+  });
 });
 
 function harness() {

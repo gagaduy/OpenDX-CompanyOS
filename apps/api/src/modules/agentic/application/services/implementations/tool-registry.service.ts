@@ -15,7 +15,7 @@ import type {
 
 type ToolRepository = Pick<AgenticRepository,
   | "findAgentByClientId" | "findTaskForAgent" | "findRevision" | "findTool"
-  | "findToolGrant" | "findActiveRevocation" | "findApproval" | "reserveBudget"
+  | "findToolGrant" | "findModelConfiguration" | "findActiveRevocation" | "findApproval" | "reserveBudget"
   | "appendAudit" | "appendProvenance" | "countToolInvocations">;
 
 interface AuthorizationContext {
@@ -106,6 +106,12 @@ export class ToolRegistryService implements ToolRegistry {
     if (grant.purpose !== request.purpose || grant.dataScope !== request.dataScope) {
       fail("TOOL_SCOPE_DENIED", "Tool scope does not match the grant");
     }
+    const model = await this.repository.findModelConfiguration(
+      session, revision.id, request.principal.agentKind,
+    );
+    if (model === undefined || ![model.primaryModel, ...model.fallbackModels].includes(request.modelId)) {
+      fail("CONFIGURATION_INVALID", "Model is not approved by the pinned configuration");
+    }
     const invocationCount = await this.repository.countToolInvocations(
       session, request.taskId, request.principal.subject,
       `${request.toolName}@${request.toolVersion}`,
@@ -115,6 +121,8 @@ export class ToolRegistryService implements ToolRegistry {
     }
     const revoked = await this.repository.findActiveRevocation(session, "tool_grant", grant.id);
     if (revoked !== undefined) fail("POLICY_DENIED", "Tool grant has been revoked");
+    const revokedModel = await this.repository.findActiveRevocation(session, "model", request.modelId);
+    if (revokedModel !== undefined) fail("POLICY_DENIED", "Model has been revoked");
 
     const decision = await this.policy.evaluateInSession(session, {
       revisionId: revision.id, policyVersion: revision.version, actorType: "agent",
@@ -140,6 +148,7 @@ export class ToolRegistryService implements ToolRegistry {
     const approval = await this.repository.findApproval(session, request.approvalId);
     if (
       approval === undefined || approval.state !== "approved"
+      || approval.approverScope !== "tool_invocation"
       || approval.action !== "tool.invoke" || approval.resourceType !== "tool"
       || approval.resourceId !== `${request.toolName}@${request.toolVersion}`
       || approval.parametersDigest !== request.parametersDigest

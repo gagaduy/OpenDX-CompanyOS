@@ -10,7 +10,7 @@ import { ApprovalServiceImpl } from "./approval.service";
 const session = {} as DatabaseSession;
 const tx: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
 const principal = (subject: string): StaffPrincipal => ({ subject, displayName: subject, roles: ["agentic_approver"] });
-const pending = { id: "approval-1", state: "pending" as const, requesterId: "requester", action: "tool.invoke", resourceType: "tool", resourceId: "catalog.health@1", parametersDigest: "a".repeat(64), policyVersion: 1, configurationRevisionId: "revision", expiresAt: "2026-08-15T00:00:00.000Z", version: 1, createdAt: "" };
+const pending = { id: "approval-1", state: "pending" as const, requesterId: "requester", approverScope: "tool_invocation" as const, action: "tool.invoke", resourceType: "tool", resourceId: "catalog.health@1", parametersDigest: "a".repeat(64), policyVersion: 1, configurationRevisionId: "revision", expiresAt: "2026-08-15T00:00:00.000Z", version: 1, createdAt: "" };
 
 describe("ApprovalServiceImpl", () => {
   it("rejects self, expired, and stale decisions before returning a mutation", async () => {
@@ -30,9 +30,18 @@ describe("ApprovalServiceImpl", () => {
     expect(repository.decideApproval).toHaveBeenCalledOnce();
     expect(repository.appendAudit).toHaveBeenCalledOnce();
   });
+
+  it("rejects an approver outside the request's assigned scope", async () => {
+    const outside = { ...pending, approverScope: "governance_configuration" as const };
+    const { service, repository } = harness(outside);
+
+    await expect(service.decide({ approvalId: outside.id, expectedVersion: 1, decision: "approved", reason: "ok" }, principal("approver")))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(repository.decideApproval).not.toHaveBeenCalled();
+  });
 });
 
-function harness(value: typeof pending, decisionResult = true) {
+function harness(value: typeof pending | (Omit<typeof pending, "approverScope"> & { readonly approverScope: "governance_configuration" }), decisionResult = true) {
   const repository = {
     findApproval: vi.fn(async () => value), listApprovals: vi.fn(async () => ({ items: [value], totalItems: 1 })),
     decideApproval: vi.fn(async () => decisionResult), appendAudit: vi.fn(async () => undefined),

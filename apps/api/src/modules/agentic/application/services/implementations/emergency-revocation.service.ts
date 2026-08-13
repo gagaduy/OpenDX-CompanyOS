@@ -66,6 +66,7 @@ export class EmergencyRevocationService {
       const approval = await this.repository.findApproval(session, input.approvalId!);
       if (
         approval === undefined || approval.state !== "approved"
+        || approval.approverScope !== "emergency_revocation"
         || approval.requesterId !== principal.subject || approval.action !== "revocation.create"
         || approval.resourceType !== input.targetType || approval.resourceId !== input.targetId
         || approval.parametersDigest !== parametersDigest(input)
@@ -95,6 +96,7 @@ export class EmergencyRevocationService {
       const at = this.now();
       const approval: ApprovalRequest = {
         id: this.generateId(), state: "pending", requesterId: principal.subject,
+        approverScope: "emergency_revocation",
         action: "revocation.create", resourceType: input.targetType, resourceId: input.targetId,
         parametersDigest: parametersDigest(input),
         policyVersion: active.version, configurationRevisionId: active.id,

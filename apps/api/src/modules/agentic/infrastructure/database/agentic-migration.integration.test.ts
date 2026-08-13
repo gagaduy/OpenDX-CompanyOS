@@ -47,6 +47,7 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("2");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
@@ -58,6 +59,12 @@ suite("Agent governance migration", () => {
     await expect(pool.query(
       "INSERT INTO agentic_agents (kind, keycloak_client_id) VALUES ('catalog', 'agent-inventory')",
     )).rejects.toMatchObject({ code: "23505" });
+    await expect(pool.query(
+      "UPDATE agentic_agents SET keycloak_client_id='agent-forged' WHERE kind='catalog'",
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "DELETE FROM agentic_agents WHERE kind='catalog'",
+    )).rejects.toMatchObject({ code: "P0001" });
 
     const first = "a1500000-0000-4000-8000-000000000001";
     const second = "a1500000-0000-4000-8000-000000000002";
@@ -71,7 +78,7 @@ suite("Agent governance migration", () => {
     )).rejects.toMatchObject({ code: "23505" });
 
     await expect(pool.query(
-      "INSERT INTO agentic_approval_requests (id, state, requester_id, action, resource_type, resource_id, parameters_digest, policy_version, configuration_revision_id, expires_at, decided_by) VALUES (gen_random_uuid(), 'approved', 'same-user', 'configuration.activate', 'configuration_revision', $1::text, $2, 1, $1::uuid, now() + interval '1 hour', 'same-user')",
+      "INSERT INTO agentic_approval_requests (id, state, requester_id, approver_scope, action, resource_type, resource_id, parameters_digest, policy_version, configuration_revision_id, expires_at, decided_by) VALUES (gen_random_uuid(), 'approved', 'same-user', 'governance_configuration', 'configuration.activate', 'configuration_revision', $1::text, $2, 1, $1::uuid, now() + interval '1 hour', 'same-user')",
       [first, "c".repeat(64)],
     )).rejects.toMatchObject({ code: "23514" });
 

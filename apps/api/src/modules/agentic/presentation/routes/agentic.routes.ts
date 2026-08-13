@@ -50,8 +50,8 @@ export function createAgenticRouter(
 
   router.post("/configuration-revisions", authenticate, guard("agentic.configuration.create.denied", governance), controller.createRevision);
   router.post("/configuration-revisions/:revisionId/submit", authenticate, guard("agentic.configuration.submit.denied", governance), controller.submitRevision);
-  router.get("/configuration-revisions/:revisionId/diff", authenticate, guard("agentic.configuration.diff.denied", [...governance, "agentic_approver"]), controller.getRevisionDiff);
-  router.post("/configuration-revisions/:revisionId/decision", authenticate, guard("agentic.configuration.decide.denied", approver), controller.decideRevision);
+  router.get("/configuration-revisions/:revisionId/diff", authenticate, guard("agentic.configuration.diff.denied", governance), controller.getRevisionDiff);
+  router.post("/configuration-revisions/:revisionId/decision", authenticate, guard("agentic.configuration.decide.denied", governance), controller.decideRevision);
   router.patch("/configuration-revisions/:revisionId", authenticate, guard("agentic.configuration.update.denied", governance), controller.updateRevision);
 
   router.post("/revocations", authenticate, guard("agentic.revocation.create.denied", governance), controller.createRevocation);

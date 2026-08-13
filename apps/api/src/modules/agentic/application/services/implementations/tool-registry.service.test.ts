@@ -13,6 +13,7 @@ const digest = "a".repeat(64);
 const request = {
   principal: { subject: "service-account-agent-catalog", clientId: "agent-catalog", agentKind: "catalog" as const },
   taskId: "task-1", toolName: "catalog.health", toolVersion: 1, purpose: "analysis",
+  modelId: "openai/gpt-5-mini",
   dataScope: "catalog:read", dataClassification: "internal", inputSchemaDigest: digest,
   parametersDigest: "b".repeat(64), costMicros: 10, idempotencyKey: "invoke-1",
   correlationId: "corr-1",
@@ -52,9 +53,21 @@ describe("ToolRegistryService", () => {
       .rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
     expect(approval.repository.reserveBudget).not.toHaveBeenCalled();
 
+    const wrongScope = createHarness({ policyEffect: "REQUIRE_APPROVAL", approvalScope: "emergency_revocation" });
+    await expect(wrongScope.service.invoke({ ...request, approvalId: "approval-1" }))
+      .rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
+
     const budget = createHarness({ budgetResult: "exceeded" });
     await expect(budget.service.invoke(request)).rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
     expect(budget.repository.appendProvenance).not.toHaveBeenCalled();
+  });
+
+  it("denies every later authorization that selects a revoked model", async () => {
+    const revoked = createHarness({ revokedTarget: "model" });
+
+    await expect(revoked.service.authorize(request))
+      .rejects.toMatchObject({ code: "POLICY_DENIED" });
+    expect(revoked.repository.reserveBudget).not.toHaveBeenCalled();
   });
 
   it("reserves budget and records provenance/audit before the inert adapter result", async () => {
@@ -78,6 +91,8 @@ function createHarness(options: {
   readonly grantExists?: boolean; readonly grantScope?: string;
   readonly policyEffect?: "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
   readonly approvalValid?: boolean;
+  readonly approvalScope?: "tool_invocation" | "emergency_revocation";
+  readonly revokedTarget?: "agent" | "tool_grant" | "model";
   readonly invocationCount?: number; readonly budgetResult?: "reserved" | "duplicate" | "exceeded";
 } = {}) {
   const repository = {
@@ -86,8 +101,9 @@ function createHarness(options: {
     findRevision: vi.fn(async () => ({ id: "revision-1", state: "active", createdBy: "admin", payloadDigest: digest, version: 4, createdAt: "", updatedAt: "" })),
     findTool: vi.fn(async () => options.toolExists === false ? undefined : ({ name: "catalog.health", version: 1, inputSchemaDigest: digest, outputSchemaDigest: digest, active: true })),
     findToolGrant: vi.fn(async () => options.grantExists === false ? undefined : ({ id: "grant-1", revisionId: "revision-1", agentKind: "catalog", toolName: "catalog.health", toolVersion: 1, purpose: "analysis", dataScope: options.grantScope ?? "catalog:read", maxInvocations: 10 })),
-    findActiveRevocation: vi.fn(async () => undefined),
-    findApproval: vi.fn(async () => options.approvalValid === false ? undefined : ({ id: "approval-1", state: "approved", requesterId: "operator", action: "tool.invoke", resourceType: "tool", resourceId: "catalog.health@1", parametersDigest: request.parametersDigest, taskId: "task-1", policyVersion: 4, configurationRevisionId: "revision-1", expiresAt: "2026-08-15T00:00:00.000Z", version: 2, createdAt: "" })),
+    findModelConfiguration: vi.fn(async () => ({ revisionId: "revision-1", agentKind: "catalog", primaryModel: "openai/gpt-5-mini", fallbackModels: [], maxInputTokens: 1_000, maxOutputTokens: 500, timeoutMs: 5_000, maxRetries: 1 })),
+    findActiveRevocation: vi.fn(async (_session, targetType: string) => targetType === options.revokedTarget ? ({ id: "revoked" }) : undefined),
+    findApproval: vi.fn(async () => options.approvalValid === false ? undefined : ({ id: "approval-1", state: "approved", requesterId: "operator", approverScope: options.approvalScope ?? "tool_invocation", action: "tool.invoke", resourceType: "tool", resourceId: "catalog.health@1", parametersDigest: request.parametersDigest, taskId: "task-1", policyVersion: 4, configurationRevisionId: "revision-1", expiresAt: "2026-08-15T00:00:00.000Z", version: 2, createdAt: "" })),
     countToolInvocations: vi.fn(async () => options.invocationCount ?? 0),
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved" as const), appendAudit: vi.fn(async () => undefined),
     appendProvenance: vi.fn(async () => undefined),
@@ -98,7 +114,7 @@ function createHarness(options: {
   };
   let id = 0;
   const service = new ToolRegistryService(
-    repository as unknown as Pick<AgenticRepository, "findAgentByClientId" | "findTaskForAgent" | "findRevision" | "findTool" | "findToolGrant" | "findActiveRevocation" | "findApproval" | "reserveBudget" | "appendAudit" | "appendProvenance" | "countToolInvocations">,
+    repository as unknown as Pick<AgenticRepository, "findAgentByClientId" | "findTaskForAgent" | "findRevision" | "findTool" | "findToolGrant" | "findModelConfiguration" | "findActiveRevocation" | "findApproval" | "reserveBudget" | "appendAudit" | "appendProvenance" | "countToolInvocations">,
     policy as unknown as PolicyEvaluator, transactions, () => `id-${++id}`,
     () => "2026-08-14T12:00:00.000Z",
   );

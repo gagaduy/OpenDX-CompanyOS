@@ -95,6 +95,15 @@ describe("API route audiences", () => {
     await request(supportApp).get("/v1/admin/support").expect(404);
   });
 
+  it("mounts Agent governance exactly below the Console-only staff prefix", async () => {
+    const agentic = Router().get("/employees", (_request, response) => response.json({ audience: "agentic" }));
+    const agenticApp = createApiApp({ consoleOrigin, storefrontOrigin, agenticAdminRouter: agentic });
+    const allowed = await request(agenticApp).get("/v1/admin/agentic/employees").set("Origin", consoleOrigin).expect(200);
+    expect(allowed.headers["access-control-allow-origin"]).toBe(consoleOrigin);
+    expect((await request(agenticApp).get("/v1/admin/agentic/employees").set("Origin", storefrontOrigin)).headers["access-control-allow-origin"]).toBeUndefined();
+    await request(agenticApp).get("/v1/admin/agents/employees").expect(404);
+  });
+
   it("applies the configured JSON body limit", async () => {
     const limitedApp = createApiApp({ jsonBodyLimit: "10b" });
 

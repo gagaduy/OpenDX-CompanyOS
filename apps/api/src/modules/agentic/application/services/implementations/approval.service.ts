@@ -23,9 +23,13 @@ export class ApprovalServiceImpl implements ApprovalService {
     if (!canApprove(principal) && !principal.roles.includes("agentic_operator") && !principal.roles.includes("agentic_governance_admin")) {
       fail("FORBIDDEN", "Approval access is not permitted");
     }
-    const requesterId = canApprove(principal) ? undefined : principal.subject;
+    const filter = principal.roles.includes("administrator")
+      ? undefined
+      : canApprove(principal)
+        ? { approverScopes: assignedScopes(principal) }
+        : { requesterId: principal.subject };
     return this.transactions.runReadOnly((session) =>
-      this.repository.listApprovals(session, query.page, query.pageSize, requesterId));
+      this.repository.listApprovals(session, query.page, query.pageSize, filter));
   }
 
   async get(id: string, principal: StaffPrincipal): Promise<ApprovalRequest> {
@@ -35,6 +39,7 @@ export class ApprovalServiceImpl implements ApprovalService {
     return this.transactions.runReadOnly(async (session) => {
       const approval = await this.requireApproval(session, id);
       if (!canApprove(principal) && approval.requesterId !== principal.subject) fail("FORBIDDEN", "Approval is outside the caller scope");
+      if (canApprove(principal) && !isWithinScope(approval, principal)) fail("FORBIDDEN", "Approval is outside the caller scope");
       return approval;
     });
   }
@@ -43,6 +48,7 @@ export class ApprovalServiceImpl implements ApprovalService {
     if (!canApprove(principal)) fail("FORBIDDEN", "Approval role is required");
     return this.transactions.run(async (session) => {
       const current = await this.requireApproval(session, input.approvalId);
+      if (!isWithinScope(current, principal)) fail("FORBIDDEN", "Approval is outside the caller scope");
       if (current.version !== input.expectedVersion) fail("STALE_VERSION", "Approval version is stale");
       const at = this.now();
       const next = transitionApproval(current, {
@@ -69,5 +75,13 @@ export class ApprovalServiceImpl implements ApprovalService {
 
 function canApprove(principal: StaffPrincipal): boolean {
   return principal.roles.includes("administrator") || principal.roles.includes("agentic_approver");
+}
+function assignedScopes(principal: StaffPrincipal): readonly ApprovalRequest["approverScope"][] {
+  return principal.roles.includes("agentic_approver")
+    ? ["tool_invocation", "emergency_revocation"]
+    : [];
+}
+function isWithinScope(approval: ApprovalRequest, principal: StaffPrincipal): boolean {
+  return principal.roles.includes("administrator") || assignedScopes(principal).includes(approval.approverScope);
 }
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }

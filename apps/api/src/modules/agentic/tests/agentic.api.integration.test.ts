@@ -22,7 +22,8 @@ suite("Agentic PostgreSQL admin API", () => {
   const transactions = new PostgresTransactionRunner(pool);
   const verifier = {
     async verify(token: string) {
-      return { sub: `staff-${token}`, name: token, realm_access: { roles: [token] } };
+      const [role, subject = role] = token.split(":");
+      return { sub: `staff-${subject}`, name: subject, realm_access: { roles: [role] } };
     },
   };
   const agentic = createAgenticModule({ transactions, staffTokenVerifier: verifier, generateId: randomUUID, now: () => "2026-08-14T12:00:00.000Z" });
@@ -48,9 +49,12 @@ suite("Agentic PostgreSQL admin API", () => {
     const authorization = { authorization: "Bearer agentic_operator" };
     const created = await request(app).post("/v1/admin/agentic/tasks").set(authorization).send({
       goal: "Review inventory", instructions: "Use evidence",
+      provenance: { sourceType: "staff_intake", sourceId: "operator", sourceDigest: "a".repeat(64), classification: "internal" },
       subtasks: [{ agentKind: "inventory", title: "Inspect stock" }], dependencies: [],
     }).expect(201);
     const taskId = created.body.data.task.id as string;
+    expect((await pool.query("SELECT source_type,source_id,classification,recorded_by FROM agentic_provenance_records WHERE task_id=$1", [taskId])).rows)
+      .toEqual([{ source_type: "staff_intake", source_id: "operator", classification: "internal", recorded_by: "staff-agentic_operator" }]);
     await request(app).get(`/v1/admin/agentic/tasks/${taskId}`).set(authorization).expect(200);
     await request(app).get(`/v1/admin/agentic/tasks/${taskId}`).set("authorization", "Bearer administrator").expect(200);
     await request(app).get("/v1/admin/agentic/tasks").set("authorization", "Bearer agentic_auditor").expect(403);
@@ -64,5 +68,23 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(JSON.stringify(denied.body)).not.toContain("instructions");
     expect((await pool.query("SELECT action,outcome FROM agentic_audit_events")).rows)
       .toEqual([{ action: "agentic.task.list.denied", outcome: "denied" }]);
+  });
+
+  it("shows the exact configuration diff and enforces a different Governance Admin", async () => {
+    const children = { policies: [], toolGrants: [], modelConfigurations: [], budgetLimits: [] };
+    const created = await request(app).post("/v1/admin/agentic/configuration-revisions")
+      .set("authorization", "Bearer agentic_governance_admin:creator").send({ children }).expect(201);
+    const revisionId = created.body.data.id as string;
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/submit`)
+      .set("authorization", "Bearer agentic_governance_admin:creator").send({ expectedVersion: 1 }).expect(200);
+    const diff = await request(app).get(`/v1/admin/agentic/configuration-revisions/${revisionId}/diff`)
+      .set("authorization", "Bearer agentic_governance_admin:reviewer").expect(200);
+    expect(diff.body.data).toMatchObject({ revisionId, changed: true, candidate: children });
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/decision`)
+      .set("authorization", "Bearer agentic_governance_admin:creator")
+      .send({ expectedVersion: 2, decision: "activate" }).expect(403);
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/decision`)
+      .set("authorization", "Bearer agentic_governance_admin:reviewer")
+      .send({ expectedVersion: 2, decision: "activate" }).expect(200);
   });
 });

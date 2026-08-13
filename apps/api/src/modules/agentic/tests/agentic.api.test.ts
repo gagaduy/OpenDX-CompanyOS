@@ -10,15 +10,16 @@ import { createAgenticRouter } from "../presentation/routes/agentic.routes";
 import { parseCreateTask, parseDecision, parsePage } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
+  const provenance = { sourceType: "staff_intake", sourceId: "user", sourceDigest: "a".repeat(64), classification: "internal" };
   it("rejects unknown fields, invalid UUID/version, bounds, and unsafe budgets", () => {
-    expect(() => parseCreateTask({ goal: "g", instructions: "i", subtasks: [], dependencies: [], extra: true })).toThrow();
-    expect(() => parseCreateTask({ goal: "x".repeat(501), instructions: "i", subtasks: [], dependencies: [] })).toThrow();
+    expect(() => parseCreateTask({ goal: "g", instructions: "i", provenance, subtasks: [], dependencies: [], extra: true })).toThrow();
+    expect(() => parseCreateTask({ goal: "x".repeat(501), instructions: "i", provenance, subtasks: [], dependencies: [] })).toThrow();
     expect(() => parseDecision({ expectedVersion: 0, decision: "approved", reason: "ok" })).toThrow();
     expect(() => parsePage({ page: "1", pageSize: "101" })).toThrow();
   });
 
   it("normalizes strict valid task and decision input", () => {
-    expect(parseCreateTask({ goal: "  Review  ", instructions: "Evidence", subtasks: [], dependencies: [] }).goal).toBe("Review");
+    expect(parseCreateTask({ goal: "  Review  ", instructions: "Evidence", provenance, subtasks: [], dependencies: [] }).goal).toBe("Review");
     expect(parseDecision({ expectedVersion: 1, decision: "approved", reason: "Valid" }))
       .toEqual({ expectedVersion: 1, decision: "approved", reason: "Valid" });
   });

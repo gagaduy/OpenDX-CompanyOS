@@ -11,7 +11,11 @@ import { AgentTaskServiceImpl } from "./agent-task.service";
 const session = {} as DatabaseSession;
 const tx: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
 const operator = (subject = "operator"): StaffPrincipal => ({ subject, displayName: subject, roles: ["agentic_operator"] });
-const input = { goal: "Review inventory", instructions: "Use approved evidence only", subtasks: [{ id: "subtask-1", agentKind: "inventory" as const, title: "Inspect stock" }], dependencies: [] };
+const input = {
+  goal: "Review inventory", instructions: "Use approved evidence only",
+  provenance: { sourceType: "staff_intake", sourceId: "operator", sourceDigest: "a".repeat(64), classification: "internal" },
+  subtasks: [{ id: "subtask-1", agentKind: "inventory" as const, title: "Inspect stock" }], dependencies: [],
+};
 const draft: AgentTask = { id: "task-1", state: "draft", createdBy: "operator", goal: input.goal, instructions: input.instructions, version: 1, createdAt: "2026-08-14T12:00:00.000Z", updatedAt: "2026-08-14T12:00:00.000Z" };
 
 describe("AgentTaskServiceImpl", () => {
@@ -19,6 +23,10 @@ describe("AgentTaskServiceImpl", () => {
     const { service, repository } = harness();
     await expect(service.create(input, operator())).resolves.toMatchObject({ task: { state: "draft", createdBy: "operator" } });
     expect(repository.replaceTaskGraph).toHaveBeenCalledOnce();
+    expect(repository.appendProvenance).toHaveBeenCalledWith(session, expect.objectContaining({
+      taskId: "00000000-0000-4000-8000-000000000001",
+      sourceType: "staff_intake", sourceId: "operator", recordedBy: "operator",
+    }));
     expect(repository.appendAudit).toHaveBeenCalledOnce();
     await expect(service.create({ ...input, goal: "x".repeat(501) }, operator()))
       .rejects.toMatchObject({ code: "TASK_INPUT_INVALID" });
@@ -63,7 +71,7 @@ function harness(options: { readonly task?: typeof draft; readonly activeRevisio
     listTaskGraph: vi.fn(async () => ({ subtasks: [], dependencies: [] })),
     listTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
     listAllTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
-    appendAudit: vi.fn(async () => undefined),
+    appendAudit: vi.fn(async () => undefined), appendProvenance: vi.fn(async () => undefined),
   };
   let id = 0;
   const service = new AgentTaskServiceImpl(repository as unknown as AgenticRepository, tx,

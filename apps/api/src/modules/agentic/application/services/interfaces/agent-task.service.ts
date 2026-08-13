@@ -6,8 +6,10 @@ import type { AgentKind } from "../../../domain/entities/agent-profile";
 import type { AgentTask, AgentSubtaskDependency } from "../../../domain/entities/agent-task";
 
 export interface AgentSubtaskInput { readonly id?: string; readonly agentKind: AgentKind; readonly title: string }
-export interface CreateAgentTaskInput { readonly goal: string; readonly instructions: string; readonly deadline?: string; readonly subtasks: readonly AgentSubtaskInput[]; readonly dependencies: readonly AgentSubtaskDependency[] }
-export interface UpdateAgentTaskInput extends CreateAgentTaskInput { readonly taskId: string; readonly expectedVersion: number }
+export interface TaskIntakeProvenanceInput { readonly sourceType: string; readonly sourceId: string; readonly sourceDigest: string; readonly classification: string }
+export interface AgentTaskDraftInput { readonly goal: string; readonly instructions: string; readonly deadline?: string; readonly subtasks: readonly AgentSubtaskInput[]; readonly dependencies: readonly AgentSubtaskDependency[] }
+export interface CreateAgentTaskInput extends AgentTaskDraftInput { readonly provenance: TaskIntakeProvenanceInput }
+export interface UpdateAgentTaskInput extends AgentTaskDraftInput { readonly taskId: string; readonly expectedVersion: number }
 export interface ReadyAgentTaskInput { readonly taskId: string; readonly expectedVersion: number }
 export interface CancelAgentTaskInput { readonly taskId: string; readonly expectedVersion: number }
 export interface AgentTaskQuery { readonly page: number; readonly pageSize: number }

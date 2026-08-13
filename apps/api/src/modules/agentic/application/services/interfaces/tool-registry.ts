@@ -9,6 +9,7 @@ export interface ToolAuthorizationRequest {
   readonly taskId: string;
   readonly toolName: string;
   readonly toolVersion: number;
+  readonly modelId: string;
   readonly purpose: string;
   readonly department?: string;
   readonly dataScope: string;

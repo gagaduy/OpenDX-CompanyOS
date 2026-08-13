@@ -15,7 +15,7 @@ import type {
 
 type ConfigurationRepository = Pick<AgenticRepository,
   | "createRevision" | "findRevision" | "findActiveRevision" | "updateRevision"
-  | "replaceRevisionChildren" | "activateRevision" | "rejectRevision" | "appendAudit">;
+  | "replaceRevisionChildren" | "getRevisionChildren" | "activateRevision" | "rejectRevision" | "appendAudit">;
 
 export class ConfigurationServiceImpl implements ConfigurationService {
   constructor(
@@ -76,7 +76,7 @@ export class ConfigurationServiceImpl implements ConfigurationService {
   }
 
   async decide(input: DecideConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision> {
-    requireRole(principal, "agentic_approver", "administrator");
+    requireRole(principal, "agentic_governance_admin", "administrator");
     return this.transactions.run(async (session) => {
       const current = await this.requireRevision(session, input.revisionId);
       if (current.version !== input.expectedVersion) fail("STALE_VERSION", "Configuration version is stale");
@@ -94,14 +94,20 @@ export class ConfigurationServiceImpl implements ConfigurationService {
   }
 
   async getDiff(revisionId: string, principal: StaffPrincipal): Promise<ConfigurationDiff> {
-    requireRole(principal, "agentic_governance_admin", "agentic_approver", "administrator");
+    requireRole(principal, "agentic_governance_admin", "administrator");
     return this.transactions.runReadOnly(async (session) => {
       const revision = await this.requireRevision(session, revisionId);
       const active = await this.repository.findActiveRevision(session);
+      const candidate = await this.repository.getRevisionChildren(session, revision.id);
+      const activeChildren = active === undefined
+        ? undefined
+        : await this.repository.getRevisionChildren(session, active.id);
       return {
         revisionId,
         ...(active === undefined ? {} : { activeRevisionId: active.id }),
         changed: active?.payloadDigest !== revision.payloadDigest,
+        ...(activeChildren === undefined ? {} : { active: activeChildren }),
+        candidate,
       };
     });
   }

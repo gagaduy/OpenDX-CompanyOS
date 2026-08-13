@@ -267,6 +267,7 @@ function approval(overrides: Partial<ApprovalRequest> = {}): ApprovalRequest {
     id: "approval-1",
     state: "pending",
     requesterId: "requester-a",
+    approverScope: "governance_configuration",
     action: "configuration.activate",
     resourceType: "configuration_revision",
     resourceId: "revision-1",

@@ -4,7 +4,7 @@
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { AgentKind, AgentProfile } from "../../../domain/entities/agent-profile";
 import type { AgentTask } from "../../../domain/entities/agent-task";
-import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/approval-request";
+import type { ApprovalRequest, ApprovalState, ApproverScope } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
 
@@ -107,6 +107,19 @@ export interface ProvenanceRecord {
   readonly recordedAt: string;
 }
 
+export interface AuditFilter {
+  readonly limit: number;
+  readonly actorId?: string;
+  readonly action?: string;
+  readonly outcome?: AuditEventRecord["outcome"];
+  readonly resourceTypes?: readonly string[];
+}
+
+export interface ApprovalListFilter {
+  readonly requesterId?: string;
+  readonly approverScopes?: readonly ApproverScope[];
+}
+
 export interface BudgetReservationInput {
   readonly id: string;
   readonly revisionId: string;
@@ -159,6 +172,7 @@ export interface AgenticRepository {
   findActiveRevision(session: DatabaseSession): Promise<ConfigurationRevision | undefined>;
   updateRevision(session: DatabaseSession, revision: ConfigurationRevision, expectedVersion: number): Promise<boolean>;
   replaceRevisionChildren(session: DatabaseSession, revisionId: string, children: RevisionChildren): Promise<boolean>;
+  getRevisionChildren(session: DatabaseSession, revisionId: string): Promise<RevisionChildren>;
   activateRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, decidedAt: string): Promise<boolean>;
   rejectRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   listPolicies(session: DatabaseSession, revisionId: string): Promise<readonly PolicyRecord[]>;
@@ -169,7 +183,7 @@ export interface AgenticRepository {
   findBudgetLimit(session: DatabaseSession, revisionId: string, agentKind: AgentKind): Promise<BudgetLimitRecord | undefined>;
   createApproval(session: DatabaseSession, approval: ApprovalRequest): Promise<void>;
   findApproval(session: DatabaseSession, approvalId: string): Promise<ApprovalRequest | undefined>;
-  listApprovals(session: DatabaseSession, page: number, pageSize: number, requesterId?: string): Promise<{ readonly items: readonly ApprovalRequest[]; readonly totalItems: number }>;
+  listApprovals(session: DatabaseSession, page: number, pageSize: number, filter?: ApprovalListFilter): Promise<{ readonly items: readonly ApprovalRequest[]; readonly totalItems: number }>;
   decideApproval(session: DatabaseSession, approvalId: string, expectedVersion: number, state: Exclude<ApprovalState, "pending">, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   createRevocation(session: DatabaseSession, revocation: RevocationRecord): Promise<"created" | "duplicate">;
   findActiveRevocation(session: DatabaseSession, targetType: RevocationRecord["targetType"], targetId: string): Promise<RevocationRecord | undefined>;
@@ -177,7 +191,7 @@ export interface AgenticRepository {
   settleBudget(session: DatabaseSession, input: BudgetSettlementInput): Promise<"settled" | "duplicate" | "stale">;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
   countToolInvocations(session: DatabaseSession, taskId: string, actorId: string, resourceId: string): Promise<number>;
-  listAudit(session: DatabaseSession, limit: number): Promise<readonly AuditEventRecord[]>;
+  listAudit(session: DatabaseSession, filter: AuditFilter): Promise<readonly AuditEventRecord[]>;
   appendProvenance(session: DatabaseSession, record: ProvenanceRecord): Promise<void>;
   listProvenance(session: DatabaseSession, taskId: string): Promise<readonly ProvenanceRecord[]>;
 }

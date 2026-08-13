@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Harden Agent governance with immutable identities, assigned approval scopes,
+  exact configuration diffs, intake provenance, filtered audit, and model revocation.
+- Document Phase A Agent governance architecture, staff API, migration order,
+  source validation, current non-executing scope, and roadmap completion.
 - Add the authenticated `/v1/admin/agentic` staff API with strict validators,
   backend role enforcement, denied-access audit, and PostgreSQL composition.
 - Add owner-scoped, non-executing Agent task intake with validated dependency

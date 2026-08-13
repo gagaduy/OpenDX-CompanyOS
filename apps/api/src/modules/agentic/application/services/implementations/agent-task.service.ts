@@ -17,7 +17,7 @@ import type {
 type TaskRepository = Pick<AgenticRepository,
   | "createTask" | "findTask" | "findTaskById" | "findTaskForApproval" | "listTasks"
   | "listAllTasks" | "updateTask" | "replaceTaskGraph" | "listTaskGraph"
-  | "findActiveRevision" | "appendAudit">;
+  | "findActiveRevision" | "appendAudit" | "appendProvenance">;
 
 interface PreparedGraph {
   readonly taskId: string;
@@ -50,6 +50,12 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       if (!await this.repository.replaceTaskGraph(session, task.id, principal.subject, storedGraph.subtasks, storedGraph.dependencies)) {
         fail("TASK_STATE_INVALID", "Task graph could not be stored");
       }
+      await this.repository.appendProvenance(session, {
+        id: this.generateId(), taskId: task.id,
+        sourceType: input.provenance.sourceType.trim(), sourceId: input.provenance.sourceId.trim(),
+        sourceDigest: input.provenance.sourceDigest, classification: input.provenance.classification.trim(),
+        recordedBy: principal.subject, recordedAt: at,
+      });
       await this.audit(session, principal, task.id, "task.create", at);
       return detail(task, storedGraph);
     });
@@ -128,7 +134,7 @@ export class AgentTaskServiceImpl implements AgentTaskService {
     return this.transactions.runReadOnly((session) => this.repository.listTasks(session, principal.subject, query.page, query.pageSize));
   }
 
-  private prepareGraph(input: CreateAgentTaskInput, taskId: string): PreparedGraph {
+  private prepareGraph(input: Pick<CreateAgentTaskInput, "subtasks" | "dependencies">, taskId: string): PreparedGraph {
     const subtasks = input.subtasks.map((subtask) => ({ ...subtask, id: subtask.id ?? this.generateId() }));
     assertAcyclicDependencies(subtasks.map(({ id }) => id), input.dependencies);
     return { taskId, subtasks, dependencies: input.dependencies };
@@ -174,13 +180,19 @@ function detail(task: AgentTask, graph: { readonly subtasks: readonly { readonly
   };
 }
 
-function assertInput(input: CreateAgentTaskInput, now: string): void {
+function assertInput(input: CreateAgentTaskInput | UpdateAgentTaskInput, now: string): void {
   if (
     input.goal.trim().length === 0 || input.goal.trim().length > 500
     || input.instructions.length === 0 || input.instructions.length > 8000
     || input.subtasks.some(({ title }) => title.trim().length === 0 || title.trim().length > 500)
     || (input.deadline !== undefined && (!Number.isFinite(Date.parse(input.deadline)) || Date.parse(input.deadline) <= Date.parse(now)))
   ) fail("TASK_INPUT_INVALID", "Task input is invalid");
+  if ("provenance" in input && (
+    input.provenance.sourceType.trim().length === 0 || input.provenance.sourceType.length > 100
+    || input.provenance.sourceId.trim().length === 0 || input.provenance.sourceId.length > 255
+    || !/^[a-f0-9]{64}$/.test(input.provenance.sourceDigest)
+    || input.provenance.classification.trim().length === 0 || input.provenance.classification.length > 100
+  )) fail("TASK_INPUT_INVALID", "Task provenance is invalid");
 }
 
 function assertVersion(task: AgentTask, expectedVersion: number): void {

@@ -14,12 +14,17 @@ const page = z.object({
 }).strict();
 const subtask = z.object({ id: uuid.optional(), agentKind, title: z.string().trim().min(1).max(500) }).strict();
 const dependency = z.object({ from: uuid, to: uuid }).strict();
-const task = z.object({
+const intakeProvenance = z.object({
+  sourceType: z.string().trim().min(1).max(100), sourceId: z.string().trim().min(1).max(255),
+  sourceDigest: digest, classification: z.string().trim().min(1).max(100),
+}).strict();
+const taskContent = z.object({
   goal: z.string().trim().min(1).max(500), instructions: z.string().min(1).max(8_000),
   deadline: z.iso.datetime({ offset: true }).optional(),
   subtasks: z.array(subtask).max(100), dependencies: z.array(dependency).max(500),
 }).strict();
-const taskUpdate = task.extend({ expectedVersion: positiveVersion }).strict();
+const task = taskContent.extend({ provenance: intakeProvenance }).strict();
+const taskUpdate = taskContent.extend({ expectedVersion: positiveVersion }).strict();
 const expectedVersion = z.object({ expectedVersion: positiveVersion }).strict();
 const approvalDecision = z.object({
   expectedVersion: positiveVersion,
@@ -73,7 +78,12 @@ const revocation = z.object({
   targetId: z.string().trim().min(1).max(255), reason: z.string().trim().min(1).max(1_000),
   idempotencyKey: z.string().trim().min(1).max(255), approvalId: uuid.optional(),
 }).strict();
-const auditQuery = z.object({ limit: z.coerce.number().int().positive().max(100).default(50) }).strict();
+const auditQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  actorId: z.string().trim().min(1).max(255).optional(),
+  action: z.string().trim().min(1).max(255).optional(),
+  outcome: z.enum(["allowed", "denied", "failed"]).optional(),
+}).strict();
 
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);

@@ -130,6 +130,13 @@ suite("PostgresqlAgenticRepository", () => {
       createdAt: "2026-08-14T00:00:00.000Z", updatedAt: "2026-08-14T00:00:00.000Z",
     };
     await transactions.run((session) => repository.createRevision(session, draft));
+    const policyId = randomUUID();
+    await expect(transactions.run((session) => repository.replaceRevisionChildren(session, revisionId, {
+      policies: [{ id: policyId, revisionId, ruleOrder: 1, effect: "DENY", actorType: "agent", resource: "catalog", action: "write", purpose: "analysis", dataClassification: "internal", reasonCode: "read-only" }],
+      toolGrants: [], modelConfigurations: [], budgetLimits: [],
+    }))).resolves.toBe(true);
+    await expect(transactions.runReadOnly((session) => repository.getRevisionChildren(session, revisionId)))
+      .resolves.toMatchObject({ policies: [{ id: policyId, reasonCode: "read-only" }] });
     await expect(transactions.run((session) => repository.updateRevision(session, {
       ...draft, state: "pending_approval", version: 2,
       updatedAt: "2026-08-14T01:00:00.000Z",
@@ -148,8 +155,8 @@ suite("PostgresqlAgenticRepository", () => {
     const approvalId = randomUUID();
     await pool.query("INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)", [revisionId, "d".repeat(64)]);
     await pool.query(`INSERT INTO agentic_approval_requests
-      (id,state,requester_id,action,resource_type,resource_id,parameters_digest,policy_version,configuration_revision_id,expires_at)
-      VALUES($1,'pending','requester-a','tool.invoke','tool','catalog.health',$2,1,$3,'2026-08-15T00:00:00.000Z')`,
+      (id,state,requester_id,approver_scope,action,resource_type,resource_id,parameters_digest,policy_version,configuration_revision_id,expires_at)
+      VALUES($1,'pending','requester-a','tool_invocation','tool.invoke','tool','catalog.health',$2,1,$3,'2026-08-15T00:00:00.000Z')`,
       [approvalId, "e".repeat(64), revisionId]);
 
     const results = await Promise.all([
@@ -217,8 +224,10 @@ suite("PostgresqlAgenticRepository", () => {
         idempotencyKey: "revoke-catalog",
       });
     });
-    expect(await transactions.runReadOnly((session) => repository.listAudit(session, 10)))
+    expect(await transactions.runReadOnly((session) => repository.listAudit(session, { limit: 10 })))
       .toHaveLength(1);
+    expect(await transactions.runReadOnly((session) => repository.listAudit(session, { limit: 10, actorId: "someone-else" })))
+      .toHaveLength(0);
     expect(await transactions.runReadOnly((session) => repository.listProvenance(session, taskId)))
       .toHaveLength(1);
     expect(await transactions.runReadOnly((session) => repository.findActiveRevocation(session, "agent", "catalog")))

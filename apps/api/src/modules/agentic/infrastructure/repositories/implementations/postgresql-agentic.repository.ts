@@ -6,6 +6,8 @@ import type {
   AgenticRepository,
   AgentSubtaskDependencyRecord,
   AgentSubtaskRecord,
+  ApprovalListFilter,
+  AuditFilter,
   AuditEventRecord,
   BudgetLimitRecord,
   BudgetReservationInput,
@@ -271,6 +273,32 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return true;
   }
 
+  async getRevisionChildren(
+    session: DatabaseSession,
+    revisionId: string,
+  ): Promise<RevisionChildren> {
+    const policies = await session.query<Row>(
+      "SELECT * FROM agentic_policies WHERE revision_id=$1 ORDER BY rule_order,id", [revisionId],
+    );
+    const grants = await session.query<Row>(
+      "SELECT * FROM agentic_tool_grants WHERE revision_id=$1 ORDER BY agent_kind,tool_name,tool_version,purpose,data_scope,id", [revisionId],
+    );
+    const models = await session.query<Row>(`SELECT c.*,COALESCE(array_agg(f.model ORDER BY f.position)
+        FILTER (WHERE f.model IS NOT NULL),'{}') fallback_models
+        FROM agentic_model_configs c LEFT JOIN agentic_model_fallbacks f
+          ON f.revision_id=c.revision_id AND f.agent_kind=c.agent_kind
+        WHERE c.revision_id=$1 GROUP BY c.revision_id,c.agent_kind ORDER BY c.agent_kind`, [revisionId]);
+    const budgets = await session.query<Row>(
+      "SELECT * FROM agentic_budget_limits WHERE revision_id=$1 ORDER BY agent_kind", [revisionId],
+    );
+    return {
+      policies: policies.rows.map(mapPolicy),
+      toolGrants: grants.rows.map(mapToolGrant),
+      modelConfigurations: models.rows.map(mapModelConfiguration),
+      budgetLimits: budgets.rows.map(mapBudgetLimit),
+    };
+  }
+
   async activateRevision(
     session: DatabaseSession,
     revisionId: string,
@@ -404,11 +432,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<void> {
     await session.query(
       `INSERT INTO agentic_approval_requests
-       (id,state,requester_id,action,resource_type,resource_id,parameters_digest,
+       (id,state,requester_id,approver_scope,action,resource_type,resource_id,parameters_digest,
         task_id,policy_version,workflow_version,configuration_revision_id,expires_at,
         decided_by,decision_reason,decided_at,version,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [approval.id, approval.state, approval.requesterId, approval.action,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [approval.id, approval.state, approval.requesterId, approval.approverScope, approval.action,
         approval.resourceType, approval.resourceId, approval.parametersDigest,
         approval.taskId ?? null, approval.policyVersion, approval.workflowVersion ?? null,
         approval.configurationRevisionId, approval.expiresAt, approval.decidedBy ?? null,
@@ -432,10 +460,19 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     session: DatabaseSession,
     page: number,
     pageSize: number,
-    requesterId?: string,
+    filter?: ApprovalListFilter,
   ): Promise<{ readonly items: readonly ApprovalRequest[]; readonly totalItems: number }> {
-    const where = requesterId === undefined ? "TRUE" : "requester_id=$1";
-    const values: unknown[] = requesterId === undefined ? [] : [requesterId];
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    if (filter?.requesterId !== undefined) {
+      values.push(filter.requesterId);
+      conditions.push(`requester_id=$${values.length}`);
+    }
+    if (filter?.approverScopes !== undefined) {
+      values.push(filter.approverScopes);
+      conditions.push(`approver_scope=ANY($${values.length}::text[])`);
+    }
+    const where = conditions.length === 0 ? "TRUE" : conditions.join(" AND ");
     const count = await session.query<{ total: string }>(
       `SELECT count(*)::text total FROM agentic_approval_requests WHERE ${where}`,
       values,
@@ -594,11 +631,23 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
 
   async listAudit(
     session: DatabaseSession,
-    limit: number,
+    filter: AuditFilter,
   ): Promise<readonly AuditEventRecord[]> {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    const add = (condition: string, value: unknown): void => {
+      values.push(value);
+      conditions.push(condition.replace("?", `$${values.length}`));
+    };
+    if (filter.actorId !== undefined) add("actor_id=?", filter.actorId);
+    if (filter.action !== undefined) add("action=?", filter.action);
+    if (filter.outcome !== undefined) add("outcome=?", filter.outcome);
+    if (filter.resourceTypes !== undefined) add("resource_type=ANY(?::text[])", filter.resourceTypes);
+    values.push(filter.limit);
     const result = await session.query<Row>(
-      "SELECT * FROM agentic_audit_events ORDER BY occurred_at DESC,id LIMIT $1",
-      [limit],
+      `SELECT * FROM agentic_audit_events${conditions.length === 0 ? "" : ` WHERE ${conditions.join(" AND ")}`}
+       ORDER BY occurred_at DESC,id LIMIT $${values.length}`,
+      values,
     );
     return result.rows.map(mapAudit);
   }
@@ -788,7 +837,7 @@ function mapBudgetLimit(row: Row): BudgetLimitRecord {
 function mapApproval(row: Row): ApprovalRequest {
   return {
     id: String(row.id), state: row.state as ApprovalState,
-    requesterId: String(row.requester_id), action: String(row.action),
+    requesterId: String(row.requester_id), approverScope: row.approver_scope as ApprovalRequest["approverScope"], action: String(row.action),
     resourceType: String(row.resource_type), resourceId: String(row.resource_id),
     parametersDigest: String(row.parameters_digest), policyVersion: Number(row.policy_version),
     configurationRevisionId: String(row.configuration_revision_id),

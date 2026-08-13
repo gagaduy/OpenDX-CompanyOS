@@ -76,7 +76,7 @@ export class AgenticController {
     response.status(201).json(successResponse("Revocation request accepted", await this.revocations.request({ ...parseRevocation(request.body), correlationId: String(response.locals.correlationId) }, principal(response.locals))));
   });
   readonly listAudit = handle(async (request, response) => {
-    response.json(successResponse("Agent audit retrieved", await this.queries.listAudit(parseAuditQuery(request.query).limit)));
+    response.json(successResponse("Agent audit retrieved", await this.queries.listAudit(parseAuditQuery(request.query), principal(response.locals))));
   });
 }
 
