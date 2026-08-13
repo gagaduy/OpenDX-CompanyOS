@@ -34,7 +34,7 @@ export function CustomerTimeline({ view }: { readonly view: Customer360View }) {
   ].sort((left, right) => left.at.localeCompare(right.at));
 
   return (
-    <section className="detailCard">
+    <section className="detailCard" aria-label="Customer timeline">
       <h2>Timeline</h2>
       <ol className="timelineList">
         {entries.map((entry, index) => (

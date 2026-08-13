@@ -45,6 +45,9 @@ describe("CustomerDetailPage", () => {
     renderDetail(api);
 
     expect(await screen.findByRole("heading", { name: "Nguyễn Phương" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Customer summary" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Follow-ups" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Customer timeline" })).toBeVisible();
     expect(screen.getByText("buyer@example.com")).toBeVisible();
     expect(screen.getByText("1 Nguyễn Huệ")).toBeVisible();
     expect(screen.getByText("Repeat customer")).toBeVisible();

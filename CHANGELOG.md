@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign Customer operations as an accessible searchable list and a
+  three-region Customer 360 workspace while preserving URL-backed segments
+  and optimistic follow-up claiming.
 - Redesign Order and SePay Payment operations with accessible dense tables,
   immutable evidence timelines, side snapshots, confirmed unpaid-order
   cancellation, and truthful disabled receipt/export controls.

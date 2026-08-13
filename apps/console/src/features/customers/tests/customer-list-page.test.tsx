@@ -42,6 +42,8 @@ describe("CustomerListPage", () => {
     }, expect.any(AbortSignal));
     expect(screen.getByText("buyer@example.com")).toBeVisible();
     expect(screen.getByText("Nguyễn Phương với tên rất dài cần xuống dòng")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Customer filters" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Customers" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open customer 360/i })).toHaveAttribute(
       "href",
