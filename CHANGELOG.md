@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign the executive Dashboard around authoritative commerce aggregates,
+  explicit unavailable-chart placeholders, and operational focus, and label
+  every Company Overview capability with a truthful delivery state.
 - Redesign Support operations with a ticket-creation drawer, accessible queue
   and evidence regions, clean-only attachment downloads, and a retryable real
   customer reply composer while future internal notes remain disabled.

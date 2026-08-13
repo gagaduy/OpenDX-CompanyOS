@@ -35,6 +35,13 @@ describe("DashboardPage", () => {
     expect(screen.getByText("12,5%")).toBeVisible();
     expect(screen.getByText("Laptop kỹ thuật tổng hợp")).toBeVisible();
     expect(screen.getByText("Open tickets")).toBeVisible();
+    expect(screen.getByText("Gross paid revenue")).toBeVisible();
+    expect(screen.getByText("Paid orders")).toBeVisible();
+    expect(screen.getByText("Registered customers")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Operational focus" })).toBeVisible();
+    expect(screen.getByText("Revenue trend").closest("section")).toHaveTextContent("Coming soon");
+    expect(screen.getByText("Order volume by channel").closest("section")).toHaveTextContent("Coming soon");
+    expect(screen.queryByText(/^(Web|App|Partner)$/)).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Metrics are older than 60 seconds");
     expect(screen.queryByText(/buyer@example.com|Nguyễn Phương/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /customer/i })).not.toBeInTheDocument();

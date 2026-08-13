@@ -1703,6 +1703,30 @@ ul {
   margin: 14px 0;
 }
 
+.dashboardPerformanceGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(180px, 0.55fr) minmax(0, 1.9fr);
+  gap: 14px;
+  margin: 14px 0;
+  align-items: stretch;
+}
+
+.dashboardPerformanceGrid > section {
+  min-width: 0;
+}
+
+.capabilityState {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 3px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .metricCard strong,
 .dashboardGrid strong {
   display: block;
@@ -1720,6 +1744,10 @@ ul {
   }
 
   .dashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardPerformanceGrid {
     grid-template-columns: 1fr;
   }
 

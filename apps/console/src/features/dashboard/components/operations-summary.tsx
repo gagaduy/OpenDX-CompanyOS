@@ -4,4 +4,4 @@
 import type { OperationsReportView } from "../types/dashboard.types";
 import { MetricCard } from "./metric-card";
 
-export function OperationsSummary({operations}:{readonly operations:OperationsReportView}){return <section className="dashboardGrid" aria-label="Operations summary"><MetricCard label="Open tickets" value={operations.openTickets}/><MetricCard label="Overdue follow-ups" value={operations.overdueFollowups}/><MetricCard label="SLA breaches" value={operations.slaBreaches}/></section>;}
+export function OperationsSummary({operations}:{readonly operations:OperationsReportView}){return <section className="dashboardGrid" aria-label="Operational focus"><MetricCard label="Open tickets" value={operations.openTickets}/><MetricCard label="Overdue follow-ups" value={operations.overdueFollowups}/><MetricCard label="SLA breaches" value={operations.slaBreaches}/></section>;}
