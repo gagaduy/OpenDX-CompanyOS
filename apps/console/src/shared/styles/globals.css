@@ -706,6 +706,9 @@ textarea {
 }
 
 .tableFrame {
+  position: relative;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--hairline);
@@ -1052,6 +1055,19 @@ textarea {
   .inventoryTable td:first-child::before { display: none; }
   .inventoryTable .productIdentity { width: 100%; text-align: left; }
   .inventoryTable .rowActions { margin-left: auto; }
+  .productTable { min-width: 0; }
+  .productTable thead { display: none; }
+  .productTable,
+  .productTable tbody,
+  .productTable tr,
+  .productTable td { display: block; width: 100%; }
+  .productTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+  .productTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; height: auto; padding: 5px 0; border: 0; text-align: right; }
+  .productTable td::before { content: attr(data-label); flex: 0 0 auto; color: var(--ink-subtle); font-size: 9px; text-transform: uppercase; }
+  .productTable td:first-child { align-items: flex-start; flex-direction: column; text-align: left; }
+  .productTable td:first-child::before { display: none; }
+  .productTable .productIdentity { width: 100%; }
+  .productTable .rowActions { margin-left: auto; }
 }
 
 .editorTabs {
@@ -1370,36 +1386,6 @@ textarea {
   margin: 12px 0;
   color: var(--ink-muted);
   font-size: 13px;
-}
-
-@media (max-width: 700px) {
-  .consoleLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .consoleSidebar {
-    position: static;
-    height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  .consoleSidebar nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .consoleSidebar nav a {
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .staffIdentity {
-    margin-top: 12px;
-  }
-
-  .consoleContent {
-    padding: 20px 16px;
-  }
 }
 
 .shell {
@@ -1918,8 +1904,6 @@ ul {
 }
 
 @media (max-width: 700px) {
-  .consoleSidebar nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .consoleSidebar nav a { min-width: 0; font-size: 11px; }
   .operationDetailHeader { align-items: flex-start; flex-direction: column; }
   .operationDetailHeader > div:last-child { width: 100%; justify-content: space-between; }
   .operationSide { grid-template-columns: 1fr; }

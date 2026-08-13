@@ -83,11 +83,12 @@ pnpm check:console-browser
 ```
 
 This check injects a deterministic staff session and redacted API fixtures at
-the browser boundary. It validates Orders and Payments list/detail surfaces,
-visible keyboard focus, role denial before API access, and horizontal overflow
-at 390x844 and 1440x900. Screenshots are written to
-`/tmp/opendx-console-browser` by default. Set `CONSOLE_URL` or
-`BROWSER_EVIDENCE_DIR` when local paths differ.
+the browser boundary. It covers authentication, Catalog, Inventory, Orders,
+Payments, and Company Overview across 390x844, 768x1024, and 1440x900 in both
+night and light themes. It verifies visible keyboard focus, responsive
+navigation modes, disabled future controls, role denial before API access, and
+horizontal overflow. Screenshots are written to `/tmp/opendx-console-browser`
+by default. Set `CONSOLE_URL` or `BROWSER_EVIDENCE_DIR` when local paths differ.
 
 Run the Phase 8 combined browser accessibility gate and API performance gate
 with the local stack running:
@@ -152,6 +153,14 @@ run the Phase 7 browser check with:
 ```bash
 pnpm check:crm-support-dashboard-browser
 ```
+
+This second Console check covers Customers, Customer 360, Support list/detail,
+and the executive Dashboard at the same three responsive widths and in both
+themes. Together, the two Console browser checks exercise all 17 registered
+Console routes, semantic landmarks, keyboard focus, visible-control collision,
+responsive navigation, truthful Coming Soon states, and denied-route API
+isolation. Screenshots are written to
+`/tmp/opendx-crm-support-dashboard-browser` by default.
 
 Run the Phase 7 PostgreSQL lifecycle check with:
 

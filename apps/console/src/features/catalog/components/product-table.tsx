@@ -10,9 +10,9 @@ import { ProductStatus } from "./publication-panel";
 
 export function ProductTable({ api, products, onArchive }: { readonly api: CatalogApi; readonly products: readonly ProductListItem[]; readonly onArchive: (product: ProductListItem) => void }) {
   return <div className="tableFrame"><table className="productTable" aria-label="Products"><thead><tr><th>Product</th><th>Category</th><th>Variants</th><th>Price range</th><th>Status</th><th>Updated</th><th><span className="srOnly">Actions</span></th></tr></thead><tbody>{products.map((product) => <tr key={product.id}>
-    <td><div className="productIdentity"><ProductThumbnail api={api} product={product} /><span><Link to={`/products/${product.id}`}>{product.name}</Link><small>{product.brand ?? "No brand"} · {product.slug}</small></span></div></td>
-    <td>{product.categoryName}</td><td>{product.variantCount}</td><td>{formatPrice(product.minimumPrice, product.maximumPrice)}</td><td><ProductStatus status={product.status} available={product.availabilitySummary.totalAvailable} /></td><td>{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(new Date(product.updatedAt))}</td>
-    <td><div className="rowActions"><Link aria-label={`Edit ${product.name}`} to={`/products/${product.id}`}><Pencil size={15} /></Link><button type="button" aria-label={`Archive ${product.name}`} onClick={() => onArchive(product)}><Archive size={15} /></button></div></td>
+    <td data-label="Product"><div className="productIdentity"><ProductThumbnail api={api} product={product} /><span><Link to={`/products/${product.id}`}>{product.name}</Link><small>{product.brand ?? "No brand"} · {product.slug}</small></span></div></td>
+    <td data-label="Category">{product.categoryName}</td><td data-label="Variants">{product.variantCount}</td><td data-label="Price range">{formatPrice(product.minimumPrice, product.maximumPrice)}</td><td data-label="Status"><ProductStatus status={product.status} available={product.availabilitySummary.totalAvailable} /></td><td data-label="Updated">{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(new Date(product.updatedAt))}</td>
+    <td data-label="Actions"><div className="rowActions"><Link aria-label={`Edit ${product.name}`} to={`/products/${product.id}`}><Pencil size={15} /></Link><button type="button" aria-label={`Archive ${product.name}`} onClick={() => onArchive(product)}><Archive size={15} /></button></div></td>
   </tr>)}</tbody></table></div>;
 }
 

@@ -14,6 +14,7 @@ const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
 const outputDirectory = process.env.BROWSER_EVIDENCE_DIR ?? join(tmpdir(), "opendx-crm-support-dashboard-browser");
 const authority = "http://localhost:8080/realms/opendx";
 const clientId = "opendx-console";
+const themeKey = "opendx.console.theme";
 const ids = {
   customer: "b1000000-0000-4000-8000-000000000001",
   address: "b1100000-0000-4000-8000-000000000001",
@@ -28,6 +29,7 @@ const viewports = [
   { name: "tablet", width: 768, height: 1024 },
   { name: "desktop", width: 1440, height: 900 },
 ];
+const themes = ["night", "light"];
 const surfaces = [
   { name: "customers", path: "/customers", heading: "Customers", role: "crm_operator" },
   { name: "customer-detail", path: `/customers/${ids.customer}`, heading: "Private Buyer", role: "crm_operator" },
@@ -53,20 +55,32 @@ async function main() {
     await client.send("Page.addScriptToEvaluateOnNewDocument", { source: fixtureScript(sessionKey) });
     await waitForConsoleOrigin(client);
     const evidence = [];
+    let appLoaded = false;
 
-    for (const viewport of viewports) {
-      await client.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.width < 700 });
-      for (const surface of surfaces) {
-        await setSession(client, sessionKey, surface.role);
-        await client.send("Page.navigate", { url: `${consoleUrl}${surface.path}` });
-        await waitForHeading(client, surface.heading);
-        await keyboardProbe(client);
-        const result = await evaluate(client, surfaceProbeExpression());
-        assertSurface(result, surface, viewport);
-        const screenshot = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-        const screenshotPath = join(outputDirectory, `${surface.name}-${viewport.name}-${viewport.width}x${viewport.height}.png`);
-        await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
-        evidence.push({ surface: surface.name, viewport, heading: result.heading, landmarks: result.landmarks, screenshotPath });
+    await setSession(client, sessionKey, "administrator");
+    for (const theme of themes) {
+      for (const viewport of viewports) {
+        await client.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.width < 700 });
+        for (const surface of surfaces) {
+          await evaluate(client, `localStorage.setItem(${JSON.stringify(themeKey)}, ${JSON.stringify(theme)})`);
+          if (!appLoaded) {
+            await client.send("Page.navigate", { url: `${consoleUrl}${surface.path}` });
+            appLoaded = true;
+          } else {
+            await evaluate(client, `history.pushState({}, "", ${JSON.stringify(surface.path)}); dispatchEvent(new PopStateEvent("popstate"))`);
+          }
+          await waitForHeading(client, surface.heading);
+          await ensureTheme(client, theme);
+          await waitForShell(client, viewport);
+          await keyboardProbe(client);
+          const result = await evaluate(client, surfaceProbeExpression());
+          assertSurface(result, surface, viewport, theme);
+          const screenshot = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+          const screenshotPath = join(outputDirectory, `${surface.name}-${theme}-${viewport.name}-${viewport.width}x${viewport.height}.png`);
+          await writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
+          evidence.push({ surface: surface.name, theme, viewport, heading: result.heading, landmarks: result.landmarks, screenshotPath });
+          await delay(250);
+        }
       }
     }
 
@@ -76,7 +90,7 @@ async function main() {
     const denied = await evaluate(client, `({ heading: document.querySelector('h1')?.textContent?.trim(), apiCalls: window.__phase7ApiCalls ?? [] })`);
     if (denied.apiCalls.length !== 0) throw new Error(`Denied dashboard route called APIs: ${JSON.stringify(denied.apiCalls)}`);
     client.close();
-    console.log(JSON.stringify({ consoleUrl, outputDirectory, evidence, denied }, null, 2));
+    console.log(JSON.stringify({ consoleUrl, outputDirectory, routeCount: surfaces.length, viewports: viewports.length, themes: themes.length, evidence, denied }, null, 2));
   } finally {
     chromeProcess.kill("SIGTERM");
     await new Promise((resolve) => chromeProcess.once("exit", resolve));
@@ -86,6 +100,25 @@ async function main() {
 
 async function setSession(client, sessionKey, role) {
   await evaluate(client, `sessionStorage.setItem(${JSON.stringify(sessionKey)}, ${JSON.stringify(session(role))})`);
+}
+
+async function ensureTheme(client, theme) {
+  const current = await evaluate(client, `document.querySelector('.consoleLayout')?.getAttribute('data-theme')`);
+  if (current === theme) return;
+  await evaluate(client, `document.querySelector('button[aria-label="Use ${theme === "night" ? "night" : "light"} theme"]')?.click()`);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await evaluate(client, `document.querySelector('.consoleLayout')?.getAttribute('data-theme') === ${JSON.stringify(theme)}`)) return;
+    await delay(50);
+  }
+  throw new Error(`Console theme did not change to ${theme}`);
+}
+
+async function waitForShell(client, viewport) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const sidebar = await evaluate(client, `(() => { const rect=document.querySelector('.consoleSidebar')?.getBoundingClientRect(); return {left:rect?.left??null,width:rect?.width??null}; })()`);
+    if (viewport.name !== "mobile" || sidebar.left <= -sidebar.width + 1) return;
+    await delay(50);
+  }
 }
 
 function session(role) {
@@ -122,15 +155,23 @@ async function keyboardProbe(client) {
 }
 
 function surfaceProbeExpression() {
-  return `(() => { const active=document.activeElement; const style=active instanceof HTMLElement?getComputedStyle(active):undefined; return { heading:document.querySelector('h1')?.textContent?.trim()??null, documentWidth:document.documentElement.scrollWidth, viewportWidth:innerWidth, alert:document.querySelector('[role="alert"]')?.textContent?.trim()??null, landmarks:{main:document.querySelectorAll('main').length, nav:document.querySelectorAll('nav').length}, focus:{tag:active?.tagName??null, visible:active?.matches(':focus-visible')??false, outline:style?.outline??null} }; })()`;
+  return `(() => { const active=document.activeElement; const style=active instanceof HTMLElement?getComputedStyle(active):undefined; const layout=document.querySelector('.consoleLayout'); const sidebar=document.querySelector('.consoleSidebar'); const topbar=document.querySelector('.consoleTopbar'); const rect=sidebar?.getBoundingClientRect(); const controls=[...new Set(document.querySelectorAll('a,button,input,select,textarea,[role="tab"]'))].filter(element=>{const r=element.getBoundingClientRect();const s=getComputedStyle(element);const visibleWidth=Math.min(r.right,innerWidth)-Math.max(r.left,0);const visibleHeight=Math.min(r.bottom,innerHeight)-Math.max(r.top,0);return !element.disabled&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&visibleWidth>4&&visibleHeight>4;}); let overlap=null; for(let i=0;i<controls.length&&overlap===null;i+=1){for(let j=i+1;j<controls.length;j+=1){const a=controls[i].getBoundingClientRect(),b=controls[j].getBoundingClientRect();if(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top){overlap=[controls[i].getAttribute('aria-label')||controls[i].textContent?.trim(),controls[j].getAttribute('aria-label')||controls[j].textContent?.trim()];break;}}} return { heading:document.querySelector('h1')?.textContent?.trim()??null, documentWidth:document.documentElement.scrollWidth, viewportWidth:innerWidth, alert:document.querySelector('[role="alert"]')?.textContent?.trim()??null, errors:window.__phase7Errors??[], landmarks:{main:document.querySelectorAll('main').length,nav:document.querySelectorAll('nav').length}, theme:layout?.getAttribute('data-theme')??null,sidebar:{left:rect?.left??null,width:rect?.width??null},workspaceTop:topbar?.getBoundingClientRect().top??null,menuVisible:document.querySelector('button[aria-label="Open navigation"]')?.getBoundingClientRect().width>0,focus:{tag:active?.tagName??null,visible:active?.matches(':focus-visible')??false,outline:style?.outline??null},overlap,comingSoonButtons:[...document.querySelectorAll('.comingSoonButton')].map(button=>button.disabled),comingSoonPanels:document.querySelectorAll('.comingSoonPanel').length}; })()`;
 }
 
-function assertSurface(result, surface, viewport) {
+function assertSurface(result, surface, viewport, theme) {
   if (result.heading !== surface.heading) throw new Error(`${surface.name}: wrong heading ${result.heading}`);
   if (result.alert !== null && !/older than 60 seconds/i.test(result.alert)) throw new Error(`${surface.name}: alert ${result.alert}`);
+  if (result.errors.length > 0) throw new Error(`${surface.name}: browser errors ${JSON.stringify(result.errors)}`);
   if (result.documentWidth > viewport.width) throw new Error(`${surface.name}: horizontal overflow ${result.documentWidth} > ${viewport.width}`);
   if (result.landmarks.main !== 1 || result.landmarks.nav < 1) throw new Error(`${surface.name}: semantic landmarks missing`);
   if (["BODY", "HTML"].includes(result.focus.tag) || !result.focus.visible) throw new Error(`${surface.name}: keyboard focus is not visible`);
+  if (result.theme !== theme) throw new Error(`${surface.name}: expected ${theme} theme, received ${result.theme}`);
+  if (result.overlap !== null) throw new Error(`${surface.name}: visible controls overlap ${JSON.stringify(result.overlap)}`);
+  if (viewport.name === "mobile" && (!result.menuVisible || result.sidebar.left >= 0 || result.workspaceTop > 4)) throw new Error(`${surface.name}: mobile shell is invalid ${JSON.stringify(result)}`);
+  if (viewport.name === "tablet" && (result.sidebar.width > 70 || result.sidebar.left < 0)) throw new Error(`${surface.name}: tablet rail is invalid ${JSON.stringify(result.sidebar)}`);
+  if (viewport.name === "desktop" && result.sidebar.width < 200) throw new Error(`${surface.name}: desktop sidebar is invalid ${JSON.stringify(result.sidebar)}`);
+  if (surface.name === "support-detail" && (result.comingSoonButtons.length === 0 || !result.comingSoonButtons.every(Boolean))) throw new Error("Support detail future controls must stay disabled");
+  if (surface.name === "dashboard" && result.comingSoonPanels < 2) throw new Error("Dashboard future analytics must be visibly marked Coming Soon");
 }
 
 async function waitForHeading(client, heading) {

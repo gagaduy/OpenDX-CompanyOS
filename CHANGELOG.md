@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expand deterministic Console browser acceptance to all 17 routes at mobile,
+  tablet, and desktop widths in both themes, and fix the responsive product
+  table and mobile navigation cascade issues exposed by those checks.
 - Redesign the executive Dashboard around authoritative commerce aggregates,
   explicit unavailable-chart placeholders, and operational focus, and label
   every Company Overview capability with a truthful delivery state.
