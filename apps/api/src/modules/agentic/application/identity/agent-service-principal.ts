@@ -1,14 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type AgentKind =
-  | "ai_ceo"
-  | "catalog"
-  | "inventory"
-  | "order"
-  | "finance"
-  | "crm"
-  | "support";
+import type { AgentKind } from "../../domain/entities/agent-profile";
 
 export interface AgentServicePrincipal {
   readonly subject: string;
