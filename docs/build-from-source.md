@@ -38,6 +38,21 @@ GitHub CI runs source lint, typecheck, TypeScript tests, repo audit, and
 production Compose topology validation without deployment secrets. The security
 workflow runs environment documentation and committed secret-fixture audits:
 
+Agent governance uses the same source gates and no extra package install. Its
+focused PostgreSQL check uses an isolated database:
+
+```bash
+TEST_DATABASE_URL=postgresql://opendx_local:opendx_local_password@localhost:55432/opendx_test \
+pnpm --filter @opendx/api exec vitest run --config vitest.integration.config.ts \
+  src/modules/agentic/infrastructure/database/agentic-migration.integration.test.ts \
+  src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.integration.test.ts \
+  src/modules/agentic/tests/agentic.api.integration.test.ts
+```
+
+Use `pnpm --filter @opendx/api db:migrate:agentic` and
+`db:rollback:agentic:all` for the isolated migration. The normal `*:all`
+commands include Agentic after Support on migrate and before Support on rollback.
+
 ```bash
 pnpm audit:env
 pnpm audit:secrets

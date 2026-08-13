@@ -27,9 +27,9 @@ merchant/VPS prerequisites and human confirmation.
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
 
-The Post-Commerce Agentic Workforce master design is approved and its master
-implementation plan is defined. Runtime implementation has not started; each
-phase still requires its focused design and file-level plan:
+The Post-Commerce Agentic Workforce master design and plan are approved. Phase
+A governance foundation is implemented on `phuong`; later execution phases
+still require their focused design and file-level plan:
 `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
 and
 `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
@@ -46,13 +46,13 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Master planning complete; runtime not started | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Awaiting Phase A focused-design kickoff |
+| Post-Commerce: Agentic Workforce | Phase A governance foundation complete on `phuong` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Awaiting focused Phase B kickoff; no task execution yet |
 
 Focused Agentic delivery status:
 
 | Phase | Status | Focused Spec | Focused Plan | Exit Decision |
 | --- | --- | --- | --- | --- |
-| Phase A: Agent Governance Foundation | Focused planning complete; runtime not started | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Ready for TDD implementation |
+| Phase A: Agent Governance Foundation | Complete on `phuong` | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Complete after focused unit, PostgreSQL concurrency, migration lifecycle, API, identity, and repository gates |
 
 ## Latest Validation Evidence
 
@@ -63,8 +63,9 @@ Focused Agentic delivery status:
 - Its master plan sequences Agent Governance, Temporal workflow, read-only
   department tools, OpenRouter runtime, file intake, AI CEO coordination,
   Console surfaces, and deterministic acceptance behind focused phase gates.
-- No Agentic runtime module or dependency has been added before written-spec
-  approval, the committed master plan, and Phase A focused-design approval.
+- Phase A adds PostgreSQL governance and a staff administration API only. It
+  deliberately does not start Agent execution, Temporal, OpenRouter, file
+  intake, or Commerce tool adapters.
 - Phase A defines four human Agentic roles, seven distinct Keycloak service
   identities, two-person versioned governance, deterministic deny-first policy,
   task/configuration pinning, emergency revocation, Tool Registry authorization,

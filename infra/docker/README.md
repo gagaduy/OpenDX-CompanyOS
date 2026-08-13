@@ -32,7 +32,8 @@ make down
 ```
 
 PostgreSQL must become healthy before Catalog → Company Core → Inventory →
-Customer → Cart → Promotion → Checkout → Order → Payment migrations. MinIO must
+Customer → Cart → Promotion → Checkout → Order → Payment → CRM → Support →
+Agentic migrations. MinIO must
 become healthy before bucket bootstrap. The Company Core → Catalog → Inventory
 → Promotion idempotent seed runs only after both jobs, then the API waits for
 Keycloak and seed completion before the Console and Storefront start. `make up`
@@ -52,8 +53,10 @@ Inventory and Checkout expiry workers use the same 900-second authority window
 with separate 30-second scan settings. Support attachment scanning fails closed:
 quarantined files remain unavailable until ClamAV marks them clean, and
 infected files are deleted while metadata remains as a rejected tombstone.
-Reconciliation starts only when all three SePay credentials are configured. No
-SePay or Temporal container is started. Use `POSTGRES_PORT=<free-port> make up`
+Reconciliation starts only when all three SePay credentials are configured.
+Phase A Agent service clients are configured in Keycloak without tracked
+secrets, but no Agent worker, OpenRouter, SePay, or Temporal container is
+started. Use `POSTGRES_PORT=<free-port> make up`
 when host port 5432 is occupied; internal service connections remain on 5432.
 
 Use `docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --wait clamav`

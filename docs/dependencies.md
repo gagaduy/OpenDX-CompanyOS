@@ -89,7 +89,8 @@ Current images:
 | `caddy:2.10.2-alpine` | Phase 8 VPS HTTPS reverse proxy example |
 
 Compose and Dockerfiles pin these reviewed tags to immutable image digests.
-Temporal and pgvector are not runtime dependencies of the Commerce Product
+Phase A Agent Governance adds no package dependency. Temporal, OpenRouter SDKs,
+and pgvector are not runtime dependencies of the Commerce Product
 Foundation.
 
 Phase 6 reuses Node `crypto`, native `fetch`, PostgreSQL transactions, existing

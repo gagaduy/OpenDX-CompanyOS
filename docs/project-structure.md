@@ -130,9 +130,11 @@ Approved commerce module areas include:
 - `modules/support`
 - `modules/reporting`
 - `modules/audit`
+- `modules/agentic` (Phase A governance control plane; non-executing)
 
-Workflow, Agent, Skill, Policy, Graph, and broad Integration modules move to the
-post-commerce roadmap.
+Workflow execution, Skills, Graph, and broad Integration modules remain in the
+post-commerce roadmap. Agent governance is owned by the implemented
+`apps/api/src/modules/agentic` feature; do not split it before an approved need.
 
 ## Branching Model
 

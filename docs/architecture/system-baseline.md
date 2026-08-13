@@ -65,6 +65,11 @@ risk level.
 
 ## Durable Workflow Boundary
 
+Phase A implements the Agent governance control plane in PostgreSQL: seven
+service identities, non-executing tasks, immutable configuration revisions,
+deny-first policy, tool descriptors/grants, budgets, approvals, revocations,
+audit, and provenance. No worker or model provider is started.
+
 Temporal is reserved for the post-commerce workflow roadmap. Commerce payment,
 inventory, and order correctness is implemented first through PostgreSQL
 transactions, idempotency, state machines, reconciliation, and an outbox where
