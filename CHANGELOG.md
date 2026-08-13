@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a transaction-safe, idempotent PostgreSQL commerce fixture for testing
+  current and previous dashboard reporting windows without replacing contributor data.
 - Apply restrained technical typography to Console identifiers, evidence,
   timestamps, SKUs, and audit provenance without changing application data.
 - Align the Support ticket detail with the approved timeline-and-context layout,
