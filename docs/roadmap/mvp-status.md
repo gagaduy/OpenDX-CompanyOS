@@ -52,7 +52,7 @@ Focused Agentic delivery status:
 
 | Phase | Status | Focused Spec | Focused Plan | Exit Decision |
 | --- | --- | --- | --- | --- |
-| Phase A: Agent Governance Foundation | Focused design approved in conversation; runtime not started | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | Not created | Awaiting written-spec review |
+| Phase A: Agent Governance Foundation | Focused planning complete; runtime not started | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Ready for TDD implementation |
 
 ## Latest Validation Evidence
 
@@ -70,6 +70,9 @@ Focused Agentic delivery status:
   task/configuration pinning, emergency revocation, Tool Registry authorization,
   budget accounting, bound approvals, and append-only audit/provenance without
   starting runtime execution.
+- Its focused implementation plan defines eight TDD tasks covering identity,
+  domain rules, PostgreSQL governance, policy/tools/budgets, two-person
+  approvals, non-executing tasks, staff APIs, composition, and phase-exit gates.
 
 - Phase 8 focused design:
   `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.
@@ -252,6 +255,6 @@ Focused Agentic delivery status:
   credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
-- Workflow and agent runtime remain unimplemented while Phase A awaits written
-  focused-spec review and its file-level plan. GraphRAG remains deferred to a
-  later focused phase.
+- Workflow and agent runtime remain unimplemented while Phase A is ready for
+  its approved TDD implementation. GraphRAG remains deferred to a later focused
+  phase.

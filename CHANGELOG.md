@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Agent Governance Foundation file-level TDD plan covering separate
+  identities, domain rules, PostgreSQL constraints, policy/tool/budget checks,
+  two-person approvals, task ownership, staff APIs, and phase-exit validation.
 - Define the Agent Governance Foundation focused design with separate human and
   Digital Employee identities, two-person configuration control, deterministic
   policy, versioned tasks, tool grants, budgets, approvals, audit, provenance,
