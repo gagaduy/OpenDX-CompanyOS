@@ -46,6 +46,11 @@ describe("ProductListPage", () => {
     expect(screen.getByText(/loading products/i)).toBeVisible();
     resolve({ items: [product], page: 1, pageSize: 20, totalItems: 21, totalPages: 2 });
     expect(await screen.findByText("Steel Bottle")).toBeVisible();
+    expect(screen.getByRole("link", { name: /New product/i }))
+      .toHaveAttribute("href", "/products/new");
+    expect(screen.getByRole("region", { name: "Product filters" }))
+      .toBeVisible();
+    expect(screen.getByRole("table", { name: "Products" })).toBeVisible();
     expect(await screen.findByRole("img", { name: "Steel Bottle thumbnail" })).toHaveAttribute("src", "blob:seed-image");
     expect(screen.getByText("₫199,000 – ₫249,000")).toBeVisible();
 

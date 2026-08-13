@@ -980,9 +980,12 @@ textarea {
 
 .categoryLayout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 0.75fr);
   gap: 16px;
 }
+
+.categoryRail { align-self: start; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
 .compactForm,
 .categoryPanel {
