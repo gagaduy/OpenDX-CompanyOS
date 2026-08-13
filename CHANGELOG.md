@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Reframe the Console dashboard into executive metrics, operational focus,
+  and performance overview regions using only authoritative report data.
 - Restructure the Console product editor into clear basic-details,
   classification, and description-and-attributes setup panels.
 - Refine Console navigation emphasis, technical typography, and desktop table

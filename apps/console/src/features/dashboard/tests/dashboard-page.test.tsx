@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,12 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Gross paid revenue")).toBeVisible();
     expect(screen.getByText("Paid orders")).toBeVisible();
     expect(screen.getByText("Registered customers")).toBeVisible();
+    const executive = screen.getByRole("region", { name: "Executive metrics" });
+    expect(within(executive).getByText("Gross paid revenue")).toBeVisible();
+    expect(within(executive).getByText("Registered customers")).toBeVisible();
     expect(screen.getByRole("region", { name: "Operational focus" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Operational focus" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Performance overview" })).toBeVisible();
     expect(screen.getByText("Revenue trend").closest("section")).toHaveTextContent("Coming soon");
     expect(screen.getByText("Order volume by channel").closest("section")).toHaveTextContent("Coming soon");
     expect(screen.queryByText(/^(Web|App|Partner)$/)).not.toBeInTheDocument();

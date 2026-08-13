@@ -1733,6 +1733,31 @@ ul {
   margin: 14px 0;
 }
 
+.dashboardSection {
+  margin: 22px 0;
+}
+
+.dashboardSectionTitle {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.dashboardSection > .dashboardGrid,
+.dashboardSection > .dashboardPerformanceGrid {
+  margin: 10px 0 0;
+}
+
+.dashboardExecutiveGrid > :first-child {
+  border-color: color-mix(in srgb, #5bd39a 52%, var(--hairline));
+  background: color-mix(in srgb, #5bd39a 8%, var(--surface-1));
+}
+
+.dashboardOperationalGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .dashboardPerformanceGrid {
   display: grid;
   grid-template-columns: minmax(180px, 0.55fr) minmax(180px, 0.55fr) minmax(0, 1.9fr);
