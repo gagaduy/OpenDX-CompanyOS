@@ -11,7 +11,7 @@ export function InventoryTable({ items, canWrite, onView, onReceive, onAdjust }:
   readonly onReceive: (item: InventoryItemView) => void;
   readonly onAdjust: (item: InventoryItemView) => void;
 }) {
-  return <div className="tableFrame"><table className="inventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>On hand</th><th>Reserved</th><th>Available</th><th>Status</th><th><span className="srOnly">Actions</span></th></tr></thead><tbody>{items.map((item) => <tr key={item.id}>
+  return <div className="tableFrame"><table className="inventoryTable" aria-label="Inventory stock levels"><thead><tr><th>Product</th><th>SKU</th><th>On hand</th><th>Reserved</th><th>Available</th><th>Status</th><th><span className="srOnly">Actions</span></th></tr></thead><tbody>{items.map((item) => <tr key={item.id}>
     <td data-label="Product"><div className="productIdentity"><span className="thumbnail"><Boxes size={16} aria-hidden="true" /></span><span><strong>{item.productName}</strong><small>{item.variantTitle}{item.categoryName ? ` · ${item.categoryName}` : ""}</small></span></div></td>
     <td data-label="SKU"><strong>{item.sku}</strong></td><td data-label="On hand">{item.onHand}</td><td data-label="Reserved">{item.reserved}</td><td data-label="Available"><strong>{item.available} available</strong></td>
     <td data-label="Status"><span className={`status inventoryStatus status-${item.stockStatus}`} aria-label={`Stock status: ${statusLabel(item.stockStatus)}`}><PackageStatus status={item.stockStatus} />{statusLabel(item.stockStatus)}</span></td>

@@ -45,9 +45,13 @@ describe("InventoryPage", () => {
   it("shows balances and opens movement history", async () => {
     renderPage(api());
     expect(await screen.findByText("TECH-PHONE-BLACK")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Inventory summary" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Inventory stock levels" })).toBeVisible();
     expect(screen.getByText("5 available")).toBeVisible();
     expect(screen.getByLabelText("Stock status: Low stock")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /view tech-phone-black/i }));
+    expect(screen.getByRole("dialog", { name: /Inventory detail/i }))
+      .toHaveClass("drawerSurface");
     expect(await screen.findByRole("heading", { name: /movement history/i })).toBeVisible();
     expect(screen.getByText("INITIAL_STOCK")).toBeVisible();
   });

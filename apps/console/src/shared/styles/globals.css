@@ -777,6 +777,32 @@ textarea {
 .balanceSummary div { padding: 12px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-2); }
 .balanceSummary dt { color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
 .balanceSummary dd { margin: 5px 0 0; font-size: 20px; font-weight: 650; }
+
+.inventorySummary {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.inventorySummary > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inventorySummary article {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.inventorySummary article span { color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
+.inventorySummary article strong { font-size: 22px; }
 .movementList { margin: 0; padding: 0; list-style: none; }
 .movementList li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--hairline); font-size: 11px; text-align: right; }
 .movementList li > span:first-child { display: grid; text-align: left; }
@@ -1011,6 +1037,7 @@ textarea {
   .formGrid,
   .attributeRow,
   .categoryLayout { grid-template-columns: 1fr; }
+  .inventorySummary > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .splitHeader { align-items: flex-start; }
   .inventoryTable { min-width: 0; }
   .inventoryTable thead { display: none; }
