@@ -37,6 +37,19 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapAgent(result.rows[0]);
   }
 
+  async findAgentByKind(
+    session: DatabaseSession,
+    agentKind: AgentKind,
+  ): Promise<AgentProfile | undefined> {
+    const result = await session.query<Row>("SELECT * FROM agentic_agents WHERE kind=$1", [agentKind]);
+    return result.rows[0] === undefined ? undefined : mapAgent(result.rows[0]);
+  }
+
+  async listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]> {
+    const result = await session.query<Row>("SELECT * FROM agentic_agents ORDER BY kind");
+    return result.rows.map(mapAgent);
+  }
+
   async createTask(session: DatabaseSession, task: AgentTask): Promise<void> {
     await session.query(
       `INSERT INTO agentic_tasks

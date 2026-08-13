@@ -30,6 +30,7 @@ import { createCheckoutModule } from "./modules/checkout";
 import { createCrmModule } from "./modules/crm";
 import { createReportingModule } from "./modules/reporting";
 import { createSupportModule } from "./modules/support";
+import { createAgenticModule } from "./modules/agentic";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
@@ -175,6 +176,12 @@ const reporting = createReportingModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
+const agentic = createAgenticModule({
+  transactions,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
@@ -202,6 +209,7 @@ const app = createApiApp({
   crmAdminRouter: crm.router,
   supportAdminRouter: support.router,
   reportingAdminRouter: reporting.router,
+  agenticAdminRouter: agentic.adminRouter,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,
@@ -210,10 +218,10 @@ const app = createApiApp({
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
     migrations: await probe(async () => {
-      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string; promotion: string; checkout: string; orders: string; payment: string; crm: string; support: string }>(
-        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart, (SELECT count(*)::text FROM promotion_migrations) AS promotion, (SELECT count(*)::text FROM checkout_migrations) AS checkout, (SELECT count(*)::text FROM order_migrations) AS orders, (SELECT count(*)::text FROM payment_migrations) AS payment, (SELECT count(*)::text FROM crm_migrations) AS crm, (SELECT count(*)::text FROM support_migrations) AS support",
+      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string; promotion: string; checkout: string; orders: string; payment: string; crm: string; support: string; agentic: string }>(
+        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart, (SELECT count(*)::text FROM promotion_migrations) AS promotion, (SELECT count(*)::text FROM checkout_migrations) AS checkout, (SELECT count(*)::text FROM order_migrations) AS orders, (SELECT count(*)::text FROM payment_migrations) AS payment, (SELECT count(*)::text FROM crm_migrations) AS crm, (SELECT count(*)::text FROM support_migrations) AS support, (SELECT count(*)::text FROM agentic_migrations) AS agentic",
       );
-      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 1 || Number(result.rows[0]?.orders ?? 0) < 1 || Number(result.rows[0]?.payment ?? 0) < 1 || Number(result.rows[0]?.crm ?? 0) < 1 || Number(result.rows[0]?.support ?? 0) < 2) {
+      if (Number(result.rows[0]?.catalog ?? 0) < 2 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 1 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 1 || Number(result.rows[0]?.orders ?? 0) < 1 || Number(result.rows[0]?.payment ?? 0) < 1 || Number(result.rows[0]?.crm ?? 0) < 1 || Number(result.rows[0]?.support ?? 0) < 2 || Number(result.rows[0]?.agentic ?? 0) < 1) {
         throw new Error("Database migrations are incomplete");
       }
     }),

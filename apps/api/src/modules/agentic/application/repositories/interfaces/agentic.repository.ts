@@ -142,6 +142,8 @@ export interface BudgetSettlementInput {
 
 export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
+  findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;
+  listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]>;
   createTask(session: DatabaseSession, task: AgentTask): Promise<void>;
   findTask(session: DatabaseSession, taskId: string, ownerId: string): Promise<AgentTask | undefined>;
   findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;

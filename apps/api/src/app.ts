@@ -38,6 +38,7 @@ export interface CreateApiAppOptions {
   readonly crmAdminRouter?: Router;
   readonly supportAdminRouter?: Router;
   readonly reportingAdminRouter?: Router;
+  readonly agenticAdminRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -109,6 +110,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   if (options.supportAdminRouter !== undefined) app.use("/v1/admin/support/tickets", consoleCors, options.supportAdminRouter);
   if (options.reportingAdminRouter !== undefined) {
     app.use("/v1/admin/reporting", consoleCors, options.reportingAdminRouter);
+  }
+  if (options.agenticAdminRouter !== undefined) {
+    app.use("/v1/admin/agentic", consoleCors, options.agenticAdminRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);
