@@ -1,0 +1,176 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { randomUUID } from "node:crypto";
+import { Pool } from "pg";
+import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
+import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
+import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
+import { runAgenticMigrations } from "../../database/run-agentic-migrations";
+import { PostgresqlAgenticRepository } from "./postgresql-agentic.repository";
+
+const databaseUrl = process.env.TEST_DATABASE_URL;
+const suite = databaseUrl === undefined ? describe.skip : describe;
+
+suite("PostgresqlAgenticRepository", () => {
+  assertIntegrationEnvironment({ TEST_DATABASE_URL: databaseUrl });
+  const pool = new Pool({ connectionString: databaseUrl });
+  const transactions = new PostgresTransactionRunner(pool);
+  const repository = new PostgresqlAgenticRepository();
+
+  beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
+  beforeEach(async () => {
+    await pool.query(`TRUNCATE agentic_provenance_records, agentic_audit_events,
+      agentic_revocations, agentic_approval_requests, agentic_budget_entries,
+      agentic_budget_limits, agentic_model_fallbacks, agentic_model_configs,
+      agentic_tool_grants, agentic_tools, agentic_policies,
+      agentic_subtask_dependencies, agentic_subtasks, agentic_tasks,
+      agentic_configuration_revisions, agentic_agents CASCADE`);
+    await pool.query(`INSERT INTO agentic_agents(kind,keycloak_client_id) VALUES
+      ('ai_ceo','agent-ai-ceo'),('catalog','agent-catalog'),('inventory','agent-inventory'),
+      ('order','agent-order'),('finance','agent-finance'),('crm','agent-crm'),('support','agent-support')`);
+  });
+  afterAll(async () => pool.end());
+
+  it("enforces owner-scoped reads and one-winner optimistic task updates", async () => {
+    const taskId = randomUUID();
+    await transactions.run((session) => repository.createTask(session, {
+      id: taskId, state: "draft", createdBy: "operator-a", goal: "Review store",
+      instructions: "Use evidence", version: 1, createdAt: "2026-08-14T00:00:00.000Z",
+      updatedAt: "2026-08-14T00:00:00.000Z",
+    }));
+
+    await expect(transactions.runReadOnly((session) => repository.findTask(session, taskId, "operator-b")))
+      .resolves.toBeUndefined();
+    const next = {
+      ...(await transactions.runReadOnly((session) => repository.findTask(session, taskId, "operator-a")))!,
+      goal: "Updated review", version: 2, updatedAt: "2026-08-14T01:00:00.000Z",
+    };
+    const results = await Promise.all([
+      transactions.run((session) => repository.updateTask(session, next, 1)),
+      transactions.run((session) => repository.updateTask(session, { ...next, goal: "Competing update" }, 1)),
+    ]);
+    expect(results.sort()).toEqual([false, true]);
+  });
+
+  it("resolves fixed agent identities and keeps task lists owner-scoped", async () => {
+    const ownedId = randomUUID();
+    const foreignId = randomUUID();
+    for (const [id, createdBy] of [[ownedId, "operator-a"], [foreignId, "operator-b"]]) {
+      await transactions.run((session) => repository.createTask(session, {
+        id, state: "draft", createdBy, goal: "Review store", instructions: "Use evidence",
+        version: 1, createdAt: "2026-08-14T00:00:00.000Z",
+        updatedAt: "2026-08-14T00:00:00.000Z",
+      }));
+    }
+    const agent = await transactions.runReadOnly((session) =>
+      repository.findAgentByClientId(session, "agent-inventory"));
+    expect(agent).toMatchObject({ kind: "inventory", active: true });
+    const page = await transactions.runReadOnly((session) =>
+      repository.listTasks(session, "operator-a", 1, 20));
+    expect(page.totalItems).toBe(1);
+    expect(page.items.map(({ id }) => id)).toEqual([ownedId]);
+  });
+
+  it("activates one configuration revision and supersedes the previous active revision atomically", async () => {
+    const activeId = randomUUID();
+    const candidateA = randomUUID();
+    const candidateB = randomUUID();
+    await pool.query(`INSERT INTO agentic_configuration_revisions
+      (id,state,created_by,payload_digest,decided_by,decided_at) VALUES
+      ($1,'active','admin-a',$4,'admin-z',now()),
+      ($2,'pending_approval','admin-b',$5,NULL,NULL),
+      ($3,'pending_approval','admin-c',$6,NULL,NULL)`,
+      [activeId, candidateA, candidateB, "a".repeat(64), "b".repeat(64), "c".repeat(64)]);
+
+    const results = await Promise.all([
+      transactions.run((session) => repository.activateRevision(session, candidateA, 1, "admin-x", "2026-08-14T01:00:00.000Z")),
+      transactions.run((session) => repository.activateRevision(session, candidateB, 1, "admin-y", "2026-08-14T01:00:00.000Z")),
+    ]);
+    expect(results.some(Boolean)).toBe(true);
+    expect((await pool.query("SELECT id FROM agentic_configuration_revisions WHERE state='active'")).rowCount).toBe(1);
+    expect((await pool.query("SELECT state FROM agentic_configuration_revisions WHERE id=$1", [activeId])).rows[0]?.state).toBe("superseded");
+  });
+
+  it("allows exactly one concurrent approval decision", async () => {
+    const revisionId = randomUUID();
+    const approvalId = randomUUID();
+    await pool.query("INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)", [revisionId, "d".repeat(64)]);
+    await pool.query(`INSERT INTO agentic_approval_requests
+      (id,state,requester_id,action,resource_type,resource_id,parameters_digest,policy_version,configuration_revision_id,expires_at)
+      VALUES($1,'pending','requester-a','tool.invoke','tool','catalog.health',$2,1,$3,'2026-08-15T00:00:00.000Z')`,
+      [approvalId, "e".repeat(64), revisionId]);
+
+    const results = await Promise.all([
+      transactions.run((session) => repository.decideApproval(session, approvalId, 1, "approved", "approver-b", "Approved", "2026-08-14T01:00:00.000Z")),
+      transactions.run((session) => repository.decideApproval(session, approvalId, 1, "rejected", "approver-c", "Rejected", "2026-08-14T01:00:00.000Z")),
+    ]);
+    expect(results.sort()).toEqual([false, true]);
+  });
+
+  it("prevents concurrent budget reservations from exceeding the task limit and converges duplicate keys", async () => {
+    const revisionId = randomUUID();
+    const taskId = randomUUID();
+    await pool.query("INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)", [revisionId, "f".repeat(64)]);
+    await pool.query("INSERT INTO agentic_budget_limits(revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros) VALUES($1,'catalog',100,100,100)", [revisionId]);
+    await pool.query("UPDATE agentic_configuration_revisions SET state='active',decided_by='admin-b',decided_at=now() WHERE id=$1", [revisionId]);
+    await pool.query("INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)", [taskId, revisionId]);
+
+    const reserve = (idempotencyKey: string) => transactions.run((session) => repository.reserveBudget(session, {
+      id: randomUUID(), revisionId, agentKind: "catalog", taskId, idempotencyKey,
+      costMicros: 60, occurredAt: "2026-08-14T01:00:00.000Z",
+    }));
+    const keys = ["reserve-a", "reserve-b"] as const;
+    const results = await Promise.all(keys.map(reserve));
+    expect([...results].sort()).toEqual(["exceeded", "reserved"]);
+    const reservedKey = keys[results.indexOf("reserved")];
+    await expect(reserve(reservedKey!)).resolves.toBe("duplicate");
+  });
+
+  it("settles reservations once and persists append-only audit, provenance, and revocation evidence", async () => {
+    const revisionId = randomUUID();
+    const taskId = randomUUID();
+    const reservationId = randomUUID();
+    await pool.query("INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)", [revisionId, "a".repeat(64)]);
+    await pool.query("INSERT INTO agentic_budget_limits(revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros) VALUES($1,'catalog',100,100,100)", [revisionId]);
+    await pool.query("UPDATE agentic_configuration_revisions SET state='active',decided_by='admin-b',decided_at=now() WHERE id=$1", [revisionId]);
+    await pool.query("INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)", [taskId, revisionId]);
+    await expect(transactions.run((session) => repository.reserveBudget(session, {
+      id: reservationId, revisionId, agentKind: "catalog", taskId,
+      idempotencyKey: "reservation", costMicros: 80,
+      occurredAt: "2026-08-14T01:00:00.000Z",
+    }))).resolves.toBe("reserved");
+    const settle = (key: string) => transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId, idempotencyKey: key, actualCostMicros: 70,
+      occurredAt: "2026-08-14T01:01:00.000Z",
+    }));
+    const settlementResults = await Promise.all([settle("settlement-a"), settle("settlement-b")]);
+    expect([...settlementResults].sort()).toEqual(["settled", "stale"]);
+
+    const auditId = randomUUID();
+    const provenanceId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.appendAudit(session, {
+        id: auditId, actorId: "agent-catalog", actorType: "agent", taskId,
+        action: "catalog.read", resourceType: "tool", resourceId: "catalog.health",
+        outcome: "allowed", correlationId: "corr-1", occurredAt: "2026-08-14T01:02:00.000Z",
+      });
+      await repository.appendProvenance(session, {
+        id: provenanceId, taskId, sourceType: "database", sourceId: "catalog.products",
+        sourceDigest: "b".repeat(64), classification: "internal",
+        recordedBy: "agent-catalog", recordedAt: "2026-08-14T01:02:00.000Z",
+      });
+      await repository.createRevocation(session, {
+        id: randomUUID(), targetType: "agent", targetId: "catalog", reason: "Emergency stop",
+        activatedBy: "admin-a", activatedAt: "2026-08-14T01:03:00.000Z",
+        idempotencyKey: "revoke-catalog",
+      });
+    });
+    expect(await transactions.runReadOnly((session) => repository.listAudit(session, 10)))
+      .toHaveLength(1);
+    expect(await transactions.runReadOnly((session) => repository.listProvenance(session, taskId)))
+      .toHaveLength(1);
+    expect(await transactions.runReadOnly((session) => repository.findActiveRevocation(session, "agent", "catalog")))
+      .toMatchObject({ reason: "Emergency stop" });
+  });
+});

@@ -21,6 +21,10 @@ const supportMigrationsDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../modules/support/infrastructure/database/migrations",
 );
+const agenticMigrationsDirectory = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../modules/agentic/infrastructure/database/migrations",
+);
 
 export async function runCatalogMigrations(
   databaseUrl: string,
@@ -85,4 +89,12 @@ export async function runSupportMigrations(
   count?: number,
 ): Promise<void> {
   await runner({ databaseUrl, direction, count, dir: supportMigrationsDirectory, migrationsTable: "support_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
+}
+
+export async function runAgenticMigrations(
+  databaseUrl: string,
+  direction: "up" | "down",
+  count?: number,
+): Promise<void> {
+  await runner({ databaseUrl, direction, count, dir: agenticMigrationsDirectory, migrationsTable: "agentic_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
 }

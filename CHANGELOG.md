@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the reversible PostgreSQL Agent governance schema and migration chain for
+  identities, tasks, configuration, policy, tools, models, budgets, approvals,
+  revocations, audit, and provenance.
 - Add pure Agent governance domain rules for task, configuration, approval,
   dependency graph, model, and integer budget invariants.
 - Add distinct Agentic staff roles and an isolated Digital Employee service

@@ -1,0 +1,122 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { Pool } from "pg";
+import { afterAll, describe, expect, it } from "vitest";
+import { assertIntegrationEnvironment } from "../../../../shared/testing/assert-integration-environment";
+import { runAgenticMigrations } from "./run-agentic-migrations";
+
+const databaseUrl = process.env.TEST_DATABASE_URL;
+const suite = databaseUrl === undefined ? describe.skip : describe;
+
+const tables = [
+  "agentic_agents",
+  "agentic_tasks",
+  "agentic_subtasks",
+  "agentic_subtask_dependencies",
+  "agentic_configuration_revisions",
+  "agentic_policies",
+  "agentic_tools",
+  "agentic_tool_grants",
+  "agentic_model_configs",
+  "agentic_model_fallbacks",
+  "agentic_budget_limits",
+  "agentic_budget_entries",
+  "agentic_approval_requests",
+  "agentic_revocations",
+  "agentic_audit_events",
+  "agentic_provenance_records",
+] as const;
+
+suite("Agent governance migration", () => {
+  assertIntegrationEnvironment({ TEST_DATABASE_URL: databaseUrl });
+  const pool = new Pool({ connectionString: databaseUrl });
+
+  afterAll(async () => {
+    await runAgenticMigrations(databaseUrl!, "down", 999_999).catch(() => undefined);
+    await pool.end();
+  });
+
+  it("creates, rolls back, and reapplies the normalized governance schema", async () => {
+    await runAgenticMigrations(databaseUrl!, "up");
+
+    const actual = await pool.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[]) ORDER BY table_name",
+      [tables],
+    );
+    expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
+    expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
+    expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
+
+    await runAgenticMigrations(databaseUrl!, "down", 999_999);
+    expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
+    await runAgenticMigrations(databaseUrl!, "up");
+    expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+  });
+
+  it("enforces identities, one active revision, approval separation, costs, and append-only evidence", async () => {
+    await expect(pool.query(
+      "INSERT INTO agentic_agents (kind, keycloak_client_id) VALUES ('catalog', 'agent-inventory')",
+    )).rejects.toMatchObject({ code: "23505" });
+
+    const first = "a1500000-0000-4000-8000-000000000001";
+    const second = "a1500000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO agentic_configuration_revisions (id, state, created_by, payload_digest, decided_by, decided_at) VALUES ($1, 'active', 'admin-a', $3, 'admin-c', now()), ($2, 'draft', 'admin-b', $4, NULL, NULL)",
+      [first, second, "a".repeat(64), "b".repeat(64)],
+    );
+    await expect(pool.query(
+      "UPDATE agentic_configuration_revisions SET state = 'active', decided_by = 'admin-d', decided_at = now(), version = 2, updated_at = now() WHERE id = $1",
+      [second],
+    )).rejects.toMatchObject({ code: "23505" });
+
+    await expect(pool.query(
+      "INSERT INTO agentic_approval_requests (id, state, requester_id, action, resource_type, resource_id, parameters_digest, policy_version, configuration_revision_id, expires_at, decided_by) VALUES (gen_random_uuid(), 'approved', 'same-user', 'configuration.activate', 'configuration_revision', $1::text, $2, 1, $1::uuid, now() + interval '1 hour', 'same-user')",
+      [first, "c".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await expect(pool.query(
+      "INSERT INTO agentic_budget_limits (revision_id, agent_kind, task_cost_micros, daily_cost_micros, monthly_cost_micros) VALUES ($1, 'catalog', -1, 2, 3)",
+      [second],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    const auditId = "a1500000-0000-4000-8000-000000000003";
+    await pool.query(
+      "INSERT INTO agentic_audit_events (id, actor_id, actor_type, action, resource_type, resource_id, outcome, correlation_id) VALUES ($1, 'admin-a', 'staff', 'configuration.created', 'configuration_revision', $2, 'allowed', 'corr-1')",
+      [auditId, first],
+    );
+    await expect(pool.query(
+      "UPDATE agentic_audit_events SET action = 'changed' WHERE id = $1",
+      [auditId],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query("DELETE FROM agentic_audit_events WHERE id = $1", [auditId]))
+      .rejects.toMatchObject({ code: "P0001" });
+
+    const provenanceId = "a1500000-0000-4000-8000-000000000004";
+    await pool.query(
+      "INSERT INTO agentic_provenance_records (id, source_type, source_id, source_digest, classification, recorded_by) VALUES ($1, 'database', 'catalog.products', $2, 'internal', 'agent-catalog')",
+      [provenanceId, "d".repeat(64)],
+    );
+    await expect(pool.query("DELETE FROM agentic_provenance_records WHERE id=$1", [provenanceId]))
+      .rejects.toMatchObject({ code: "P0001" });
+
+    const policyId = "a1500000-0000-4000-8000-000000000005";
+    await pool.query(
+      "INSERT INTO agentic_policies (id,revision_id,rule_order,effect,actor_type,resource,action,purpose,data_classification,reason_code) VALUES($1,$2,1,'DENY','agent','catalog','read','analysis','internal','default-deny')",
+      [policyId, second],
+    );
+    await pool.query(
+      "UPDATE agentic_configuration_revisions SET state='pending_approval',version=2,updated_at=now() WHERE id=$1",
+      [second],
+    );
+    await expect(pool.query("UPDATE agentic_policies SET reason_code='forged' WHERE id=$1", [policyId]))
+      .rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      "INSERT INTO agentic_tools(name,version,input_schema_digest,output_schema_digest) VALUES('catalog.health',1,$1,$2)",
+      ["e".repeat(64), "f".repeat(64)],
+    );
+    await expect(pool.query("UPDATE agentic_tools SET active=false WHERE name='catalog.health' AND version=1"))
+      .rejects.toMatchObject({ code: "P0001" });
+  });
+});
