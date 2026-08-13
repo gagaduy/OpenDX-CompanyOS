@@ -51,13 +51,35 @@ describe("order operations", () => {
     expect(await screen.findByText("No orders match this view.")).toBeVisible();
   });
 
+  it("labels the order table for operational navigation", async () => {
+    render(<MemoryRouter><OrderOperationsPage api={api()} /></MemoryRouter>);
+    expect(await screen.findByRole("table", { name: "Orders" })).toBeVisible();
+  });
+
   it("shows immutable evidence and only the next legal transition", async () => {
     renderDetail(api());
     expect(await screen.findByText("Nova Laptop Pro")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Order status history" })).toBeVisible();
+    expect(screen.getByRole("complementary", { name: "Order snapshot" })).toBeVisible();
     expect(screen.getByText("buyer@example.com")).toBeVisible();
     expect(screen.getByRole("button", { name: "Start processing" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /complete/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/shipping|tracking|refund|return/i)).not.toBeInTheDocument();
+  });
+
+  it("confirms cancellation before transitioning an unpaid order", async () => {
+    const pending = { ...detail, status: "pending_payment" as const, statusLabel: "Pending payment" };
+    const client = api({
+      get: vi.fn(async () => pending),
+      transition: vi.fn(async () => ({ ...pending, status: "canceled" as const, statusLabel: "Canceled", version: 3 })),
+    });
+    renderDetail(client);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel unpaid order" }));
+    expect(screen.getByRole("dialog", { name: "Cancel unpaid order?" })).toBeVisible();
+    expect(client.transition).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm cancellation" }));
+    expect(client.transition).toHaveBeenCalledOnce();
   });
 
   it("transitions with optimistic versioning and announces success", async () => {

@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign Order and SePay Payment operations with accessible dense tables,
+  immutable evidence timelines, side snapshots, confirmed unpaid-order
+  cancellation, and truthful disabled receipt/export controls.
 - Redesign Inventory as a dense stock workspace with visible-result summaries,
   an accessible stock table, and shared movement and mutation dialogs.
 - Redesign Product Editor as a five-tab Obsidian Flux workspace with truthful
