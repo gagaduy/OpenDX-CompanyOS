@@ -63,6 +63,46 @@ function renderRoute(path: string, client: AuthClient) {
 }
 
 describe("console authentication routes", () => {
+  it("renders a focused NovaCommerce staff sign-in surface", async () => {
+    renderRoute("/sign-in", createClient(null));
+
+    expect(await screen.findByRole("heading", { name: "Staff console" }))
+      .toBeVisible();
+    expect(screen.getByText("NovaCommerce")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sign in with Keycloak" }))
+      .toBeEnabled();
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("shows secure callback progress without the authenticated shell", async () => {
+    let resolveSignIn: ((session: AuthSession) => void) | undefined;
+    const client = createClient(null);
+    client.completeSignIn = vi.fn(() => new Promise<AuthSession>((resolve) => {
+      resolveSignIn = resolve;
+    }));
+    renderRoute("/auth/callback", client);
+
+    expect(await screen.findByRole("status"))
+      .toHaveTextContent("Completing secure sign-in");
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" }))
+      .not.toBeInTheDocument();
+    resolveSignIn?.(catalogSession);
+  });
+
+  it("offers a safe return when callback completion fails", async () => {
+    const client = createClient(null);
+    client.completeSignIn = vi.fn(async () => {
+      throw new Error("identity provider unavailable");
+    });
+    renderRoute("/auth/callback", client);
+
+    expect(await screen.findByRole("alert"))
+      .toHaveTextContent("Sign-in could not be completed");
+    expect(screen.getByRole("button", { name: "Return to sign in" }))
+      .toBeEnabled();
+  });
+
   it("keeps only approved Phase 7 realm roles in a restored session", async () => {
     oidc.getUser.mockResolvedValueOnce({
       access_token: "phase-seven-token",

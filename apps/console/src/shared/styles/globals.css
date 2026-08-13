@@ -541,20 +541,53 @@ textarea:focus-visible {
   padding: 24px;
 }
 
-.authPanel {
-  width: min(420px, 100%);
-  padding: 28px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: var(--surface-1);
+.authPage {
+  background-color: var(--canvas);
 }
 
-.authPanel .brandMark {
-  margin-bottom: 28px;
+.authPanel {
+  width: min(420px, 100%);
+  padding: 34px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: 0 28px 90px rgb(0 0 0 / 38%);
+}
+
+.authBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 42px;
+}
+
+.authBrand strong {
+  font-size: 17px;
 }
 
 .authPanel p {
   font-size: 14px;
+  line-height: 1.55;
+}
+
+.authPanel .primaryButton {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.authTrust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 22px;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+}
+
+.callbackPage .systemState {
+  min-height: 360px;
+  margin: 0;
 }
 
 .primaryButton {

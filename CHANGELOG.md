@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Redesign Console staff authentication with a focused NovaCommerce Keycloak
+  entry surface and an explicit retry path for failed OIDC callbacks.
 - Add shared Console page-header, system-state, Coming soon, and accessible
   modal/drawer primitives for the Obsidian Flux redesign.
 - Redesign the NovaCommerce Console shell with grouped role-aware navigation,
