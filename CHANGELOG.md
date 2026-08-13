@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   comparisons and zero-filled Vietnam-local daily commerce and customer facts.
 - Replace Dashboard analytics placeholders with accessible SVG revenue and
   paid-order charts plus backend-derived KPI comparisons and sparklines.
+- Expand Dashboard browser acceptance to verify real chart landmarks and
+  accessible data tables across supported viewports and themes.
+- Align the Console's default 30-day Dashboard range with the backend's
+  Vietnam-local, end-exclusive reporting window so the current day is included.
 - Apply restrained technical typography to Console identifiers, evidence,
   timestamps, SKUs, and audit provenance without changing application data.
 - Align the Support ticket detail with the approved timeline-and-context layout,

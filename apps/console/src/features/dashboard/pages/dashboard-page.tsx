@@ -14,6 +14,13 @@ import { useDashboard } from "../hooks/use-dashboard";
 import type { DashboardRangeInput } from "../types/dashboard.types";
 
 const DAY_MS = 86_400_000;
+const DASHBOARD_TIME_ZONE = "Asia/Ho_Chi_Minh";
+const dashboardDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: DASHBOARD_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 export function DashboardPage({ api }: { readonly api: DashboardApi }) {
   const initial = useMemo(defaultRange, []);
@@ -27,4 +34,9 @@ export function DashboardPage({ api }: { readonly api: DashboardApi }) {
   return <section className="catalogWorkspace operationsWorkspace dashboardWorkspace"><PageHeader eyebrow="Executive reporting" title="Commerce dashboard" description="Aggregate, PII-free metrics in Asia/Ho_Chi_Minh." /><form className="filterBar" aria-label="Dashboard date range" onSubmit={apply}><label><span>Start date</span><input aria-label="Start date" type="date" value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} /></label><label><span>End date</span><input aria-label="End date" type="date" value={draft.end} onChange={(event) => setDraft({ ...draft, end: event.target.value })} /></label><button className="primaryButton" type="submit">Apply range</button></form>{rangeError ? <div className="pageState" role="alert">{rangeError}</div> : null}{loading && !data ? <SystemState kind="loading" title="Loading dashboard metrics…" /> : error ? <SystemState kind="error" title="Dashboard metrics could not be loaded" description={error} action={<button className="secondaryButton" type="button" onClick={reload}>Retry</button>} /> : data ? <><p className="subtleText technicalText">Range {data.range.start} to {data.range.end}; refreshed {new Date(data.refreshedAt).toLocaleString("vi-VN")}</p>{stale ? <div className="pageState" role="alert">Metrics are older than 60 seconds.</div> : null}<CommerceSummary commerce={data.commerce} customers={data.customers} /><OperationsSummary operations={data.operations} /><section className="dashboardSection" aria-label="Performance overview"><h2 className="dashboardSectionTitle">Performance overview</h2><div className="dashboardPerformanceGrid"><RevenueTrendChart points={data.commerce.daily} /><PaidOrderVolumeChart points={data.commerce.daily} /><ProductPerformance products={data.products} /></div></section></> : null}</section>;
 }
 
-function defaultRange(): DashboardRangeInput { const end = new Date(Date.now()).toISOString().slice(0, 10); const start = new Date(Date.now() - 30 * DAY_MS).toISOString().slice(0, 10); return { start, end }; }
+function defaultRange(): DashboardRangeInput {
+  const now = Date.now();
+  const end = dashboardDateFormatter.format(new Date(now + DAY_MS));
+  const start = dashboardDateFormatter.format(new Date(now - 29 * DAY_MS));
+  return { start, end };
+}

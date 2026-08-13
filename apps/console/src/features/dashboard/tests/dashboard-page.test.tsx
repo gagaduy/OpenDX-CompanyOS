@@ -62,7 +62,7 @@ describe("DashboardPage", () => {
     render(<MemoryRouter><DashboardPage api={api} /></MemoryRouter>);
 
     expect(await screen.findByRole("heading", { name: "Commerce dashboard" })).toBeVisible();
-    expect(api.load).toHaveBeenCalledWith({ start: "2026-07-11", end: "2026-08-10" }, expect.any(AbortSignal));
+    expect(api.load).toHaveBeenCalledWith({ start: "2026-07-12", end: "2026-08-11" }, expect.any(AbortSignal));
     expect(screen.getAllByText((text) => text.includes("64.000.000")).length).toBeGreaterThan(0);
     expect(screen.getByText("12,5%")).toBeVisible();
     expect(screen.getByText("Laptop kỹ thuật tổng hợp")).toBeVisible();

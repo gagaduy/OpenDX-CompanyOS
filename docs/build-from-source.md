@@ -172,11 +172,20 @@ pnpm check:crm-support-dashboard-lifecycle
 
 ## Run Local Services
 
-Start the full local stack, including all migrations through Payment and the
-Company Core → Catalog → Inventory → Promotion seed jobs:
+Start the full local stack, including all migrations through Support and the
+Company Core → Catalog → Inventory → Promotion → Dashboard Demo seed jobs:
 
 ```bash
 make up
+```
+
+`make up` automatically refreshes a deterministic development-only 60-day
+commerce fixture for Dashboard charts. The seed updates only its documented
+demo UUID namespace and does not delete or replace contributor-created rows.
+To refresh only this fixture while the local database is running, use:
+
+```bash
+pnpm --filter @opendx/api db:seed:dashboard-demo
 ```
 
 Run the console:
