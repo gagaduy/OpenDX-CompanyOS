@@ -1694,9 +1694,53 @@ ul {
   gap: 14px;
 }
 
+.supportDetailMain {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
 .supportComposerPanel {
-  width: min(100%, calc(100% - 320px));
-  margin-top: 14px;
+  width: 100%;
+}
+
+.ticketStateBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: -10px 0 18px;
+}
+
+.ticketState,
+.ticketPriority {
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ticketState.status-escalated,
+.ticketPriority.priority-urgent {
+  border-color: color-mix(in srgb, #ff6b6b 58%, var(--hairline));
+  color: #ff9b9b;
+}
+
+.ticketPriority.priority-high,
+.supportSlaMonitor strong {
+  color: #e7c97b;
+}
+
+.supportSlaMonitor {
+  background: color-mix(in srgb, #e7c97b 6%, var(--surface-1));
+}
+
+.supportSlaMonitor strong {
+  display: block;
+  margin-bottom: 8px;
 }
 
 .supportMessageComposer label,

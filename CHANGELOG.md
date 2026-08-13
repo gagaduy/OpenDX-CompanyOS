@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Align the Support ticket detail with the approved timeline-and-context layout,
+  make status and priority explicit, and show an honest unavailable SLA state.
 - Reframe the Console dashboard into executive metrics, operational focus,
   and performance overview regions using only authoritative report data.
 - Restructure the Console product editor into clear basic-details,

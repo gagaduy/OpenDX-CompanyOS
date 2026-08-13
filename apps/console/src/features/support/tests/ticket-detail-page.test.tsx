@@ -48,6 +48,9 @@ describe("TicketDetailPage", () => {
     expect(screen.getByText("new → assigned")).toBeVisible();
     expect(screen.getByRole("region", { name: "Ticket timeline" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Attachments" })).toBeVisible();
+    expect(screen.getByText("Assigned")).toBeVisible();
+    expect(screen.getByText("High priority")).toBeVisible();
+    expect(screen.getByRole("region", { name: "SLA monitor" })).toHaveTextContent("SLA timing unavailable");
     expect(screen.getByRole("button", { name: /Internal note.*Coming soon/i })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Wait for customer" })).not.toBeInTheDocument();
 
