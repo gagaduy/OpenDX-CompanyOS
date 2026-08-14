@@ -168,7 +168,7 @@ GET  /internal/agentic/workflow-runs/:workflowId
 - Modify: `docs/build-from-source.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write configuration tests first. Cover local plaintext configuration,
+- [x] Write configuration tests first. Cover local plaintext configuration,
   production TLS configuration, missing client credentials, invalid URL,
   invalid duration, and production rejection of plaintext Temporal transport.
 
@@ -182,24 +182,24 @@ def test_production_requires_temporal_tls_material(monkeypatch):
         RuntimeSettings.from_environment()
 ```
 
-- [ ] Run `cd services/ai-runtime && python3 -m pytest
+- [x] Run `cd services/ai-runtime && python3 -m pytest
   tests/shared/test_config.py -q` and confirm it fails because the parser does
   not exist.
-- [ ] Add exact direct dependencies `temporalio==1.30.0` and
+- [x] Add exact direct dependencies `temporalio==1.30.0` and
   `PyJWT[crypto]==2.13.0`. Verify the repository's editable install and Docker
   build both resolve those exact pins; do not add a second dependency file or
   `pytest-asyncio`.
-- [ ] Implement immutable settings for `APP_ENV`, bind host/port, Keycloak
+- [x] Implement immutable settings for `APP_ENV`, bind host/port, Keycloak
   issuer/JWKS/audiences/client credentials, API base URL, Temporal address,
   namespace, task queue, TLS CA/cert/key/server name, activity timeouts,
   shutdown grace, and command retry interval. Reject unknown environments,
   empty secrets, unsafe production HTTP URLs, and incomplete TLS triplets.
-- [ ] Document MIT licenses, PyJWT's MIT license, published-wheel source-build
+- [x] Document MIT licenses, PyJWT's MIT license, published-wheel source-build
   boundary, and the fact that Temporal Server is consumed as a pinned upstream
   image.
-- [ ] Run the focused test, then `pnpm test:py`, `git diff --check`, and
+- [x] Run the focused test, then `pnpm test:py`, `git diff --check`, and
   `pnpm audit:repo`.
-- [ ] Commit: `feat(ai-runtime): add temporal runtime configuration`
+- [x] Commit: `feat(ai-runtime): add temporal runtime configuration`
 
 ## Task 2: Define Workflow Domain State and Persist It Transactionally
 

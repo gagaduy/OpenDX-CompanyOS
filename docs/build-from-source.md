@@ -23,6 +23,20 @@ pnpm install
 cd services/ai-runtime && python3 -m pip install -e ".[dev]"
 ```
 
+The editable Python install requires Python 3.13 or newer. When the host does
+not provide Python 3.13, use the pinned reproducible checks image instead of
+lowering the project's Python requirement:
+
+```bash
+docker build --target checks -t opendx-ai-runtime-checks \
+  -f services/ai-runtime/Dockerfile .
+docker run --rm opendx-ai-runtime-checks
+```
+
+This installs the published `temporalio==1.30.0` wheel. Building the Temporal
+SDK itself from source is an upstream-maintainer workflow requiring Rust,
+Protobuf, and `uv`; those tools are not required to build OpenDX CompanyOS.
+
 ## Validate From Source
 
 From the repository root:

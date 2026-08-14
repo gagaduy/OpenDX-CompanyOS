@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add pinned Temporal and JWT runtime dependencies plus fail-closed AI Runtime
+  configuration for workload identity, activity bounds, and production mTLS.
 - Add the approved file-level TDD implementation plan for the durable Store
   Health Temporal workflow, authenticated workload boundaries, production
   Compose hardening, replay validation, and three-database recovery.
