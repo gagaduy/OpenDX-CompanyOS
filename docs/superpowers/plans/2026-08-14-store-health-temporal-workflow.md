@@ -446,24 +446,24 @@ export interface WorkflowRunService {
 - Modify: `infra/deploy/compose.production.yml`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write token-provider tests for short-lived token acquisition, audience,
+- [x] Write token-provider tests for short-lived token acquisition, audience,
   URL-encoded client-credentials form, expiration-aware cache, concurrent
   refresh coalescing, non-2xx response, malformed response, and redacted error.
-- [ ] Write gateway tests using a local fake HTTP server. Assert bearer token,
+- [x] Write gateway tests using a local fake HTTP server. Assert bearer token,
   correlation/idempotency headers, exact DTO mapping, request timeout, bounded
   response size, retryable transport classification, non-retryable 4xx, and no
   secret/body leakage in errors.
-- [ ] Implement `ClientCredentialsTokenProvider` with injected `fetch`, clock,
+- [x] Implement `ClientCredentialsTokenProvider` with injected `fetch`, clock,
   and skew. Implement `HttpWorkflowGateway` with injected token provider,
   timeout, base URL, and logger.
-- [ ] Extend API environment parsing with control client ID/secret/audience,
+- [x] Extend API environment parsing with control client ID/secret/audience,
   token URL, AI Runtime internal URL, timeout, dispatcher interval, and batch
   size. Production rejects HTTP except for a Docker-network hostname explicitly
   selected by the production Compose contract; external/public URLs require
   HTTPS.
-- [ ] Wire local and production environment names only. Do not start Temporal
+- [x] Wire local and production environment names only. Do not start Temporal
   services yet; Compose must still validate with the new required variables.
-- [ ] Run the two focused tests, API config tests, API lint/typecheck, both
+- [x] Run the two focused tests, API config tests, API lint/typecheck, both
   Compose config commands, `pnpm audit:env`, and `pnpm audit:secrets`.
 - [ ] Commit: `feat(agentic): add authenticated workflow gateway`
 

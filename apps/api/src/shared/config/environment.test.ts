@@ -11,6 +11,15 @@ const validSource = {
   CONSOLE_ORIGIN: "http://localhost:3000",
   KEYCLOAK_ISSUER: "http://keycloak:8080/realms/opendx",
   KEYCLOAK_AUDIENCE: "opendx-api",
+  KEYCLOAK_TOKEN_URL: "http://keycloak:8080/realms/opendx/protocol/openid-connect/token",
+  AGENTIC_CONTROL_CLIENT_ID: "opendx-agentic-control",
+  AGENTIC_CONTROL_CLIENT_SECRET: "local-control-secret",
+  AGENTIC_CONTROL_AUDIENCE: "opendx-ai-runtime",
+  AI_RUNTIME_INTERNAL_URL: "http://ai-runtime:8000",
+  AGENTIC_EXECUTION_ENABLED: "false",
+  WORKFLOW_GATEWAY_TIMEOUT_MS: "5000",
+  WORKFLOW_DISPATCHER_INTERVAL_MS: "5000",
+  WORKFLOW_DISPATCHER_BATCH_SIZE: "20",
   MINIO_ENDPOINT: "http://minio:9000",
   MINIO_ACCESS_KEY: "opendx_minio",
   MINIO_SECRET_KEY: "local-only-secret",
@@ -45,6 +54,15 @@ describe("parseApiEnvironment", () => {
       requestTimeoutMs: 5_000,
     });
     expect(environment.googleClientId).toBeUndefined();
+    expect(environment.agentic).toMatchObject({
+      executionEnabled: false,
+      controlClientId: "opendx-agentic-control",
+      controlAudience: "opendx-ai-runtime",
+      runtimeUrl: "http://ai-runtime:8000",
+      gatewayTimeoutMs: 5_000,
+      dispatcherIntervalMs: 5_000,
+      dispatcherBatchSize: 20,
+    });
   });
 
   it.each([
@@ -68,6 +86,10 @@ describe("parseApiEnvironment", () => {
     ["SUPPORT_ESCALATION_INTERVAL_SECONDS", { SUPPORT_ESCALATION_INTERVAL_SECONDS: "0" }],
     ["SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS", { SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: "0" }],
     ["MINIO_SUPPORT_BUCKET", { MINIO_SUPPORT_BUCKET: "product-media" }],
+    ["AGENTIC_CONTROL_CLIENT_SECRET", { AGENTIC_CONTROL_CLIENT_SECRET: "" }],
+    ["WORKFLOW_GATEWAY_TIMEOUT_MS", { WORKFLOW_GATEWAY_TIMEOUT_MS: "499" }],
+    ["WORKFLOW_DISPATCHER_INTERVAL_MS", { WORKFLOW_DISPATCHER_INTERVAL_MS: "99" }],
+    ["WORKFLOW_DISPATCHER_BATCH_SIZE", { WORKFLOW_DISPATCHER_BATCH_SIZE: "1001" }],
   ])("rejects invalid %s", (expectedKey, override) => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
@@ -128,6 +150,22 @@ describe("parseApiEnvironment", () => {
       storefrontOrigin: "https://shop.novacommerce.local",
       cookieSecure: true,
     });
+  });
+
+  it("rejects public plaintext AI Runtime URLs in production", () => {
+    expect(() => parseApiEnvironment({
+      ...validSource,
+      OPENDX_ENV: "production",
+      AI_RUNTIME_INTERNAL_URL: "http://runtime.example.test:8000",
+    })).toThrow("AI_RUNTIME_INTERNAL_URL");
+  });
+
+  it("rejects public plaintext token URLs in production", () => {
+    expect(() => parseApiEnvironment({
+      ...validSource,
+      OPENDX_ENV: "production",
+      KEYCLOAK_TOKEN_URL: "http://identity.example.test/token",
+    })).toThrow("KEYCLOAK_TOKEN_URL");
   });
 
   it("rejects placeholder production domains", () => {

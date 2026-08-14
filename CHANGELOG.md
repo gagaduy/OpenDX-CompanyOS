@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a bounded authenticated HTTP workflow gateway with coalesced short-lived
+  client-credentials tokens, redacted transport failures, and safe runtime config.
 - Expose governed Agentic workflow staff and workload APIs with strict DTOs,
   isolated workload JWT identity, durable replay semantics, and readiness wiring.
 - Add the Agentic workflow application boundary with governed starts, frozen

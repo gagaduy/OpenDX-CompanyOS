@@ -20,6 +20,15 @@ x-api-environment: &api-environment
   KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
   KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
   KEYCLOAK_AUDIENCE: opendx-api
+  KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
+  AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
+  AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+  AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
+  AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
+  AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-false}
+  WORKFLOW_GATEWAY_TIMEOUT_MS: ${WORKFLOW_GATEWAY_TIMEOUT_MS:-5000}
+  WORKFLOW_DISPATCHER_INTERVAL_MS: ${WORKFLOW_DISPATCHER_INTERVAL_MS:-5000}
+  WORKFLOW_DISPATCHER_BATCH_SIZE: ${WORKFLOW_DISPATCHER_BATCH_SIZE:-20}
   MINIO_ENDPOINT: http://minio:9000
   MINIO_ACCESS_KEY: opendx_minio
   MINIO_SECRET_KEY: opendx_minio_password

@@ -15,6 +15,7 @@ import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import { createRemoteWorkloadTokenVerifier } from "./shared/auth/workload-auth.middleware";
+import { ClientCredentialsTokenProvider } from "./shared/auth/client-credentials-token-provider";
 import type { DependencyStatus } from "./shared/http/health.routes";
 import { createLogger } from "./shared/observability/logger";
 import { createMetricsRegistry } from "./shared/observability/metrics";
@@ -32,7 +33,7 @@ import { createCrmModule } from "./modules/crm";
 import { createReportingModule } from "./modules/reporting";
 import { createSupportModule } from "./modules/support";
 import { createAgenticModule } from "./modules/agentic";
-import type { WorkflowGateway } from "./modules/agentic/application/workflows/interfaces/workflow-gateway";
+import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
@@ -60,13 +61,23 @@ const workloadTokenVerifier = createRemoteWorkloadTokenVerifier({
   jwksUrl: environment.keycloakJwksUrl,
   audience: environment.keycloakAudience,
 });
-const unavailableWorkflowGateway: WorkflowGateway = {
-  async probe() { throw new Error("Agentic workflow gateway is not configured"); },
-  async start() { throw new Error("Agentic workflow gateway is not configured"); },
-  async signalApproval() { throw new Error("Agentic workflow gateway is not configured"); },
-  async signalCancellation() { throw new Error("Agentic workflow gateway is not configured"); },
-  async describe() { throw new Error("Agentic workflow gateway is not configured"); },
-};
+const agenticTokens = new ClientCredentialsTokenProvider({
+  tokenUrl: environment.agentic.tokenUrl,
+  clientId: environment.agentic.controlClientId,
+  clientSecret: environment.agentic.controlClientSecret,
+  audience: environment.agentic.controlAudience,
+  fetch,
+  now: Date.now,
+  expirySkewMs: 10_000,
+});
+const workflowGateway = new HttpWorkflowGateway({
+  baseUrl: environment.agentic.runtimeUrl,
+  tokens: agenticTokens,
+  fetch,
+  timeoutMs: environment.agentic.gatewayTimeoutMs,
+  maximumResponseBytes: 16_384,
+  onError: (error) => console.error("Agentic workflow gateway failed", error),
+});
 const inventory = createInventoryModule({
   transactions,
   variantReader: createCatalogVariantReader(),
@@ -194,14 +205,14 @@ const agentic = createAgenticModule({
   transactions,
   staffTokenVerifier,
   workloadTokenVerifier,
-  workflowGateway: unavailableWorkflowGateway,
+  workflowGateway,
   generateId: randomUUID,
   now: () => new Date().toISOString(),
   workflowApprovalTtlMs: 60 * 60 * 1_000,
-  dispatcherIntervalMs: 5_000,
-  dispatcherBatchSize: 20,
+  dispatcherIntervalMs: environment.agentic.dispatcherIntervalMs,
+  dispatcherBatchSize: environment.agentic.dispatcherBatchSize,
   onDispatcherError: (error) => console.error("Agentic workflow dispatch failed", error),
-  executionEnabled: false,
+  executionEnabled: environment.agentic.executionEnabled,
 });
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,

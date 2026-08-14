@@ -57,6 +57,15 @@ const apiEnvironmentSchema = z.object({
   KEYCLOAK_ISSUER: z.url(),
   KEYCLOAK_JWKS_URL: z.url().optional(),
   KEYCLOAK_AUDIENCE: z.string().trim().min(1),
+  KEYCLOAK_TOKEN_URL: z.url(),
+  AGENTIC_CONTROL_CLIENT_ID: z.string().trim().min(1),
+  AGENTIC_CONTROL_CLIENT_SECRET: z.string().min(1),
+  AGENTIC_CONTROL_AUDIENCE: z.string().trim().min(1),
+  AI_RUNTIME_INTERNAL_URL: z.url(),
+  AGENTIC_EXECUTION_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
+  WORKFLOW_GATEWAY_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(500).max(30_000)),
+  WORKFLOW_DISPATCHER_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)),
+  WORKFLOW_DISPATCHER_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(1_000)),
   MINIO_ENDPOINT: z.url(),
   MINIO_ACCESS_KEY: z.string().trim().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
@@ -125,6 +134,14 @@ const apiEnvironmentSchema = z.object({
   }
 
   if (value.OPENDX_ENV !== "production") return;
+  const runtimeUrl = new URL(value.AI_RUNTIME_INTERNAL_URL);
+  if (runtimeUrl.protocol !== "https:" && !(runtimeUrl.protocol === "http:" && runtimeUrl.hostname === "ai-runtime")) {
+    context.addIssue({ code: "custom", path: ["AI_RUNTIME_INTERNAL_URL"], message: "must use HTTPS or the approved Docker hostname" });
+  }
+  const tokenUrl = new URL(value.KEYCLOAK_TOKEN_URL);
+  if (tokenUrl.protocol !== "https:" && !(tokenUrl.protocol === "http:" && tokenUrl.hostname === "keycloak")) {
+    context.addIssue({ code: "custom", path: ["KEYCLOAK_TOKEN_URL"], message: "must use HTTPS or the approved Docker hostname" });
+  }
   for (const [field, rawUrl] of [
     ["CONSOLE_ORIGIN", value.CONSOLE_ORIGIN],
     ["STOREFRONT_ORIGIN", value.STOREFRONT_ORIGIN],
@@ -216,6 +233,17 @@ export interface ApiEnvironment {
   readonly keycloakIssuer: string;
   readonly keycloakJwksUrl: string;
   readonly keycloakAudience: string;
+  readonly agentic: {
+    readonly executionEnabled: boolean;
+    readonly tokenUrl: string;
+    readonly controlClientId: string;
+    readonly controlClientSecret: string;
+    readonly controlAudience: string;
+    readonly runtimeUrl: string;
+    readonly gatewayTimeoutMs: number;
+    readonly dispatcherIntervalMs: number;
+    readonly dispatcherBatchSize: number;
+  };
   readonly minioEndpoint: string;
   readonly minioAccessKey: string;
   readonly minioSecretKey: string;
@@ -294,6 +322,17 @@ export function parseApiEnvironment(
       value.KEYCLOAK_JWKS_URL ??
       `${value.KEYCLOAK_ISSUER.replace(/\/$/, "")}/protocol/openid-connect/certs`,
     keycloakAudience: value.KEYCLOAK_AUDIENCE,
+    agentic: {
+      executionEnabled: value.AGENTIC_EXECUTION_ENABLED,
+      tokenUrl: value.KEYCLOAK_TOKEN_URL,
+      controlClientId: value.AGENTIC_CONTROL_CLIENT_ID,
+      controlClientSecret: value.AGENTIC_CONTROL_CLIENT_SECRET,
+      controlAudience: value.AGENTIC_CONTROL_AUDIENCE,
+      runtimeUrl: value.AI_RUNTIME_INTERNAL_URL,
+      gatewayTimeoutMs: value.WORKFLOW_GATEWAY_TIMEOUT_MS,
+      dispatcherIntervalMs: value.WORKFLOW_DISPATCHER_INTERVAL_MS,
+      dispatcherBatchSize: value.WORKFLOW_DISPATCHER_BATCH_SIZE,
+    },
     minioEndpoint: value.MINIO_ENDPOINT,
     minioAccessKey: value.MINIO_ACCESS_KEY,
     minioSecretKey: value.MINIO_SECRET_KEY,
