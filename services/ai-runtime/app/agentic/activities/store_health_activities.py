@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import time
 from contextlib import suppress
 from typing import Any
 
@@ -19,6 +20,7 @@ from app.agentic.domain.contracts import (
     ActivityReservationRequest,
     FrozenWorkflowPlan,
     StateProjection,
+    WorkflowState,
 )
 from app.agentic.workflows.store_health_review_v1 import (
     ActivityExecutionInput,
@@ -27,25 +29,72 @@ from app.agentic.workflows.store_health_review_v1 import (
 
 
 class StoreHealthActivities:
-    def __init__(self, control: AgenticControlPort) -> None:
+    def __init__(
+        self,
+        control: AgenticControlPort,
+        metrics: Any | None = None,
+        logger: Any | None = None,
+    ) -> None:
         self._control = control
+        self._metrics = metrics
+        self._logger = logger
 
     @activity.defn(name="load_frozen_plan")
     async def load_frozen_plan(self, run_id: str) -> FrozenWorkflowPlan:
+        started = time.monotonic()
+        outcome = "failed"
+        error_code: str | None = None
         try:
-            return await self._with_heartbeat(self._control.load_plan(run_id))
+            result = await self._with_heartbeat(self._control.load_plan(run_id))
+            outcome = "completed"
+            return result
+        except asyncio.CancelledError:
+            outcome = "canceled"
+            error_code = "ACTIVITY_CANCELED"
+            raise
         except AgenticControlFailure as error:
+            error_code = error.code
             self._raise_control(error)
+        finally:
+            self._observe_runtime_activity(
+                ActivityKind.LOAD_FROZEN_PLAN,
+                run_id,
+                "root",
+                self._attempt(),
+                time.monotonic() - started,
+                outcome,
+                error_code,
+            )
 
     @activity.defn(name="project_state")
     async def project_state(self, value: StateProjectionInput) -> None:
+        started = time.monotonic()
+        outcome = "failed"
+        error_code: str | None = None
         try:
             await self._control.project_state(
                 value.run_id,
                 StateProjection(value.projection_sequence, value.state, value.outcome_code),
             )
+            self._observe_projection(value)
+            outcome = "completed"
+        except asyncio.CancelledError:
+            outcome = "canceled"
+            error_code = "ACTIVITY_CANCELED"
+            raise
         except AgenticControlFailure as error:
+            error_code = error.code
             self._raise_control(error)
+        finally:
+            self._observe_runtime_activity(
+                ActivityKind.PROJECT_STATE,
+                value.run_id,
+                "root",
+                self._attempt(),
+                time.monotonic() - started,
+                outcome,
+                error_code,
+            )
 
     @activity.defn(name="execute_fake_analysis")
     async def execute_fake_analysis(self, value: ActivityExecutionInput) -> dict[str, Any]:
@@ -66,7 +115,73 @@ class StoreHealthActivities:
     async def _execute(
         self, kind: ActivityKind, value: ActivityExecutionInput
     ) -> dict[str, Any]:
-        return await self._with_heartbeat(self._execute_reserved(kind, value))
+        started = time.monotonic()
+        outcome = "failed"
+        error_code: str | None = None
+        try:
+            result = await self._with_heartbeat(self._execute_reserved(kind, value))
+            outcome = "completed"
+            return result
+        except asyncio.CancelledError:
+            outcome = "canceled"
+            error_code = "ACTIVITY_CANCELED"
+            raise
+        except ApplicationError as error:
+            error_code = error.type or "ACTIVITY_FAILED"
+            raise
+        finally:
+            duration = time.monotonic() - started
+            self._observe_activity(kind, value, duration, outcome, error_code)
+
+    def _observe_activity(
+        self,
+        kind: ActivityKind,
+        value: ActivityExecutionInput,
+        duration: float,
+        outcome: str,
+        error_code: str | None,
+    ) -> None:
+        self._observe_runtime_activity(
+            kind,
+            value.run_id,
+            value.branch_id or "root",
+            value.execution_attempt,
+            duration,
+            outcome,
+            error_code,
+        )
+
+    def _observe_runtime_activity(
+        self,
+        kind: ActivityKind,
+        run_id: str,
+        causation_id: str,
+        attempt: int,
+        duration: float,
+        outcome: str,
+        error_code: str | None,
+    ) -> None:
+        try:
+            if self._metrics is not None:
+                self._metrics.observe(
+                    "activity_duration_seconds",
+                    duration,
+                    {"activity": kind.value, "outcome": outcome},
+                )
+            if self._logger is not None:
+                self._logger.emit(
+                    "activity_finished",
+                    workflow_id=run_id,
+                    correlation_id=run_id,
+                    causation_id=causation_id,
+                    activity=kind.value,
+                    attempt=attempt,
+                    duration_seconds=duration,
+                    outcome=outcome,
+                    **({"error_code": error_code} if error_code else {}),
+                )
+        except Exception:
+            pass
 
     async def _execute_reserved(
         self, kind: ActivityKind, value: ActivityExecutionInput
@@ -111,8 +226,22 @@ class StoreHealthActivities:
         except AgenticControlFailure as error:
             if not error.retryable or value.execution_attempt >= 3:
                 await self._fail_reserved(invocation_key, error.code)
+            if (
+                error.retryable
+                and value.execution_attempt >= 3
+                and self._metrics is not None
+            ):
+                self._observe_retry_exhaustion(kind)
             self._raise_control(error)
         return result
+
+    def _observe_retry_exhaustion(self, kind: ActivityKind) -> None:
+        try:
+            self._metrics.increment(
+                "retry_exhaustion", {"activity": kind.value}
+            )
+        except Exception:
+            pass
 
     async def _fail_reserved(self, invocation_key: str, outcome_code: str) -> None:
         try:
@@ -139,6 +268,36 @@ class StoreHealthActivities:
         while True:
             activity.heartbeat()
             await asyncio.sleep(1)
+
+    @staticmethod
+    def _attempt() -> int:
+        return activity.info().attempt if activity.in_activity() else 1
+
+    def _observe_projection(self, value: StateProjectionInput) -> None:
+        try:
+            terminal = {
+                WorkflowState.COMPLETED: "completed",
+                WorkflowState.PARTIALLY_COMPLETED: "partially_completed",
+                WorkflowState.FAILED: "failed",
+                WorkflowState.CANCELED: "canceled",
+            }
+            if value.state in terminal:
+                outcome = terminal[value.state]
+                if self._metrics is not None:
+                    self._metrics.increment("terminal_outcome", {"outcome": outcome})
+                if self._logger is not None:
+                    self._logger.emit(
+                        "workflow_terminal", workflow_id=value.run_id, outcome=outcome
+                    )
+            elif value.state is WorkflowState.AWAITING_HUMAN_APPROVAL:
+                if self._metrics is not None:
+                    self._metrics.increment(
+                        "waiting_runs", {"state": value.state.value}
+                    )
+            elif self._metrics is not None:
+                self._metrics.increment("active_runs", {"state": value.state.value})
+        except Exception:
+            pass
 
     @staticmethod
     def _digest(value: ActivityExecutionInput) -> str:

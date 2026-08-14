@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose the authenticated AI Runtime Temporal control API, truthful liveness
+  and readiness, an independently supervised worker entrypoint, and bounded
+  redacted workflow observability in separate production container roles.
 - Add the immutable Store Health Temporal workflow with dependency-aware
   orchestration, bounded retries, approval and cancellation signals,
   idempotent fake activities, and five replay-tested V1 histories.

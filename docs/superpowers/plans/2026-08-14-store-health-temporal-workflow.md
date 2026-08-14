@@ -567,7 +567,7 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
   history fixture is versioned test evidence, not a hand-written placeholder.
 - [x] Run workflow tests twice, replay tests, `python3 -m compileall app`, and
   the full Python suite.
-- [ ] Commit: `feat(ai-runtime): implement store health workflow v1`
+- [x] Commit: `feat(ai-runtime): implement store health workflow v1`
 
 ## Task 8: Add AI Runtime Control API and Independently Supervised Worker
 
@@ -582,43 +582,47 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 - Create: `services/ai-runtime/tests/agentic/presentation/test_router.py`
 - Create: `services/ai-runtime/tests/agentic/test_worker.py`
 - Create: `services/ai-runtime/tests/agentic/test_observability.py`
+- Modify: `services/ai-runtime/app/agentic/activities/store_health_activities.py`
 - Modify: `services/ai-runtime/app/create_app.py`
 - Modify: `services/ai-runtime/app/main.py`
+- Modify: `services/ai-runtime/app/shared/health/router.py`
+- Modify: `services/ai-runtime/app/shared/health/schemas.py`
+- Modify: `services/ai-runtime/tests/agentic/activities/test_store_health_activities.py`
 - Modify: `services/ai-runtime/tests/shared/health/test_health_api.py`
 - Modify: `services/ai-runtime/Dockerfile`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write application tests for start idempotency, stable workflow ID,
+- [x] Write application tests for start idempotency, stable workflow ID,
   already-started convergence, describe mapping, approval/cancellation signal
   IDs, Temporal unavailable classification, and response redaction.
-- [ ] Implement a Temporal client adapter using namespace `opendx`, task queue
+- [x] Implement a Temporal client adapter using namespace `opendx`, task queue
   `store-health-v1`, workflow ID reuse policy that rejects completed duplicates,
   and TLS settings supplied by `RuntimeSettings`.
-- [ ] Add authenticated, strict Pydantic endpoints for the four fixed internal
+- [x] Add authenticated, strict Pydantic endpoints for the four fixed internal
   routes. Start returns the Temporal run ID and idempotent status; signals
   return only after Temporal acknowledges them. Map safe application errors to
   bounded HTTP responses.
-- [ ] Split health semantics: `/health` is process liveness; `/ready` checks
+- [x] Split health semantics: `/health` is process liveness; `/ready` checks
   settings, Temporal connection, namespace, and task queue registration without
   starting work. Authentication failures must not affect liveness.
-- [ ] Write worker tests with fake Temporal client/control client. Register
+- [x] Write worker tests with fake Temporal client/control client. Register
   exactly `StoreHealthReviewWorkflowV1` and the Phase B activity names. On
   SIGTERM/SIGINT, stop polling, wait up to configured grace for activities,
   then close HTTP and Temporal clients.
-- [ ] Add structured logging and bounded metrics for workflow start, active and
+- [x] Add structured logging and bounded metrics for workflow start, active and
   waiting runs, activity duration/outcome, retry exhaustion, rejected signals,
   worker polling, and terminal outcome. Tests must prove labels exclude task
   text, payloads, tokens, certificates, raw histories, customer/payment data,
   task/run IDs, and other high-cardinality values; IDs remain only in redacted
   structured logs where the approved design permits them.
-- [ ] Implement `python -m app.agentic.worker` as a separate container process;
+- [x] Implement `python -m app.agentic.worker` as a separate container process;
   do not start a background worker inside FastAPI.
-- [ ] Ensure the production Docker stage contains the installed pinned Python
+- [x] Ensure the production Docker stage contains the installed pinned Python
   dependencies and both process entrypoints, while the check stage still runs
   all tests.
-- [ ] Run focused application/router/worker tests, health tests, full Python
+- [x] Run focused application/router/worker tests, health tests, full Python
   tests, and build both Docker targets.
-- [ ] Commit: `feat(ai-runtime): expose temporal control and worker roles`
+- [x] Commit: `feat(ai-runtime): expose temporal control and worker roles`
 
 ## Task 9: Add Real Temporal Services to Local Compose
 

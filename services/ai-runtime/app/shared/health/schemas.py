@@ -7,5 +7,5 @@ from pydantic import BaseModel
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "ready", "unavailable"]
     service: Literal["opendx-ai-runtime"]
