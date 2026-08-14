@@ -270,11 +270,15 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
         configurationRevisionId: task.configurationRevisionId,
         subtasks: graph.subtasks.map(({ id, agentKind, version }) => ({ id, agentKind, version })),
         dependencies: graph.dependencies.map(({ from, to }) => ({ from, to })),
+        partialCompletionAllowed: true,
         ...(approval === undefined ? {} : { approval: {
           id: approval.id,
           payloadDigest: approval.parametersDigest,
           expiresAt: approval.expiresAt,
           policyVersion: approval.policyVersion,
+          applicationDecisionVersion: approval.state === "pending"
+            ? approval.version + 1
+            : approval.version,
         } }),
       };
     });

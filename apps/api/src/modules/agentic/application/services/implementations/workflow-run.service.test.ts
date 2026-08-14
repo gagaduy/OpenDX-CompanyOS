@@ -101,6 +101,24 @@ describe("WorkflowRunServiceImpl", () => {
     });
   });
 
+  it("loads frozen execution permissions and the exact approval decision version", async () => {
+    const { service } = harness({ policyEffect: "REQUIRE_APPROVAL" });
+    const run = await service.start(
+      { taskId: "task-1", expectedVersion: 2, workflowVersion: 1 },
+      operator,
+    );
+
+    await expect(service.loadPlan(run.id, worker)).resolves.toMatchObject({
+      workflowRunId: run.id,
+      partialCompletionAllowed: true,
+      approval: {
+        id: expect.any(String),
+        policyVersion: 4,
+        applicationDecisionVersion: 2,
+      },
+    });
+  });
+
   it.each([
     ["draft", 2, "TASK_STATE_INVALID"],
     ["ready", 1, "STALE_VERSION"],
@@ -358,6 +376,7 @@ class WorkflowRepositoryFake {
   async createApproval(_session: DatabaseSession, approval: Record<string, unknown>) {
     this.approvals.push(approval);
   }
+  async findWorkflowApproval() { return this.approvals[0]; }
   async appendAudit(_session: DatabaseSession, audit: { readonly action: string }) {
     this.audits.push(audit);
   }

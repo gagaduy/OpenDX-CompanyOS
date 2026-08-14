@@ -83,6 +83,7 @@ describe("Workflow run rules", () => {
     ["partially_completed", "PARTIAL_ACTIVITY_FAILURE"],
     ["canceled", "CANCELED_BY_STAFF"],
     ["failed", "RETRY_EXHAUSTED"],
+    ["failed", "ACTIVITY_REJECTED"],
   ] as const)("records terminal state %s with outcome %s", (state, outcomeCode) => {
     const source = state === "completed" ? "executive_synthesis" : "department_analysis";
 

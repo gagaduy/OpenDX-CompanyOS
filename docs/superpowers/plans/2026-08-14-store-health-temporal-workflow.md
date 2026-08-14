@@ -519,12 +519,22 @@ export interface WorkflowRunService {
 - Create: `services/ai-runtime/tests/agentic/workflows/histories/store_health_retry_v1.json`
 - Create: `services/ai-runtime/tests/agentic/workflows/histories/store_health_partial_v1.json`
 - Create: `services/ai-runtime/tests/agentic/workflows/histories/store_health_canceled_v1.json`
+- Modify: `services/ai-runtime/app/agentic/application/ports.py`
+- Modify: `services/ai-runtime/app/agentic/domain/contracts.py`
+- Modify: `services/ai-runtime/app/agentic/infrastructure/agentic_control_client.py`
+- Modify: `services/ai-runtime/tests/agentic/infrastructure/test_agentic_control_client.py`
+- Modify: `apps/api/src/modules/agentic/application/services/implementations/workflow-run.service.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/interfaces/workflow-run.service.ts`
+- Modify: `apps/api/src/modules/agentic/domain/entities/workflow-run.ts`
+- Modify: `apps/api/src/modules/agentic/domain/services/workflow-run-rules.ts`
+- Create: `apps/api/src/modules/agentic/infrastructure/database/migrations/202608140018_add_agent_workflow_activity_rejected_outcome.ts`
+- Modify: the corresponding API unit and migration integration tests
 - Modify: `CHANGELOG.md`
 
-- [ ] Write time-skipping workflow tests first with an injected activity set.
+- [x] Write time-skipping workflow tests first with an injected activity set.
   Use `asyncio.run` from ordinary Pytest tests instead of adding an async test
   plugin.
-- [ ] Test the exact normal path:
+- [x] Test the exact normal path:
 
 ```text
 received -> planning -> [awaiting_plan_approval] -> dispatching
@@ -532,30 +542,30 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 -> executive_synthesis -> [awaiting_human_approval] -> completed
 ```
 
-- [ ] Test dependency-aware fan-out/fan-in, unrelated branch continuation,
+- [x] Test dependency-aware fan-out/fan-in, unrelated branch continuation,
   partial completion, retryable failure with bounded exponential backoff,
   non-retryable business failure, timeout, retry exhaustion, approval resume,
   rejection, expiration via workflow timer, stale/duplicate signal,
   cancellation during an activity, and cancellation while awaiting approval.
-- [ ] Implement workflow dataclasses and one immutable workflow class. Workflow
+- [x] Implement workflow dataclasses and one immutable workflow class. Workflow
   code may call only Temporal workflow APIs, execute named activities, wait on
   signals/timers, and combine immutable results. It must not import `httpx`,
   JWT, settings, `os`, `uuid`, database code, or wall-clock APIs.
-- [ ] Implement activities as application adapters over `AgenticControlPort`:
+- [x] Implement activities as application adapters over `AgenticControlPort`:
   `load_frozen_plan`, `project_state`, `execute_fake_analysis`,
   `execute_fake_quality_review`, `execute_fake_collaboration`, and
   `execute_fake_synthesis`. Each execution reserves a stable key
   `<runId>:<activityKind>:<branchId-or-root>` and returns a previously stored
   outcome on replay.
-- [ ] The production Phase B fake adapter returns bounded structured fixtures
+- [x] The production Phase B fake adapter returns bounded structured fixtures
   only. Approval waits come from the frozen Phase A policy decision; retry,
   failure, and bounded delay fixtures exist only in injected test activity
   implementations. Do not expose a production HTTP flag that changes business
   outcomes.
-- [ ] Generate the five representative JSON histories from the tests, scrub
+- [x] Generate the five representative JSON histories from the tests, scrub
   them to bounded identifiers, and replay them with Temporal's replayer. A
   history fixture is versioned test evidence, not a hand-written placeholder.
-- [ ] Run workflow tests twice, replay tests, `python3 -m compileall app`, and
+- [x] Run workflow tests twice, replay tests, `python3 -m compileall app`, and
   the full Python suite.
 - [ ] Commit: `feat(ai-runtime): implement store health workflow v1`
 

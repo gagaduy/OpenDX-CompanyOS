@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -59,10 +60,19 @@ class StoreHealthReviewInput:
     task_id: str
     workflow_version: int
     plan_revision: int
+    activity_start_to_close_seconds: int = 30
+    activity_schedule_to_close_seconds: int = 180
 
     def __post_init__(self) -> None:
         _bounded(self.task_id, "task_id", 255)
-        if self.workflow_version != 1 or self.plan_revision < 1:
+        if (
+            self.workflow_version != 1
+            or self.plan_revision < 1
+            or self.activity_start_to_close_seconds < 1
+            or self.activity_schedule_to_close_seconds
+            < self.activity_start_to_close_seconds
+            or self.activity_schedule_to_close_seconds > 86_400
+        ):
             raise ValueError("Unsupported workflow input version")
 
 
@@ -115,6 +125,29 @@ class PlanDependency:
 
 
 @dataclass(frozen=True)
+class ApprovalRequirement:
+    id: str
+    payload_digest: str
+    expires_at: str
+    policy_version: int
+    application_decision_version: int = 2
+
+    def __post_init__(self) -> None:
+        _bounded(self.id, "approval id", 255)
+        _digest(self.payload_digest)
+        try:
+            expires_at = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError("Invalid approval expiration") from error
+        if (
+            expires_at.tzinfo is None
+            or self.policy_version < 1
+            or self.application_decision_version < 1
+        ):
+            raise ValueError("Invalid approval requirement")
+
+
+@dataclass(frozen=True)
 class FrozenWorkflowPlan:
     task_id: str
     workflow_run_id: str
@@ -123,12 +156,19 @@ class FrozenWorkflowPlan:
     configuration_revision_id: str
     subtasks: tuple[PlanNode, ...]
     dependencies: tuple[PlanDependency, ...]
+    approval: ApprovalRequirement | None = None
+    partial_completion_allowed: bool = True
 
     def __post_init__(self) -> None:
         StoreHealthReviewInput(self.task_id, self.workflow_version, self.plan_revision)
         _bounded(self.workflow_run_id, "workflow_run_id", 255)
         _bounded(self.configuration_revision_id, "configuration_revision_id", 255)
-        if not self.subtasks or len(self.subtasks) > 100 or len(self.dependencies) > 500:
+        if (
+            not self.subtasks
+            or len(self.subtasks) > 100
+            or len(self.dependencies) > 500
+            or type(self.partial_completion_allowed) is not bool
+        ):
             raise ValueError("Frozen plan bounds are invalid")
 
 

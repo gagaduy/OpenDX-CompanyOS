@@ -84,11 +84,13 @@ export interface FrozenWorkflowPlan {
     readonly from: string;
     readonly to: string;
   }[];
+  readonly partialCompletionAllowed: boolean;
   readonly approval?: {
     readonly id: string;
     readonly payloadDigest: string;
     readonly expiresAt: string;
     readonly policyVersion: number;
+    readonly applicationDecisionVersion: number;
   };
 }
 

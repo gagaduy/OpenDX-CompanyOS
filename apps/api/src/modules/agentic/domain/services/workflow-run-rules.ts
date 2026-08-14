@@ -30,6 +30,7 @@ const failedOutcomes = new Set<WorkflowOutcomeCode>([
   "APPROVAL_REJECTED",
   "APPROVAL_EXPIRED",
   "RETRY_EXHAUSTED",
+  "ACTIVITY_REJECTED",
   "INVALID_FROZEN_PLAN",
 ]);
 

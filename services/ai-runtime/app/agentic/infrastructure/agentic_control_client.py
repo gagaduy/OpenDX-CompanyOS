@@ -3,26 +3,29 @@
 
 from __future__ import annotations
 
+import json as json_module
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
-from app.agentic.application.ports import AccessTokenProvider
+from app.agentic.application.ports import AgenticControlFailure, AccessTokenProvider
 from app.agentic.domain.contracts import (
     ActivityOutcome,
     ActivityReservationRequest,
+    ApprovalRequirement,
     FrozenWorkflowPlan,
     PlanDependency,
     PlanNode,
     StateProjection,
 )
 
+AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({"INVALID_FROZEN_PLAN"})
 
-class AgenticControlError(RuntimeError):
+
+class AgenticControlError(AgenticControlFailure):
     def __init__(self, code: str, *, retryable: bool, status_code: int | None = None) -> None:
-        super().__init__(code)
-        self.retryable = retryable
+        super().__init__(code, retryable=retryable)
         self.status_code = status_code
 
 
@@ -39,6 +42,7 @@ class AgenticControlClient:
     async def load_plan(self, run_id: str) -> FrozenWorkflowPlan:
         data = await self._request("GET", f"/workflow-runs/{quote(run_id, safe='')}/plan")
         try:
+            approval = data.get("approval")
             return FrozenWorkflowPlan(
                 task_id=data["taskId"], workflow_run_id=data["workflowRunId"],
                 workflow_version=data["workflowVersion"], plan_revision=data["planRevision"],
@@ -49,6 +53,12 @@ class AgenticControlClient:
                 dependencies=tuple(PlanDependency(
                     source=edge["from"], target=edge["to"]
                 ) for edge in data["dependencies"]),
+                approval=None if approval is None else ApprovalRequirement(
+                    id=approval["id"], payload_digest=approval["payloadDigest"],
+                    expires_at=approval["expiresAt"], policy_version=approval["policyVersion"],
+                    application_decision_version=approval["applicationDecisionVersion"],
+                ),
+                partial_completion_allowed=data["partialCompletionAllowed"],
             )
         except (KeyError, TypeError, ValueError) as error:
             raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
@@ -109,12 +119,8 @@ class AgenticControlClient:
                 method, self._base_url + path, json=json, headers=headers,
                 timeout=self._timeout,
             ) as response:
-                if not response.is_success:
-                    retryable = response.status_code in {408, 429} or response.status_code >= 500
-                    raise AgenticControlError(
-                        "AGENTIC_CONTROL_REJECTED", retryable=retryable,
-                        status_code=response.status_code,
-                    )
+                status_code = response.status_code
+                is_success = response.is_success
                 chunks: list[bytes] = []
                 length = 0
                 async for chunk in response.aiter_bytes():
@@ -126,6 +132,22 @@ class AgenticControlClient:
             raise
         except httpx.HTTPError as error:
             raise AgenticControlError("AGENTIC_CONTROL_TRANSPORT_FAILED", retryable=True) from error
+        if not is_success:
+            error_code = "AGENTIC_CONTROL_REJECTED"
+            try:
+                envelope = json_module.loads(b"".join(chunks))
+                candidate = envelope.get("errorCode")
+                if (
+                    envelope.get("success") is False
+                    and candidate in AUTHORITATIVE_CONTROL_ERROR_CODES
+                ):
+                    error_code = candidate
+            except (AttributeError, TypeError, ValueError):
+                pass
+            retryable = status_code in {408, 429} or status_code >= 500
+            raise AgenticControlError(
+                error_code, retryable=retryable, status_code=status_code
+            )
         try:
             envelope = httpx.Response(200, content=b"".join(chunks)).json()
             data = envelope["data"]

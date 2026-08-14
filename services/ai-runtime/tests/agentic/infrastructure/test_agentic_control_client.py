@@ -60,6 +60,12 @@ def test_maps_plan_projection_and_reservation_requests_exactly() -> None:
                     "configurationRevisionId": "revision-1",
                     "subtasks": [{"id": "branch-1", "agentKind": "catalog", "version": 1}],
                     "dependencies": [],
+                    "approval": {
+                        "id": "approval-1", "payloadDigest": "b" * 64,
+                        "expiresAt": "2026-08-15T00:00:00.000Z", "policyVersion": 4,
+                        "applicationDecisionVersion": 2,
+                    },
+                    "partialCompletionAllowed": False,
                 },
             })
         return httpx.Response(200, json={"success": True, "data": {"status": "reserved"}})
@@ -83,6 +89,10 @@ def test_maps_plan_projection_and_reservation_requests_exactly() -> None:
     ))
 
     assert plan.workflow_run_id == "run-1"
+    assert plan.approval is not None
+    assert plan.approval.policy_version == 4
+    assert plan.approval.application_decision_version == 2
+    assert plan.partial_completion_allowed is False
     assert requests[0].headers["authorization"] == "Bearer worker-token"
     assert json.loads(requests[1].content) == {"projectionSequence": 1, "state": "planning"}
     assert requests[2].headers["idempotency-key"] == reservation.invocation_key
@@ -106,6 +116,22 @@ def test_classifies_and_redacts_http_failures(status: int, retryable: bool) -> N
     assert "sensitive-body" not in str(captured.value)
 
 
+def test_preserves_only_the_authoritative_invalid_plan_error_code() -> None:
+    client = _client(lambda _request: httpx.Response(422, json={
+        "success": False,
+        "message": "sensitive plan detail",
+        "errorCode": "INVALID_FROZEN_PLAN",
+        "errors": [],
+    }))
+
+    with pytest.raises(AgenticControlError) as captured:
+        asyncio.run(client.load_plan("run-1"))
+
+    assert captured.value.code == "INVALID_FROZEN_PLAN"
+    assert captured.value.retryable is False
+    assert "sensitive plan detail" not in str(captured.value)
+
+
 def test_rejects_oversized_response() -> None:
     client = _client(lambda _request: httpx.Response(200, text="x" * 2_000), 1_024)
     with pytest.raises(AgenticControlError):
@@ -120,6 +146,41 @@ def test_classifies_timeout_as_retryable() -> None:
         asyncio.run(_client(handler).load_plan("run-1"))
     assert captured.value.retryable is True
     assert "sensitive timeout" not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "missing",
+    ["partialCompletionAllowed", "applicationDecisionVersion"],
+)
+def test_rejects_missing_authoritative_plan_decisions(missing: str) -> None:
+    data = {
+        "taskId": "task-1",
+        "workflowRunId": "run-1",
+        "workflowVersion": 1,
+        "planRevision": 2,
+        "configurationRevisionId": "revision-1",
+        "subtasks": [{"id": "branch-1", "agentKind": "catalog", "version": 1}],
+        "dependencies": [],
+        "partialCompletionAllowed": True,
+        "approval": {
+            "id": "approval-1",
+            "payloadDigest": "a" * 64,
+            "expiresAt": "2099-08-14T00:00:00.000Z",
+            "policyVersion": 4,
+            "applicationDecisionVersion": 2,
+        },
+    }
+    if missing == "applicationDecisionVersion":
+        data["approval"].pop(missing)
+    else:
+        data.pop(missing)
+    client = _client(lambda _request: httpx.Response(
+        200, json={"success": True, "data": data}
+    ))
+
+    with pytest.raises(AgenticControlError) as captured:
+        asyncio.run(client.load_plan("run-1"))
+    assert captured.value.retryable is False
 
 
 def _client(handler: object, maximum_response_bytes: int = 16_384) -> AgenticControlClient:

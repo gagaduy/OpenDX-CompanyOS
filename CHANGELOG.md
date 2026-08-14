@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the immutable Store Health Temporal workflow with dependency-aware
+  orchestration, bounded retries, approval and cancellation signals,
+  idempotent fake activities, and five replay-tested V1 histories.
 - Add bounded AI Runtime Agentic contracts, RSA workload verification,
   coalesced worker tokens, and a redacted purpose-specific API callback client.
 - Add a bounded authenticated HTTP workflow gateway with coalesced short-lived
