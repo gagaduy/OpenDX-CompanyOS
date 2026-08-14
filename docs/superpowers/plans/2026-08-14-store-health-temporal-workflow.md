@@ -443,6 +443,16 @@ export interface WorkflowRunService {
 - Modify: `apps/api/src/server.ts`
 - Modify: `.env.example`
 - Modify: `infra/docker/docker-compose.yml`
+- Modify: `infra/docker/postgres/init/001-create-test-database.sql`
+- Modify: `infra/keycloak/realm-export.json`
+- Modify: `apps/api/src/server.ts`
+- Modify: `apps/api/src/shared/database/postgres.ts`
+- Modify: `apps/api/src/shared/database/postgres.test.ts`
+- Modify: `services/ai-runtime/app/shared/config.py`
+- Modify: `services/ai-runtime/app/agentic/activities/store_health_activities.py`
+- Modify: `services/ai-runtime/app/agentic/worker.py`
+- Modify: `services/ai-runtime/tests/shared/test_config.py`
+- Modify: `services/ai-runtime/tests/agentic/activities/test_store_health_activities.py`
 - Modify: `infra/deploy/compose.production.yml`
 - Modify: `CHANGELOG.md`
 
@@ -630,6 +640,7 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 
 - Create: `infra/temporal/dynamicconfig/development-sql.yaml`
 - Create: `infra/temporal/scripts/create-databases.sh`
+- Create: `infra/temporal/scripts/prepare-postgres-roles.sh`
 - Create: `infra/temporal/scripts/setup-schema.sh`
 - Create: `infra/temporal/scripts/register-namespace.sh`
 - Create: `scripts/dev/temporal-compose-check.test.mjs`
@@ -638,44 +649,45 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 - Modify: `Makefile`
 - Modify: `package.json`
 - Modify: `scripts/dev/check.sh`
+- Modify: `scripts/audit/repo.sh`
 - Modify: `.env.example`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write static Compose tests first. Assert exact image digests, no
+- [x] Write static Compose tests first. Assert exact image digests, no
   `auto-setup`, explicit one-shot database/schema/namespace jobs, private
   `7233`, separate databases/role, health-based dependency order, persistent
   state, restart policies, separate FastAPI/worker services, and no Temporal UI.
-- [ ] Create idempotent scripts that:
+- [x] Create idempotent scripts that:
   create the Temporal role plus `temporal` and `temporal_visibility` databases;
   run `temporal-sql-tool` `setup-schema -v 0.0` and `update-schema` against both
   PostgreSQL v12 schema paths; and register namespace `opendx` with reviewed
   retention only when absent. Administrative credentials exist only in these
   one-shot jobs.
-- [ ] Add Compose services `temporal-db-init`, `temporal-schema`, `temporal`,
+- [x] Add Compose services `temporal-db-init`, `temporal-schema`, `temporal`,
   `temporal-namespace`, `ai-runtime`, and `ai-worker`. Use health conditions so
   the server cannot start before schema success and the worker cannot start
   before namespace plus API/AI Runtime readiness.
-- [ ] Keep `7233` exposed to the Compose network only. Add an opt-in CLI command
+- [x] Keep `7233` exposed to the Compose network only. Add an opt-in CLI command
   such as `make temporal-cli ARGS='workflow list --namespace opendx'` using the
   pinned admin-tools image; do not add a product UI.
-- [ ] Add `make check-agentic-workflow` and root
+- [x] Add `make check-agentic-workflow` and root
   `pnpm check:agentic-workflow`. The lifecycle script must create/ready/start a
   test task through authenticated APIs, observe state progression, restart the
   AI worker while a deterministic activity is in flight, and verify one
   terminal run plus one outcome per invocation. It must clean only its own test
   records.
-- [ ] Extend the lifecycle check to exercise API, AI Runtime, worker, Temporal,
+- [x] Extend the lifecycle check to exercise API, AI Runtime, worker, Temporal,
   and PostgreSQL restart separately, including a run waiting for a real bound
   approval. After every restart, assert truthful liveness/readiness and exactly
   one final run. Explicit database grants must revoke public cross-database
   access, grant the application role only `opendx`, grant the Temporal role
   only its two databases, and make both forbidden connection/read probes fail.
-- [ ] Run the static test,
+- [x] Run the static test,
   `docker compose -f infra/docker/docker-compose.yml config`, the lifecycle check,
   stop/start the full local stack once, and rerun the lifecycle check.
-- [ ] Add the static test to `scripts/dev/check.sh`; keep the live lifecycle
+- [x] Add the static test to `scripts/dev/check.sh`; keep the live lifecycle
   check opt-in because it requires Docker services and Keycloak.
-- [ ] Commit: `feat(infra): run temporal workflow stack locally`
+- [x] Commit: `feat(infra): run temporal workflow stack locally`
 
 ## Task 10: Harden the Single-VPS Production Candidate
 

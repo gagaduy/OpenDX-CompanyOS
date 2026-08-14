@@ -40,7 +40,10 @@ import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/
 const environment = parseApiEnvironment(process.env);
 const logger = createLogger(environment.logging);
 const metrics = environment.metrics.enabled ? createMetricsRegistry() : undefined;
-const pool = createPostgresPool(environment);
+const pool = createPostgresPool({
+  ...environment,
+  onBackgroundError: (error) => console.error("PostgreSQL pool background error", error),
+});
 const transactions = new PostgresTransactionRunner(pool);
 const repository = new PostgresqlCompanyOperatingCoreRepository(transactions);
 const minioEndpoint = new URL(environment.minioEndpoint);

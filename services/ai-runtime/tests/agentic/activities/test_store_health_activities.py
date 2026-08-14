@@ -98,6 +98,26 @@ def test_reserves_stable_key_and_persists_a_bounded_fake_result() -> None:
     assert second_control.completed == []
 
 
+def test_configured_fake_delay_keeps_a_reserved_activity_in_flight() -> None:
+    async def scenario() -> None:
+        control = Control()
+        execution = asyncio.create_task(
+            StoreHealthActivities(
+                control, fake_activity_delay_ms=50
+            ).execute_fake_analysis(
+                ActivityExecutionInput("run-1", 1, branch_id="catalog")
+            )
+        )
+
+        await asyncio.sleep(0.01)
+        assert len(control.reservations) == 1
+        assert control.completed == []
+        await execution
+        assert len(control.completed) == 1
+
+    asyncio.run(scenario())
+
+
 def test_replays_stored_failure_without_performing_the_fake_operation() -> None:
     control = Control({
         "status": "duplicate",

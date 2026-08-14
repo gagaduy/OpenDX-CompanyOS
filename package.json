@@ -29,6 +29,8 @@
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "test:make-database-backup": "node --test scripts/dev/make-database-backup.test.mjs",
+    "test:temporal-compose": "node --test scripts/dev/temporal-compose-check.test.mjs",
+    "check:agentic-workflow": "node scripts/dev/agentic-workflow-lifecycle-check.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",

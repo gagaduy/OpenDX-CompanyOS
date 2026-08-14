@@ -48,6 +48,7 @@ class KeycloakSettings:
 class ActivitySettings:
     start_to_close_seconds: int
     schedule_to_close_seconds: int
+    fake_delay_ms: int
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,9 @@ class RuntimeSettings:
             activity=ActivitySettings(
                 start_to_close_seconds=start_to_close,
                 schedule_to_close_seconds=schedule_to_close,
+                fake_delay_ms=_nonnegative_integer(
+                    values, "FAKE_ACTIVITY_DELAY_MS", 0, maximum=60_000
+                ),
             ),
             worker_shutdown_grace_seconds=_positive_integer(
                 values, "WORKER_SHUTDOWN_GRACE_SECONDS", 30, maximum=3_600
@@ -168,6 +172,19 @@ def _positive_integer(
         raise ConfigurationError(f"{name} must be an integer") from error
     if value < 1 or value > maximum:
         raise ConfigurationError(f"{name} must be between 1 and {maximum}")
+    return value
+
+
+def _nonnegative_integer(
+    values: Mapping[str, str], name: str, default: int, *, maximum: int
+) -> int:
+    raw = values.get(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise ConfigurationError(f"{name} must be an integer") from error
+    if value < 0 or value > maximum:
+        raise ConfigurationError(f"{name} must be between 0 and {maximum}")
     return value
 
 

@@ -5,10 +5,10 @@ COMPOSE_ENV := $(if $(wildcard .env),--env-file .env,)
 COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
 export BACKUP
 
-.PHONY: help up down logs check check-crm-support-dashboard db-migrate db-rollback db-seed db-backup db-restore
+.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow temporal-cli db-migrate db-rollback db-seed db-backup db-restore
 
 help:
-	@echo "help up down logs check check-crm-support-dashboard db-migrate db-rollback db-seed db-backup db-restore"
+	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -37,6 +37,12 @@ check-crm-support-dashboard:
 	MINIO_SUPPORT_BUCKET=support-attachments-test \
 	RUN_REPORTING_SCALE=1 \
 	$(COMPOSE) run --rm -e TEST_DATABASE_URL -e MINIO_BUCKET -e MINIO_SUPPORT_BUCKET -e CRM_SUPPORT_DASHBOARD_EVIDENCE_DIR -e RUN_REPORTING_SCALE api pnpm run check:crm-support-dashboard
+
+check-agentic-workflow:
+	pnpm check:agentic-workflow
+
+temporal-cli:
+	$(COMPOSE) run --rm --no-deps temporal-cli $(ARGS)
 
 db-migrate:
 	$(COMPOSE) run --rm migrate

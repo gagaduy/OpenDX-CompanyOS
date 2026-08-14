@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Run the local Store Health workflow on pinned private Temporal services with
+  isolated PostgreSQL roles, one-shot schema and namespace setup, authenticated
+  worker callbacks, restart lifecycle acceptance, and an opt-in Temporal CLI.
+- Keep the API process alive across PostgreSQL restarts by observing idle pool
+  errors while readiness reports the actual recovered database connection.
 - Expose the authenticated AI Runtime Temporal control API, truthful liveness
   and readiness, an independently supervised worker entrypoint, and bounded
   redacted workflow observability in separate production container roles.

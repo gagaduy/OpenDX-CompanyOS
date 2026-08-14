@@ -25,7 +25,7 @@ x-api-environment: &api-environment
   AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
   AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
   AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
-  AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-false}
+  AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-true}
   WORKFLOW_GATEWAY_TIMEOUT_MS: ${WORKFLOW_GATEWAY_TIMEOUT_MS:-5000}
   WORKFLOW_DISPATCHER_INTERVAL_MS: ${WORKFLOW_DISPATCHER_INTERVAL_MS:-5000}
   WORKFLOW_DISPATCHER_BATCH_SIZE: ${WORKFLOW_DISPATCHER_BATCH_SIZE:-20}
@@ -57,23 +57,129 @@ x-api-environment: &api-environment
   SEPAY_REQUEST_TIMEOUT_MS: ${SEPAY_REQUEST_TIMEOUT_MS:-5000}
   PAYMENT_RECONCILIATION_INTERVAL_SECONDS: ${PAYMENT_RECONCILIATION_INTERVAL_SECONDS:-60}
 
+x-ai-environment: &ai-environment
+  APP_ENV: development
+  AI_RUNTIME_HOST: 0.0.0.0
+  AI_RUNTIME_PORT: "8000"
+  KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
+  KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
+  KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
+  AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
+  AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
+  AGENTIC_WORKER_AUDIENCE: opendx-api
+  AGENTIC_WORKER_CLIENT_ID: opendx-agentic-worker
+  AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+  AGENTIC_API_BASE_URL: http://api:4000/v1/internal/agentic
+  TEMPORAL_ADDRESS: temporal:7233
+  TEMPORAL_NAMESPACE: opendx
+  TEMPORAL_TASK_QUEUE: store-health-v1
+  TEMPORAL_TLS_ENABLED: "false"
+  ACTIVITY_START_TO_CLOSE_SECONDS: "30"
+  ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS: "180"
+  FAKE_ACTIVITY_DELAY_MS: ${FAKE_ACTIVITY_DELAY_MS:-3000}
+  WORKER_SHUTDOWN_GRACE_SECONDS: "30"
+  COMMAND_RETRY_INTERVAL_SECONDS: "5"
+
 services:
   postgres:
     image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
     environment:
-      POSTGRES_DB: opendx
-      POSTGRES_USER: opendx_local
-      POSTGRES_PASSWORD: opendx_local_password
+      POSTGRES_DB: postgres
+      POSTGRES_USER: opendx_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - opendx_postgres:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U opendx_local -d opendx"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U opendx_admin -d postgres"]
       interval: 3s
       timeout: 3s
       retries: 20
+
+  postgres-role-init:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    environment:
+      POSTGRES_ADMIN_USER: opendx_admin
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      POSTGRES_APP_USER: opendx_local
+      POSTGRES_APP_PASSWORD: opendx_local_password
+    volumes:
+      - ../temporal/scripts/prepare-postgres-roles.sh:/opt/opendx/prepare-postgres-roles.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/prepare-postgres-roles.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  temporal-db-init:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    environment:
+      POSTGRES_ADMIN_USER: opendx_admin
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      TEMPORAL_DB_USER: temporal
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+    volumes:
+      - ../temporal/scripts/create-databases.sh:/opt/opendx/create-databases.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/create-databases.sh"]
+    depends_on:
+      postgres-role-init:
+        condition: service_completed_successfully
+
+  temporal-schema:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    environment:
+      TEMPORAL_DB_USER: temporal
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+    volumes:
+      - ../temporal/scripts/setup-schema.sh:/opt/opendx/setup-schema.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/setup-schema.sh"]
+    depends_on:
+      temporal-db-init:
+        condition: service_completed_successfully
+
+  temporal:
+    image: temporalio/server:1.31.2@sha256:b5ecdb8282bededae2a10c36e8d862e27d0bc2d247fc73c5416025997ab4a1da
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+      POSTGRES_SEEDS: postgres
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      TEMPORAL_ALLOW_NO_AUTH: "true"
+    expose:
+      - "7233"
+    volumes:
+      - ../temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z $$(hostname -i) 7233"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  temporal-namespace:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    volumes:
+      - ../temporal/scripts/register-namespace.sh:/opt/opendx/register-namespace.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/register-namespace.sh"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  temporal-cli:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    profiles: ["tools"]
+    entrypoint: ["temporal", "--address", "temporal:7233"]
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
@@ -83,6 +189,8 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: opendx_admin_password
       KC_HEALTH_ENABLED: "true"
       KC_HOSTNAME: http://localhost:8080
+      AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+      AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
     ports:
       - "8080:8080"
     volumes:
@@ -141,8 +249,8 @@ services:
     environment: *api-environment
     command: ["pnpm", "--filter", "@opendx/api", "db:migrate:all"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-role-init:
+        condition: service_completed_successfully
 
   seed:
     build:
@@ -177,11 +285,51 @@ services:
         condition: service_healthy
       seed:
         condition: service_completed_successfully
+      ai-runtime:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 4s
       retries: 24
+
+  ai-runtime:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      target: production
+      network: host
+    environment: *ai-environment
+    expose:
+      - "8000"
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; raise SystemExit(0 if httpx.get('http://localhost:8000/ready').is_success else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  ai-worker:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      target: production
+      network: host
+    command: ["python", "-m", "app.agentic.worker"]
+    environment: *ai-environment
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      ai-runtime:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
   console:
     build:

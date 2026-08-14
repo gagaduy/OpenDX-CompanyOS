@@ -83,6 +83,42 @@
       ]
     },
     {
+      "clientId": "opendx-lifecycle-check",
+      "name": "OpenDX Local Lifecycle Check",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "opendx-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "opendx-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "agent-ai-ceo",
       "name": "OpenDX AI CEO",
       "enabled": true,
@@ -249,6 +285,7 @@
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
+      "secret": "${AGENTIC_CONTROL_CLIENT_SECRET}",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -272,6 +309,7 @@
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
+      "secret": "${AGENTIC_WORKER_CLIENT_SECRET}",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -350,6 +388,54 @@
         { "type": "password", "value": "opendx_finance_change_me", "temporary": true }
       ],
       "realmRoles": ["finance_operator"]
+    },
+    {
+      "username": "agentic-operator@novacommerce.example",
+      "email": "agentic-operator@novacommerce.example",
+      "firstName": "Agentic",
+      "lastName": "Operator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_agentic_operator_change_me", "temporary": false }
+      ],
+      "realmRoles": ["agentic_operator"]
+    },
+    {
+      "username": "agentic-approver@novacommerce.example",
+      "email": "agentic-approver@novacommerce.example",
+      "firstName": "Agentic",
+      "lastName": "Approver",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_agentic_approver_change_me", "temporary": false }
+      ],
+      "realmRoles": ["agentic_approver"]
+    },
+    {
+      "username": "agentic-governance-creator@novacommerce.example",
+      "email": "agentic-governance-creator@novacommerce.example",
+      "firstName": "Agentic Governance",
+      "lastName": "Creator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_agentic_governance_creator_change_me", "temporary": false }
+      ],
+      "realmRoles": ["agentic_governance_admin"]
+    },
+    {
+      "username": "agentic-governance-reviewer@novacommerce.example",
+      "email": "agentic-governance-reviewer@novacommerce.example",
+      "firstName": "Agentic Governance",
+      "lastName": "Reviewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_agentic_governance_reviewer_change_me", "temporary": false }
+      ],
+      "realmRoles": ["agentic_governance_admin"]
     }
   ]
 }

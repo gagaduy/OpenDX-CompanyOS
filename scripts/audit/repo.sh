@@ -32,7 +32,7 @@ for required_file in "${required_files[@]}"; do
   fi
 done
 
-expected_make_targets="check check-crm-support-dashboard db-backup db-migrate db-restore db-rollback db-seed down help logs up"
+expected_make_targets="check check-agentic-workflow check-crm-support-dashboard db-backup db-migrate db-restore db-rollback db-seed down help logs temporal-cli up"
 actual_make_targets="$(sed -n 's/^\([a-z][a-z-]*\):.*/\1/p' Makefile | sort -u | tr '\n' ' ' | sed 's/ $//')"
 if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
   echo "Repository audit failed: Makefile targets must be exactly: ${expected_make_targets}" >&2
@@ -40,8 +40,8 @@ if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
 fi
 
 compose_file="infra/docker/docker-compose.yml"
-if grep -Eq '(^|[[:space:]])temporal:|:latest([[:space:]]|$)' "${compose_file}"; then
-  echo "Repository audit failed: active Compose cannot contain Temporal or latest images" >&2
+if grep -Eq ':latest([[:space:]]|$)' "${compose_file}"; then
+  echo "Repository audit failed: active Compose cannot contain latest images" >&2
   exit 1
 fi
 

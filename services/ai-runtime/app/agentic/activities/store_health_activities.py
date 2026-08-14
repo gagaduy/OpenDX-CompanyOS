@@ -34,10 +34,12 @@ class StoreHealthActivities:
         control: AgenticControlPort,
         metrics: Any | None = None,
         logger: Any | None = None,
+        fake_activity_delay_ms: int = 0,
     ) -> None:
         self._control = control
         self._metrics = metrics
         self._logger = logger
+        self._fake_activity_delay_seconds = fake_activity_delay_ms / 1_000
 
     @activity.defn(name="load_frozen_plan")
     async def load_frozen_plan(self, run_id: str) -> FrozenWorkflowPlan:
@@ -211,6 +213,8 @@ class StoreHealthActivities:
             return recovered
 
         try:
+            if self._fake_activity_delay_seconds > 0:
+                await asyncio.sleep(self._fake_activity_delay_seconds)
             result = {
                 "status": "usable",
                 "activityKind": kind.value,

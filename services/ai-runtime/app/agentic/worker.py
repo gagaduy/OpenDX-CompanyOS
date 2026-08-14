@@ -143,7 +143,12 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
         loop.add_signal_handler(received, stop.set)
     await run_supervised_worker(
         temporal_client=temporal.raw_client,
-        activities=StoreHealthActivities(control, metrics, logger),
+        activities=StoreHealthActivities(
+            control,
+            metrics,
+            logger,
+            fake_activity_delay_ms=settings.activity.fake_delay_ms,
+        ),
         task_queue=settings.temporal.task_queue,
         shutdown_grace_seconds=settings.worker_shutdown_grace_seconds,
         stop=stop,

@@ -32,6 +32,7 @@ def test_development_accepts_private_plaintext_temporal() -> None:
     assert settings.temporal.tls is None
     assert settings.activity.start_to_close_seconds == 30
     assert settings.activity.schedule_to_close_seconds == 180
+    assert settings.activity.fake_delay_ms == 0
 
 
 def test_production_requires_temporal_tls() -> None:
@@ -130,6 +131,7 @@ def test_production_rejects_plaintext_public_http_boundary() -> None:
         ("ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS", "-1"),
         ("WORKER_SHUTDOWN_GRACE_SECONDS", "0"),
         ("COMMAND_RETRY_INTERVAL_SECONDS", "86401"),
+        ("FAKE_ACTIVITY_DELAY_MS", "60001"),
     ],
 )
 def test_numeric_configuration_is_bounded(name: str, value: str) -> None:
@@ -148,6 +150,14 @@ def test_activity_schedule_timeout_covers_each_attempt() -> None:
 
     with pytest.raises(ConfigurationError, match="ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS"):
         RuntimeSettings.from_mapping(values)
+
+
+def test_fake_activity_delay_is_bounded_for_deterministic_lifecycle_checks() -> None:
+    settings = RuntimeSettings.from_mapping(
+        environment() | {"FAKE_ACTIVITY_DELAY_MS": "2500"}
+    )
+
+    assert settings.activity.fake_delay_ms == 2500
 
 
 def test_from_environment_reads_process_environment(monkeypatch: pytest.MonkeyPatch) -> None:
