@@ -486,21 +486,21 @@ export interface WorkflowRunService {
 - Create: `services/ai-runtime/tests/agentic/presentation/test_workload_auth.py`
 - Modify: `CHANGELOG.md`
 
-- [ ] Define frozen dataclasses and enums for `StoreHealthReviewInput`,
+- [x] Define frozen dataclasses and enums for `StoreHealthReviewInput`,
   `ApprovalSignal`, `CancellationSignal`, `FrozenWorkflowPlan`, plan nodes,
   activity reservation/results, state projection, and safe outcome codes.
   Reject unbounded strings and unknown enum values at HTTP deserialization.
-- [ ] Write JWT verifier tests using an ephemeral RSA key. Check issuer,
+- [x] Write JWT verifier tests using an ephemeral RSA key. Check issuer,
   audience, subject, expiration, algorithm allow-list, and authorized client.
   AI Runtime control endpoints accept only `opendx-agentic-control`.
-- [ ] Write token-provider and callback-client tests equivalent to the
+- [x] Write token-provider and callback-client tests equivalent to the
   TypeScript boundary: short-lived client-credentials tokens for
   `opendx-agentic-worker`, expiry-aware cache, exact request DTOs, stable
   invocation key headers, timeouts, bounded responses, and redacted errors.
-- [ ] Implement the ports first, then infrastructure adapters. HTTP adapters
+- [x] Implement the ports first, then infrastructure adapters. HTTP adapters
   may use `httpx`; domain/application modules must not import FastAPI, JWT,
   Temporal, environment variables, or `httpx`.
-- [ ] Run all three focused test files, `python3 -m compileall app`, and the
+- [x] Run all three focused test files, `python3 -m compileall app`, and the
   entire Python suite.
 - [ ] Commit: `feat(ai-runtime): add authenticated agentic control client`
 
