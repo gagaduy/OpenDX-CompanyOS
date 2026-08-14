@@ -316,24 +316,24 @@ agentic_workflow_signal_receipts
 - Modify: `apps/api/src/modules/agentic/application/services/implementations/agent-task.service.test.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Create failing service tests with in-memory fakes for repositories,
+- [x] Create failing service tests with in-memory fakes for repositories,
   transactions, clocks, IDs, and `WorkflowGateway`.
-- [ ] Cover start validation: staff authority, `ready` state, expected version,
+- [x] Cover start validation: staff authority, `ready` state, expected version,
   pinned active configuration, no emergency revocation, frozen graph,
   supported version, and one active run. The stable Temporal workflow ID is
   `store-health-v1:<runId>`.
-- [ ] At start, evaluate the fixed `agentic.workflow.complete` action with the
+- [x] At start, evaluate the fixed `agentic.workflow.complete` action with the
   existing deterministic Phase A policy service. Freeze `ALLOW` or
   `REQUIRE_APPROVAL` plus policy version into the plan snapshot; for
   `REQUIRE_APPROVAL`, create the version/digest-bound approval request in the
   same transaction as the run. A policy `DENY` rejects start. Tests configure
   this policy through the existing governance service, never through a hidden
   scenario flag or direct production SQL.
-- [ ] Cover the acknowledgement-loss sequence: transaction creates `received`
+- [x] Cover the acknowledgement-loss sequence: transaction creates `received`
   run plus `agentic.workflow.start.accepted` audit; gateway starts it; attach
   Temporal run ID. When the gateway times out, return an accepted run with
   pending dispatch and let the dispatcher retry the identical workflow ID.
-- [ ] Implement `WorkflowRunService` with these methods:
+- [x] Implement `WorkflowRunService` with these methods:
 
 ```ts
 export interface WorkflowRunService {
@@ -348,23 +348,23 @@ export interface WorkflowRunService {
 }
 ```
 
-- [ ] `cancel` creates a stable cancellation receipt and audit in one
+- [x] `cancel` creates a stable cancellation receipt and audit in one
   transaction, rejects terminal runs, and dispatches after commit. Keep the
   existing task cancel operation for draft/ready tasks only; make it reject a
   task that already has a nonterminal workflow run.
-- [ ] Extend approval decision transactionally: only an approval bound to the
+- [x] Extend approval decision transactionally: only an approval bound to the
   run, workflow version, plan revision, payload digest, policy version, and
   unexpired state creates a pending signal receipt. Replays with the same
   decision converge; conflicting decisions fail. Deliver only after commit.
-- [ ] Both signal DTOs carry the PostgreSQL receipt ID as `idempotencyKey`.
+- [x] Both signal DTOs carry the PostgreSQL receipt ID as `idempotencyKey`.
   Workflow state retains a bounded set of handled receipt IDs so delivery after
   an acknowledgement loss is a deterministic no-op, while a conflicting
   payload digest under the same ID terminates with a safe mismatch outcome.
-- [ ] Add a bounded dispatcher with constructor-injected interval, maximum
+- [x] Add a bounded dispatcher with constructor-injected interval, maximum
   batch size, logger callback, `start()`, and `stop()`. It retries pending start
   and signal records; Temporal's stable workflow/signal IDs supply remote
   idempotency. It never changes a business decision because of network failure.
-- [ ] Run the new service tests, all existing Agentic service tests, API lint,
+- [x] Run the new service tests, all existing Agentic service tests, API lint,
   and API typecheck.
 - [ ] Commit: `feat(agentic): add workflow orchestration services`
 

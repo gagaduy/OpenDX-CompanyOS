@@ -158,7 +158,7 @@ suite("Agent governance migration", () => {
        (id,state,requester_id,approver_scope,action,resource_type,resource_id,
         parameters_digest,task_id,policy_version,workflow_version,
         configuration_revision_id,expires_at)
-       VALUES($1,'pending','system:workflow','tool_invocation',
+       VALUES($1,'pending','system:workflow','workflow_execution',
         'agentic.workflow.complete','workflow_run',$3,$4,$2,1,1,$5,now()+interval '1 hour')`,
       [approvalId, taskId, runId, "2".repeat(64), revisionId],
     );
@@ -230,12 +230,27 @@ suite("Agent governance migration", () => {
         'approved',2,'pending')`,
       [runId, approvalId, "6".repeat(64)],
     );
-    await expect(pool.query(
+    await pool.query(
       `INSERT INTO agentic_workflow_signal_receipts
        (id,workflow_run_id,signal_kind,idempotency_key,payload_digest,
-        delivery_state)
-       VALUES(gen_random_uuid(),$1,'cancellation','approval-valid',$2,'pending')`,
+        reason_code,delivery_state)
+       VALUES(gen_random_uuid(),$1,'cancellation','cancellation-valid',$2,
+        'CANCELED_BY_OPERATOR','pending')`,
       [runId, "7".repeat(64)],
+    );
+    await expect(pool.query(
+       `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,payload_digest,
+        reason_code,delivery_state)
+       VALUES(gen_random_uuid(),$1,'cancellation','approval-valid',$2,
+        'CANCELED_BY_OPERATOR','pending')`,
+      [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
+
+    await runAgenticMigrations(databaseUrl!, "down", 1);
+    expect((await pool.query(
+      "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
+    )).rows[0]?.count).toBe("0");
+    await runAgenticMigrations(databaseUrl!, "up");
   });
 });

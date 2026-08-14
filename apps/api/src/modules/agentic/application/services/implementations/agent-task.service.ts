@@ -17,7 +17,8 @@ import type {
 type TaskRepository = Pick<AgenticRepository,
   | "createTask" | "findTask" | "findTaskById" | "findTaskForApproval" | "listTasks"
   | "listAllTasks" | "updateTask" | "replaceTaskGraph" | "listTaskGraph"
-  | "findActiveRevision" | "appendAudit" | "appendProvenance">;
+  | "findActiveRevision" | "findActiveWorkflowRunForTask"
+  | "appendAudit" | "appendProvenance">;
 
 interface PreparedGraph {
   readonly taskId: string;
@@ -105,6 +106,9 @@ export class AgentTaskServiceImpl implements AgentTaskService {
     return this.transactions.run(async (session) => {
       const current = await this.requireOwnedTask(session, input.taskId, principal);
       assertVersion(current, input.expectedVersion);
+      if (await this.repository.findActiveWorkflowRunForTask(session, current.id) !== undefined) {
+        fail("WORKFLOW_RUN_ACTIVE", "Cancel the active workflow run instead");
+      }
       const at = this.now();
       const next = transitionTask(current, { type: "cancel" }, at);
       if (!await this.repository.updateTask(session, next, input.expectedVersion)) fail("STALE_VERSION", "Task version is stale");

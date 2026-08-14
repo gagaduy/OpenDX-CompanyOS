@@ -5,6 +5,16 @@ import type { MigrationBuilder } from "node-pg-migrate";
 
 export function up(pgm: MigrationBuilder): void {
   pgm.sql(`
+    ALTER TABLE agentic_approval_requests
+      DROP CONSTRAINT agentic_approval_scope_check;
+    ALTER TABLE agentic_approval_requests
+      ADD CONSTRAINT agentic_approval_scope_check CHECK (
+        approver_scope IN (
+          'tool_invocation','emergency_revocation',
+          'governance_configuration','workflow_execution'
+        )
+      );
+
     CREATE TABLE agentic_workflow_runs (
       id uuid PRIMARY KEY,
       task_id uuid NOT NULL REFERENCES agentic_tasks(id) ON DELETE RESTRICT,
@@ -114,11 +124,13 @@ export function up(pgm: MigrationBuilder): void {
         (signal_kind='approval' AND approval_id IS NOT NULL
           AND decision IS NOT NULL AND application_decision_version IS NOT NULL)
         OR (signal_kind='cancellation' AND approval_id IS NULL
-          AND decision IS NULL AND application_decision_version IS NULL)
+          AND decision IS NULL AND application_decision_version IS NULL
+          AND reason_code IS NOT NULL)
       ),
       CHECK(
         (delivery_state='pending' AND accepted IS NULL
-          AND reason_code IS NULL AND delivered_at IS NULL)
+          AND delivered_at IS NULL
+          AND (signal_kind='cancellation' OR reason_code IS NULL))
         OR (delivery_state='delivered' AND accepted IS NOT NULL
           AND delivered_at IS NOT NULL
           AND (accepted OR reason_code IS NOT NULL))
@@ -139,5 +151,15 @@ export function down(pgm: MigrationBuilder): void {
     DROP TABLE IF EXISTS agentic_workflow_signal_receipts;
     DROP TABLE IF EXISTS agentic_activity_invocations;
     DROP TABLE IF EXISTS agentic_workflow_runs;
+    DELETE FROM agentic_approval_requests
+      WHERE approver_scope='workflow_execution';
+    ALTER TABLE agentic_approval_requests
+      DROP CONSTRAINT agentic_approval_scope_check;
+    ALTER TABLE agentic_approval_requests
+      ADD CONSTRAINT agentic_approval_scope_check CHECK (
+        approver_scope IN (
+          'tool_invocation','emergency_revocation','governance_configuration'
+        )
+      );
   `);
 }

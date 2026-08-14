@@ -926,6 +926,20 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       : mapWorkflowSignalReceipt(result.rows[0]);
   }
 
+  async findWorkflowApproval(
+    session: DatabaseSession,
+    runId: string,
+  ): Promise<ApprovalRequest | undefined> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_approval_requests
+       WHERE resource_type='workflow_run' AND resource_id=$1
+         AND action='agentic.workflow.complete'
+       ORDER BY created_at DESC,id LIMIT 1`,
+      [runId],
+    );
+    return result.rows[0] === undefined ? undefined : mapApproval(result.rows[0]);
+  }
+
   async updateWorkflowSignalReceipt(
     session: DatabaseSession,
     receipt: WorkflowSignalReceipt,

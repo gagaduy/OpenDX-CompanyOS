@@ -6,7 +6,11 @@ export type ApprovalState =
   | "approved"
   | "rejected"
   | "revision_requested";
-export type ApproverScope = "tool_invocation" | "emergency_revocation" | "governance_configuration";
+export type ApproverScope =
+  | "tool_invocation"
+  | "emergency_revocation"
+  | "governance_configuration"
+  | "workflow_execution";
 
 export interface ApprovalRequest {
   readonly id: string;

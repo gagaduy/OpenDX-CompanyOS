@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Agentic workflow application boundary with governed starts, frozen
+  approvals, durable cancellation signals, activity evidence, and retryable dispatch.
 - Add the durable Agentic workflow-run, activity-invocation, and signal-receipt
   state model with reversible PostgreSQL constraints and idempotent repositories.
 - Add pinned Temporal and JWT runtime dependencies plus fail-closed AI Runtime

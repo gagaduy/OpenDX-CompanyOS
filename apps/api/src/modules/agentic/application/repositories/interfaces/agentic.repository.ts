@@ -226,6 +226,7 @@ export interface AgenticRepository {
   finishActivityInvocation(session: DatabaseSession, invocation: ActivityInvocation, expectedVersion: number): Promise<boolean>;
   createWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<WorkflowSignalReceiptCreateResult>;
   findWorkflowSignalReceipt(session: DatabaseSession, idempotencyKey: string): Promise<WorkflowSignalReceipt | undefined>;
+  findWorkflowApproval(session: DatabaseSession, runId: string): Promise<ApprovalRequest | undefined>;
   updateWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<boolean>;
   listPendingWorkflowSignals(session: DatabaseSession, limit: number): Promise<readonly WorkflowSignalReceipt[]>;
 }

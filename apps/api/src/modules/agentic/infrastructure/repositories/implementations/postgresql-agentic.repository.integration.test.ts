@@ -326,11 +326,18 @@ suite("PostgresqlAgenticRepository", () => {
        parameters_digest,task_id,policy_version,workflow_version,
        configuration_revision_id,expires_at,decided_by,decision_reason,
        decided_at,version)
-      VALUES($1,'approved','system:workflow','tool_invocation',
+      VALUES($1,'approved','system:workflow','workflow_execution',
        'agentic.workflow.complete','workflow_run',$2,$3,$4,1,1,$5,
        '2026-08-15T00:00:00.000Z','approver-a','Approved for completion',
        '2026-08-14T01:00:00.000Z',2)`,
     [approvalId, run.id, "a".repeat(64), taskId, revisionId]);
+    await expect(transactions.runReadOnly((session) => repository.findWorkflowApproval(
+      session, run.id,
+    ))).resolves.toMatchObject({
+      id: approvalId,
+      approverScope: "workflow_execution",
+      resourceId: run.id,
+    });
     const receipt = signalReceipt(run.id, approvalId);
 
     await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(session, receipt)))

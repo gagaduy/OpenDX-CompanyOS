@@ -53,6 +53,20 @@ describe("AgentTaskServiceImpl", () => {
       .rejects.toMatchObject({ code: "TASK_STATE_INVALID" });
   });
 
+  it("requires run cancellation after a workflow has started", async () => {
+    const activeRun = {
+      id: "run-1", taskId: "task-1", workflowName: "StoreHealthReviewWorkflowV1",
+      workflowVersion: 1, planRevision: 1, temporalWorkflowId: "store-health-v1:run-1",
+      state: "planning", projectionSequence: 1, version: 2,
+      createdAt: "", updatedAt: "",
+    } as const;
+    const { service, repository } = harness({ task: draft, activeRun });
+
+    await expect(service.cancel({ taskId: "task-1", expectedVersion: 1 }, operator()))
+      .rejects.toMatchObject({ code: "WORKFLOW_RUN_ACTIVE" });
+    expect(repository.updateTask).not.toHaveBeenCalled();
+  });
+
   it("does not expose task bodies to auditors", async () => {
     const auditor: StaffPrincipal = { subject: "auditor", displayName: "Auditor", roles: ["agentic_auditor"] };
     await expect(harness({ task: draft }).service.get("task-1", auditor))
@@ -60,7 +74,7 @@ describe("AgentTaskServiceImpl", () => {
   });
 });
 
-function harness(options: { readonly task?: typeof draft; readonly activeRevision?: Record<string, unknown> } = {}) {
+function harness(options: { readonly task?: typeof draft; readonly activeRevision?: Record<string, unknown>; readonly activeRun?: Record<string, unknown> } = {}) {
   const hasTaskOption = Object.prototype.hasOwnProperty.call(options, "task");
   const repository = {
     createTask: vi.fn(async () => undefined), replaceTaskGraph: vi.fn(async () => true),
@@ -71,6 +85,7 @@ function harness(options: { readonly task?: typeof draft; readonly activeRevisio
     listTaskGraph: vi.fn(async () => ({ subtasks: [], dependencies: [] })),
     listTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
     listAllTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
+    findActiveWorkflowRunForTask: vi.fn(async () => options.activeRun),
     appendAudit: vi.fn(async () => undefined), appendProvenance: vi.fn(async () => undefined),
   };
   let id = 0;
