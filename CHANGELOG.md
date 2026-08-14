@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the production-ready single-VPS Temporal workflow design for explicit
+  Store Health Review starts, durable branch orchestration, bound signals,
+  restart recovery, workload identity, and three-database backup/restore.
 - Make local database backup create matching readable SQL and custom archives,
   and restore either format through an extension-aware fail-closed command.
 - Define the dual-format `make db-backup` and extension-aware `make db-restore`
