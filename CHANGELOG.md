@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Make local database backup create matching readable SQL and custom archives,
+  and restore either format through an extension-aware fail-closed command.
 - Define the dual-format `make db-backup` and extension-aware `make db-restore`
   contract for safe local SQL and custom-archive database recovery.
 - Add the file-level TDD plan for dual-format local backup creation,

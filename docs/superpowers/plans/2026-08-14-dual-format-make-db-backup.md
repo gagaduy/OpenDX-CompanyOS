@@ -35,6 +35,8 @@ SPDX-License-Identifier: Apache-2.0
 - Modify `scripts/dev/check.sh`: include the focused Make behavior regression in the normal source gate.
 - Modify `docs/development/database-operations.md`: document both artifacts and restore commands.
 - Modify `docs/project-structure.md`: describe `infra/backups` as the ignored dual-format local destination.
+- Modify `infra/backups/.gitignore`: ignore generated `.sql` files alongside `.dump` archives.
+- Modify `scripts/audit/repo.sh`: reject tracked local backup files in either format.
 - Modify `CHANGELOG.md`: record delivered behavior under `[Unreleased]`.
 
 ### Task 1: Dual-format backup with fail-closed publication
@@ -261,6 +263,8 @@ git commit -m "feat(database): restore local sql backups"
 **Files:**
 - Modify: `docs/development/database-operations.md:36-58`
 - Modify: `docs/project-structure.md:55-70`
+- Modify: `infra/backups/.gitignore:4-5`
+- Modify: `scripts/audit/repo.sh:69-72`
 - Modify: `CHANGELOG.md:11-20`
 
 **Interfaces:**

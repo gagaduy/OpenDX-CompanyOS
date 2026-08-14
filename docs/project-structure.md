@@ -74,8 +74,8 @@ PostgreSQL test-database initialization, and Keycloak realm import.
 and Caddy examples. It is separate from local development infrastructure and
 uses environment variables for all production-specific domains and secrets.
 
-`infra/backups` is the ignored local destination for custom-format PostgreSQL
-archives created by the root `Makefile`.
+`infra/backups` is the ignored local destination for matching readable SQL and
+custom-format PostgreSQL backup pairs created by the root `Makefile`.
 
 `scripts/audit` contains repository governance audit helpers.
 

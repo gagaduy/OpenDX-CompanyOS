@@ -38,25 +38,32 @@ boundary; Catalog image objects use stable MinIO keys. Promotion seeds are
 
 ```bash
 make db-backup
+make db-restore BACKUP=infra/backups/opendx-YYYYMMDD-HHMMSS.sql
 make db-restore BACKUP=infra/backups/opendx-YYYYMMDD-HHMMSS.dump
 ```
 
-Backups are PostgreSQL custom-format archives under the ignored
-`infra/backups/` directory. Restore rejects an empty or missing path, stops API
-and frontend containers to quiesce application writes, and runs
-`pg_restore --clean --if-exists --no-owner --exit-on-error
---single-transaction`. The stopped containers are restarted even if restore
-fails. Restore replaces matching database objects and can destroy newer local
-data, so retain a separate backup first. MinIO objects are not included in a
-PostgreSQL archive and need an independent object-storage backup for disaster
-recovery.
+Each backup creates a matching pair under the ignored `infra/backups/`
+directory: a readable plain SQL file and a PostgreSQL custom-format archive.
+Both files share one UTC timestamp. The command writes hidden temporary files
+first and publishes neither final backup unless both dumps succeed and are
+non-empty; an existing timestamp pair is never overwritten.
+
+Restore accepts only `.sql` and `.dump`. SQL uses `psql -X --set
+ON_ERROR_STOP=1 --single-transaction`; custom archives use `pg_restore --clean
+--if-exists --no-owner --exit-on-error --single-transaction`. Restore rejects
+an empty, missing, or unsupported path before stopping services, then stops API
+and frontend containers to quiesce application writes. The stopped containers
+are restarted even if restore fails. Restore replaces matching database
+objects and can destroy newer local data, so retain a separate backup first.
+MinIO objects are not included and need an independent object-storage backup
+for disaster recovery.
 
 Phase 8 production-style backup and restore scripts are documented in
 [`../operations/backup-restore.md`](../operations/backup-restore.md). Use those
 scripts for explicit PostgreSQL and MinIO backup/restore operations that need
 path validation and restore target guardrails.
 
-The PostgreSQL archive includes Catalog publication state, Company Operating
+The PostgreSQL backups include Catalog publication state, Company Operating
 Core data, Inventory balances, movements, idempotency records, reservations,
 customers, hash-only sessions, addresses, carts, promotions, immutable
 checkout/order snapshots, payment attempts, redacted provider events,

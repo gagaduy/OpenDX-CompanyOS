@@ -66,8 +66,8 @@ if grep -R "InMemoryCompanyOperatingCoreRepository" apps/api/src/server.ts apps/
   exit 1
 fi
 
-if git ls-files 'infra/backups/*.dump' | grep -q .; then
-  echo "Repository audit failed: database backup archives must not be tracked" >&2
+if git ls-files 'infra/backups/*.dump' 'infra/backups/*.sql' | grep -q .; then
+  echo "Repository audit failed: local database backups must not be tracked" >&2
   exit 1
 fi
 
