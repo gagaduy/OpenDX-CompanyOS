@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the approved file-level TDD implementation plan for the durable Store
+  Health Temporal workflow, authenticated workload boundaries, production
+  Compose hardening, replay validation, and three-database recovery.
 - Define the production-ready single-VPS Temporal workflow design for explicit
   Store Health Review starts, durable branch orchestration, bound signals,
   restart recovery, workload identity, and three-database backup/restore.

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-Approved in collaborative design on 2026-08-14. Written-spec review is the
-remaining gate before a file-level implementation plan may be created.
+Approved by the user on 2026-08-14. The file-level implementation plan is
+`docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md`.
 
 ## Purpose
 
