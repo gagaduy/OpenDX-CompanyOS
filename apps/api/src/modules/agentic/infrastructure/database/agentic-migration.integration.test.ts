@@ -26,6 +26,9 @@ const tables = [
   "agentic_revocations",
   "agentic_audit_events",
   "agentic_provenance_records",
+  "agentic_workflow_runs",
+  "agentic_activity_invocations",
+  "agentic_workflow_signal_receipts",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -47,7 +50,7 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("2");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("3");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
@@ -125,5 +128,114 @@ suite("Agent governance migration", () => {
     );
     await expect(pool.query("UPDATE agentic_tools SET active=false WHERE name='catalog.health' AND version=1"))
       .rejects.toMatchObject({ code: "P0001" });
+  });
+
+  it("enforces workflow run, invocation, and signal invariants", async () => {
+    const revisionId = "a1700000-0000-4000-8000-000000000010";
+    const taskId = "a1700000-0000-4000-8000-000000000011";
+    const runId = "a1700000-0000-4000-8000-000000000012";
+    const subtaskId = "a1700000-0000-4000-8000-000000000013";
+    const approvalId = "a1700000-0000-4000-8000-000000000014";
+    await pool.query(
+      `INSERT INTO agentic_configuration_revisions
+       (id,state,created_by,payload_digest)
+       VALUES($1,'draft','governance-a',$2)`,
+      [revisionId, "1".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_tasks
+       (id,state,created_by,goal,instructions,configuration_revision_id,version)
+       VALUES($1,'ready','operator-a','Review store health','Use fixed plan',$2,2)`,
+      [taskId, revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title)
+       VALUES($1,$2,'catalog','Review catalog health')`,
+      [subtaskId, taskId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_approval_requests
+       (id,state,requester_id,approver_scope,action,resource_type,resource_id,
+        parameters_digest,task_id,policy_version,workflow_version,
+        configuration_revision_id,expires_at)
+       VALUES($1,'pending','system:workflow','tool_invocation',
+        'agentic.workflow.complete','workflow_run',$3,$4,$2,1,1,$5,now()+interval '1 hour')`,
+      [approvalId, taskId, runId, "2".repeat(64), revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_workflow_runs
+       (id,task_id,workflow_name,workflow_version,plan_revision,
+        temporal_workflow_id,state,projection_sequence,version)
+       VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,2,$3,'received',0,1)`,
+      [runId, taskId, `store-health-v1:${runId}`],
+    );
+
+    await expect(pool.query(
+      `INSERT INTO agentic_workflow_runs
+       (id,task_id,workflow_name,workflow_version,plan_revision,
+        temporal_workflow_id,state,projection_sequence,version)
+       VALUES(gen_random_uuid(),$1,'StoreHealthReviewWorkflowV1',1,3,$2,'planning',1,1)`,
+      [taskId, "store-health-v1:duplicate-active"],
+    )).rejects.toMatchObject({ code: "23505" });
+
+    await expect(pool.query(
+      `UPDATE agentic_workflow_runs
+       SET state='completed',outcome_code='RETRY_EXHAUSTED',completed_at=now()
+       WHERE id=$1`,
+      [runId],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await expect(pool.query(
+      `INSERT INTO agentic_activity_invocations
+       (invocation_key,workflow_run_id,activity_kind,branch_id,input_digest,state)
+       VALUES('bad-digest',$1,'execute_fake_analysis',$2,'not-a-digest','reserved')`,
+      [runId, subtaskId],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await pool.query(
+      `INSERT INTO agentic_activity_invocations
+       (invocation_key,workflow_run_id,activity_kind,branch_id,input_digest,state)
+       VALUES($1,$2,'execute_fake_analysis',$3,$4,'reserved')`,
+      [`${runId}:1:execute_fake_analysis:${subtaskId}:${"3".repeat(64)}`, runId, subtaskId, "3".repeat(64)],
+    );
+    await expect(pool.query(
+      `UPDATE agentic_activity_invocations
+       SET state='completed',safe_result=$2::jsonb,completed_at=now()
+       WHERE workflow_run_id=$1`,
+      [runId, JSON.stringify({ report: "x".repeat(16_385) })],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await expect(pool.query(
+      `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,approval_id,
+        payload_digest,delivery_state)
+       VALUES(gen_random_uuid(),$1,'cancellation','cancel-invalid',$2,$3,'pending')`,
+      [runId, approvalId, "4".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await expect(pool.query(
+      `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,payload_digest,
+        decision,application_decision_version,delivery_state)
+       VALUES(gen_random_uuid(),$1,'approval','approval-invalid',$2,
+        'approved',2,'pending')`,
+      [runId, "5".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await pool.query(
+      `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,approval_id,
+        payload_digest,decision,application_decision_version,delivery_state)
+       VALUES(gen_random_uuid(),$1,'approval','approval-valid',$2,$3,
+        'approved',2,'pending')`,
+      [runId, approvalId, "6".repeat(64)],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,payload_digest,
+        delivery_state)
+       VALUES(gen_random_uuid(),$1,'cancellation','approval-valid',$2,'pending')`,
+      [runId, "7".repeat(64)],
+    )).rejects.toMatchObject({ code: "23505" });
   });
 });

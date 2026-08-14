@@ -6,6 +6,8 @@ import { Pool } from "pg";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
+import type { ActivityInvocation, WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
+import { transitionWorkflowRun } from "../../../domain/services/workflow-run-rules";
 import { runAgenticMigrations } from "../../database/run-agentic-migrations";
 import { PostgresqlAgenticRepository } from "./postgresql-agentic.repository";
 
@@ -20,7 +22,9 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_provenance_records, agentic_audit_events,
+    await pool.query(`TRUNCATE agentic_workflow_signal_receipts,
+      agentic_activity_invocations, agentic_workflow_runs,
+      agentic_provenance_records, agentic_audit_events,
       agentic_revocations, agentic_approval_requests, agentic_budget_entries,
       agentic_budget_limits, agentic_model_fallbacks, agentic_model_configs,
       agentic_tool_grants, agentic_tools, agentic_policies,
@@ -233,4 +237,216 @@ suite("PostgresqlAgenticRepository", () => {
     expect(await transactions.runReadOnly((session) => repository.findActiveRevocation(session, "agent", "catalog")))
       .toMatchObject({ reason: "Emergency stop" });
   });
+
+  it("converges workflow starts and rejects stale projections", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const first = workflowRun(taskId);
+    const competing = workflowRun(taskId, { id: randomUUID(), temporalWorkflowId: `store-health-v1:${randomUUID()}` });
+
+    const starts = await Promise.all([
+      transactions.run((session) => repository.createWorkflowRun(session, first)),
+      transactions.run((session) => repository.createWorkflowRun(session, competing)),
+    ]);
+    expect(starts.map(({ status }) => status).sort()).toEqual(["created", "duplicate"]);
+    const accepted = starts.find(({ status }) => status === "created")!.run;
+    expect(starts.find(({ status }) => status === "duplicate")!.run).toEqual(accepted);
+
+    const planning = transitionWorkflowRun(accepted, { state: "planning" }, "2026-08-14T01:00:00.000Z");
+    await expect(transactions.run((session) => repository.projectWorkflowRun(
+      session, planning, 1, 0,
+    ))).resolves.toBe("updated");
+    await expect(transactions.run((session) => repository.projectWorkflowRun(
+      session, planning, 1, 0,
+    ))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.projectWorkflowRun(
+      session, { ...planning, state: "failed", outcomeCode: "INVALID_FROZEN_PLAN", completedAt: "2026-08-14T01:01:00.000Z" }, 1, 0,
+    ))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.projectWorkflowRun(
+      session, accepted, 1, 0,
+    ))).resolves.toBe("stale");
+    await expect(transactions.runReadOnly((session) => repository.findWorkflowRun(session, accepted.id)))
+      .resolves.toEqual(planning);
+
+    await expect(transactions.run((session) => repository.attachTemporalRunId(
+      session, accepted.id, "temporal-run-1", 2, "2026-08-14T01:02:00.000Z",
+    ))).resolves.toBe(true);
+    await expect(transactions.run((session) => repository.attachTemporalRunId(
+      session, accepted.id, "temporal-run-2", 2, "2026-08-14T01:03:00.000Z",
+    ))).resolves.toBe(false);
+    await expect(transactions.runReadOnly((session) => repository.listPendingWorkflowStarts(session, 10)))
+      .resolves.toEqual([]);
+  });
+
+  it("returns stored activity outcomes and rejects a conflicting invocation digest", async () => {
+    const { taskId, subtaskId } = await createReadyTask(pool);
+    const run = workflowRun(taskId);
+    await transactions.run((session) => repository.createWorkflowRun(session, run));
+    const invocation = activityInvocation(run.id, subtaskId);
+
+    const reservations = await Promise.all([
+      transactions.run((session) => repository.reserveActivityInvocation(session, invocation)),
+      transactions.run((session) => repository.reserveActivityInvocation(
+        session, { ...invocation, createdAt: "2026-08-14T01:01:00.000Z" },
+      )),
+    ]);
+    expect(reservations.map(({ status }) => status).sort()).toEqual(["duplicate", "reserved"]);
+    expect(reservations.every(({ invocation: stored }) => stored.invocationKey === invocation.invocationKey))
+      .toBe(true);
+    await expect(transactions.run((session) => repository.reserveActivityInvocation(
+      session, { ...invocation, inputDigest: "f".repeat(64) },
+    ))).resolves.toEqual({ status: "conflict", invocation });
+
+    const completed: ActivityInvocation = {
+      ...invocation,
+      state: "completed",
+      outcomeCode: "FAKE_ANALYSIS_COMPLETED",
+      safeResult: { status: "usable" },
+      version: 2,
+      updatedAt: "2026-08-14T01:02:00.000Z",
+      completedAt: "2026-08-14T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) => repository.finishActivityInvocation(
+      session, completed, 1,
+    ))).resolves.toBe(true);
+    await expect(transactions.run((session) => repository.finishActivityInvocation(
+      session, completed, 1,
+    ))).resolves.toBe(false);
+    await expect(transactions.runReadOnly((session) => repository.findActivityInvocation(
+      session, invocation.invocationKey,
+    ))).resolves.toEqual(completed);
+  });
+
+  it("deduplicates signal receipts and lists only pending delivery", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const run = workflowRun(taskId);
+    const approvalId = randomUUID();
+    await transactions.run((session) => repository.createWorkflowRun(session, run));
+    await pool.query(`INSERT INTO agentic_approval_requests
+      (id,state,requester_id,approver_scope,action,resource_type,resource_id,
+       parameters_digest,task_id,policy_version,workflow_version,
+       configuration_revision_id,expires_at,decided_by,decision_reason,
+       decided_at,version)
+      VALUES($1,'approved','system:workflow','tool_invocation',
+       'agentic.workflow.complete','workflow_run',$2,$3,$4,1,1,$5,
+       '2026-08-15T00:00:00.000Z','approver-a','Approved for completion',
+       '2026-08-14T01:00:00.000Z',2)`,
+    [approvalId, run.id, "a".repeat(64), taskId, revisionId]);
+    const receipt = signalReceipt(run.id, approvalId);
+
+    await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(session, receipt)))
+      .resolves.toEqual({ status: "created", receipt });
+    await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(
+      session, { ...receipt, id: randomUUID() },
+    ))).resolves.toEqual({ status: "duplicate", receipt });
+    await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(
+      session, { ...receipt, id: randomUUID(), payloadDigest: "b".repeat(64) },
+    ))).resolves.toEqual({ status: "conflict", receipt });
+    await expect(transactions.runReadOnly((session) => repository.listPendingWorkflowSignals(session, 10)))
+      .resolves.toEqual([receipt]);
+
+    const delivered: WorkflowSignalReceipt = {
+      ...receipt,
+      deliveryState: "delivered",
+      accepted: true,
+      deliveredAt: "2026-08-14T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) => repository.updateWorkflowSignalReceipt(
+      session, delivered,
+    ))).resolves.toBe(true);
+    await expect(transactions.runReadOnly((session) => repository.listPendingWorkflowSignals(session, 10)))
+      .resolves.toEqual([]);
+  });
+
+  it("rolls back workflow mutation and its audit event together", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const run = workflowRun(taskId);
+
+    await expect(transactions.run(async (session) => {
+      await repository.createWorkflowRun(session, run);
+      await repository.appendAudit(session, {
+        id: randomUUID(), actorId: "operator-a", actorType: "staff", taskId,
+        action: "agentic.workflow.start.accepted", resourceType: "workflow_run",
+        resourceId: run.id, outcome: "allowed", correlationId: "corr-rollback",
+        occurredAt: "2026-08-14T01:00:00.000Z",
+      });
+      throw new Error("rollback requested");
+    })).rejects.toThrow("rollback requested");
+
+    await expect(transactions.runReadOnly((session) => repository.findWorkflowRun(session, run.id)))
+      .resolves.toBeUndefined();
+    await expect(transactions.runReadOnly((session) => repository.listAudit(
+      session, { limit: 10, action: "agentic.workflow.start.accepted" },
+    ))).resolves.toEqual([]);
+  });
 });
+
+async function createReadyTask(pool: Pool): Promise<{
+  readonly taskId: string;
+  readonly revisionId: string;
+  readonly subtaskId: string;
+}> {
+  const revisionId = randomUUID();
+  const taskId = randomUUID();
+  const subtaskId = randomUUID();
+  await pool.query(
+    "INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)",
+    [revisionId, "c".repeat(64)],
+  );
+  await pool.query(
+    "INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id,version) VALUES($1,'ready','operator-a','Review','Evidence',$2,2)",
+    [taskId, revisionId],
+  );
+  await pool.query(
+    "INSERT INTO agentic_subtasks(id,task_id,agent_kind,title) VALUES($1,$2,'catalog','Catalog health')",
+    [subtaskId, taskId],
+  );
+  return { taskId, revisionId, subtaskId };
+}
+
+function workflowRun(taskId: string, overrides: Partial<WorkflowRun> = {}): WorkflowRun {
+  const id = randomUUID();
+  return {
+    id,
+    taskId,
+    workflowName: "StoreHealthReviewWorkflowV1",
+    workflowVersion: 1,
+    planRevision: 2,
+    temporalWorkflowId: `store-health-v1:${id}`,
+    state: "received",
+    projectionSequence: 0,
+    version: 1,
+    createdAt: "2026-08-14T01:00:00.000Z",
+    updatedAt: "2026-08-14T01:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function activityInvocation(workflowRunId: string, branchId: string): ActivityInvocation {
+  const digest = "d".repeat(64);
+  return {
+    invocationKey: `${workflowRunId}:1:execute_fake_analysis:${branchId}:${digest}`,
+    workflowRunId,
+    activityKind: "execute_fake_analysis",
+    branchId,
+    inputDigest: digest,
+    state: "reserved",
+    version: 1,
+    createdAt: "2026-08-14T01:00:00.000Z",
+    updatedAt: "2026-08-14T01:00:00.000Z",
+  };
+}
+
+function signalReceipt(workflowRunId: string, approvalId: string): WorkflowSignalReceipt {
+  return {
+    id: randomUUID(),
+    workflowRunId,
+    signalKind: "approval",
+    idempotencyKey: `approval:${approvalId}:2`,
+    approvalId,
+    payloadDigest: "a".repeat(64),
+    decision: "approved",
+    applicationDecisionVersion: 2,
+    deliveryState: "pending",
+    createdAt: "2026-08-14T01:01:00.000Z",
+  };
+}

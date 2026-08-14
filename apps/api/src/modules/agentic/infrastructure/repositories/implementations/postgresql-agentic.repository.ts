@@ -12,6 +12,7 @@ import type {
   BudgetLimitRecord,
   BudgetReservationInput,
   BudgetSettlementInput,
+  ActivityReservationResult,
   ModelConfigurationRecord,
   PolicyRecord,
   ProvenanceRecord,
@@ -19,11 +20,18 @@ import type {
   RevocationRecord,
   ToolGrantRecord,
   ToolRecord,
+  WorkflowRunCreateResult,
+  WorkflowSignalReceiptCreateResult,
 } from "../../../application/repositories/interfaces/agentic.repository";
 import type { AgentKind, AgentProfile } from "../../../domain/entities/agent-profile";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
+import type {
+  ActivityInvocation,
+  WorkflowRun,
+  WorkflowSignalReceipt,
+} from "../../../domain/entities/workflow-run";
 
 type Row = Record<string, unknown>;
 
@@ -690,6 +698,261 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     );
     return result.rows.map(mapProvenance);
   }
+
+  async createWorkflowRun(
+    session: DatabaseSession,
+    run: WorkflowRun,
+  ): Promise<WorkflowRunCreateResult> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.workflow.start:${run.taskId}`,
+    ]);
+    const existing = await session.query<Row>(
+      `SELECT * FROM agentic_workflow_runs
+       WHERE task_id=$1 AND workflow_name=$2 AND workflow_version=$3 AND plan_revision=$4`,
+      [run.taskId, run.workflowName, run.workflowVersion, run.planRevision],
+    );
+    if (existing.rows[0] !== undefined) {
+      return { status: "duplicate", run: mapWorkflowRun(existing.rows[0]) };
+    }
+    await session.query(
+      `INSERT INTO agentic_workflow_runs
+       (id,task_id,workflow_name,workflow_version,plan_revision,
+        temporal_workflow_id,temporal_run_id,state,projection_sequence,
+        resume_state,outcome_code,version,created_at,updated_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [run.id, run.taskId, run.workflowName, run.workflowVersion, run.planRevision,
+        run.temporalWorkflowId, run.temporalRunId ?? null, run.state,
+        run.projectionSequence, run.resumeState ?? null, run.outcomeCode ?? null,
+        run.version, run.createdAt, run.updatedAt, run.completedAt ?? null],
+    );
+    return { status: "created", run };
+  }
+
+  async findWorkflowRun(
+    session: DatabaseSession,
+    runId: string,
+  ): Promise<WorkflowRun | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_workflow_runs WHERE id=$1",
+      [runId],
+    );
+    return result.rows[0] === undefined ? undefined : mapWorkflowRun(result.rows[0]);
+  }
+
+  async findActiveWorkflowRunForTask(
+    session: DatabaseSession,
+    taskId: string,
+  ): Promise<WorkflowRun | undefined> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_workflow_runs WHERE task_id=$1
+       AND state NOT IN ('completed','partially_completed','failed','canceled')
+       ORDER BY created_at DESC,id LIMIT 1`,
+      [taskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapWorkflowRun(result.rows[0]);
+  }
+
+  async listWorkflowRunsForTask(
+    session: DatabaseSession,
+    taskId: string,
+  ): Promise<readonly WorkflowRun[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_workflow_runs WHERE task_id=$1
+       ORDER BY created_at DESC,id`,
+      [taskId],
+    );
+    return result.rows.map(mapWorkflowRun);
+  }
+
+  async projectWorkflowRun(
+    session: DatabaseSession,
+    run: WorkflowRun,
+    expectedVersion: number,
+    expectedProjectionSequence: number,
+  ): Promise<"updated" | "duplicate" | "stale" | "conflict"> {
+    const result = await session.query(
+      `UPDATE agentic_workflow_runs SET
+        state=$2,projection_sequence=$3,resume_state=$4,outcome_code=$5,
+        version=$6,updated_at=$7,completed_at=$8
+       WHERE id=$1 AND version=$9 AND projection_sequence=$10
+         AND state NOT IN ('completed','partially_completed','failed','canceled')`,
+      [run.id, run.state, run.projectionSequence, run.resumeState ?? null,
+        run.outcomeCode ?? null, run.version, run.updatedAt, run.completedAt ?? null,
+        expectedVersion, expectedProjectionSequence],
+    );
+    if (result.rowCount === 1) return "updated";
+    const current = await this.findWorkflowRun(session, run.id);
+    if (current === undefined || current.projectionSequence !== run.projectionSequence) {
+      return "stale";
+    }
+    return sameWorkflowProjection(current, run) ? "duplicate" : "conflict";
+  }
+
+  async attachTemporalRunId(
+    session: DatabaseSession,
+    runId: string,
+    temporalRunId: string,
+    expectedVersion: number,
+    updatedAt: string,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE agentic_workflow_runs
+       SET temporal_run_id=$2,version=version+1,updated_at=$4
+       WHERE id=$1 AND version=$3 AND temporal_run_id IS NULL
+         AND state NOT IN ('completed','partially_completed','failed','canceled')`,
+      [runId, temporalRunId, expectedVersion, updatedAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async listPendingWorkflowStarts(
+    session: DatabaseSession,
+    limit: number,
+  ): Promise<readonly WorkflowRun[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_workflow_runs
+       WHERE temporal_run_id IS NULL
+         AND state NOT IN ('completed','partially_completed','failed','canceled')
+       ORDER BY created_at,id LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapWorkflowRun);
+  }
+
+  async reserveActivityInvocation(
+    session: DatabaseSession,
+    invocation: ActivityInvocation,
+  ): Promise<ActivityReservationResult> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.activity:${invocation.invocationKey}`,
+    ]);
+    const existing = await this.findActivityInvocation(session, invocation.invocationKey);
+    if (existing !== undefined) {
+      const duplicate = existing.workflowRunId === invocation.workflowRunId
+        && existing.activityKind === invocation.activityKind
+        && existing.branchId === invocation.branchId
+        && existing.inputDigest === invocation.inputDigest;
+      return { status: duplicate ? "duplicate" : "conflict", invocation: existing };
+    }
+    await session.query(
+      `INSERT INTO agentic_activity_invocations
+       (invocation_key,workflow_run_id,activity_kind,branch_id,input_digest,
+        state,outcome_code,safe_result,version,created_at,updated_at,completed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [invocation.invocationKey, invocation.workflowRunId, invocation.activityKind,
+        invocation.branchId ?? null, invocation.inputDigest, invocation.state,
+        invocation.outcomeCode ?? null, invocation.safeResult ?? null,
+        invocation.version, invocation.createdAt, invocation.updatedAt,
+        invocation.completedAt ?? null],
+    );
+    return { status: "reserved", invocation };
+  }
+
+  async findActivityInvocation(
+    session: DatabaseSession,
+    invocationKey: string,
+  ): Promise<ActivityInvocation | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_activity_invocations WHERE invocation_key=$1",
+      [invocationKey],
+    );
+    return result.rows[0] === undefined
+      ? undefined
+      : mapActivityInvocation(result.rows[0]);
+  }
+
+  async finishActivityInvocation(
+    session: DatabaseSession,
+    invocation: ActivityInvocation,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE agentic_activity_invocations SET
+        state=$2,outcome_code=$3,safe_result=$4,version=$5,
+        updated_at=$6,completed_at=$7
+       WHERE invocation_key=$1 AND version=$8 AND state='reserved'
+         AND workflow_run_id=$9 AND activity_kind=$10 AND input_digest=$11
+         AND branch_id IS NOT DISTINCT FROM $12`,
+      [invocation.invocationKey, invocation.state, invocation.outcomeCode ?? null,
+        invocation.safeResult ?? null, invocation.version, invocation.updatedAt,
+        invocation.completedAt ?? null, expectedVersion, invocation.workflowRunId,
+        invocation.activityKind, invocation.inputDigest, invocation.branchId ?? null],
+    );
+    return result.rowCount === 1;
+  }
+
+  async createWorkflowSignalReceipt(
+    session: DatabaseSession,
+    receipt: WorkflowSignalReceipt,
+  ): Promise<WorkflowSignalReceiptCreateResult> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.workflow.signal:${receipt.idempotencyKey}`,
+    ]);
+    const existing = await this.findWorkflowSignalReceipt(session, receipt.idempotencyKey);
+    if (existing !== undefined) {
+      const duplicate = existing.workflowRunId === receipt.workflowRunId
+        && existing.signalKind === receipt.signalKind
+        && existing.approvalId === receipt.approvalId
+        && existing.payloadDigest === receipt.payloadDigest
+        && existing.decision === receipt.decision
+        && existing.applicationDecisionVersion === receipt.applicationDecisionVersion;
+      return { status: duplicate ? "duplicate" : "conflict", receipt: existing };
+    }
+    await session.query(
+      `INSERT INTO agentic_workflow_signal_receipts
+       (id,workflow_run_id,signal_kind,idempotency_key,approval_id,payload_digest,
+        decision,application_decision_version,delivery_state,accepted,
+        reason_code,created_at,delivered_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [receipt.id, receipt.workflowRunId, receipt.signalKind, receipt.idempotencyKey,
+        receipt.approvalId ?? null, receipt.payloadDigest, receipt.decision ?? null,
+        receipt.applicationDecisionVersion ?? null, receipt.deliveryState,
+        receipt.accepted ?? null, receipt.reasonCode ?? null, receipt.createdAt,
+        receipt.deliveredAt ?? null],
+    );
+    return { status: "created", receipt };
+  }
+
+  async findWorkflowSignalReceipt(
+    session: DatabaseSession,
+    idempotencyKey: string,
+  ): Promise<WorkflowSignalReceipt | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_workflow_signal_receipts WHERE idempotency_key=$1",
+      [idempotencyKey],
+    );
+    return result.rows[0] === undefined
+      ? undefined
+      : mapWorkflowSignalReceipt(result.rows[0]);
+  }
+
+  async updateWorkflowSignalReceipt(
+    session: DatabaseSession,
+    receipt: WorkflowSignalReceipt,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `UPDATE agentic_workflow_signal_receipts
+       SET delivery_state=$2,accepted=$3,reason_code=$4,delivered_at=$5
+       WHERE id=$1 AND delivery_state='pending' AND workflow_run_id=$6
+         AND idempotency_key=$7 AND payload_digest=$8`,
+      [receipt.id, receipt.deliveryState, receipt.accepted ?? null,
+        receipt.reasonCode ?? null, receipt.deliveredAt ?? null,
+        receipt.workflowRunId, receipt.idempotencyKey, receipt.payloadDigest],
+    );
+    return result.rowCount === 1;
+  }
+
+  async listPendingWorkflowSignals(
+    session: DatabaseSession,
+    limit: number,
+  ): Promise<readonly WorkflowSignalReceipt[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_workflow_signal_receipts
+       WHERE delivery_state='pending' ORDER BY created_at,id LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapWorkflowSignalReceipt);
+  }
 }
 
 async function insertPolicy(session: DatabaseSession, revisionId: string, value: PolicyRecord): Promise<void> {
@@ -882,6 +1145,74 @@ function mapProvenance(row: Row): ProvenanceRecord {
     recordedBy: String(row.recorded_by), recordedAt: toIso(row.recorded_at),
     ...(row.task_id === null ? {} : { taskId: String(row.task_id) }),
   };
+}
+
+function mapWorkflowRun(row: Row): WorkflowRun {
+  return {
+    id: String(row.id),
+    taskId: String(row.task_id),
+    workflowName: "StoreHealthReviewWorkflowV1",
+    workflowVersion: 1,
+    planRevision: Number(row.plan_revision),
+    temporalWorkflowId: String(row.temporal_workflow_id),
+    state: row.state as WorkflowRun["state"],
+    projectionSequence: Number(row.projection_sequence),
+    version: Number(row.version),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    ...(row.temporal_run_id === null ? {} : { temporalRunId: String(row.temporal_run_id) }),
+    ...(row.resume_state === null ? {} : { resumeState: row.resume_state as NonNullable<WorkflowRun["resumeState"]> }),
+    ...(row.outcome_code === null ? {} : { outcomeCode: row.outcome_code as NonNullable<WorkflowRun["outcomeCode"]> }),
+    ...(row.completed_at === null ? {} : { completedAt: toIso(row.completed_at) }),
+  };
+}
+
+function mapActivityInvocation(row: Row): ActivityInvocation {
+  return {
+    invocationKey: String(row.invocation_key),
+    workflowRunId: String(row.workflow_run_id),
+    activityKind: String(row.activity_kind),
+    inputDigest: String(row.input_digest),
+    state: row.state as ActivityInvocation["state"],
+    version: Number(row.version),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    ...(row.branch_id === null ? {} : { branchId: String(row.branch_id) }),
+    ...(row.outcome_code === null ? {} : { outcomeCode: String(row.outcome_code) }),
+    ...(row.safe_result === null
+      ? {}
+      : { safeResult: row.safe_result as Readonly<Record<string, unknown>> }),
+    ...(row.completed_at === null ? {} : { completedAt: toIso(row.completed_at) }),
+  };
+}
+
+function mapWorkflowSignalReceipt(row: Row): WorkflowSignalReceipt {
+  return {
+    id: String(row.id),
+    workflowRunId: String(row.workflow_run_id),
+    signalKind: row.signal_kind as WorkflowSignalReceipt["signalKind"],
+    idempotencyKey: String(row.idempotency_key),
+    payloadDigest: String(row.payload_digest),
+    deliveryState: row.delivery_state as WorkflowSignalReceipt["deliveryState"],
+    createdAt: toIso(row.created_at),
+    ...(row.approval_id === null ? {} : { approvalId: String(row.approval_id) }),
+    ...(row.decision === null
+      ? {}
+      : { decision: row.decision as NonNullable<WorkflowSignalReceipt["decision"]> }),
+    ...(row.application_decision_version === null
+      ? {}
+      : { applicationDecisionVersion: Number(row.application_decision_version) }),
+    ...(row.accepted === null ? {} : { accepted: Boolean(row.accepted) }),
+    ...(row.reason_code === null ? {} : { reasonCode: String(row.reason_code) }),
+    ...(row.delivered_at === null ? {} : { deliveredAt: toIso(row.delivered_at) }),
+  };
+}
+
+function sameWorkflowProjection(left: WorkflowRun, right: WorkflowRun): boolean {
+  return left.state === right.state
+    && left.resumeState === right.resumeState
+    && left.outcomeCode === right.outcomeCode
+    && left.completedAt === right.completedAt;
 }
 
 function safeInteger(value: unknown): number {

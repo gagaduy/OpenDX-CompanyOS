@@ -216,16 +216,16 @@ def test_production_requires_temporal_tls_material(monkeypatch):
 - Modify: `apps/api/src/server.ts`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write domain tests for the exact allowed state graph. Terminal states are
+- [x] Write domain tests for the exact allowed state graph. Terminal states are
   immutable. A transition to `completed`, `partially_completed`, `failed`, or
   `canceled` requires its matching safe outcome code and `completedAt`.
   `retrying` must return only to the state recorded as `resumeState`.
-- [ ] Run the new domain test and observe failure.
-- [ ] Implement pure transition functions with no database, clock, HTTP, or
+- [x] Run the new domain test and observe failure.
+- [x] Implement pure transition functions with no database, clock, HTTP, or
   Temporal imports.
-- [ ] Extend the migration test first, including an `up -> constraints -> down
+- [x] Extend the migration test first, including an `up -> constraints -> down
   -> up` cycle and direct SQL rejection cases.
-- [ ] Create these tables with explicit relational constraints:
+- [x] Create these tables with explicit relational constraints:
 
 ```text
 agentic_workflow_runs
@@ -272,33 +272,33 @@ agentic_workflow_signal_receipts
   created_at/delivered_at timestamptz
 ```
 
-- [ ] Add a partial unique index permitting only one nonterminal run per task,
+- [x] Add a partial unique index permitting only one nonterminal run per task,
   indexes for pending signal delivery and run state, and check constraints that
   require approval fields only for approval signals. Keep audit and provenance
   in the existing append-only tables.
-- [ ] Set `plan_revision` to the task version produced by the successful
+- [x] Set `plan_revision` to the task version produced by the successful
   `ready` transition. Use `ON DELETE RESTRICT` from runs to tasks and from
   signal receipts to approvals; no Phase B API deletes workflow records.
   Retain runs, invocation outcomes, receipts, audit, and provenance for the
   life of the owning task until a separately approved retention/deletion
   policy exists.
-- [ ] Add repository transaction methods to create/get/list runs, compare-and-
+- [x] Add repository transaction methods to create/get/list runs, compare-and-
   swap state, attach Temporal run ID, reserve/complete/fail an invocation,
   create/deliver/reject signal receipts, list pending commands, and load the
   immutable task/subtask dependency snapshot.
-- [ ] State projection accepts a monotonic `projectionSequence`. An equivalent
+- [x] State projection accepts a monotonic `projectionSequence`. An equivalent
   repeated sequence is an idempotent read, a conflicting repeated sequence is
   rejected, and a lower sequence can never overwrite a newer or terminal
   projection.
-- [ ] Repository tests must prove duplicate start convergence, stable
+- [x] Repository tests must prove duplicate start convergence, stable
   invocation replay, conflicting digest rejection, stale version rejection,
   duplicate signal convergence, rollback of mutation plus audit, and terminal
   immutability.
-- [ ] Raise the Agentic readiness migration minimum from `2` to `3`.
-- [ ] Run `pnpm --filter @opendx/api test -- workflow-run-rules`, then the two
+- [x] Raise the Agentic readiness migration minimum from `2` to `3`.
+- [x] Run `pnpm --filter @opendx/api test -- workflow-run-rules`, then the two
   focused integration test files against the test database, then API lint and
   typecheck.
-- [ ] Commit: `feat(agentic): persist durable workflow control state`
+- [x] Commit: `feat(agentic): persist durable workflow control state`
 
 ## Task 3: Add the Express Workflow Application Boundary
 

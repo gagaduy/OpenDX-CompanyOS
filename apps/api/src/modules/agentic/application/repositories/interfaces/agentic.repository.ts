@@ -7,6 +7,11 @@ import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { ApprovalRequest, ApprovalState, ApproverScope } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
+import type {
+  ActivityInvocation,
+  WorkflowRun,
+  WorkflowSignalReceipt,
+} from "../../../domain/entities/workflow-run";
 
 export interface PolicyRecord {
   readonly id: string;
@@ -153,6 +158,21 @@ export interface BudgetSettlementInput {
   readonly occurredAt: string;
 }
 
+export interface WorkflowRunCreateResult {
+  readonly status: "created" | "duplicate";
+  readonly run: WorkflowRun;
+}
+
+export interface ActivityReservationResult {
+  readonly status: "reserved" | "duplicate" | "conflict";
+  readonly invocation: ActivityInvocation;
+}
+
+export interface WorkflowSignalReceiptCreateResult {
+  readonly status: "created" | "duplicate" | "conflict";
+  readonly receipt: WorkflowSignalReceipt;
+}
+
 export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;
@@ -194,4 +214,18 @@ export interface AgenticRepository {
   listAudit(session: DatabaseSession, filter: AuditFilter): Promise<readonly AuditEventRecord[]>;
   appendProvenance(session: DatabaseSession, record: ProvenanceRecord): Promise<void>;
   listProvenance(session: DatabaseSession, taskId: string): Promise<readonly ProvenanceRecord[]>;
+  createWorkflowRun(session: DatabaseSession, run: WorkflowRun): Promise<WorkflowRunCreateResult>;
+  findWorkflowRun(session: DatabaseSession, runId: string): Promise<WorkflowRun | undefined>;
+  findActiveWorkflowRunForTask(session: DatabaseSession, taskId: string): Promise<WorkflowRun | undefined>;
+  listWorkflowRunsForTask(session: DatabaseSession, taskId: string): Promise<readonly WorkflowRun[]>;
+  projectWorkflowRun(session: DatabaseSession, run: WorkflowRun, expectedVersion: number, expectedProjectionSequence: number): Promise<"updated" | "duplicate" | "stale" | "conflict">;
+  attachTemporalRunId(session: DatabaseSession, runId: string, temporalRunId: string, expectedVersion: number, updatedAt: string): Promise<boolean>;
+  listPendingWorkflowStarts(session: DatabaseSession, limit: number): Promise<readonly WorkflowRun[]>;
+  reserveActivityInvocation(session: DatabaseSession, invocation: ActivityInvocation): Promise<ActivityReservationResult>;
+  findActivityInvocation(session: DatabaseSession, invocationKey: string): Promise<ActivityInvocation | undefined>;
+  finishActivityInvocation(session: DatabaseSession, invocation: ActivityInvocation, expectedVersion: number): Promise<boolean>;
+  createWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<WorkflowSignalReceiptCreateResult>;
+  findWorkflowSignalReceipt(session: DatabaseSession, idempotencyKey: string): Promise<WorkflowSignalReceipt | undefined>;
+  updateWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<boolean>;
+  listPendingWorkflowSignals(session: DatabaseSession, limit: number): Promise<readonly WorkflowSignalReceipt[]>;
 }
