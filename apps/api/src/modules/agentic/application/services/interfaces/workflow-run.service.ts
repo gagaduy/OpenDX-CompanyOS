@@ -64,6 +64,11 @@ export interface ActivityReservation {
   readonly invocation: ActivityInvocation;
 }
 
+export interface WorkflowCommandResult {
+  readonly disposition: "accepted" | "replayed";
+  readonly run: WorkflowRun;
+}
+
 export interface FrozenWorkflowPlan {
   readonly taskId: string;
   readonly workflowRunId: string;
@@ -89,8 +94,10 @@ export interface FrozenWorkflowPlan {
 
 export interface WorkflowRunService {
   start(input: StartWorkflowInput, principal: StaffPrincipal): Promise<WorkflowRun>;
+  startCommand(input: StartWorkflowInput, principal: StaffPrincipal): Promise<WorkflowCommandResult>;
   get(runId: string, principal: StaffPrincipal): Promise<WorkflowRun>;
   cancel(input: CancelWorkflowInput, principal: StaffPrincipal): Promise<WorkflowRun>;
+  cancelCommand(input: CancelWorkflowInput, principal: StaffPrincipal): Promise<WorkflowCommandResult>;
   projectState(input: ProjectWorkflowStateInput, principal: WorkloadPrincipal): Promise<WorkflowRun>;
   loadPlan(runId: string, principal: WorkloadPrincipal): Promise<FrozenWorkflowPlan>;
   reserveActivity(input: ReserveActivityInput, principal: WorkloadPrincipal): Promise<ActivityReservation>;

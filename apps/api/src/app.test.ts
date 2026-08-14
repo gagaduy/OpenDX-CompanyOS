@@ -39,6 +39,22 @@ describe("api health", () => {
 
     expect(response.body.dependencies.readiness).toBe("down");
   });
+
+  it("keeps liveness healthy when an enabled Agentic workflow gateway is down", async () => {
+    const app = createApiApp({
+      readiness: async () => ({
+        postgres: "up",
+        keycloak: "up",
+        minio: "up",
+        migrations: "up",
+        agenticWorkflow: "down",
+      }),
+    });
+
+    await request(app).get("/health/live").expect(200);
+    const readiness = await request(app).get("/health/ready").expect(503);
+    expect(readiness.body.dependencies.agenticWorkflow).toBe("down");
+  });
 });
 
 describe("API route audiences", () => {
@@ -102,6 +118,27 @@ describe("API route audiences", () => {
     expect(allowed.headers["access-control-allow-origin"]).toBe(consoleOrigin);
     expect((await request(agenticApp).get("/v1/admin/agentic/employees").set("Origin", storefrontOrigin)).headers["access-control-allow-origin"]).toBeUndefined();
     await request(agenticApp).get("/v1/admin/agents/employees").expect(404);
+  });
+
+  it("mounts internal Agentic routes without browser CORS", async () => {
+    const internal = Router().get("/workflow-runs/run/plan", (_request, response) =>
+      response.json({ audience: "agentic-worker" }));
+    const internalApp = createApiApp({
+      consoleOrigin,
+      storefrontOrigin,
+      agenticInternalRouter: internal,
+    });
+
+    const consoleRequest = await request(internalApp)
+      .get("/v1/internal/agentic/workflow-runs/run/plan")
+      .set("Origin", consoleOrigin)
+      .expect(200);
+    expect(consoleRequest.headers["access-control-allow-origin"]).toBeUndefined();
+    const storefrontRequest = await request(internalApp)
+      .get("/v1/internal/agentic/workflow-runs/run/plan")
+      .set("Origin", storefrontOrigin)
+      .expect(200);
+    expect(storefrontRequest.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   it("applies the configured JSON body limit", async () => {

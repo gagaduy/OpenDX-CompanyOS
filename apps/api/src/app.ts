@@ -39,6 +39,7 @@ export interface CreateApiAppOptions {
   readonly supportAdminRouter?: Router;
   readonly reportingAdminRouter?: Router;
   readonly agenticAdminRouter?: Router;
+  readonly agenticInternalRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -113,6 +114,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.agenticAdminRouter !== undefined) {
     app.use("/v1/admin/agentic", consoleCors, options.agenticAdminRouter);
+  }
+  if (options.agenticInternalRouter !== undefined) {
+    app.use("/v1/internal/agentic", options.agenticInternalRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

@@ -14,6 +14,7 @@ import { parseApiEnvironment } from "./shared/config/environment";
 import { createPostgresPool } from "./shared/database/postgres";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
+import { createRemoteWorkloadTokenVerifier } from "./shared/auth/workload-auth.middleware";
 import type { DependencyStatus } from "./shared/http/health.routes";
 import { createLogger } from "./shared/observability/logger";
 import { createMetricsRegistry } from "./shared/observability/metrics";
@@ -31,6 +32,7 @@ import { createCrmModule } from "./modules/crm";
 import { createReportingModule } from "./modules/reporting";
 import { createSupportModule } from "./modules/support";
 import { createAgenticModule } from "./modules/agentic";
+import type { WorkflowGateway } from "./modules/agentic/application/workflows/interfaces/workflow-gateway";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
@@ -53,6 +55,18 @@ const staffTokenVerifier = createRemoteStaffTokenVerifier({
   jwksUrl: environment.keycloakJwksUrl,
   audience: environment.keycloakAudience,
 });
+const workloadTokenVerifier = createRemoteWorkloadTokenVerifier({
+  issuer: environment.keycloakIssuer,
+  jwksUrl: environment.keycloakJwksUrl,
+  audience: environment.keycloakAudience,
+});
+const unavailableWorkflowGateway: WorkflowGateway = {
+  async probe() { throw new Error("Agentic workflow gateway is not configured"); },
+  async start() { throw new Error("Agentic workflow gateway is not configured"); },
+  async signalApproval() { throw new Error("Agentic workflow gateway is not configured"); },
+  async signalCancellation() { throw new Error("Agentic workflow gateway is not configured"); },
+  async describe() { throw new Error("Agentic workflow gateway is not configured"); },
+};
 const inventory = createInventoryModule({
   transactions,
   variantReader: createCatalogVariantReader(),
@@ -179,8 +193,15 @@ const reporting = createReportingModule({
 const agentic = createAgenticModule({
   transactions,
   staffTokenVerifier,
+  workloadTokenVerifier,
+  workflowGateway: unavailableWorkflowGateway,
   generateId: randomUUID,
   now: () => new Date().toISOString(),
+  workflowApprovalTtlMs: 60 * 60 * 1_000,
+  dispatcherIntervalMs: 5_000,
+  dispatcherBatchSize: 20,
+  onDispatcherError: (error) => console.error("Agentic workflow dispatch failed", error),
+  executionEnabled: false,
 });
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
@@ -210,6 +231,7 @@ const app = createApiApp({
   supportAdminRouter: support.router,
   reportingAdminRouter: reporting.router,
   agenticAdminRouter: agentic.adminRouter,
+  agenticInternalRouter: agentic.internalRouter,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,
@@ -238,6 +260,9 @@ const app = createApiApp({
       }
     }),
     clamav: await probe(() => pingClamav(environment.clamavHost, environment.clamavPort, environment.clamavTimeoutMs)),
+    ...(agentic.readiness === undefined
+      ? {}
+      : { agenticWorkflow: await probe(agentic.readiness) }),
   }),
 });
 
@@ -249,30 +274,39 @@ const server = app.listen(environment.apiPort, () => {
   support.escalationWorker.start();
   support.attachmentScanWorker.start();
   support.attachmentRetentionWorker.start();
+  if (agentic.readiness !== undefined) agentic.dispatcher.start();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
+  void shutdownGracefully(signal);
+}
+
+let shutdownStarted = false;
+
+async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
   console.info(`Received ${signal}; shutting down`);
+  setTimeout(() => {
+    console.error("Graceful shutdown timed out");
+    process.exit(1);
+  }, 10_000).unref();
   inventory.expiryWorker.stop();
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
   support.escalationWorker.stop();
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
-  server.close((error) => {
-    void pool.end().finally(() => {
-      if (error !== undefined) {
-        console.error("HTTP server shutdown failed", error);
-        process.exit(1);
-      }
-      process.exit(0);
-    });
+  await agentic.dispatcher.stop();
+  const closeError = await new Promise<Error | undefined>((resolve) => {
+    server.close((error) => resolve(error));
   });
-
-  setTimeout(() => {
-    console.error("Graceful shutdown timed out");
+  await pool.end();
+  if (closeError !== undefined) {
+    console.error("HTTP server shutdown failed", closeError);
     process.exit(1);
-  }, 10_000).unref();
+  }
+  process.exit(0);
 }
 
 process.once("SIGINT", shutdown);

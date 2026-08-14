@@ -174,6 +174,18 @@ describe("WorkflowRunServiceImpl", () => {
     expect(gateway.signalCancellation).toHaveBeenCalledOnce();
   });
 
+  it("allows an assigned approver to read a workflow projection", async () => {
+    const active = workflowRun();
+    const { service } = harness({ existingRun: active });
+    const approver = {
+      subject: "approver-a",
+      displayName: "Approver A",
+      roles: ["agentic_approver"],
+    } as const;
+
+    await expect(service.get(active.id, approver)).resolves.toEqual(active);
+  });
+
   it("projects monotonic state and treats an equivalent replay as a no-op", async () => {
     const active = workflowRun();
     const { service, repository } = harness({ existingRun: active });
@@ -224,6 +236,19 @@ describe("WorkflowRunServiceImpl", () => {
     expect(reserved.status).toBe("reserved");
     expect(duplicate.status).toBe("duplicate");
     expect(completed).toMatchObject({ state: "completed", version: 2 });
+
+    await expect(service.completeActivity({
+      invocationKey: input.invocationKey,
+      expectedVersion: 1,
+      outcomeCode: "FAKE_ANALYSIS_COMPLETED",
+      safeResult: { status: "usable" },
+    }, worker)).resolves.toEqual(completed);
+    await expect(service.completeActivity({
+      invocationKey: input.invocationKey,
+      expectedVersion: 1,
+      outcomeCode: "DIFFERENT_OUTCOME",
+      safeResult: { status: "usable" },
+    }, worker)).rejects.toMatchObject({ code: "ACTIVITY_INVOCATION_CONFLICT" });
   });
 });
 
@@ -253,6 +278,7 @@ function harness(options: HarnessOptions = {}) {
     })),
   } as PolicyEvaluator;
   const gateway: WorkflowGateway = {
+    probe: vi.fn(async () => undefined),
     start: vi.fn(async () => {
       if (options.startError !== undefined) throw options.startError;
       return { temporalRunId: "temporal-run-1", duplicate: false };

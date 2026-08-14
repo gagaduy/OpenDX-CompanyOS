@@ -100,6 +100,7 @@ function harness(options: HarnessOptions = {}) {
     ) => true),
   };
   const gateway: WorkflowGateway = {
+    probe: vi.fn(async () => undefined),
     start: vi.fn(async () => ({ temporalRunId: "temporal-run-1", duplicate: false })),
     signalApproval: vi.fn(async () => undefined),
     signalCancellation: vi.fn(async () => undefined),

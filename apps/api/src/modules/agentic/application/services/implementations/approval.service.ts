@@ -9,7 +9,7 @@ import type { ApprovalRequest } from "../../../domain/entities/approval-request"
 import type { WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { decideApproval as transitionApproval } from "../../../domain/services/agent-governance-rules";
 import { AgenticApplicationError } from "../agentic-application.error";
-import type { ApprovalDecisionInput, ApprovalPage, ApprovalQuery, ApprovalService } from "../interfaces/approval.service";
+import type { ApprovalDecisionInput, ApprovalDecisionResult, ApprovalPage, ApprovalQuery, ApprovalService } from "../interfaces/approval.service";
 
 type ApprovalRepository = Pick<AgenticRepository,
   | "findApproval" | "listApprovals" | "decideApproval" | "appendAudit"
@@ -55,6 +55,13 @@ export class ApprovalServiceImpl implements ApprovalService {
   }
 
   async decide(input: ApprovalDecisionInput, principal: StaffPrincipal): Promise<ApprovalRequest> {
+    return (await this.decideCommand(input, principal)).approval;
+  }
+
+  async decideCommand(
+    input: ApprovalDecisionInput,
+    principal: StaffPrincipal,
+  ): Promise<ApprovalDecisionResult> {
     if (!canApprove(principal)) fail("FORBIDDEN", "Approval role is required");
     const result = await this.transactions.run(async (session) => {
       const current = await this.requireApproval(session, input.approvalId);
@@ -70,6 +77,7 @@ export class ApprovalServiceImpl implements ApprovalService {
           return {
             approval: current,
             signalCreated: current.approverScope === "workflow_execution",
+            disposition: "replayed" as const,
           };
         }
         if (current.state === "approved" || current.state === "rejected") {
@@ -90,12 +98,16 @@ export class ApprovalServiceImpl implements ApprovalService {
         outcome: "allowed", correlationId: current.id, occurredAt: at,
       });
       const signalCreated = await this.createWorkflowReceipt(session, current, next, at);
-      return { approval: next, signalCreated };
+      return { approval: next, signalCreated, disposition: "accepted" as const };
     });
     if (result.signalCreated && this.workflowSignals !== undefined) {
       await this.workflowSignals.dispatchOnce().catch(this.onDispatchError);
     }
-    return result.approval;
+    return {
+      approval: result.approval,
+      disposition: result.disposition,
+      workflowSignal: result.signalCreated,
+    };
   }
 
   private async createWorkflowReceipt(

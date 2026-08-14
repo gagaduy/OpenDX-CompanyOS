@@ -36,6 +36,7 @@ export interface WorkflowGatewayDescription {
 }
 
 export interface WorkflowGateway {
+  probe(): Promise<void>;
   start(input: StartWorkflowCommand): Promise<WorkflowGatewayStartResult>;
   signalApproval(input: ApprovalWorkflowSignal): Promise<void>;
   signalCancellation(input: CancellationWorkflowSignal): Promise<void>;

@@ -17,8 +17,14 @@ export interface AgenticControllerHandlers {
   readonly createRevocation: RequestHandler; readonly listAudit: RequestHandler;
 }
 
+export interface AgenticWorkflowControllerHandlers {
+  readonly startWorkflow: RequestHandler; readonly getWorkflow: RequestHandler;
+  readonly cancelWorkflow: RequestHandler;
+}
+
 export function createAgenticRouter(
   controller: AgenticControllerHandlers,
+  workflows: AgenticWorkflowControllerHandlers,
   authenticate: RequestHandler,
   appendDenied: (context: DeniedAuditContext) => Promise<void>,
 ): Router {
@@ -38,12 +44,16 @@ export function createAgenticRouter(
   router.get("/tasks", authenticate, guard("agentic.task.list.denied", taskReader), controller.listTasks);
   router.post("/tasks/:taskId/ready", authenticate, guard("agentic.task.ready.denied", operator), controller.readyTask);
   router.post("/tasks/:taskId/cancel", authenticate, guard("agentic.task.cancel.denied", operator), controller.cancelTask);
+  router.post("/tasks/:taskId/start", authenticate, guard("agentic.workflow.start.denied", operator), workflows.startWorkflow);
   router.get("/tasks/:taskId", authenticate, guard("agentic.task.read.denied", taskReader), controller.getTask);
   router.patch("/tasks/:taskId", authenticate, guard("agentic.task.update.denied", operator), controller.updateTask);
 
   router.get("/approvals", authenticate, guard("agentic.approval.list.denied", approvalReader), controller.listApprovals);
   router.post("/approvals/:approvalId/decision", authenticate, guard("agentic.approval.decide.denied", approver), controller.decideApproval);
   router.get("/approvals/:approvalId", authenticate, guard("agentic.approval.read.denied", approvalReader), controller.getApproval);
+
+  router.post("/workflow-runs/:runId/cancel", authenticate, guard("agentic.workflow.cancel.denied", operator), workflows.cancelWorkflow);
+  router.get("/workflow-runs/:runId", authenticate, guard("agentic.workflow.read.denied", taskReader), workflows.getWorkflow);
 
   router.get("/employees", authenticate, guard("agentic.employee.list.denied", workforceReader), controller.listEmployees);
   router.get("/employees/:agentKind", authenticate, guard("agentic.employee.read.denied", workforceReader), controller.getEmployee);
@@ -60,7 +70,7 @@ export function createAgenticRouter(
 }
 
 function resourceId(request: Request): string {
-  for (const key of ["taskId", "approvalId", "agentKind", "revisionId"] as const) {
+  for (const key of ["taskId", "runId", "approvalId", "agentKind", "revisionId"] as const) {
     const value = request.params[key];
     if (typeof value === "string") return value;
   }

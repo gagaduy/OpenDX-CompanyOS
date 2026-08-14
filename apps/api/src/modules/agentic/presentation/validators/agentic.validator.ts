@@ -3,6 +3,10 @@
 
 import { z, ZodError } from "zod";
 import { ApplicationError } from "../../../../shared/http/application-error";
+import {
+  WORKFLOW_OUTCOME_CODES,
+  WORKFLOW_RUN_STATES,
+} from "../../domain/entities/workflow-run";
 
 const uuid = z.uuid();
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -84,6 +88,45 @@ const auditQuery = z.object({
   action: z.string().trim().min(1).max(255).optional(),
   outcome: z.enum(["allowed", "denied", "failed"]).optional(),
 }).strict();
+const reasonCode = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/);
+const invocationKey = z.string().trim().min(1).max(1_000);
+const activityKind = z.enum([
+  "load_frozen_plan",
+  "project_state",
+  "execute_fake_analysis",
+  "execute_fake_quality_review",
+  "execute_fake_collaboration",
+  "execute_fake_synthesis",
+]);
+const startWorkflow = z.object({
+  expectedVersion: positiveVersion,
+  workflowVersion: z.literal(1),
+}).strict();
+const cancelWorkflow = z.object({
+  expectedVersion: positiveVersion,
+  reasonCode,
+}).strict();
+const projectWorkflowState = z.object({
+  projectionSequence: positiveVersion,
+  state: z.enum(WORKFLOW_RUN_STATES),
+  outcomeCode: z.enum(WORKFLOW_OUTCOME_CODES).optional(),
+}).strict();
+const reserveActivity = z.object({
+  invocationKey,
+  runId: uuid,
+  activityKind,
+  branchId: uuid.optional(),
+  inputDigest: digest,
+}).strict();
+const completeActivity = z.object({
+  expectedVersion: positiveVersion,
+  outcomeCode: reasonCode,
+  safeResult: z.record(z.string(), z.unknown()),
+}).strict();
+const failActivity = z.object({
+  expectedVersion: positiveVersion,
+  outcomeCode: reasonCode,
+}).strict();
 
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);
@@ -98,6 +141,13 @@ export const parseCreateRevision = (value: unknown) => parse(createRevision, val
 export const parseUpdateRevision = (value: unknown) => parse(updateRevision, value);
 export const parseRevocation = (value: unknown) => parse(revocation, value);
 export const parseDigest = (value: unknown): string => parse(digest, value);
+export const parseInvocationKey = (value: unknown): string => parse(invocationKey, value);
+export const parseStartWorkflow = (value: unknown) => parse(startWorkflow, value);
+export const parseCancelWorkflow = (value: unknown) => parse(cancelWorkflow, value);
+export const parseProjectWorkflowState = (value: unknown) => parse(projectWorkflowState, value);
+export const parseReserveActivity = (value: unknown) => parse(reserveActivity, value);
+export const parseCompleteActivity = (value: unknown) => parse(completeActivity, value);
+export const parseFailActivity = (value: unknown) => parse(failActivity, value);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   try { return schema.parse(value); }

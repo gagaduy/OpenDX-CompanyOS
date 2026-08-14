@@ -391,41 +391,41 @@ export interface WorkflowRunService {
 - Modify: `.env.example`
 - Modify: `CHANGELOG.md`
 
-- [ ] First write middleware tests verifying signature, issuer, audience,
+- [x] First write middleware tests verifying signature, issuer, audience,
   expiry, subject, and `azp`/client ID. Accept only
   `opendx-agentic-worker` on Express workload routes. Reject all seven Digital
   Employee clients and every staff token even if it contains an Agentic role.
-- [ ] Implement a generic workload verifier on top of the existing `jose`
+- [x] Implement a generic workload verifier on top of the existing `jose`
   dependency. It returns a `WorkloadPrincipal`; it must not reuse
   `AgentServicePrincipal` or `StaffPrincipal`.
-- [ ] Add failing API tests for every staff and workload route, invalid UUIDs,
+- [x] Add failing API tests for every staff and workload route, invalid UUIDs,
   unknown fields, body limits, optimistic conflicts, cross-boundary tokens,
   duplicate start, duplicate completion, invalid digest, and safe error
   responses. Assert denied requests append the existing audit shape without
   token or request-body content.
-- [ ] Add Zod schemas with `.strict()` and bounded strings/arrays. The start
+- [x] Add Zod schemas with `.strict()` and bounded strings/arrays. The start
   request is exactly `{ expectedVersion: positiveInteger, workflowVersion: 1
   }`; cancellation includes `expectedVersion` and a bounded reason code, not
   free-form notes.
-- [ ] Extend the existing approval decision controller to call the workflow-
+- [x] Extend the existing approval decision controller to call the workflow-
   aware approval service; do not add a second public approval decision route.
-- [ ] Return `202` for accepted start/cancel/signal delivery, `200` for reads
+- [x] Return `202` for accepted start/cancel/signal delivery, `200` for reads
   and idempotent replays, `409` for stale/conflicting versions, `422` for valid
   syntax with invalid binding, and the existing API error envelope.
-- [ ] Mount the staff router under the existing
+- [x] Mount the staff router under the existing
   `/v1/admin/agentic` path and a separate router under
   `/v1/internal/agentic`. Do not apply browser CORS to the internal router.
-- [ ] Add confidential Keycloak clients `opendx-agentic-control` and
+- [x] Add confidential Keycloak clients `opendx-agentic-control` and
   `opendx-agentic-worker`, service accounts, fixed audiences, and no staff or
   Digital Employee roles. Keep client secrets environment-supplied; the realm
   export must contain no production secret.
-- [ ] Compose `WorkflowRunService`, the dispatcher, workload verifier, and
+- [x] Compose `WorkflowRunService`, the dispatcher, workload verifier, and
   routers in `agentic.module.ts`/`server.ts`; stop the dispatcher during normal
   server shutdown.
-- [ ] Extend API readiness with a bounded workflow-gateway probe only when
+- [x] Extend API readiness with a bounded workflow-gateway probe only when
   Agentic execution is enabled. Gateway failure closes readiness but leaves
   process liveness healthy.
-- [ ] Run middleware tests, Agentic API tests, Agentic integration tests,
+- [x] Run middleware tests, Agentic API tests, Agentic integration tests,
   `pnpm --filter @opendx/api lint`, and `pnpm --filter @opendx/api typecheck`.
 - [ ] Commit: `feat(api): expose authenticated workflow control endpoints`
 

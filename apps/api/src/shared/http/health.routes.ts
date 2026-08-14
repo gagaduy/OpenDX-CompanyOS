@@ -10,6 +10,7 @@ export interface ReadinessDependencies {
   readonly keycloak: DependencyStatus;
   readonly minio: DependencyStatus;
   readonly migrations: DependencyStatus;
+  readonly agenticWorkflow?: DependencyStatus;
 }
 export type ReadinessProbe = () => Promise<ReadinessDependencies>;
 export interface HealthRouterOptions {

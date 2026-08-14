@@ -9,9 +9,10 @@ import { AgenticDomainError } from "../../domain/exceptions/agentic-domain.error
 export const agenticErrorMiddleware: ErrorRequestHandler = (error, _request, _response, next) => {
   if (error instanceof AgenticApplicationError || error instanceof AgenticDomainError) {
     const status = error.code.endsWith("_NOT_FOUND") ? 404
-      : error.code === "FORBIDDEN" || error.code === "SELF_APPROVAL_FORBIDDEN" || error.code === "POLICY_DENIED" ? 403
-        : error.code === "STALE_VERSION" || error.code.includes("STATE") || error.code.includes("ALREADY") ? 409
-          : error.code === "TOOL_UNAVAILABLE" ? 503 : 400;
+      : forbiddenCodes.has(error.code) ? 403
+        : conflictCodes.has(error.code) || error.code.includes("STATE") || error.code.includes("ALREADY") ? 409
+          : unprocessableCodes.has(error.code) ? 422
+            : error.code === "TOOL_UNAVAILABLE" ? 503 : 400;
     next(new ApplicationError(status, error.code, error.message));
     return;
   }
@@ -21,3 +22,28 @@ export const agenticErrorMiddleware: ErrorRequestHandler = (error, _request, _re
   }
   next(error);
 };
+
+const forbiddenCodes = new Set([
+  "FORBIDDEN",
+  "SELF_APPROVAL_FORBIDDEN",
+  "POLICY_DENIED",
+  "WORKFLOW_POLICY_DENIED",
+]);
+
+const conflictCodes = new Set([
+  "STALE_VERSION",
+  "WORKFLOW_SIGNAL_CONFLICT",
+  "WORKFLOW_PROJECTION_CONFLICT",
+  "WORKFLOW_PROJECTION_STALE",
+  "WORKFLOW_TERMINAL_IMMUTABLE",
+  "APPROVAL_DECISION_CONFLICT",
+  "ACTIVITY_INVOCATION_CONFLICT",
+]);
+
+const unprocessableCodes = new Set([
+  "APPROVAL_BINDING_INVALID",
+  "INVALID_FROZEN_PLAN",
+  "ACTIVITY_INPUT_INVALID",
+  "ACTIVITY_OUTCOME_INVALID",
+  "WORKFLOW_VERSION_UNSUPPORTED",
+]);

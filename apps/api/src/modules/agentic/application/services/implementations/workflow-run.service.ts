@@ -29,6 +29,7 @@ import type {
   ReserveActivityInput,
   StartWorkflowInput,
   WorkflowRunService,
+  WorkflowCommandResult,
 } from "../interfaces/workflow-run.service";
 
 type WorkflowRepository = Pick<AgenticRepository,
@@ -57,6 +58,13 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
   ) {}
 
   async start(input: StartWorkflowInput, principal: StaffPrincipal): Promise<WorkflowRun> {
+    return (await this.startCommand(input, principal)).run;
+  }
+
+  async startCommand(
+    input: StartWorkflowInput,
+    principal: StaffPrincipal,
+  ): Promise<WorkflowCommandResult> {
     requireOperator(principal);
     if (input.workflowVersion !== 1) fail("WORKFLOW_VERSION_UNSUPPORTED", "Workflow version is unsupported");
     const accepted = await this.transactions.run(async (session) => {
@@ -134,20 +142,33 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
           occurredAt: at,
         });
       }
-      return created.run;
+      return {
+        run: created.run,
+        disposition: created.status === "created" ? "accepted" as const : "replayed" as const,
+      };
     });
-    return this.dispatchStart(accepted);
+    return {
+      disposition: accepted.disposition,
+      run: await this.dispatchStart(accepted.run),
+    };
   }
 
   async get(runId: string, principal: StaffPrincipal): Promise<WorkflowRun> {
     return this.transactions.runReadOnly(async (session) => {
       const run = await this.requireRun(session, runId);
-      await this.requireTaskForStaff(session, run.taskId, principal);
+      await this.requireReadableTaskForStaff(session, run.taskId, principal);
       return run;
     });
   }
 
   async cancel(input: CancelWorkflowInput, principal: StaffPrincipal): Promise<WorkflowRun> {
+    return (await this.cancelCommand(input, principal)).run;
+  }
+
+  async cancelCommand(
+    input: CancelWorkflowInput,
+    principal: StaffPrincipal,
+  ): Promise<WorkflowCommandResult> {
     requireOperator(principal);
     if (!reasonCodePattern.test(input.reasonCode)) {
       fail("WORKFLOW_CANCELLATION_INVALID", "Cancellation reason code is invalid");
@@ -186,10 +207,14 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
           correlationId: run.id, occurredAt: at,
         });
       }
-      return { run, receipt: stored.receipt };
+      return {
+        run,
+        receipt: stored.receipt,
+        disposition: stored.status === "created" ? "accepted" as const : "replayed" as const,
+      };
     });
     await this.dispatchSignal(result.run, result.receipt);
-    return result.run;
+    return { run: result.run, disposition: result.disposition };
   }
 
   async projectState(
@@ -327,6 +352,15 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
       const current = await this.repository.findActivityInvocation(session, input.invocationKey);
       if (current === undefined) fail("ACTIVITY_NOT_FOUND", "Activity invocation was not found");
       if (current.version !== input.expectedVersion || current.state !== "reserved") {
+        if (
+          current.version === input.expectedVersion + 1
+          && current.state === state
+          && current.outcomeCode === input.outcomeCode
+          && JSON.stringify(current.safeResult) === JSON.stringify(safeResult)
+        ) return current;
+        if (current.state === "completed" || current.state === "failed") {
+          fail("ACTIVITY_INVOCATION_CONFLICT", "Activity invocation already has a different outcome");
+        }
         fail("STALE_VERSION", "Activity invocation version is stale");
       }
       const at = this.now();
@@ -453,6 +487,24 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
     principal: StaffPrincipal,
   ): Promise<AgentTask> {
     const task = principal.roles.includes("administrator")
+      ? await this.repository.findTaskById(session, taskId)
+      : principal.roles.includes("agentic_operator")
+        ? await this.repository.findTask(session, taskId, principal.subject)
+        : undefined;
+    if (task === undefined) fail("TASK_NOT_FOUND", "Task was not found");
+    return task;
+  }
+
+  private async requireReadableTaskForStaff(
+    session: DatabaseSession,
+    taskId: string,
+    principal: StaffPrincipal,
+  ): Promise<AgentTask> {
+    const hasOversight = principal.roles.some((role) =>
+      role === "administrator"
+      || role === "agentic_approver"
+      || role === "agentic_governance_admin");
+    const task = hasOversight
       ? await this.repository.findTaskById(session, taskId)
       : principal.roles.includes("agentic_operator")
         ? await this.repository.findTask(session, taskId, principal.subject)
