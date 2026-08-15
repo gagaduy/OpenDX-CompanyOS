@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the Phase C Agentic Department read-tool boundary with 17 versioned
+  least-privilege contracts, module-owned public ports, restricted analytics
+  views, bounded queries, zero-leakage rules, and provenance-backed outputs.
 - Close Agentic Phase B with public/internal API contracts, durable runtime and
   recovery architecture guidance, bounded scope assertions, and a repository
   exit gate that rejects missing artifacts or later-phase behavior.
