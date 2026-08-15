@@ -41,6 +41,9 @@ const apiEnvironmentSchema = z.object({
   DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
     message: "must be a PostgreSQL URL",
   }),
+  AGENTIC_ANALYTICS_DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
+    message: "must be a PostgreSQL URL",
+  }),
   CONSOLE_ORIGIN: z.url(),
   STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
   GOOGLE_CLIENT_ID: z.preprocess(
@@ -220,6 +223,7 @@ export interface ApiEnvironment {
   readonly environment: "development" | "test" | "production";
   readonly apiPort: number;
   readonly databaseUrl: string;
+  readonly agenticAnalyticsDatabaseUrl: string;
   readonly consoleOrigin: string;
   readonly storefrontOrigin: string;
   readonly googleClientId?: string;
@@ -307,6 +311,7 @@ export function parseApiEnvironment(
     environment: value.OPENDX_ENV,
     apiPort: value.API_PORT,
     databaseUrl: value.DATABASE_URL,
+    agenticAnalyticsDatabaseUrl: value.AGENTIC_ANALYTICS_DATABASE_URL,
     consoleOrigin: value.CONSOLE_ORIGIN,
     storefrontOrigin: value.STOREFRONT_ORIGIN,
     ...(value.GOOGLE_CLIENT_ID === undefined ? {} : { googleClientId: value.GOOGLE_CLIENT_ID }),

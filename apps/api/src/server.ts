@@ -6,8 +6,8 @@ import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
-import { createInventoryModule } from "./modules/inventory";
+import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
+import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
 import { parseApiEnvironment } from "./shared/config/environment";
@@ -26,13 +26,13 @@ import { NodeSessionTokenService } from "./modules/customer/infrastructure/secur
 import { GoogleJoseIdentityVerifier } from "./modules/customer/infrastructure/identity/google-jose-identity-verifier";
 import { UnavailableGoogleIdentityVerifier } from "./modules/customer/infrastructure/identity/unavailable-google-identity-verifier";
 import { createPromotionModule } from "./modules/promotion";
-import { createOrderModule } from "./modules/order";
-import { createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } from "./modules/payment";
+import { createOrderHealthReader, createOrderModule } from "./modules/order";
+import { createPaymentHealthReader, createPaymentModule, SePayPaymentGateway, UnavailablePaymentGateway } from "./modules/payment";
 import { createCheckoutModule } from "./modules/checkout";
-import { createCrmModule } from "./modules/crm";
-import { createReportingModule } from "./modules/reporting";
-import { createSupportModule } from "./modules/support";
-import { createAgenticModule } from "./modules/agentic";
+import { createCrmHealthReader, createCrmModule } from "./modules/crm";
+import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
+import { createSupportHealthReader, createSupportModule } from "./modules/support";
+import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
@@ -45,6 +45,12 @@ const pool = createPostgresPool({
   onBackgroundError: (error) => console.error("PostgreSQL pool background error", error),
 });
 const transactions = new PostgresTransactionRunner(pool);
+const analyticsPool = createPostgresPool({
+  databaseUrl: environment.agenticAnalyticsDatabaseUrl,
+  onBackgroundError: (error) => console.error("Agentic analytics pool background error", error),
+});
+const analyticsTransactions = new PostgresTransactionRunner(analyticsPool);
+const analytics = createAgenticAnalyticsReader(analyticsTransactions);
 const repository = new PostgresqlCompanyOperatingCoreRepository(transactions);
 const minioEndpoint = new URL(environment.minioEndpoint);
 const minio = new Client({
@@ -204,6 +210,21 @@ const reporting = createReportingModule({
   generateId: randomUUID,
   now: () => new Date().toISOString(),
 });
+const currentTime = () => new Date().toISOString();
+const orderHealth = createOrderHealthReader({ transactions, now: currentTime });
+const supportHealth = createSupportHealthReader({
+  transactions,
+  orders: orderHealth,
+  now: currentTime,
+});
+const toolAdapters = createFixedDepartmentToolAdapterRegistry({
+  catalog: createCatalogHealthReader(transactions, currentTime),
+  inventory: createInventoryHealthReader({ transactions, analytics, now: currentTime }),
+  order: orderHealth,
+  finance: createPaymentHealthReader({ transactions, now: currentTime }),
+  crm: createCrmHealthReader({ transactions, analytics, now: currentTime }),
+  support: supportHealth,
+}, currentTime);
 const agentic = createAgenticModule({
   transactions,
   staffTokenVerifier,
@@ -216,6 +237,7 @@ const agentic = createAgenticModule({
   dispatcherBatchSize: environment.agentic.dispatcherBatchSize,
   onDispatcherError: (error) => console.error("Agentic workflow dispatch failed", error),
   executionEnabled: environment.agentic.executionEnabled,
+  toolAdapters,
 });
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
@@ -316,6 +338,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
     server.close((error) => resolve(error));
   });
   await pool.end();
+  await analyticsPool.end();
   if (closeError !== undefined) {
     console.error("HTTP server shutdown failed", closeError);
     process.exit(1);

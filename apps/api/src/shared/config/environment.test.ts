@@ -8,6 +8,7 @@ const validSource = {
   OPENDX_ENV: "test",
   API_PORT: "4000",
   DATABASE_URL: "postgres://opendx:secret@postgres:5432/opendx",
+  AGENTIC_ANALYTICS_DATABASE_URL: "postgres://opendx_agentic_reader:reader-secret@postgres:5432/opendx",
   CONSOLE_ORIGIN: "http://localhost:3000",
   KEYCLOAK_ISSUER: "http://keycloak:8080/realms/opendx",
   KEYCLOAK_AUDIENCE: "opendx-api",
@@ -33,6 +34,7 @@ describe("parseApiEnvironment", () => {
 
     expect(environment.apiPort).toBe(4000);
     expect(environment.databaseUrl).toBe(validSource.DATABASE_URL);
+    expect(environment.agenticAnalyticsDatabaseUrl).toBe(validSource.AGENTIC_ANALYTICS_DATABASE_URL);
     expect(environment.mediaMaxBytes).toBe(10_485_760);
     expect(environment.inventoryReservationTtlSeconds).toBe(900);
     expect(environment.inventoryExpiryIntervalSeconds).toBe(30);

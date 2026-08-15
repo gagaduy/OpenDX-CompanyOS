@@ -38,6 +38,7 @@ suite("Agentic PostgreSQL admin API", () => {
     async describe() { return { status: "running" as const }; },
   };
   const agentic = createAgenticModule({
+    toolAdapters: { resolve: () => { throw new Error("Tool adapters are unavailable in this fixture"); } },
     transactions, staffTokenVerifier: verifier, workloadTokenVerifier: workloadVerifier,
     workflowGateway, generateId: randomUUID, now: () => "2026-08-14T12:00:00.000Z",
     workflowApprovalTtlMs: 3_600_000, dispatcherIntervalMs: 5_000,

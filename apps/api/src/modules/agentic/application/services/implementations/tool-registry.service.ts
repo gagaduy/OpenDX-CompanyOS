@@ -94,6 +94,8 @@ export class ToolRegistryService implements ToolRegistry {
         invocationId: receipt.invocationId,
         taskId: request.taskId,
         agentKind: request.principal.agentKind,
+        toolName: prepared.descriptor.name,
+        toolVersion: prepared.descriptor.version,
         attempt: receipt.attempt,
         correlationId: request.correlationId,
         causationId: request.causationId,

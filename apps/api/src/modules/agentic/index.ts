@@ -34,5 +34,6 @@ export type {
   ToolShareability,
 } from "./application/tools/department-tool-contracts";
 export { ZodDepartmentToolSchemaRegistry } from "./infrastructure/tools/zod-department-tool-schema.registry";
+export { createFixedDepartmentToolAdapterRegistry } from "./infrastructure/tools/fixed-department-tool-adapter.registry";
 export type { AgentKind, AgentProfile } from "./domain/entities/agent-profile";
 export type { WorkflowRun, WorkflowRunState } from "./domain/entities/workflow-run";

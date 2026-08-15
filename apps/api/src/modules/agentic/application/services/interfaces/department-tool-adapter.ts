@@ -7,6 +7,8 @@ export interface DepartmentToolExecutionContext {
   readonly invocationId: string;
   readonly taskId: string;
   readonly agentKind: DepartmentAgentKind;
+  readonly toolName: DepartmentToolName;
+  readonly toolVersion: 1;
   readonly attempt: number;
   readonly correlationId: string;
   readonly causationId: string;

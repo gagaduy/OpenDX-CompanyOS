@@ -22,6 +22,9 @@ import { AgenticWorkloadController } from "./presentation/controllers/agentic-wo
 import { agenticErrorMiddleware } from "./presentation/middleware/agentic-error.middleware";
 import { createAgenticRouter } from "./presentation/routes/agentic.routes";
 import { createAgenticWorkloadRouter } from "./presentation/routes/agentic-workload.routes";
+import type { DepartmentToolAdapterRegistry } from "./application/services/interfaces/department-tool-adapter";
+import { ToolRegistryService } from "./application/services/implementations/tool-registry.service";
+import { ZodDepartmentToolSchemaRegistry } from "./infrastructure/tools/zod-department-tool-schema.registry";
 
 export interface AgenticModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -35,6 +38,7 @@ export interface AgenticModuleDependencies {
   readonly dispatcherBatchSize: number;
   readonly onDispatcherError?: (error: unknown) => void;
   readonly executionEnabled?: boolean;
+  readonly toolAdapters: DepartmentToolAdapterRegistry;
 }
 
 export function createAgenticModule(dependencies: AgenticModuleDependencies) {
@@ -65,6 +69,15 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   const configurations = new ConfigurationServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const revocations = new EmergencyRevocationService(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const queries = new AgenticQueryServiceImpl(repository, dependencies.transactions);
+  const tools = new ToolRegistryService(
+    repository,
+    policy,
+    dependencies.transactions,
+    dependencies.toolAdapters,
+    new ZodDepartmentToolSchemaRegistry(dependencies.now),
+    dependencies.generateId,
+    dependencies.now,
+  );
   const controller = new AgenticController(tasks, approvals, configurations, revocations, queries);
   const workflowController = new AgenticWorkflowController(workflows);
   const workloadController = new AgenticWorkloadController(workflows);
@@ -89,6 +102,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     approvals,
     configurations,
     workflows,
+    tools,
     ...(dependencies.executionEnabled === true
       ? { readiness: () => dependencies.workflowGateway.probe() }
       : {}),
