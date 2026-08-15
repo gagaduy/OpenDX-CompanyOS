@@ -36,29 +36,29 @@ Keycloak, Docker Compose, and pnpm 11.
 
 ## Implementation Rules
 
-- [ ] Work in the current approved feature branch based on `develop`; do not
+- [x] Work in the current approved feature branch based on `develop`; do not
   edit `main`.
-- [ ] Follow RED-GREEN-REFACTOR in every task: add the named test, run it and
+- [x] Follow RED-GREEN-REFACTOR in every task: add the named test, run it and
   observe the intended failure, implement only the required behavior, then run
   the focused passing gate.
-- [ ] Keep Phase B deterministic. Do not add OpenRouter, Commerce read tools,
+- [x] Keep Phase B deterministic. Do not add OpenRouter, Commerce read tools,
   file parsing, Company Memory, Console UI, Agent execution, or Commerce writes.
-- [ ] Keep workflow payloads to IDs, digests, enum values, and immutable version
+- [x] Keep workflow payloads to IDs, digests, enum values, and immutable version
   numbers. Never put credentials, task bodies, prompts, customer/payment PII,
   or unrestricted activity results in Temporal history.
-- [ ] Published workflow type `StoreHealthReviewWorkflowV1`, workflow version
+- [x] Published workflow type `StoreHealthReviewWorkflowV1`, workflow version
   `1`, and task queue `store-health-v1` are immutable after release.
-- [ ] Use stable IDs and PostgreSQL uniqueness for start commands, activity
+- [x] Use stable IDs and PostgreSQL uniqueness for start commands, activity
   invocations, and signals. Network retries must return the existing result.
-- [ ] Add an SPDX header to every new source, test, script, migration, and
+- [x] Add an SPDX header to every new source, test, script, migration, and
   documentation file.
-- [ ] Update `CHANGELOG.md` under `[Unreleased]` in the same commit as the
+- [x] Update `CHANGELOG.md` under `[Unreleased]` in the same commit as the
   observable change. Do not defer all changelog work to the last task.
-- [ ] Use the exact pinned Temporal image indexes:
+- [x] Use the exact pinned Temporal image indexes:
   `temporalio/server:1.31.2@sha256:b5ecdb8282bededae2a10c36e8d862e27d0bc2d247fc73c5416025997ab4a1da`
   and
   `temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107`.
-- [ ] Never use `temporalio/auto-setup`, `temporal server start-dev`, a public
+- [x] Never use `temporalio/auto-setup`, `temporal server start-dev`, a public
   Temporal port, committed private keys, or placeholder production secrets.
 
 ## Stable Contracts
@@ -366,7 +366,7 @@ export interface WorkflowRunService {
   idempotency. It never changes a business decision because of network failure.
 - [x] Run the new service tests, all existing Agentic service tests, API lint,
   and API typecheck.
-- [ ] Commit: `feat(agentic): add workflow orchestration services`
+- [x] Commit: `feat(agentic): add workflow orchestration services`
 
 ## Task 4: Secure and Expose Staff and Workload Express APIs
 
@@ -427,7 +427,7 @@ export interface WorkflowRunService {
   process liveness healthy.
 - [x] Run middleware tests, Agentic API tests, Agentic integration tests,
   `pnpm --filter @opendx/api lint`, and `pnpm --filter @opendx/api typecheck`.
-- [ ] Commit: `feat(api): expose authenticated workflow control endpoints`
+- [x] Commit: `feat(api): expose authenticated workflow control endpoints`
 
 ## Task 5: Implement the Authenticated Express-to-AI Runtime Gateway
 
@@ -475,7 +475,7 @@ export interface WorkflowRunService {
   services yet; Compose must still validate with the new required variables.
 - [x] Run the two focused tests, API config tests, API lint/typecheck, both
   Compose config commands, `pnpm audit:env`, and `pnpm audit:secrets`.
-- [ ] Commit: `feat(agentic): add authenticated workflow gateway`
+- [x] Commit: `feat(agentic): add authenticated workflow gateway`
 
 ## Task 6: Build AI Runtime Workload Identity and Agentic Control Client
 
@@ -512,7 +512,7 @@ export interface WorkflowRunService {
   Temporal, environment variables, or `httpx`.
 - [x] Run all three focused test files, `python3 -m compileall app`, and the
   entire Python suite.
-- [ ] Commit: `feat(ai-runtime): add authenticated agentic control client`
+- [x] Commit: `feat(ai-runtime): add authenticated agentic control client`
 
 ## Task 7: Implement and Replay-Test StoreHealthReviewWorkflowV1
 
@@ -803,22 +803,22 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 - Modify: `scripts/dev/check.sh`
 - Modify: `CHANGELOG.md`
 
-- [ ] First write a static exit-gate test that fails until all approved Phase B
+- [x] First write a static exit-gate test that fails until all approved Phase B
   artifacts, routes, tables, dependencies, Compose services, security settings,
   backup members, docs, and scripts exist. It must also reject OpenRouter,
   Commerce-tool, Console page, Temporal UI, public 7233, and production SePay
   changes in the Phase B surface.
-- [ ] Document request/response examples and error codes for start, run read,
+- [x] Document request/response examples and error codes for start, run read,
   cancel, approval decision, and internal callback routes. Clearly distinguish
   task state from workflow-run state and PostgreSQL projection from Temporal
   history.
-- [ ] Document module ownership, dependency direction, workload identity,
+- [x] Document module ownership, dependency direction, workload identity,
   deterministic workflow restrictions, activity idempotency, retry categories,
   approval/cancellation binding, replay policy, operational health, recovery,
   TLS, and the non-HA single-VPS boundary.
-- [ ] Mark Phase B complete in `mvp-status.md` only after the live lifecycle and
+- [x] Mark Phase B complete in `mvp-status.md` only after the live lifecycle and
   recovery gates pass. Keep Phases C-H explicitly not started.
-- [ ] Run the complete fresh gate from the committed tree:
+- [x] Run the complete fresh gate from the committed tree:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -838,26 +838,26 @@ git diff --check
 git status --short
 ```
 
-- [ ] Capture the exact successful commands and relevant service/image versions
+- [x] Capture the exact successful commands and relevant service/image versions
   in `docs/roadmap/mvp-status.md`. Do not claim completion if a live Docker,
   restart, replay, backup, or restore gate was skipped.
-- [ ] Request independent code review. Resolve every Critical and Important
+- [x] Request independent code review. Resolve every Critical and Important
   finding and rerun the affected focused gates plus root `pnpm check`.
-- [ ] Commit: `docs(agentic): close durable workflow phase`
+- [x] Commit: `docs(agentic): close durable workflow phase`
 
 ## Final Self-Review Checklist
 
-- [ ] Every requirement in the approved design maps to a task and a named test.
-- [ ] All new production files and interfaces have exact paths, and every step
+- [x] Every requirement in the approved design maps to a task and a named test.
+- [x] All new production files and interfaces have exact paths, and every step
   contains complete implementation and validation instructions.
-- [ ] TypeScript and Python names agree at both HTTP boundaries, including enum
+- [x] TypeScript and Python names agree at both HTTP boundaries, including enum
   spelling, workflow version, task queue, digest encoding, and outcome codes.
-- [ ] Start, activity, approval, cancellation, terminal projection, and audit
+- [x] Start, activity, approval, cancellation, terminal projection, and audit
   are idempotent under duplicate request, lost acknowledgement, and restart.
-- [ ] Temporal workflow code is deterministic and representative histories
+- [x] Temporal workflow code is deterministic and representative histories
   replay before deployment.
-- [ ] Production rejects insecure Temporal transport and exposes no internal
+- [x] Production rejects insecure Temporal transport and exposes no internal
   endpoint publicly.
-- [ ] One recovery set restores `opendx`, `temporal`, and
+- [x] One recovery set restores `opendx`, `temporal`, and
   `temporal_visibility`, and a waiting workflow resumes exactly once.
-- [ ] No Phase C-H runtime behavior or production SePay activation is present.
+- [x] No Phase C-H runtime behavior or production SePay activation is present.

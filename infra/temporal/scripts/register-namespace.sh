@@ -36,5 +36,22 @@ if temporal operator "$@" namespace describe --namespace "$TEMPORAL_NAMESPACE" >
   exit 0
 fi
 
-temporal operator "$@" namespace create --namespace "$TEMPORAL_NAMESPACE" --retention 168h
-temporal operator "$@" namespace describe --namespace "$TEMPORAL_NAMESPACE" >/dev/null
+if ! create_output=$(temporal operator "$@" namespace create \
+  --namespace "$TEMPORAL_NAMESPACE" --retention 168h 2>&1); then
+  case "$create_output" in
+    *"already exists"*|*"AlreadyExists"*) ;;
+    *)
+      echo "$create_output" >&2
+      exit 1
+      ;;
+  esac
+fi
+attempt=1
+until temporal operator "$@" namespace describe --namespace "$TEMPORAL_NAMESPACE" >/dev/null 2>&1; do
+  if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+    echo "Namespace did not become readable after $MAX_ATTEMPTS attempts" >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
+  sleep 2
+done

@@ -99,6 +99,12 @@ Python SDK and server image only to the isolated AI Runtime and orchestration
 topology. OpenRouter SDKs and pgvector remain absent from the Commerce Product
 Foundation.
 
+The Phase B compatibility pins are `temporalio==1.30.0` for workflow, worker,
+client, time-skipping, and replay code, and `temporalio/server:1.31.2` plus
+`temporalio/admin-tools:1.31.2` for persistence/schema/namespace operations.
+The server images are private infrastructure, not public UI services; no
+Temporal UI image is included.
+
 The repository installs the published `temporalio==1.30.0` wheel; it does not
 vendor or rebuild the SDK. Rebuilding that SDK itself requires its upstream
 Rust, Protobuf, and `uv` toolchain, which are not OpenDX CompanyOS build

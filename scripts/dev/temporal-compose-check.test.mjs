@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 const composePath = "infra/docker/docker-compose.yml";
@@ -91,9 +93,44 @@ test("uses idempotent separate database schema and namespace scripts", () => {
   assert.match(schema, /postgresql\/v12\/temporal\/versioned/);
   assert.match(schema, /postgresql\/v12\/visibility\/versioned/);
   assert.match(namespace, /temporal operator "\$@" namespace describe --namespace "\$TEMPORAL_NAMESPACE"/);
-  assert.match(namespace, /temporal operator "\$@" namespace create --namespace "\$TEMPORAL_NAMESPACE" --retention 168h/);
+  assert.match(namespace, /temporal operator "\$@" namespace create[\s\\]*--namespace "\$TEMPORAL_NAMESPACE" --retention 168h/);
+  assert.match(namespace, /\*"already exists"\*\|\*"AlreadyExists"\*/);
+  assert.match(namespace, /until temporal operator "\$@" namespace describe --namespace "\$TEMPORAL_NAMESPACE"/);
+  assert.match(namespace, /Namespace did not become readable after \$MAX_ATTEMPTS attempts/);
   assert.match(namespace, /temporal operator "\$@" --command-timeout 5s cluster health/);
   assert.match(namespace, /MAX_ATTEMPTS=30/);
   assert.match(namespace, /TEMPORAL_TLS_ENABLED/);
   assert.match(namespace, /--tls-server-name/);
+});
+
+test("converges when a restored namespace is initially invisible but already exists", () => {
+  const directory = mkdtempSync(join(tmpdir(), "opendx-temporal-namespace-"));
+  const temporal = join(directory, "temporal");
+  const state = join(directory, "describe-count");
+  writeFileSync(temporal, `#!/bin/sh
+case "$*" in
+  *"cluster health"*) exit 0 ;;
+  *"namespace describe"*)
+    count=0
+    [ ! -f "${state}" ] || count=$(cat "${state}")
+    count=$((count + 1))
+    echo "$count" >"${state}"
+    if [ "$count" -ge 2 ]; then exit 0; else exit 1; fi
+    ;;
+  *"namespace create"*) echo "Namespace already exists" >&2; exit 1 ;;
+esac
+exit 1
+`);
+  chmodSync(temporal, 0o755);
+
+  try {
+    const result = spawnSync("sh", ["infra/temporal/scripts/register-namespace.sh"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${directory}:${process.env.PATH}` },
+    });
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

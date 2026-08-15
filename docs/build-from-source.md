@@ -67,6 +67,24 @@ Use `pnpm --filter @opendx/api db:migrate:agentic` and
 `db:rollback:agentic:all` for the isolated migration. The normal `*:all`
 commands include Agentic after Support on migrate and before Support on rollback.
 
+Phase B durable workflow validation has two live Docker gates:
+
+```bash
+pnpm check:agentic-workflow
+pnpm check:agentic-workflow-recovery
+```
+
+The lifecycle gate starts a governed task, interrupts an in-flight worker, and
+proves exactly-once convergence after redelivery. The recovery gate uses only
+suffixed disposable PostgreSQL databases, backs up and restores all three
+databases, resumes a waiting workflow, and replays its exported Temporal
+history. Both acquire the shared database-maintenance lock and fail if another
+stack-owning operation is active. Run the static closure contract with:
+
+```bash
+pnpm check:agentic-phase-b-exit
+```
+
 ```bash
 pnpm audit:env
 pnpm audit:secrets
@@ -235,15 +253,18 @@ Run the API:
 pnpm --filter @opendx/api dev
 ```
 
-Run the AI runtime:
+Run the AI runtime gateway and worker on the host only when Temporal and the
+documented environment are already available:
 
 ```bash
 cd services/ai-runtime
 python3 -m uvicorn app.main:app --reload --port 8000
+python3 -m app.agentic.worker
 ```
 
-The AI runtime is not a long-running service in the Commerce Foundation Compose
-topology; its image is used by `make check`.
+Normal local development should use `make up`; Compose owns the long-running AI
+Runtime and worker, their readiness, namespace registration, and restart order.
+No OpenRouter key is required for Phase B.
 
 ## Configuration
 
@@ -264,7 +285,7 @@ remains PostgreSQL-only; there is no memory database switch.
 
 Runtime logs, readiness checks, and optional `/metrics` operations are
 documented in [`operations/observability.md`](operations/observability.md).
-PostgreSQL and MinIO backup/restore safety scripts are documented in
+PostgreSQL/Temporal and MinIO backup/restore safety scripts are documented in
 [`operations/backup-restore.md`](operations/backup-restore.md).
 
 ClamAV uses the pinned local Compose image and keeps virus signatures on a

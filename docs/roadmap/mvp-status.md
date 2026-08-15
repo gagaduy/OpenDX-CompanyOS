@@ -28,8 +28,9 @@ Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
 
 The Post-Commerce Agentic Workforce master design and plan are approved. Phase
-A governance foundation is implemented on `phuong`; later execution phases
-still require their focused design and file-level plan:
+A governance and Phase B durable Store Health workflow are implemented on
+`feat/store-health-temporal`; later execution phases still require their
+focused design and file-level plan:
 `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
 and
 `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
@@ -46,13 +47,18 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Phase A governance foundation complete on `phuong` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Awaiting focused Phase B kickoff; no task execution yet |
+| Post-Commerce: Agentic Workforce | Phases A-B complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | First governed durable fake-activity workflow complete; Phases C-H not started |
 
 Focused Agentic delivery status:
 
 | Phase | Status | Focused Spec | Focused Plan | Exit Decision |
 | --- | --- | --- | --- | --- |
 | Phase A: Agent Governance Foundation | Complete on `phuong` | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Complete after focused unit, PostgreSQL concurrency, migration lifecycle, API, identity, and repository gates |
+| Phase B: Durable Store Health Workflow | Complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-store-health-temporal-workflow-design.md` | `docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md` | Complete after unit/integration/replay, worker-kill lifecycle, production topology, and three-database destroy/restore/resume gates |
+
+Phases C-H are explicitly not started. Phase B contains no OpenRouter call,
+Commerce tool execution, file intake, Agentic Console page, Temporal UI, or
+production SePay activation.
 
 ## Latest Validation Evidence
 
@@ -63,9 +69,9 @@ Focused Agentic delivery status:
 - Its master plan sequences Agent Governance, Temporal workflow, read-only
   department tools, OpenRouter runtime, file intake, AI CEO coordination,
   Console surfaces, and deterministic acceptance behind focused phase gates.
-- Phase A adds PostgreSQL governance and a staff administration API only. It
-  deliberately does not start Agent execution, Temporal, OpenRouter, file
-  intake, or Commerce tool adapters.
+- Phase A adds PostgreSQL governance and a staff administration API. Phase B
+  adds Temporal execution with bounded fake activities only; it deliberately
+  does not add OpenRouter, file intake, Commerce tool adapters, or an Agentic UI.
 - Phase A defines four human Agentic roles, seven distinct Keycloak service
   identities, two-person versioned governance, deterministic deny-first policy,
   task/configuration pinning, emergency revocation, Tool Registry authorization,
@@ -74,6 +80,42 @@ Focused Agentic delivery status:
 - Its focused implementation plan defines eight TDD tasks covering identity,
   domain rules, PostgreSQL governance, policy/tools/budgets, two-person
   approvals, non-executing tasks, staff APIs, composition, and phase-exit gates.
+- Phase B closure evidence on 2026-08-16 includes successful
+  the complete command sequence below. The host has Python 3.12, so the
+  documented pinned Python 3.13.12 checks image supplied `python3`; the Vitest
+  worker limit avoids this machine's 5-second UI-test contention.
+
+  ```bash
+  pnpm install --frozen-lockfile
+  pnpm audit:repo
+  pnpm audit:env
+  pnpm audit:secrets
+  pnpm lint
+  pnpm typecheck
+  VITEST_MAX_WORKERS=1 pnpm test
+  docker build --target checks -t opendx-ai-runtime-checks -f services/ai-runtime/Dockerfile .
+  PATH=/tmp/opendx-python313:$PATH pnpm test:py
+  pnpm check:production-compose
+  pnpm check:agentic-production-compose
+  pnpm check:agentic-workflow
+  pnpm check:backup-restore
+  pnpm check:agentic-workflow-recovery
+  pnpm check:agentic-phase-b-exit
+  PATH=/tmp/opendx-python313:$PATH VITEST_MAX_WORKERS=1 pnpm check
+  git diff --check
+  git status --short
+  ```
+
+  These gates passed all 535 API, 113 Console, 74 Storefront, and 102 Python
+  tests plus both frontend production builds. The lifecycle gate
+  SIGKILLed/recreated the worker during a reserved invocation. The recovery gate
+  destroyed/restored suffixed `opendx`, `temporal`, and
+  `temporal_visibility` databases, resumed the waiting run exactly once, and
+  replayed the exported history against current workflow code.
+- Phase B relevant pins: Node `22.22.0`, Python `3.13.12`, PostgreSQL `18.3`,
+  Keycloak `26.4.2`, Temporal Server/admin-tools `1.31.2`, Temporal Python SDK
+  `1.30.0`, Caddy `2.10.2`, MinIO `RELEASE.2025-04-22T22-12-26Z`, and ClamAV
+  `1.5.3`; container images are digest-pinned in the Compose/Dockerfiles.
 
 - Phase 8 focused design:
   `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.

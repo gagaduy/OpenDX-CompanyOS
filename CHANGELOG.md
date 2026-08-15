@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Close Agentic Phase B with public/internal API contracts, durable runtime and
+  recovery architecture guidance, bounded scope assertions, and a repository
+  exit gate that rejects missing artifacts or later-phase behavior.
+- Retry namespace visibility after Temporal registration so fresh and restored
+  stacks do not fail during metadata propagation.
 - Back up and restore Commerce projections plus Temporal persistence and
   visibility as one checksummed, versioned, atomically published recovery set,
   with explicit local-only legacy dump compatibility.

@@ -17,6 +17,7 @@ pnpm test:py
 pnpm test:make-database-backup
 pnpm test:temporal-compose
 pnpm test:agentic-production-compose
+pnpm test:agentic-phase-b-exit
 pnpm audit:repo
 compose_env=()
 if [[ -f .env ]]; then

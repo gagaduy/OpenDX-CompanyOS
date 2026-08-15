@@ -15,7 +15,8 @@ OpenDX CompanyOS has six functional layers:
 - Identity Plane.
 - Company Operating Core.
 - Audit and Governance.
-- Future Intelligence Layer: workflow, agents, and GraphRAG after commerce.
+- Intelligence Layer: governed Agent control and durable workflow execution;
+  model-backed tools and GraphRAG remain later phases.
 
 ## MVP Deployment
 
@@ -31,8 +32,10 @@ OpenDX CompanyOS has six functional layers:
 - Payments: SePay Payment Gateway, sandbox locally and production on hosted
   HTTPS.
 
-Temporal, pgvector, graph projection storage, and Python AI capabilities remain
-available architecture directions but do not block the commerce foundation.
+Temporal 1.31.2 and the Python Temporal SDK 1.30.0 now provide the isolated
+Phase B durable workflow runtime. pgvector, graph projection storage, model
+providers, and GraphRAG remain future directions and do not alter Commerce
+truth.
 
 ## Single-Company Boundary
 
@@ -47,7 +50,9 @@ risk level.
 - Existing: PostgreSQL-backed Company Operating Core, Catalog, Inventory,
   Customer, Cart, Promotion, Checkout, Order, and Payment.
 - Commerce roadmap: CRM, Support, Reporting, and broader Audit surfaces.
-- Post-commerce: Workflow, Agent, Skill, Policy, Graph, and Integration.
+- Post-commerce: Agent governance and the first durable workflow are
+  implemented; Skills, Commerce tools, model execution, Graph, and broad
+  Integration remain later phases.
 
 ## Core Entity Families
 
@@ -68,12 +73,18 @@ risk level.
 Phase A implements the Agent governance control plane in PostgreSQL: seven
 service identities, non-executing tasks, immutable configuration revisions,
 deny-first policy, tool descriptors/grants, budgets, approvals, revocations,
-audit, and provenance. No worker or model provider is started.
+audit, and provenance.
 
-Temporal is reserved for the post-commerce workflow roadmap. Commerce payment,
-inventory, and order correctness is implemented first through PostgreSQL
-transactions, idempotency, state machines, reconciliation, and an outbox where
-asynchronous processing is required.
+Phase B adds the versioned `StoreHealthReviewWorkflowV1`, Temporal persistence,
+an authenticated AI Runtime gateway, a separately authenticated worker, safe
+PostgreSQL projections, approval/cancellation signals, replay, metrics, and a
+three-database recovery set. See
+[`agentic-workflow-runtime.md`](agentic-workflow-runtime.md). It uses bounded
+fake activities and no model provider or Commerce tool.
+
+Commerce payment, inventory, and order correctness remains independent and is
+enforced through PostgreSQL transactions, idempotency, state machines,
+reconciliation, and an outbox where asynchronous processing is required.
 
 ## GraphRAG Boundary
 
@@ -92,8 +103,9 @@ provenance-bearing records.
 
 ## Implemented Runtime Topology
 
-The local Commerce runtime runs PostgreSQL 18, Keycloak, MinIO, an
-Express API, React Console, and React Storefront through Docker Compose. One-shot jobs apply
+The local runtime runs PostgreSQL 18, Keycloak, MinIO, Temporal, the FastAPI AI
+Runtime and Temporal worker, an Express API, React Console, and React Storefront
+through Docker Compose. One-shot jobs apply
 Catalog, Company Core, Inventory, Customer, Cart, Promotion, Checkout, Order,
 then Payment migrations, bootstrap MinIO, and seed Company Core, Catalog,
 Inventory, then Promotion before API readiness can succeed.
