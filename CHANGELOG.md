@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define 17 immutable Phase C department read-tool contracts with strict
+  runtime schemas and fail-closed executive-summary sharing.
 - Add the file-level TDD plan for Phase C tool contracts, idempotent execution,
   six module-owned readers, restricted analytics views, service identities,
   zero-leakage acceptance, and production/local exit gates.
