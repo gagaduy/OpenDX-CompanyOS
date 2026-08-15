@@ -19,10 +19,25 @@ COPY --chown=node:node . .
 USER node
 RUN pnpm install --frozen-lockfile
 
-FROM base AS production
+FROM base AS build
+ARG VITE_API_BASE_URL
+ARG VITE_STOREFRONT_ORIGIN
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
+  VITE_STOREFRONT_ORIGIN=$VITE_STOREFRONT_ORIGIN \
+  VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN pnpm --filter @opendx/storefront build
+
+FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d AS production
+ENV PORT=3100
+ENV XDG_CONFIG_HOME=/tmp
+ENV XDG_DATA_HOME=/tmp
+RUN setcap -r /usr/bin/caddy
+COPY infra/deploy/Caddyfile.spa /etc/caddy/Caddyfile
+COPY --from=build --chown=10001:10001 /workspace/apps/storefront/dist /srv
+USER 10001:10001
 EXPOSE 3100
-CMD ["pnpm", "--filter", "@opendx/storefront", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "3100"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
 
 FROM base AS development
 EXPOSE 3100

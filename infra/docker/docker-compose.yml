@@ -117,6 +117,7 @@ services:
     environment:
       POSTGRES_ADMIN_USER: opendx_admin
       POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      POSTGRES_APP_USER: opendx_local
       TEMPORAL_DB_USER: temporal
       TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
     volumes:

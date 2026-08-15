@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+# SPDX-License-Identifier: Apache-2.0
+
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT} {
+	root * /srv
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}

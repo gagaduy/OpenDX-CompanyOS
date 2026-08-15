@@ -30,6 +30,8 @@
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "test:make-database-backup": "node --test scripts/dev/make-database-backup.test.mjs",
     "test:temporal-compose": "node --test scripts/dev/temporal-compose-check.test.mjs",
+    "test:agentic-production-compose": "node --test scripts/dev/agentic-production-compose-check.test.mjs",
+    "check:agentic-production-compose": "pnpm test:agentic-production-compose && node scripts/dev/agentic-production-compose-check.mjs",
     "check:agentic-workflow": "node scripts/dev/agentic-workflow-lifecycle-check.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",

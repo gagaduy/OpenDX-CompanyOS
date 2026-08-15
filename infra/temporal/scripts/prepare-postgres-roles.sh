@@ -9,6 +9,9 @@ set -eu
 : "${POSTGRES_APP_USER:?POSTGRES_APP_USER is required}"
 : "${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}"
 
+POSTGRES_APP_DATABASE="${POSTGRES_APP_DATABASE:-opendx}"
+POSTGRES_LEGACY_USER="${POSTGRES_APP_USER}_bootstrap_legacy"
+
 if ! PGPASSWORD="$POSTGRES_ADMIN_PASSWORD" psql --host postgres \
   --username "$POSTGRES_ADMIN_USER" --dbname postgres --set ON_ERROR_STOP=1 \
   --quiet --tuples-only --command "SELECT 1" >/dev/null 2>&1; then
@@ -25,12 +28,14 @@ export PGPASSWORD="$POSTGRES_ADMIN_PASSWORD"
 
 psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname postgres \
   --set ON_ERROR_STOP=1 --set app_user="$POSTGRES_APP_USER" \
-  --set app_password="$POSTGRES_APP_PASSWORD" <<'SQL'
-SELECT format('ALTER ROLE %I RENAME TO opendx_bootstrap_legacy', :'app_user')
+  --set app_password="$POSTGRES_APP_PASSWORD" \
+  --set app_database="$POSTGRES_APP_DATABASE" \
+  --set legacy_user="$POSTGRES_LEGACY_USER" <<'SQL'
+SELECT format('ALTER ROLE %I RENAME TO %I', :'app_user', :'legacy_user')
 WHERE EXISTS (
   SELECT FROM pg_roles WHERE rolname = :'app_user' AND rolsuper
 )
-AND NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'opendx_bootstrap_legacy') \gexec
+AND NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'legacy_user') \gexec
 
 SELECT format(
   'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD %L',
@@ -38,21 +43,26 @@ SELECT format(
 )
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'app_user') \gexec
 
-ALTER ROLE opendx_local WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
-ALTER ROLE opendx_local PASSWORD :'app_password';
+SELECT format(
+  'ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD %L',
+  :'app_user', :'app_password'
+) \gexec
 
-SELECT 'ALTER DATABASE opendx OWNER TO opendx_local'
-WHERE EXISTS (SELECT FROM pg_database WHERE datname = 'opendx') \gexec
-SELECT 'ALTER DATABASE opendx_test OWNER TO opendx_local'
+SELECT format('CREATE DATABASE %I OWNER %I', :'app_database', :'app_user')
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app_database') \gexec
+SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_database', :'app_user')
+WHERE EXISTS (SELECT FROM pg_database WHERE datname = :'app_database') \gexec
+SELECT format('ALTER DATABASE opendx_test OWNER TO %I', :'app_user')
 WHERE EXISTS (SELECT FROM pg_database WHERE datname = 'opendx_test') \gexec
 SQL
 
-for database in opendx opendx_test; do
+for database in "$POSTGRES_APP_DATABASE" opendx_test; do
   if psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname postgres \
     --quiet --tuples-only --command "SELECT 1 FROM pg_database WHERE datname='$database'" | grep -q 1; then
     psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname "$database" \
-      --set ON_ERROR_STOP=1 <<'SQL'
-SELECT format('ALTER %s %I.%I OWNER TO opendx_local',
+      --set ON_ERROR_STOP=1 --set app_user="$POSTGRES_APP_USER" \
+      --set legacy_user="$POSTGRES_LEGACY_USER" <<'SQL'
+SELECT format('ALTER %s %I.%I OWNER TO %I',
   CASE c.relkind
     WHEN 'S' THEN 'SEQUENCE'
     WHEN 'v' THEN 'VIEW'
@@ -60,11 +70,11 @@ SELECT format('ALTER %s %I.%I OWNER TO opendx_local',
     WHEN 'f' THEN 'FOREIGN TABLE'
     ELSE 'TABLE'
   END,
-  n.nspname, c.relname)
+  n.nspname, c.relname, :'app_user')
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 JOIN pg_roles r ON r.oid = c.relowner
-WHERE r.rolname = 'opendx_bootstrap_legacy'
+WHERE r.rolname = :'legacy_user'
   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
   AND n.nspname !~ '^pg_toast'
   AND c.relkind IN ('r', 'p', 'S', 'v', 'm', 'f')
@@ -80,12 +90,12 @@ WHERE r.rolname = 'opendx_bootstrap_legacy'
     WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e'
   ) \gexec
 
-SELECT format('ALTER FUNCTION %I.%I(%s) OWNER TO opendx_local',
-  n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+SELECT format('ALTER FUNCTION %I.%I(%s) OWNER TO %I',
+  n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), :'app_user')
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 JOIN pg_roles r ON r.oid = p.proowner
-WHERE r.rolname = 'opendx_bootstrap_legacy'
+WHERE r.rolname = :'legacy_user'
   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
   AND n.nspname !~ '^pg_toast'
   AND NOT EXISTS (
@@ -93,13 +103,13 @@ WHERE r.rolname = 'opendx_bootstrap_legacy'
     WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e'
   ) \gexec
 
-SELECT format('ALTER %s %I.%I OWNER TO opendx_local',
+SELECT format('ALTER %s %I.%I OWNER TO %I',
   CASE t.typtype WHEN 'd' THEN 'DOMAIN' ELSE 'TYPE' END,
-  n.nspname, t.typname)
+  n.nspname, t.typname, :'app_user')
 FROM pg_type t
 JOIN pg_namespace n ON n.oid = t.typnamespace
 JOIN pg_roles r ON r.oid = t.typowner
-WHERE r.rolname = 'opendx_bootstrap_legacy'
+WHERE r.rolname = :'legacy_user'
   AND t.typtype IN ('d', 'e', 'r')
   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
   AND n.nspname !~ '^pg_toast'
@@ -112,14 +122,19 @@ SQL
 done
 
 psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname postgres \
-  --set ON_ERROR_STOP=1 <<'SQL'
-SELECT 'ALTER ROLE opendx_bootstrap_legacy WITH NOLOGIN'
-WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'opendx_bootstrap_legacy') \gexec
+  --set ON_ERROR_STOP=1 --set admin_user="$POSTGRES_ADMIN_USER" \
+  --set app_user="$POSTGRES_APP_USER" \
+  --set app_database="$POSTGRES_APP_DATABASE" \
+  --set legacy_user="$POSTGRES_LEGACY_USER" <<'SQL'
+SELECT format('ALTER ROLE %I WITH NOLOGIN', :'legacy_user')
+WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = :'legacy_user') \gexec
 
-REVOKE CONNECT ON DATABASE opendx FROM PUBLIC;
-REVOKE CONNECT ON DATABASE opendx_test FROM PUBLIC;
+SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'app_database') \gexec
+SELECT 'REVOKE CONNECT ON DATABASE opendx_test FROM PUBLIC'
+WHERE EXISTS (SELECT FROM pg_database WHERE datname = 'opendx_test') \gexec
 REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
-GRANT CONNECT ON DATABASE opendx TO opendx_local;
-GRANT CONNECT ON DATABASE opendx_test TO opendx_local;
-GRANT CONNECT ON DATABASE postgres TO opendx_admin;
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'app_database', :'app_user') \gexec
+SELECT format('GRANT CONNECT ON DATABASE opendx_test TO %I', :'app_user')
+WHERE EXISTS (SELECT FROM pg_database WHERE datname = 'opendx_test') \gexec
+SELECT format('GRANT CONNECT ON DATABASE postgres TO %I', :'admin_user') \gexec
 SQL

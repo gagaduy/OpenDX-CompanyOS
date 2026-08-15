@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import signal
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -19,6 +21,7 @@ from app.agentic.infrastructure.agentic_control_client import AgenticControlClie
 from app.agentic.infrastructure.keycloak import KeycloakClientCredentialsProvider
 from app.agentic.infrastructure.temporal_client import connect_temporal
 from app.agentic.observability import BoundedMetrics, StructuredEventLogger
+from app.agentic.worker_healthcheck import WorkerReadiness
 from app.agentic.workflows.store_health_review_v1 import StoreHealthReviewWorkflowV1
 from app.shared.config import RuntimeSettings
 
@@ -116,6 +119,10 @@ def _observe_worker(metrics: Any | None, logger: Any | None, outcome: str) -> No
 
 async def run_from_settings(settings: RuntimeSettings) -> None:
     identity = worker_identity()
+    readiness = WorkerReadiness(
+        Path(os.environ.get("WORKER_READINESS_PATH", "/tmp/opendx-worker-ready")),
+        identity,
+    )
     temporal = await connect_temporal(
         settings.temporal, identity=identity
     )
@@ -141,6 +148,11 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
     loop = asyncio.get_running_loop()
     for received in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(received, stop.set)
+
+    async def confirm_polling() -> None:
+        await temporal.wait_until_polling(settings.worker_shutdown_grace_seconds)
+        readiness.publish()
+
     await run_supervised_worker(
         temporal_client=temporal.raw_client,
         activities=StoreHealthActivities(
@@ -152,12 +164,10 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
         task_queue=settings.temporal.task_queue,
         shutdown_grace_seconds=settings.worker_shutdown_grace_seconds,
         stop=stop,
-        resources=(http, temporal),
+        resources=(readiness, http, temporal),
         metrics=metrics,
         logger=logger,
-        polling_probe=lambda: temporal.wait_until_polling(
-            settings.worker_shutdown_grace_seconds
-        ),
+        polling_probe=confirm_polling,
     )
 
 

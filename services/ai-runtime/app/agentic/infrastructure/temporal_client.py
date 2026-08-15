@@ -125,6 +125,11 @@ class TemporalClientAdapter:
             ) from error
 
     async def wait_until_polling(self, timeout_seconds: int) -> None:
+        await self.wait_until_identity_polling(self._identity, timeout_seconds)
+
+    async def wait_until_identity_polling(
+        self, identity: str, timeout_seconds: int
+    ) -> None:
         try:
             async with asyncio.timeout(timeout_seconds):
                 while True:
@@ -139,7 +144,7 @@ class TemporalClientAdapter:
                         timeout=timedelta(seconds=min(timeout_seconds, 5)),
                     )
                     if any(
-                        poller.identity == self._identity
+                        poller.identity == identity
                         for poller in response.pollers
                     ):
                         return

@@ -20,9 +20,11 @@ USER node
 RUN pnpm install --frozen-lockfile
 
 FROM base AS production
-RUN pnpm --filter @opendx/api typecheck
+RUN pnpm --filter @opendx/api typecheck \
+  && pnpm --filter @opendx/api exec esbuild src/server.ts --bundle \
+    --platform=node --format=esm --packages=external --outfile=dist/server.mjs
 EXPOSE 4000
-CMD ["pnpm", "--filter", "@opendx/api", "exec", "tsx", "src/server.ts"]
+CMD ["node", "dist/server.mjs"]
 
 FROM base AS development
 EXPOSE 4000

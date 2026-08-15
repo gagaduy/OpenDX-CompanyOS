@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Harden the single-VPS production candidate with private mTLS Temporal,
+  split PostgreSQL roles, production-safe Keycloak reconciliation, static
+  frontend images, ordered schema and namespace jobs, isolated networks,
+  bounded resources and logs, read-only workload containers, fail-closed
+  validation, and operator guidance for upgrades, rotation, and recovery.
 - Run the local Store Health workflow on pinned private Temporal services with
   isolated PostgreSQL roles, one-shot schema and namespace setup, authenticated
   worker callbacks, restart lifecycle acceptance, and an opt-in Temporal CLI.

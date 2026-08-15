@@ -704,30 +704,30 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 - Modify: `infra/deploy/README.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Write tests that reject public `7233`, plaintext production Temporal
+- [x] Write tests that reject public `7233`, plaintext production Temporal
   clients, absent client-auth TLS, committed key material, writable certificate
   mounts, placeholder secrets, `latest` tags, unpinned images, missing resource
   limits, missing health checks, missing restart policies, and accidental UI or
   dev-server services.
-- [ ] Add production one-shot schema/namespace jobs and long-running Temporal,
+- [x] Add production one-shot schema/namespace jobs and long-running Temporal,
   AI Runtime, and worker roles. Mount CA/server/client material read-only from
   deployment-managed paths. Configure Temporal server TLS with required client
   authentication and configure both Python roles to validate the server name.
-- [ ] Set `TEMPORAL_ALLOW_NO_AUTH=true` only inside the private mTLS network
+- [x] Set `TEMPORAL_ALLOW_NO_AUTH=true` only inside the private mTLS network
   because mTLS authenticates Temporal clients; keep every workflow business
   action authorized at Express. Document this boundary explicitly.
-- [ ] Apply bounded CPU/memory, log rotation, health checks, graceful stop,
+- [x] Apply bounded CPU/memory, log rotation, health checks, graceful stop,
   restart policy, read-only filesystems where supported, dropped capabilities,
   and private networks consistent with existing production services. Caddy
   must not route any Temporal or internal Agentic endpoint.
-- [ ] Extend the production validator and documentation with secret/certificate
+- [x] Extend the production validator and documentation with secret/certificate
   provisioning, first boot order, schema upgrades, rollback compatibility,
   certificate rotation, worker drain, readiness inspection, and the explicit
   single-node/non-HA limitation.
-- [ ] Run both new tests and validators, existing production Compose check,
+- [x] Run both new tests and validators, existing production Compose check,
   rendered production Compose config with non-secret fixtures, environment and
   secret audits, and `git diff --check`.
-- [ ] Commit: `feat(deploy): harden temporal single-vps topology`
+- [x] Commit: `feat(deploy): harden temporal single-vps topology`
 
 ## Task 11: Back Up and Restore All Three Databases as One Recovery Set
 

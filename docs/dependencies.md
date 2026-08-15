@@ -35,6 +35,7 @@ Current major dependencies:
 | `vitest` | packages, API, Console, and Storefront | TypeScript tests |
 | `supertest` | `apps/api` | API endpoint tests |
 | `tsx` | `apps/api` | Local TypeScript server execution |
+| `esbuild` | `apps/api` | Bundle the production API server for direct Node execution |
 | `pg`, `@types/pg` | `apps/api` | PostgreSQL driver and TypeScript contracts (MIT) |
 | `node-pg-migrate` | `apps/api` | Versioned PostgreSQL migrations (MIT) |
 | `zod` | API, Console, and Storefront | Runtime environment, request, and response boundary validation (MIT) |
