@@ -18,11 +18,10 @@ describeWithDatabase("inventory migration", () => {
 
   afterAll(async () => {
     await runInventoryMigrations(databaseUrl!, "down").catch(() => undefined);
-    await runCatalogMigrations(databaseUrl!, "down");
     await pool.end();
   });
 
-  it("creates constrained inventory tables and removes them in dependency order", async () => {
+  it("creates constrained inventory tables and bounded health access paths reversibly", async () => {
     await runInventoryMigrations(databaseUrl!, "up");
 
     const tables = await pool.query<{ table_name: string }>(
@@ -54,6 +53,25 @@ describeWithDatabase("inventory migration", () => {
       ]),
     );
 
+    const indexes = await pool.query<{ indexname: string }>(
+      `SELECT indexname FROM pg_indexes
+       WHERE schemaname='public' AND indexname=ANY($1::text[])
+       ORDER BY indexname`,
+      [[
+        "inventory_items_available_health_idx",
+        "inventory_reservations_finalization_anomaly_idx",
+      ]],
+    );
+    expect(indexes.rows.map(({ indexname }) => indexname)).toEqual([
+      "inventory_items_available_health_idx",
+      "inventory_reservations_finalization_anomaly_idx",
+    ]);
+
+    await runInventoryMigrations(databaseUrl!, "down", 1);
+    const retained = await pool.query<{ name: string | null }>(
+      "SELECT to_regclass('public.inventory_items')::text AS name",
+    );
+    expect(retained.rows[0]).toEqual({ name: "inventory_items" });
     await runInventoryMigrations(databaseUrl!, "down", 1);
     const removed = await pool.query<{ name: string | null }>(
       "SELECT to_regclass('public.inventory_items')::text AS name",

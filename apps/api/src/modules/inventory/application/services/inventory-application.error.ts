@@ -8,6 +8,8 @@ export type InventoryApplicationErrorCode =
   | "RESERVATION_EXPIRED"
   | "RESERVATION_NOT_FOUND"
   | "STALE_VERSION"
+  | "UNSAFE_HEALTH_VALUE"
+  | "VALIDATION_ERROR"
   | "VARIANT_NOT_FOUND"
   | "VARIANT_NOT_ACTIVE";
 

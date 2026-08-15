@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose bounded Inventory stock-risk, slow-stock, and reservation-anomaly
+  reads with deterministic velocity, safe valuation, keyset evidence, and
+  owner-indexed query paths.
 - Isolate Agentic cross-module analytics behind three security-barrier Reporting
   views, an exact-grant reader role, bounded read-only queries, and a distinct
   production database credential.

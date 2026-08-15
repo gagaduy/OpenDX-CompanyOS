@@ -66,6 +66,9 @@ describe("PostgresqlAgenticAnalyticsReader", () => {
     }]);
 
     expect(queries).toHaveLength(9);
+    expect(queries[2]?.text).toMatch(
+      /OR \(window_date=CURRENT_DATE AND paid_quantity=0 AND paid_revenue_vnd=0\)/,
+    );
     for (let index = 0; index < queries.length; index += 3) {
       expect(queries[index]?.text).toBe("SET LOCAL statement_timeout = '750ms'");
       expect(queries[index + 1]?.text).toBe("SET LOCAL lock_timeout = '100ms'");

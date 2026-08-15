@@ -3,11 +3,14 @@
 
 import { Router } from "express";
 import type { CatalogVariantReader } from "../catalog";
+import type { AgenticAnalyticsReader } from "../reporting";
 import { authenticateStaff, type StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
 import { InventoryReservationService } from "./application/services/implementations/inventory-reservation.service";
+import { InventoryHealthReaderService } from "./application/services/implementations/inventory-health-reader";
 import { InventoryService } from "./application/services/implementations/inventory.service";
 import { PostgresqlInventoryAuditRepository } from "./infrastructure/repositories/implementations/postgresql-inventory-audit.repository";
+import { PostgresqlInventoryHealthRepository } from "./infrastructure/repositories/implementations/postgresql-inventory-health.repository";
 import { PostgresqlInventoryRepository } from "./infrastructure/repositories/implementations/postgresql-inventory.repository";
 import { ReservationExpiryWorker } from "./infrastructure/workers/reservation-expiry.worker";
 import { InventoryController } from "./presentation/controllers/inventory.controller";
@@ -22,6 +25,21 @@ export interface InventoryModuleDependencies {
   readonly reservationTtlMs: number;
   readonly expiryIntervalMs: number;
   readonly onWorkerError: (error: unknown) => void;
+}
+
+export interface InventoryHealthDependencies {
+  readonly transactions: TransactionRunner;
+  readonly analytics: AgenticAnalyticsReader;
+  readonly now: () => string;
+}
+
+export function createInventoryHealthReader(dependencies: InventoryHealthDependencies) {
+  return new InventoryHealthReaderService(
+    new PostgresqlInventoryHealthRepository(),
+    dependencies.analytics,
+    dependencies.transactions,
+    dependencies.now,
+  );
 }
 
 export function createInventoryModule(dependencies: InventoryModuleDependencies) {
