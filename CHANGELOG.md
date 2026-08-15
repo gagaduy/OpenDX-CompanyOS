@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose bounded Catalog-owned health snapshots, publication evidence, and
+  merchandising aggregates through a read-only public application port.
 - Execute authorized Phase C read adapters through immutable descriptor,
   schema, budget, idempotency, retry, provenance, and freshness boundaries.
 - Persist bounded Phase C tool invocation receipts with database-enforced
