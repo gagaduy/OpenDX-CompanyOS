@@ -7,6 +7,7 @@ x-api-environment: &api-environment
   OPENDX_ENV: development
   API_PORT: "4000"
   DATABASE_URL: postgres://opendx_local:opendx_local_password@postgres:5432/opendx
+  AGENTIC_ANALYTICS_DATABASE_URL: postgres://opendx_agentic_reader:opendx_agentic_reader_password@postgres:5432/opendx
   CONSOLE_ORIGIN: http://localhost:3000
   STOREFRONT_ORIGIN: http://localhost:3100
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -105,6 +106,8 @@ services:
       POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
       POSTGRES_APP_USER: opendx_local
       POSTGRES_APP_PASSWORD: opendx_local_password
+      POSTGRES_AGENTIC_READER_USER: opendx_agentic_reader
+      POSTGRES_AGENTIC_READER_PASSWORD: opendx_agentic_reader_password
     volumes:
       - ../temporal/scripts/prepare-postgres-roles.sh:/opt/opendx/prepare-postgres-roles.sh:ro
     entrypoint: ["/bin/sh", "/opt/opendx/prepare-postgres-roles.sh"]

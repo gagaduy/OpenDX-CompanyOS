@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Isolate Agentic cross-module analytics behind three security-barrier Reporting
+  views, an exact-grant reader role, bounded read-only queries, and a distinct
+  production database credential.
 - Expose bounded Catalog-owned health snapshots, publication evidence, and
   merchandising aggregates through a read-only public application port.
 - Execute authorized Phase C read adapters through immutable descriptor,

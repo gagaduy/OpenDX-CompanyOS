@@ -33,6 +33,7 @@ export function productionFixtureEnvironment(base = process.env) {
   return {
     POSTGRES_PASSWORD: "test-only-postgres-7e4f0c31",
     POSTGRES_ADMIN_PASSWORD: "test-only-postgres-admin-5d8a2f10",
+    POSTGRES_AGENTIC_READER_PASSWORD: "test-only-agentic-reader-8c63b420",
     TEMPORAL_DB_PASSWORD: "test-only-temporal-a018c923",
     MINIO_ROOT_PASSWORD: "test-only-minio-55bd9c87",
     KEYCLOAK_ADMIN_PASSWORD: "test-only-keycloak-813dea24",
@@ -71,6 +72,21 @@ export function validateAgenticProductionConfig({
     services.postgres.environment?.POSTGRES_USER
       !== services["postgres-role-init"].environment?.POSTGRES_APP_USER,
     "Production PostgreSQL bootstrap and application roles must be separate",
+  );
+  const applicationDatabase = new URL(services.api.environment.DATABASE_URL);
+  const analyticsDatabase = new URL(
+    services.api.environment.AGENTIC_ANALYTICS_DATABASE_URL,
+  );
+  invariant(
+    analyticsDatabase.username === "opendx_agentic_reader"
+      && analyticsDatabase.hostname === applicationDatabase.hostname
+      && analyticsDatabase.pathname === applicationDatabase.pathname
+      && analyticsDatabase.password !== applicationDatabase.password
+      && services["postgres-role-init"].environment?.POSTGRES_AGENTIC_READER_USER
+        === analyticsDatabase.username
+      && services["postgres-role-init"].environment?.POSTGRES_AGENTIC_READER_PASSWORD
+        === analyticsDatabase.password,
+    "Production analytics database must use the isolated analytics reader role and secret",
   );
 
   const realmMount = services.keycloak.volumes?.find(

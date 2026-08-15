@@ -43,6 +43,7 @@ x-api-environment: &api-environment
   READINESS_TIMEOUT_MS: ${READINESS_TIMEOUT_MS:-2000}
   JSON_BODY_LIMIT: ${JSON_BODY_LIMIT:-1mb}
   DATABASE_URL: postgres://opendx:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/opendx
+  AGENTIC_ANALYTICS_DATABASE_URL: postgres://opendx_agentic_reader:${POSTGRES_AGENTIC_READER_PASSWORD:?POSTGRES_AGENTIC_READER_PASSWORD is required}@postgres:5432/opendx
   CONSOLE_ORIGIN: ${CONSOLE_ORIGIN:-https://console.example.com}
   STOREFRONT_ORIGIN: ${STOREFRONT_ORIGIN:-https://shop.example.com}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
@@ -188,6 +189,8 @@ services:
       POSTGRES_APP_USER: opendx
       POSTGRES_APP_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_APP_DATABASE: opendx
+      POSTGRES_AGENTIC_READER_USER: opendx_agentic_reader
+      POSTGRES_AGENTIC_READER_PASSWORD: ${POSTGRES_AGENTIC_READER_PASSWORD:?POSTGRES_AGENTIC_READER_PASSWORD is required}
     volumes: [../temporal/scripts/prepare-postgres-roles.sh:/opt/opendx/prepare-postgres-roles.sh:ro]
     entrypoint: ["/bin/sh", "/opt/opendx/prepare-postgres-roles.sh"]
     networks: [data]

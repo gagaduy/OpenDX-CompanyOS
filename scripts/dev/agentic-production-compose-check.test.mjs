@@ -165,6 +165,13 @@ test("separates the production database bootstrap and application roles", () => 
   );
 });
 
+test("requires the API analytics connection to use the isolated reader role", () => {
+  const config = clone(render());
+  config.services.api.environment.AGENTIC_ANALYTICS_DATABASE_URL =
+    config.services.api.environment.DATABASE_URL;
+  assert.throws(() => validate(config), /analytics.*reader role/i);
+});
+
 test("hardens the privileged database bootstrap jobs", () => {
   const services = render().services;
   for (const name of ["postgres-role-init", "temporal-db-init"]) {

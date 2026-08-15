@@ -8,9 +8,12 @@ set -eu
 : "${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}"
 : "${POSTGRES_APP_USER:?POSTGRES_APP_USER is required}"
 : "${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}"
+: "${POSTGRES_AGENTIC_READER_USER:?POSTGRES_AGENTIC_READER_USER is required}"
+: "${POSTGRES_AGENTIC_READER_PASSWORD:?POSTGRES_AGENTIC_READER_PASSWORD is required}"
 
 POSTGRES_APP_DATABASE="${POSTGRES_APP_DATABASE:-opendx}"
 POSTGRES_LEGACY_USER="${POSTGRES_APP_USER}_bootstrap_legacy"
+POSTGRES_REPORTING_OWNER="${POSTGRES_REPORTING_OWNER:-opendx_reporting_owner}"
 
 if ! PGPASSWORD="$POSTGRES_ADMIN_PASSWORD" psql --host postgres \
   --username "$POSTGRES_ADMIN_USER" --dbname postgres --set ON_ERROR_STOP=1 \
@@ -30,7 +33,10 @@ psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname postgres \
   --set ON_ERROR_STOP=1 --set app_user="$POSTGRES_APP_USER" \
   --set app_password="$POSTGRES_APP_PASSWORD" \
   --set app_database="$POSTGRES_APP_DATABASE" \
-  --set legacy_user="$POSTGRES_LEGACY_USER" <<'SQL'
+  --set legacy_user="$POSTGRES_LEGACY_USER" \
+  --set reader_user="$POSTGRES_AGENTIC_READER_USER" \
+  --set reader_password="$POSTGRES_AGENTIC_READER_PASSWORD" \
+  --set reporting_owner="$POSTGRES_REPORTING_OWNER" <<'SQL'
 SELECT format('ALTER ROLE %I RENAME TO %I', :'app_user', :'legacy_user')
 WHERE EXISTS (
   SELECT FROM pg_roles WHERE rolname = :'app_user' AND rolsuper
@@ -48,6 +54,27 @@ SELECT format(
   :'app_user', :'app_password'
 ) \gexec
 
+SELECT format(
+  'CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION',
+  :'reporting_owner'
+)
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname=:'reporting_owner') \gexec
+SELECT format(
+  'ALTER ROLE %I WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION',
+  :'reporting_owner'
+) \gexec
+SELECT format('GRANT %I TO %I', :'reporting_owner', :'app_user') \gexec
+
+SELECT format(
+  'CREATE ROLE %I LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD %L',
+  :'reader_user', :'reader_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname=:'reader_user') \gexec
+SELECT format(
+  'ALTER ROLE %I WITH LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD %L',
+  :'reader_user', :'reader_password'
+) \gexec
+
 SELECT format('CREATE DATABASE %I OWNER %I', :'app_database', :'app_user')
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app_database') \gexec
 SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_database', :'app_user')
@@ -61,7 +88,10 @@ for database in "$POSTGRES_APP_DATABASE" opendx_test; do
     --quiet --tuples-only --command "SELECT 1 FROM pg_database WHERE datname='$database'" | grep -q 1; then
     psql --host postgres --username "$POSTGRES_ADMIN_USER" --dbname "$database" \
       --set ON_ERROR_STOP=1 --set app_user="$POSTGRES_APP_USER" \
-      --set legacy_user="$POSTGRES_LEGACY_USER" <<'SQL'
+      --set legacy_user="$POSTGRES_LEGACY_USER" \
+      --set reader_user="$POSTGRES_AGENTIC_READER_USER" \
+      --set reporting_owner="$POSTGRES_REPORTING_OWNER" \
+      --set app_database="$database" <<'SQL'
 SELECT format('ALTER %s %I.%I OWNER TO %I',
   CASE c.relkind
     WHEN 'S' THEN 'SEQUENCE'
@@ -117,6 +147,31 @@ WHERE r.rolname = :'legacy_user'
     SELECT FROM pg_depend d
     WHERE d.classid = 'pg_type'::regclass AND d.objid = t.oid AND d.deptype = 'e'
   ) \gexec
+
+SELECT format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', :'app_database') \gexec
+SELECT format('REVOKE TEMPORARY ON DATABASE %I FROM %I', :'app_database', :'reader_user') \gexec
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'app_database', :'reader_user') \gexec
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'reporting_owner') \gexec
+SELECT format('REVOKE ALL ON SCHEMA public FROM %I', :'reader_user') \gexec
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'reader_user') \gexec
+SELECT format('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM %I', :'reader_user') \gexec
+SELECT format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM %I', :'reader_user') \gexec
+SELECT format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM %I', :'reader_user') \gexec
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON TABLES FROM %I', :'app_user', :'reader_user') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I', :'app_user', :'reader_user') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM %I', :'app_user', :'reader_user') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE SELECT ON TABLES FROM PUBLIC', :'app_user') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC', :'app_user') \gexec
+
+SELECT format('GRANT SELECT ON TABLE public.%I TO %I', relation_name, :'reader_user')
+FROM unnest(ARRAY[
+  'reporting_agentic_variant_sales_v1',
+  'reporting_agentic_customer_segment_snapshot_v1',
+  'reporting_agentic_customer_activity_daily_v1'
+]) relation_name
+WHERE to_regclass(format('public.%I',relation_name)) IS NOT NULL \gexec
 SQL
   fi
 done
