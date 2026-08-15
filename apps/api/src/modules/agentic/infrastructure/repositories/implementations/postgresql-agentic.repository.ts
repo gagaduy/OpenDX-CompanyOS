@@ -19,10 +19,16 @@ import type {
   RevisionChildren,
   RevocationRecord,
   ToolGrantRecord,
+  ToolInvocationCompletionInput,
+  ToolInvocationFailureInput,
+  ToolInvocationRecord,
+  ToolInvocationReservationInput,
+  ToolInvocationReservationResult,
   ToolRecord,
   WorkflowRunCreateResult,
   WorkflowSignalReceiptCreateResult,
 } from "../../../application/repositories/interfaces/agentic.repository";
+import { AgenticApplicationError } from "../../../application/services/agentic-application.error";
 import type { AgentKind, AgentProfile } from "../../../domain/entities/agent-profile";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/approval-request";
@@ -384,9 +390,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<"created" | "duplicate"> {
     const result = await session.query(
       `INSERT INTO agentic_tools
-       (name,version,input_schema_digest,output_schema_digest,active)
-       VALUES($1,$2,$3,$4,$5) ON CONFLICT(name,version) DO NOTHING`,
-      [tool.name, tool.version, tool.inputSchemaDigest, tool.outputSchemaDigest, tool.active],
+       (name,version,input_schema_digest,output_schema_digest,active,
+        execution_cost_micros,maximum_attempts)
+       VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(name,version) DO NOTHING`,
+      [tool.name, tool.version, tool.inputSchemaDigest, tool.outputSchemaDigest,
+        tool.active, tool.executionCostMicros, tool.maximumAttempts],
     );
     return result.rowCount === 1 ? "created" : "duplicate";
   }
@@ -819,6 +827,137 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows.map(mapWorkflowRun);
   }
 
+  async reserveToolInvocation(
+    session: DatabaseSession,
+    input: ToolInvocationReservationInput,
+  ): Promise<ToolInvocationReservationResult> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.tool:${input.taskId}:${input.agentKind}:${input.idempotencyKey}`,
+    ]);
+    const existingResult = await session.query<Row>(
+      `SELECT invocation.*,tool.maximum_attempts
+       FROM agentic_tool_invocations invocation
+       JOIN agentic_tools tool
+         ON tool.name=invocation.tool_name AND tool.version=invocation.tool_version
+       WHERE invocation.task_id=$1 AND invocation.agent_kind=$2
+         AND invocation.idempotency_key=$3`,
+      [input.taskId, input.agentKind, input.idempotencyKey],
+    );
+    const existingRow = existingResult.rows[0];
+    if (existingRow !== undefined) {
+      const existing = mapToolInvocation(existingRow);
+      if (
+        existing.toolName !== input.toolName
+        || existing.toolVersion !== input.toolVersion
+        || existing.parametersDigest !== input.parametersDigest
+      ) {
+        return { kind: "conflict", invocationId: existing.id, attempt: existing.attempt };
+      }
+      if (existing.status === "completed") {
+        return {
+          kind: "completed",
+          invocationId: existing.id,
+          attempt: existing.attempt,
+          result: existing.safeResult,
+        };
+      }
+      if (existing.status === "failed") {
+        return failedReservation(existing);
+      }
+      if (existing.status === "reserved") {
+        return { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt };
+      }
+      if (existing.attempt >= Number(existingRow.maximum_attempts)) {
+        return failedReservation(existing);
+      }
+      const claimed = await session.query(
+        `UPDATE agentic_tool_invocations
+         SET status='reserved',attempt=attempt+1,error_code=NULL,completed_at=NULL,
+             version=version+1,updated_at=$2
+         WHERE id=$1 AND status='retryable_failed' AND version=$3`,
+        [existing.id, input.occurredAt, existing.version],
+      );
+      return claimed.rowCount === 1
+        ? { kind: "reserved", invocationId: existing.id, attempt: existing.attempt + 1 }
+        : { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt + 1 };
+    }
+
+    const descriptor = await session.query<{ maximum_attempts: number }>(
+      `SELECT maximum_attempts FROM agentic_tools
+       WHERE name=$1 AND version=$2 AND active=true`,
+      [input.toolName, input.toolVersion],
+    );
+    if (descriptor.rows[0] === undefined) {
+      throw new AgenticApplicationError("TOOL_NOT_FOUND", "Tool version is unavailable");
+    }
+    await session.query(
+      `INSERT INTO agentic_tool_invocations
+       (id,task_id,agent_kind,tool_name,tool_version,idempotency_key,
+        parameters_digest,status,attempt,correlation_id,causation_id,
+        version,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,'reserved',1,$8,$9,1,$10,$10)`,
+      [input.id, input.taskId, input.agentKind, input.toolName, input.toolVersion,
+        input.idempotencyKey, input.parametersDigest, input.correlationId,
+        input.causationId, input.occurredAt],
+    );
+    return { kind: "reserved", invocationId: input.id, attempt: 1 };
+  }
+
+  async completeToolInvocation(
+    session: DatabaseSession,
+    input: ToolInvocationCompletionInput,
+  ): Promise<boolean> {
+    assertSafeResultSize(input.safeResult);
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.tool.invocation:${input.invocationId}`,
+    ]);
+    const result = await session.query(
+      `UPDATE agentic_tool_invocations
+       SET status='completed',safe_result=$3,result_digest=$4,
+           version=version+1,updated_at=$5,completed_at=$5
+       WHERE id=$1 AND attempt=$2 AND status='reserved'`,
+      [input.invocationId, input.attempt, input.safeResult,
+        input.resultDigest, input.occurredAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async failToolInvocation(
+    session: DatabaseSession,
+    input: ToolInvocationFailureInput,
+  ): Promise<boolean> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.tool.invocation:${input.invocationId}`,
+    ]);
+    const result = await session.query(
+      `UPDATE agentic_tool_invocations invocation
+       SET status=CASE
+         WHEN $3::boolean AND invocation.attempt<tool.maximum_attempts
+           THEN 'retryable_failed'
+         ELSE 'failed'
+       END,
+       error_code=$4,version=invocation.version+1,updated_at=$5,completed_at=$5
+       FROM agentic_tools tool
+       WHERE invocation.id=$1 AND invocation.attempt=$2
+         AND invocation.status='reserved'
+         AND tool.name=invocation.tool_name AND tool.version=invocation.tool_version`,
+      [input.invocationId, input.attempt, input.retryable,
+        input.errorCode, input.occurredAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async findToolInvocation(
+    session: DatabaseSession,
+    invocationId: string,
+  ): Promise<ToolInvocationRecord | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_tool_invocations WHERE id=$1",
+      [invocationId],
+    );
+    return result.rows[0] === undefined ? undefined : mapToolInvocation(result.rows[0]);
+  }
+
   async reserveActivityInvocation(
     session: DatabaseSession,
     invocation: ActivityInvocation,
@@ -1079,7 +1218,51 @@ function mapTool(row: Row): ToolRecord {
     name: String(row.name), version: Number(row.version),
     inputSchemaDigest: String(row.input_schema_digest),
     outputSchemaDigest: String(row.output_schema_digest), active: Boolean(row.active),
+    executionCostMicros: safeInteger(row.execution_cost_micros),
+    maximumAttempts: Number(row.maximum_attempts),
   };
+}
+
+function mapToolInvocation(row: Row): ToolInvocationRecord {
+  return {
+    id: String(row.id),
+    taskId: String(row.task_id),
+    agentKind: row.agent_kind as ToolInvocationRecord["agentKind"],
+    toolName: row.tool_name as ToolInvocationRecord["toolName"],
+    toolVersion: Number(row.tool_version) as 1,
+    idempotencyKey: String(row.idempotency_key),
+    parametersDigest: String(row.parameters_digest),
+    status: row.status as ToolInvocationRecord["status"],
+    attempt: Number(row.attempt),
+    correlationId: String(row.correlation_id),
+    causationId: String(row.causation_id),
+    version: Number(row.version),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    ...(row.safe_result === null ? {} : { safeResult: row.safe_result }),
+    ...(row.result_digest === null ? {} : { resultDigest: String(row.result_digest) }),
+    ...(row.error_code === null ? {} : { errorCode: String(row.error_code) }),
+    ...(row.completed_at === null ? {} : { completedAt: toIso(row.completed_at) }),
+  };
+}
+
+function failedReservation(existing: ToolInvocationRecord): ToolInvocationReservationResult {
+  return {
+    kind: "failed",
+    invocationId: existing.id,
+    attempt: existing.attempt,
+    errorCode: existing.errorCode ?? "TOOL_EXECUTION_FAILED",
+  };
+}
+
+function assertSafeResultSize(value: unknown): void {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined || Buffer.byteLength(serialized, "utf8") > 262_144) {
+    throw new AgenticApplicationError(
+      "TOOL_RESULT_TOO_LARGE",
+      "Tool result exceeds the safe receipt limit",
+    );
+  }
 }
 
 function mapToolGrant(row: Row): ToolGrantRecord {

@@ -29,6 +29,7 @@ const tables = [
   "agentic_workflow_runs",
   "agentic_activity_invocations",
   "agentic_workflow_signal_receipts",
+  "agentic_tool_invocations",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -50,12 +51,57 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("4");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("5");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+  });
+
+  it("seeds immutable department tools and deduplicates invocation receipts", async () => {
+    expect((await pool.query(
+      "SELECT name FROM agentic_tools WHERE name LIKE '%.%' ORDER BY name",
+    )).rowCount).toBe(17);
+    await expect(pool.query(
+      "UPDATE agentic_tools SET execution_cost_micros=2 WHERE name='catalog.product_completeness'",
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    const taskId = "a1600000-0000-4000-8000-000000000001";
+    const invocationId = "a1600000-0000-4000-8000-000000000002";
+    const secondInvocationId = "a1600000-0000-4000-8000-000000000003";
+    const digest = "a".repeat(64);
+    const at = "2026-08-16T00:00:00.000Z";
+    await pool.query(
+      `INSERT INTO agentic_tasks(id,state,created_by,goal,instructions)
+       VALUES($1,'draft','operator-a','Review store health','Use fixed tools')`,
+      [taskId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_tool_invocations
+       (id,task_id,agent_kind,tool_name,tool_version,idempotency_key,parameters_digest,status,
+        attempt,correlation_id,causation_id,created_at,updated_at)
+       VALUES($1,$2,'catalog','catalog.product_completeness',1,'same',$3,'reserved',1,'corr','cause',$4,$4)`,
+      [invocationId, taskId, digest, at],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_tool_invocations
+       (id,task_id,agent_kind,tool_name,tool_version,idempotency_key,parameters_digest,status,
+        attempt,correlation_id,causation_id,created_at,updated_at)
+       VALUES($1,$2,'catalog','catalog.product_completeness',1,'same',$3,'reserved',1,'corr-2','cause-2',$4,$4)`,
+      [secondInvocationId, taskId, digest, at],
+    )).rejects.toMatchObject({ code: "23505" });
+    await pool.query(
+      `UPDATE agentic_tool_invocations
+       SET status='completed',safe_result=$2::jsonb,result_digest=$3,
+           completed_at=$4,updated_at=$4,version=2
+       WHERE id=$1`,
+      [invocationId, JSON.stringify({ summary: { totalProducts: 2 } }), "b".repeat(64), at],
+    );
+    await expect(pool.query(
+      "UPDATE agentic_tool_invocations SET safe_result='{}'::jsonb WHERE id=$1",
+      [invocationId],
+    )).rejects.toMatchObject({ code: "P0001" });
   });
 
   it("enforces identities, one active revision, approval separation, costs, and append-only evidence", async () => {
@@ -253,7 +299,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 2);
+    await runAgenticMigrations(databaseUrl!, "down", 3);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");

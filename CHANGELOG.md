@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Persist bounded Phase C tool invocation receipts with database-enforced
+  idempotency, retry claims, terminal replay, and immutable completed results.
 - Define 17 immutable Phase C department read-tool contracts with strict
   runtime schemas and fail-closed executive-summary sharing.
 - Add the file-level TDD plan for Phase C tool contracts, idempotent execution,

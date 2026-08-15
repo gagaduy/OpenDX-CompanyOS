@@ -33,6 +33,9 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_agents(kind,keycloak_client_id) VALUES
       ('ai_ceo','agent-ai-ceo'),('catalog','agent-catalog'),('inventory','agent-inventory'),
       ('order','agent-order'),('finance','agent-finance'),('crm','agent-crm'),('support','agent-support')`);
+    await pool.query(`INSERT INTO agentic_tools
+      (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
+      VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
   });
   afterAll(async () => pool.end());
 
@@ -316,6 +319,80 @@ suite("PostgresqlAgenticRepository", () => {
     ))).resolves.toEqual(completed);
   });
 
+  it("reserves and replays one completed department tool invocation", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const request = toolInvocationReservation(taskId);
+
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, request)))
+      .resolves.toEqual({ kind: "reserved", invocationId: request.id, attempt: 1 });
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, request)))
+      .resolves.toEqual({ kind: "in_progress", invocationId: request.id, attempt: 1 });
+
+    const safeResult = { summary: { totalProducts: 12 } };
+    await expect(transactions.run((session) => repository.completeToolInvocation(session, {
+      invocationId: request.id,
+      attempt: 1,
+      safeResult,
+      resultDigest: "c".repeat(64),
+      occurredAt: "2026-08-16T01:01:00.000Z",
+    }))).resolves.toBe(true);
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, request)))
+      .resolves.toEqual({ kind: "completed", invocationId: request.id, attempt: 1, result: safeResult });
+  });
+
+  it("claims one retryable attempt and replays a terminal error", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const request = toolInvocationReservation(taskId);
+    await transactions.run((session) => repository.reserveToolInvocation(session, request));
+    await expect(transactions.run((session) => repository.failToolInvocation(session, {
+      invocationId: request.id,
+      attempt: 1,
+      errorCode: "TOOL_SOURCE_UNAVAILABLE",
+      retryable: true,
+      occurredAt: "2026-08-16T01:01:00.000Z",
+    }))).resolves.toBe(true);
+
+    const claims = await Promise.all([
+      transactions.run((session) => repository.reserveToolInvocation(session, request)),
+      transactions.run((session) => repository.reserveToolInvocation(session, request)),
+    ]);
+    expect(claims.map(({ kind }) => kind).sort()).toEqual(["in_progress", "reserved"]);
+    expect(claims.every(({ attempt }) => attempt === 2)).toBe(true);
+
+    await expect(transactions.run((session) => repository.failToolInvocation(session, {
+      invocationId: request.id,
+      attempt: 2,
+      errorCode: "TOOL_OUTPUT_INVALID",
+      retryable: false,
+      occurredAt: "2026-08-16T01:02:00.000Z",
+    }))).resolves.toBe(true);
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, request)))
+      .resolves.toEqual({
+        kind: "failed",
+        invocationId: request.id,
+        attempt: 2,
+        errorCode: "TOOL_OUTPUT_INVALID",
+      });
+  });
+
+  it("rejects oversized safe results before storage", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const request = toolInvocationReservation(taskId);
+    await transactions.run((session) => repository.reserveToolInvocation(session, request));
+
+    await expect(transactions.run((session) => repository.completeToolInvocation(session, {
+      invocationId: request.id,
+      attempt: 1,
+      safeResult: { value: "x".repeat(262_145) },
+      resultDigest: "d".repeat(64),
+      occurredAt: "2026-08-16T01:01:00.000Z",
+    }))).rejects.toMatchObject({ code: "TOOL_RESULT_TOO_LARGE" });
+    await expect(transactions.runReadOnly((session) => repository.findToolInvocation(
+      session,
+      request.id,
+    ))).resolves.toMatchObject({ status: "reserved", attempt: 1 });
+  });
+
   it("deduplicates signal receipts and lists only pending delivery", async () => {
     const { taskId, revisionId } = await createReadyTask(pool);
     const run = workflowRun(taskId);
@@ -455,5 +532,20 @@ function signalReceipt(workflowRunId: string, approvalId: string): WorkflowSigna
     applicationDecisionVersion: 2,
     deliveryState: "pending",
     createdAt: "2026-08-14T01:01:00.000Z",
+  };
+}
+
+function toolInvocationReservation(taskId: string) {
+  return {
+    id: randomUUID(),
+    taskId,
+    agentKind: "catalog" as const,
+    toolName: "catalog.product_completeness" as const,
+    toolVersion: 1 as const,
+    idempotencyKey: randomUUID(),
+    parametersDigest: "a".repeat(64),
+    correlationId: "corr-tool",
+    causationId: "cause-tool",
+    occurredAt: "2026-08-16T01:00:00.000Z",
   };
 }

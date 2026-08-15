@@ -12,6 +12,10 @@ import type {
   WorkflowRun,
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
+import type {
+  DepartmentAgentKind,
+  DepartmentToolName,
+} from "../../tools/department-tool-contracts";
 
 export interface PolicyRecord {
   readonly id: string;
@@ -34,7 +38,72 @@ export interface ToolRecord {
   readonly inputSchemaDigest: string;
   readonly outputSchemaDigest: string;
   readonly active: boolean;
+  readonly executionCostMicros: number;
+  readonly maximumAttempts: number;
 }
+
+export type ToolInvocationStatus =
+  | "reserved"
+  | "completed"
+  | "retryable_failed"
+  | "failed";
+
+export interface ToolInvocationRecord {
+  readonly id: string;
+  readonly taskId: string;
+  readonly agentKind: DepartmentAgentKind;
+  readonly toolName: DepartmentToolName;
+  readonly toolVersion: 1;
+  readonly idempotencyKey: string;
+  readonly parametersDigest: string;
+  readonly status: ToolInvocationStatus;
+  readonly attempt: number;
+  readonly safeResult?: unknown;
+  readonly resultDigest?: string;
+  readonly errorCode?: string;
+  readonly correlationId: string;
+  readonly causationId: string;
+  readonly version: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly completedAt?: string;
+}
+
+export interface ToolInvocationReservationInput {
+  readonly id: string;
+  readonly taskId: string;
+  readonly agentKind: DepartmentAgentKind;
+  readonly toolName: DepartmentToolName;
+  readonly toolVersion: 1;
+  readonly idempotencyKey: string;
+  readonly parametersDigest: string;
+  readonly correlationId: string;
+  readonly causationId: string;
+  readonly occurredAt: string;
+}
+
+export interface ToolInvocationCompletionInput {
+  readonly invocationId: string;
+  readonly attempt: number;
+  readonly safeResult: unknown;
+  readonly resultDigest: string;
+  readonly occurredAt: string;
+}
+
+export interface ToolInvocationFailureInput {
+  readonly invocationId: string;
+  readonly attempt: number;
+  readonly errorCode: string;
+  readonly retryable: boolean;
+  readonly occurredAt: string;
+}
+
+export type ToolInvocationReservationResult =
+  | { readonly kind: "reserved"; readonly invocationId: string; readonly attempt: number }
+  | { readonly kind: "in_progress"; readonly invocationId: string; readonly attempt: number }
+  | { readonly kind: "completed"; readonly invocationId: string; readonly attempt: number; readonly result: unknown }
+  | { readonly kind: "failed"; readonly invocationId: string; readonly attempt: number; readonly errorCode: string }
+  | { readonly kind: "conflict"; readonly invocationId: string; readonly attempt: number };
 
 export interface ToolGrantRecord {
   readonly id: string;
@@ -229,4 +298,8 @@ export interface AgenticRepository {
   findWorkflowApproval(session: DatabaseSession, runId: string): Promise<ApprovalRequest | undefined>;
   updateWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<boolean>;
   listPendingWorkflowSignals(session: DatabaseSession, limit: number): Promise<readonly WorkflowSignalReceipt[]>;
+  reserveToolInvocation(session: DatabaseSession, input: ToolInvocationReservationInput): Promise<ToolInvocationReservationResult>;
+  completeToolInvocation(session: DatabaseSession, input: ToolInvocationCompletionInput): Promise<boolean>;
+  failToolInvocation(session: DatabaseSession, input: ToolInvocationFailureInput): Promise<boolean>;
+  findToolInvocation(session: DatabaseSession, invocationId: string): Promise<ToolInvocationRecord | undefined>;
 }
