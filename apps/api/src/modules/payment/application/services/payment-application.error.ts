@@ -7,7 +7,9 @@ export type PaymentApplicationErrorCode =
   | "PAYMENT_EXPIRED"
   | "IDEMPOTENCY_CONFLICT"
   | "STALE_VERSION"
-  | "FORBIDDEN";
+  | "FORBIDDEN"
+  | "VALIDATION_ERROR"
+  | "UNSAFE_HEALTH_VALUE";
 
 export class PaymentApplicationError extends Error {
   constructor(readonly code: PaymentApplicationErrorCode, message: string) {

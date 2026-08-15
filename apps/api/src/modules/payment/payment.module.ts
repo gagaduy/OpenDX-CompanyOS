@@ -23,6 +23,8 @@ import { PaymentAdminController } from "./presentation/controllers/payment-admin
 import { createPaymentAdminRouter } from "./presentation/routes/payment-admin.routes";
 import { paymentErrorMiddleware } from "./presentation/middleware/payment-error.middleware";
 import { PaymentReconciliationWorker } from "./infrastructure/workers/payment-reconciliation.worker";
+import { PaymentHealthReaderService } from "./application/services/implementations/payment-health-reader";
+import { PostgresqlPaymentHealthRepository } from "./infrastructure/repositories/implementations/postgresql-payment-health.repository";
 
 export interface PaymentModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -40,6 +42,19 @@ export interface PaymentNotificationModuleDependencies {
   readonly reconciliationIntervalMs: number;
   readonly onWorkerError: (error: unknown) => void;
   readonly ipnSecret?: string;
+}
+
+export interface PaymentHealthDependencies {
+  readonly transactions: TransactionRunner;
+  readonly now: () => string;
+}
+
+export function createPaymentHealthReader(dependencies: PaymentHealthDependencies) {
+  return new PaymentHealthReaderService(
+    new PostgresqlPaymentHealthRepository(),
+    dependencies.transactions,
+    dependencies.now,
+  );
 }
 
 export function createPaymentModule(dependencies: PaymentModuleDependencies) {
