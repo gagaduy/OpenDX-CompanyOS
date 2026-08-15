@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose bounded Support SLA risk, lifecycle classification, and ticket-bound
+  related-order context reads without ticket text, customer, or attachment data.
 - Expose aggregate-only CRM segment and follow-up opportunity health reads with
   exact lifetime/recency boundaries and no customer, note, or assignee data.
 - Expose bounded Payment pending-age, reconciliation-discrepancy, and provider
