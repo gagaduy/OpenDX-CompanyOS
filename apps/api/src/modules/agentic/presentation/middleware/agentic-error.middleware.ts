@@ -28,6 +28,7 @@ const forbiddenCodes = new Set([
   "SELF_APPROVAL_FORBIDDEN",
   "POLICY_DENIED",
   "WORKFLOW_POLICY_DENIED",
+  "TOOL_SCOPE_DENIED",
 ]);
 
 const conflictCodes = new Set([

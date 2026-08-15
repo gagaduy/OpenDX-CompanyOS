@@ -19,8 +19,11 @@ import { PostgresqlAgenticRepository } from "./infrastructure/repositories/imple
 import { AgenticController } from "./presentation/controllers/agentic.controller";
 import { AgenticWorkflowController } from "./presentation/controllers/agentic-workflow.controller";
 import { AgenticWorkloadController } from "./presentation/controllers/agentic-workload.controller";
+import { AgenticToolController } from "./presentation/controllers/agentic-tool.controller";
+import { authenticateAgentService } from "./presentation/middleware/agent-service-auth.middleware";
 import { agenticErrorMiddleware } from "./presentation/middleware/agentic-error.middleware";
 import { createAgenticRouter } from "./presentation/routes/agentic.routes";
+import { createAgenticToolRouter } from "./presentation/routes/agentic-tool.routes";
 import { createAgenticWorkloadRouter } from "./presentation/routes/agentic-workload.routes";
 import type { DepartmentToolAdapterRegistry } from "./application/services/interfaces/department-tool-adapter";
 import { ToolRegistryService } from "./application/services/implementations/tool-registry.service";
@@ -81,6 +84,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   const controller = new AgenticController(tasks, approvals, configurations, revocations, queries);
   const workflowController = new AgenticWorkflowController(workflows);
   const workloadController = new AgenticWorkloadController(workflows);
+  const toolController = new AgenticToolController(tools);
   const appendDenied = (denied: { readonly actorId: string; readonly action: string; readonly resourceId: string; readonly correlationId: string }) =>
     dependencies.transactions.run((session) => repository.appendAudit(session, {
       id: dependencies.generateId(), actorId: denied.actorId, actorType: "staff",
@@ -94,9 +98,22 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     authenticateWorkload(dependencies.workloadTokenVerifier),
   );
   internalRouter.use(agenticErrorMiddleware);
+  const toolRouter = createAgenticToolRouter(
+    toolController,
+    authenticateAgentService(dependencies.staffTokenVerifier, {
+      resolve: (clientId) => dependencies.transactions.runReadOnly(async (session) => {
+        const agent = await repository.findAgentByClientId(session, clientId);
+        return agent === undefined
+          ? undefined
+          : { agentKind: agent.kind, active: agent.active };
+      }),
+    }),
+  );
+  toolRouter.use(agenticErrorMiddleware);
   return {
     adminRouter,
     internalRouter,
+    toolRouter,
     dispatcher,
     tasks,
     approvals,

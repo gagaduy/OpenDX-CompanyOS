@@ -40,6 +40,7 @@ export interface CreateApiAppOptions {
   readonly reportingAdminRouter?: Router;
   readonly agenticAdminRouter?: Router;
   readonly agenticInternalRouter?: Router;
+  readonly agenticToolRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -73,6 +74,13 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.sepayWebhookRouter !== undefined) {
     app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
+  }
+  if (options.agenticToolRouter !== undefined) {
+    app.use(
+      "/v1/internal/agentic/tools",
+      express.json({ limit: "16kb" }),
+      options.agenticToolRouter,
+    );
   }
   app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
   app.use(

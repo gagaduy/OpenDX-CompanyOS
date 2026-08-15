@@ -268,6 +268,7 @@ const app = createApiApp({
   reportingAdminRouter: reporting.router,
   agenticAdminRouter: agentic.adminRouter,
   agenticInternalRouter: agentic.internalRouter,
+  agenticToolRouter: agentic.toolRouter,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,

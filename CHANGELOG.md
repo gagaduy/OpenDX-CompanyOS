@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose the 17 governed department read tools through an Agent-service-only
+  endpoint with database-resolved identities, strict 16 KiB input, and
+  cross-department and zero-leakage enforcement.
 - Wire the 17 fixed department read tools through six public-port-only adapters
   and an isolated analytics database pool with server-owned result metadata.
 - Expose bounded Support SLA risk, lifecycle classification, and ticket-bound
