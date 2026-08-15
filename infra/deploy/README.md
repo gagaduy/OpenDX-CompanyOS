@@ -62,3 +62,7 @@ Only Caddy publishes `80` and `443`. Temporal `7233`, AI Runtime, worker,
 PostgreSQL, and internal Agentic routes are not edge-routable. Temporal's
 private network uses mTLS for workload connection authentication; Express still
 authorizes every workflow business action.
+
+Back up and restore `opendx`, `temporal`, and `temporal_visibility` only as the
+single recovery set documented in
+[`docs/operations/backup-restore.md`](../../docs/operations/backup-restore.md).

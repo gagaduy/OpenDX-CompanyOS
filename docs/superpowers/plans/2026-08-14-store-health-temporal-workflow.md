@@ -745,15 +745,15 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
 - Modify: `infra/deploy/README.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] Extend unit tests first. A backup is one timestamped directory containing
+- [x] Extend unit tests first. A backup is one timestamped directory containing
   `opendx.dump`, `temporal.dump`, `temporal_visibility.dump`, `manifest.json`,
   and SHA-256 checksums. The manifest records database names, dump format,
   PostgreSQL/Temporal versions, schema migration versions, creation time, and
   file sizes without credentials.
-- [ ] Reject missing members, extra database substitutions, checksum mismatch,
+- [x] Reject missing members, extra database substitutions, checksum mismatch,
   incompatible manifest versions, unsafe paths, ambiguous latest sets, and a
   restore while workflow services are still polling.
-- [ ] Change `make db-backup` to stop the public Caddy/Console entry points,
+- [x] Change `make db-backup` to stop the public Caddy/Console entry points,
   drain and stop the worker, then stop API/AI Runtime/Temporal in a bounded
   order. Production must not publish the API directly, so closing Caddy
   prevents new staff starts while the still-internal API lets in-flight
@@ -761,29 +761,29 @@ received -> planning -> [awaiting_plan_approval] -> dispatching
   databases from one recovery window, verify each archive with `pg_restore -l`,
   write checksums/manifest atomically, and restart in dependency order even when
   backup verification fails.
-- [ ] In local Compose, require exclusive ownership of the development stack,
+- [x] In local Compose, require exclusive ownership of the development stack,
   stop Console/Storefront before drain, and document that callers must not use
   the published API port during the bounded backup window. Abort if the
   lifecycle/recovery checker lock is held.
-- [ ] Change `make db-restore BACKUP=<set-directory>` to verify everything
+- [x] Change `make db-restore BACKUP=<set-directory>` to verify everything
   before mutation, stop the same services, restore all three databases, run
   Agentic migrations plus explicit Temporal schema compatibility checks,
   register/verify namespace, then start Temporal, API, AI Runtime, worker,
   Console, and Storefront in readiness order. This replaces the existing
   migration-container restart race with explicit waits.
-- [ ] Do not silently convert the previously restored single `opendx` dump into
+- [x] Do not silently convert the previously restored single `opendx` dump into
   a complete recovery set. Keep documented legacy restore support behind an
   explicit `ALLOW_OPENDX_ONLY_RESTORE=1` local-only flag and reject it in
   production.
-- [ ] The live recovery test must start a run that is waiting for a bound human
+- [x] The live recovery test must start a run that is waiting for a bound human
   approval, create the recovery set, destroy only the three test databases,
   restore the set, submit the original version-bound approval, and prove one
   completed run, one accepted receipt, one result per invocation, and replayable
   Temporal history.
-- [ ] Run backup unit tests, existing backup/restore check, new workflow
+- [x] Run backup unit tests, existing backup/restore check, new workflow
   recovery check, `make db-backup`, archive validation, and a real restore from
   the newly created recovery set.
-- [ ] Commit: `feat(ops): back up temporal workflow recovery set`
+- [x] Commit: `feat(ops): back up temporal workflow recovery set`
 
 ## Task 12: Document Contracts and Close the Phase B Exit Gate
 

@@ -3,12 +3,13 @@
 
 COMPOSE_ENV := $(if $(wildcard .env),--env-file .env,)
 COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
+REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export BACKUP
 
-.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow temporal-cli db-migrate db-rollback db-seed db-backup db-restore
+.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery temporal-cli db-migrate db-rollback db-seed db-backup db-restore
 
 help:
-	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
+	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -41,6 +42,9 @@ check-crm-support-dashboard:
 check-agentic-workflow:
 	pnpm check:agentic-workflow
 
+check-agentic-workflow-recovery:
+	pnpm check:agentic-workflow-recovery
+
 temporal-cli:
 	$(COMPOSE) run --rm --no-deps temporal-cli $(ARGS)
 
@@ -54,43 +58,14 @@ db-seed:
 	$(COMPOSE) run --rm seed
 
 db-backup:
-	@mkdir -p infra/backups
-	@set -eu; \
-	stamp="$$(date -u +%Y%m%d-%H%M%S)"; \
-	sql_path="infra/backups/opendx-$${stamp}.sql"; \
-	dump_path="infra/backups/opendx-$${stamp}.dump"; \
-	sql_tmp="$${sql_path}.tmp.$$$$"; \
-	dump_tmp="$${dump_path}.tmp.$$$$"; \
-	cleanup() { rm -f -- "$${sql_tmp}" "$${dump_tmp}"; }; \
-	trap cleanup EXIT HUP INT TERM; \
-	test ! -e "$${sql_path}" && test ! -e "$${dump_path}" || { echo "Backup already exists for $${stamp}" >&2; exit 1; }; \
-	$(COMPOSE) exec -T postgres pg_dump -U opendx_local -d opendx --format=plain --clean --if-exists --no-owner --no-privileges > "$${sql_tmp}"; \
-	test -s "$${sql_tmp}" || { echo "SQL backup is empty" >&2; exit 1; }; \
-	$(COMPOSE) exec -T postgres pg_dump -U opendx_local -d opendx --format=custom --no-owner --no-privileges > "$${dump_tmp}"; \
-	test -s "$${dump_tmp}" || { echo "Custom backup is empty" >&2; exit 1; }; \
-	ln "$${sql_tmp}" "$${sql_path}"; \
-	if ! ln "$${dump_tmp}" "$${dump_path}"; then rm -f -- "$${sql_path}"; exit 1; fi; \
-	cleanup; \
-	trap - EXIT HUP INT TERM; \
-	echo "Created $${sql_path}"; \
-	echo "Created $${dump_path}"
+	@BACKUP_DIR="$(CURDIR)/infra/backups" \
+	COMPOSE_FILE="$(CURDIR)/infra/docker/docker-compose.yml" \
+	COMPOSE_ENV_FILE="$(if $(wildcard $(CURDIR)/.env),$(CURDIR)/.env,)" \
+	OPENDX_DEPLOYMENT_MODE="$${OPENDX_DEPLOYMENT_MODE:-local}" \
+	"$(REPO_ROOT)/scripts/ops/postgres-backup.sh"
 
 db-restore:
-	@set -eu; \
-	backup_path="$${BACKUP:-}"; \
-	test -n "$${backup_path}" || { echo "BACKUP path is required" >&2; exit 1; }; \
-	test -f "$${backup_path}" || { echo "Backup not found: $${backup_path}" >&2; exit 1; }; \
-	case "$${backup_path}" in \
-		*.sql) restore_format=sql ;; \
-		*.dump) restore_format=dump ;; \
-		*) echo "BACKUP must end in .sql or .dump" >&2; exit 1 ;; \
-	esac; \
-	$(COMPOSE) stop api console storefront; \
-	trap '$(COMPOSE) start api console storefront' EXIT; \
-	if [ "$${restore_format}" = sql ]; then \
-		$(COMPOSE) exec -T postgres psql -X -U opendx_local -d opendx \
-			--set ON_ERROR_STOP=1 --single-transaction < "$${backup_path}"; \
-	else \
-		$(COMPOSE) exec -T postgres pg_restore -U opendx_local -d opendx \
-			--clean --if-exists --no-owner --exit-on-error --single-transaction < "$${backup_path}"; \
-	fi
+	@COMPOSE_FILE="$(CURDIR)/infra/docker/docker-compose.yml" \
+	COMPOSE_ENV_FILE="$(if $(wildcard $(CURDIR)/.env),$(CURDIR)/.env,)" \
+	OPENDX_DEPLOYMENT_MODE="$${OPENDX_DEPLOYMENT_MODE:-local}" \
+	"$(REPO_ROOT)/scripts/ops/postgres-restore.sh"

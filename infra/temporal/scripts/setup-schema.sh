@@ -33,5 +33,5 @@ setup_database() {
 : "${TEMPORAL_DB_USER:?TEMPORAL_DB_USER is required}"
 : "${TEMPORAL_DB_PASSWORD:?TEMPORAL_DB_PASSWORD is required}"
 
-setup_database temporal /etc/temporal/schema/postgresql/v12/temporal/versioned
-setup_database temporal_visibility /etc/temporal/schema/postgresql/v12/visibility/versioned
+setup_database "${TEMPORAL_DB_NAME:-temporal}" /etc/temporal/schema/postgresql/v12/temporal/versioned
+setup_database "${TEMPORAL_VISIBILITY_DB_NAME:-temporal_visibility}" /etc/temporal/schema/postgresql/v12/visibility/versioned

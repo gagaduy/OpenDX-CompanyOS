@@ -3,7 +3,9 @@
 
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import {
+  closeSync, existsSync, mkdirSync, openSync, rmSync, rmdirSync, writeFileSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const apiBaseUrl = process.env.AGENTIC_CHECK_API_URL ?? "http://localhost:4000";
@@ -15,6 +17,9 @@ const composePrefix = [
   "infra/docker/docker-compose.yml",
 ];
 const terminalStates = new Set(["completed", "partially_completed", "failed", "canceled"]);
+const lifecycleLockPath = "/tmp/opendx-agentic-workflow-check.lock";
+const maintenanceLockPath = process.env.OPENDX_MAINTENANCE_LOCK_DIR
+  ?? "/tmp/opendx-database-maintenance.lock";
 const created = {
   taskId: undefined,
   runId: undefined,
@@ -387,7 +392,7 @@ async function cleanup() {
   ], { input: statements.join("\n") });
 }
 
-async function main() {
+async function runLifecycle() {
   await waitHttpReady();
   await waitHealthy("ai-runtime");
   await waitHealthy("temporal");
@@ -434,6 +439,21 @@ async function main() {
   }
   if (failure) throw failure;
   process.stdout.write("Agentic workflow lifecycle check passed.\n");
+}
+
+async function main() {
+  mkdirSync(maintenanceLockPath, { mode: 0o700 });
+  writeFileSync(`${maintenanceLockPath}/owner`, String(process.pid), { mode: 0o600 });
+  try {
+    const lock = openSync(lifecycleLockPath, "wx", 0o600);
+    writeFileSync(lock, String(process.pid));
+    closeSync(lock);
+    await runLifecycle();
+  } finally {
+    rmSync(lifecycleLockPath, { force: true });
+    rmSync(`${maintenanceLockPath}/owner`, { force: true });
+    rmdirSync(maintenanceLockPath);
+  }
 }
 
 main().catch((error) => {

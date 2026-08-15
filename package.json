@@ -29,6 +29,7 @@
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "test:make-database-backup": "node --test scripts/dev/make-database-backup.test.mjs",
+    "check:agentic-workflow-recovery": "node scripts/dev/agentic-workflow-recovery-check.mjs",
     "test:temporal-compose": "node --test scripts/dev/temporal-compose-check.test.mjs",
     "test:agentic-production-compose": "node --test scripts/dev/agentic-production-compose-check.test.mjs",
     "check:agentic-production-compose": "pnpm test:agentic-production-compose && node scripts/dev/agentic-production-compose-check.mjs",

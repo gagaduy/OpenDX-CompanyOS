@@ -205,6 +205,25 @@ Certificates are never shared with Agents and never determine Agent permissions.
 
 ## Upgrade, Rollback, And Drain
 
+Create the required three-database recovery set before an upgrade:
+
+```bash
+BACKUP_DIR=/srv/opendx-backups \
+COMPOSE_FILE=infra/deploy/compose.production.yml \
+COMPOSE_ENV_FILE=.env.production \
+OPENDX_DEPLOYMENT_MODE=production \
+POSTGRES_ADMIN_USER="$POSTGRES_ADMIN_USER" \
+scripts/ops/postgres-backup.sh
+```
+
+Restore only a complete set using the same variables plus
+`BACKUP=/srv/opendx-backups/recovery-YYYYMMDD-HHMMSS` and
+`scripts/ops/postgres-restore.sh`. Restore validates all archives and checksums
+plus the configured application and Temporal owner roles before mutation, then
+performs schema and namespace readiness checks.
+Production never permits the legacy `opendx`-only restore flag. See
+[`backup-restore.md`](../operations/backup-restore.md) for the full contract.
+
 Before changing the Temporal server image or SDK, pass replay tests and create
 the three-database recovery set. Drain the worker with
 `docker compose ... stop -t 45 ai-worker`; its internal 30-second grace stops

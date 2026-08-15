@@ -27,4 +27,36 @@ for (const path of [
   }
 }
 
+const recoveryHelper = readFileSync("scripts/ops/postgres-recovery-set.mjs", "utf8");
+for (const required of [
+  "opendx.dump",
+  "temporal.dump",
+  "temporal_visibility.dump",
+  "manifest.json",
+  "checksums.sha256",
+  "manifestVersion",
+  "Recovery checksum",
+]) {
+  if (!recoveryHelper.includes(required)) {
+    throw new Error(`PostgreSQL recovery-set validation is missing: ${required}`);
+  }
+}
+
+const backup = readFileSync("scripts/ops/postgres-backup.sh", "utf8");
+const restore = readFileSync("scripts/ops/postgres-restore.sh", "utf8");
+if (!backup.includes("pg_restore -l") || !restore.includes("pg_restore -l")) {
+  throw new Error("Every PostgreSQL archive must be inspected before publication or restore");
+}
+if (!restore.includes("ALLOW_OPENDX_ONLY_RESTORE") || !restore.includes("forbidden in production")) {
+  throw new Error("Legacy opendx-only restore must be explicit and local-only");
+}
+for (const checker of [
+  "scripts/dev/agentic-workflow-lifecycle-check.mjs",
+  "scripts/dev/agentic-workflow-recovery-check.mjs",
+]) {
+  if (!readFileSync(checker, "utf8").includes("opendx-database-maintenance.lock")) {
+    throw new Error(`${checker} must share the atomic database maintenance lock`);
+  }
+}
+
 console.info("Backup/restore safety check passed.");

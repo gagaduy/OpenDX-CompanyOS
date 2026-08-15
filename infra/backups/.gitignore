@@ -3,4 +3,6 @@
 
 *.dump
 *.sql
+recovery-*/
+.recovery-*.tmp.*/
 !.gitignore

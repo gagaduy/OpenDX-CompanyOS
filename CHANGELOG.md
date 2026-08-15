@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Back up and restore Commerce projections plus Temporal persistence and
+  visibility as one checksummed, versioned, atomically published recovery set,
+  with explicit local-only legacy dump compatibility.
 - Harden the single-VPS production candidate with private mTLS Temporal,
   split PostgreSQL roles, production-safe Keycloak reconciliation, static
   frontend images, ordered schema and namespace jobs, isolated networks,
