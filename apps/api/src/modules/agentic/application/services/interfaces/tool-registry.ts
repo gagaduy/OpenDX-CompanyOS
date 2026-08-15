@@ -3,6 +3,12 @@
 
 import type { AgentServicePrincipal } from "../../identity/agent-service-principal";
 import type { PolicyDecision } from "../../../domain/entities/governance-records";
+import type {
+  DepartmentAgentKind,
+  DepartmentToolName,
+  DepartmentToolScope,
+  ToolClassification,
+} from "../../tools/department-tool-contracts";
 
 export interface ToolAuthorizationRequest {
   readonly principal: AgentServicePrincipal;
@@ -22,7 +28,21 @@ export interface ToolAuthorizationRequest {
   readonly approvalId?: string;
 }
 
-export interface ToolInvocation extends ToolAuthorizationRequest {}
+export interface ToolInvocation {
+  readonly principal: AgentServicePrincipal & { readonly agentKind: DepartmentAgentKind };
+  readonly taskId: string;
+  readonly toolName: DepartmentToolName;
+  readonly toolVersion: 1;
+  readonly modelId: string;
+  readonly purpose: "store_health_review";
+  readonly dataScope: DepartmentToolScope;
+  readonly dataClassification: ToolClassification;
+  readonly parameters: Readonly<Record<string, unknown>>;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+  readonly causationId: string;
+  readonly approvalId?: string;
+}
 
 export interface ToolResult<TOutput> {
   readonly output: TOutput;

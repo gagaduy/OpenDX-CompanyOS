@@ -5,6 +5,11 @@ export { createAgenticModule, type AgenticModuleDependencies } from "./agentic.m
 export type { WorkflowGateway } from "./application/workflows/interfaces/workflow-gateway";
 export type { WorkflowRunService } from "./application/services/interfaces/workflow-run.service";
 export type {
+  DepartmentToolAdapter,
+  DepartmentToolAdapterRegistry,
+  DepartmentToolExecutionContext,
+} from "./application/services/interfaces/department-tool-adapter";
+export type {
   DepartmentToolSchemaDigests,
   DepartmentToolSchemaRegistry,
 } from "./application/services/interfaces/department-tool-schema-registry";

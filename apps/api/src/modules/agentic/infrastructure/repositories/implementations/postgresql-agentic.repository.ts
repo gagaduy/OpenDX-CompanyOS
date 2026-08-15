@@ -671,14 +671,16 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async countToolInvocations(
     session: DatabaseSession,
     taskId: string,
-    actorId: string,
-    resourceId: string,
+    agentKind: ToolInvocationRecord["agentKind"],
+    toolName: ToolInvocationRecord["toolName"],
+    toolVersion: 1,
+    excludingIdempotencyKey: string,
   ): Promise<number> {
     const result = await session.query<{ total: string }>(
-      `SELECT count(*)::text total FROM agentic_audit_events
-       WHERE task_id=$1 AND actor_id=$2 AND action='tool.invoke'
-         AND resource_id=$3 AND outcome='allowed'`,
-      [taskId, actorId, resourceId],
+      `SELECT count(*)::text total FROM agentic_tool_invocations
+       WHERE task_id=$1 AND agent_kind=$2 AND tool_name=$3 AND tool_version=$4
+         AND idempotency_key<>$5`,
+      [taskId, agentKind, toolName, toolVersion, excludingIdempotencyKey],
     );
     return Number(result.rows[0]?.total ?? 0);
   }

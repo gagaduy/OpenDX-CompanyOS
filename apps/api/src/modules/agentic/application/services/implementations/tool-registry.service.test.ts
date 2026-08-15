@@ -4,19 +4,37 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
+import { ZodDepartmentToolSchemaRegistry } from "../../../infrastructure/tools/zod-department-tool-schema.registry";
+import { findDepartmentToolDescriptor } from "../../tools/department-tool-catalog";
 import type { PolicyEvaluator } from "../interfaces/policy-evaluator";
+import { AgenticApplicationError } from "../agentic-application.error";
 import { ToolRegistryService } from "./tool-registry.service";
 
 const session = {} as DatabaseSession;
 const transactions: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
 const digest = "a".repeat(64);
+const descriptor = findDepartmentToolDescriptor("catalog.product_completeness", 1)!;
 const request = {
   principal: { subject: "service-account-agent-catalog", clientId: "agent-catalog", agentKind: "catalog" as const },
-  taskId: "task-1", toolName: "catalog.health", toolVersion: 1, purpose: "analysis",
+  taskId: "task-1", toolName: "catalog.product_completeness", toolVersion: 1, purpose: "store_health_review",
   modelId: "openai/gpt-5-mini",
-  dataScope: "catalog:read", dataClassification: "internal", inputSchemaDigest: digest,
-  parametersDigest: "b".repeat(64), costMicros: 10, idempotencyKey: "invoke-1",
+  dataScope: "catalog:health:read", dataClassification: "internal", inputSchemaDigest: descriptor.inputSchemaDigest,
+  parametersDigest: "b".repeat(64), costMicros: 1, idempotencyKey: "invoke-1",
   correlationId: "corr-1",
+};
+const invocation = {
+  principal: request.principal,
+  taskId: request.taskId,
+  toolName: descriptor.name,
+  toolVersion: 1 as const,
+  purpose: "store_health_review" as const,
+  modelId: request.modelId,
+  dataScope: "catalog:health:read" as const,
+  dataClassification: "internal" as const,
+  parameters: {},
+  idempotencyKey: request.idempotencyKey,
+  correlationId: request.correlationId,
+  causationId: "cause-1",
 };
 
 describe("ToolRegistryService", () => {
@@ -31,34 +49,34 @@ describe("ToolRegistryService", () => {
     const cases = [
       [{ toolExists: false }, "TOOL_NOT_FOUND"],
       [{ grantExists: false }, "TOOL_GRANT_MISSING"],
-      [{ grantScope: "orders:read" }, "TOOL_SCOPE_DENIED"],
+      [{ grantScope: "orders:health:read" }, "TOOL_SCOPE_DENIED"],
       [{ invocationCount: 10 }, "TOOL_GRANT_EXHAUSTED"],
     ] as const;
     for (const [options, code] of cases) {
       const harness = createHarness(options);
-      await expect(harness.service.invoke(request)).rejects.toMatchObject({ code });
+      await expect(harness.service.invoke(invocation)).rejects.toMatchObject({ code });
       expect(harness.repository.reserveBudget).not.toHaveBeenCalled();
     }
-    await expect(createHarness().service.invoke({ ...request, parametersDigest: "unsafe" }))
+    await expect(createHarness().service.invoke({ ...invocation, parameters: { sql: "SELECT 1" } }))
       .rejects.toMatchObject({ code: "TOOL_INPUT_INVALID" });
   });
 
   it("honors policy denial and exact bound approval evidence", async () => {
     const denied = createHarness({ policyEffect: "DENY" });
-    await expect(denied.service.invoke(request)).rejects.toMatchObject({ code: "POLICY_DENIED" });
+    await expect(denied.service.invoke(invocation)).rejects.toMatchObject({ code: "POLICY_DENIED" });
     expect(denied.repository.reserveBudget).not.toHaveBeenCalled();
 
     const approval = createHarness({ policyEffect: "REQUIRE_APPROVAL", approvalValid: false });
-    await expect(approval.service.invoke({ ...request, approvalId: "approval-1" }))
+    await expect(approval.service.invoke({ ...invocation, approvalId: "approval-1" }))
       .rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
     expect(approval.repository.reserveBudget).not.toHaveBeenCalled();
 
     const wrongScope = createHarness({ policyEffect: "REQUIRE_APPROVAL", approvalScope: "emergency_revocation" });
-    await expect(wrongScope.service.invoke({ ...request, approvalId: "approval-1" }))
+    await expect(wrongScope.service.invoke({ ...invocation, approvalId: "approval-1" }))
       .rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
 
     const budget = createHarness({ budgetResult: "exceeded" });
-    await expect(budget.service.invoke(request)).rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
+    await expect(budget.service.invoke(invocation)).rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
     expect(budget.repository.appendProvenance).not.toHaveBeenCalled();
   });
 
@@ -70,19 +88,49 @@ describe("ToolRegistryService", () => {
     expect(revoked.repository.reserveBudget).not.toHaveBeenCalled();
   });
 
-  it("reserves budget and records provenance/audit before the inert adapter result", async () => {
+  it("executes an authorized adapter and stores the validated result", async () => {
     const harness = createHarness();
-    await expect(harness.service.invoke(request)).rejects.toMatchObject({ code: "TOOL_UNAVAILABLE" });
+    const result = await harness.service.invoke<{ summary: { totalProducts: number } }>(invocation);
+    expect(result.output.summary).toMatchObject({ totalProducts: 12 });
+    expect(harness.adapter.execute).toHaveBeenCalledOnce();
     expect(harness.repository.reserveBudget).toHaveBeenCalledOnce();
-    expect(harness.repository.appendProvenance).toHaveBeenCalledOnce();
+    expect(harness.repository.reserveBudget).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ costMicros: 1 }),
+    );
+    expect(harness.repository.completeToolInvocation).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ resultDigest: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+    );
     expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
-      outcome: "allowed", action: "tool.invoke", resourceId: "catalog.health@1",
+      outcome: "allowed", action: "tool.invoke", resourceId: "catalog.product_completeness@1",
     }));
+    expect(JSON.stringify(harness.repository.appendAudit.mock.calls)).not.toContain("totalProducts");
 
-    const replay = createHarness({ budgetResult: "duplicate" });
-    await expect(replay.service.invoke(request)).rejects.toMatchObject({ code: "TOOL_UNAVAILABLE" });
-    expect(replay.repository.appendProvenance).not.toHaveBeenCalled();
-    expect(replay.repository.appendAudit).not.toHaveBeenCalled();
+    const replay = createHarness({ receiptKind: "completed" });
+    await expect(replay.service.invoke(invocation)).resolves.toEqual(result);
+    expect(replay.adapter.execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale adapter output and records a stable terminal failure", async () => {
+    const stale = createHarness({ outputRetrievedAt: "2026-08-14T11:58:00.000Z" });
+    await expect(stale.service.invoke(invocation))
+      .rejects.toMatchObject({ code: "TOOL_RESULT_STALE" });
+    expect(stale.repository.completeToolInvocation).not.toHaveBeenCalled();
+    expect(stale.repository.failToolInvocation).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ errorCode: "TOOL_RESULT_STALE", retryable: false }),
+    );
+  });
+
+  it("marks only bounded source failures as retryable", async () => {
+    const unavailable = createHarness({ adapterErrorCode: "TOOL_SOURCE_UNAVAILABLE" });
+    await expect(unavailable.service.invoke(invocation))
+      .rejects.toMatchObject({ code: "TOOL_SOURCE_UNAVAILABLE" });
+    expect(unavailable.repository.failToolInvocation).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ errorCode: "TOOL_SOURCE_UNAVAILABLE", retryable: true }),
+    );
   });
 });
 
@@ -94,29 +142,69 @@ function createHarness(options: {
   readonly approvalScope?: "tool_invocation" | "emergency_revocation";
   readonly revokedTarget?: "agent" | "tool_grant" | "model";
   readonly invocationCount?: number; readonly budgetResult?: "reserved" | "duplicate" | "exceeded";
+  readonly receiptKind?: "reserved" | "completed" | "in_progress" | "failed";
+  readonly outputRetrievedAt?: string;
+  readonly adapterErrorCode?: string;
 } = {}) {
+  const output = completenessOutput(options.outputRetrievedAt);
   const repository = {
     findAgentByClientId: vi.fn(async () => ({ kind: "catalog", keycloakClientId: "agent-catalog", active: options.agentActive ?? true, version: 1, createdAt: "", updatedAt: "" })),
     findTaskForAgent: vi.fn(async () => options.taskAssigned === false ? undefined : ({ id: "task-1", state: "ready", createdBy: "operator", goal: "g", instructions: "i", configurationRevisionId: "revision-1", version: 1, createdAt: "", updatedAt: "" })),
     findRevision: vi.fn(async () => ({ id: "revision-1", state: "active", createdBy: "admin", payloadDigest: digest, version: 4, createdAt: "", updatedAt: "" })),
-    findTool: vi.fn(async () => options.toolExists === false ? undefined : ({ name: "catalog.health", version: 1, inputSchemaDigest: digest, outputSchemaDigest: digest, active: true })),
-    findToolGrant: vi.fn(async () => options.grantExists === false ? undefined : ({ id: "grant-1", revisionId: "revision-1", agentKind: "catalog", toolName: "catalog.health", toolVersion: 1, purpose: "analysis", dataScope: options.grantScope ?? "catalog:read", maxInvocations: 10 })),
+    findTool: vi.fn(async () => options.toolExists === false ? undefined : ({ name: descriptor.name, version: 1, inputSchemaDigest: descriptor.inputSchemaDigest, outputSchemaDigest: descriptor.outputSchemaDigest, active: true, executionCostMicros: 1, maximumAttempts: 2 })),
+    findToolGrant: vi.fn(async () => options.grantExists === false ? undefined : ({ id: "grant-1", revisionId: "revision-1", agentKind: "catalog", toolName: descriptor.name, toolVersion: 1, purpose: "store_health_review", dataScope: options.grantScope ?? "catalog:health:read", maxInvocations: 10 })),
     findModelConfiguration: vi.fn(async () => ({ revisionId: "revision-1", agentKind: "catalog", primaryModel: "openai/gpt-5-mini", fallbackModels: [], maxInputTokens: 1_000, maxOutputTokens: 500, timeoutMs: 5_000, maxRetries: 1 })),
     findActiveRevocation: vi.fn(async (_session, targetType: string) => targetType === options.revokedTarget ? ({ id: "revoked" }) : undefined),
-    findApproval: vi.fn(async () => options.approvalValid === false ? undefined : ({ id: "approval-1", state: "approved", requesterId: "operator", approverScope: options.approvalScope ?? "tool_invocation", action: "tool.invoke", resourceType: "tool", resourceId: "catalog.health@1", parametersDigest: request.parametersDigest, taskId: "task-1", policyVersion: 4, configurationRevisionId: "revision-1", expiresAt: "2026-08-15T00:00:00.000Z", version: 2, createdAt: "" })),
+    findApproval: vi.fn(async () => options.approvalValid === false ? undefined : ({ id: "approval-1", state: "approved", requesterId: "operator", approverScope: options.approvalScope ?? "tool_invocation", action: "tool.invoke", resourceType: "tool", resourceId: `${descriptor.name}@1`, parametersDigest: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", taskId: "task-1", policyVersion: 4, configurationRevisionId: "revision-1", expiresAt: "2026-08-15T00:00:00.000Z", version: 2, createdAt: "" })),
     countToolInvocations: vi.fn(async () => options.invocationCount ?? 0),
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved" as const), appendAudit: vi.fn(async () => undefined),
     appendProvenance: vi.fn(async () => undefined),
+    reserveToolInvocation: vi.fn(async () => options.receiptKind === "completed"
+      ? { kind: "completed" as const, invocationId: "invocation-1", attempt: 1, result: output }
+      : options.receiptKind === "in_progress"
+        ? { kind: "in_progress" as const, invocationId: "invocation-1", attempt: 1 }
+        : options.receiptKind === "failed"
+          ? { kind: "failed" as const, invocationId: "invocation-1", attempt: 1, errorCode: "TOOL_OUTPUT_INVALID" }
+          : { kind: "reserved" as const, invocationId: "invocation-1", attempt: 1 }),
+    completeToolInvocation: vi.fn(async () => true),
+    failToolInvocation: vi.fn(async () => true),
   };
   const policy = {
     evaluate: vi.fn(),
     evaluateInSession: vi.fn(async () => ({ effect: options.policyEffect ?? "ALLOW", policyVersion: 4, reasonCode: "rule", matchedRuleIds: ["rule-1"], evaluatedAt: "2026-08-14T12:00:00.000Z" })),
   };
   let id = 0;
+  const adapter = { execute: vi.fn(async () => {
+    if (options.adapterErrorCode !== undefined) {
+      throw new AgenticApplicationError(options.adapterErrorCode, "Safe adapter failure");
+    }
+    return output;
+  }) };
+  const adapters = { resolve: vi.fn(() => adapter) };
+  const schemas = new ZodDepartmentToolSchemaRegistry(() => "2026-08-14T12:00:00.000Z");
   const service = new ToolRegistryService(
-    repository as unknown as Pick<AgenticRepository, "findAgentByClientId" | "findTaskForAgent" | "findRevision" | "findTool" | "findToolGrant" | "findModelConfiguration" | "findActiveRevocation" | "findApproval" | "reserveBudget" | "appendAudit" | "appendProvenance" | "countToolInvocations">,
-    policy as unknown as PolicyEvaluator, transactions, () => `id-${++id}`,
+    repository as unknown as AgenticRepository,
+    policy as unknown as PolicyEvaluator, transactions, adapters, schemas, () => `id-${++id}`,
     () => "2026-08-14T12:00:00.000Z",
   );
-  return { service, repository };
+  return { service, repository, adapter, adapters };
+}
+
+function completenessOutput(retrievedAt = "2026-08-14T12:00:00.000Z") {
+  return {
+    source: "catalog.health",
+    sourceVersion: 1 as const,
+    retrievedAt,
+    window: null,
+    freshness: { asOf: retrievedAt, maxAgeSeconds: 60 as const, status: "fresh" as const },
+    classification: "internal" as const,
+    shareability: "executive_summary" as const,
+    provenanceId: "11111111-1111-4111-8111-111111111111",
+    summary: {
+      totalProducts: 12, draftProducts: 2, publishedProducts: 10,
+      missingBrand: 0, emptyAttributes: 0, withoutActiveVariant: 0,
+      withoutCurrentPrice: 0, withoutMedia: 0, withoutPrimaryMedia: 0,
+      completenessBasisPoints: 10_000,
+    },
+  };
 }

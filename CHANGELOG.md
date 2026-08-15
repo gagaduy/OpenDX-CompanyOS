@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Execute authorized Phase C read adapters through immutable descriptor,
+  schema, budget, idempotency, retry, provenance, and freshness boundaries.
 - Persist bounded Phase C tool invocation receipts with database-enforced
   idempotency, retry claims, terminal replay, and immutable completed results.
 - Define 17 immutable Phase C department read-tool contracts with strict

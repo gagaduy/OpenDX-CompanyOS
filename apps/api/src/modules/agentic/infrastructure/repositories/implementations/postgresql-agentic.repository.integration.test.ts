@@ -338,6 +338,22 @@ suite("PostgresqlAgenticRepository", () => {
     }))).resolves.toBe(true);
     await expect(transactions.run((session) => repository.reserveToolInvocation(session, request)))
       .resolves.toEqual({ kind: "completed", invocationId: request.id, attempt: 1, result: safeResult });
+    await expect(transactions.runReadOnly((session) => repository.countToolInvocations(
+      session,
+      taskId,
+      "catalog",
+      "catalog.product_completeness",
+      1,
+      request.idempotencyKey,
+    ))).resolves.toBe(0);
+    await expect(transactions.runReadOnly((session) => repository.countToolInvocations(
+      session,
+      taskId,
+      "catalog",
+      "catalog.product_completeness",
+      1,
+      "another-key",
+    ))).resolves.toBe(1);
   });
 
   it("claims one retryable attempt and replays a terminal error", async () => {
