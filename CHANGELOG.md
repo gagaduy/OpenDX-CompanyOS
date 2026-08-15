@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose bounded Order stalled-state, invariant, expiry-risk, and Support-safe
+  context reads using the authoritative transition graph and PII-free keyset
+  evidence.
 - Expose bounded Inventory stock-risk, slow-stock, and reservation-anomaly
   reads with deterministic velocity, safe valuation, keyset evidence, and
   owner-indexed query paths.
