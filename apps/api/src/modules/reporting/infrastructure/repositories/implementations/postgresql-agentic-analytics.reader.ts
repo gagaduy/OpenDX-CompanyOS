@@ -23,10 +23,12 @@ interface VariantSalesRow {
 
 interface SegmentSnapshotRow {
   readonly segment_key: AgenticCustomerSegmentSnapshot["segmentKey"];
+  readonly lifetime_value_bucket: AgenticCustomerSegmentSnapshot["lifetimeValueBucket"];
   readonly recency_bucket: AgenticCustomerSegmentSnapshot["recencyBucket"];
   readonly customer_count: string | number;
   readonly repeat_customer_count: string | number;
   readonly open_followup_count: string | number;
+  readonly customers_with_open_followup_count: string | number;
   readonly lifetime_paid_revenue_vnd: string | number;
   readonly as_of_date: string | Date;
 }
@@ -68,18 +70,21 @@ export class PostgresqlAgenticAnalyticsReader implements AgenticAnalyticsReader 
     asOf: string,
   ): Promise<readonly AgenticCustomerSegmentSnapshot[]> {
     return this.read(
-      `SELECT segment_key,recency_bucket,customer_count,repeat_customer_count,
-         open_followup_count,lifetime_paid_revenue_vnd,as_of_date
-       FROM reporting_agentic_customer_segment_snapshot_v1
+      `SELECT segment_key,lifetime_value_bucket,recency_bucket,customer_count,
+         repeat_customer_count,open_followup_count,customers_with_open_followup_count,
+         lifetime_paid_revenue_vnd,as_of_date
+       FROM reporting_agentic_customer_segment_snapshot_v2
        WHERE as_of_date=($1::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
        ORDER BY segment_key,recency_bucket`,
       [asOf],
       (row: SegmentSnapshotRow) => ({
         segmentKey: row.segment_key,
+        lifetimeValueBucket: row.lifetime_value_bucket,
         recencyBucket: row.recency_bucket,
         customerCount: safeInteger(row.customer_count),
         repeatCustomerCount: safeInteger(row.repeat_customer_count),
         openFollowupCount: safeInteger(row.open_followup_count),
+        customersWithOpenFollowupCount: safeInteger(row.customers_with_open_followup_count),
         lifetimePaidRevenueVnd: safeInteger(row.lifetime_paid_revenue_vnd),
         asOfDate: dateOnly(row.as_of_date),
       }),

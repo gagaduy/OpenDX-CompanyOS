@@ -7,7 +7,9 @@ export type CrmApplicationErrorCode =
   | "FOLLOWUP_NOT_FOUND"
   | "STALE_VERSION"
   | "INVALID_SEGMENT"
-  | "FORBIDDEN";
+  | "FORBIDDEN"
+  | "VALIDATION_ERROR"
+  | "UNSAFE_HEALTH_VALUE";
 
 export class CrmApplicationError extends Error {
   constructor(readonly code: CrmApplicationErrorCode, message: string) {

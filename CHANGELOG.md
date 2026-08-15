@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose aggregate-only CRM segment and follow-up opportunity health reads with
+  exact lifetime/recency boundaries and no customer, note, or assignee data.
 - Expose bounded Payment pending-age, reconciliation-discrepancy, and provider
   evidence health reads without provider calls or sensitive provider payloads.
 - Expose bounded Order stalled-state, invariant, expiry-risk, and Support-safe

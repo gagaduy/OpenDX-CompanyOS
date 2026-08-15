@@ -17,10 +17,12 @@ export interface AgenticVariantSales {
 
 export interface AgenticCustomerSegmentSnapshot {
   readonly segmentKey: "high_value" | "inactive" | "repeat" | "new";
+  readonly lifetimeValueBucket: "zero" | "low" | "mid" | "high";
   readonly recencyBucket: "never" | "0_30_days" | "31_90_days" | "over_90_days";
   readonly customerCount: number;
   readonly repeatCustomerCount: number;
   readonly openFollowupCount: number;
+  readonly customersWithOpenFollowupCount: number;
   readonly lifetimePaidRevenueVnd: number;
   readonly asOfDate: string;
 }

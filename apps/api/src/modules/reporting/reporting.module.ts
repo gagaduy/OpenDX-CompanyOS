@@ -9,6 +9,8 @@ import { PostgresqlReportingRepository } from "./infrastructure/repositories/imp
 import { ReportingController } from "./presentation/controllers/reporting.controller";
 import { reportingErrorMiddleware } from "./presentation/middleware/reporting-error.middleware";
 import { createReportingRouter } from "./presentation/routes/reporting.routes";
+import type { TransactionRunner } from "../../shared/database/transaction";
+import { PostgresqlAgenticAnalyticsReader } from "./infrastructure/repositories/implementations/postgresql-agentic-analytics.reader";
 
 interface Queryable {
   query<Row extends object>(
@@ -22,6 +24,10 @@ export interface ReportingModuleDependencies {
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly generateId: () => string;
   readonly now: () => string;
+}
+
+export function createAgenticAnalyticsReader(transactions: TransactionRunner) {
+  return new PostgresqlAgenticAnalyticsReader(transactions);
 }
 
 export function createReportingModule(dependencies: ReportingModuleDependencies) {

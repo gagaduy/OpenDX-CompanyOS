@@ -294,6 +294,7 @@ Only these cross-module views are approved:
 | --- | --- | --- | --- |
 | `reporting_agentic_variant_sales_v1` | Reporting migration | Catalog merchandising and Inventory stock tools | `variant_id`, `window_date`, `paid_quantity`, `paid_revenue_vnd`, validated `current_unit_price_vnd`; no order/customer fields |
 | `reporting_agentic_customer_segment_snapshot_v1` | Reporting migration | CRM segment and follow-up summary | irreversible `segment_key`, `recency_bucket`, aggregate customer/repeat/follow-up counts, `lifetime_paid_revenue_vnd`, `as_of_date`; no customer ID |
+| `reporting_agentic_customer_segment_snapshot_v2` | Reporting migration | Exact CRM lifetime buckets and customers without open follow-up | adds irreversible `lifetime_value_bucket` and `customers_with_open_followup_count` aggregates; all dates are evaluated in `Asia/Ho_Chi_Minh`; no customer ID |
 | `reporting_agentic_customer_activity_daily_v1` | Reporting migration | CRM segment summary | `activity_date`, aggregate `new_customer_count`, `paid_customer_count`, `paid_revenue_vnd`; no customer or order ID |
 
 Views use `security_barrier` and have explicit column lists. Their owner is a

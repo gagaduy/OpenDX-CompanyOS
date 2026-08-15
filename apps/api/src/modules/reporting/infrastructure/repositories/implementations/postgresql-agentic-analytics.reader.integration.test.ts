@@ -26,7 +26,7 @@ describe("PostgresqlAgenticAnalyticsReader", () => {
         if (text.includes("variant_sales")) {
           rows = [{ variant_id: "variant-1", window_date: "2026-08-01", paid_quantity: "2", paid_revenue_vnd: "400000", current_unit_price_vnd: "250000" }];
         } else if (text.includes("segment_snapshot")) {
-          rows = [{ segment_key: "repeat", recency_bucket: "0_30_days", customer_count: "3", repeat_customer_count: "2", open_followup_count: "1", lifetime_paid_revenue_vnd: "900000", as_of_date: "2026-08-16" }];
+          rows = [{ segment_key: "repeat", lifetime_value_bucket: "low", recency_bucket: "0_30_days", customer_count: "3", repeat_customer_count: "2", open_followup_count: "1", customers_with_open_followup_count: "1", lifetime_paid_revenue_vnd: "900000", as_of_date: "2026-08-16" }];
         } else if (text.includes("customer_activity")) {
           rows = [{ activity_date: "2026-08-02", new_customer_count: "4", paid_customer_count: "2", paid_revenue_vnd: "500000" }];
         } else {
@@ -51,10 +51,12 @@ describe("PostgresqlAgenticAnalyticsReader", () => {
     await expect(reader.getCustomerSegmentSnapshot("2026-08-16T05:00:00.000Z"))
       .resolves.toEqual([{
         segmentKey: "repeat",
+        lifetimeValueBucket: "low",
         recencyBucket: "0_30_days",
         customerCount: 3,
         repeatCustomerCount: 2,
         openFollowupCount: 1,
+        customersWithOpenFollowupCount: 1,
         lifetimePaidRevenueVnd: 900_000,
         asOfDate: "2026-08-16",
       }]);

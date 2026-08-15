@@ -11,6 +11,9 @@ import { PostgresqlCrmRepository } from "./infrastructure/repositories/implement
 import { CrmController } from "./presentation/controllers/crm.controller";
 import { crmErrorMiddleware } from "./presentation/middleware/crm-error.middleware";
 import { createCrmRouter } from "./presentation/routes/crm.routes";
+import type { AgenticAnalyticsReader } from "../reporting";
+import { CrmHealthReaderService } from "./application/services/implementations/crm-health-reader";
+import { PostgresqlCrmHealthRepository } from "./infrastructure/repositories/implementations/postgresql-crm-health.repository";
 
 export interface CrmModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -19,6 +22,21 @@ export interface CrmModuleDependencies {
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly generateId: () => string;
   readonly now: () => string;
+}
+
+export interface CrmHealthDependencies {
+  readonly transactions: TransactionRunner;
+  readonly analytics: AgenticAnalyticsReader;
+  readonly now: () => string;
+}
+
+export function createCrmHealthReader(dependencies: CrmHealthDependencies) {
+  return new CrmHealthReaderService(
+    new PostgresqlCrmHealthRepository(),
+    dependencies.analytics,
+    dependencies.transactions,
+    dependencies.now,
+  );
 }
 
 export function createCrmModule(dependencies: CrmModuleDependencies) {

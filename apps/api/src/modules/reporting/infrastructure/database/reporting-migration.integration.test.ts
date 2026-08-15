@@ -21,6 +21,7 @@ const analyticsUrl = process.env.AGENTIC_ANALYTICS_TEST_DATABASE_URL
 const views = [
   "reporting_agentic_variant_sales_v1",
   "reporting_agentic_customer_segment_snapshot_v1",
+  "reporting_agentic_customer_segment_snapshot_v2",
   "reporting_agentic_customer_activity_daily_v1",
 ] as const;
 
@@ -47,21 +48,20 @@ suite("Reporting Agentic analytics migration", () => {
     await app.end();
   });
 
-  it("creates three security-barrier views and reapplies them reversibly", async () => {
+  it("creates four security-barrier views and reapplies the latest projection reversibly", async () => {
     const options = await app.query<{ relname: string; options: readonly string[] }>(
       `SELECT class.relname,class.reloptions AS options
        FROM pg_class class WHERE class.relname=ANY($1::text[]) ORDER BY class.relname`,
       [views],
     );
-    expect(options.rows).toHaveLength(3);
+    expect(options.rows).toHaveLength(4);
     expect(options.rows.every(({ options: values }) => values.includes("security_barrier=true")))
       .toBe(true);
 
     await runReportingMigrations(databaseUrl!, "down", 1);
     expect((await app.query(
-      "SELECT relname FROM pg_class WHERE relname=ANY($1::text[])",
-      [views],
-    )).rowCount).toBe(0);
+      "SELECT to_regclass('public.reporting_agentic_customer_segment_snapshot_v2') AS name",
+    )).rows[0]).toEqual({ name: null });
     await runReportingMigrations(databaseUrl!, "up");
   });
 
