@@ -8,6 +8,12 @@ set -eu
 : "${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
 : "${AGENTIC_CONTROL_CLIENT_SECRET:?AGENTIC_CONTROL_CLIENT_SECRET is required}"
 : "${AGENTIC_WORKER_CLIENT_SECRET:?AGENTIC_WORKER_CLIENT_SECRET is required}"
+: "${AGENT_CATALOG_CLIENT_SECRET:?AGENT_CATALOG_CLIENT_SECRET is required}"
+: "${AGENT_INVENTORY_CLIENT_SECRET:?AGENT_INVENTORY_CLIENT_SECRET is required}"
+: "${AGENT_ORDER_CLIENT_SECRET:?AGENT_ORDER_CLIENT_SECRET is required}"
+: "${AGENT_FINANCE_CLIENT_SECRET:?AGENT_FINANCE_CLIENT_SECRET is required}"
+: "${AGENT_CRM_CLIENT_SECRET:?AGENT_CRM_CLIENT_SECRET is required}"
+: "${AGENT_SUPPORT_CLIENT_SECRET:?AGENT_SUPPORT_CLIENT_SECRET is required}"
 : "${CONSOLE_ORIGIN:?CONSOLE_ORIGIN is required}"
 
 SERVER="${KEYCLOAK_INTERNAL_URL:-http://keycloak:8080}"
@@ -37,39 +43,41 @@ delete_client() {
   done
 }
 
-delete_client opendx-lifecycle-check
-fixture_user_ids=""
-first=0
-page_size=$KEYCLOAK_RECONCILE_PAGE_SIZE
-while :; do
-  user_rows=$("$KCADM" get users --config "$CONFIG" -r "$REALM" \
-    -q "first=$first" -q "max=$page_size" \
-    --fields id,username --format csv --noquotes)
-  [ -n "$user_rows" ] || break
-  while IFS=, read -r user_id username; do
-    case "$username" in
-      admin@novacommerce.example | \
-      catalog@novacommerce.example | \
-      inventory@novacommerce.example | \
-      operations@novacommerce.example | \
-      finance@novacommerce.example | \
-      agentic-operator@novacommerce.example | \
-      agentic-approver@novacommerce.example | \
-      agentic-governance-creator@novacommerce.example | \
-      agentic-governance-reviewer@novacommerce.example)
-        fixture_user_ids="$fixture_user_ids $user_id"
-        ;;
-    esac
-  done <<EOF
+if [ "${KEYCLOAK_PRESERVE_DEVELOPMENT_IDENTITIES:-false}" != "true" ]; then
+  delete_client opendx-lifecycle-check
+  fixture_user_ids=""
+  first=0
+  page_size=$KEYCLOAK_RECONCILE_PAGE_SIZE
+  while :; do
+    user_rows=$("$KCADM" get users --config "$CONFIG" -r "$REALM" \
+      -q "first=$first" -q "max=$page_size" \
+      --fields id,username --format csv --noquotes)
+    [ -n "$user_rows" ] || break
+    while IFS=, read -r user_id username; do
+      case "$username" in
+        admin@novacommerce.example | \
+        catalog@novacommerce.example | \
+        inventory@novacommerce.example | \
+        operations@novacommerce.example | \
+        finance@novacommerce.example | \
+        agentic-operator@novacommerce.example | \
+        agentic-approver@novacommerce.example | \
+        agentic-governance-creator@novacommerce.example | \
+        agentic-governance-reviewer@novacommerce.example)
+          fixture_user_ids="$fixture_user_ids $user_id"
+          ;;
+      esac
+    done <<EOF
 $user_rows
 EOF
-  row_count=$(printf '%s\n' "$user_rows" | wc -l | tr -d ' ')
-  [ "$row_count" -eq "$page_size" ] || break
-  first=$((first + page_size))
-done
-for fixture_user_id in $fixture_user_ids; do
-  "$KCADM" delete "users/$fixture_user_id" --config "$CONFIG" -r "$REALM"
-done
+    row_count=$(printf '%s\n' "$user_rows" | wc -l | tr -d ' ')
+    [ "$row_count" -eq "$page_size" ] || break
+    first=$((first + page_size))
+  done
+  for fixture_user_id in $fixture_user_ids; do
+    "$KCADM" delete "users/$fixture_user_id" --config "$CONFIG" -r "$REALM"
+  done
+fi
 
 console_client_id=$("$KCADM" get clients --config "$CONFIG" -r "$REALM" \
   -q clientId=opendx-console --fields id --format csv --noquotes)
@@ -110,3 +118,15 @@ reconcile_client opendx-agentic-control "OpenDX Agentic Control" \
   "$AGENTIC_CONTROL_CLIENT_SECRET" opendx-ai-runtime opendx-ai-runtime-audience
 reconcile_client opendx-agentic-worker "OpenDX Agentic Worker" \
   "$AGENTIC_WORKER_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-catalog "OpenDX Catalog Agent" \
+  "$AGENT_CATALOG_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-inventory "OpenDX Inventory Agent" \
+  "$AGENT_INVENTORY_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-order "OpenDX Order Agent" \
+  "$AGENT_ORDER_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-finance "OpenDX Finance Agent" \
+  "$AGENT_FINANCE_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-crm "OpenDX CRM Agent" \
+  "$AGENT_CRM_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-support "OpenDX Support Agent" \
+  "$AGENT_SUPPORT_CLIENT_SECRET" opendx-api opendx-api-audience

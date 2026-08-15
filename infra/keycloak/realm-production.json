@@ -136,6 +136,7 @@
     {
       "clientId": "agent-catalog",
       "name": "OpenDX Catalog Agent",
+      "secret": "${AGENT_CATALOG_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -159,6 +160,7 @@
     {
       "clientId": "agent-inventory",
       "name": "OpenDX Inventory Agent",
+      "secret": "${AGENT_INVENTORY_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -182,6 +184,7 @@
     {
       "clientId": "agent-order",
       "name": "OpenDX Order Agent",
+      "secret": "${AGENT_ORDER_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -205,6 +208,7 @@
     {
       "clientId": "agent-finance",
       "name": "OpenDX Finance Agent",
+      "secret": "${AGENT_FINANCE_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -228,6 +232,7 @@
     {
       "clientId": "agent-crm",
       "name": "OpenDX CRM Agent",
+      "secret": "${AGENT_CRM_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -251,6 +256,7 @@
     {
       "clientId": "agent-support",
       "name": "OpenDX Support Agent",
+      "secret": "${AGENT_SUPPORT_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,

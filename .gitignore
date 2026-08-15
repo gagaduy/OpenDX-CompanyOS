@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!infra/deploy/.env.production.example
 *.pem
 *.key
 *.p12

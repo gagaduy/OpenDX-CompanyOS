@@ -43,6 +43,12 @@ export function productionFixtureEnvironment(base = process.env) {
     SEPAY_IPN_SECRET: "test-only-ipn-c56a218d",
     AGENTIC_CONTROL_CLIENT_SECRET: "test-only-control-51e30db8",
     AGENTIC_WORKER_CLIENT_SECRET: "test-only-worker-2c06b537",
+    AGENT_CATALOG_CLIENT_SECRET: "test-only-agent-catalog-5fc08e31",
+    AGENT_INVENTORY_CLIENT_SECRET: "test-only-agent-inventory-8b962ad4",
+    AGENT_ORDER_CLIENT_SECRET: "test-only-agent-order-a71c409e",
+    AGENT_FINANCE_CLIENT_SECRET: "test-only-agent-finance-c394fb61",
+    AGENT_CRM_CLIENT_SECRET: "test-only-agent-crm-3d27a580",
+    AGENT_SUPPORT_CLIENT_SECRET: "test-only-agent-support-e0427bc9",
     TEMPORAL_TLS_SERVER_DIR: "/tmp/opendx-production-fixtures/server",
     TEMPORAL_TLS_CLIENT_DIR: "/tmp/opendx-production-fixtures/client",
     TEMPORAL_TLS_SERVER_NAME: "temporal.internal",
@@ -88,6 +94,37 @@ export function validateAgenticProductionConfig({
         === analyticsDatabase.password,
     "Production analytics database must use the isolated analytics reader role and secret",
   );
+  const departmentSecretFields = [
+    "AGENT_CATALOG_CLIENT_SECRET", "AGENT_INVENTORY_CLIENT_SECRET",
+    "AGENT_ORDER_CLIENT_SECRET", "AGENT_FINANCE_CLIENT_SECRET",
+    "AGENT_CRM_CLIENT_SECRET", "AGENT_SUPPORT_CLIENT_SECRET",
+  ];
+  const reconciler = services["keycloak-reconcile"].environment ?? {};
+  const departmentSecrets = departmentSecretFields.map((field) => {
+    const secret = reconciler[field];
+    invariant(
+      typeof secret === "string" && secret.length > 0
+        && services.api.environment?.[field] === secret
+        && services.keycloak.environment?.[field] === secret,
+      `Production ${field} must be required and consistent across API and Keycloak`,
+    );
+    return secret;
+  });
+  const forbiddenSharedSecrets = new Set([
+    reconciler.AGENTIC_CONTROL_CLIENT_SECRET,
+    reconciler.AGENTIC_WORKER_CLIENT_SECRET,
+    services.postgres.environment?.POSTGRES_PASSWORD,
+    services.api.environment?.MINIO_SECRET_KEY,
+    services.api.environment?.SEPAY_SECRET_KEY,
+    services.api.environment?.SEPAY_IPN_SECRET,
+    reconciler.KEYCLOAK_ADMIN_PASSWORD,
+    applicationDatabase.password,
+  ].filter(Boolean));
+  invariant(
+    new Set(departmentSecrets).size === departmentSecrets.length
+      && departmentSecrets.every((secret) => !forbiddenSharedSecrets.has(secret)),
+    "Production department Agent secrets must be distinct from every Agent and service credential",
+  );
 
   const realmMount = services.keycloak.volumes?.find(
     (mount) => mount.target === "/opt/keycloak/data/import/opendx-realm.json",
@@ -106,6 +143,19 @@ export function validateAgenticProductionConfig({
       && !keycloakRealm.clients.some((client) => client.clientId === "opendx-lifecycle-check"),
     "The production Keycloak realm must not contain the lifecycle client",
   );
+  for (const clientId of [
+    "agent-catalog", "agent-inventory", "agent-order",
+    "agent-finance", "agent-crm", "agent-support",
+  ]) {
+    const client = keycloakRealm.clients.find((candidate) => candidate.clientId === clientId);
+    invariant(
+      client?.publicClient === false
+        && client.serviceAccountsEnabled === true
+        && client.standardFlowEnabled === false
+        && client.directAccessGrantsEnabled === false,
+      `${clientId} must remain a confidential service-account-only client`,
+    );
+  }
   const consoleClient = keycloakRealm.clients.find(
     (client) => client.clientId === "opendx-console",
   );

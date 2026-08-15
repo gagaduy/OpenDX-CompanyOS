@@ -24,6 +24,12 @@ x-api-environment: &api-environment
   KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
   AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
   AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+  AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+  AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+  AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+  AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+  AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+  AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
   AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
   AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
   AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-true}
@@ -195,6 +201,12 @@ services:
       KC_HOSTNAME: http://localhost:8080
       AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
       AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
     ports:
       - "8080:8080"
     volumes:
@@ -204,6 +216,35 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  keycloak-reconcile:
+    image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: opendx
+      KEYCLOAK_ADMIN: opendx_admin
+      KEYCLOAK_ADMIN_PASSWORD: opendx_admin_password
+      KEYCLOAK_PRESERVE_DEVELOPMENT_IDENTITIES: "true"
+      CONSOLE_ORIGIN: http://localhost:3000
+      AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+      AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+    volumes:
+      - ../keycloak/reconcile-production-realm.sh:/opt/opendx/reconcile-production-realm.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/reconcile-production-realm.sh"]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
@@ -283,8 +324,8 @@ services:
       - ../../packages/domain/src:/workspace/packages/domain/src
       - ../../packages/ui/src:/workspace/packages/ui/src
     depends_on:
-      keycloak:
-        condition: service_healthy
+      keycloak-reconcile:
+        condition: service_completed_successfully
       clamav:
         condition: service_healthy
       seed:
@@ -309,8 +350,8 @@ services:
     depends_on:
       temporal-namespace:
         condition: service_completed_successfully
-      keycloak:
-        condition: service_healthy
+      keycloak-reconcile:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; raise SystemExit(0 if httpx.get('http://localhost:8000/ready').is_success else 1)"]

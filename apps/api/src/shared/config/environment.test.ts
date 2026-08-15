@@ -15,6 +15,12 @@ const validSource = {
   KEYCLOAK_TOKEN_URL: "http://keycloak:8080/realms/opendx/protocol/openid-connect/token",
   AGENTIC_CONTROL_CLIENT_ID: "opendx-agentic-control",
   AGENTIC_CONTROL_CLIENT_SECRET: "local-control-secret",
+  AGENT_CATALOG_CLIENT_SECRET: "local-catalog-secret",
+  AGENT_INVENTORY_CLIENT_SECRET: "local-inventory-secret",
+  AGENT_ORDER_CLIENT_SECRET: "local-order-secret",
+  AGENT_FINANCE_CLIENT_SECRET: "local-finance-secret",
+  AGENT_CRM_CLIENT_SECRET: "local-crm-secret",
+  AGENT_SUPPORT_CLIENT_SECRET: "local-support-secret",
   AGENTIC_CONTROL_AUDIENCE: "opendx-ai-runtime",
   AI_RUNTIME_INTERNAL_URL: "http://ai-runtime:8000",
   AGENTIC_EXECUTION_ENABLED: "false",
@@ -64,6 +70,14 @@ describe("parseApiEnvironment", () => {
       gatewayTimeoutMs: 5_000,
       dispatcherIntervalMs: 5_000,
       dispatcherBatchSize: 20,
+      departmentClientSecrets: {
+        catalog: "local-catalog-secret",
+        inventory: "local-inventory-secret",
+        order: "local-order-secret",
+        finance: "local-finance-secret",
+        crm: "local-crm-secret",
+        support: "local-support-secret",
+      },
     });
   });
 
@@ -89,6 +103,8 @@ describe("parseApiEnvironment", () => {
     ["SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS", { SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: "0" }],
     ["MINIO_SUPPORT_BUCKET", { MINIO_SUPPORT_BUCKET: "product-media" }],
     ["AGENTIC_CONTROL_CLIENT_SECRET", { AGENTIC_CONTROL_CLIENT_SECRET: "" }],
+    ["AGENT_CATALOG_CLIENT_SECRET", { AGENT_CATALOG_CLIENT_SECRET: "" }],
+    ["AGENTIC_ANALYTICS_DATABASE_URL", { AGENTIC_ANALYTICS_DATABASE_URL: "postgres://opendx:secret@postgres:5432/opendx" }],
     ["WORKFLOW_GATEWAY_TIMEOUT_MS", { WORKFLOW_GATEWAY_TIMEOUT_MS: "499" }],
     ["WORKFLOW_DISPATCHER_INTERVAL_MS", { WORKFLOW_DISPATCHER_INTERVAL_MS: "99" }],
     ["WORKFLOW_DISPATCHER_BATCH_SIZE", { WORKFLOW_DISPATCHER_BATCH_SIZE: "1001" }],
@@ -96,6 +112,22 @@ describe("parseApiEnvironment", () => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
     ).toThrow(expectedKey);
+  });
+
+  it("rejects reused or placeholder department Agent secrets", () => {
+    expect(() => parseApiEnvironment({
+      ...validSource,
+      AGENT_INVENTORY_CLIENT_SECRET: validSource.AGENT_CATALOG_CLIENT_SECRET,
+    })).toThrow("AGENT_INVENTORY_CLIENT_SECRET");
+    expect(() => parseApiEnvironment({
+      ...validSource,
+      OPENDX_ENV: "production",
+      AGENT_SUPPORT_CLIENT_SECRET: "support_change_me",
+    })).toThrow("AGENT_SUPPORT_CLIENT_SECRET");
+    expect(() => parseApiEnvironment({
+      ...validSource,
+      AGENT_FINANCE_CLIENT_SECRET: validSource.AGENTIC_CONTROL_CLIENT_SECRET,
+    })).toThrow("AGENT_FINANCE_CLIENT_SECRET");
   });
 
   it("accepts a complete SePay sandbox configuration", () => {

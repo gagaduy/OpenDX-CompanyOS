@@ -34,6 +34,7 @@ const SEPAY_SANDBOX_CHECKOUT_URL = "https://pay-sandbox.sepay.vn/v1/checkout/ini
 const SEPAY_SANDBOX_API_URL = "https://pgapi-sandbox.sepay.vn";
 const SEPAY_PRODUCTION_CHECKOUT_URL = "https://pay.sepay.vn/v1/checkout/init";
 const SEPAY_PRODUCTION_API_URL = "https://pgapi.sepay.vn";
+const placeholderSecret = /(?:change|replace)[_-]?me|changeme|example[_-]?secret/i;
 
 const apiEnvironmentSchema = z.object({
   OPENDX_ENV: z.enum(["development", "test", "production"]),
@@ -41,9 +42,11 @@ const apiEnvironmentSchema = z.object({
   DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
     message: "must be a PostgreSQL URL",
   }),
-  AGENTIC_ANALYTICS_DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
-    message: "must be a PostgreSQL URL",
-  }),
+  AGENTIC_ANALYTICS_DATABASE_URL: z.url()
+    .refine((value) => value.startsWith("postgres"), { message: "must be a PostgreSQL URL" })
+    .refine((value) => new URL(value).username === "opendx_agentic_reader", {
+      message: "must use the opendx_agentic_reader role",
+    }),
   CONSOLE_ORIGIN: z.url(),
   STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
   GOOGLE_CLIENT_ID: z.preprocess(
@@ -63,6 +66,12 @@ const apiEnvironmentSchema = z.object({
   KEYCLOAK_TOKEN_URL: z.url(),
   AGENTIC_CONTROL_CLIENT_ID: z.string().trim().min(1),
   AGENTIC_CONTROL_CLIENT_SECRET: z.string().min(1),
+  AGENT_CATALOG_CLIENT_SECRET: z.string().min(1),
+  AGENT_INVENTORY_CLIENT_SECRET: z.string().min(1),
+  AGENT_ORDER_CLIENT_SECRET: z.string().min(1),
+  AGENT_FINANCE_CLIENT_SECRET: z.string().min(1),
+  AGENT_CRM_CLIENT_SECRET: z.string().min(1),
+  AGENT_SUPPORT_CLIENT_SECRET: z.string().min(1),
   AGENTIC_CONTROL_AUDIENCE: z.string().trim().min(1),
   AI_RUNTIME_INTERNAL_URL: z.url(),
   AGENTIC_EXECUTION_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
@@ -119,6 +128,26 @@ const apiEnvironmentSchema = z.object({
   PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: positiveInteger.default(10_000),
   PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: optionalProductionConfirmation,
 }).superRefine((value, context) => {
+  const departmentSecrets = [
+    ["AGENT_CATALOG_CLIENT_SECRET", value.AGENT_CATALOG_CLIENT_SECRET],
+    ["AGENT_INVENTORY_CLIENT_SECRET", value.AGENT_INVENTORY_CLIENT_SECRET],
+    ["AGENT_ORDER_CLIENT_SECRET", value.AGENT_ORDER_CLIENT_SECRET],
+    ["AGENT_FINANCE_CLIENT_SECRET", value.AGENT_FINANCE_CLIENT_SECRET],
+    ["AGENT_CRM_CLIENT_SECRET", value.AGENT_CRM_CLIENT_SECRET],
+    ["AGENT_SUPPORT_CLIENT_SECRET", value.AGENT_SUPPORT_CLIENT_SECRET],
+  ] as const;
+  const seenSecrets = new Map<string, string>([
+    [value.AGENTIC_CONTROL_CLIENT_SECRET, "AGENTIC_CONTROL_CLIENT_SECRET"],
+  ]);
+  for (const [field, secret] of departmentSecrets) {
+    if (seenSecrets.has(secret)) {
+      context.addIssue({ code: "custom", path: [field], message: "must be distinct from every Agentic client secret" });
+    }
+    seenSecrets.set(secret, field);
+    if (value.OPENDX_ENV === "production" && placeholderSecret.test(secret)) {
+      context.addIssue({ code: "custom", path: [field], message: "must not be a placeholder secret" });
+    }
+  }
   const credentialFields = [
     ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
     ["SEPAY_SECRET_KEY", value.SEPAY_SECRET_KEY],
@@ -247,6 +276,14 @@ export interface ApiEnvironment {
     readonly gatewayTimeoutMs: number;
     readonly dispatcherIntervalMs: number;
     readonly dispatcherBatchSize: number;
+    readonly departmentClientSecrets: {
+      readonly catalog: string;
+      readonly inventory: string;
+      readonly order: string;
+      readonly finance: string;
+      readonly crm: string;
+      readonly support: string;
+    };
   };
   readonly minioEndpoint: string;
   readonly minioAccessKey: string;
@@ -337,6 +374,14 @@ export function parseApiEnvironment(
       gatewayTimeoutMs: value.WORKFLOW_GATEWAY_TIMEOUT_MS,
       dispatcherIntervalMs: value.WORKFLOW_DISPATCHER_INTERVAL_MS,
       dispatcherBatchSize: value.WORKFLOW_DISPATCHER_BATCH_SIZE,
+      departmentClientSecrets: {
+        catalog: value.AGENT_CATALOG_CLIENT_SECRET,
+        inventory: value.AGENT_INVENTORY_CLIENT_SECRET,
+        order: value.AGENT_ORDER_CLIENT_SECRET,
+        finance: value.AGENT_FINANCE_CLIENT_SECRET,
+        crm: value.AGENT_CRM_CLIENT_SECRET,
+        support: value.AGENT_SUPPORT_CLIENT_SECRET,
+      },
     },
     minioEndpoint: value.MINIO_ENDPOINT,
     minioAccessKey: value.MINIO_ACCESS_KEY,

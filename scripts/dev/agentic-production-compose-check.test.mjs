@@ -172,6 +172,39 @@ test("requires the API analytics connection to use the isolated reader role", ()
   assert.throws(() => validate(config), /analytics.*reader role/i);
 });
 
+test("requires six distinct non-placeholder department Agent secrets", () => {
+  const duplicate = clone(render());
+  const catalogSecret = duplicate.services["keycloak-reconcile"].environment.AGENT_CATALOG_CLIENT_SECRET;
+  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+    duplicate.services[service].environment.AGENT_INVENTORY_CLIENT_SECRET = catalogSecret;
+  }
+  assert.throws(() => validate(duplicate), /department Agent secrets.*distinct/i);
+
+  const workerReuse = clone(render());
+  const workerSecret = workerReuse.services["ai-worker"].environment.AGENTIC_WORKER_CLIENT_SECRET;
+  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+    workerReuse.services[service].environment.AGENT_ORDER_CLIENT_SECRET = workerSecret;
+  }
+  assert.throws(() => validate(workerReuse), /department Agent secrets.*distinct/i);
+
+  const placeholder = clone(render());
+  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+    placeholder.services[service].environment.AGENT_SUPPORT_CLIENT_SECRET = "support_change_me";
+  }
+  assert.throws(() => validate(placeholder), /placeholder secret/i);
+});
+
+test("reconciles all department clients as service-account-only", () => {
+  const source = readFileSync("infra/keycloak/reconcile-production-realm.sh", "utf8");
+  for (const kind of ["CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"]) {
+    assert.match(source, new RegExp(`AGENT_${kind}_CLIENT_SECRET`));
+    assert.match(source, new RegExp(`reconcile_client agent-${kind.toLowerCase()}`));
+  }
+  assert.match(source, /serviceAccountsEnabled=true/);
+  assert.match(source, /standardFlowEnabled=false/);
+  assert.match(source, /directAccessGrantsEnabled=false/);
+});
+
 test("hardens the privileged database bootstrap jobs", () => {
   const services = render().services;
   for (const name of ["postgres-role-init", "temporal-db-init"]) {

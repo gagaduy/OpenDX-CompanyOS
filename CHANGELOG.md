@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Provision and idempotently reconcile six distinct department Agent service
+  credentials, with isolated analytics-role and production secret validation.
 - Expose the 17 governed department read tools through an Agent-service-only
   endpoint with database-resolved identities, strict 16 KiB input, and
   cross-department and zero-leakage enforcement.
