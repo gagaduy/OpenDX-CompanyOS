@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-The design direction was approved by the user on 2026-08-16. This written
-specification is awaiting the user's final file review before implementation
-planning begins.
+Approved by the user on 2026-08-16. The file-level implementation plan is
+`docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md`.
 
 ## Purpose
 
@@ -293,7 +292,7 @@ Only these cross-module views are approved:
 
 | View | Owner | Used by | Columns exposed |
 | --- | --- | --- | --- |
-| `reporting_agentic_variant_sales_v1` | Reporting migration | Catalog merchandising and Inventory stock tools | `variant_id`, `window_date`, `paid_quantity`, `paid_revenue_vnd`; no order/customer fields |
+| `reporting_agentic_variant_sales_v1` | Reporting migration | Catalog merchandising and Inventory stock tools | `variant_id`, `window_date`, `paid_quantity`, `paid_revenue_vnd`, validated `current_unit_price_vnd`; no order/customer fields |
 | `reporting_agentic_customer_segment_snapshot_v1` | Reporting migration | CRM segment and follow-up summary | irreversible `segment_key`, `recency_bucket`, aggregate customer/repeat/follow-up counts, `lifetime_paid_revenue_vnd`, `as_of_date`; no customer ID |
 | `reporting_agentic_customer_activity_daily_v1` | Reporting migration | CRM segment summary | `activity_date`, aggregate `new_customer_count`, `paid_customer_count`, `paid_revenue_vnd`; no customer or order ID |
 

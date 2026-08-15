@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the file-level TDD plan for Phase C tool contracts, idempotent execution,
+  six module-owned readers, restricted analytics views, service identities,
+  zero-leakage acceptance, and production/local exit gates.
 - Define the Phase C Agentic Department read-tool boundary with 17 versioned
   least-privilege contracts, module-owned public ports, restricted analytics
   views, bounded queries, zero-leakage rules, and provenance-backed outputs.
