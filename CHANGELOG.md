@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Replace the generic nested model-context union with purpose-scoped typed
+  schemas for six departments and AI CEO aggregate summaries, risks, and exact
+  internal provenance metadata.
+
 - Restrict recursive model context to an explicit aggregate and provenance
   metadata schema while blocking normalized identity, financial, cookie,
   session, and authorization fields before sanitization.

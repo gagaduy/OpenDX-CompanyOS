@@ -19,7 +19,7 @@ from app.agentic.application.context_boundary import (
 
 
 AGENT_FIELDS: dict[str, tuple[str, object]] = {
-    "ai_ceo": ("departmentSummaries", [{"agentKind": "catalog", "riskLevel": "low"}]),
+    "ai_ceo": ("crossDepartmentRiskCount", 1),
     "catalog": ("completenessBasisPoints", 9_500),
     "inventory": ("atRiskSkuCount", 2),
     "order": ("stalledOrderCount", 3),
@@ -27,6 +27,16 @@ AGENT_FIELDS: dict[str, tuple[str, object]] = {
     "crm": ("segmentCount", 4),
     "support": ("slaRiskCount", 5),
 }
+
+
+def valid_evidence() -> dict[str, object]:
+    return {
+        "provenanceId": "prov-1",
+        "source": "department-tool:aggregate-v1",
+        "retrievedAt": "2026-08-19T08:00:00+07:00",
+        "freshnessStatus": "fresh",
+        "classification": "internal",
+    }
 
 
 class BombMapping(Mapping[str, object]):
@@ -59,10 +69,7 @@ def test_accepts_internal_context_for_all_seven_agents(agent_kind: str) -> None:
     safe = enforce_context_boundary(agent_kind, context(agent_kind))
 
     field, value = AGENT_FIELDS[agent_kind]
-    if agent_kind == "ai_ceo":
-        assert safe[field] == ({"agentKind": "catalog", "riskLevel": "low"},)
-    else:
-        assert safe[field] == value
+    assert safe[field] == value
 
 
 def test_leaf_inherits_root_classification() -> None:
@@ -70,11 +77,11 @@ def test_leaf_inherits_root_classification() -> None:
         "catalog",
         AuthorizedContextInput(
             classification="internal",
-            fields={"productsAtRisk": {"count": 2, "riskLevel": "medium"}},
+            fields={"productsAtRisk": 2, "riskLevel": "medium"},
         ),
     )
 
-    assert safe["productsAtRisk"] == {"count": 2, "riskLevel": "medium"}
+    assert safe["productsAtRisk"] == 2
 
 
 def test_explicit_internal_leaf_classification_is_unwrapped() -> None:
@@ -219,9 +226,8 @@ def test_blocks_normalized_sensitive_keys_and_github_tokens(
     field: str, value: str
 ) -> None:
     with pytest.raises(ContextBoundaryFailure) as captured:
-        enforce_context_boundary(
-            "support", context("support", summary={field: value})
-        )
+        overrides = {field: value} if field == "summary" else {"summary": {field: value}}
+        enforce_context_boundary("support", context("support", **overrides))
 
     assert captured.value.code in {
         "CONTEXT_SENSITIVE_FIELD_BLOCKED",
@@ -280,43 +286,152 @@ def test_blocks_nested_identity_financial_and_auth_fields(field: str) -> None:
     assert canary not in repr(captured.value.args)
 
 
-def test_removes_unknown_benign_nested_field_from_sanitized_context() -> None:
+def test_rejects_unknown_benign_nested_field_from_typed_context() -> None:
     canary = "UNKNOWN_NESTED_FIELD_CANARY"
 
-    safe = enforce_context_boundary(
-        "catalog",
-        context(productsAtRisk={"count": 1, "displayLabel": canary}),
-    )
+    evidence = valid_evidence()
+    evidence["displayLabel"] = canary
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(evidence=[evidence]))
 
-    assert safe["productsAtRisk"] == {"count": 1}
-    assert canary not in repr(safe)
+    assert captured.value.code == "CONTEXT_SCHEMA_INVALID"
+    assert canary not in repr(captured.value.args)
 
 
-def test_preserves_approved_nested_aggregate_and_metadata_fields() -> None:
-    nested = {
-        "count": 2,
-        "value": 9_500,
-        "code": "CATALOG_RISK",
-        "status": "complete",
-        "riskLevel": "medium",
-        "agentKind": "catalog",
-        "provenanceIds": ["prov-1"],
-        "source": "department-tool:catalog-v1",
-        "retrievedAt": "2026-08-19T08:00:00Z",
-        "freshnessStatus": "fresh",
-        "classification": "internal",
-        "summary": "Aggregate catalog summary.",
-        "severity": "medium",
+def test_preserves_approved_typed_evidence_metadata_fields() -> None:
+    evidence = valid_evidence()
+
+    safe = enforce_context_boundary("catalog", context(evidence=[evidence]))
+
+    assert set(safe["evidence"][0]) == set(evidence)
+    assert safe["evidence"][0]["provenanceId"] == "prov-1"
+
+
+@pytest.mark.parametrize("field", ["pendingAmountVnd", "slaRiskCount"])
+def test_catalog_rejects_cross_department_metrics_nested_under_its_metric(
+    field: str,
+) -> None:
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "catalog", context(productsAtRisk={field: 1})
+        )
+
+    assert captured.value.code == "CONTEXT_SCHEMA_INVALID"
+
+
+def test_rejects_restricted_classification_inside_evidence() -> None:
+    evidence = valid_evidence()
+    evidence["classification"] = "restricted"
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(evidence=[evidence]))
+
+    assert captured.value.code == "CONTEXT_CLASSIFICATION_BLOCKED"
+
+
+def test_rejects_card_code_value_shape_from_evidence_without_egress() -> None:
+    canary = "4111111111111111"
+    evidence = valid_evidence()
+    evidence.update({"code": "card_number", "value": canary})
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(evidence=[evidence]))
+
+    assert captured.value.code == "CONTEXT_SCHEMA_INVALID"
+    assert canary not in repr(captured.value.args)
+
+
+@pytest.mark.parametrize("agent_kind", AGENT_FIELDS)
+def test_accepts_typed_context_with_valid_evidence_for_every_agent(
+    agent_kind: str,
+) -> None:
+    overrides: dict[str, object] = {
+        "summary": "Safe aggregate department summary.",
+        "evidence": [valid_evidence()],
     }
+    if agent_kind == "ai_ceo":
+        overrides.update(
+            {
+                "departmentSummaries": [
+                    {
+                        "agentKind": "catalog",
+                        "status": "complete",
+                        "riskLevel": "low",
+                        "summary": "Catalog aggregate is healthy.",
+                        "provenanceIds": ["prov-1"],
+                    }
+                ],
+                "crossDepartmentRisks": [
+                    {
+                        "code": "INVENTORY_ORDER_MISMATCH",
+                        "severity": "medium",
+                        "summary": "Aggregate mismatch requires review.",
+                        "provenanceIds": ["prov-1"],
+                    }
+                ],
+                "crossDepartmentRiskCount": 1,
+                "unresolvedConflictCodes": ["INVENTORY_ORDER_MISMATCH"],
+            }
+        )
 
-    safe = enforce_context_boundary(
-        "catalog", context(productsAtRisk=nested)
-    )
+    safe = enforce_context_boundary(agent_kind, context(agent_kind, **overrides))
 
-    approved = safe["productsAtRisk"]
-    assert set(approved) == set(nested)
-    assert approved["count"] == 2
-    assert approved["provenanceIds"] == ("prov-1",)
+    assert safe["riskLevel"] == "medium"
+    assert safe["evidence"][0]["classification"] == "internal"
+    if agent_kind == "ai_ceo":
+        assert safe["departmentSummaries"][0]["agentKind"] == "catalog"
+        assert safe["crossDepartmentRisks"][0]["code"] == "INVENTORY_ORDER_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    ("agent_kind", "overrides", "code"),
+    [
+        ("catalog", {"completenessBasisPoints": -1}, "CONTEXT_VALUE_INVALID"),
+        ("inventory", {"riskLevel": "critical"}, "CONTEXT_VALUE_INVALID"),
+        (
+            "finance",
+            {"evidence": [{**valid_evidence(), "body": "raw"}]},
+            "CONTEXT_SCHEMA_INVALID",
+        ),
+        (
+            "ai_ceo",
+            {
+                "departmentSummaries": [
+                    {
+                        "agentKind": "catalog",
+                        "status": "running",
+                        "riskLevel": "low",
+                        "summary": "Aggregate summary.",
+                        "provenanceIds": ["prov-1"],
+                    }
+                ]
+            },
+            "CONTEXT_VALUE_INVALID",
+        ),
+        (
+            "ai_ceo",
+            {
+                "crossDepartmentRisks": [
+                    {
+                        "code": "VALID_CODE",
+                        "severity": "low",
+                        "summary": "Aggregate summary.",
+                        "provenanceIds": ["prov-1"],
+                        "value": "unexpected",
+                    }
+                ]
+            },
+            "CONTEXT_SCHEMA_INVALID",
+        ),
+    ],
+)
+def test_rejects_invalid_typed_context_shapes(
+    agent_kind: str, overrides: dict[str, object], code: str
+) -> None:
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(agent_kind, context(agent_kind, **overrides))
+
+    assert captured.value.code == code
 
 
 @pytest.mark.parametrize(
@@ -452,10 +567,47 @@ def test_enforces_recursive_deterministic_bounds(value: object, code: str) -> No
 
 
 def test_enforces_total_serialized_size_bound() -> None:
-    value = ["x" * 900 for _ in range(40)]
+    identifier = "p" * 255
+    evidence = [
+        {
+            **valid_evidence(),
+            "provenanceId": identifier,
+            "source": "s" * 255,
+        }
+        for _index in range(24)
+    ]
+    department_summaries = [
+        {
+            "agentKind": agent_kind,
+            "status": "complete",
+            "riskLevel": "low",
+            "summary": "x" * 1_000,
+            "provenanceIds": [identifier] * 8,
+        }
+        for agent_kind in ("catalog", "inventory", "order", "finance", "crm", "support")
+    ]
+    cross_department_risks = [
+        {
+            "code": f"CROSS_DEPARTMENT_RISK_{index}",
+            "severity": "medium",
+            "summary": "x" * 1_000,
+            "provenanceIds": [identifier] * 8,
+        }
+        for index in range(8)
+    ]
 
     with pytest.raises(ContextBoundaryFailure) as captured:
-        enforce_context_boundary("catalog", context(productsAtRisk=value))
+        enforce_context_boundary(
+            "ai_ceo",
+            context(
+                "ai_ceo",
+                summary="x" * 1_000,
+                evidence=evidence,
+                departmentSummaries=department_summaries,
+                crossDepartmentRisks=cross_department_risks,
+                unresolvedConflictCodes=[],
+            ),
+        )
 
     assert captured.value.code == "CONTEXT_SIZE_LIMIT_EXCEEDED"
 
@@ -468,17 +620,22 @@ def test_prompt_injection_remains_inert_data_when_otherwise_safe() -> None:
 
 
 def test_output_is_deeply_immutable_and_does_not_track_caller_mutation() -> None:
-    fields: dict[str, Any] = {"productsAtRisk": [{"count": 2}]}
+    fields: dict[str, Any] = {
+        "productsAtRisk": 2,
+        "evidence": [valid_evidence()],
+    }
     original = deepcopy(fields)
     safe = enforce_context_boundary(
         "catalog", AuthorizedContextInput("internal", fields)
     )
 
-    fields["productsAtRisk"][0]["count"] = 999
-    assert safe["productsAtRisk"] == ({"count": 2},)
-    assert original == {"productsAtRisk": [{"count": 2}]}
+    fields["productsAtRisk"] = 999
+    fields["evidence"][0]["classification"] = "restricted"
+    assert safe["productsAtRisk"] == 2
+    assert safe["evidence"][0]["classification"] == "internal"
+    assert original["productsAtRisk"] == 2
     with pytest.raises(TypeError):
-        safe["productsAtRisk"][0]["count"] = 3
+        safe["evidence"][0]["classification"] = "restricted"
 
 
 def test_contract_is_immutable() -> None:

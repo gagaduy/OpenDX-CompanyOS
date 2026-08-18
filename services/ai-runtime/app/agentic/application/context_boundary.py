@@ -8,6 +8,7 @@ import math
 import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from app.agentic.domain.model_runtime import AgentKind, FrozenJsonMapping
 
@@ -178,50 +179,69 @@ _SENSITIVE_AUTH_FIELDS = frozenset(
         "setcookie",
     }
 )
-_NESTED_ALLOWED_FIELDS = frozenset(
-    {
-        "affectedOrderCount",
-        "affectedProductCount",
-        "agentKind",
-        "atRiskSkuCount",
-        "classification",
-        "classificationCount",
-        "code",
-        "completenessBasisPoints",
-        "count",
-        "crossDepartmentRiskCount",
-        "discrepancyAmountVnd",
-        "discrepancyCount",
-        "expiryRiskCount",
-        "followupOpportunityCount",
-        "freshnessStatus",
-        "invalidTransitionCount",
-        "lifetimePaidRevenueVnd",
-        "merchandisingSignalCount",
-        "overdueCount",
-        "pendingAmountVnd",
-        "pendingPaymentCount",
-        "productsAtRisk",
-        "provenanceIds",
-        "providerEvidenceCoverageBasisPoints",
-        "publicationBlockerCount",
-        "relatedOrderContextCount",
-        "repeatCustomerCount",
-        "reservationAnomalyCount",
-        "retrievedAt",
-        "riskLevel",
-        "segmentCount",
-        "severity",
-        "slaRiskCount",
-        "slowStockSkuCount",
-        "source",
-        "stalledOrderCount",
-        "status",
-        "summary",
-        "unresolvedConflictCodes",
-        "value",
-    }
+_AGENT_METRIC_FIELDS: dict[AgentKind, frozenset[str]] = {
+    "ai_ceo": frozenset({"crossDepartmentRiskCount"}),
+    "catalog": frozenset(
+        {
+            "completenessBasisPoints",
+            "productsAtRisk",
+            "publicationBlockerCount",
+            "merchandisingSignalCount",
+        }
+    ),
+    "inventory": frozenset(
+        {
+            "atRiskSkuCount",
+            "slowStockSkuCount",
+            "reservationAnomalyCount",
+            "affectedProductCount",
+        }
+    ),
+    "order": frozenset(
+        {
+            "stalledOrderCount",
+            "invalidTransitionCount",
+            "expiryRiskCount",
+            "affectedOrderCount",
+        }
+    ),
+    "finance": frozenset(
+        {
+            "pendingPaymentCount",
+            "pendingAmountVnd",
+            "discrepancyCount",
+            "discrepancyAmountVnd",
+            "providerEvidenceCoverageBasisPoints",
+        }
+    ),
+    "crm": frozenset(
+        {
+            "segmentCount",
+            "followupOpportunityCount",
+            "repeatCustomerCount",
+            "lifetimePaidRevenueVnd",
+        }
+    ),
+    "support": frozenset(
+        {
+            "slaRiskCount",
+            "overdueCount",
+            "classificationCount",
+            "relatedOrderContextCount",
+        }
+    ),
+}
+_BASIS_POINT_FIELDS = frozenset(
+    {"completenessBasisPoints", "providerEvidenceCoverageBasisPoints"}
 )
+_RISK_LEVELS = frozenset({"low", "medium", "high"})
+_FRESHNESS_STATUSES = frozenset({"fresh", "stale", "unknown"})
+_DEPARTMENT_AGENT_KINDS = frozenset(
+    {"catalog", "inventory", "order", "finance", "crm", "support"}
+)
+_RESULT_STATUSES = frozenset({"complete", "partial"})
+_REASON_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,99}$")
+_SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
 _AI_CEO_FORBIDDEN_FIELDS = frozenset(
     {
         "agentcall",
@@ -255,7 +275,8 @@ _SENSITIVE_EVIDENCE = re.compile(
 _MAX_STRING_LENGTH = 1_000
 _MAX_DEPTH = 6
 _MAX_COLLECTION_ITEMS = 128
-_MAX_TOTAL_FIELDS = 128
+_MAX_FIELDS_PER_MAPPING = 128
+_MAX_TOTAL_FIELDS = 512
 _MAX_TOTAL_ITEMS = 512
 _MAX_SERIALIZED_BYTES = 32_768
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
@@ -309,18 +330,11 @@ def enforce_context_boundary(
     if allowed_fields is None:
         raise ContextBoundaryFailure("CONTEXT_AGENT_KIND_UNSUPPORTED")
     _require_internal(context.classification)
-    _preflight_input(context.fields)
-    bounds = _Bounds()
-    filtered = _filter_mapping(
-        context.fields,
-        inherited_classification=context.classification,
-        depth=0,
-        bounds=bounds,
-        allowed_top_level=allowed_fields,
-        forbidden_fields=(
-            _AI_CEO_FORBIDDEN_FIELDS if agent_kind == "ai_ceo" else frozenset()
-        ),
+    forbidden_fields = (
+        _AI_CEO_FORBIDDEN_FIELDS if agent_kind == "ai_ceo" else frozenset()
     )
+    _preflight_input(context.fields, forbidden_fields)
+    filtered = _parse_typed_context(agent_kind, context.fields, forbidden_fields)
     _serialized_text, serialized = _serialize_json(filtered)
     if len(serialized) > _MAX_SERIALIZED_BYTES:
         raise ContextBoundaryFailure("CONTEXT_SIZE_LIMIT_EXCEEDED")
@@ -338,115 +352,256 @@ def serialize_authorized_context(context: AuthorizedContext) -> str:
     return serialized
 
 
-def _filter_mapping(
+def _parse_typed_context(
+    agent_kind: AgentKind,
     value: Mapping[str, object],
-    *,
-    inherited_classification: str,
-    depth: int,
-    bounds: _Bounds,
-    allowed_top_level: frozenset[str] | None = None,
-    forbidden_fields: frozenset[str] = frozenset(),
+    forbidden_fields: frozenset[str],
 ) -> dict[str, object]:
-    _check_depth(depth)
-    bounds.fields += len(value)
-    if bounds.fields > _MAX_TOTAL_FIELDS:
-        raise ContextBoundaryFailure("CONTEXT_FIELD_LIMIT_EXCEEDED")
-    if len(value) > _MAX_COLLECTION_ITEMS:
-        raise ContextBoundaryFailure("CONTEXT_COLLECTION_LIMIT_EXCEEDED")
+    allowed_fields = _AGENT_FIELDS[agent_kind]
+    metric_fields = _AGENT_METRIC_FIELDS[agent_kind]
     result: dict[str, object] = {}
     for key, item in value.items():
-        if type(key) is not str:
-            raise ContextBoundaryFailure("CONTEXT_TYPE_UNSUPPORTED")
-        if len(key) > _MAX_STRING_LENGTH:
-            raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
-        if not _is_valid_unicode(key):
-            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
-        normalized_field = _normalized_field(key)
-        if normalized_field in forbidden_fields:
-            raise ContextBoundaryFailure("CONTEXT_FORBIDDEN_SEMANTIC_FIELD")
-        if _is_sensitive_field(normalized_field):
-            raise ContextBoundaryFailure("CONTEXT_SENSITIVE_FIELD_BLOCKED")
-        if allowed_top_level is not None and key not in allowed_top_level:
+        _validate_context_key(key, forbidden_fields)
+        if key not in allowed_fields:
             continue
-        if allowed_top_level is None and key not in _NESTED_ALLOWED_FIELDS:
-            continue
-        filtered = _filter_value(
-            item,
-            inherited_classification=inherited_classification,
-            depth=depth + 1,
-            bounds=bounds,
-            forbidden_fields=forbidden_fields,
-        )
-        result[key] = filtered
+        item = _unwrap_internal(item)
+        if key in metric_fields:
+            result[key] = _safe_non_negative_integer(
+                item, basis_points=key in _BASIS_POINT_FIELDS
+            )
+        elif key == "riskLevel":
+            result[key] = _safe_literal(item, _RISK_LEVELS)
+        elif key == "summary":
+            result[key] = _safe_string(item)
+        elif key == "evidence":
+            result[key] = _parse_evidence(item)
+        elif key == "departmentSummaries" and agent_kind == "ai_ceo":
+            result[key] = _parse_department_summaries(item, forbidden_fields)
+        elif key == "crossDepartmentRisks" and agent_kind == "ai_ceo":
+            result[key] = _parse_cross_department_risks(item, forbidden_fields)
+        elif key == "unresolvedConflictCodes" and agent_kind == "ai_ceo":
+            result[key] = _parse_reason_codes(item, maximum=8)
+        else:
+            raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
     return result
 
 
-def _filter_value(
-    value: object,
-    *,
-    inherited_classification: str,
-    depth: int,
-    bounds: _Bounds,
-    forbidden_fields: frozenset[str],
-) -> object:
-    _check_depth(depth)
-    classification = inherited_classification
-    if isinstance(value, ClassifiedValue):
-        classification = value.classification
-        value = value.value
-    _require_internal(classification)
-    bounds.items += 1
-    if bounds.items > _MAX_TOTAL_ITEMS:
-        raise ContextBoundaryFailure("CONTEXT_COLLECTION_LIMIT_EXCEEDED")
-    if isinstance(value, Mapping):
-        return _filter_mapping(
-            value,
-            inherited_classification=classification,
-            depth=depth,
-            bounds=bounds,
-            forbidden_fields=forbidden_fields,
+def _parse_evidence(value: object) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for raw_item in _safe_array(value, maximum=24):
+        item = _exact_object(
+            raw_item,
+            {
+                "provenanceId",
+                "source",
+                "retrievedAt",
+                "freshnessStatus",
+                "classification",
+            },
         )
-    if type(value) in (tuple, list):
-        if len(value) > _MAX_COLLECTION_ITEMS:
-            raise ContextBoundaryFailure("CONTEXT_COLLECTION_LIMIT_EXCEEDED")
-        return [
-            _filter_value(
-                item,
-                inherited_classification=classification,
-                depth=depth + 1,
-                bounds=bounds,
-                forbidden_fields=forbidden_fields,
-            )
-            for item in value
-        ]
-    if type(value) is str:
-        if len(value) > _MAX_STRING_LENGTH:
-            raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
-        if not _is_valid_unicode(value):
-            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
-        if any(
-            pattern.search(value)
-            for pattern in (
-                _EMAIL,
-                _PHONE,
-                _INTERNATIONAL_PHONE,
-                _BEARER,
-                _CREDENTIAL,
-                _PRIVATE_KEY,
-                _COMMON_API_KEY,
-                _GITHUB_TOKEN,
-                _SENSITIVE_EVIDENCE,
-            )
-        ):
-            raise ContextBoundaryFailure("CONTEXT_SENSITIVE_DATA_BLOCKED")
-        return value
-    if type(value) is float and not math.isfinite(value):
-        raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
-    if type(value) is int and abs(value) > _MAX_SAFE_INTEGER:
-        raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
-    if value is None or type(value) in (bool, int, float):
-        return value
-    raise ContextBoundaryFailure("CONTEXT_TYPE_UNSUPPORTED")
+        classification = _unwrap_internal(item["classification"])
+        _require_internal(classification)
+        retrieved_at = _safe_string(_unwrap_internal(item["retrievedAt"]), maximum=100)
+        if not _is_offset_datetime(retrieved_at):
+            raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+        result.append(
+            {
+                "provenanceId": _safe_identifier(
+                    _unwrap_internal(item["provenanceId"])
+                ),
+                "source": _safe_identifier(_unwrap_internal(item["source"])),
+                "retrievedAt": retrieved_at,
+                "freshnessStatus": _safe_literal(
+                    _unwrap_internal(item["freshnessStatus"]),
+                    _FRESHNESS_STATUSES,
+                ),
+                "classification": "internal",
+            }
+        )
+    return result
+
+
+def _parse_department_summaries(
+    value: object, forbidden_fields: frozenset[str]
+) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for raw_item in _safe_array(value, maximum=6):
+        item = _exact_object(
+            raw_item,
+            {"agentKind", "status", "riskLevel", "summary", "provenanceIds"},
+            forbidden_fields,
+        )
+        agent_kind = _safe_literal(
+            _unwrap_internal(item["agentKind"]), _DEPARTMENT_AGENT_KINDS
+        )
+        if agent_kind in seen:
+            raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+        seen.add(agent_kind)
+        result.append(
+            {
+                "agentKind": agent_kind,
+                "status": _safe_literal(
+                    _unwrap_internal(item["status"]), _RESULT_STATUSES
+                ),
+                "riskLevel": _safe_literal(
+                    _unwrap_internal(item["riskLevel"]), _RISK_LEVELS
+                ),
+                "summary": _safe_string(_unwrap_internal(item["summary"])),
+                "provenanceIds": _parse_provenance_ids(item["provenanceIds"]),
+            }
+        )
+    return result
+
+
+def _parse_cross_department_risks(
+    value: object, forbidden_fields: frozenset[str]
+) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for raw_item in _safe_array(value, maximum=8):
+        item = _exact_object(
+            raw_item,
+            {"code", "severity", "summary", "provenanceIds"},
+            forbidden_fields,
+        )
+        result.append(
+            {
+                "code": _safe_reason_code(_unwrap_internal(item["code"])),
+                "severity": _safe_literal(
+                    _unwrap_internal(item["severity"]), _RISK_LEVELS
+                ),
+                "summary": _safe_string(_unwrap_internal(item["summary"])),
+                "provenanceIds": _parse_provenance_ids(item["provenanceIds"]),
+            }
+        )
+    return result
+
+
+def _parse_provenance_ids(value: object) -> list[str]:
+    return [
+        _safe_identifier(_unwrap_internal(item))
+        for item in _safe_array(value, maximum=8, minimum=1)
+    ]
+
+
+def _parse_reason_codes(value: object, *, maximum: int) -> list[str]:
+    return [
+        _safe_reason_code(_unwrap_internal(item))
+        for item in _safe_array(value, maximum=maximum)
+    ]
+
+
+def _exact_object(
+    value: object,
+    expected_keys: set[str],
+    forbidden_fields: frozenset[str] = frozenset(),
+) -> Mapping[str, object]:
+    value = _unwrap_internal(value)
+    if not isinstance(value, Mapping):
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    for key in value:
+        _validate_context_key(key, forbidden_fields)
+    if set(value) != expected_keys:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    return value
+
+
+def _safe_array(
+    value: object, *, maximum: int, minimum: int = 0
+) -> tuple[object, ...]:
+    value = _unwrap_internal(value)
+    if type(value) not in (list, tuple) or not minimum <= len(value) <= maximum:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    return tuple(value)
+
+
+def _safe_non_negative_integer(value: object, *, basis_points: bool) -> int:
+    value = _unwrap_internal(value)
+    if type(value) is not int:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    maximum = 10_000 if basis_points else _MAX_SAFE_INTEGER
+    if value < 0 or value > maximum:
+        raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+    return value
+
+
+def _safe_literal(value: object, allowed: frozenset[str]) -> str:
+    value = _unwrap_internal(value)
+    if type(value) is not str:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    if value not in allowed:
+        raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+    return value
+
+
+def _safe_identifier(value: object) -> str:
+    value = _safe_string(_unwrap_internal(value), maximum=255)
+    if not _SAFE_IDENTIFIER.fullmatch(value):
+        raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+    return value
+
+
+def _safe_reason_code(value: object) -> str:
+    value = _safe_string(_unwrap_internal(value), maximum=100)
+    if not _REASON_CODE.fullmatch(value):
+        raise ContextBoundaryFailure("CONTEXT_VALUE_INVALID")
+    return value
+
+
+def _safe_string(value: object, *, maximum: int = _MAX_STRING_LENGTH) -> str:
+    value = _unwrap_internal(value)
+    if type(value) is not str:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    if not value or len(value) > maximum:
+        raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+    if not _is_valid_unicode(value):
+        raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+    if any(
+        pattern.search(value)
+        for pattern in (
+            _EMAIL,
+            _PHONE,
+            _INTERNATIONAL_PHONE,
+            _BEARER,
+            _CREDENTIAL,
+            _PRIVATE_KEY,
+            _COMMON_API_KEY,
+            _GITHUB_TOKEN,
+            _SENSITIVE_EVIDENCE,
+        )
+    ):
+        raise ContextBoundaryFailure("CONTEXT_SENSITIVE_DATA_BLOCKED")
+    return value
+
+
+def _unwrap_internal(value: object) -> object:
+    while isinstance(value, ClassifiedValue):
+        _require_internal(value.classification)
+        value = value.value
+    return value
+
+
+def _is_offset_datetime(value: str) -> bool:
+    parsed: datetime | None = None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = None
+    return parsed is not None and parsed.tzinfo is not None
+
+
+def _validate_context_key(key: object, forbidden_fields: frozenset[str]) -> None:
+    if type(key) is not str:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    if len(key) > _MAX_STRING_LENGTH:
+        raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+    if not _is_valid_unicode(key):
+        raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+    normalized = _normalized_field(key)
+    if normalized in forbidden_fields:
+        raise ContextBoundaryFailure("CONTEXT_FORBIDDEN_SEMANTIC_FIELD")
+    if _is_sensitive_field(normalized):
+        raise ContextBoundaryFailure("CONTEXT_SENSITIVE_FIELD_BLOCKED")
 
 
 def _require_internal(classification: object) -> None:
@@ -473,7 +628,7 @@ def _is_sensitive_field(value: str) -> bool:
     )
 
 
-def _preflight_input(root: object) -> None:
+def _preflight_input(root: object, forbidden_fields: frozenset[str]) -> None:
     if not isinstance(root, Mapping):
         raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
     active_ids: set[int] = set()
@@ -486,20 +641,40 @@ def _preflight_input(root: object) -> None:
             continue
         _check_depth(depth)
         if isinstance(value, ClassifiedValue):
+            _require_internal(value.classification)
             stack.append((True, value.value, depth + 1))
             continue
         if isinstance(value, Mapping):
             _preflight_container(
-                value, depth, active_ids, stack, bounds, mapping=True
+                value,
+                depth,
+                active_ids,
+                stack,
+                bounds,
+                forbidden_fields,
+                mapping=True,
             )
             continue
         if type(value) in (list, tuple):
             _preflight_container(
-                value, depth, active_ids, stack, bounds, mapping=False
+                value,
+                depth,
+                active_ids,
+                stack,
+                bounds,
+                forbidden_fields,
+                mapping=False,
             )
             continue
-        if type(value) is str and not _is_valid_unicode(value):
-            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+        if type(value) is str:
+            if len(value) > _MAX_STRING_LENGTH:
+                raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+            if not _is_valid_unicode(value):
+                raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+        if type(value) is float and not math.isfinite(value):
+            raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
+        if type(value) is int and abs(value) > _MAX_SAFE_INTEGER:
+            raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
 
 
 def _preflight_container(
@@ -508,12 +683,15 @@ def _preflight_container(
     active_ids: set[int],
     stack: list[tuple[bool, object, int]],
     bounds: _Bounds,
+    forbidden_fields: frozenset[str],
     *,
     mapping: bool,
 ) -> None:
     _check_depth(depth)
     size = _safe_length(value)
     if mapping:
+        if size > _MAX_FIELDS_PER_MAPPING:
+            raise ContextBoundaryFailure("CONTEXT_FIELD_LIMIT_EXCEEDED")
         bounds.fields += size
         if bounds.fields > _MAX_TOTAL_FIELDS:
             raise ContextBoundaryFailure("CONTEXT_FIELD_LIMIT_EXCEEDED")
@@ -529,7 +707,9 @@ def _preflight_container(
         raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
     active_ids.add(identity)
     stack.append((False, value, depth))
-    children = _safe_children(value, mapping=mapping)
+    children = _safe_children(
+        value, mapping=mapping, forbidden_fields=forbidden_fields
+    )
     for child in reversed(children):
         stack.append((True, child, depth + 1))
 
@@ -545,19 +725,26 @@ def _safe_length(value: object) -> int:
     return size
 
 
-def _safe_children(value: object, *, mapping: bool) -> tuple[object, ...]:
+def _safe_children(
+    value: object, *, mapping: bool, forbidden_fields: frozenset[str]
+) -> tuple[object, ...]:
     children: tuple[object, ...] | None = None
-    try:
-        if mapping:
-            children = tuple(
-                child
-                for key, item in value.items()  # type: ignore[union-attr]
-                for child in (key, item)
-            )
-        else:
+    if mapping:
+        items: tuple[tuple[object, object], ...] | None = None
+        try:
+            items = tuple(value.items())  # type: ignore[union-attr]
+        except Exception:
+            items = None
+        if items is None:
+            raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
+        for key, _item in items:
+            _validate_context_key(key, forbidden_fields)
+        children = tuple(child for key, item in items for child in (key, item))
+    else:
+        try:
             children = tuple(value)  # type: ignore[arg-type]
-    except Exception:
-        children = None
+        except Exception:
+            children = None
     if children is None:
         raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
     return children
