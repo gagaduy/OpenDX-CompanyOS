@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it, vi } from "vitest";
+import { createLogger } from "../../../../../shared/observability/logger";
+import { createMetricsRegistry } from "../../../../../shared/observability/metrics";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import { ZodDepartmentToolSchemaRegistry } from "../../../infrastructure/tools/zod-department-tool-schema.registry";
@@ -132,6 +134,40 @@ describe("ToolRegistryService", () => {
       expect.objectContaining({ errorCode: "TOOL_SOURCE_UNAVAILABLE", retryable: true }),
     );
   });
+
+  it("emits bounded tool telemetry and always releases the active gauge", async () => {
+    const lines: string[] = [];
+    const logger = createLogger({ format: "json", level: "info", sink: (line) => lines.push(line) });
+    const metrics = createMetricsRegistry();
+    const observability = { logger, metrics, monotonicNow: vi.fn()
+      .mockReturnValueOnce(100).mockReturnValueOnce(125)
+      .mockReturnValueOnce(200).mockReturnValueOnce(240) };
+    const completed = createHarness({ observability, outputSource: "result-canary-secret" });
+    await completed.service.invoke(invocation);
+    const failed = createHarness({ observability, adapterErrorCode: "TOOL_SOURCE_UNAVAILABLE" });
+    await expect(failed.service.invoke({ ...invocation, idempotencyKey: "invoke-failed" }))
+      .rejects.toMatchObject({ code: "TOOL_SOURCE_UNAVAILABLE" });
+
+    const serialized = lines.join("\n");
+    expect(serialized).not.toContain("result-canary-secret");
+    expect(serialized).not.toContain(JSON.stringify(invocation.parameters));
+    expect(lines.map((line) => JSON.parse(line))).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: "agentic_tool_invocation", tool: descriptor.name, toolVersion: 1,
+        department: "catalog", outcome: "completed", errorCode: "NONE",
+        correlationId: "corr-1", causationId: "cause-1", attempt: 1, durationMs: 25,
+      }),
+      expect.objectContaining({
+        message: "agentic_tool_invocation", outcome: "retryable_failure",
+        errorCode: "TOOL_SOURCE_UNAVAILABLE", durationMs: 40,
+      }),
+    ]));
+    const rendered = metrics.render();
+    expect(rendered).toContain('opendx_agentic_tool_active{tool="catalog.product_completeness",version="1",department="catalog"} 0');
+    expect(rendered).toContain('outcome="completed",error="NONE"');
+    expect(rendered).toContain('outcome="retryable_failure",error="TOOL_SOURCE_UNAVAILABLE"');
+    expect(rendered).not.toMatch(/correlation|causation|task|client|subject/);
+  });
 });
 
 function createHarness(options: {
@@ -145,8 +181,10 @@ function createHarness(options: {
   readonly receiptKind?: "reserved" | "completed" | "in_progress" | "failed";
   readonly outputRetrievedAt?: string;
   readonly adapterErrorCode?: string;
+  readonly outputSource?: string;
+  readonly observability?: ConstructorParameters<typeof ToolRegistryService>[7];
 } = {}) {
-  const output = completenessOutput(options.outputRetrievedAt);
+  const output = completenessOutput(options.outputRetrievedAt, options.outputSource);
   const repository = {
     findAgentByClientId: vi.fn(async () => ({ kind: "catalog", keycloakClientId: "agent-catalog", active: options.agentActive ?? true, version: 1, createdAt: "", updatedAt: "" })),
     findTaskForAgent: vi.fn(async () => options.taskAssigned === false ? undefined : ({ id: "task-1", state: "ready", createdBy: "operator", goal: "g", instructions: "i", configurationRevisionId: "revision-1", version: 1, createdAt: "", updatedAt: "" })),
@@ -186,13 +224,17 @@ function createHarness(options: {
     repository as unknown as AgenticRepository,
     policy as unknown as PolicyEvaluator, transactions, adapters, schemas, () => `id-${++id}`,
     () => "2026-08-14T12:00:00.000Z",
+    options.observability,
   );
   return { service, repository, adapter, adapters };
 }
 
-function completenessOutput(retrievedAt = "2026-08-14T12:00:00.000Z") {
+function completenessOutput(
+  retrievedAt = "2026-08-14T12:00:00.000Z",
+  source = "catalog.health",
+) {
   return {
-    source: "catalog.health",
+    source,
     sourceVersion: 1 as const,
     retrievedAt,
     window: null,

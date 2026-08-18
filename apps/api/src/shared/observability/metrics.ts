@@ -8,8 +8,27 @@ export interface HttpMetricSample {
   readonly durationMs: number;
 }
 
+export interface AgenticToolMetricSample {
+  readonly tool: string;
+  readonly version: number;
+  readonly department: string;
+  readonly outcome: string;
+  readonly errorCode: string;
+  readonly durationMs: number;
+  readonly rows: number;
+  readonly resultBytes: number;
+}
+
+export interface AgenticToolIdentity {
+  readonly tool: string;
+  readonly version: number;
+  readonly department: string;
+}
+
 export interface MetricsRegistry {
   recordHttpRequest(sample: HttpMetricSample): void;
+  adjustAgenticToolActive(identity: AgenticToolIdentity, delta: 1 | -1): void;
+  recordAgenticToolInvocation(sample: AgenticToolMetricSample): void;
   render(): string;
 }
 
@@ -17,6 +36,12 @@ export function createMetricsRegistry(): MetricsRegistry {
   const requestTotals = new Map<string, number>();
   const durationCounts = new Map<string, number>();
   const durationSums = new Map<string, number>();
+  const toolActive = new Map<string, number>();
+  const toolTotals = new Map<string, number>();
+  const toolDurationCounts = new Map<string, number>();
+  const toolDurationSums = new Map<string, number>();
+  const toolRowSums = new Map<string, number>();
+  const toolResultByteSums = new Map<string, number>();
 
   return {
     recordHttpRequest(sample) {
@@ -26,6 +51,21 @@ export function createMetricsRegistry(): MetricsRegistry {
       increment(requestTotals, labels({ method, route, status }));
       increment(durationCounts, labels({ method, route }));
       increment(durationSums, labels({ method, route }), sample.durationMs);
+    },
+    adjustAgenticToolActive(identity, delta) {
+      const key = toolIdentityLabels(identity);
+      toolActive.set(key, Math.max(0, (toolActive.get(key) ?? 0) + delta));
+    },
+    recordAgenticToolInvocation(sample) {
+      const identity = toolIdentityLabels(sample);
+      const outcome = normalizeToolOutcome(sample.outcome);
+      const error = normalizeToolError(sample.errorCode);
+      const result = `${identity},${labels({ outcome, error })}`;
+      increment(toolTotals, result);
+      increment(toolDurationCounts, identity);
+      increment(toolDurationSums, identity, sample.durationMs);
+      increment(toolRowSums, identity, sample.rows);
+      increment(toolResultByteSums, identity, sample.resultBytes);
     },
     render() {
       const lines = [
@@ -38,10 +78,52 @@ export function createMetricsRegistry(): MetricsRegistry {
         ),
         "# TYPE opendx_http_request_duration_ms_sum counter",
         ...renderMetric("opendx_http_request_duration_ms_sum", durationSums),
+        "# TYPE opendx_agentic_tool_active gauge",
+        ...renderMetric("opendx_agentic_tool_active", toolActive),
+        "# TYPE opendx_agentic_tool_invocations_total counter",
+        ...renderMetric("opendx_agentic_tool_invocations_total", toolTotals),
+        "# TYPE opendx_agentic_tool_duration_ms_count counter",
+        ...renderMetric("opendx_agentic_tool_duration_ms_count", toolDurationCounts),
+        "# TYPE opendx_agentic_tool_duration_ms_sum counter",
+        ...renderMetric("opendx_agentic_tool_duration_ms_sum", toolDurationSums),
+        "# TYPE opendx_agentic_tool_rows_sum counter",
+        ...renderMetric("opendx_agentic_tool_rows_sum", toolRowSums),
+        "# TYPE opendx_agentic_tool_result_bytes_sum counter",
+        ...renderMetric("opendx_agentic_tool_result_bytes_sum", toolResultByteSums),
       ];
       return `${lines.join("\n")}\n`;
     },
   };
+}
+
+function toolIdentityLabels(identity: AgenticToolIdentity): string {
+  return labels({
+    tool: sanitizeLabel(identity.tool),
+    version: sanitizeLabel(String(identity.version)),
+    department: sanitizeLabel(identity.department),
+  });
+}
+
+const toolOutcomes = new Set([
+  "completed", "duplicate_replay", "denied", "in_progress",
+  "conflict", "retryable_failure", "terminal_failure",
+]);
+
+function normalizeToolOutcome(value: string): string {
+  return toolOutcomes.has(value) ? value : "terminal_failure";
+}
+
+const toolErrors = new Set([
+  "NONE", "INTERNAL_ERROR", "AGENT_NOT_ACTIVE", "TASK_AGENT_MISMATCH",
+  "CONFIGURATION_INVALID", "POLICY_DENIED", "APPROVAL_REQUIRED", "BUDGET_EXCEEDED",
+  "TOOL_INPUT_INVALID", "TOOL_NOT_FOUND", "TOOL_GRANT_MISSING", "TOOL_SCOPE_DENIED",
+  "TOOL_GRANT_EXHAUSTED", "TOOL_INVOCATION_IN_PROGRESS", "TOOL_RESULT_STALE",
+  "TOOL_RESULT_TOO_LARGE", "TOOL_QUERY_TIMEOUT", "TOOL_SOURCE_UNAVAILABLE",
+  "TOOL_OUTPUT_INVALID", "TOOL_UNAVAILABLE",
+]);
+
+function normalizeToolError(value: string): string {
+  return toolErrors.has(value) ? value : "OTHER";
 }
 
 function increment(
