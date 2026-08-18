@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a deterministic model Quality Gate that validates authoritative
+  provenance, scope, freshness, material payloads, leakage, and conflicts for
+  all seven governed Agents before accepting structured results.
+
 - Replace the generic nested model-context union with purpose-scoped typed
   schemas for six departments and AI CEO aggregate summaries, risks, and exact
   internal provenance metadata.

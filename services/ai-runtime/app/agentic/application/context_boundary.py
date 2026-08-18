@@ -270,7 +270,8 @@ _COMMON_API_KEY = re.compile(r"(?:\bsk-[A-Za-z0-9_-]{20,}\b|\bAKIA[A-Z0-9]{16}\b
 _GITHUB_TOKEN = re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")
 _SENSITIVE_EVIDENCE = re.compile(
     r"(?i)(?:customer[_ -]?id|provider[_ -]?transaction[_ -]?id|"
-    r"raw[_ -]?ticket[_ -]?text)\s*[:=]\s*\S+"
+    r"raw[_ -]?ticket[_ -]?text)\s*[:=]\s*\S+|"
+    r"\b(?:sepay\s+)?provider\s+transaction\s+\S+"
 )
 _MAX_STRING_LENGTH = 1_000
 _MAX_DEPTH = 6
@@ -548,14 +549,9 @@ def _safe_reason_code(value: object) -> str:
     return value
 
 
-def _safe_string(value: object, *, maximum: int = _MAX_STRING_LENGTH) -> str:
-    value = _unwrap_internal(value)
-    if type(value) is not str:
-        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
-    if not value or len(value) > maximum:
-        raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
-    if not _is_valid_unicode(value):
-        raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+def sensitive_text_kind(value: str) -> str | None:
+    if _SENSITIVE_EVIDENCE.search(value):
+        return "provider_evidence"
     if any(
         pattern.search(value)
         for pattern in (
@@ -567,9 +563,21 @@ def _safe_string(value: object, *, maximum: int = _MAX_STRING_LENGTH) -> str:
             _PRIVATE_KEY,
             _COMMON_API_KEY,
             _GITHUB_TOKEN,
-            _SENSITIVE_EVIDENCE,
         )
     ):
+        return "sensitive"
+    return None
+
+
+def _safe_string(value: object, *, maximum: int = _MAX_STRING_LENGTH) -> str:
+    value = _unwrap_internal(value)
+    if type(value) is not str:
+        raise ContextBoundaryFailure("CONTEXT_SCHEMA_INVALID")
+    if not value or len(value) > maximum:
+        raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+    if not _is_valid_unicode(value):
+        raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+    if sensitive_text_kind(value) is not None:
         raise ContextBoundaryFailure("CONTEXT_SENSITIVE_DATA_BLOCKED")
     return value
 

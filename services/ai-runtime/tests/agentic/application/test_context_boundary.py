@@ -15,6 +15,7 @@ from app.agentic.application.context_boundary import (
     ClassifiedValue,
     ContextBoundaryFailure,
     enforce_context_boundary,
+    sensitive_text_kind,
 )
 
 
@@ -617,6 +618,22 @@ def test_prompt_injection_remains_inert_data_when_otherwise_safe() -> None:
     safe = enforce_context_boundary("catalog", context(summary=injection))
 
     assert safe["summary"] == injection
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("customer@example.com", "sensitive"),
+        ("api_key=super-secret-value", "sensitive"),
+        ("provider_transaction_id=provider-123", "provider_evidence"),
+        ("SePay provider transaction provider-123 was captured.", "provider_evidence"),
+        ("Ordinary aggregate health summary.", None),
+    ],
+)
+def test_classifies_sensitive_text_without_retaining_it(
+    value: str, expected: str | None
+) -> None:
+    assert sensitive_text_kind(value) == expected
 
 
 def test_output_is_deeply_immutable_and_does_not_track_caller_mutation() -> None:
