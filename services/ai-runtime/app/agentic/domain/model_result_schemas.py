@@ -252,10 +252,9 @@ def _parse_evidence(value: object) -> ProvenanceEvidence:
     if item["classification"] != "internal":
         raise ValueError("evidence classification must be internal")
     retrieved_at = _bounded_text(item["retrievedAt"], "retrievedAt", maximum=100)
-    try:
-        parsed_at = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
-    except ValueError as error:
-        raise ValueError("retrievedAt must be an ISO-8601 timestamp") from error
+    parsed_at = _parse_iso_timestamp(retrieved_at)
+    if parsed_at is None:
+        raise ValueError("retrievedAt must be an ISO-8601 timestamp") from None
     if parsed_at.tzinfo is None:
         raise ValueError("retrievedAt must include a timezone")
     return ProvenanceEvidence(
@@ -266,6 +265,13 @@ def _parse_evidence(value: object) -> ProvenanceEvidence:
             item["freshnessStatus"], _FRESHNESS_STATUSES, "freshnessStatus"
         ),  # type: ignore[arg-type]
     )
+
+
+def _parse_iso_timestamp(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _parse_payload(agent_kind: str, value: object) -> AgentPayload:
@@ -434,10 +440,9 @@ def _dictionary(value: object, name: str) -> dict[str, object]:
 def _exact_keys(value: dict[str, object], expected: set[str], name: str) -> None:
     actual = set(value)
     if actual != expected:
-        unknown = sorted(actual - expected)
         missing = sorted(expected - actual)
-        if unknown:
-            raise ValueError(f"{name} has unknown keys: {', '.join(unknown)}")
+        if actual - expected:
+            raise ValueError(f"{name} contains unknown keys")
         raise ValueError(f"{name} is missing keys: {', '.join(missing)}")
 
 

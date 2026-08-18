@@ -19,6 +19,7 @@ from app.agentic.domain.model_result_schemas import (
     SupportPayload,
     parse_model_result,
 )
+from app.agentic.domain.model_runtime import ModelRequest, ModelResult
 
 
 PAYLOADS: dict[str, dict[str, Any]] = {
@@ -167,6 +168,74 @@ def test_rejects_unknown_keys_at_every_nesting_level(
 
     with pytest.raises(ValueError, match="unknown keys"):
         parse_model_result(value)
+
+
+def test_unknown_key_error_does_not_retain_untrusted_key_text() -> None:
+    value = valid_envelope("catalog")
+    secret_key = "OPENROUTER_API_KEY_" + "x" * 4_096
+    value["payload"][secret_key] = "sensitive"
+
+    with pytest.raises(ValueError) as captured:
+        parse_model_result(value)
+
+    assert captured.value.args == ("catalog payload contains unknown keys",)
+    assert secret_key not in repr(captured.value)
+
+
+def test_invalid_retrieved_at_error_does_not_retain_provider_input() -> None:
+    value = valid_envelope("catalog")
+    provider_input = "provider-secret-invalid-timestamp"
+    value["evidence"][0]["retrievedAt"] = provider_input
+
+    with pytest.raises(ValueError) as captured:
+        parse_model_result(value)
+
+    assert captured.value.args == ("retrievedAt must be an ISO-8601 timestamp",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert provider_input not in repr(captured.value)
+
+
+def test_model_runtime_contracts_defensively_deep_freeze_json_data() -> None:
+    result_schema = {"properties": {"items": {"enum": ["one"]}}}
+    untrusted_context = {"rows": [{"count": 1}]}
+    content = {"nested": {"values": [1]}}
+    request = ModelRequest(
+        task_id="task-1",
+        agent_kind="catalog",
+        configuration_revision_id="revision-1",
+        model="model:free",
+        fallback_position=0,
+        result_schema_name="catalog_result_v1",
+        result_schema=result_schema,
+        trusted_instructions=("Return structured output.",),
+        untrusted_context=untrusted_context,
+        max_output_tokens=1_000,
+        idempotency_key="model-run-1",
+    )
+    result = ModelResult(
+        provider_request_id="provider-request-1",
+        model="model:free",
+        content=content,
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        provider_cost_micros=0,
+    )
+
+    result_schema["properties"]["items"]["enum"].append("two")
+    untrusted_context["rows"][0]["count"] = 999
+    content["nested"]["values"].append(2)
+
+    assert request.result_schema["properties"]["items"]["enum"] == ("one",)
+    assert request.untrusted_context["rows"] == ({"count": 1},)
+    assert result.content["nested"]["values"] == (1,)
+    with pytest.raises(TypeError):
+        request.result_schema["new"] = "blocked"
+    with pytest.raises(TypeError):
+        request.untrusted_context["rows"][0]["count"] = 2
+    with pytest.raises(TypeError):
+        result.content["nested"]["values"] += (2,)
 
 
 @pytest.mark.parametrize(
