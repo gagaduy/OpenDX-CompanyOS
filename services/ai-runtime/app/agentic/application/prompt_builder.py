@@ -57,6 +57,7 @@ def build_model_prompt(
         raise ValueError("unsupported agent kind")
     serialized = json.dumps(
         context_as_plain_json(context),
+        allow_nan=False,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,

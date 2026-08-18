@@ -111,10 +111,31 @@ def test_removes_fields_outside_each_agent_allow_list(agent_kind: str) -> None:
     ["delegation", "taskPlan", "assignee", "agentCalls", "subtasks", "toolCalls"],
 )
 def test_ai_ceo_never_receives_phase_f_coordination_fields(field: str) -> None:
-    safe = enforce_context_boundary("ai_ceo", context("ai_ceo", **{field: "CANARY"}))
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("ai_ceo", context("ai_ceo", **{field: "CANARY"}))
 
-    assert field not in safe
-    assert "CANARY" not in repr(safe)
+    assert captured.value.code == "CONTEXT_FORBIDDEN_SEMANTIC_FIELD"
+    assert "CANARY" not in repr(captured.value.args)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["Tasks", "sub_tasks", "ASSIGNEES", "delegation", "agent-calls"],
+)
+def test_ai_ceo_rejects_nested_phase_f_coordination_fields(field: str) -> None:
+    canary = "NESTED_COORDINATION_CANARY"
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "ai_ceo",
+            context(
+                "ai_ceo",
+                departmentSummaries=[{"agentKind": "catalog", field: canary}],
+            ),
+        )
+
+    assert captured.value.code == "CONTEXT_FORBIDDEN_SEMANTIC_FIELD"
+    assert canary not in repr(captured.value.args)
 
 
 @pytest.mark.parametrize(
@@ -165,6 +186,31 @@ def test_blocks_customer_payment_and_raw_ticket_evidence_fields(field: str) -> N
 
 
 @pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("Password", "PASSWORD_CANARY"),
+        ("api_key", "API_KEY_CANARY"),
+        ("Secret", "SECRET_CANARY"),
+        ("transaction-id", "TRANSACTION_CANARY"),
+        ("summary", "ghp_CANARYTOKEN123456789012345678901234"),
+    ],
+)
+def test_blocks_normalized_sensitive_keys_and_github_tokens(
+    field: str, value: str
+) -> None:
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "support", context("support", summary={field: value})
+        )
+
+    assert captured.value.code in {
+        "CONTEXT_SENSITIVE_FIELD_BLOCKED",
+        "CONTEXT_SENSITIVE_DATA_BLOCKED",
+    }
+    assert value not in repr(captured.value.args)
+
+
+@pytest.mark.parametrize(
     "canary",
     [
         "customer_id=CUSTOMER_CANARY_123",
@@ -192,6 +238,29 @@ def test_bounds_object_key_strings_without_retaining_them() -> None:
 
     assert captured.value.code == "CONTEXT_STRING_LIMIT_EXCEEDED"
     assert canary not in repr(captured.value.args)
+
+
+def test_rejects_cyclic_input_with_bounded_safe_failure() -> None:
+    fields: dict[str, object] = {}
+    fields["productsAtRisk"] = fields
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "catalog", AuthorizedContextInput("internal", fields)
+        )
+
+    assert captured.value.code == "CONTEXT_STRUCTURE_INVALID"
+    assert captured.value.args == ("CONTEXT_STRUCTURE_INVALID",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_rejects_non_finite_floats(value: float) -> None:
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(productsAtRisk=value))
+
+    assert captured.value.code == "CONTEXT_NUMBER_INVALID"
 
 
 @pytest.mark.parametrize(
