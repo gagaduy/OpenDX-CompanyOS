@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Literal
 
 from app.agentic.application.context_boundary import (
     AuthorizedContext,
-    context_as_plain_json,
+    serialize_authorized_context,
 )
 from app.agentic.domain.model_runtime import AgentKind
 
@@ -55,13 +54,7 @@ def build_model_prompt(
     role = _AGENT_ROLES.get(agent_kind)
     if role is None:
         raise ValueError("unsupported agent kind")
-    serialized = json.dumps(
-        context_as_plain_json(context),
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    serialized = serialize_authorized_context(context)
     return ModelPrompt(
         trusted_messages=(
             PromptMessage(

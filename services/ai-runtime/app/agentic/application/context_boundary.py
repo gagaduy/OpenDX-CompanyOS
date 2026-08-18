@@ -148,6 +148,7 @@ _MAX_COLLECTION_ITEMS = 128
 _MAX_TOTAL_FIELDS = 128
 _MAX_TOTAL_ITEMS = 512
 _MAX_SERIALIZED_BYTES = 32_768
+_MAX_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 class ContextBoundaryFailure(RuntimeError):
@@ -168,6 +169,7 @@ class AuthorizedContextInput:
     fields: Mapping[str, object]
 
     def __post_init__(self) -> None:
+        _preflight_input(self.fields)
         object.__setattr__(self, "fields", _freeze_input(self.fields))
 
 
@@ -245,13 +247,7 @@ def enforce_context_boundary(
             _AI_CEO_FORBIDDEN_FIELDS if agent_kind == "ai_ceo" else frozenset()
         ),
     )
-    serialized = json.dumps(
-        filtered,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
+    _serialized_text, serialized = _serialize_json(filtered)
     if len(serialized) > _MAX_SERIALIZED_BYTES:
         raise ContextBoundaryFailure("CONTEXT_SIZE_LIMIT_EXCEEDED")
     return AuthorizedContext(filtered)
@@ -261,6 +257,11 @@ def context_as_plain_json(context: AuthorizedContext) -> dict[str, object]:
     if type(context) is not AuthorizedContext:
         raise TypeError("authorized context is required")
     return {key: _thaw(context[key]) for key in context}
+
+
+def serialize_authorized_context(context: AuthorizedContext) -> str:
+    serialized, _encoded = _serialize_json(context_as_plain_json(context))
+    return serialized
 
 
 def _filter_mapping(
@@ -284,6 +285,8 @@ def _filter_mapping(
             raise ContextBoundaryFailure("CONTEXT_TYPE_UNSUPPORTED")
         if len(key) > _MAX_STRING_LENGTH:
             raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+        if not _is_valid_unicode(key):
+            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
         normalized_field = _normalized_field(key)
         if normalized_field in forbidden_fields:
             raise ContextBoundaryFailure("CONTEXT_FORBIDDEN_SEMANTIC_FIELD")
@@ -342,6 +345,8 @@ def _filter_value(
     if type(value) is str:
         if len(value) > _MAX_STRING_LENGTH:
             raise ContextBoundaryFailure("CONTEXT_STRING_LIMIT_EXCEEDED")
+        if not _is_valid_unicode(value):
+            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
         if any(
             pattern.search(value)
             for pattern in (
@@ -360,6 +365,8 @@ def _filter_value(
         return value
     if type(value) is float and not math.isfinite(value):
         raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
+    if type(value) is int and abs(value) > _MAX_SAFE_INTEGER:
+        raise ContextBoundaryFailure("CONTEXT_NUMBER_INVALID")
     if value is None or type(value) in (bool, int, float):
         return value
     raise ContextBoundaryFailure("CONTEXT_TYPE_UNSUPPORTED")
@@ -377,6 +384,95 @@ def _check_depth(depth: int) -> None:
 
 def _normalized_field(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+def _preflight_input(root: object) -> None:
+    if not isinstance(root, Mapping):
+        raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
+    active_ids: set[int] = set()
+    stack: list[tuple[bool, object, int]] = [(True, root, 0)]
+    while stack:
+        entering, value, depth = stack.pop()
+        if not entering:
+            active_ids.remove(id(value))
+            continue
+        if isinstance(value, ClassifiedValue):
+            stack.append((True, value.value, depth))
+            continue
+        if isinstance(value, Mapping):
+            _preflight_container(value, depth, active_ids, stack, mapping=True)
+            continue
+        if type(value) in (list, tuple):
+            _preflight_container(value, depth, active_ids, stack, mapping=False)
+            continue
+        if type(value) is str and not _is_valid_unicode(value):
+            raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
+
+
+def _preflight_container(
+    value: object,
+    depth: int,
+    active_ids: set[int],
+    stack: list[tuple[bool, object, int]],
+    *,
+    mapping: bool,
+) -> None:
+    _check_depth(depth)
+    identity = id(value)
+    if identity in active_ids:
+        raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
+    active_ids.add(identity)
+    stack.append((False, value, depth))
+    children = _safe_children(value, mapping=mapping)
+    for child in reversed(children):
+        stack.append((True, child, depth + 1))
+
+
+def _safe_children(value: object, *, mapping: bool) -> tuple[object, ...]:
+    children: tuple[object, ...] | None = None
+    try:
+        if mapping:
+            children = tuple(
+                child
+                for key, item in value.items()  # type: ignore[union-attr]
+                for child in (key, item)
+            )
+        else:
+            children = tuple(value)  # type: ignore[arg-type]
+    except Exception:
+        children = None
+    if children is None:
+        raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
+    return children
+
+
+def _is_valid_unicode(value: str) -> bool:
+    valid = True
+    try:
+        value.encode("utf-8")
+    except UnicodeError:
+        valid = False
+    return valid
+
+
+def _serialize_json(value: object) -> tuple[str, bytes]:
+    serialized: str | None = None
+    encoded: bytes | None = None
+    try:
+        serialized = json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        encoded = serialized.encode("utf-8")
+    except Exception:
+        serialized = None
+        encoded = None
+    if serialized is None or encoded is None:
+        raise ContextBoundaryFailure("CONTEXT_SERIALIZATION_FAILED")
+    return serialized, encoded
 
 
 def _freeze_input(value: object, active_ids: set[int] | None = None) -> object:

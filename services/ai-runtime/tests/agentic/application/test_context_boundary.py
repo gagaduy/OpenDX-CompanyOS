@@ -255,6 +255,44 @@ def test_rejects_cyclic_input_with_bounded_safe_failure() -> None:
     assert captured.value.__context__ is None
 
 
+def test_rejects_extremely_deep_acyclic_input_before_recursive_freeze() -> None:
+    nested: object = 1
+    for _index in range(1_500):
+        nested = [nested]
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(productsAtRisk=nested))
+
+    assert captured.value.code == "CONTEXT_DEPTH_LIMIT_EXCEEDED"
+    assert captured.value.args == ("CONTEXT_DEPTH_LIMIT_EXCEEDED",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_rejects_lone_unicode_surrogate_without_retaining_input() -> None:
+    canary = "\ud800UNICODE_CANARY"
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(summary=canary))
+
+    assert captured.value.code == "CONTEXT_STRING_INVALID"
+    assert canary not in repr(captured.value.args)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_rejects_integer_outside_json_safe_range_before_serialization() -> None:
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "catalog", context(productsAtRisk=10**5_000)
+        )
+
+    assert captured.value.code == "CONTEXT_NUMBER_INVALID"
+    assert captured.value.args == ("CONTEXT_NUMBER_INVALID",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 def test_rejects_non_finite_floats(value: float) -> None:
     with pytest.raises(ContextBoundaryFailure) as captured:

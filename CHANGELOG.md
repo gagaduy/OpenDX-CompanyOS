@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Bound model-context structure before deep freeze, reject invalid Unicode and
+  unsafe JSON integers, and translate residual serialization failures into
+  fixed secret-safe boundary errors.
+
 - Harden the model context boundary against nested AI CEO coordination fields,
   normalized credential and transaction keys, GitHub tokens, cyclic input, and
   non-finite JSON numbers.
