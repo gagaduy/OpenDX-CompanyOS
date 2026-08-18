@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the Phase D file-level TDD plan for strict seven-Agent model results,
+  internal-only prompt context, deterministic Quality Gate decisions,
+  OpenRouter transport, API-owned model runs and accounting, runtime
+  composition, secret-safe fake/live acceptance, and closure validation.
+
 - Define the approved Phase D OpenRouter Agent Runtime boundary with seven
   distinct free primary models, one bounded emergency fallback, internal-only
   egress, strict Agent-specific result schemas, atomic model cost accounting,

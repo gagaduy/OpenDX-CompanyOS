@@ -418,6 +418,9 @@ the local system.
 Approved focused design:
 `docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md`.
 
+Approved focused implementation plan:
+`docs/superpowers/plans/2026-08-19-openrouter-agent-runtime.md`.
+
 **Primary implementation areas:**
 
 - Create provider-neutral model ports and OpenRouter adapters under

@@ -58,8 +58,9 @@ Focused Agentic delivery status:
 | Phase B: Durable Store Health Workflow | Complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-store-health-temporal-workflow-design.md` | `docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md` | Complete after unit/integration/replay, worker-kill lifecycle, production topology, and three-database destroy/restore/resume gates |
 | Phase C: Read-only Department Tools | Complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-16-agentic-department-read-tools-design.md` | `docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md` | Complete after 17-tool six-identity acceptance, exact analytics grants, zero-leakage, lifecycle, recovery, full-source gates, and independent review |
 
-Phase D has an approved focused design on `feat/openrouter-agent-runtime` but
-implementation has not started. Phases E-H are explicitly not started. Phase C
+Phase D has an approved focused design and file-level TDD implementation plan
+on `feat/openrouter-agent-runtime`; implementation has not started. Phases E-H
+are explicitly not started. Phase C
 contains no OpenRouter call, model execution, file intake, Agentic Console
 page, Temporal UI, or production SePay activation.
 
