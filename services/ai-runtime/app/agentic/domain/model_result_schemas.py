@@ -29,6 +29,14 @@ _REASON_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,99}$")
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 
 
+class ModelResultValidationError(ValueError):
+    __slots__ = ("code",)
+
+    def __init__(self, code: Literal["EVIDENCE_CLASSIFICATION_BLOCKED"]) -> None:
+        self.code = code
+        super().__init__(code)
+
+
 @dataclass(frozen=True)
 class ProvenanceEvidence:
     provenance_id: str
@@ -36,6 +44,12 @@ class ProvenanceEvidence:
     retrieved_at: str
     freshness_status: FreshnessStatus
     classification: Literal["internal"] = "internal"
+
+
+@dataclass(frozen=True)
+class _ParsedEvidence:
+    value: ProvenanceEvidence
+    classification_blocked: bool
 
 
 @dataclass(frozen=True)
@@ -185,10 +199,10 @@ def parse_model_result(value: object) -> ModelResultEnvelope:
         _parse_recommended_action(item)
         for item in _array(document["recommendedActions"], 8, "recommendedActions")
     )
-    evidence = tuple(
+    parsed_evidence = tuple(
         _parse_evidence(item) for item in _array(document["evidence"], 24, "evidence")
     )
-    return ModelResultEnvelope(
+    result = ModelResultEnvelope(
         schema_version=1,
         agent_kind=agent_kind,  # type: ignore[arg-type]
         status=status,  # type: ignore[arg-type]
@@ -196,9 +210,14 @@ def parse_model_result(value: object) -> ModelResultEnvelope:
         conclusions=conclusions,
         risks=risks,
         recommended_actions=recommended_actions,
-        evidence=evidence,
+        evidence=tuple(item.value for item in parsed_evidence),
         payload=_parse_payload(agent_kind, document["payload"]),
     )
+    if any(item.classification_blocked for item in parsed_evidence):
+        raise ModelResultValidationError(
+            "EVIDENCE_CLASSIFICATION_BLOCKED"
+        ) from None
+    return result
 
 
 def _parse_conclusion(value: object) -> Conclusion:
@@ -242,28 +261,33 @@ def _parse_recommended_action(value: object) -> RecommendedAction:
     )
 
 
-def _parse_evidence(value: object) -> ProvenanceEvidence:
+def _parse_evidence(value: object) -> _ParsedEvidence:
     item = _dictionary(value, "evidence")
     _exact_keys(
         item,
         {"provenanceId", "source", "retrievedAt", "freshnessStatus", "classification"},
         "evidence",
     )
-    if item["classification"] != "internal":
-        raise ValueError("evidence classification must be internal")
+    classification_blocked = (
+        type(item["classification"]) is not str
+        or item["classification"] != "internal"
+    )
     retrieved_at = _bounded_text(item["retrievedAt"], "retrievedAt", maximum=100)
     parsed_at = _parse_iso_timestamp(retrieved_at)
     if parsed_at is None:
         raise ValueError("retrievedAt must be an ISO-8601 timestamp") from None
     if parsed_at.tzinfo is None:
         raise ValueError("retrievedAt must include a timezone")
-    return ProvenanceEvidence(
-        provenance_id=_identifier(item["provenanceId"], "provenanceId"),
-        source=_bounded_text(item["source"], "evidence source", maximum=255),
-        retrieved_at=retrieved_at,
-        freshness_status=_literal(
-            item["freshnessStatus"], _FRESHNESS_STATUSES, "freshnessStatus"
-        ),  # type: ignore[arg-type]
+    return _ParsedEvidence(
+        value=ProvenanceEvidence(
+            provenance_id=_identifier(item["provenanceId"], "provenanceId"),
+            source=_bounded_text(item["source"], "evidence source", maximum=255),
+            retrieved_at=retrieved_at,
+            freshness_status=_literal(
+                item["freshnessStatus"], _FRESHNESS_STATUSES, "freshnessStatus"
+            ),  # type: ignore[arg-type]
+        ),
+        classification_blocked=classification_blocked,
     )
 
 

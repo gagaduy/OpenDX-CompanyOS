@@ -15,6 +15,7 @@ from app.agentic.domain.model_result_schemas import (
     CrmPayload,
     FinancePayload,
     InventoryPayload,
+    ModelResultValidationError,
     OrderPayload,
     SupportPayload,
     parse_model_result,
@@ -296,8 +297,23 @@ def test_rejects_non_internal_evidence(classification: str) -> None:
     value = valid_envelope("catalog")
     value["evidence"][0]["classification"] = classification
 
-    with pytest.raises(ValueError, match="classification"):
+    with pytest.raises(ValueError, match="EVIDENCE_CLASSIFICATION_BLOCKED"):
         parse_model_result(value)
+
+
+def test_non_internal_evidence_raises_safe_typed_validation_code() -> None:
+    value = valid_envelope("catalog")
+    canary = "restricted-CLASSIFICATION-CANARY"
+    value["evidence"][0]["classification"] = canary
+
+    with pytest.raises(ModelResultValidationError) as captured:
+        parse_model_result(value)
+
+    assert captured.value.code == "EVIDENCE_CLASSIFICATION_BLOCKED"
+    assert captured.value.args == ("EVIDENCE_CLASSIFICATION_BLOCKED",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert canary not in repr(captured.value)
 
 
 @pytest.mark.parametrize(

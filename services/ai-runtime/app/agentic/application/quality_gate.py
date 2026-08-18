@@ -17,6 +17,7 @@ from app.agentic.domain.model_result_schemas import (
     FinancePayload,
     InventoryPayload,
     ModelResultEnvelope,
+    ModelResultValidationError,
     OrderPayload,
     ProvenanceEvidence,
     SupportPayload,
@@ -63,9 +64,6 @@ _PHASE_F_SEMANTICS = (
     re.compile(r"(?i)\bcall\s+(?:the\s+)?[a-z0-9_-]+\s+agent\b"),
 )
 _AI_CEO_PHASE_F_SEMANTICS = re.compile(r"(?i)\b(?:tasks?|assignees?|agent[- ]calls?)\b")
-_MAX_PREFLIGHT_DEPTH = 6
-_MAX_PREFLIGHT_FIELDS = 128
-_MAX_PREFLIGHT_ITEMS = 512
 
 
 @dataclass(frozen=True)
@@ -145,10 +143,14 @@ class QualityGate:
     def evaluate(
         self, raw_result: object, context: AuthoritativeQualityContext
     ) -> QualityDecision:
-        if _has_non_internal_classification(raw_result):
-            return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
         try:
             result = parse_model_result(raw_result)
+        except ModelResultValidationError as error:
+            if error.code == "EVIDENCE_CLASSIFICATION_BLOCKED":
+                return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
+            return _reparable_decision(
+                context.correction_round, ("SCHEMA_INVALID",), ()
+            )
         except (TypeError, ValueError, RecursionError, OverflowError):
             return _reparable_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
@@ -253,47 +255,6 @@ def _reparable_decision(
 ) -> QualityDecision:
     outcome = "partial" if correction_round == 2 else "correct"
     return QualityDecision(outcome, reasons, evidence_ids)
-
-
-def _has_non_internal_classification(value: object) -> bool:
-    if type(value) is not dict:
-        return False
-    seen: set[int] = set()
-    total_items = 0
-    stack: list[tuple[object, int]] = [(value, 0)]
-    while stack:
-        current, depth = stack.pop()
-        if depth > _MAX_PREFLIGHT_DEPTH:
-            return False
-        if type(current) is dict:
-            if id(current) in seen:
-                continue
-            seen.add(id(current))
-            if len(current) > _MAX_PREFLIGHT_FIELDS:
-                return False
-            total_items += len(current)
-            if total_items > _MAX_PREFLIGHT_ITEMS:
-                return False
-            for key, item in current.items():
-                if type(key) is not str:
-                    return False
-                if key == "classification" and (
-                    type(item) is not str or item != "internal"
-                ):
-                    return True
-                if type(item) in (dict, list, tuple):
-                    stack.append((item, depth + 1))
-        elif type(current) in (list, tuple):
-            if id(current) in seen:
-                continue
-            seen.add(id(current))
-            if len(current) > _MAX_PREFLIGHT_ITEMS:
-                return False
-            total_items += len(current)
-            if total_items > _MAX_PREFLIGHT_ITEMS:
-                return False
-            stack.extend((item, depth + 1) for item in current)
-    return False
 
 
 def _append_reason(reasons: list[str], reason: str) -> None:

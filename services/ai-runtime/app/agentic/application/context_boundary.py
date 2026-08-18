@@ -274,8 +274,10 @@ _SENSITIVE_EVIDENCE = re.compile(
     r"\b(?:sepay\s+)?provider\s+transaction\s+\S+"
 )
 _SENSITIVE_LABEL_VALUE = re.compile(
-    r"(?i)\b(?:full[_ -]?name|shipping[_ -]?address|billing[_ -]?address|"
-    r"private[_ -]?key|access[_ -]?token)\s*(?::|=|\bis\b)\s*[^\r\n]{1,256}"
+    r"(?i)\b(?:full[_ -]?name|customer[_ -]?name|shipping[_ -]?address|"
+    r"billing[_ -]?address|home[_ -]?address|credit[_ -]?card[_ -]?number|"
+    r"national[_ -]?id|private[_ -]?key|access[_ -]?token|refresh[_ -]?token)"
+    r"\s*(?::|=|\bis\b)\s*[^\r\n]{1,256}"
 )
 _MAX_STRING_LENGTH = 1_000
 _MAX_DEPTH = 6
