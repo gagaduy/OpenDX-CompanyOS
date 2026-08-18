@@ -273,6 +273,10 @@ _SENSITIVE_EVIDENCE = re.compile(
     r"raw[_ -]?ticket[_ -]?text)\s*[:=]\s*\S+|"
     r"\b(?:sepay\s+)?provider\s+transaction\s+\S+"
 )
+_SENSITIVE_LABEL_VALUE = re.compile(
+    r"(?i)\b(?:full[_ -]?name|shipping[_ -]?address|billing[_ -]?address|"
+    r"private[_ -]?key|access[_ -]?token)\s*(?::|=|\bis\b)\s*[^\r\n]{1,256}"
+)
 _MAX_STRING_LENGTH = 1_000
 _MAX_DEPTH = 6
 _MAX_COLLECTION_ITEMS = 128
@@ -563,6 +567,7 @@ def sensitive_text_kind(value: str) -> str | None:
             _PRIVATE_KEY,
             _COMMON_API_KEY,
             _GITHUB_TOKEN,
+            _SENSITIVE_LABEL_VALUE,
         )
     ):
         return "sensitive"

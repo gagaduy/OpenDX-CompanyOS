@@ -625,6 +625,10 @@ def test_prompt_injection_remains_inert_data_when_otherwise_safe() -> None:
     [
         ("customer@example.com", "sensitive"),
         ("api_key=super-secret-value", "sensitive"),
+        ("Full name: Nguyen Van A.", "sensitive"),
+        ("Shipping address: 123 Main Street.", "sensitive"),
+        ("Private key: local-key-value.", "sensitive"),
+        ("Access token: local-token-value.", "sensitive"),
         ("provider_transaction_id=provider-123", "provider_evidence"),
         ("SePay provider transaction provider-123 was captured.", "provider_evidence"),
         ("Ordinary aggregate health summary.", None),
