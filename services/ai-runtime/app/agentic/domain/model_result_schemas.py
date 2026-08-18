@@ -32,7 +32,12 @@ _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 class ModelResultValidationError(ValueError):
     __slots__ = ("code",)
 
-    def __init__(self, code: Literal["EVIDENCE_CLASSIFICATION_BLOCKED"]) -> None:
+    def __init__(
+        self,
+        code: Literal[
+            "EVIDENCE_CLASSIFICATION_BLOCKED", "PROVENANCE_IDS_DUPLICATE"
+        ],
+    ) -> None:
         self.code = code
         super().__init__(code)
 
@@ -504,7 +509,7 @@ def _provenance_ids(value: object) -> tuple[str, ...]:
         raise ValueError("provenanceIds requires one to eight entries")
     identifiers = tuple(_identifier(item, "provenanceId") for item in items)
     if len(set(identifiers)) != len(identifiers):
-        raise ValueError("provenanceIds must be unique") from None
+        raise ModelResultValidationError("PROVENANCE_IDS_DUPLICATE") from None
     return identifiers
 
 

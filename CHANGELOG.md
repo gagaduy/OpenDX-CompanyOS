@@ -16,7 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   all seven governed Agents before accepting structured results, including
   typed parser-level classification enforcement and complete evidence
   freshness validation, terminal correction policy, exact evidence sources,
-  unique material provenance, and bounded JWT and payment-card leakage checks.
+  integrity-safe provenance outcomes, AI CEO coverage materiality, and bounded
+  decoded-JWT and payment-card leakage checks.
 
 - Replace the generic nested model-context union with purpose-scoped typed
   schemas for six departments and AI CEO aggregate summaries, risks, and exact

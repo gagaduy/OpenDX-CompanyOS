@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import math
 import re
@@ -269,8 +271,9 @@ _PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----")
 _COMMON_API_KEY = re.compile(r"(?:\bsk-[A-Za-z0-9_-]{20,}\b|\bAKIA[A-Z0-9]{16}\b)")
 _GITHUB_TOKEN = re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")
 _COMPACT_JWT = re.compile(
-    r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,512}\."
-    r"[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,512}(?![A-Za-z0-9_-])"
+    r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,512}={0,2}\."
+    r"[A-Za-z0-9_-]{8,512}={0,2}\.[A-Za-z0-9_-]{8,512}={0,2}"
+    r"(?![A-Za-z0-9_=-])"
 )
 _PAYMENT_CARD_CANDIDATE = re.compile(
     r"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"
@@ -576,12 +579,46 @@ def sensitive_text_kind(value: str) -> str | None:
             _PRIVATE_KEY,
             _COMMON_API_KEY,
             _GITHUB_TOKEN,
-            _COMPACT_JWT,
             _SENSITIVE_LABEL_VALUE,
         )
-    ) or _contains_luhn_payment_card(value):
+    ) or _contains_valid_compact_jwt(value) or _contains_luhn_payment_card(value):
         return "sensitive"
     return None
+
+
+def _contains_valid_compact_jwt(value: str) -> bool:
+    for match in _COMPACT_JWT.finditer(value):
+        header_segment, payload_segment, _signature_segment = match.group().split(".")
+        header = _decode_base64url_json_object(header_segment)
+        payload = _decode_base64url_json_object(payload_segment)
+        if (
+            header is not None
+            and type(header.get("alg")) is str
+            and 1 <= len(header["alg"]) <= 100
+            and payload is not None
+        ):
+            return True
+    return False
+
+
+def _decode_base64url_json_object(segment: str) -> dict[str, object] | None:
+    padding = "=" * (-len(segment) % 4)
+    try:
+        decoded = base64.b64decode(
+            (segment + padding).encode("ascii"), altchars=b"-_", validate=True
+        )
+        if len(decoded) > 512:
+            return None
+        parsed = json.loads(decoded.decode("utf-8"))
+    except (
+        binascii.Error,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        ValueError,
+    ):
+        return None
+    return parsed if type(parsed) is dict else None
 
 
 def _contains_luhn_payment_card(value: str) -> bool:

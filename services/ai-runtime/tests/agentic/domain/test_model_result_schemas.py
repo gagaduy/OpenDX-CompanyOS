@@ -219,7 +219,7 @@ def test_rejects_duplicate_material_provenance_ids_without_retaining_them(
     with pytest.raises(ValueError) as captured:
         parse_model_result(value)
 
-    assert captured.value.args == ("provenanceIds must be unique",)
+    assert captured.value.args == ("PROVENANCE_IDS_DUPLICATE",)
     assert canary not in repr(captured.value)
 
 

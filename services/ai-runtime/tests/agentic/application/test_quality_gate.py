@@ -171,7 +171,7 @@ def test_accepts_matching_authoritative_result_for_every_agent(agent_kind: str) 
 
 @pytest.mark.parametrize("correction_round", [0, 2])
 @pytest.mark.parametrize("empty_field", ["evidence", "material"])
-def test_empty_evidence_or_material_result_is_provenance_invalid(
+def test_empty_evidence_or_material_result_is_missing_authoritative_evidence(
     correction_round: int, empty_field: str
 ) -> None:
     result = valid_result()
@@ -190,7 +190,32 @@ def test_empty_evidence_or_material_result_is_provenance_invalid(
     )
 
     assert decision.outcome == ("partial" if correction_round == 2 else "correct")
-    assert decision.reasons == ("PROVENANCE_INVALID",)
+    assert decision.reasons == ("MISSING_AUTHORITATIVE_EVIDENCE",)
+
+
+def test_ai_ceo_coverage_provenance_is_complete_material() -> None:
+    result = valid_result("ai_ceo")
+    result["conclusions"] = []
+    result["risks"] = []
+    result["recommendedActions"] = []
+
+    decision = QualityGate().evaluate(result, quality_context("ai_ceo"))
+
+    assert decision.outcome == "accepted"
+    assert decision.reasons == ()
+    assert decision.evidence_ids == ("prov-1",)
+
+
+def test_department_without_narrative_provenance_is_missing_authoritative_evidence() -> None:
+    result = valid_result("catalog")
+    result["conclusions"] = []
+    result["risks"] = []
+    result["recommendedActions"] = []
+
+    decision = QualityGate().evaluate(result, quality_context("catalog"))
+
+    assert decision.outcome == "correct"
+    assert decision.reasons == ("MISSING_AUTHORITATIVE_EVIDENCE",)
 
 
 @pytest.mark.parametrize("correction_round", [0, 1])
@@ -227,8 +252,7 @@ def test_provider_partial_status_with_missing_evidence_is_partial_at_round_two()
 
     assert decision.outcome == "partial"
     assert decision.reasons == (
-        "PROVENANCE_INVALID",
-        "MATERIAL_PROVENANCE_MISSING",
+        "MISSING_AUTHORITATIVE_EVIDENCE",
         "RESULT_STATUS_PARTIAL",
     )
 
@@ -331,41 +355,48 @@ def test_classification_validation_does_not_execute_untrusted_equality() -> None
 
 
 @pytest.mark.parametrize(
-    ("mutate", "expected_reasons", "expected_evidence"),
+    ("mutate", "expected_outcome", "expected_reasons", "expected_evidence"),
     [
         (
             lambda value: value["evidence"].append(deepcopy(value["evidence"][0])),
-            ("EVIDENCE_ID_DUPLICATE",),
+            "escalate",
+            ("PROVENANCE_INVALID",),
             ("prov-1",),
         ),
         (
             lambda value: value["evidence"][0].update(provenanceId="unknown-prov"),
-            ("EVIDENCE_ID_UNKNOWN", "MATERIAL_PROVENANCE_MISSING"),
+            "escalate",
+            ("PROVENANCE_INVALID", "MISSING_AUTHORITATIVE_EVIDENCE"),
             ("prov-1",),
         ),
         (
             lambda value: value["conclusions"][0].update(
                 provenanceIds=["unknown-prov"]
             ),
-            ("MATERIAL_PROVENANCE_UNKNOWN",),
+            "escalate",
+            ("PROVENANCE_INVALID",),
             ("prov-1",),
         ),
         (
             lambda value: value.update(evidence=[]),
-            ("PROVENANCE_INVALID", "MATERIAL_PROVENANCE_MISSING"),
+            "correct",
+            ("MISSING_AUTHORITATIVE_EVIDENCE",),
             ("prov-1",),
         ),
     ],
 )
 def test_provenance_failures_are_safe_and_deterministic(
-    mutate: Any, expected_reasons: tuple[str, ...], expected_evidence: tuple[str, ...]
+    mutate: Any,
+    expected_outcome: str,
+    expected_reasons: tuple[str, ...],
+    expected_evidence: tuple[str, ...],
 ) -> None:
     value = valid_result()
     mutate(value)
 
     decision = QualityGate().evaluate(value, quality_context())
 
-    assert decision.outcome == "correct"
+    assert decision.outcome == expected_outcome
     assert decision.reasons == expected_reasons
     assert decision.evidence_ids == expected_evidence
 
@@ -465,15 +496,50 @@ def test_authoritative_freshness_mismatch_is_reparable(field: str, value: str) -
     assert decision.evidence_ids == ("prov-1",)
 
 
-def test_forged_authoritative_evidence_source_is_provenance_invalid() -> None:
+def test_forged_authoritative_evidence_source_is_integrity_violation() -> None:
     result = valid_result()
     result["evidence"][0]["source"] = "department-tool:forged-v1"
 
     decision = QualityGate().evaluate(result, quality_context())
 
-    assert decision.outcome == "correct"
-    assert decision.reasons == ("PROVENANCE_INVALID",)
+    assert decision.outcome == "escalate"
+    assert decision.reasons == ("PROVENANCE_SOURCE_MISMATCH",)
     assert decision.evidence_ids == ("prov-1",)
+
+
+@pytest.mark.parametrize("correction_round", [0, 1, 2])
+def test_forged_source_escalates_with_stable_order_at_every_round(
+    correction_round: int,
+) -> None:
+    result = valid_result()
+    result["evidence"][0]["source"] = "department-tool:forged-v1"
+    result["evidence"][0]["freshnessStatus"] = "stale"
+
+    decision = QualityGate().evaluate(
+        result, quality_context(correction_round=correction_round)
+    )
+
+    assert decision.outcome == "escalate"
+    assert decision.reasons == (
+        "PROVENANCE_SOURCE_MISMATCH",
+        "FRESHNESS_INVALID",
+    )
+    assert decision.evidence_ids == ("prov-1",)
+
+
+@pytest.mark.parametrize("correction_round", [0, 1, 2])
+def test_duplicate_material_refs_escalate_as_provenance_invalid(
+    correction_round: int,
+) -> None:
+    result = valid_result()
+    result["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
+
+    decision = QualityGate().evaluate(
+        result, quality_context(correction_round=correction_round)
+    )
+
+    assert decision.outcome == "escalate"
+    assert decision.reasons == ("PROVENANCE_INVALID",)
 
 
 @pytest.mark.parametrize("source", ["", "x" * 256, "api_key=source-secret-value"])
@@ -690,7 +756,7 @@ def test_combined_reasons_keep_check_order_and_escalation_wins() -> None:
 
     assert decision.outcome == "escalate"
     assert decision.reasons == (
-        "MATERIAL_PROVENANCE_UNKNOWN",
+        "PROVENANCE_INVALID",
         "FRESHNESS_INVALID",
         "MATERIAL_PAYLOAD_MISMATCH",
         "PROMPT_INJECTION_DETECTED",

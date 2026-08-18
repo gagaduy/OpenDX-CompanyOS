@@ -65,7 +65,10 @@ _PHASE_F_SEMANTICS = (
 )
 _AI_CEO_PHASE_F_SEMANTICS = re.compile(r"(?i)\b(?:tasks?|assignees?|agent[- ]calls?)\b")
 _ROUND_TWO_PARTIAL_REASONS = frozenset(
-    {"PROVENANCE_INVALID", "MATERIAL_PROVENANCE_MISSING", "FRESHNESS_INVALID"}
+    {"MISSING_AUTHORITATIVE_EVIDENCE", "FRESHNESS_INVALID"}
+)
+_PROVENANCE_INTEGRITY_REASONS = frozenset(
+    {"PROVENANCE_INVALID", "PROVENANCE_SOURCE_MISMATCH"}
 )
 
 
@@ -158,6 +161,8 @@ class QualityGate:
         except ModelResultValidationError as error:
             if error.code == "EVIDENCE_CLASSIFICATION_BLOCKED":
                 return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
+            if error.code == "PROVENANCE_IDS_DUPLICATE":
+                return QualityDecision("escalate", ("PROVENANCE_INVALID",), ())
             return _quality_failure_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
             )
@@ -174,33 +179,31 @@ class QualityGate:
         safe_involved_ids: set[str] = set()
         material_ids = _material_provenance_ids(result)
 
-        if not result.evidence or not (
-            result.conclusions or result.risks or result.recommended_actions
-        ):
-            _append_reason(reasons, "PROVENANCE_INVALID")
+        if not result.evidence or not material_ids:
+            _append_reason(reasons, "MISSING_AUTHORITATIVE_EVIDENCE")
 
         evidence_ids = [item.provenance_id for item in result.evidence]
         duplicate_ids = {item for item in evidence_ids if evidence_ids.count(item) > 1}
         if duplicate_ids:
-            _append_reason(reasons, "EVIDENCE_ID_DUPLICATE")
+            _append_reason(reasons, "PROVENANCE_INVALID")
             safe_involved_ids.update(duplicate_ids & authorized.keys())
         for item in result.evidence:
             evidence_by_id.setdefault(item.provenance_id, item)
             if item.provenance_id not in authorized:
-                _append_reason(reasons, "EVIDENCE_ID_UNKNOWN")
-            elif item.source != authorized[item.provenance_id].source:
                 _append_reason(reasons, "PROVENANCE_INVALID")
+            elif item.source != authorized[item.provenance_id].source:
+                _append_reason(reasons, "PROVENANCE_SOURCE_MISMATCH")
                 safe_involved_ids.add(item.provenance_id)
 
         if any(identifier not in authorized for identifier in material_ids):
-            _append_reason(reasons, "MATERIAL_PROVENANCE_UNKNOWN")
+            _append_reason(reasons, "PROVENANCE_INVALID")
         missing_ids = {
             identifier
             for identifier in material_ids
             if identifier in authorized and identifier not in evidence_by_id
         }
         if missing_ids:
-            _append_reason(reasons, "MATERIAL_PROVENANCE_MISSING")
+            _append_reason(reasons, "MISSING_AUTHORITATIVE_EVIDENCE")
             safe_involved_ids.update(missing_ids)
         safe_involved_ids.update(
             identifier for identifier in material_ids if identifier in authorized
@@ -208,7 +211,9 @@ class QualityGate:
         if result.status == "partial":
             _append_reason(reasons, "RESULT_STATUS_PARTIAL")
 
-        escalation = False
+        escalation = any(
+            reason in _PROVENANCE_INTEGRITY_REASONS for reason in reasons
+        )
         if result.agent_kind != context.expected_agent_kind:
             _append_reason(reasons, "AGENT_KIND_MISMATCH")
             escalation = True
