@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from typing import Any
@@ -26,6 +27,25 @@ AGENT_FIELDS: dict[str, tuple[str, object]] = {
     "crm": ("segmentCount", 4),
     "support": ("slaRiskCount", 5),
 }
+
+
+class BombMapping(Mapping[str, object]):
+    iterated = False
+    deepcopied = False
+
+    def __getitem__(self, key: str) -> object:
+        raise AssertionError("bomb mapping item access must not run")
+
+    def __iter__(self) -> Iterator[str]:
+        self.iterated = True
+        raise AssertionError("bomb mapping iteration must not run")
+
+    def __len__(self) -> int:
+        return 129
+
+    def __deepcopy__(self, memo: dict[int, object]) -> object:
+        self.deepcopied = True
+        raise AssertionError("bomb mapping deepcopy must not run")
 
 
 def context(agent_kind: str = "catalog", **overrides: object) -> AuthorizedContextInput:
@@ -211,6 +231,32 @@ def test_blocks_normalized_sensitive_keys_and_github_tokens(
 
 
 @pytest.mark.parametrize(
+    "field",
+    [
+        "access_token",
+        "Private-Key",
+        "encryptionKey",
+        "FULL_NAME",
+        "recipientName",
+        "contactPhone",
+        "contactEmail",
+        "shippingAddress",
+    ],
+)
+def test_blocks_nested_credential_key_and_pii_key_variants(field: str) -> None:
+    canary = "NESTED_SENSITIVE_KEY_CANARY"
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "support", context("support", summary={field: canary})
+        )
+
+    assert captured.value.code == "CONTEXT_SENSITIVE_FIELD_BLOCKED"
+    assert field not in repr(captured.value.args)
+    assert canary not in repr(captured.value.args)
+
+
+@pytest.mark.parametrize(
     "canary",
     [
         "customer_id=CUSTOMER_CANARY_123",
@@ -238,6 +284,17 @@ def test_bounds_object_key_strings_without_retaining_them() -> None:
 
     assert captured.value.code == "CONTEXT_STRING_LIMIT_EXCEEDED"
     assert canary not in repr(captured.value.args)
+
+
+def test_rejects_known_oversized_mapping_before_iteration_or_copy() -> None:
+    bomb = BombMapping()
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(productsAtRisk=bomb))
+
+    assert captured.value.code == "CONTEXT_FIELD_LIMIT_EXCEEDED"
+    assert bomb.iterated is False
+    assert bomb.deepcopied is False
 
 
 def test_rejects_cyclic_input_with_bounded_safe_failure() -> None:
@@ -366,6 +423,21 @@ def test_contract_is_immutable() -> None:
 
     with pytest.raises(FrozenInstanceError):
         value.classification = "restricted"  # type: ignore[misc]
+
+
+def test_raw_input_is_not_snapshotted_or_exposed_before_classification() -> None:
+    canary = "RESTRICTED_RAW_CONTEXT_CANARY"
+    raw = {"summary": canary}
+    value = AuthorizedContextInput("restricted", raw)
+
+    assert value.fields is raw
+    assert canary not in repr(value)
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", value)
+    assert captured.value.code == "CONTEXT_CLASSIFICATION_BLOCKED"
+    assert canary not in repr(captured.value.args)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
 
 
 def test_rejects_unknown_agent_kind_with_safe_code() -> None:

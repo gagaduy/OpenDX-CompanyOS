@@ -7,7 +7,7 @@ import json
 import math
 import re
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.agentic.domain.model_runtime import AgentKind, FrozenJsonMapping
 
@@ -94,23 +94,50 @@ _AGENT_FIELDS: dict[AgentKind, frozenset[str]] = {
 }
 _SENSITIVE_FIELDS = frozenset(
     {
+        "accesskey",
+        "accesstoken",
+        "address",
         "apikey",
+        "billingaddress",
+        "credential",
+        "credentials",
         "customerid",
         "customeridentifier",
         "customername",
         "customeremail",
         "customerphone",
+        "firstname",
+        "fullname",
+        "lastname",
         "paymenttransactionid",
         "password",
+        "privatekey",
         "providerpayload",
         "providerreference",
         "providertransactionid",
         "rawtickettext",
+        "refreshtoken",
         "secret",
+        "shippingaddress",
+        "signingkey",
         "ticketbody",
         "ticketmessage",
         "transactionid",
+        "token",
     }
+)
+_SENSITIVE_FIELD_SUFFIXES = (
+    "address",
+    "credential",
+    "credentials",
+    "email",
+    "key",
+    "name",
+    "password",
+    "phone",
+    "privatekey",
+    "secret",
+    "token",
 )
 _AI_CEO_FORBIDDEN_FIELDS = frozenset(
     {
@@ -166,44 +193,7 @@ class ClassifiedValue:
 @dataclass(frozen=True)
 class AuthorizedContextInput:
     classification: str
-    fields: Mapping[str, object]
-
-    def __post_init__(self) -> None:
-        _preflight_input(self.fields)
-        object.__setattr__(self, "fields", _freeze_input(self.fields))
-
-
-@dataclass(frozen=True, init=False, eq=False)
-class _FrozenInputMapping(Mapping[str, object]):
-    _items: tuple[tuple[str, object], ...]
-
-    def __init__(
-        self, value: Mapping[str, object], active_ids: set[int] | None = None
-    ) -> None:
-        active = set() if active_ids is None else active_ids
-        identity = id(value)
-        if identity in active:
-            raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
-        active.add(identity)
-        try:
-            items = tuple(
-                (key, _freeze_input(item, active)) for key, item in value.items()
-            )
-        finally:
-            active.remove(identity)
-        object.__setattr__(self, "_items", items)
-
-    def __getitem__(self, key: str) -> object:
-        for candidate, value in self._items:
-            if candidate == key:
-                return value
-        raise KeyError(key)
-
-    def __iter__(self) -> Iterator[str]:
-        return (key for key, _value in self._items)
-
-    def __len__(self) -> int:
-        return len(self._items)
+    fields: Mapping[str, object] = field(repr=False, compare=False)
 
 
 @dataclass(frozen=True, init=False, eq=False)
@@ -236,6 +226,7 @@ def enforce_context_boundary(
     if allowed_fields is None:
         raise ContextBoundaryFailure("CONTEXT_AGENT_KIND_UNSUPPORTED")
     _require_internal(context.classification)
+    _preflight_input(context.fields)
     bounds = _Bounds()
     filtered = _filter_mapping(
         context.fields,
@@ -290,8 +281,10 @@ def _filter_mapping(
         normalized_field = _normalized_field(key)
         if normalized_field in forbidden_fields:
             raise ContextBoundaryFailure("CONTEXT_FORBIDDEN_SEMANTIC_FIELD")
-        if normalized_field in _SENSITIVE_FIELDS:
+        if _is_sensitive_field(normalized_field):
             raise ContextBoundaryFailure("CONTEXT_SENSITIVE_FIELD_BLOCKED")
+        if allowed_top_level is not None and key not in allowed_top_level:
+            continue
         filtered = _filter_value(
             item,
             inherited_classification=inherited_classification,
@@ -299,8 +292,7 @@ def _filter_mapping(
             bounds=bounds,
             forbidden_fields=forbidden_fields,
         )
-        if allowed_top_level is None or key in allowed_top_level:
-            result[key] = filtered
+        result[key] = filtered
     return result
 
 
@@ -386,10 +378,15 @@ def _normalized_field(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
+def _is_sensitive_field(value: str) -> bool:
+    return value in _SENSITIVE_FIELDS or value.endswith(_SENSITIVE_FIELD_SUFFIXES)
+
+
 def _preflight_input(root: object) -> None:
     if not isinstance(root, Mapping):
         raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
     active_ids: set[int] = set()
+    bounds = _Bounds()
     stack: list[tuple[bool, object, int]] = [(True, root, 0)]
     while stack:
         entering, value, depth = stack.pop()
@@ -401,10 +398,14 @@ def _preflight_input(root: object) -> None:
             stack.append((True, value.value, depth + 1))
             continue
         if isinstance(value, Mapping):
-            _preflight_container(value, depth, active_ids, stack, mapping=True)
+            _preflight_container(
+                value, depth, active_ids, stack, bounds, mapping=True
+            )
             continue
         if type(value) in (list, tuple):
-            _preflight_container(value, depth, active_ids, stack, mapping=False)
+            _preflight_container(
+                value, depth, active_ids, stack, bounds, mapping=False
+            )
             continue
         if type(value) is str and not _is_valid_unicode(value):
             raise ContextBoundaryFailure("CONTEXT_STRING_INVALID")
@@ -415,10 +416,23 @@ def _preflight_container(
     depth: int,
     active_ids: set[int],
     stack: list[tuple[bool, object, int]],
+    bounds: _Bounds,
     *,
     mapping: bool,
 ) -> None:
     _check_depth(depth)
+    size = _safe_length(value)
+    if mapping:
+        bounds.fields += size
+        if bounds.fields > _MAX_TOTAL_FIELDS:
+            raise ContextBoundaryFailure("CONTEXT_FIELD_LIMIT_EXCEEDED")
+        bounds.items += size
+    else:
+        if size > _MAX_COLLECTION_ITEMS:
+            raise ContextBoundaryFailure("CONTEXT_COLLECTION_LIMIT_EXCEEDED")
+        bounds.items += size
+    if bounds.items > _MAX_TOTAL_ITEMS:
+        raise ContextBoundaryFailure("CONTEXT_COLLECTION_LIMIT_EXCEEDED")
     identity = id(value)
     if identity in active_ids:
         raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
@@ -427,6 +441,17 @@ def _preflight_container(
     children = _safe_children(value, mapping=mapping)
     for child in reversed(children):
         stack.append((True, child, depth + 1))
+
+
+def _safe_length(value: object) -> int:
+    size: int | None = None
+    try:
+        size = len(value)  # type: ignore[arg-type]
+    except Exception:
+        size = None
+    if type(size) is not int or size < 0:
+        raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
+    return size
 
 
 def _safe_children(value: object, *, mapping: bool) -> tuple[object, ...]:
@@ -474,26 +499,6 @@ def _serialize_json(value: object) -> tuple[str, bytes]:
     if serialized is None or encoded is None:
         raise ContextBoundaryFailure("CONTEXT_SERIALIZATION_FAILED")
     return serialized, encoded
-
-
-def _freeze_input(value: object, active_ids: set[int] | None = None) -> object:
-    if isinstance(value, ClassifiedValue):
-        return ClassifiedValue(
-            value.classification, _freeze_input(value.value, active_ids)
-        )
-    if isinstance(value, Mapping):
-        return _FrozenInputMapping(value, active_ids)
-    if type(value) in (list, tuple):
-        active = set() if active_ids is None else active_ids
-        identity = id(value)
-        if identity in active:
-            raise ContextBoundaryFailure("CONTEXT_STRUCTURE_INVALID")
-        active.add(identity)
-        try:
-            return tuple(_freeze_input(item, active) for item in value)
-        finally:
-            active.remove(identity)
-    return value
 
 
 def _thaw(value: object) -> object:
