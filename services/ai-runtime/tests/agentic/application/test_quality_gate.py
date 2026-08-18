@@ -359,13 +359,13 @@ def test_classification_validation_does_not_execute_untrusted_equality() -> None
     [
         (
             lambda value: value["evidence"].append(deepcopy(value["evidence"][0])),
-            "escalate",
+            "correct",
             ("PROVENANCE_INVALID",),
             ("prov-1",),
         ),
         (
             lambda value: value["evidence"][0].update(provenanceId="unknown-prov"),
-            "escalate",
+            "correct",
             ("PROVENANCE_INVALID", "MISSING_AUTHORITATIVE_EVIDENCE"),
             ("prov-1",),
         ),
@@ -373,7 +373,7 @@ def test_classification_validation_does_not_execute_untrusted_equality() -> None
             lambda value: value["conclusions"][0].update(
                 provenanceIds=["unknown-prov"]
             ),
-            "escalate",
+            "correct",
             ("PROVENANCE_INVALID",),
             ("prov-1",),
         ),
@@ -527,9 +527,13 @@ def test_forged_source_escalates_with_stable_order_at_every_round(
     assert decision.evidence_ids == ("prov-1",)
 
 
-@pytest.mark.parametrize("correction_round", [0, 1, 2])
-def test_duplicate_material_refs_escalate_as_provenance_invalid(
+@pytest.mark.parametrize(
+    ("correction_round", "expected_outcome"),
+    [(0, "correct"), (1, "correct"), (2, "escalate")],
+)
+def test_duplicate_material_refs_follow_provenance_retry_policy(
     correction_round: int,
+    expected_outcome: str,
 ) -> None:
     result = valid_result()
     result["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
@@ -538,7 +542,26 @@ def test_duplicate_material_refs_escalate_as_provenance_invalid(
         result, quality_context(correction_round=correction_round)
     )
 
-    assert decision.outcome == "escalate"
+    assert decision.outcome == expected_outcome
+    assert decision.reasons == ("PROVENANCE_INVALID",)
+
+
+@pytest.mark.parametrize(
+    ("correction_round", "expected_outcome"),
+    [(0, "correct"), (1, "correct"), (2, "escalate")],
+)
+def test_unknown_material_ref_follows_provenance_retry_policy(
+    correction_round: int,
+    expected_outcome: str,
+) -> None:
+    result = valid_result()
+    result["conclusions"][0]["provenanceIds"] = ["unknown-prov"]
+
+    decision = QualityGate().evaluate(
+        result, quality_context(correction_round=correction_round)
+    )
+
+    assert decision.outcome == expected_outcome
     assert decision.reasons == ("PROVENANCE_INVALID",)
 
 

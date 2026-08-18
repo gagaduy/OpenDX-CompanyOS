@@ -67,9 +67,7 @@ _AI_CEO_PHASE_F_SEMANTICS = re.compile(r"(?i)\b(?:tasks?|assignees?|agent[- ]cal
 _ROUND_TWO_PARTIAL_REASONS = frozenset(
     {"MISSING_AUTHORITATIVE_EVIDENCE", "FRESHNESS_INVALID"}
 )
-_PROVENANCE_INTEGRITY_REASONS = frozenset(
-    {"PROVENANCE_INVALID", "PROVENANCE_SOURCE_MISMATCH"}
-)
+_IMMEDIATE_PROVENANCE_REASONS = frozenset({"PROVENANCE_SOURCE_MISMATCH"})
 
 
 @dataclass(frozen=True)
@@ -162,7 +160,9 @@ class QualityGate:
             if error.code == "EVIDENCE_CLASSIFICATION_BLOCKED":
                 return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
             if error.code == "PROVENANCE_IDS_DUPLICATE":
-                return QualityDecision("escalate", ("PROVENANCE_INVALID",), ())
+                return _quality_failure_decision(
+                    context.correction_round, ("PROVENANCE_INVALID",), ()
+                )
             return _quality_failure_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
             )
@@ -212,7 +212,7 @@ class QualityGate:
             _append_reason(reasons, "RESULT_STATUS_PARTIAL")
 
         escalation = any(
-            reason in _PROVENANCE_INTEGRITY_REASONS for reason in reasons
+            reason in _IMMEDIATE_PROVENANCE_REASONS for reason in reasons
         )
         if result.agent_kind != context.expected_agent_kind:
             _append_reason(reasons, "AGENT_KIND_MISMATCH")

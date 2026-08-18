@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   typed parser-level classification enforcement and complete evidence
   freshness validation, terminal correction policy, exact evidence sources,
   integrity-safe provenance outcomes, AI CEO coverage materiality, and bounded
-  decoded-JWT and payment-card leakage checks.
+  decoded-JWT and payment-card leakage checks, while allowing bounded
+  correction of reference mistakes before terminal escalation.
 
 - Replace the generic nested model-context union with purpose-scoped typed
   schemas for six departments and AI CEO aggregate summaries, risks, and exact
