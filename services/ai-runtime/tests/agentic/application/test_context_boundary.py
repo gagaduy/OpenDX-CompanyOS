@@ -634,6 +634,15 @@ def test_prompt_injection_remains_inert_data_when_otherwise_safe() -> None:
         ("Credit card number: 4111111111111111.", "sensitive"),
         ("National_ID=012345678901.", "sensitive"),
         ("Refresh-token: local-refresh-value.", "sensitive"),
+        (
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+            "sensitive",
+        ),
+        ("4111 1111 1111 1111", "sensitive"),
+        ("Aggregate count 1234567890123.", None),
+        ("Aggregate placeholder 0000000000000.", None),
+        ("Order volume 1234567890123456789.", None),
         ("provider_transaction_id=provider-123", "provider_evidence"),
         ("SePay provider transaction provider-123 was captured.", "provider_evidence"),
         ("Ordinary aggregate health summary.", None),

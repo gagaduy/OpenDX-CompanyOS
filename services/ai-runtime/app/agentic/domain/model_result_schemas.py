@@ -502,7 +502,10 @@ def _provenance_ids(value: object) -> tuple[str, ...]:
     items = _array(value, 8, "provenanceIds")
     if not items:
         raise ValueError("provenanceIds requires one to eight entries")
-    return tuple(_identifier(item, "provenanceId") for item in items)
+    identifiers = tuple(_identifier(item, "provenanceId") for item in items)
+    if len(set(identifiers)) != len(identifiers):
+        raise ValueError("provenanceIds must be unique") from None
+    return identifiers
 
 
 def _safe_integer(value: object, name: str) -> int:

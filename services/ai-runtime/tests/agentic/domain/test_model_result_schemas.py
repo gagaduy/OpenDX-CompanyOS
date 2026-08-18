@@ -197,6 +197,32 @@ def test_invalid_retrieved_at_error_does_not_retain_provider_input() -> None:
     assert provider_input not in repr(captured.value)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("conclusions", 0, "provenanceIds"),
+        ("risks", 0, "provenanceIds"),
+        ("recommendedActions", 0, "provenanceIds"),
+        ("payload", "departmentCoverage", 0, "provenanceIds"),
+    ],
+)
+def test_rejects_duplicate_material_provenance_ids_without_retaining_them(
+    path: tuple[str | int, ...],
+) -> None:
+    value = valid_envelope("ai_ceo")
+    canary = "prov-DUPLICATE-CANARY"
+    target: Any = value
+    for part in path[:-1]:
+        target = target[part]
+    target[path[-1]] = [canary, canary]
+
+    with pytest.raises(ValueError) as captured:
+        parse_model_result(value)
+
+    assert captured.value.args == ("provenanceIds must be unique",)
+    assert canary not in repr(captured.value)
+
+
 def test_model_runtime_contracts_defensively_deep_freeze_json_data() -> None:
     result_schema = {"properties": {"items": {"enum": ["one"]}}}
     untrusted_context = {"rows": [{"count": 1}]}

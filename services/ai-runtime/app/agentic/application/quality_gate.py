@@ -64,16 +64,26 @@ _PHASE_F_SEMANTICS = (
     re.compile(r"(?i)\bcall\s+(?:the\s+)?[a-z0-9_-]+\s+agent\b"),
 )
 _AI_CEO_PHASE_F_SEMANTICS = re.compile(r"(?i)\b(?:tasks?|assignees?|agent[- ]calls?)\b")
+_ROUND_TWO_PARTIAL_REASONS = frozenset(
+    {"PROVENANCE_INVALID", "MATERIAL_PROVENANCE_MISSING", "FRESHNESS_INVALID"}
+)
 
 
 @dataclass(frozen=True)
 class AuthoritativeEvidenceFact:
     provenance_id: str
+    source: str
     retrieved_at: str
     freshness_status: FreshnessStatus
 
     def __post_init__(self) -> None:
         if not _is_safe_identifier(self.provenance_id):
+            _invalid_context()
+        if (
+            type(self.source) is not str
+            or not 1 <= len(self.source) <= 255
+            or sensitive_text_kind(self.source) is not None
+        ):
             _invalid_context()
         if not _is_offset_timestamp(self.retrieved_at):
             _invalid_context()
@@ -148,11 +158,11 @@ class QualityGate:
         except ModelResultValidationError as error:
             if error.code == "EVIDENCE_CLASSIFICATION_BLOCKED":
                 return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
-            return _reparable_decision(
+            return _quality_failure_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
             )
         except (TypeError, ValueError, RecursionError, OverflowError):
-            return _reparable_decision(
+            return _quality_failure_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
             )
 
@@ -162,6 +172,12 @@ class QualityGate:
         }
         evidence_by_id: dict[str, ProvenanceEvidence] = {}
         safe_involved_ids: set[str] = set()
+        material_ids = _material_provenance_ids(result)
+
+        if not result.evidence or not (
+            result.conclusions or result.risks or result.recommended_actions
+        ):
+            _append_reason(reasons, "PROVENANCE_INVALID")
 
         evidence_ids = [item.provenance_id for item in result.evidence]
         duplicate_ids = {item for item in evidence_ids if evidence_ids.count(item) > 1}
@@ -172,8 +188,10 @@ class QualityGate:
             evidence_by_id.setdefault(item.provenance_id, item)
             if item.provenance_id not in authorized:
                 _append_reason(reasons, "EVIDENCE_ID_UNKNOWN")
+            elif item.source != authorized[item.provenance_id].source:
+                _append_reason(reasons, "PROVENANCE_INVALID")
+                safe_involved_ids.add(item.provenance_id)
 
-        material_ids = _material_provenance_ids(result)
         if any(identifier not in authorized for identifier in material_ids):
             _append_reason(reasons, "MATERIAL_PROVENANCE_UNKNOWN")
         missing_ids = {
@@ -187,6 +205,8 @@ class QualityGate:
         safe_involved_ids.update(
             identifier for identifier in material_ids if identifier in authorized
         )
+        if result.status == "partial":
+            _append_reason(reasons, "RESULT_STATUS_PARTIAL")
 
         escalation = False
         if result.agent_kind != context.expected_agent_kind:
@@ -244,16 +264,30 @@ class QualityGate:
         if escalation:
             return QualityDecision("escalate", tuple(reasons), safe_ids)
         if reasons:
-            return _reparable_decision(
+            return _quality_failure_decision(
                 context.correction_round, tuple(reasons), safe_ids
             )
         return QualityDecision("accepted", (), safe_ids)
 
 
-def _reparable_decision(
+def _quality_failure_decision(
     correction_round: int, reasons: tuple[str, ...], evidence_ids: tuple[str, ...]
 ) -> QualityDecision:
-    outcome = "partial" if correction_round == 2 else "correct"
+    if correction_round < 2:
+        return QualityDecision("correct", reasons, evidence_ids)
+    evidence_reasons = tuple(
+        reason for reason in reasons if reason != "RESULT_STATUS_PARTIAL"
+    )
+    can_return_partial = (
+        bool(evidence_reasons)
+        and all(reason in _ROUND_TWO_PARTIAL_REASONS for reason in evidence_reasons)
+        and all(
+            reason in _ROUND_TWO_PARTIAL_REASONS
+            or reason == "RESULT_STATUS_PARTIAL"
+            for reason in reasons
+        )
+    )
+    outcome = "partial" if can_return_partial else "escalate"
     return QualityDecision(outcome, reasons, evidence_ids)
 
 

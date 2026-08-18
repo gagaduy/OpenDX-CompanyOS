@@ -15,7 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   provenance, scope, freshness, material payloads, leakage, and conflicts for
   all seven governed Agents before accepting structured results, including
   typed parser-level classification enforcement and complete evidence
-  freshness validation.
+  freshness validation, terminal correction policy, exact evidence sources,
+  unique material provenance, and bounded JWT and payment-card leakage checks.
 
 - Replace the generic nested model-context union with purpose-scoped typed
   schemas for six departments and AI CEO aggregate summaries, risks, and exact

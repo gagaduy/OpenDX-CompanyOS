@@ -268,6 +268,13 @@ _CREDENTIAL = re.compile(
 _PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----")
 _COMMON_API_KEY = re.compile(r"(?:\bsk-[A-Za-z0-9_-]{20,}\b|\bAKIA[A-Z0-9]{16}\b)")
 _GITHUB_TOKEN = re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")
+_COMPACT_JWT = re.compile(
+    r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,512}\."
+    r"[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,512}(?![A-Za-z0-9_-])"
+)
+_PAYMENT_CARD_CANDIDATE = re.compile(
+    r"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"
+)
 _SENSITIVE_EVIDENCE = re.compile(
     r"(?i)(?:customer[_ -]?id|provider[_ -]?transaction[_ -]?id|"
     r"raw[_ -]?ticket[_ -]?text)\s*[:=]\s*\S+|"
@@ -569,11 +576,31 @@ def sensitive_text_kind(value: str) -> str | None:
             _PRIVATE_KEY,
             _COMMON_API_KEY,
             _GITHUB_TOKEN,
+            _COMPACT_JWT,
             _SENSITIVE_LABEL_VALUE,
         )
-    ):
+    ) or _contains_luhn_payment_card(value):
         return "sensitive"
     return None
+
+
+def _contains_luhn_payment_card(value: str) -> bool:
+    for match in _PAYMENT_CARD_CANDIDATE.finditer(value):
+        digits = match.group().replace(" ", "").replace("-", "")
+        if not 13 <= len(digits) <= 19 or len(set(digits)) == 1:
+            continue
+        checksum = 0
+        parity = len(digits) % 2
+        for index, character in enumerate(digits):
+            digit = int(character)
+            if index % 2 == parity:
+                digit *= 2
+                if digit > 9:
+                    digit -= 9
+            checksum += digit
+        if checksum % 10 == 0:
+            return True
+    return False
 
 
 def _safe_string(value: object, *, maximum: int = _MAX_STRING_LENGTH) -> str:
