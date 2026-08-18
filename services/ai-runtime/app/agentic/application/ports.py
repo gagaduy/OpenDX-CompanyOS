@@ -12,6 +12,7 @@ from app.agentic.domain.contracts import (
     StateProjection,
     WorkloadPrincipal,
 )
+from app.agentic.domain.model_runtime import ModelRequest, ModelResult
 
 
 class AgenticControlFailure(RuntimeError):
@@ -27,6 +28,10 @@ class WorkloadVerifier(Protocol):
 
 class AccessTokenProvider(Protocol):
     async def get_token(self) -> str: ...
+
+
+class ModelGateway(Protocol):
+    async def generate(self, request: ModelRequest) -> ModelResult: ...
 
 
 class AgenticControlPort(Protocol):
