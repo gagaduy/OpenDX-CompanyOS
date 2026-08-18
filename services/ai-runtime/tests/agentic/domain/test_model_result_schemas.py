@@ -190,6 +190,14 @@ def test_rejects_common_envelope_bounds(field: str, invalid_value: Any) -> None:
         parse_model_result(value)
 
 
+def test_rejects_float_schema_version_equal_to_integer_literal() -> None:
+    value = valid_envelope("catalog")
+    value["schemaVersion"] = 1.0
+
+    with pytest.raises(ValueError, match="schemaVersion must be literal 1"):
+        parse_model_result(value)
+
+
 @pytest.mark.parametrize(
     ("collection", "field", "invalid_value"),
     [

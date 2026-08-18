@@ -173,7 +173,7 @@ def parse_model_result(value: object) -> ModelResultEnvelope:
         },
         "result",
     )
-    if document["schemaVersion"] != 1 or type(document["schemaVersion"]) is bool:
+    if type(document["schemaVersion"]) is not int or document["schemaVersion"] != 1:
         raise ValueError("schemaVersion must be literal 1")
     agent_kind = _literal(document["agentKind"], _AGENT_KINDS, "agentKind")
     status = _literal(document["status"], _RESULT_STATUSES, "status")
