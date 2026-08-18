@@ -257,6 +257,69 @@ def test_blocks_nested_credential_key_and_pii_key_variants(field: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "field",
+    [
+        "nationalId",
+        "dateOfBirth",
+        "cardNumber",
+        "bankAccount",
+        "sessionCookie",
+        "authorization",
+    ],
+)
+def test_blocks_nested_identity_financial_and_auth_fields(field: str) -> None:
+    canary = "NESTED_CLASSIFIED_FIELD_CANARY"
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary(
+            "catalog", context(productsAtRisk={field: canary, "count": 1})
+        )
+
+    assert captured.value.code == "CONTEXT_SENSITIVE_FIELD_BLOCKED"
+    assert field not in repr(captured.value.args)
+    assert canary not in repr(captured.value.args)
+
+
+def test_removes_unknown_benign_nested_field_from_sanitized_context() -> None:
+    canary = "UNKNOWN_NESTED_FIELD_CANARY"
+
+    safe = enforce_context_boundary(
+        "catalog",
+        context(productsAtRisk={"count": 1, "displayLabel": canary}),
+    )
+
+    assert safe["productsAtRisk"] == {"count": 1}
+    assert canary not in repr(safe)
+
+
+def test_preserves_approved_nested_aggregate_and_metadata_fields() -> None:
+    nested = {
+        "count": 2,
+        "value": 9_500,
+        "code": "CATALOG_RISK",
+        "status": "complete",
+        "riskLevel": "medium",
+        "agentKind": "catalog",
+        "provenanceIds": ["prov-1"],
+        "source": "department-tool:catalog-v1",
+        "retrievedAt": "2026-08-19T08:00:00Z",
+        "freshnessStatus": "fresh",
+        "classification": "internal",
+        "summary": "Aggregate catalog summary.",
+        "severity": "medium",
+    }
+
+    safe = enforce_context_boundary(
+        "catalog", context(productsAtRisk=nested)
+    )
+
+    approved = safe["productsAtRisk"]
+    assert set(approved) == set(nested)
+    assert approved["count"] == 2
+    assert approved["provenanceIds"] == ("prov-1",)
+
+
+@pytest.mark.parametrize(
     "canary",
     [
         "customer_id=CUSTOMER_CANARY_123",

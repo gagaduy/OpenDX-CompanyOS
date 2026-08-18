@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Restrict recursive model context to an explicit aggregate and provenance
+  metadata schema while blocking normalized identity, financial, cookie,
+  session, and authorization fields before sanitization.
+
 - Harden untrusted model-context intake with conservative nested credential and
   PII key detection, pre-iteration collection budgets, and secret-safe raw
   input representation without eager snapshots.

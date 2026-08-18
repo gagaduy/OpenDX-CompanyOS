@@ -139,6 +139,89 @@ _SENSITIVE_FIELD_SUFFIXES = (
     "secret",
     "token",
 )
+_SENSITIVE_IDENTITY_FIELDS = frozenset(
+    {
+        "citizenid",
+        "dateofbirth",
+        "dob",
+        "governmentid",
+        "governmentidentifier",
+        "identitynumber",
+        "nationalid",
+        "passport",
+        "passportid",
+        "passportnumber",
+    }
+)
+_SENSITIVE_FINANCIAL_FIELDS = frozenset(
+    {
+        "accountnumber",
+        "bankaccount",
+        "bankaccountnumber",
+        "cardnumber",
+        "cardsecuritycode",
+        "cvc",
+        "cvv",
+        "paymentcredential",
+        "paymentcredentials",
+    }
+)
+_SENSITIVE_AUTH_FIELDS = frozenset(
+    {
+        "authorization",
+        "authorizationheader",
+        "authheader",
+        "cookie",
+        "cookies",
+        "sessioncookie",
+        "sessionid",
+        "setcookie",
+    }
+)
+_NESTED_ALLOWED_FIELDS = frozenset(
+    {
+        "affectedOrderCount",
+        "affectedProductCount",
+        "agentKind",
+        "atRiskSkuCount",
+        "classification",
+        "classificationCount",
+        "code",
+        "completenessBasisPoints",
+        "count",
+        "crossDepartmentRiskCount",
+        "discrepancyAmountVnd",
+        "discrepancyCount",
+        "expiryRiskCount",
+        "followupOpportunityCount",
+        "freshnessStatus",
+        "invalidTransitionCount",
+        "lifetimePaidRevenueVnd",
+        "merchandisingSignalCount",
+        "overdueCount",
+        "pendingAmountVnd",
+        "pendingPaymentCount",
+        "productsAtRisk",
+        "provenanceIds",
+        "providerEvidenceCoverageBasisPoints",
+        "publicationBlockerCount",
+        "relatedOrderContextCount",
+        "repeatCustomerCount",
+        "reservationAnomalyCount",
+        "retrievedAt",
+        "riskLevel",
+        "segmentCount",
+        "severity",
+        "slaRiskCount",
+        "slowStockSkuCount",
+        "source",
+        "stalledOrderCount",
+        "status",
+        "summary",
+        "unresolvedConflictCodes",
+        "value",
+    }
+)
 _AI_CEO_FORBIDDEN_FIELDS = frozenset(
     {
         "agentcall",
@@ -285,6 +368,8 @@ def _filter_mapping(
             raise ContextBoundaryFailure("CONTEXT_SENSITIVE_FIELD_BLOCKED")
         if allowed_top_level is not None and key not in allowed_top_level:
             continue
+        if allowed_top_level is None and key not in _NESTED_ALLOWED_FIELDS:
+            continue
         filtered = _filter_value(
             item,
             inherited_classification=inherited_classification,
@@ -379,7 +464,13 @@ def _normalized_field(value: str) -> str:
 
 
 def _is_sensitive_field(value: str) -> bool:
-    return value in _SENSITIVE_FIELDS or value.endswith(_SENSITIVE_FIELD_SUFFIXES)
+    return (
+        value in _SENSITIVE_FIELDS
+        or value in _SENSITIVE_IDENTITY_FIELDS
+        or value in _SENSITIVE_FINANCIAL_FIELDS
+        or value in _SENSITIVE_AUTH_FIELDS
+        or value.endswith(_SENSITIVE_FIELD_SUFFIXES)
+    )
 
 
 def _preflight_input(root: object) -> None:
@@ -393,8 +484,8 @@ def _preflight_input(root: object) -> None:
         if not entering:
             active_ids.remove(id(value))
             continue
+        _check_depth(depth)
         if isinstance(value, ClassifiedValue):
-            _check_depth(depth)
             stack.append((True, value.value, depth + 1))
             continue
         if isinstance(value, Mapping):
