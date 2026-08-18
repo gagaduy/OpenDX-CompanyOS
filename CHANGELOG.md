@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Count nested classified-context wrappers toward the iterative preflight depth
+  bound before immutable context construction.
+
 - Bound model-context structure before deep freeze, reject invalid Unicode and
   unsafe JSON integers, and translate residual serialization failures into
   fixed secret-safe boundary errors.

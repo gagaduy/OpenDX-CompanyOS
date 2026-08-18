@@ -397,7 +397,8 @@ def _preflight_input(root: object) -> None:
             active_ids.remove(id(value))
             continue
         if isinstance(value, ClassifiedValue):
-            stack.append((True, value.value, depth))
+            _check_depth(depth)
+            stack.append((True, value.value, depth + 1))
             continue
         if isinstance(value, Mapping):
             _preflight_container(value, depth, active_ids, stack, mapping=True)

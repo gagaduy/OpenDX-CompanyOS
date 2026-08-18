@@ -269,6 +269,20 @@ def test_rejects_extremely_deep_acyclic_input_before_recursive_freeze() -> None:
     assert captured.value.__context__ is None
 
 
+def test_rejects_extremely_deep_classified_value_wrappers_before_freeze() -> None:
+    nested: object = 1
+    for _index in range(1_500):
+        nested = ClassifiedValue("internal", nested)
+
+    with pytest.raises(ContextBoundaryFailure) as captured:
+        enforce_context_boundary("catalog", context(productsAtRisk=nested))
+
+    assert captured.value.code == "CONTEXT_DEPTH_LIMIT_EXCEEDED"
+    assert captured.value.args == ("CONTEXT_DEPTH_LIMIT_EXCEEDED",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
 def test_rejects_lone_unicode_surrogate_without_retaining_input() -> None:
     canary = "\ud800UNICODE_CANARY"
 
