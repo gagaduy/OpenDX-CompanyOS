@@ -37,6 +37,14 @@ domain, application, infrastructure, presentation, seed, and test code. Both
 commerce repositories use shared PostgreSQL transaction infrastructure; Catalog
 media storage remains behind its inward-facing storage port.
 
+Phase C health readers remain inside their owning Commerce modules and are
+exported through each module `index.ts`. Fixed mapping adapters live under
+`apps/api/src/modules/agentic/infrastructure/tools`; they depend on those public
+read ports, never private repositories. Reporting owns the three Agentic
+analytics views and its isolated read adapter.
+`apps/api/src/integration-test-setup.ts` is a test-only composition root that
+rolls module migrations back in dependency order after each integration file.
+
 `apps/storefront` contains the React + TypeScript customer commerce surface.
 Its feature-owned Catalog, authentication, Cart, customer-account, Checkout,
 and Order areas consume runtime-validated API envelopes; `src/app` owns
@@ -82,8 +90,9 @@ Temporal visibility databases plus a manifest and checksums.
 `scripts/audit` contains repository governance audit helpers.
 
 `scripts/dev` contains deterministic browser validation, isolated commerce
-gates, Agentic lifecycle/recovery/replay gates, and an opt-in real SePay sandbox
-runner. `scripts/ops` owns bounded backup and restore procedures.
+gates, Agentic lifecycle/recovery/replay gates, the disposable six-identity
+Department-tool acceptance and Phase C static exit gate, and an opt-in real
+SePay sandbox runner. `scripts/ops` owns bounded backup and restore procedures.
 
 `docs` contains product, architecture, design, roadmap, build, dependency, and
 planning documentation. `docs/superpowers/specs` and
@@ -131,7 +140,7 @@ Approved commerce module areas include:
 - `modules/support`
 - `modules/reporting`
 - `modules/audit`
-- `modules/agentic` (governance, workflow control, safe projections, and worker callbacks)
+- `modules/agentic` (governance, workflow control, safe projections, worker callbacks, and fixed read-tool adapters)
 
 Skills, model-backed execution, Graph, and broad Integration modules remain in
 the post-commerce roadmap. Agent governance and durable workflow control are

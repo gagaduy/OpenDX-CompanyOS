@@ -876,27 +876,27 @@ git commit -m "feat(infra): provision department agent identities"
 - Produces: `pnpm check:agentic-department-tools`, `pnpm check:agentic-phase-c-exit`, and `make check-agentic-department-tools`.
 - Consumes: all Tasks 1-13 and existing local/production Compose gates.
 
-- [ ] **Step 1: Write failing bounded observability tests**
+- [x] **Step 1: Write failing bounded observability tests**
 
 Assert logs contain tool/version, department, outcome, safe error code,
 correlation, causation, attempt, and duration, but never parameter/result
 bodies or canaries. Assert metrics use only bounded tool/version/department/
 outcome/error labels and active invocations decrement on every exit.
 
-- [ ] **Step 2: Implement metrics and structured events**
+- [x] **Step 2: Implement metrics and structured events**
 
 Instrument authorization denial, reservation, adapter completion, retryable
 failure, terminal failure, duplicate replay, query duration, rows, and result
 bytes without high-cardinality labels.
 
-- [ ] **Step 3: Write the static exit gate before its implementation**
+- [x] **Step 3: Write the static exit gate before its implementation**
 
 The test mutates fixtures and proves the gate rejects a missing tool,
 cross-Agent grant, private repository import, generic SQL tool, public internal
 route, base-table grant, mutation method, missing leakage fixture, OpenRouter
 call, Agentic Console page, or production SePay activation.
 
-- [ ] **Step 4: Implement the six-identity live acceptance check**
+- [x] **Step 4: Implement the six-identity live acceptance check**
 
 The check atomically owns the existing maintenance lock, creates its own task
 and active configuration, obtains six credentials without printing them,
@@ -904,14 +904,14 @@ invokes every allowed tool, denies representative cross-department and AI CEO
 calls, validates provenance and summary sharing, then removes only its own
 records in `finally`. It must not alter Commerce records.
 
-- [ ] **Step 5: Update exact contracts and operator documentation**
+- [x] **Step 5: Update exact contracts and operator documentation**
 
 Document all 17 request/result schemas, error/retry behavior, analytics role,
 credentials, migrations, backup/restore impact, source build, local acceptance,
 and production preflight. Mark Phase C complete only after every command below
 passes; keep Phases D-H explicitly not started.
 
-- [ ] **Step 6: Run focused and complete validation**
+- [x] **Step 6: Run focused and complete validation**
 
 ```bash
 pnpm install --frozen-lockfile
@@ -940,13 +940,13 @@ git status --short
 Expected: every command exits zero; 17 tools are allowed only to their six
 owners; forbidden data/mutation surfaces remain zero; Phases D-H remain absent.
 
-- [ ] **Step 7: Perform final self-review and request independent review**
+- [x] **Step 7: Perform final self-review and request independent review**
 
 Review the focused spec line by line, run the Clean Architecture checklist,
 inspect every public export and SQL grant, and resolve all Critical/Important
 findings before completion.
 
-- [ ] **Step 8: Commit Phase C closure**
+- [x] **Step 8: Commit Phase C closure**
 
 ```bash
 git add CHANGELOG.md Makefile package.json apps/api docs scripts
@@ -955,18 +955,18 @@ git commit -m "docs(agentic): close department read tools phase"
 
 ## Final Acceptance
 
-- [ ] Exactly 17 version-one tools exist and every descriptor/schema digest
+- [x] Exactly 17 version-one tools exist and every descriptor/schema digest
   matches its runtime validator and migration row.
-- [ ] Each of six Agent identities can invoke only its own grants; AI CEO,
+- [x] Each of six Agent identities can invoke only its own grants; AI CEO,
   staff, browser, worker, control, inactive, stale, revoked, and forged
   identities are denied before retrieval.
-- [ ] All output is bounded, fresh, provenance-backed, idempotent, auditable,
+- [x] All output is bounded, fresh, provenance-backed, idempotent, auditable,
   safely observable, and free of prohibited PII/provider/text canaries.
-- [ ] The analytics role can select exactly three approved views and nothing
+- [x] The analytics role can select exactly three approved views and nothing
   else; Commerce public readers expose no repositories or mutation methods.
-- [ ] Duplicate, concurrent, timeout, retry, stale, oversized, invalid output,
+- [x] Duplicate, concurrent, timeout, retry, stale, oversized, invalid output,
   migration rollback, database restore, and service restart behavior converge.
-- [ ] No OpenRouter, model execution, file intake, AI CEO runtime, Agentic UI,
+- [x] No OpenRouter, model execution, file intake, AI CEO runtime, Agentic UI,
   generic SQL, Commerce mutation, or production SePay change is present.
-- [ ] Local and production-candidate Compose, build-from-source, backup/restore,
+- [x] Local and production-candidate Compose, build-from-source, backup/restore,
   repository audit, and full test gates pass from committed source.

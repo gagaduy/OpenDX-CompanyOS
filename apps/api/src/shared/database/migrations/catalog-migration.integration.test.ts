@@ -20,6 +20,7 @@ describeWithDatabase("catalog migration", () => {
   ] as const;
 
   afterAll(async () => {
+    await runCatalogMigrations(databaseUrl!, "down");
     await pool.end();
   });
 

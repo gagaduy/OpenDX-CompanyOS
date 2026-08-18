@@ -26,7 +26,10 @@ suite("PostgresqlCatalogHealthRepository", () => {
     await pool.query("TRUNCATE product_media,product_prices,product_variants,products,categories CASCADE");
     await insertFixture(pool);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runCatalogMigrations(databaseUrl!, "down");
+    await pool.end();
+  });
 
   it("calculates completeness without exposing catalog content", async () => {
     const result = await reader.productCompleteness(asOf);

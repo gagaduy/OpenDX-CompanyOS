@@ -67,6 +67,17 @@ suite("PostgresqlReportingRepository", () => {
   });
 
   afterAll(async () => {
+    await runSupportMigrations(databaseUrl!, "down");
+    await runCrmMigrations(databaseUrl!, "down");
+    await runPaymentMigrations(databaseUrl!, "down");
+    await runOrderMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down");
+    await runPromotionMigrations(databaseUrl!, "down");
+    await runCartMigrations(databaseUrl!, "down");
+    await runCustomerMigrations(databaseUrl!, "down");
+    await runInventoryMigrations(databaseUrl!, "down");
+    await runCompanyCoreMigrations(databaseUrl!, "down");
+    await runCatalogMigrations(databaseUrl!, "down");
     await pool.end();
   });
 

@@ -37,7 +37,10 @@ suite("PostgresqlAgenticRepository", () => {
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runAgenticMigrations(databaseUrl!, "down", 999_999);
+    await pool.end();
+  });
 
   it("enforces owner-scoped reads and one-winner optimistic task updates", async () => {
     const taskId = randomUUID();
@@ -216,13 +219,20 @@ suite("PostgresqlAgenticRepository", () => {
     const provenanceId = randomUUID();
     await transactions.run(async (session) => {
       await repository.appendAudit(session, {
-        id: auditId, actorId: "agent-catalog", actorType: "agent", taskId,
+        id: auditId, actorId: "agent-catalog", clientId: "agent-catalog-client",
+        actorType: "agent", taskId,
         action: "catalog.read", resourceType: "tool", resourceId: "catalog.health",
-        outcome: "allowed", correlationId: "corr-1", occurredAt: "2026-08-14T01:02:00.000Z",
+        outcome: "allowed", correlationId: "corr-1", causationId: "cause-1",
+        parametersDigest: "c".repeat(64), attempt: 1, durationMs: 25,
+        resultDigest: "d".repeat(64), errorCode: "NONE",
+        occurredAt: "2026-08-14T01:02:00.000Z",
       });
       await repository.appendProvenance(session, {
         id: provenanceId, taskId, sourceType: "database", sourceId: "catalog.products",
         sourceDigest: "b".repeat(64), classification: "internal",
+        sourceVersion: 1,
+        normalizedWindow: { start: "2026-08-13T00:00:00.000Z", end: "2026-08-14T00:00:00.000Z" },
+        sourceSnapshotAt: "2026-08-14T01:01:59.000Z",
         recordedBy: "agent-catalog", recordedAt: "2026-08-14T01:02:00.000Z",
       });
       await repository.createRevocation(session, {
@@ -232,13 +242,45 @@ suite("PostgresqlAgenticRepository", () => {
       });
     });
     expect(await transactions.runReadOnly((session) => repository.listAudit(session, { limit: 10 })))
-      .toHaveLength(1);
+      .toEqual([expect.objectContaining({
+        clientId: "agent-catalog-client", parametersDigest: "c".repeat(64),
+        causationId: "cause-1", attempt: 1, durationMs: 25,
+        resultDigest: "d".repeat(64), errorCode: "NONE",
+      })]);
     expect(await transactions.runReadOnly((session) => repository.listAudit(session, { limit: 10, actorId: "someone-else" })))
       .toHaveLength(0);
     expect(await transactions.runReadOnly((session) => repository.listProvenance(session, taskId)))
-      .toHaveLength(1);
+      .toEqual([expect.objectContaining({
+        sourceVersion: 1,
+        normalizedWindow: { start: "2026-08-13T00:00:00.000Z", end: "2026-08-14T00:00:00.000Z" },
+        sourceSnapshotAt: "2026-08-14T01:01:59.000Z",
+      })]);
     expect(await transactions.runReadOnly((session) => repository.findActiveRevocation(session, "agent", "catalog")))
       .toMatchObject({ reason: "Emergency stop" });
+  });
+
+  it("records a denied attempt and preserves its unbound attempted task", async () => {
+    const missingTaskId = randomUUID();
+    await transactions.run((session) => repository.appendAudit(session, {
+      id: randomUUID(), actorId: "agent-catalog", clientId: "agent-catalog-client",
+      actorType: "agent", taskId: missingTaskId, action: "tool.invoke",
+      resourceType: "tool", resourceId: "catalog.product_completeness@1",
+      outcome: "denied", correlationId: "corr-missing-task",
+      parametersDigest: "a".repeat(64), attempt: 0, durationMs: 1,
+      errorCode: "TASK_AGENT_MISMATCH", occurredAt: "2026-08-14T01:02:00.000Z",
+    }));
+    await expect(pool.query<{ attempted_task_id: string }>(
+      "SELECT attempted_task_id FROM agentic_audit_events WHERE correlation_id=$1",
+      ["corr-missing-task"],
+    )).resolves.toMatchObject({ rows: [{ attempted_task_id: missingTaskId }] });
+
+    const auditEvents = await transactions.runReadOnly((session) => repository.listAudit(
+      session, { limit: 10, action: "tool.invoke" },
+    ));
+    expect(auditEvents).toEqual([expect.objectContaining({
+      outcome: "denied", errorCode: "TASK_AGENT_MISMATCH",
+    })]);
+    expect(auditEvents[0]).toMatchObject({ taskId: missingTaskId });
   });
 
   it("converges workflow starts and rejects stale projections", async () => {
@@ -354,6 +396,22 @@ suite("PostgresqlAgenticRepository", () => {
       1,
       "another-key",
     ))).resolves.toBe(1);
+  });
+
+  it("reclaims a stale department tool reservation with a bounded retry", async () => {
+    const { taskId } = await createReadyTask(pool);
+    const request = toolInvocationReservation(taskId);
+    await transactions.run((session) => repository.reserveToolInvocation(session, request));
+    await pool.query(
+      "UPDATE agentic_tool_invocations SET updated_at=$2 WHERE id=$1",
+      [request.id, "2026-08-16T00:58:00.000Z"],
+    );
+
+    const retry = { ...request, occurredAt: "2026-08-16T01:00:00.000Z" };
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, retry)))
+      .resolves.toEqual({ kind: "reserved", invocationId: request.id, attempt: 2 });
+    await expect(transactions.run((session) => repository.reserveToolInvocation(session, retry)))
+      .resolves.toEqual({ kind: "in_progress", invocationId: request.id, attempt: 2 });
   });
 
   it("claims one retryable attempt and replays a terminal error", async () => {

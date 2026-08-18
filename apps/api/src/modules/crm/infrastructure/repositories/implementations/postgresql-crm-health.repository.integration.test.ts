@@ -19,10 +19,17 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 const analyticsUrl = process.env.AGENTIC_ANALYTICS_TEST_DATABASE_URL
   ?? "postgres://opendx_agentic_reader:opendx_agentic_reader_password@localhost:5432/opendx_test";
 const suite = databaseUrl === undefined ? describe.skip : describe;
-const NOW = "2026-08-16T05:00:00.000Z";
+const currentDate = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "Asia/Ho_Chi_Minh",
+  year: "numeric",
+}).format(new Date());
+const NOW = `${currentDate}T05:00:00.000Z`;
+const SNAPSHOT_BOUNDARY = new Date(`${currentDate}T00:00:00.000+07:00`).toISOString();
 const window = {
-  start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T05:01:00.000Z",
+  start: new Date(Date.parse(NOW) - 15 * 86_400_000).toISOString(),
+  end: new Date(Date.parse(NOW) + 60_000).toISOString(),
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 
@@ -56,6 +63,15 @@ suite("PostgresqlCrmHealthRepository", () => {
     await seedFixture(app);
   });
   afterAll(async () => {
+    await runReportingMigrations(databaseUrl!, "down", 999_999);
+    await runCrmMigrations(databaseUrl!, "down", 999_999);
+    await runOrderMigrations(databaseUrl!, "down", 999_999);
+    await runCheckoutMigrations(databaseUrl!, "down", 999_999);
+    await runPromotionMigrations(databaseUrl!, "down", 999_999);
+    await runCartMigrations(databaseUrl!, "down", 999_999);
+    await runCustomerMigrations(databaseUrl!, "down", 999_999);
+    await runCompanyCoreMigrations(databaseUrl!, "down", 999_999);
+    await runCatalogMigrations(databaseUrl!, "down", 999_999);
     await analyticsPool.end();
     await app.end();
   });
@@ -113,12 +129,21 @@ suite("PostgresqlCrmHealthRepository", () => {
 });
 
 async function seedFixture(pool: Pool): Promise<void> {
-  await pool.query(`
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT set_config('opendx.test_now',$1,false)", [NOW]);
+    await client.query(
+      "SELECT set_config('opendx.test_snapshot_boundary',$1,false)",
+      [SNAPSHOT_BOUNDARY],
+    );
+    await client.query(`
     INSERT INTO customers(id,email,email_verified_at,full_name,status,version,created_at,updated_at)
     SELECT ('a1000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid,
       'CANARY_CUSTOMER_'||value||'@example.invalid',NOW(),'CANARY_CUSTOMER_'||value,'active',1,
-      CASE WHEN value IN (1,7) THEN '2026-08-10T00:00:00Z' ELSE '2026-01-01T00:00:00Z' END::timestamptz,
-      '2026-08-10T00:00:00Z' FROM generate_series(1,7) value;
+      CASE WHEN value IN (1,7) THEN current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days'
+        ELSE current_setting('opendx.test_now')::timestamptz-INTERVAL '200 days' END,
+      current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days'
+      FROM generate_series(1,7) value;
     INSERT INTO carts(id,customer_id,status,version,expires_at)
     SELECT ('b1000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid,
       ('a1000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid,
@@ -134,15 +159,15 @@ async function seedFixture(pool: Pool): Promise<void> {
       amount_vnd,0,amount_vnd,'order_created','crm-health-'||sequence,
       md5(sequence::text)||md5(('crm'||sequence)::text),'2026-08-20T00:00:00Z',paid_at,paid_at
     FROM (VALUES
-      (1,2,4999999,'2026-07-17T00:00:00Z'::timestamptz),
-      (2,3,2500000,'2026-07-01T00:00:00Z'::timestamptz),
-      (3,3,2500000,'2026-07-16T23:59:59Z'::timestamptz),
-      (4,4,25000000,'2026-05-01T00:00:00Z'::timestamptz),
-      (5,4,24999999,'2026-05-18T00:00:00Z'::timestamptz),
-      (6,5,25000000,'2026-05-01T00:00:00Z'::timestamptz),
-      (7,5,25000000,'2026-05-17T23:59:59Z'::timestamptz),
-      (8,6,1000000,'2026-05-17T23:59:59Z'::timestamptz),
-      (9,7,1000,'2026-08-10T00:00:00Z'::timestamptz)
+      (1,2,4999999,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '30 days'),
+      (2,3,2500000,current_setting('opendx.test_now')::timestamptz-INTERVAL '46 days'),
+      (3,3,2500000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '30 days 1 second'),
+      (4,4,25000000,current_setting('opendx.test_now')::timestamptz-INTERVAL '107 days'),
+      (5,4,24999999,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days'),
+      (6,5,25000000,current_setting('opendx.test_now')::timestamptz-INTERVAL '107 days'),
+      (7,5,25000000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days 1 second'),
+      (8,6,1000000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days 1 second'),
+      (9,7,1000,current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days')
     ) orders(sequence,customer_number,amount_vnd,paid_at);
     INSERT INTO orders
       (id,public_number,customer_id,checkout_id,address_snapshot,contact_snapshot,
@@ -155,26 +180,30 @@ async function seedFixture(pool: Pool): Promise<void> {
       '{"address":"CANARY_ADDRESS"}','{"contact":"CANARY_CONTACT"}',
       amount_vnd,0,amount_vnd,'paid','2026-08-20T00:00:00Z',paid_at,2,paid_at,paid_at
     FROM (VALUES
-      (1,2,4999999,'2026-07-17T00:00:00Z'::timestamptz),
-      (2,3,2500000,'2026-07-01T00:00:00Z'::timestamptz),
-      (3,3,2500000,'2026-07-16T23:59:59Z'::timestamptz),
-      (4,4,25000000,'2026-05-01T00:00:00Z'::timestamptz),
-      (5,4,24999999,'2026-05-18T00:00:00Z'::timestamptz),
-      (6,5,25000000,'2026-05-01T00:00:00Z'::timestamptz),
-      (7,5,25000000,'2026-05-17T23:59:59Z'::timestamptz),
-      (8,6,1000000,'2026-05-17T23:59:59Z'::timestamptz),
-      (9,7,1000,'2026-08-10T00:00:00Z'::timestamptz)
+      (1,2,4999999,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '30 days'),
+      (2,3,2500000,current_setting('opendx.test_now')::timestamptz-INTERVAL '46 days'),
+      (3,3,2500000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '30 days 1 second'),
+      (4,4,25000000,current_setting('opendx.test_now')::timestamptz-INTERVAL '107 days'),
+      (5,4,24999999,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days'),
+      (6,5,25000000,current_setting('opendx.test_now')::timestamptz-INTERVAL '107 days'),
+      (7,5,25000000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days 1 second'),
+      (8,6,1000000,current_setting('opendx.test_snapshot_boundary')::timestamptz-INTERVAL '90 days 1 second'),
+      (9,7,1000,current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days')
     ) paid_orders(sequence,customer_number,amount_vnd,paid_at);
     INSERT INTO crm_notes(id,customer_id,author_id,body,created_at) VALUES
       ('e1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001',
-       'CANARY_ASSIGNEE','CANARY_NOTE','2026-08-15T00:00:00Z');
+       'CANARY_ASSIGNEE','CANARY_NOTE',current_setting('opendx.test_now')::timestamptz-INTERVAL '1 day');
     INSERT INTO crm_followups
       (id,customer_id,due_at,description,status,version,created_by_id,created_at,updated_at) VALUES
-      ('f1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','2026-08-20T00:00:00Z','CANARY_DESCRIPTION_1','open',1,'CANARY_CREATOR','2026-08-10T00:00:00Z','2026-08-10T00:00:00Z'),
-      ('f1000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000003','2026-08-15T00:00:00Z','CANARY_DESCRIPTION_2','open',1,'CANARY_CREATOR','2026-08-10T00:00:00Z','2026-08-10T00:00:00Z'),
-      ('f1000000-0000-4000-8000-000000000003','a1000000-0000-4000-8000-000000000004','2026-08-16T05:01:00Z','CANARY_DESCRIPTION_3','open',1,'CANARY_CREATOR','2026-08-10T00:00:00Z','2026-08-10T00:00:00Z'),
-      ('f1000000-0000-4000-8000-000000000004','a1000000-0000-4000-8000-000000000005','2026-08-16T05:00:00Z','CANARY_DESCRIPTION_4','open',1,'CANARY_CREATOR','2026-08-10T00:00:00Z','2026-08-10T00:00:00Z');
-    UPDATE crm_followups SET assignee_id='CANARY_ASSIGNEE',version=2,updated_at='2026-08-11T00:00:00Z'
+      ('f1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001',current_setting('opendx.test_now')::timestamptz+INTERVAL '4 days','CANARY_DESCRIPTION_1','open',1,'CANARY_CREATOR',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days'),
+      ('f1000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000003',current_setting('opendx.test_now')::timestamptz-INTERVAL '1 day','CANARY_DESCRIPTION_2','open',1,'CANARY_CREATOR',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days'),
+      ('f1000000-0000-4000-8000-000000000003','a1000000-0000-4000-8000-000000000004',current_setting('opendx.test_now')::timestamptz+INTERVAL '1 minute','CANARY_DESCRIPTION_3','open',1,'CANARY_CREATOR',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days'),
+      ('f1000000-0000-4000-8000-000000000004','a1000000-0000-4000-8000-000000000005',current_setting('opendx.test_now')::timestamptz,'CANARY_DESCRIPTION_4','open',1,'CANARY_CREATOR',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days',current_setting('opendx.test_now')::timestamptz-INTERVAL '6 days');
+    UPDATE crm_followups SET assignee_id='CANARY_ASSIGNEE',version=2,
+      updated_at=current_setting('opendx.test_now')::timestamptz-INTERVAL '5 days'
     WHERE id IN ('f1000000-0000-4000-8000-000000000003','f1000000-0000-4000-8000-000000000004');
-  `);
+    `);
+  } finally {
+    client.release();
+  }
 }

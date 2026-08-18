@@ -32,8 +32,10 @@ OpenDX CompanyOS has six functional layers:
 - Payments: SePay Payment Gateway, sandbox locally and production on hosted
   HTTPS.
 
-Temporal 1.31.2 and the Python Temporal SDK 1.30.0 now provide the isolated
-Phase B durable workflow runtime. pgvector, graph projection storage, model
+Temporal 1.31.2 and the Python Temporal SDK 1.30.0 provide the isolated durable
+workflow runtime. Phase C adds 17 fixed, typed, read-only Department tools
+behind six service identities, public Commerce read ports, and three restricted
+Reporting views. pgvector, graph projection storage, model
 providers, and GraphRAG remain future directions and do not alter Commerce
 truth.
 
@@ -50,8 +52,8 @@ risk level.
 - Existing: PostgreSQL-backed Company Operating Core, Catalog, Inventory,
   Customer, Cart, Promotion, Checkout, Order, and Payment.
 - Commerce roadmap: CRM, Support, Reporting, and broader Audit surfaces.
-- Post-commerce: Agent governance and the first durable workflow are
-  implemented; Skills, Commerce tools, model execution, Graph, and broad
+- Post-commerce: Agent governance, the first durable workflow, and bounded
+  Department Commerce reads are implemented; Skills, model execution, Graph, and broad
   Integration remain later phases.
 
 ## Core Entity Families
@@ -80,7 +82,16 @@ an authenticated AI Runtime gateway, a separately authenticated worker, safe
 PostgreSQL projections, approval/cancellation signals, replay, metrics, and a
 three-database recovery set. See
 [`agentic-workflow-runtime.md`](agentic-workflow-runtime.md). It uses bounded
-fake activities and no model provider or Commerce tool.
+  fake activities and no model provider or Commerce tool.
+
+Phase C adds 17 immutable version-one Tool Registry descriptors and six
+separate Department Agent client-credentials identities. The API recalculates
+identity, task, revision, grant, policy, revocation, quota, schema, freshness,
+size, idempotency, audit, and provenance before returning bounded results.
+Adapters import owner contracts only through public module APIs. Analytics use
+an isolated pool whose role can select exactly three approved Reporting views.
+Commerce truth remains read-only and the Temporal workflow still has no model
+or real Department-analysis activity.
 
 Commerce payment, inventory, and order correctness remains independent and is
 enforced through PostgreSQL transactions, idempotency, state machines,

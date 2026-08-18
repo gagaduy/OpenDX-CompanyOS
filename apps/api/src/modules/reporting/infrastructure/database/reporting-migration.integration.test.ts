@@ -24,6 +24,11 @@ const views = [
   "reporting_agentic_customer_segment_snapshot_v2",
   "reporting_agentic_customer_activity_daily_v1",
 ] as const;
+const approvedReaderViews = [
+  "reporting_agentic_variant_sales_v1",
+  "reporting_agentic_customer_segment_snapshot_v2",
+  "reporting_agentic_customer_activity_daily_v1",
+] as const;
 
 suite("Reporting Agentic analytics migration", () => {
   const app = new Pool({ connectionString: databaseUrl });
@@ -44,6 +49,18 @@ suite("Reporting Agentic analytics migration", () => {
     await runReportingMigrations(databaseUrl!, "up");
   });
   afterAll(async () => {
+    await runReportingMigrations(databaseUrl!, "down", 999_999);
+    await runSupportMigrations(databaseUrl!, "down", 999_999);
+    await runCrmMigrations(databaseUrl!, "down", 999_999);
+    await runPaymentMigrations(databaseUrl!, "down", 999_999);
+    await runOrderMigrations(databaseUrl!, "down", 999_999);
+    await runCheckoutMigrations(databaseUrl!, "down", 999_999);
+    await runPromotionMigrations(databaseUrl!, "down", 999_999);
+    await runCartMigrations(databaseUrl!, "down", 999_999);
+    await runCustomerMigrations(databaseUrl!, "down", 999_999);
+    await runInventoryMigrations(databaseUrl!, "down", 999_999);
+    await runCompanyCoreMigrations(databaseUrl!, "down", 999_999);
+    await runCatalogMigrations(databaseUrl!, "down", 999_999);
     await reader.end();
     await app.end();
   });
@@ -66,9 +83,21 @@ suite("Reporting Agentic analytics migration", () => {
   });
 
   it("allows only exact view reads for the analytics role", async () => {
-    for (const view of views) {
+    for (const view of approvedReaderViews) {
       await expect(reader.query(`SELECT * FROM ${view} LIMIT 1`)).resolves.toBeDefined();
     }
+    await expect(reader.query(
+      "SELECT * FROM reporting_agentic_customer_segment_snapshot_v1 LIMIT 1",
+    )).rejects.toThrow(/permission denied/i);
+    const grants = await app.query<{ table_name: string; privilege_type: string }>(
+      `SELECT table_name,privilege_type
+       FROM information_schema.role_table_grants
+       WHERE grantee='opendx_agentic_reader'
+       ORDER BY table_name,privilege_type`,
+    );
+    expect(grants.rows).toEqual(approvedReaderViews
+      .map((tableName) => ({ table_name: tableName, privilege_type: "SELECT" }))
+      .sort((left, right) => left.table_name.localeCompare(right.table_name)));
     await expect(reader.query("SELECT * FROM orders LIMIT 1"))
       .rejects.toThrow(/permission denied/i);
     await expect(reader.query(

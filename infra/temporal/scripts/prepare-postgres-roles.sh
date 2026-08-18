@@ -168,7 +168,7 @@ SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE EXECUTE ON FUNCTIONS 
 SELECT format('GRANT SELECT ON TABLE public.%I TO %I', relation_name, :'reader_user')
 FROM unnest(ARRAY[
   'reporting_agentic_variant_sales_v1',
-  'reporting_agentic_customer_segment_snapshot_v1',
+  'reporting_agentic_customer_segment_snapshot_v2',
   'reporting_agentic_customer_activity_daily_v1'
 ]) relation_name
 WHERE to_regclass(format('public.%I',relation_name)) IS NOT NULL \gexec

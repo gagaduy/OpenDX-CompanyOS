@@ -9,7 +9,7 @@ import { OrderHealthReaderService } from "./order-health-reader";
 const NOW = "2026-08-16T05:00:00.000Z";
 const window = {
   start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T06:00:00.000Z",
+  end: NOW,
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 const ids = Array.from({ length: 4 }, (_, index) =>
@@ -140,6 +140,14 @@ describe("OrderHealthReaderService", () => {
       minimumAgeMinutes: 120,
     })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(repository.readStalledOrders).not.toHaveBeenCalled();
+  });
+
+  it("rejects windows beyond the one-minute server tolerance", async () => {
+    const { service, repository } = fixture();
+    await expect(service.invalidStateEvidence({
+      ...window, end: "2026-08-16T05:01:00.001Z",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repository.readInvalidStateEvidence).not.toHaveBeenCalled();
   });
 });
 

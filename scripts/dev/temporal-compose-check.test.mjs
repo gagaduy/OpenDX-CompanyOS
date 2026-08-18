@@ -83,6 +83,8 @@ test("uses idempotent separate database schema and namespace scripts", () => {
   assert.match(roles, /REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'app_database'/);
   assert.match(roles, /REVOKE CONNECT ON DATABASE postgres FROM PUBLIC/);
   assert.match(roles, /ALTER ROLE %I WITH LOGIN NOSUPERUSER/);
+  assert.match(roles, /'reporting_agentic_customer_segment_snapshot_v2'/);
+  assert.doesNotMatch(roles, /'reporting_agentic_customer_segment_snapshot_v1'/);
   assert.match(create, /CREATE ROLE %I LOGIN PASSWORD %L/);
   assert.match(create, /POSTGRES_APP_USER/);
   assert.match(create, /temporal_visibility/);

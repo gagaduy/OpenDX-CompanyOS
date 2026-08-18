@@ -158,10 +158,9 @@ export class PostgresqlOrderHealthRepository implements OrderHealthRepository {
     readonly evidence: readonly OrderExpiryRiskFact[];
   }> {
     const where = `status='pending_payment'
-      AND reservation_expires_at>=GREATEST($1::timestamptz,$3::timestamptz)
-      AND reservation_expires_at<LEAST(
-        $2::timestamptz,$3::timestamptz+$4::integer*interval '1 minute'
-      )`;
+      AND created_at>=$1::timestamptz AND created_at<$2::timestamptz
+      AND reservation_expires_at>=$3::timestamptz
+      AND reservation_expires_at<$3::timestamptz+$4::integer*interval '1 minute'`;
     const values = [query.start, query.end, query.asOf, query.horizonMinutes] as const;
     const summaryResult = await session.query<Row>(`
       SELECT count(*)::bigint AS at_risk_count,COALESCE(sum(total_vnd),0)::bigint

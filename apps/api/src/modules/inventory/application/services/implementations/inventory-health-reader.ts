@@ -30,7 +30,7 @@ export class InventoryHealthReaderService implements InventoryHealthReader {
   ) {}
 
   async stockRisk(input: InventoryStockRiskInput): Promise<InventoryStockRiskResult> {
-    const bounds = validate(input);
+    const bounds = validate(input, this.now());
     const threshold = input.lowStockThreshold ?? 5;
     if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100) {
       invalid("Inventory low-stock threshold is invalid");
@@ -68,7 +68,7 @@ export class InventoryHealthReaderService implements InventoryHealthReader {
   }
 
   async slowStock(input: InventorySlowStockInput): Promise<InventorySlowStockResult> {
-    const bounds = validate(input);
+    const bounds = validate(input, this.now());
     const minimumOnHand = input.minimumOnHand ?? 1;
     if (!Number.isInteger(minimumOnHand) || minimumOnHand < 1 || minimumOnHand > 10_000) {
       invalid("Inventory slow-stock minimum is invalid");
@@ -104,7 +104,7 @@ export class InventoryHealthReaderService implements InventoryHealthReader {
   async reservationAnomalies(
     input: InventoryHealthWindow,
   ): Promise<InventoryReservationAnomalyResult> {
-    const bounds = validate(input);
+    const bounds = validate(input, this.now());
     const after = input.cursor === undefined
       ? undefined
       : decodeCursor(input.cursor, this.now(), "reservation-anomaly");
@@ -148,11 +148,13 @@ export class InventoryHealthReaderService implements InventoryHealthReader {
   }
 }
 
-function validate(input: InventoryHealthWindow) {
+function validate(input: InventoryHealthWindow, now: string) {
   const start = Date.parse(input.start);
   const end = Date.parse(input.end);
   const limit = input.limit ?? 25;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > 90 * DAY_MS) {
+  const current = Date.parse(now);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(current)
+    || end <= start || end - start > 90 * DAY_MS || end > current + 60_000) {
     invalid("Inventory health window is invalid");
   }
   if (input.timezone !== "Asia/Ho_Chi_Minh") invalid("Inventory health timezone is invalid");

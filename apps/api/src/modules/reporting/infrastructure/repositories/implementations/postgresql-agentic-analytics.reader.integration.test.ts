@@ -7,7 +7,15 @@ import {
   PostgresTransactionRunner,
   type TransactionRunner,
 } from "../../../../../shared/database/transaction";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { runCatalogMigrations, runCompanyCoreMigrations, runCrmMigrations } from "../../../../../shared/database/run-migrations";
+import { runCartMigrations } from "../../../../cart/infrastructure/database/run-cart-migrations";
+import { runCheckoutMigrations } from "../../../../checkout/infrastructure/database/run-checkout-migrations";
+import { runCustomerMigrations } from "../../../../customer/infrastructure/database/run-customer-migrations";
+import { runInventoryMigrations } from "../../../../inventory/infrastructure/database/run-inventory-migrations";
+import { runOrderMigrations } from "../../../../order/infrastructure/database/run-order-migrations";
+import { runPromotionMigrations } from "../../../../promotion/infrastructure/database/run-promotion-migrations";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { runReportingMigrations } from "../../database/run-reporting-migrations";
 import { PostgresqlAgenticAnalyticsReader } from "./postgresql-agentic-analytics.reader";
 
 const window = {
@@ -69,7 +77,7 @@ describe("PostgresqlAgenticAnalyticsReader", () => {
 
     expect(queries).toHaveLength(9);
     expect(queries[2]?.text).toMatch(
-      /OR \(window_date=CURRENT_DATE AND paid_quantity=0 AND paid_revenue_vnd=0\)/,
+      /OR \(window_date=\(CURRENT_TIMESTAMP AT TIME ZONE \$3\)::date/,
     );
     for (let index = 0; index < queries.length; index += 3) {
       expect(queries[index]?.text).toBe("SET LOCAL statement_timeout = '750ms'");
@@ -114,7 +122,31 @@ databaseSuite("PostgresqlAgenticAnalyticsReader database boundary", () => {
   const now = new Date();
   const start = new Date(now.getTime() - 24 * 60 * 60 * 1_000);
 
-  afterAll(async () => pool.end());
+  beforeAll(async () => {
+    await runCatalogMigrations(databaseUrl!, "up");
+    await runCompanyCoreMigrations(databaseUrl!, "up");
+    await runInventoryMigrations(databaseUrl!, "up");
+    await runCustomerMigrations(databaseUrl!, "up");
+    await runCartMigrations(databaseUrl!, "up");
+    await runPromotionMigrations(databaseUrl!, "up");
+    await runCheckoutMigrations(databaseUrl!, "up");
+    await runOrderMigrations(databaseUrl!, "up");
+    await runCrmMigrations(databaseUrl!, "up");
+    await runReportingMigrations(databaseUrl!, "up");
+  });
+  afterAll(async () => {
+    await runReportingMigrations(databaseUrl!, "down", 999_999);
+    await runCrmMigrations(databaseUrl!, "down", 999_999);
+    await runOrderMigrations(databaseUrl!, "down", 999_999);
+    await runCheckoutMigrations(databaseUrl!, "down", 999_999);
+    await runPromotionMigrations(databaseUrl!, "down", 999_999);
+    await runCartMigrations(databaseUrl!, "down", 999_999);
+    await runCustomerMigrations(databaseUrl!, "down", 999_999);
+    await runInventoryMigrations(databaseUrl!, "down", 999_999);
+    await runCompanyCoreMigrations(databaseUrl!, "down", 999_999);
+    await runCatalogMigrations(databaseUrl!, "down", 999_999);
+    await pool.end();
+  });
 
   it("reads all approved aggregates through the isolated role", async () => {
     const currentWindow = {

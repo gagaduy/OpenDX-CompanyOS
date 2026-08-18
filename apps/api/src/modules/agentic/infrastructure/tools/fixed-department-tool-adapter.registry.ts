@@ -16,6 +16,7 @@ import { FinanceDepartmentToolAdapter } from "./finance-department-tool.adapter"
 import { InventoryDepartmentToolAdapter } from "./inventory-department-tool.adapter";
 import { OrderDepartmentToolAdapter } from "./order-department-tool.adapter";
 import { SupportDepartmentToolAdapter } from "./support-department-tool.adapter";
+import { SignedDepartmentToolCursorAdapter } from "./signed-department-tool-cursor";
 
 export interface FixedDepartmentAdapters {
   readonly catalog: DepartmentToolAdapter;
@@ -64,13 +65,15 @@ export function createFixedDepartmentToolAdapterRegistry(readers: {
   readonly finance: PaymentHealthReader;
   readonly crm: CrmHealthReader;
   readonly support: SupportHealthReader & SupportOrderReferenceReader;
-}, now: () => string): FixedDepartmentToolAdapterRegistry {
+}, now: () => string, cursorSecret: string): FixedDepartmentToolAdapterRegistry {
+  const wrap = (adapter: DepartmentToolAdapter) =>
+    new SignedDepartmentToolCursorAdapter(adapter, cursorSecret, now);
   return new FixedDepartmentToolAdapterRegistry({
-    catalog: new CatalogDepartmentToolAdapter(readers.catalog, now),
-    inventory: new InventoryDepartmentToolAdapter(readers.inventory, now),
-    order: new OrderDepartmentToolAdapter(readers.order, now),
-    finance: new FinanceDepartmentToolAdapter(readers.finance, now),
-    crm: new CrmDepartmentToolAdapter(readers.crm, now),
-    support: new SupportDepartmentToolAdapter(readers.support, readers.support, now),
+    catalog: wrap(new CatalogDepartmentToolAdapter(readers.catalog, now)),
+    inventory: wrap(new InventoryDepartmentToolAdapter(readers.inventory, now)),
+    order: wrap(new OrderDepartmentToolAdapter(readers.order, now)),
+    finance: wrap(new FinanceDepartmentToolAdapter(readers.finance, now)),
+    crm: wrap(new CrmDepartmentToolAdapter(readers.crm, now)),
+    support: wrap(new SupportDepartmentToolAdapter(readers.support, readers.support, now)),
   });
 }

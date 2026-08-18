@@ -52,7 +52,8 @@ export class PostgresqlAgenticAnalyticsReader implements AgenticAnalyticsReader 
        FROM reporting_agentic_variant_sales_v1
        WHERE (window_date>=($1::timestamptz AT TIME ZONE $3)::date
          AND window_date<($2::timestamptz AT TIME ZONE $3)::date)
-         OR (window_date=CURRENT_DATE AND paid_quantity=0 AND paid_revenue_vnd=0)
+         OR (window_date=(CURRENT_TIMESTAMP AT TIME ZONE $3)::date
+           AND paid_quantity=0 AND paid_revenue_vnd=0)
        GROUP BY variant_id,window_date
        ORDER BY window_date,variant_id`,
       [window.start, window.end, window.timezone],

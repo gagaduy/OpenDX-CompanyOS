@@ -61,7 +61,10 @@ suite("Agentic PostgreSQL admin API", () => {
       ('ai_ceo','agent-ai-ceo'),('catalog','agent-catalog'),('inventory','agent-inventory'),
       ('order','agent-order'),('finance','agent-finance'),('crm','agent-crm'),('support','agent-support')`);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runAgenticMigrations(databaseUrl!, "down", 999_999);
+    await pool.end();
+  });
 
   it("persists owner-scoped task intake and exposes the fixed workforce", async () => {
     const authorization = { authorization: "Bearer agentic_operator" };

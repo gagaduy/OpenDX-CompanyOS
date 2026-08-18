@@ -11,6 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Advance Agentic Phase C closure with bounded tool telemetry, an exact three-view
+  analytics grant, six-identity disposable live acceptance, static mutation
+  guards, deterministic per-file migration cleanup, operator commands, and
+  complete API/architecture documentation.
+- Harden Phase C review findings with task-scoped budget idempotency, stale
+  reservation recovery, complete audit/provenance evidence, signed five-minute
+  cursors, future-window rejection, Vietnam-time analytics, and exact migration
+  readiness.
+
 - Provision and idempotently reconcile six distinct department Agent service
   credentials, with isolated analytics-role and production secret validation.
 - Expose the 17 governed department read tools through an Agent-service-only

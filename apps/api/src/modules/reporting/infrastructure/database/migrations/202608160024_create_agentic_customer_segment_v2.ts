@@ -27,8 +27,8 @@ export function up(pgm: MigrationBuilder): void {
       SELECT CASE
           WHEN paid_facts.lifetime_paid_revenue_vnd>=50000000 THEN 'high_value'
           WHEN paid_facts.last_paid_at IS NOT NULL
-            AND paid_facts.last_paid_at<
-              (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-INTERVAL '90 days'
+            AND (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date<
+              (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-90
             THEN 'inactive'
           WHEN paid_facts.paid_order_count>=2 THEN 'repeat'
           ELSE 'new'
@@ -41,11 +41,11 @@ export function up(pgm: MigrationBuilder): void {
         END AS lifetime_value_bucket,
         CASE
           WHEN paid_facts.last_paid_at IS NULL THEN 'never'
-          WHEN paid_facts.last_paid_at>=
-            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-INTERVAL '30 days'
+          WHEN (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date>=
+            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-30
             THEN '0_30_days'
-          WHEN paid_facts.last_paid_at>=
-            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-INTERVAL '90 days'
+          WHEN (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date>=
+            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-90
             THEN '31_90_days'
           ELSE 'over_90_days'
         END AS recency_bucket,
@@ -66,11 +66,17 @@ export function up(pgm: MigrationBuilder): void {
     ALTER VIEW reporting_agentic_customer_segment_snapshot_v2
       OWNER TO opendx_reporting_owner;
     REVOKE CREATE ON SCHEMA public FROM opendx_reporting_owner;
+    REVOKE ALL ON reporting_agentic_customer_segment_snapshot_v1
+      FROM opendx_agentic_reader;
     REVOKE ALL ON reporting_agentic_customer_segment_snapshot_v2 FROM PUBLIC;
     GRANT SELECT ON reporting_agentic_customer_segment_snapshot_v2 TO opendx_agentic_reader;
   `);
 }
 
 export function down(pgm: MigrationBuilder): void {
-  pgm.sql("DROP VIEW IF EXISTS reporting_agentic_customer_segment_snapshot_v2");
+  pgm.sql(`
+    DROP VIEW IF EXISTS reporting_agentic_customer_segment_snapshot_v2;
+    GRANT SELECT ON reporting_agentic_customer_segment_snapshot_v1
+      TO opendx_agentic_reader;
+  `);
 }

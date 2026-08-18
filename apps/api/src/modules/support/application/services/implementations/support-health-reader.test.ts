@@ -8,7 +8,7 @@ import { SupportHealthReaderService } from "./support-health-reader";
 const NOW = "2026-08-16T05:00:00.000Z";
 const window = {
   start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T09:00:00.000Z",
+  end: NOW,
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 
@@ -76,6 +76,14 @@ describe("SupportHealthReaderService", () => {
       unassignedCount: 1,
       escalatedCount: 1,
     });
+  });
+
+  it("rejects windows beyond the one-minute server tolerance", async () => {
+    const { service, repository } = fixture();
+    await expect(service.classificationSummary({
+      ...window, end: "2026-08-16T05:01:00.001Z",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repository.readClassificationSummary).not.toHaveBeenCalled();
   });
 
   it("resolves only the order stored on the requested ticket", async () => {

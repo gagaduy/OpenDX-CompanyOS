@@ -18,6 +18,7 @@ describeWithDatabase("inventory migration", () => {
 
   afterAll(async () => {
     await runInventoryMigrations(databaseUrl!, "down").catch(() => undefined);
+    await runCatalogMigrations(databaseUrl!, "down").catch(() => undefined);
     await pool.end();
   });
 

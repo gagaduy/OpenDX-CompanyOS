@@ -18,7 +18,7 @@ const suite = databaseUrl === undefined ? describe.skip : describe;
 const NOW = "2026-08-16T05:00:00.000Z";
 const window = {
   start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T06:00:00.000Z",
+  end: NOW,
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 
@@ -44,7 +44,16 @@ suite("PostgresqlOrderHealthRepository", () => {
       checkout_sessions,carts,customers,product_variants,products,categories CASCADE`);
     await seedFixture(pool);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runOrderMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down");
+    await runPromotionMigrations(databaseUrl!, "down");
+    await runCartMigrations(databaseUrl!, "down");
+    await runCustomerMigrations(databaseUrl!, "down");
+    await runCompanyCoreMigrations(databaseUrl!, "down");
+    await runCatalogMigrations(databaseUrl!, "down");
+    await pool.end();
+  });
 
   it("installs the bounded Order health access paths", async () => {
     const result = await pool.query<{ indexname: string }>(`

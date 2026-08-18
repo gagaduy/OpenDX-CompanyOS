@@ -56,6 +56,15 @@ suite("dashboard demo seed", () => {
   });
 
   afterAll(async () => {
+    await runPaymentMigrations(databaseUrl!, "down");
+    await runOrderMigrations(databaseUrl!, "down");
+    await runCheckoutMigrations(databaseUrl!, "down");
+    await runPromotionMigrations(databaseUrl!, "down");
+    await runCartMigrations(databaseUrl!, "down");
+    await runCustomerMigrations(databaseUrl!, "down");
+    await runInventoryMigrations(databaseUrl!, "down");
+    await runCompanyCoreMigrations(databaseUrl!, "down");
+    await runCatalogMigrations(databaseUrl!, "down");
     await pool.end();
   });
 

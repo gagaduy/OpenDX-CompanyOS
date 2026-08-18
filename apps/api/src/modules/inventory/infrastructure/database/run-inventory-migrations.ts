@@ -18,7 +18,7 @@ export async function runInventoryMigrations(
   await runner({
     databaseUrl,
     direction,
-    count,
+    count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
     dir: migrationsDirectory,
     migrationsTable: "inventory_migrations",
     advisoryLockMode: "wait",

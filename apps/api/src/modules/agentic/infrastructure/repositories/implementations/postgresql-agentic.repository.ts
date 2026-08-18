@@ -608,15 +608,15 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
        WHERE id=$1 AND entry_type='reservation' FOR UPDATE`,
       [input.reservationId],
     );
+    const reserved = reservation.rows[0];
+    if (reserved === undefined || BigInt(input.actualCostMicros) > BigInt(String(reserved.cost_micros))) {
+      return "stale";
+    }
     const existing = await session.query(
       "SELECT id FROM agentic_budget_entries WHERE idempotency_key=$1",
       [input.idempotencyKey],
     );
     if (existing.rowCount > 0) return "duplicate";
-    const reserved = reservation.rows[0];
-    if (reserved === undefined || BigInt(input.actualCostMicros) > BigInt(String(reserved.cost_micros))) {
-      return "stale";
-    }
     const alreadySettled = await session.query(
       "SELECT id FROM agentic_budget_entries WHERE reservation_id=$1",
       [input.reservationId],
@@ -636,12 +636,17 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     await session.query(
       `INSERT INTO agentic_audit_events
        (id,actor_id,actor_type,task_id,action,resource_type,resource_id,outcome,
-        policy_version,model_version,tool_version,correlation_id,causation_id,occurred_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        policy_version,model_version,tool_version,correlation_id,causation_id,occurred_at,
+        client_id,attempted_task_id,parameters_digest,attempt,duration_ms,result_digest,error_code)
+       VALUES($1,$2,$3,
+        CASE WHEN EXISTS(SELECT 1 FROM agentic_tasks WHERE id=$4::uuid) THEN $4::uuid END,
+        $5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$4::uuid,$16,$17,$18,$19,$20)`,
       [event.id, event.actorId, event.actorType, event.taskId ?? null, event.action,
         event.resourceType, event.resourceId, event.outcome, event.policyVersion ?? null,
         event.modelVersion ?? null, event.toolVersion ?? null, event.correlationId,
-        event.causationId ?? null, event.occurredAt],
+        event.causationId ?? null, event.occurredAt, event.clientId ?? null,
+        event.parametersDigest ?? null, event.attempt ?? null, event.durationMs ?? null,
+        event.resultDigest ?? null, event.errorCode ?? null],
     );
   }
 
@@ -691,10 +696,13 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<void> {
     await session.query(
       `INSERT INTO agentic_provenance_records
-       (id,task_id,source_type,source_id,source_digest,classification,recorded_by,recorded_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+       (id,task_id,source_type,source_id,source_digest,classification,recorded_by,recorded_at,
+        source_version,normalized_window,source_snapshot_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [record.id, record.taskId ?? null, record.sourceType, record.sourceId,
-        record.sourceDigest, record.classification, record.recordedBy, record.recordedAt],
+        record.sourceDigest, record.classification, record.recordedBy, record.recordedAt,
+        record.sourceVersion ?? null, record.normalizedWindow ?? null,
+        record.sourceSnapshotAt ?? null],
     );
   }
 
@@ -867,7 +875,32 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
         return failedReservation(existing);
       }
       if (existing.status === "reserved") {
-        return { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt };
+        const leaseExpired = Date.parse(input.occurredAt) - Date.parse(existing.updatedAt) >= 60_000;
+        if (!leaseExpired) {
+          return { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt };
+        }
+        if (existing.attempt >= Number(existingRow.maximum_attempts)) {
+          const failed = await session.query(
+            `UPDATE agentic_tool_invocations
+             SET status='failed',error_code='TOOL_INVOCATION_TIMEOUT',completed_at=$2,
+                 version=version+1,updated_at=$2
+             WHERE id=$1 AND status='reserved' AND version=$3`,
+            [existing.id, input.occurredAt, existing.version],
+          );
+          return failed.rowCount === 1
+            ? { kind: "failed", invocationId: existing.id, attempt: existing.attempt,
+              errorCode: "TOOL_INVOCATION_TIMEOUT" }
+            : { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt };
+        }
+        const reclaimed = await session.query(
+          `UPDATE agentic_tool_invocations
+           SET attempt=attempt+1,version=version+1,updated_at=$2
+           WHERE id=$1 AND status='reserved' AND version=$3`,
+          [existing.id, input.occurredAt, existing.version],
+        );
+        return reclaimed.rowCount === 1
+          ? { kind: "reserved", invocationId: existing.id, attempt: existing.attempt + 1 }
+          : { kind: "in_progress", invocationId: existing.id, attempt: existing.attempt + 1 };
       }
       if (existing.attempt >= Number(existingRow.maximum_attempts)) {
         return failedReservation(existing);
@@ -1329,11 +1362,19 @@ function mapAudit(row: Row): AuditEventRecord {
     resourceType: String(row.resource_type), resourceId: String(row.resource_id),
     outcome: row.outcome as AuditEventRecord["outcome"], correlationId: String(row.correlation_id),
     occurredAt: toIso(row.occurred_at),
-    ...(row.task_id === null ? {} : { taskId: String(row.task_id) }),
+    ...(row.task_id === null && row.attempted_task_id === null
+      ? {}
+      : { taskId: String(row.task_id ?? row.attempted_task_id) }),
     ...(row.policy_version === null ? {} : { policyVersion: Number(row.policy_version) }),
     ...(row.model_version === null ? {} : { modelVersion: Number(row.model_version) }),
     ...(row.tool_version === null ? {} : { toolVersion: Number(row.tool_version) }),
     ...(row.causation_id === null ? {} : { causationId: String(row.causation_id) }),
+    ...(row.client_id === null ? {} : { clientId: String(row.client_id) }),
+    ...(row.parameters_digest === null ? {} : { parametersDigest: String(row.parameters_digest) }),
+    ...(row.attempt === null ? {} : { attempt: Number(row.attempt) }),
+    ...(row.duration_ms === null ? {} : { durationMs: Number(row.duration_ms) }),
+    ...(row.result_digest === null ? {} : { resultDigest: String(row.result_digest) }),
+    ...(row.error_code === null ? {} : { errorCode: String(row.error_code) }),
   };
 }
 
@@ -1343,6 +1384,9 @@ function mapProvenance(row: Row): ProvenanceRecord {
     sourceDigest: String(row.source_digest), classification: String(row.classification),
     recordedBy: String(row.recorded_by), recordedAt: toIso(row.recorded_at),
     ...(row.task_id === null ? {} : { taskId: String(row.task_id) }),
+    ...(row.source_version === null ? {} : { sourceVersion: Number(row.source_version) }),
+    ...(row.normalized_window === null ? {} : { normalizedWindow: row.normalized_window as Readonly<Record<string, unknown>> }),
+    ...(row.source_snapshot_at === null ? {} : { sourceSnapshotAt: toIso(row.source_snapshot_at) }),
   };
 }
 

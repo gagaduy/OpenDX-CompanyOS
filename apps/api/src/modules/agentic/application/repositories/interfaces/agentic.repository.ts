@@ -156,6 +156,7 @@ export interface RevocationRecord {
 export interface AuditEventRecord {
   readonly id: string;
   readonly actorId: string;
+  readonly clientId?: string;
   readonly actorType: "staff" | "agent" | "system";
   readonly taskId?: string;
   readonly action: string;
@@ -167,6 +168,11 @@ export interface AuditEventRecord {
   readonly toolVersion?: number;
   readonly correlationId: string;
   readonly causationId?: string;
+  readonly parametersDigest?: string;
+  readonly attempt?: number;
+  readonly durationMs?: number;
+  readonly resultDigest?: string;
+  readonly errorCode?: string;
   readonly occurredAt: string;
 }
 
@@ -176,6 +182,9 @@ export interface ProvenanceRecord {
   readonly sourceType: string;
   readonly sourceId: string;
   readonly sourceDigest: string;
+  readonly sourceVersion?: number;
+  readonly normalizedWindow?: Readonly<Record<string, unknown>>;
+  readonly sourceSnapshotAt?: string;
   readonly classification: string;
   readonly recordedBy: string;
   readonly recordedAt: string;

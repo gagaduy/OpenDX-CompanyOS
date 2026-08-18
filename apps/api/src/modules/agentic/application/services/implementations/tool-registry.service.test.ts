@@ -61,6 +61,19 @@ describe("ToolRegistryService", () => {
     }
     await expect(createHarness().service.invoke({ ...invocation, parameters: { sql: "SELECT 1" } }))
       .rejects.toMatchObject({ code: "TOOL_INPUT_INVALID" });
+
+    const wrongScope = createHarness();
+    await expect(wrongScope.service.invoke({ ...invocation, dataScope: "inventory:health:read" }))
+      .rejects.toMatchObject({ code: "TOOL_SCOPE_DENIED" });
+    expect(wrongScope.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
+      clientId: "agent-catalog",
+      parametersDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      causationId: "cause-1",
+      attempt: 0,
+      durationMs: expect.any(Number),
+      errorCode: "TOOL_SCOPE_DENIED",
+      outcome: "denied",
+    }));
   });
 
   it("honors policy denial and exact bound approval evidence", async () => {
@@ -106,12 +119,32 @@ describe("ToolRegistryService", () => {
     );
     expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
       outcome: "allowed", action: "tool.invoke", resourceId: "catalog.product_completeness@1",
+      clientId: "agent-catalog", parametersDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      causationId: "cause-1", attempt: 1, durationMs: expect.any(Number),
+    }));
+    expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
+      resultDigest: expect.stringMatching(/^[a-f0-9]{64}$/), attempt: 1,
+    }));
+    expect(harness.repository.appendProvenance).toHaveBeenCalledWith(session, expect.objectContaining({
+      sourceVersion: 1, normalizedWindow: {}, sourceSnapshotAt: "2026-08-14T12:00:00.000Z",
     }));
     expect(JSON.stringify(harness.repository.appendAudit.mock.calls)).not.toContain("totalProducts");
 
     const replay = createHarness({ receiptKind: "completed" });
     await expect(replay.service.invoke(invocation)).resolves.toEqual(result);
     expect(replay.adapter.execute).not.toHaveBeenCalled();
+  });
+
+  it("scopes budget idempotency by agent and task", async () => {
+    const first = createHarness();
+    const second = createHarness();
+    await first.service.invoke(invocation);
+    await second.service.invoke({ ...invocation, taskId: "task-2" });
+    const firstKey = first.repository.reserveBudget.mock.calls[0]?.[1].idempotencyKey;
+    const secondKey = second.repository.reserveBudget.mock.calls[0]?.[1].idempotencyKey;
+    expect(firstKey).toMatch(/^[a-f0-9]{64}$/);
+    expect(secondKey).toMatch(/^[a-f0-9]{64}$/);
+    expect(firstKey).not.toBe(secondKey);
   });
 
   it("rejects stale adapter output and records a stable terminal failure", async () => {
@@ -140,8 +173,10 @@ describe("ToolRegistryService", () => {
     const logger = createLogger({ format: "json", level: "info", sink: (line) => lines.push(line) });
     const metrics = createMetricsRegistry();
     const observability = { logger, metrics, monotonicNow: vi.fn()
-      .mockReturnValueOnce(100).mockReturnValueOnce(125)
-      .mockReturnValueOnce(200).mockReturnValueOnce(240) };
+      .mockReturnValueOnce(100).mockReturnValueOnce(110)
+      .mockReturnValueOnce(120).mockReturnValueOnce(125)
+      .mockReturnValueOnce(200).mockReturnValueOnce(210)
+      .mockReturnValueOnce(220).mockReturnValueOnce(240) };
     const completed = createHarness({ observability, outputSource: "result-canary-secret" });
     await completed.service.invoke(invocation);
     const failed = createHarness({ observability, adapterErrorCode: "TOOL_SOURCE_UNAVAILABLE" });
@@ -195,7 +230,10 @@ function createHarness(options: {
     findActiveRevocation: vi.fn(async (_session, targetType: string) => targetType === options.revokedTarget ? ({ id: "revoked" }) : undefined),
     findApproval: vi.fn(async () => options.approvalValid === false ? undefined : ({ id: "approval-1", state: "approved", requesterId: "operator", approverScope: options.approvalScope ?? "tool_invocation", action: "tool.invoke", resourceType: "tool", resourceId: `${descriptor.name}@1`, parametersDigest: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", taskId: "task-1", policyVersion: 4, configurationRevisionId: "revision-1", expiresAt: "2026-08-15T00:00:00.000Z", version: 2, createdAt: "" })),
     countToolInvocations: vi.fn(async () => options.invocationCount ?? 0),
-    reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved" as const), appendAudit: vi.fn(async () => undefined),
+    reserveBudget: vi.fn(async (
+      _session: unknown,
+      _input: { readonly idempotencyKey: string },
+    ) => options.budgetResult ?? "reserved" as const), appendAudit: vi.fn(async () => undefined),
     appendProvenance: vi.fn(async () => undefined),
     reserveToolInvocation: vi.fn(async () => options.receiptKind === "completed"
       ? { kind: "completed" as const, invocationId: "invocation-1", attempt: 1, result: output }

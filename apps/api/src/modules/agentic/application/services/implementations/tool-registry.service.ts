@@ -3,6 +3,8 @@
 
 import { createHash } from "node:crypto";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
+import type { Logger } from "../../../../../shared/observability/logger";
+import type { MetricsRegistry } from "../../../../../shared/observability/metrics";
 import type {
   AgenticRepository,
   ToolInvocationReservationResult,
@@ -47,7 +49,14 @@ interface PreparedInvocation {
 
 type ReservationOutcome =
   | { readonly kind: "error"; readonly error: AgenticApplicationError }
-  | { readonly kind: "receipt"; readonly receipt: ToolInvocationReservationResult };
+  | { readonly kind: "receipt"; readonly receipt: ToolInvocationReservationResult;
+    readonly policyVersion: number };
+
+export interface ToolInvocationObservability {
+  readonly logger: Logger;
+  readonly metrics?: MetricsRegistry;
+  readonly monotonicNow: () => number;
+}
 
 export class ToolRegistryService implements ToolRegistry {
   constructor(
@@ -58,6 +67,7 @@ export class ToolRegistryService implements ToolRegistry {
     private readonly schemas: DepartmentToolSchemaRegistry,
     private readonly generateId: () => string,
     private readonly now: () => string,
+    private readonly observability?: ToolInvocationObservability,
   ) {}
 
   async authorize(request: ToolAuthorizationRequest): Promise<PolicyDecision> {
@@ -66,61 +76,146 @@ export class ToolRegistryService implements ToolRegistry {
   }
 
   async invoke<TOutput>(request: ToolInvocation): Promise<ToolResult<TOutput>> {
-    const prepared = this.prepare(request);
-    const reserved = await this.reserve(prepared);
-    if (reserved.kind === "error") throw reserved.error;
-    const receipt = reserved.receipt;
-    if (receipt.kind === "completed") {
-      const output = this.schemas.parseOutput(
-        prepared.descriptor.name,
-        prepared.descriptor.version,
-        receipt.result,
-      ) as TOutput;
-      return { output, provenanceIds: provenanceIds(output) };
+    const startedAt = this.monotonicNow();
+    const descriptor = findDepartmentToolDescriptor(request.toolName, request.toolVersion);
+    if (descriptor === undefined) {
+      const error = new AgenticApplicationError("TOOL_NOT_FOUND", "Tool version is unavailable");
+      await this.auditUnprepared(request, "denied", startedAt, error.code);
+      throw error;
     }
-    if (receipt.kind === "in_progress") {
-      fail("TOOL_INVOCATION_IN_PROGRESS", "Tool invocation is already in progress");
-    }
-    if (receipt.kind === "failed") {
-      fail(receipt.errorCode, "Tool invocation previously failed");
-    }
-    if (receipt.kind === "conflict") {
-      fail("TOOL_INPUT_INVALID", "Idempotency key conflicts with another invocation");
-    }
-
+    const identity = toolIdentity(descriptor);
+    this.observability?.metrics?.adjustAgenticToolActive(identity, 1);
+    let prepared: PreparedInvocation;
     try {
-      const adapter = this.adapters.resolve(prepared.descriptor.name, prepared.descriptor.version);
-      const output = await adapter.execute({
-        invocationId: receipt.invocationId,
-        taskId: request.taskId,
-        agentKind: request.principal.agentKind,
-        toolName: prepared.descriptor.name,
-        toolVersion: prepared.descriptor.version,
-        attempt: receipt.attempt,
-        correlationId: request.correlationId,
-        causationId: request.causationId,
-      }, prepared.parameters);
-      const parsed = this.schemas.parseOutput(
-        prepared.descriptor.name,
-        prepared.descriptor.version,
-        output,
-      );
-      assertFreshResult(parsed, this.now());
-      assertResultSize(parsed);
-      const resultDigest = digestJson(parsed);
-      await this.complete(prepared, receipt.invocationId, receipt.attempt, parsed, resultDigest);
-      return { output: parsed as TOutput, provenanceIds: provenanceIds(parsed) };
+      prepared = this.prepare(request);
     } catch (error) {
-      const normalized = normalizeExecutionError(error);
-      await this.transactions.run((session) => this.repository.failToolInvocation(session, {
-        invocationId: receipt.invocationId,
-        attempt: receipt.attempt,
-        errorCode: normalized.code,
-        retryable: normalized.retryable,
-        occurredAt: this.now(),
-      }));
+      const normalized = normalizeAuthorizationError(error);
+      await this.auditUnprepared(request, "denied", startedAt, normalized.code);
+      this.observeDescriptor(request, descriptor, startedAt, 0, "denied", normalized.code);
+      this.observability?.metrics?.adjustAgenticToolActive(identity, -1);
       throw normalized;
     }
+    let attempt = 0;
+    let outcome: string | undefined;
+    try {
+      const reserved = await this.reserve(prepared, startedAt);
+      if (reserved.kind === "error") {
+        outcome = "denied";
+        throw reserved.error;
+      }
+      const receipt = reserved.receipt;
+      const policyVersion = reserved.policyVersion;
+      attempt = receipt.attempt;
+      if (receipt.kind === "completed") {
+        outcome = "duplicate_replay";
+        const output = this.schemas.parseOutput(
+          prepared.descriptor.name,
+          prepared.descriptor.version,
+          receipt.result,
+        ) as TOutput;
+        this.observe(prepared, startedAt, attempt, outcome, "NONE", output);
+        return { output, provenanceIds: provenanceIds(output) };
+      }
+      if (receipt.kind === "in_progress") {
+        outcome = "in_progress";
+        fail("TOOL_INVOCATION_IN_PROGRESS", "Tool invocation is already in progress");
+      }
+      if (receipt.kind === "failed") {
+        outcome = "terminal_failure";
+        fail(receipt.errorCode, "Tool invocation previously failed");
+      }
+      if (receipt.kind === "conflict") {
+        outcome = "conflict";
+        fail("TOOL_INPUT_INVALID", "Idempotency key conflicts with another invocation");
+      }
+
+      this.observability?.logger.info("agentic_tool_reservation", telemetryFields(
+        prepared, attempt, "reserved", "NONE", 0,
+      ));
+      try {
+        const adapter = this.adapters.resolve(prepared.descriptor.name, prepared.descriptor.version);
+        const output = await adapter.execute({
+          invocationId: receipt.invocationId,
+          taskId: request.taskId,
+          agentKind: request.principal.agentKind,
+          toolName: prepared.descriptor.name,
+          toolVersion: prepared.descriptor.version,
+          attempt: receipt.attempt,
+          correlationId: request.correlationId,
+          causationId: request.causationId,
+        }, prepared.parameters);
+        const parsed = this.schemas.parseOutput(
+          prepared.descriptor.name,
+          prepared.descriptor.version,
+          output,
+        );
+        assertFreshResult(parsed, this.now());
+        assertResultSize(parsed);
+        const resultDigest = digestJson(parsed);
+        await this.complete(
+          prepared, receipt.invocationId, receipt.attempt, parsed, resultDigest,
+          this.durationMs(startedAt), policyVersion,
+        );
+        outcome = "completed";
+        this.observe(prepared, startedAt, attempt, outcome, "NONE", parsed);
+        return { output: parsed as TOutput, provenanceIds: provenanceIds(parsed) };
+      } catch (error) {
+        const normalized = normalizeExecutionError(error);
+        await this.transactions.run(async (session) => {
+          await this.repository.failToolInvocation(session, {
+            invocationId: receipt.invocationId,
+            attempt: receipt.attempt,
+            errorCode: normalized.code,
+            retryable: normalized.retryable,
+            occurredAt: this.now(),
+          });
+          await this.audit(session, prepared.authorization, "failed", policyVersion, {
+            attempt: receipt.attempt,
+            durationMs: this.durationMs(startedAt),
+            errorCode: normalized.code,
+          });
+        });
+        throw normalized;
+      }
+    } catch (error) {
+      const safeError = telemetryError(error);
+      this.observe(
+        prepared,
+        startedAt,
+        attempt,
+        outcome ?? (safeError.retryable ? "retryable_failure" : "terminal_failure"),
+        safeError.code,
+      );
+      throw error;
+    } finally {
+      this.observability?.metrics?.adjustAgenticToolActive(identity, -1);
+    }
+  }
+
+  private observe(
+    prepared: PreparedInvocation,
+    startedAt: number,
+    attempt: number,
+    outcome: string,
+    errorCode: string,
+    result?: unknown,
+  ): void {
+    if (this.observability === undefined) return;
+    const durationMs = this.durationMs(startedAt);
+    const rows = resultRows(result);
+    const resultBytes = result === undefined ? 0 : serializedBytes(result);
+    this.observability.logger.info(
+      "agentic_tool_invocation",
+      telemetryFields(prepared, attempt, outcome, errorCode, durationMs),
+    );
+    this.observability.metrics?.recordAgenticToolInvocation({
+      ...toolIdentity(prepared.descriptor),
+      outcome,
+      errorCode,
+      durationMs,
+      rows,
+      resultBytes,
+    });
   }
 
   private prepare(request: ToolInvocation): PreparedInvocation {
@@ -157,12 +252,16 @@ export class ToolRegistryService implements ToolRegistry {
         costMicros: descriptor.executionCostMicros,
         idempotencyKey: request.idempotencyKey,
         correlationId: request.correlationId,
+        causationId: request.causationId,
         ...(request.approvalId === undefined ? {} : { approvalId: request.approvalId }),
       },
     };
   }
 
-  private async reserve(prepared: PreparedInvocation): Promise<ReservationOutcome> {
+  private async reserve(
+    prepared: PreparedInvocation,
+    startedAt: number,
+  ): Promise<ReservationOutcome> {
     return this.transactions.run(async (session) => {
       let context: AuthorizationContext;
       try {
@@ -173,7 +272,11 @@ export class ToolRegistryService implements ToolRegistry {
         );
       } catch (error) {
         const applicationError = normalizeAuthorizationError(error);
-        await this.audit(session, prepared.authorization, "denied");
+        await this.audit(session, prepared.authorization, "denied", undefined, {
+          attempt: 0,
+          durationMs: this.durationMs(startedAt),
+          errorCode: applicationError.code,
+        });
         return { kind: "error", error: applicationError };
       }
       const budget = await this.repository.reserveBudget(session, {
@@ -181,12 +284,16 @@ export class ToolRegistryService implements ToolRegistry {
         revisionId: context.revisionId,
         agentKind: prepared.request.principal.agentKind,
         taskId: prepared.request.taskId,
-        idempotencyKey: prepared.request.idempotencyKey,
+        idempotencyKey: budgetIdempotencyKey(prepared.request),
         costMicros: prepared.descriptor.executionCostMicros,
         occurredAt: this.now(),
       });
       if (budget === "exceeded") {
-        await this.audit(session, prepared.authorization, "denied", context.policyVersion);
+        await this.audit(session, prepared.authorization, "denied", context.policyVersion, {
+          attempt: 0,
+          durationMs: this.durationMs(startedAt),
+          errorCode: "BUDGET_EXCEEDED",
+        });
         return {
           kind: "error",
           error: new AgenticApplicationError("BUDGET_EXCEEDED", "Budget limit exceeded"),
@@ -213,11 +320,21 @@ export class ToolRegistryService implements ToolRegistry {
           sourceDigest: prepared.parametersDigest,
           classification: prepared.descriptor.classification,
           recordedBy: prepared.request.principal.subject,
+          sourceVersion: prepared.descriptor.version,
+          normalizedWindow: normalizedWindow(prepared.parameters),
+          sourceSnapshotAt: this.now(),
           recordedAt: this.now(),
         });
       }
-      await this.audit(session, prepared.authorization, "allowed", context.policyVersion);
-      return { kind: "receipt", receipt };
+      const receiptAudit = reservationAudit(receipt);
+      await this.audit(session, prepared.authorization, receiptAudit.outcome, context.policyVersion, {
+        action: receipt.kind === "reserved" ? "tool.reserve" : "tool.invoke",
+        attempt: receipt.attempt,
+        durationMs: this.durationMs(startedAt),
+        ...(receipt.kind === "completed" ? { resultDigest: digestJson(receipt.result) } : {}),
+        ...(receiptAudit.errorCode === undefined ? {} : { errorCode: receiptAudit.errorCode }),
+      });
+      return { kind: "receipt", receipt, policyVersion: context.policyVersion };
     });
   }
 
@@ -227,6 +344,8 @@ export class ToolRegistryService implements ToolRegistry {
     attempt: number,
     output: unknown,
     resultDigest: string,
+    durationMs: number,
+    policyVersion: number,
   ): Promise<void> {
     await this.transactions.run(async (session) => {
       const completed = await this.repository.completeToolInvocation(session, {
@@ -251,7 +370,15 @@ export class ToolRegistryService implements ToolRegistry {
         sourceDigest: resultDigest,
         classification: prepared.descriptor.classification,
         recordedBy: prepared.request.principal.subject,
+        sourceVersion: sourceVersion(output),
+        normalizedWindow: normalizedWindowFromResult(output),
+        sourceSnapshotAt: sourceSnapshotAt(output),
         recordedAt: this.now(),
+      });
+      await this.audit(session, prepared.authorization, "allowed", policyVersion, {
+        attempt,
+        durationMs,
+        resultDigest,
       });
     });
   }
@@ -358,24 +485,148 @@ export class ToolRegistryService implements ToolRegistry {
   private async audit(
     session: DatabaseSession,
     request: ToolAuthorizationRequest,
-    outcome: "allowed" | "denied",
+    outcome: "allowed" | "denied" | "failed",
     policyVersion?: number,
+    details: {
+      readonly action?: "tool.invoke" | "tool.reserve";
+      readonly attempt?: number;
+      readonly durationMs?: number;
+      readonly resultDigest?: string;
+      readonly errorCode?: string;
+    } = {},
   ): Promise<void> {
     await this.repository.appendAudit(session, {
       id: this.generateId(),
       actorId: request.principal.subject,
+      clientId: request.principal.clientId,
       actorType: "agent",
       taskId: request.taskId,
-      action: "tool.invoke",
+      action: details.action ?? "tool.invoke",
       resourceType: "tool",
       resourceId: `${request.toolName}@${request.toolVersion}`,
       outcome,
       ...(policyVersion === undefined ? {} : { policyVersion }),
       toolVersion: request.toolVersion,
       correlationId: request.correlationId,
+      ...(request.causationId === undefined ? {} : { causationId: request.causationId }),
+      parametersDigest: request.parametersDigest,
+      ...(details.attempt === undefined ? {} : { attempt: details.attempt }),
+      ...(details.durationMs === undefined ? {} : { durationMs: details.durationMs }),
+      ...(details.resultDigest === undefined ? {} : { resultDigest: details.resultDigest }),
+      ...(details.errorCode === undefined ? {} : { errorCode: details.errorCode }),
       occurredAt: this.now(),
     });
   }
+
+  private async auditUnprepared(
+    request: ToolInvocation,
+    outcome: "denied" | "failed",
+    startedAt: number,
+    errorCode: string,
+  ): Promise<void> {
+    await this.transactions.run((session) => this.repository.appendAudit(session, {
+      id: this.generateId(),
+      actorId: request.principal.subject,
+      clientId: request.principal.clientId,
+      actorType: "agent",
+      taskId: request.taskId,
+      action: "tool.invoke",
+      resourceType: "tool",
+      resourceId: `${request.toolName}@${request.toolVersion}`,
+      outcome,
+      toolVersion: request.toolVersion,
+      correlationId: request.correlationId,
+      causationId: request.causationId,
+      parametersDigest: digestJson(request.parameters),
+      attempt: 0,
+      durationMs: this.durationMs(startedAt),
+      errorCode,
+      occurredAt: this.now(),
+    }));
+  }
+
+  private observeDescriptor(
+    request: ToolInvocation,
+    descriptor: DepartmentToolDescriptor,
+    startedAt: number,
+    attempt: number,
+    outcome: string,
+    errorCode: string,
+  ): void {
+    if (this.observability === undefined) return;
+    const durationMs = this.durationMs(startedAt);
+    this.observability.logger.info("agentic_tool_invocation", {
+      tool: descriptor.name,
+      toolVersion: descriptor.version,
+      department: descriptor.agentKind,
+      outcome,
+      errorCode,
+      correlationId: request.correlationId,
+      causationId: request.causationId,
+      attempt,
+      durationMs,
+    });
+    this.observability.metrics?.recordAgenticToolInvocation({
+      ...toolIdentity(descriptor), outcome, errorCode, durationMs, rows: 0, resultBytes: 0,
+    });
+  }
+
+  private monotonicNow(): number {
+    return this.observability?.monotonicNow() ?? performance.now();
+  }
+
+  private durationMs(startedAt: number): number {
+    return Math.max(0, Math.round(this.monotonicNow() - startedAt));
+  }
+}
+
+function normalizedWindow(parameters: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  const window: Record<string, unknown> = {};
+  if (typeof parameters.start === "string") window.start = parameters.start;
+  if (typeof parameters.end === "string") window.end = parameters.end;
+  return window;
+}
+
+function reservationAudit(receipt: ToolInvocationReservationResult): {
+  readonly outcome: "allowed" | "denied" | "failed";
+  readonly errorCode?: string;
+} {
+  if (receipt.kind === "in_progress") {
+    return { outcome: "failed", errorCode: "TOOL_INVOCATION_IN_PROGRESS" };
+  }
+  if (receipt.kind === "failed") return { outcome: "failed", errorCode: receipt.errorCode };
+  if (receipt.kind === "conflict") return { outcome: "denied", errorCode: "TOOL_INPUT_INVALID" };
+  return { outcome: "allowed" };
+}
+
+function budgetIdempotencyKey(request: ToolInvocation): string {
+  return digestJson({
+    agentKind: request.principal.agentKind,
+    taskId: request.taskId,
+    idempotencyKey: request.idempotencyKey,
+  });
+}
+
+function normalizedWindowFromResult(output: unknown): Readonly<Record<string, unknown>> {
+  const window = (output as { readonly window?: unknown }).window;
+  return window !== null && typeof window === "object" && !Array.isArray(window)
+    ? window as Readonly<Record<string, unknown>>
+    : {};
+}
+
+function sourceVersion(output: unknown): number {
+  const version = (output as { readonly sourceVersion?: unknown }).sourceVersion;
+  return typeof version === "number" && Number.isSafeInteger(version) && version > 0 ? version : 1;
+}
+
+function sourceSnapshotAt(output: unknown): string {
+  const result = output as {
+    readonly retrievedAt?: unknown;
+    readonly freshness?: { readonly asOf?: unknown };
+  };
+  return typeof result.freshness?.asOf === "string"
+    ? result.freshness.asOf
+    : String(result.retrievedAt);
 }
 
 function assertAuthorization(request: ToolAuthorizationRequest): void {
@@ -455,6 +706,50 @@ function normalizeExecutionError(error: unknown): AgenticApplicationError {
     "Tool source is unavailable",
     true,
   );
+}
+
+function telemetryError(error: unknown): { readonly code: string; readonly retryable: boolean } {
+  return error instanceof AgenticApplicationError
+    ? { code: error.code, retryable: error.retryable }
+    : { code: "INTERNAL_ERROR", retryable: false };
+}
+
+function toolIdentity(descriptor: DepartmentToolDescriptor) {
+  return {
+    tool: descriptor.name,
+    version: descriptor.version,
+    department: descriptor.agentKind,
+  };
+}
+
+function telemetryFields(
+  prepared: PreparedInvocation,
+  attempt: number,
+  outcome: string,
+  errorCode: string,
+  durationMs: number,
+): Record<string, unknown> {
+  return {
+    tool: prepared.descriptor.name,
+    toolVersion: prepared.descriptor.version,
+    department: prepared.descriptor.agentKind,
+    outcome,
+    errorCode,
+    correlationId: prepared.request.correlationId,
+    causationId: prepared.request.causationId,
+    attempt,
+    durationMs,
+  };
+}
+
+function resultRows(result: unknown): number {
+  const evidence = (result as { readonly evidence?: unknown })?.evidence;
+  return Array.isArray(evidence) ? evidence.length : 0;
+}
+
+function serializedBytes(result: unknown): number {
+  const serialized = JSON.stringify(result);
+  return serialized === undefined ? 0 : Buffer.byteLength(serialized, "utf8");
 }
 
 function fail(code: string, message: string): never {

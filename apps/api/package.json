@@ -8,7 +8,7 @@
     "lint": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts --no-file-parallelism --maxWorkers=1",
     "db:migrate": "pnpm db:migrate:all",
     "db:migrate:catalog": "node-pg-migrate up -j ts -m src/shared/database/migrations -t catalog_migrations --ignore-pattern '.*\\.test\\.(ts|js)$' --check-order",
     "db:migrate:company-core": "node-pg-migrate up -j ts -m src/modules/company-operating-core/infrastructure/database/migrations -t company_core_migrations --check-order",

@@ -139,15 +139,18 @@ export function validateAgenticPhaseB({ sources, agenticFiles: files }) {
     [sources.buildDocs, /check:agentic-workflow[\s\S]*check:agentic-workflow-recovery/i, "Build docs must list both live Agentic gates"],
     [sources.dependencyDocs, /temporalio.*1\.30\.0/i, "Dependency docs must record the Temporal SDK pin"],
     [sources.roadmap, /Phase B[\s\S]{0,500}(complete|completed)/i, "Roadmap must mark Phase B complete"],
-    [sources.roadmap, /Phases C-H[\s\S]{0,200}not started/i, "Roadmap must keep Phases C-H not started"],
+    [sources.roadmap, /(?:Phases C-H[\s\S]{0,200}not started|Phase C[\s\S]{0,500}(?:complete|gates pass)[\s\S]{0,500}Phases D-H[\s\S]{0,200}not started)/i, "Roadmap must preserve the post-Phase-B status"],
   ]) requireMatch(value, pattern, message);
 
   rejectMatch(sources.runtimeSources, /openrouter|OPENROUTER_API_KEY/i, "OpenRouter runtime integration is outside Phase B");
   rejectMatch(sources.consoleSources, /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i, "Console Agentic page is outside Phase B");
   rejectMatch(sources.agenticSources, /sepay/i, "Production SePay activation is outside Phase B");
+  const phaseCDeclared = /"check:agentic-phase-c-exit"/.test(sources.packageJson);
+  const approvedPhaseCToolFile = /apps\/api\/src\/modules\/agentic\/(?:tests\/agentic-tool|application\/tools\/department-tool|infrastructure\/tools\/|presentation\/(?:controllers|routes|validators)\/agentic-tool|application\/services\/(?:implementations\/tool-sharing|interfaces\/department-tool)|infrastructure\/database\/migrations\/2026081600(?:19|20|21)_)/i;
   const commerceToolChange = files.some((path) =>
     /(?:services\/ai-runtime\/app\/agentic|apps\/api\/src\/modules\/agentic)\/.*(?:tools?|commerce).*(?:\.py|\.ts)$/i.test(path)
-    && !/tool-registry|tool_registry/i.test(path));
+    && !/tool-registry|tool_registry/i.test(path)
+    && !(phaseCDeclared && approvedPhaseCToolFile.test(path)));
   const commerceEndpoint = /\/v1\/(?:admin\/)?(?:catalog|inventory|orders?|customers?|crm|support|payments?)(?:\/|["'`])/i
     .test(sources.agenticSources);
   const commerceImport = /modules\/(?:catalog|inventory|order|customer|crm|support|payment)\//i

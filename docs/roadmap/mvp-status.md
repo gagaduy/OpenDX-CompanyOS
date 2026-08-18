@@ -28,9 +28,10 @@ Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
 
 The Post-Commerce Agentic Workforce master design and plan are approved. Phase
-A governance and Phase B durable Store Health workflow are implemented on
-`feat/store-health-temporal`; later execution phases still require their
-focused design and file-level plan:
+A governance and Phase B durable Store Health workflow are complete. Phase C
+implementation, exit gates, independent review, and atomic closure commit are
+complete on `feat/agentic-department-read-tools`.
+Phases D-H still require their focused design and file-level plan:
 `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
 and
 `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
@@ -47,7 +48,7 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Phases A-B complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | First governed durable fake-activity workflow complete; Phases C-H not started |
+| Post-Commerce: Agentic Workforce | Phases A-C complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase C passed review and closure; Phases D-H not started |
 
 Focused Agentic delivery status:
 
@@ -55,12 +56,21 @@ Focused Agentic delivery status:
 | --- | --- | --- | --- | --- |
 | Phase A: Agent Governance Foundation | Complete on `phuong` | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Complete after focused unit, PostgreSQL concurrency, migration lifecycle, API, identity, and repository gates |
 | Phase B: Durable Store Health Workflow | Complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-store-health-temporal-workflow-design.md` | `docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md` | Complete after unit/integration/replay, worker-kill lifecycle, production topology, and three-database destroy/restore/resume gates |
+| Phase C: Read-only Department Tools | Complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-16-agentic-department-read-tools-design.md` | `docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md` | Complete after 17-tool six-identity acceptance, exact analytics grants, zero-leakage, lifecycle, recovery, full-source gates, and independent review |
 
-Phases C-H are explicitly not started. Phase B contains no OpenRouter call,
-Commerce tool execution, file intake, Agentic Console page, Temporal UI, or
-production SePay activation.
+Phases D-H are explicitly not started. Phase C contains no OpenRouter call,
+model execution, file intake, Agentic Console page, Temporal UI, or production
+SePay activation.
 
 ## Latest Validation Evidence
+
+- Phase C pre-commit closure evidence on 2026-08-19 includes 206 passing API
+  integration tests across 54 files, 588 API unit tests, 113 Console tests, 74
+  Storefront tests, and 102 Python tests. Production/Agentic Compose,
+  backup/restore, six-identity 17-tool acceptance, worker/service/database
+  restart, three-database recovery/replay, repository audit, and the static
+  Phase C exit gate all pass. Independent re-review reports no Critical or
+  Important findings, and the atomic closure commit is recorded on the branch.
 
 - The Post-Commerce Agentic Workforce design defines rule-first AI CEO
   delegation, six read-only Department Agents, Temporal orchestration,

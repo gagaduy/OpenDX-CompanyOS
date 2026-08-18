@@ -18,6 +18,8 @@ pnpm test:make-database-backup
 pnpm test:temporal-compose
 pnpm test:agentic-production-compose
 pnpm test:agentic-phase-b-exit
+pnpm test:agentic-department-tools
+pnpm test:agentic-phase-c-exit
 pnpm audit:repo
 compose_env=()
 if [[ -f .env ]]; then

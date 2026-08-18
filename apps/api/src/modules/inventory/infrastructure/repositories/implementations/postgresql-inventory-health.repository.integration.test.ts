@@ -30,7 +30,11 @@ suite("PostgresqlInventoryHealthRepository", () => {
       product_prices,product_variants,products,categories CASCADE`);
     await seedFixture(pool);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runInventoryMigrations(databaseUrl!, "down");
+    await runCatalogMigrations(databaseUrl!, "down");
+    await pool.end();
+  });
 
   it("reads only bounded current stock facts", async () => {
     await expect(transactions.runReadOnly((session) => repository.readCurrentStock(session)))

@@ -41,15 +41,19 @@ export function up(pgm: MigrationBuilder): void {
       ) current_price ON true
       WHERE variant.status='active'
     ), paid_sales AS (
-      SELECT line.variant_id,order_record.paid_at::date AS window_date,
+      SELECT line.variant_id,
+        (order_record.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS window_date,
         sum(line.quantity)::bigint AS paid_quantity,
         sum(line.line_total_vnd)::bigint AS paid_revenue_vnd
       FROM orders order_record JOIN order_lines line ON line.order_id=order_record.id
       WHERE order_record.paid_at IS NOT NULL
         AND order_record.status IN ('paid','processing','ready_for_fulfillment','completed')
-      GROUP BY line.variant_id,order_record.paid_at::date
+      GROUP BY line.variant_id,
+        (order_record.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
     )
-    SELECT current_variants.variant_id,CURRENT_DATE,0::bigint,0::bigint,
+    SELECT current_variants.variant_id,
+      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
+      0::bigint,0::bigint,
       current_variants.current_unit_price_vnd
     FROM current_variants
     UNION ALL
@@ -76,14 +80,17 @@ export function up(pgm: MigrationBuilder): void {
       SELECT CASE
           WHEN paid_facts.lifetime_paid_revenue_vnd>=50000000 THEN 'high_value'
           WHEN paid_facts.last_paid_at IS NULL
-            OR paid_facts.last_paid_at<CURRENT_DATE-INTERVAL '90 days' THEN 'inactive'
+            OR (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date<
+              (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-90 THEN 'inactive'
           WHEN paid_facts.paid_order_count>=2 THEN 'repeat'
           ELSE 'new'
         END AS segment_key,
         CASE
           WHEN paid_facts.last_paid_at IS NULL THEN 'never'
-          WHEN paid_facts.last_paid_at>=CURRENT_DATE-INTERVAL '30 days' THEN '0_30_days'
-          WHEN paid_facts.last_paid_at>=CURRENT_DATE-INTERVAL '90 days' THEN '31_90_days'
+          WHEN (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date>=
+            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-30 THEN '0_30_days'
+          WHEN (paid_facts.last_paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date>=
+            (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-90 THEN '31_90_days'
           ELSE 'over_90_days'
         END AS recency_bucket,
         paid_facts.paid_order_count,paid_facts.lifetime_paid_revenue_vnd,
@@ -94,22 +101,24 @@ export function up(pgm: MigrationBuilder): void {
       count(*) FILTER (WHERE paid_order_count>=2)::bigint AS repeat_customer_count,
       sum(open_followup_count)::bigint AS open_followup_count,
       sum(lifetime_paid_revenue_vnd)::bigint AS lifetime_paid_revenue_vnd,
-      CURRENT_DATE AS as_of_date
+      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS as_of_date
     FROM classified GROUP BY segment_key,recency_bucket;
 
     CREATE VIEW reporting_agentic_customer_activity_daily_v1
       (activity_date,new_customer_count,paid_customer_count,paid_revenue_vnd)
       WITH (security_barrier=true) AS
     WITH registrations AS (
-      SELECT created_at::date AS activity_date,count(*)::bigint AS new_customer_count
-      FROM customers GROUP BY created_at::date
+      SELECT (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS activity_date,
+        count(*)::bigint AS new_customer_count
+      FROM customers GROUP BY (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
     ), paid_activity AS (
-      SELECT paid_at::date AS activity_date,count(DISTINCT customer_id)::bigint
+      SELECT (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS activity_date,
+        count(DISTINCT customer_id)::bigint
           AS paid_customer_count,
         sum(total_vnd)::bigint AS paid_revenue_vnd
       FROM orders WHERE paid_at IS NOT NULL
         AND status IN ('paid','processing','ready_for_fulfillment','completed')
-      GROUP BY paid_at::date
+      GROUP BY (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
     )
     SELECT COALESCE(registrations.activity_date,paid_activity.activity_date),
       COALESCE(registrations.new_customer_count,0)::bigint,

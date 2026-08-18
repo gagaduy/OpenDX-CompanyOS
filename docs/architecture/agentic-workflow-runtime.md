@@ -20,6 +20,15 @@ Concrete Temporal, Keycloak, and HTTP clients stay in infrastructure. No Python
 module imports Commerce implementation code and no agent receives database
 credentials.
 
+Phase C keeps Commerce reads in the Express modular monolith. Six fixed
+Department Tool adapters depend only on public Catalog, Inventory, Order,
+Payment, CRM, Support, and Reporting application contracts. Authoritative
+record interpretation stays in the owning module. Cross-module aggregates use
+three security-barrier Reporting views through `opendx_agentic_reader`, which
+has `SELECT` on those views only and no base-table, schema-create, function, or
+mutation privilege. Neither the AI Runtime nor an Agent receives that database
+credential.
+
 The API and worker use distinct confidential Keycloak workload identities.
 Staff tokens cannot call internal workload routes; workload tokens cannot call
 staff administration routes. The public edge denies `/v1/internal/agentic*`.
@@ -63,6 +72,13 @@ queue, and the current worker's exact poller identity. Structured logs and
 Prometheus metrics carry correlation, causation, task, run, activity,
 invocation, attempt, outcome, duration, and safe error-code fields.
 
+Department tool logs carry only fixed tool/version/department, outcome, safe
+error code, correlation, causation, attempt, and duration fields. Metrics use
+only bounded tool/version/department/outcome/error labels; query duration,
+evidence-row totals, result bytes, and active invocations are numeric values.
+Parameters and result bodies are never observability fields, and the active
+gauge is released on every exit.
+
 Local Compose runs PostgreSQL, Temporal, namespace registration, AI Runtime,
 and the worker with pinned images. Production is a non-HA single-VPS candidate:
 Temporal and the runtime remain private, Caddy is the only public ingress, and
@@ -80,6 +96,7 @@ and namespace before reopening workloads. The live recovery gate destroys only
 suffixed disposable databases, restores a waiting workflow, replays its JSON
 history, and proves activity invocation idempotency.
 
-Phase B deliberately has no OpenRouter/model execution, Commerce tool adapter,
-file intake, Agentic Console page, Temporal UI, public port `7233`, or
-production SePay activation. Those require their own Phase C-H approvals.
+Phase C adds read-only Commerce tool adapters but does not replace Phase B fake
+workflow activities. There is still no OpenRouter/model execution, file intake,
+AI CEO synthesis, Agentic Console page, Temporal UI, public port `7233`, or
+production SePay activation. Those remain Phase D-H work.

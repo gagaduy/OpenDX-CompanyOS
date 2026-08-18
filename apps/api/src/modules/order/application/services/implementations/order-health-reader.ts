@@ -38,7 +38,7 @@ implements OrderHealthReader, SupportOrderContextReader {
   ) {}
 
   async stalledSummary(input: OrderStalledInput): Promise<OrderStalledResult> {
-    const bound = validateWindow(input);
+    const bound = validateWindow(input, this.now());
     const minimumAgeMinutes = input.minimumAgeMinutes ?? 120;
     if (
       !Number.isInteger(minimumAgeMinutes)
@@ -69,7 +69,7 @@ implements OrderHealthReader, SupportOrderContextReader {
   }
 
   async invalidStateEvidence(input: OrderHealthWindow): Promise<OrderInvalidStateResult> {
-    const bound = validateWindow(input);
+    const bound = validateWindow(input, this.now());
     const after = decodeAfter(input.cursor, this.now(), "invalid-state");
     const result = await this.read((session) => this.repository.readInvalidStateEvidence(session, {
       ...input,
@@ -95,7 +95,7 @@ implements OrderHealthReader, SupportOrderContextReader {
   }
 
   async expiryRisk(input: OrderExpiryRiskInput): Promise<OrderExpiryRiskResult> {
-    const bound = validateWindow(input);
+    const bound = validateWindow(input, this.now());
     const horizonMinutes = input.horizonMinutes ?? 120;
     if (!Number.isInteger(horizonMinutes) || horizonMinutes < 15 || horizonMinutes > 1_440) {
       invalid("Order expiry horizon is invalid");
@@ -148,13 +148,14 @@ implements OrderHealthReader, SupportOrderContextReader {
   }
 }
 
-function validateWindow(input: OrderHealthWindow) {
+function validateWindow(input: OrderHealthWindow, now: string) {
   const start = Date.parse(input.start);
   const end = Date.parse(input.end);
   const limit = input.limit ?? 25;
+  const current = Date.parse(now);
   if (
-    !Number.isFinite(start) || !Number.isFinite(end)
-    || end <= start || end - start > 90 * DAY_MS
+    !Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(current)
+    || end <= start || end - start > 90 * DAY_MS || end > current + 60_000
   ) invalid("Order health window is invalid");
   if (input.timezone !== "Asia/Ho_Chi_Minh") invalid("Order health timezone is invalid");
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) invalid("Order evidence limit is invalid");

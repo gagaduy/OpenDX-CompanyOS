@@ -59,7 +59,7 @@ export async function runCompanyCoreMigrations(
   await runner({
     databaseUrl,
     direction,
-    count,
+    count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
     dir: companyCoreMigrationsDirectory,
     migrationsTable: "company_core_migrations",
     advisoryLockMode: "wait",
@@ -77,7 +77,7 @@ export async function runCrmMigrations(
   await runner({
     databaseUrl,
     direction,
-    count,
+    count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
     dir: crmMigrationsDirectory,
     migrationsTable: "crm_migrations",
     advisoryLockMode: "wait",
@@ -92,7 +92,7 @@ export async function runSupportMigrations(
   direction: "up" | "down",
   count?: number,
 ): Promise<void> {
-  await runner({ databaseUrl, direction, count, dir: supportMigrationsDirectory, migrationsTable: "support_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
+  await runner({ databaseUrl, direction, count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count, dir: supportMigrationsDirectory, migrationsTable: "support_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
 }
 
 export async function runAgenticMigrations(
@@ -100,7 +100,7 @@ export async function runAgenticMigrations(
   direction: "up" | "down",
   count?: number,
 ): Promise<void> {
-  await runner({ databaseUrl, direction, count, dir: agenticMigrationsDirectory, migrationsTable: "agentic_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
+  await runner({ databaseUrl, direction, count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count, dir: agenticMigrationsDirectory, migrationsTable: "agentic_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
 }
 
 export async function runReportingMigrations(

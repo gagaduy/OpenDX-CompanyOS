@@ -27,8 +27,7 @@ const slaCte = `WITH open_tickets AS (
   WHERE status NOT IN ('resolved','closed') AND created_at<$1::timestamptz
 ), risk AS (
   SELECT * FROM open_tickets
-  WHERE sla_due_at<LEAST($1::timestamptz,
-    $2::timestamptz+$3::integer*interval '1 minute')
+  WHERE sla_due_at<$2::timestamptz+$3::integer*interval '1 minute'
 )`;
 
 export class PostgresqlSupportHealthRepository implements SupportHealthRepository {

@@ -8,6 +8,7 @@ import { createAgenticToolRouter } from "../presentation/routes/agentic-tool.rou
 import { AgenticToolController } from "../presentation/controllers/agentic-tool.controller";
 import { authenticateAgentService } from "../presentation/middleware/agent-service-auth.middleware";
 import { agenticErrorMiddleware } from "../presentation/middleware/agentic-error.middleware";
+import { AgenticApplicationError } from "../application/services/agentic-application.error";
 
 const valid = {
   taskId: "11111111-1111-4111-8111-111111111111",
@@ -36,6 +37,9 @@ describe("Agentic department tool API", () => {
       .set("authorization", "Bearer wrong-audience-token").send(valid).expect(401);
     await request(current.app).post("/v1/internal/agentic/tools/invoke")
       .set("authorization", "Bearer inventory-token").send(valid).expect(403);
+    expect(current.tools.invoke).toHaveBeenCalledWith(expect.objectContaining({
+      principal: expect.objectContaining({ agentKind: "inventory" }),
+    }));
     await request(current.app).post("/v1/internal/agentic/tools/invoke")
       .set("authorization", "Bearer inactive-token").send(valid).expect(401);
     const response = await request(current.app).post("/v1/internal/agentic/tools/invoke")
@@ -62,12 +66,23 @@ describe("Agentic department tool API", () => {
     await send({ ...valid, dataScope: "inventory:health:read" }).expect(403);
     await send({ ...valid, dataClassification: "restricted" }).expect(403);
     await send({ ...valid, parameters: { value: "x".repeat(17_000) } }).expect(413);
-    expect(current.tools.invoke).not.toHaveBeenCalled();
+    expect(current.tools.invoke).toHaveBeenCalledTimes(2);
   });
 });
 
 function fixture() {
-  const tools = { authorize: vi.fn(), invoke: vi.fn(async () => ({ output: { ok: true }, provenanceIds: [] })) };
+  const tools = { authorize: vi.fn(), invoke: vi.fn(async (input: typeof valid & {
+    readonly principal: { readonly agentKind: string };
+  }) => {
+    if (
+      input.principal.agentKind !== "catalog"
+      || input.dataScope !== "catalog:health:read"
+      || input.dataClassification !== "internal"
+    ) {
+      throw new AgenticApplicationError("TOOL_SCOPE_DENIED", "Tool scope denied");
+    }
+    return { output: { ok: true }, provenanceIds: [] };
+  }) };
   const verifier = {
     verify: vi.fn(async (token: string) => {
       const values: Record<string, { sub: string; azp: string }> = {

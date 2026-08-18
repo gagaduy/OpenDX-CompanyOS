@@ -25,6 +25,7 @@ export interface ToolAuthorizationRequest {
   readonly costMicros: number;
   readonly idempotencyKey: string;
   readonly correlationId: string;
+  readonly causationId?: string;
   readonly approvalId?: string;
 }
 

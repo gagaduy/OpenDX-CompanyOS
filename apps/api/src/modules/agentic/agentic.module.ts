@@ -28,6 +28,8 @@ import { createAgenticWorkloadRouter } from "./presentation/routes/agentic-workl
 import type { DepartmentToolAdapterRegistry } from "./application/services/interfaces/department-tool-adapter";
 import { ToolRegistryService } from "./application/services/implementations/tool-registry.service";
 import { ZodDepartmentToolSchemaRegistry } from "./infrastructure/tools/zod-department-tool-schema.registry";
+import type { Logger } from "../../shared/observability/logger";
+import type { MetricsRegistry } from "../../shared/observability/metrics";
 
 export interface AgenticModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -42,6 +44,9 @@ export interface AgenticModuleDependencies {
   readonly onDispatcherError?: (error: unknown) => void;
   readonly executionEnabled?: boolean;
   readonly toolAdapters: DepartmentToolAdapterRegistry;
+  readonly logger?: Logger;
+  readonly metrics?: MetricsRegistry;
+  readonly monotonicNow?: () => number;
 }
 
 export function createAgenticModule(dependencies: AgenticModuleDependencies) {
@@ -80,6 +85,13 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     new ZodDepartmentToolSchemaRegistry(dependencies.now),
     dependencies.generateId,
     dependencies.now,
+    dependencies.logger === undefined
+      ? undefined
+      : {
+          logger: dependencies.logger,
+          ...(dependencies.metrics === undefined ? {} : { metrics: dependencies.metrics }),
+          monotonicNow: dependencies.monotonicNow ?? performance.now.bind(performance),
+        },
   );
   const controller = new AgenticController(tasks, approvals, configurations, revocations, queries);
   const workflowController = new AgenticWorkflowController(workflows);

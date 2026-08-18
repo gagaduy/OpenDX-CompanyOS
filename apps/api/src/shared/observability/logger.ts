@@ -18,7 +18,7 @@ const levelOrder = {
   error: 40,
 } satisfies Record<LogLevel, number>;
 const sensitiveKeys =
-  /secret|token|cookie|csrf|password|authorization|email|phone|address|payload|objectKey/i;
+  /secret|token|cookie|csrf|password|authorization|email|phone|address|payload|objectKey|parameters|requestBody|responseBody|resultBody/i;
 
 export function createLogger(options: {
   readonly format: LogFormat;

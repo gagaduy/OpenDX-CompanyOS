@@ -120,6 +120,15 @@ describe("InventoryHealthReaderService", () => {
     expect(analytics.getVariantSales).not.toHaveBeenCalled();
     expect(repository.readCurrentStock).not.toHaveBeenCalled();
   });
+
+  it("rejects windows beyond the one-minute server tolerance", async () => {
+    const { service, repository } = fixture();
+    await expect(service.reservationAnomalies({
+      ...window, end: "2026-08-16T05:01:00.001Z",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect((repository as unknown as { readReservationAnomalies: ReturnType<typeof vi.fn> })
+      .readReservationAnomalies).not.toHaveBeenCalled();
+  });
 });
 
 function fixture(overrides: {

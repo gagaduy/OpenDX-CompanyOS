@@ -92,6 +92,19 @@ export function down(pgm: MigrationBuilder): void {
     DROP TABLE IF EXISTS agentic_tool_invocations;
 
     ALTER TABLE agentic_tools DISABLE TRIGGER agentic_tools_immutable;
+    ALTER TABLE agentic_tool_grants DISABLE TRIGGER agentic_tool_grants_draft_only;
+    DELETE FROM agentic_tool_grants WHERE (tool_name,tool_version) IN (
+      ('catalog.product_completeness',1),('catalog.publication_readiness',1),
+      ('catalog.merchandising_summary',1),('inventory.stock_risk',1),
+      ('inventory.slow_stock',1),('inventory.reservation_anomalies',1),
+      ('order.stalled_summary',1),('order.invalid_state_evidence',1),
+      ('order.expiry_risk',1),('finance.pending_payments',1),
+      ('finance.reconciliation_discrepancies',1),('finance.provider_evidence_status',1),
+      ('crm.segment_summary',1),('crm.followup_opportunities',1),
+      ('support.sla_risk',1),('support.classification_summary',1),
+      ('support.related_order_context',1)
+    );
+    ALTER TABLE agentic_tool_grants ENABLE TRIGGER agentic_tool_grants_draft_only;
     DELETE FROM agentic_tools WHERE (name,version) IN (
       ('catalog.product_completeness',1),('catalog.publication_readiness',1),
       ('catalog.merchandising_summary',1),('inventory.stock_risk',1),

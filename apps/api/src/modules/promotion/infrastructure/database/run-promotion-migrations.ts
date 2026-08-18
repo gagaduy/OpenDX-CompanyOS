@@ -8,5 +8,5 @@ import { runner } from "node-pg-migrate";
 const dir = join(dirname(fileURLToPath(import.meta.url)), "migrations");
 
 export async function runPromotionMigrations(databaseUrl: string, direction: "up" | "down", count?: number): Promise<void> {
-  await runner({ databaseUrl, direction, count, dir, migrationsTable: "promotion_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
+  await runner({ databaseUrl, direction, count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count, dir, migrationsTable: "promotion_migrations", advisoryLockMode: "wait", checkOrder: true, singleTransaction: true, log: () => undefined });
 }

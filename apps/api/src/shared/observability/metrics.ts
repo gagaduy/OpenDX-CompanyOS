@@ -98,9 +98,9 @@ export function createMetricsRegistry(): MetricsRegistry {
 
 function toolIdentityLabels(identity: AgenticToolIdentity): string {
   return labels({
-    tool: sanitizeLabel(identity.tool),
-    version: sanitizeLabel(String(identity.version)),
-    department: sanitizeLabel(identity.department),
+    tool: normalizeTool(identity.tool),
+    version: identity.version === 1 ? "1" : "other",
+    department: normalizeDepartment(identity.department),
   });
 }
 
@@ -124,6 +124,28 @@ const toolErrors = new Set([
 
 function normalizeToolError(value: string): string {
   return toolErrors.has(value) ? value : "OTHER";
+}
+
+const departmentTools = new Set([
+  "catalog.product_completeness", "catalog.publication_readiness",
+  "catalog.merchandising_summary", "inventory.stock_risk", "inventory.slow_stock",
+  "inventory.reservation_anomalies", "order.stalled_summary",
+  "order.invalid_state_evidence", "order.expiry_risk", "finance.pending_payments",
+  "finance.reconciliation_discrepancies", "finance.provider_evidence_status",
+  "crm.segment_summary", "crm.followup_opportunities", "support.sla_risk",
+  "support.classification_summary", "support.related_order_context",
+]);
+
+const departments = new Set([
+  "catalog", "inventory", "order", "finance", "crm", "support",
+]);
+
+function normalizeTool(value: string): string {
+  return departmentTools.has(value) ? sanitizeLabel(value) : "other";
+}
+
+function normalizeDepartment(value: string): string {
+  return departments.has(value) ? sanitizeLabel(value) : "other";
 }
 
 function increment(

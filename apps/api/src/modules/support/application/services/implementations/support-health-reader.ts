@@ -130,7 +130,8 @@ function validate(input: SupportHealthWindow, asOf: string) {
   const current = Date.parse(asOf);
   const limit = input.limit ?? 25;
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start
-    || end - start > 90 * DAY_MS || !Number.isFinite(current)) invalid("Support health window is invalid");
+    || end - start > 90 * DAY_MS || !Number.isFinite(current)
+    || end > current + 60_000) invalid("Support health window is invalid");
   if (input.timezone !== "Asia/Ho_Chi_Minh") invalid("Support health timezone is invalid");
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) invalid("Support evidence limit is invalid");
   return { asOf, limit };

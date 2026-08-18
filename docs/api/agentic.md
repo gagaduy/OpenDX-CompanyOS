@@ -5,8 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Agentic API
 
-Phase A exposes governance and Phase B adds one durable
-`StoreHealthReviewWorkflowV1`. Staff routes are below `/v1/admin/agentic` and
+Phase A exposes governance, Phase B adds one durable
+`StoreHealthReviewWorkflowV1`, and Phase C adds 17 governed read-only Commerce
+tools. Staff routes are below `/v1/admin/agentic` and
 require a Keycloak staff bearer token. Workload callbacks are below
 `/v1/internal/agentic` and accept only the dedicated AI worker service account.
 Caddy returns `404` for the complete internal prefix.
@@ -26,6 +27,74 @@ history from the PostgreSQL projection or query Temporal directly.
 All staff success responses use `{ "success": true, "message": "...", "data":
 ... }`. Errors use `{ "success": false, "message": "...", "errorCode":
 "CODE", "errors": [] }`.
+
+## Department Tool Invocation
+
+`POST /v1/internal/agentic/tools/invoke` accepts only a confidential
+client-credentials token for one of `agent-catalog`, `agent-inventory`,
+`agent-order`, `agent-finance`, `agent-crm`, or `agent-support`. The AI CEO,
+staff, browser, worker, control, inactive, unknown, or cross-department identity
+cannot use this route. The body limit is 16 KiB.
+
+Every request contains `taskId`, exact `toolName`, `toolVersion: 1`,
+`purpose: "store_health_review"`, the descriptor's `dataScope` and
+`dataClassification`, an approved `modelId`, strict `parameters`, and bounded
+`idempotencyKey`, `correlationId`, and `causationId`. An `approvalId` is present
+only when the pinned policy requires it. Unknown fields are rejected.
+
+| Tool | Input parameters | Result `summary` fields | Evidence fields | Class / share |
+| --- | --- | --- | --- | --- |
+| `catalog.product_completeness` | none | `totalProducts`, `draftProducts`, `publishedProducts`, `missingBrand`, `emptyAttributes`, `withoutActiveVariant`, `withoutCurrentPrice`, `withoutMedia`, `withoutPrimaryMedia`, `completenessBasisPoints` | none | internal / executive |
+| `catalog.publication_readiness` | evidence window | `draftReviewed`, `readyCount`, `blockedCount`, `reasonCounts` | `productId`, `updatedAt`, `reasonCodes` | internal / executive |
+| `catalog.merchandising_summary` | none | `activeCategories`, `publishedProducts`, `activeVariants`, `currentlyPricedVariants`, `mediaCoverageBasisPoints`, `minimumPriceVnd`, `maximumPriceVnd`, `categoryDistribution`, `otherCategoryProductCount` | none | internal / executive |
+| `inventory.stock_risk` | evidence window, `lowStockThreshold` | `trackedVariants`, `lowStockCount`, `soldOutCount`, `unitsOnHand`, `unitsReserved`, `unitsAvailable` | `variantId`, stock quantities, velocity, cover, `riskCode` | internal / executive |
+| `inventory.slow_stock` | evidence window, `minimumOnHand` | `candidateCount`, `candidateUnits`, `candidateValueVnd` | `variantId`, availability, sales, price, value, `reasonCode` | internal / executive |
+| `inventory.reservation_anomalies` | evidence window | anomaly counts and `affectedUnits` | reservation/variant IDs, quantity, state, expiry, detection, reason | confidential / department |
+| `order.stalled_summary` | evidence window, `minimumAgeMinutes` | `stalledCount`, `stalledTotalVnd`, `countsByStatus` | order ID, state, timestamps, age, total, reason | confidential / executive |
+| `order.invalid_state_evidence` | evidence window | `invalidCount`, `reasonCounts` | order ID, state, version, detection, reasons | confidential / department |
+| `order.expiry_risk` | evidence window, `horizonMinutes` | `atRiskCount`, `atRiskTotalVnd`, `earliestExpiryAt` | order ID, state, total, expiry, minutes remaining | confidential / executive |
+| `finance.pending_payments` | aggregate window | counts, expected amount, oldest timestamp, status counts, age buckets | none | confidential / executive |
+| `finance.reconciliation_discrepancies` | evidence window | reconciliation/mismatch/provider counts and amount difference | reconciliation/payment IDs, result classes, safe states/amounts, timestamp | restricted / department |
+| `finance.provider_evidence_status` | aggregate window | authenticated/rejected/applied/review counts, unmatched count, coverage, normalized states | none | restricted / department |
+| `crm.segment_summary` | aggregate window | registered/new/repeat counts, lifetime-value and recency buckets, paid revenue | none | confidential / executive |
+| `crm.followup_opportunities` | aggregate window | open/overdue/unassigned counts, segment gaps, reason counts | none | restricted / department |
+| `support.sla_risk` | evidence window, `horizonMinutes` | open/at-risk/breached counts and priorities | ticket ID, priority, state, SLA time, minutes, risk | restricted / executive |
+| `support.classification_summary` | aggregate window | priority/status/class counts, unassigned and escalated counts | none | confidential / executive |
+| `support.related_order_context` | `ticketId` | ticket binding and optional safe order state/times/total/payment confirmation | none | restricted / department |
+
+An aggregate window is `{ start, end, timezone: "Asia/Ho_Chi_Minh" }`. An
+evidence window additionally accepts `limit` from 1 to 100 and an opaque
+`cursor`. Windows are at most 90 days. Tool-specific thresholds use the exact
+bounds enforced by the runtime schema, and `end` cannot exceed server time by
+more than one minute. Cursors are server-signed, expire after five minutes, and
+are bound to the task, tool/version, normalized non-cursor parameters, and the
+owner reader's stable keyset. Tampered, expired, or cross-context cursors fail
+with `TOOL_INPUT_INVALID`.
+
+Successful `data` is `{ output, provenanceIds }`. Every output contains
+`source`, `sourceVersion: 1`, `retrievedAt`, `window`, freshness with a 60-second
+maximum age, `classification`, `shareability`, `provenanceId`, and `summary`.
+Evidence is bounded to 100 records and receipts to 256 KiB. Executive sharing
+copies only the common envelope and `summary`; it rejects `department_only`
+results and never copies evidence or cursors.
+
+Stable tool errors include `TOOL_INPUT_INVALID`, `TOOL_NOT_FOUND`,
+`TOOL_GRANT_MISSING`, `TOOL_SCOPE_DENIED`, `TOOL_GRANT_EXHAUSTED`,
+`TOOL_INVOCATION_IN_PROGRESS`, `TOOL_RESULT_STALE`, `TOOL_RESULT_TOO_LARGE`,
+`TOOL_QUERY_TIMEOUT`, `TOOL_SOURCE_UNAVAILABLE`, and `TOOL_OUTPUT_INVALID`, in
+addition to governance, approval, and budget errors. Only bounded query timeout,
+lock contention, and source unavailability are retryable. Internal SQL,
+relation names, request parameters, result bodies, credentials, and provider or
+customer data are never returned or logged.
+
+Tool invocation idempotency is scoped to Agent and task. A reserved invocation
+holds a 60-second execution lease; a stale lease is reclaimed with the next
+bounded attempt, and exhaustion becomes the stable
+`TOOL_INVOCATION_TIMEOUT` terminal error. Allowed, denied, failed, completed,
+and replayed attempts persist the Agent subject/client, task, tool/version,
+parameter digest, policy version, correlation, causation, attempt, duration,
+safe error code, and completed result digest. Provenance persists only the
+approved source/version, normalized window, source snapshot time, and digest.
 
 ## Staff Workflow Routes
 
@@ -170,7 +239,7 @@ remains a retryable internal delivery failure; unknown server failures return
 ## Governance Scope
 
 Phase A task, employee, configuration, revocation, audit, and approval list/read
-routes remain available as previously documented. Phase B uses fake bounded
-activities only. It does not call OpenRouter, expose generic SQL or Commerce
-tools, ingest files, provide an Agentic Console page, or activate production
-SePay behavior.
+routes remain available as previously documented. Phase B still uses fake
+bounded workflow activities; Phase C tools are not yet consumed by a model
+runtime. There is no OpenRouter call, generic SQL, file intake, Agentic Console
+page, AI CEO synthesis, or production SePay activation.

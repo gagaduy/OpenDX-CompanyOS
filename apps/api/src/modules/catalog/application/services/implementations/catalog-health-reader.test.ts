@@ -78,6 +78,17 @@ describe("CatalogHealthReaderService", () => {
       categoryDistribution: [{ categoryId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", productCount: 2 }],
     });
   });
+
+  it("rejects windows beyond the one-minute server tolerance", async () => {
+    const repository = fixture();
+    const reader = new CatalogHealthReaderService(repository, transactions, () => asOf);
+    await expect(reader.publicationReadiness({
+      start: "2026-08-15T05:00:00.000Z",
+      end: "2026-08-16T05:01:00.001Z",
+      timezone: "Asia/Ho_Chi_Minh",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repository.readPublicationReadiness).not.toHaveBeenCalled();
+  });
 });
 
 function fixture(overrides: Record<string, unknown> = {}) {

@@ -85,6 +85,30 @@ stack-owning operation is active. Run the static closure contract with:
 pnpm check:agentic-phase-b-exit
 ```
 
+Phase C adds static and live Department-tool gates:
+
+```bash
+pnpm test:agentic-department-tools
+pnpm test:agentic-phase-c-exit
+make up
+pnpm check:agentic-department-tools
+pnpm check:agentic-phase-c-exit
+```
+
+The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a
+suffixed disposable PostgreSQL database and API process, obtains six distinct
+local Keycloak client credentials without printing them, invokes all 17 tools,
+denies cross-department and AI CEO calls, checks provenance and summary sharing,
+and destroys only its disposable records and database. It hashes Commerce data
+before and after invocation to prove the tools are read-only. No OpenRouter or
+SePay credential is required. Use `make check-agentic-department-tools` as the
+Make equivalent.
+
+Production preflight must additionally pass `pnpm check:production-compose`,
+`pnpm check:agentic-production-compose`, and `pnpm check:backup-restore` so the
+six Agent secrets, isolated analytics credential, private route, migrations,
+and recovery set remain valid.
+
 ```bash
 pnpm audit:env
 pnpm audit:secrets
@@ -264,7 +288,7 @@ python3 -m app.agentic.worker
 
 Normal local development should use `make up`; Compose owns the long-running AI
 Runtime and worker, their readiness, namespace registration, and restart order.
-No OpenRouter key is required for Phase B.
+No OpenRouter key is required through Phase C.
 
 ## Configuration
 
@@ -279,9 +303,11 @@ explicit SePay production settings, and PII-safe observability settings.
 GitHub Actions checks do not deploy to a VPS in Phase 8.
 
 The API readiness probe verifies every PostgreSQL migration family through
-CRM/Support, Keycloak, ClamAV, the product-media MinIO bucket, and the private
-`support-attachments` bucket. It does not contact SePay. Runtime persistence
-remains PostgreSQL-only; there is no memory database switch.
+Reporting and Agentic, plus Keycloak, ClamAV, the product-media MinIO bucket,
+and the private `support-attachments` bucket. It uses the repository's current
+minimum migration counts so an older partially migrated stack stays unready.
+It does not contact SePay. Runtime persistence remains PostgreSQL-only; there
+is no memory database switch.
 
 Runtime logs, readiness checks, and optional `/metrics` operations are
 documented in [`operations/observability.md`](operations/observability.md).

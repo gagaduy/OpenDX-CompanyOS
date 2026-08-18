@@ -8,7 +8,7 @@ import { PaymentHealthReaderService } from "./payment-health-reader";
 const NOW = "2026-08-16T05:00:00.000Z";
 const window = {
   start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T06:00:00.000Z",
+  end: NOW,
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 
@@ -116,6 +116,14 @@ describe("PaymentHealthReaderService", () => {
     await expect(service.pendingPayments({ ...window, start: window.end }))
       .rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(repository.readPendingPayments).not.toHaveBeenCalled();
+  });
+
+  it("rejects windows beyond the one-minute server tolerance", async () => {
+    const { service, repository } = fixture();
+    await expect(service.providerEvidenceStatus({
+      ...window, end: "2026-08-16T05:01:00.001Z",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repository.readProviderEvidenceStatus).not.toHaveBeenCalled();
   });
 });
 

@@ -22,6 +22,7 @@ const reasonOrder: readonly CatalogReadinessReason[] = [
   "NO_MEDIA",
   "PRIMARY_MEDIA_INVALID",
 ];
+const DAY_MS = 24 * 60 * 60 * 1_000;
 
 export class CatalogHealthReaderService implements CatalogHealthReader {
   constructor(
@@ -42,7 +43,7 @@ export class CatalogHealthReaderService implements CatalogHealthReader {
     input: CatalogPublicationReadinessInput,
   ): Promise<CatalogPublicationReadinessResult> {
     const limit = input.limit ?? 25;
-    assertWindow(input.start, input.end);
+    assertWindow(input.start, input.end, input.timezone, this.now());
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) invalid("Catalog evidence limit is invalid");
     const after = input.cursor === undefined ? undefined : decodeCursor(input.cursor);
     const result = await this.transactions.runReadOnly((session) =>
@@ -117,12 +118,22 @@ function decodeCursor(cursor: string): { readonly updatedAt: string; readonly pr
   }
 }
 
-function assertWindow(startValue: string, endValue: string): void {
+function assertWindow(
+  startValue: string,
+  endValue: string,
+  timezone: string,
+  now: string,
+): void {
   const start = Date.parse(startValue);
   const end = Date.parse(endValue);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+  const current = Date.parse(now);
+  if (
+    !Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(current)
+    || end <= start || end - start > 90 * DAY_MS || end > current + 60_000
+  ) {
     invalid("Catalog health window is invalid");
   }
+  if (timezone !== "Asia/Ho_Chi_Minh") invalid("Catalog health timezone is invalid");
 }
 
 function assertTimestamp(value: string): void {

@@ -67,7 +67,10 @@ suite("Agentic department tool PostgreSQL API", () => {
     await resetAgenticData(pool);
     taskId = await seedGovernedTask(pool);
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runAgenticMigrations(databaseUrl!, "down", 999_999);
+    await pool.end();
+  });
 
   it("invokes all 17 tools without leaking source-sensitive values", async () => {
     const serializedResponses: string[] = [];

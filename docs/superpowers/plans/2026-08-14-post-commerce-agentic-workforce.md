@@ -378,22 +378,22 @@ included only where the focused design proves it necessary.
 
 **Checklist:**
 
-- [ ] Write an authorization/leakage test for every tool before exposing its
+- [x] Write an authorization/leakage test for every tool before exposing its
   data path.
-- [ ] Keep financial totals and state interpretation in authoritative backend
+- [x] Keep financial totals and state interpretation in authoritative backend
   services or validated SQL, never in prompts.
-- [ ] Enforce bounded date range, pagination, result count, and execution time
+- [x] Enforce bounded date range, pagination, result count, and execution time
   at the tool adapter and database role/view boundary.
-- [ ] Use a runtime database role that can select only approved views when an
+- [x] Use a runtime database role that can select only approved views when an
   analytics view is used; it cannot select base tables or mutate any relation.
-- [ ] Reject unknown parameters, unknown tool versions, unsupported scopes,
+- [x] Reject unknown parameters, unknown tool versions, unsupported scopes,
   stale grants, and over-budget invocations before data retrieval.
-- [ ] Minimize CRM, Support, customer, and payment data before returning a tool
+- [x] Minimize CRM, Support, customer, and payment data before returning a tool
   result or allowing cross-department sharing.
-- [ ] Audit allowed and denied invocations without logging result bodies or PII.
-- [ ] Prove AI CEO receives only explicitly shareable summaries, not the union
+- [x] Audit allowed and denied invocations without logging result bodies or PII.
+- [x] Prove AI CEO receives only explicitly shareable summaries, not the union
   of Department Agent data.
-- [ ] Prove no Agentic package imports a private commerce repository or exposes
+- [x] Prove no Agentic package imports a private commerce repository or exposes
   a general SQL/query tool.
 
 **Exit gate:** Each of the six Department Agents can invoke only its approved

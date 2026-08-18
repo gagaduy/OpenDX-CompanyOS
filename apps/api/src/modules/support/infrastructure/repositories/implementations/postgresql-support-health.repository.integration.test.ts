@@ -20,7 +20,7 @@ const suite = url === undefined ? describe.skip : describe;
 const NOW = "2026-08-16T05:00:00.000Z";
 const window = {
   start: "2026-08-01T00:00:00.000Z",
-  end: "2026-08-16T09:00:00.000Z",
+  end: NOW,
   timezone: "Asia/Ho_Chi_Minh" as const,
 };
 
@@ -62,7 +62,19 @@ suite("PostgresqlSupportHealthRepository", () => {
     await seedFixture(pool);
     orders.getAuthorizedContext.mockClear();
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await runSupportMigrations(url!, "down");
+    await runCrmMigrations(url!, "down");
+    await runOrderMigrations(url!, "down");
+    await runCheckoutMigrations(url!, "down");
+    await runPromotionMigrations(url!, "down");
+    await runCartMigrations(url!, "down");
+    await runCustomerMigrations(url!, "down");
+    await runInventoryMigrations(url!, "down");
+    await runCompanyCoreMigrations(url!, "down");
+    await runCatalogMigrations(url!, "down");
+    await pool.end();
+  });
 
   it("calculates priority deadlines with pause time and exclusive horizon", async () => {
     const result = await service.slaRisk({ ...window, horizonMinutes: 240 });

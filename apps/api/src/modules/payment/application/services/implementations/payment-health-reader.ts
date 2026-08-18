@@ -33,7 +33,7 @@ export class PaymentHealthReaderService implements PaymentHealthReader {
   ) {}
 
   async pendingPayments(input: PaymentHealthWindow): Promise<PendingPaymentHealth> {
-    const bound = validate(input);
+    const bound = validate(input, this.now());
     const result = await this.read((session) => this.repository.readPendingPayments(session, {
       ...input,
       asOf: this.now(),
@@ -55,7 +55,7 @@ export class PaymentHealthReaderService implements PaymentHealthReader {
   async reconciliationDiscrepancies(
     input: PaymentHealthWindow,
   ): Promise<PaymentDiscrepancyResult> {
-    const bound = validate(input);
+    const bound = validate(input, this.now());
     const after = decodeCursor(input.cursor, this.now(), "reconciliation");
     const result = await this.read((session) =>
       this.repository.readReconciliationDiscrepancies(session, {
@@ -96,7 +96,7 @@ export class PaymentHealthReaderService implements PaymentHealthReader {
   }
 
   async providerEvidenceStatus(input: PaymentHealthWindow): Promise<ProviderEvidenceHealth> {
-    const bound = validate(input);
+    const bound = validate(input, this.now());
     const result = await this.read((session) =>
       this.repository.readProviderEvidenceStatus(session, {
         ...input,
@@ -129,13 +129,14 @@ export class PaymentHealthReaderService implements PaymentHealthReader {
   }
 }
 
-function validate(input: PaymentHealthWindow) {
+function validate(input: PaymentHealthWindow, now: string) {
   const start = Date.parse(input.start);
   const end = Date.parse(input.end);
   const limit = input.limit ?? 25;
+  const current = Date.parse(now);
   if (
-    !Number.isFinite(start) || !Number.isFinite(end)
-    || end <= start || end - start > 90 * DAY_MS
+    !Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(current)
+    || end <= start || end - start > 90 * DAY_MS || end > current + 60_000
   ) invalid("Payment health window is invalid");
   if (input.timezone !== "Asia/Ho_Chi_Minh") invalid("Payment health timezone is invalid");
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) invalid("Payment evidence limit is invalid");
