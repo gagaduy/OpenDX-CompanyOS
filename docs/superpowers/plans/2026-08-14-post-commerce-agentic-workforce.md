@@ -415,6 +415,9 @@ provider contract and any new dependencies, define the exact structured result
 schema for all seven Agents, and define which data classifications may leave
 the local system.
 
+Approved focused design:
+`docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md`.
+
 **Primary implementation areas:**
 
 - Create provider-neutral model ports and OpenRouter adapters under

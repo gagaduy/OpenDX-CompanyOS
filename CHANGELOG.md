@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the approved Phase D OpenRouter Agent Runtime boundary with seven
+  distinct free primary models, one bounded emergency fallback, internal-only
+  egress, strict Agent-specific result schemas, atomic model cost accounting,
+  deterministic Quality Gate behavior, and mandatory credential-owned
+  acceptance.
+
 - Advance Agentic Phase C closure with bounded tool telemetry, an exact three-view
   analytics grant, six-identity disposable live acceptance, static mutation
   guards, deterministic per-file migration cleanup, operator commands, and
