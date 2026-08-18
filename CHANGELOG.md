@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Enforce internal-only, Agent-specific, bounded and deeply immutable model
+  context with conservative sensitive-data blocking and role-isolated prompt
+  construction for all seven governed Agents.
+
 - Define deeply immutable framework-neutral model runtime contracts and strict
   structured result schemas with bounded safe validation failures for all seven
   governed Agents without enabling delegation behavior.
