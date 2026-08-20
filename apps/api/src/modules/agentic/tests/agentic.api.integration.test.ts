@@ -242,4 +242,138 @@ suite("Agentic PostgreSQL admin API", () => {
       [taskId],
     )).rows[0]?.count).toBe("1");
   });
+
+  it("authorizes and atomically settles digest-only internal model runs", async () => {
+    const worker = { authorization: "Bearer worker-token" };
+    const revisionId = randomUUID();
+    const taskId = randomUUID();
+    const provenanceId = randomUUID();
+    const primaryModel = "google/gemma-4-26b-a4b-it:free";
+    const fallbackModel = "liquid/lfm-2.5-2.6b:free";
+    await pool.query(
+      `INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest)
+       VALUES($1,'draft','creator',$2)`,
+      [revisionId, "1".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_configs
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+        max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,'catalog',$2,1000,500,5000,1,2000,4000)`,
+      [revisionId, primaryModel],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+       VALUES($1,'catalog',1,$2)`,
+      [revisionId, fallbackModel],
+    );
+    await pool.query(
+      `INSERT INTO agentic_budget_limits
+       (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+       VALUES($1,'catalog',100,1000,10000)`,
+      [revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_policies
+       (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+        data_classification,reason_code)
+       VALUES($1,$2,1,'ALLOW','agent','catalog','model','execute','department_analysis',
+        'internal','MODEL_EXECUTION_ALLOWED')`,
+      [randomUUID(), revisionId],
+    );
+    await pool.query(
+      `UPDATE agentic_configuration_revisions SET state='active',decided_by='reviewer',
+       decided_at=$2,version=4,updated_at=$2 WHERE id=$1`,
+      [revisionId, "2026-08-20T03:00:00.000Z"],
+    );
+    await pool.query(
+      `INSERT INTO agentic_tasks
+       (id,state,created_by,goal,instructions,configuration_revision_id,version)
+       VALUES($1,'ready','operator','Review catalog','sensitive prompt body',$2,2)`,
+      [taskId, revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title)
+       VALUES($1,$2,'catalog','Review catalog health')`,
+      [randomUUID(), taskId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_provenance_records
+       (id,task_id,source_type,source_id,source_digest,classification,recorded_by)
+       VALUES($1,$2,'tool_result','catalog.health',$3,'internal','agent-catalog')`,
+      [provenanceId, taskId, "2".repeat(64)],
+    );
+
+    const reserveBody = {
+      taskId,
+      agentKind: "catalog",
+      generationRound: 0,
+      idempotencyKey: "catalog-round-0",
+      inputDigest: "a".repeat(64),
+      primaryModel,
+      fallbackModel,
+    };
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .send(reserveBody).expect(401);
+    const reserved = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    const runId = reserved.body.data.runId as string;
+    expect(reserved.body.data).toMatchObject({
+      primaryModel, fallbackModel, maxReservedCostMicros: 4, version: 1,
+    });
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    const startBody = { expectedVersion: 1, returnedModel: primaryModel, fallbackPosition: 0 };
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker).send(startBody).expect(200);
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker).send(startBody).expect(200);
+
+    const completeBody = {
+      expectedVersion: 2,
+      idempotencyKey: "catalog-round-0-terminal",
+      status: "completed",
+      outputDigest: "b".repeat(64),
+      inputTokens: 500,
+      outputTokens: 250,
+      providerRequestIdDigest: "c".repeat(64),
+      latencyMs: 20,
+      statusCode: "QUALITY_ACCEPTED",
+      qualityOutcome: "accepted",
+      qualityReasonCodes: ["EVIDENCE_VALID"],
+      provenanceIds: [provenanceId],
+      evidenceDigest: "d".repeat(64),
+    };
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+      .set(worker).send(completeBody).expect(200);
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+      .set(worker).send(completeBody).expect(200);
+    const conflict = await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+      .set(worker).send({ ...completeBody, evidenceDigest: "e".repeat(64) }).expect(409);
+    expect(JSON.stringify(conflict.body)).not.toContain("sensitive prompt body");
+
+    expect((await pool.query(
+      `SELECT status,settled_cost_micros::text,version FROM agentic_model_runs WHERE id=$1`,
+      [runId],
+    )).rows).toEqual([{ status: "completed", settled_cost_micros: "2", version: 3 }]);
+    expect((await pool.query(
+      `SELECT entry_type,cost_micros::text FROM agentic_budget_entries
+       WHERE model_run_id=$1 ORDER BY entry_type`,
+      [runId],
+    )).rows).toEqual([
+      { entry_type: "reservation", cost_micros: "4" },
+      { entry_type: "settlement", cost_micros: "2" },
+    ]);
+    expect((await pool.query(
+      "SELECT count(*)::text AS count FROM agentic_model_quality_evidence WHERE model_run_id=$1",
+      [runId],
+    )).rows[0]?.count).toBe("1");
+    const durableText = JSON.stringify((await pool.query(
+      `SELECT action,parameters_digest,result_digest,error_code FROM agentic_audit_events
+       WHERE resource_id=$1 ORDER BY occurred_at,id`,
+      [runId],
+    )).rows);
+    expect(durableText).not.toContain("sensitive prompt body");
+    expect(durableText).not.toContain("Bearer worker-token");
+  });
 });

@@ -29,6 +29,9 @@ const forbiddenCodes = new Set([
   "POLICY_DENIED",
   "WORKFLOW_POLICY_DENIED",
   "TOOL_SCOPE_DENIED",
+  "MODEL_POLICY_DENIED",
+  "MODEL_EXECUTION_REVOKED",
+  "AGENT_NOT_ACTIVE",
 ]);
 
 const conflictCodes = new Set([
@@ -39,6 +42,7 @@ const conflictCodes = new Set([
   "WORKFLOW_TERMINAL_IMMUTABLE",
   "APPROVAL_DECISION_CONFLICT",
   "ACTIVITY_INVOCATION_CONFLICT",
+  "MODEL_RUN_CONFLICT",
 ]);
 
 const unprocessableCodes = new Set([

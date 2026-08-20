@@ -9,6 +9,10 @@ export interface AgenticWorkloadControllerHandlers {
   readonly reserveActivity: RequestHandler;
   readonly completeActivity: RequestHandler;
   readonly failActivity: RequestHandler;
+  readonly reserveModelRun: RequestHandler;
+  readonly startModelRun: RequestHandler;
+  readonly completeModelRun: RequestHandler;
+  readonly failModelRun: RequestHandler;
 }
 
 export function createAgenticWorkloadRouter(
@@ -21,5 +25,9 @@ export function createAgenticWorkloadRouter(
   router.post("/activity-invocations/reserve", authenticate, controller.reserveActivity);
   router.post("/activity-invocations/:invocationKey/complete", authenticate, controller.completeActivity);
   router.post("/activity-invocations/:invocationKey/fail", authenticate, controller.failActivity);
+  router.post("/model-runs/reserve", authenticate, controller.reserveModelRun);
+  router.post("/model-runs/:runId/start", authenticate, controller.startModelRun);
+  router.post("/model-runs/:runId/complete", authenticate, controller.completeModelRun);
+  router.post("/model-runs/:runId/fail", authenticate, controller.failModelRun);
   return router;
 }

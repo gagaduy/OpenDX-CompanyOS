@@ -12,6 +12,7 @@ import { ApprovalServiceImpl } from "./application/services/implementations/appr
 import { PolicyService } from "./application/services/implementations/policy.service";
 import { WorkflowCommandDispatcher } from "./application/services/implementations/workflow-command-dispatcher";
 import { WorkflowRunServiceImpl } from "./application/services/implementations/workflow-run.service";
+import { ModelRunServiceImpl } from "./application/services/implementations/model-run.service";
 import type { WorkflowGateway } from "./application/workflows/interfaces/workflow-gateway";
 import { ConfigurationServiceImpl } from "./application/services/implementations/configuration.service";
 import { EmergencyRevocationService } from "./application/services/implementations/emergency-revocation.service";
@@ -72,6 +73,13 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dependencies.workflowApprovalTtlMs,
     onDispatcherError,
   );
+  const modelRuns = new ModelRunServiceImpl(
+    repository,
+    dependencies.transactions,
+    policy,
+    dependencies.generateId,
+    dependencies.now,
+  );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const approvals = new ApprovalServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now, dispatcher, onDispatcherError);
   const configurations = new ConfigurationServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
@@ -95,7 +103,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   );
   const controller = new AgenticController(tasks, approvals, configurations, revocations, queries);
   const workflowController = new AgenticWorkflowController(workflows);
-  const workloadController = new AgenticWorkloadController(workflows);
+  const workloadController = new AgenticWorkloadController(workflows, modelRuns);
   const toolController = new AgenticToolController(tools);
   const appendDenied = (denied: { readonly actorId: string; readonly action: string; readonly resourceId: string; readonly correlationId: string }) =>
     dependencies.transactions.run((session) => repository.appendAudit(session, {
@@ -131,6 +139,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     approvals,
     configurations,
     workflows,
+    modelRuns,
     tools,
     ...(dependencies.executionEnabled === true
       ? { readiness: () => dependencies.workflowGateway.probe() }

@@ -772,6 +772,32 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       : "conflict";
   }
 
+  async findModelQualityEvidenceByIdempotencyKey(
+    session: DatabaseSession,
+    idempotencyKey: string,
+  ): Promise<ModelQualityEvidence | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_model_quality_evidence WHERE idempotency_key=$1",
+      [idempotencyKey],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelQualityEvidence(result.rows[0]);
+  }
+
+  async findModelRunBudgetReservation(
+    session: DatabaseSession,
+    modelRunId: string,
+  ): Promise<{ readonly id: string; readonly costMicros: number } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT id,cost_micros::text FROM agentic_budget_entries
+       WHERE model_run_id=$1 AND entry_type='reservation'`,
+      [modelRunId],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : { id: String(row.id), costMicros: safeInteger(row.cost_micros) };
+  }
+
   private async findModelRunByIdempotencyKey(
     session: DatabaseSession,
     idempotencyKey: string,

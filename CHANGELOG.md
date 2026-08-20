@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add authenticated internal model-run reservation, start, completion, and
+  failure control with pinned Agent assignment, exact approved models,
+  deny-first policy and revocation checks, API-owned pricing, atomic budget
+  settlement, Quality Gate evidence, digest-only audit, and provenance.
+
 - Reject stale and out-of-order terminal model-run replays unless they carry
   the exact optimistic version immediately preceding the stored terminal row.
 

@@ -249,6 +249,11 @@ export type ModelRunReservationResult = {
 export type ModelRunTerminalResult = "updated" | "duplicate" | "stale" | "conflict";
 export type ModelQualityEvidenceAppendResult = "created" | "duplicate" | "conflict";
 
+export interface ModelRunBudgetReservationRecord {
+  readonly id: string;
+  readonly costMicros: number;
+}
+
 export interface WorkflowRunCreateResult {
   readonly status: "created" | "duplicate";
   readonly run: WorkflowRun;
@@ -305,6 +310,8 @@ export interface AgenticRepository {
   markModelRunRunning(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<boolean>;
   settleModelRunTerminal(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<ModelRunTerminalResult>;
   appendModelQualityEvidence(session: DatabaseSession, evidence: ModelQualityEvidence): Promise<ModelQualityEvidenceAppendResult>;
+  findModelQualityEvidenceByIdempotencyKey(session: DatabaseSession, idempotencyKey: string): Promise<ModelQualityEvidence | undefined>;
+  findModelRunBudgetReservation(session: DatabaseSession, modelRunId: string): Promise<ModelRunBudgetReservationRecord | undefined>;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
   countToolInvocations(
     session: DatabaseSession,
