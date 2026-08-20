@@ -175,8 +175,9 @@ async function seedGovernedTask(pool: Pool): Promise<string> {
   for (const kind of kinds) {
     await pool.query(
       `INSERT INTO agentic_model_configs
-       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,max_retries)
-       VALUES($1,$2,'openai/gpt-5-mini',1000,500,5000,1)`,
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+        max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,$2,'openai/gpt-5-mini',1000,500,5000,1,0,0)`,
       [revisionId, kind],
     );
     await pool.query(

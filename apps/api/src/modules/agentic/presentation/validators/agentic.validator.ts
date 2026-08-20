@@ -61,6 +61,8 @@ const model = z.object({
   fallbackModels: z.array(z.string().trim().min(1).max(255)).max(5),
   maxInputTokens: positiveVersion, maxOutputTokens: positiveVersion,
   timeoutMs: positiveVersion, maxRetries: z.number().int().nonnegative(),
+  inputCostMicrosPerMillion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  outputCostMicrosPerMillion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 }).strict().superRefine((value, context) => {
   if (new Set([value.primaryModel, ...value.fallbackModels]).size !== value.fallbackModels.length + 1) {
     context.addIssue({ code: "custom", path: ["fallbackModels"], message: "Models must be unique" });
@@ -127,6 +129,56 @@ const failActivity = z.object({
   expectedVersion: positiveVersion,
   outcomeCode: reasonCode,
 }).strict();
+const safeIdentifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,219}$/);
+const modelId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$/);
+const nonnegativeSafeInteger = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const modelRunProvenanceIds = z.array(uuid).min(1).max(128).refine(
+  (values) => new Set(values).size === values.length,
+  "Provenance identifiers must be unique",
+);
+const modelQualityFields = {
+  idempotencyKey: safeIdentifier,
+  inputTokens: nonnegativeSafeInteger,
+  outputTokens: nonnegativeSafeInteger,
+  latencyMs: nonnegativeSafeInteger,
+  statusCode: reasonCode,
+  qualityReasonCodes: z.array(reasonCode).max(32).refine(
+    (values) => new Set(values).size === values.length,
+    "Quality reason codes must be unique",
+  ),
+  provenanceIds: modelRunProvenanceIds,
+  evidenceDigest: digest,
+};
+const reserveModelRun = z.object({
+  taskId: uuid,
+  agentKind,
+  generationRound: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  idempotencyKey: safeIdentifier,
+  inputDigest: digest,
+  primaryModel: modelId,
+  fallbackModel: modelId,
+}).strict();
+const startModelRun = z.object({
+  expectedVersion: positiveVersion,
+  returnedModel: modelId,
+  fallbackPosition: z.union([z.literal(0), z.literal(1)]),
+}).strict();
+const completeModelRun = z.object({
+  expectedVersion: positiveVersion,
+  ...modelQualityFields,
+  status: z.enum(["completed", "partial", "escalated"]),
+  outputDigest: digest,
+  providerRequestIdDigest: digest,
+  qualityOutcome: z.enum(["accepted", "partial", "escalate"]),
+}).strict();
+const failModelRun = z.object({
+  expectedVersion: positiveVersion,
+  ...modelQualityFields,
+  outputDigest: digest.optional(),
+  providerRequestIdDigest: digest.optional(),
+  errorCode: reasonCode,
+  qualityOutcome: z.enum(["correct", "escalate"]),
+}).strict();
 
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);
@@ -148,6 +200,10 @@ export const parseProjectWorkflowState = (value: unknown) => parse(projectWorkfl
 export const parseReserveActivity = (value: unknown) => parse(reserveActivity, value);
 export const parseCompleteActivity = (value: unknown) => parse(completeActivity, value);
 export const parseFailActivity = (value: unknown) => parse(failActivity, value);
+export const parseReserveModelRun = (value: unknown) => parse(reserveModelRun, value);
+export const parseStartModelRun = (value: unknown) => parse(startModelRun, value);
+export const parseCompleteModelRun = (value: unknown) => parse(completeModelRun, value);
+export const parseFailModelRun = (value: unknown) => parse(failModelRun, value);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   try { return schema.parse(value); }

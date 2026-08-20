@@ -95,6 +95,19 @@ pnpm check:agentic-department-tools
 pnpm check:agentic-phase-c-exit
 ```
 
+Phase D has deterministic and credential-owned acceptance gates:
+
+```bash
+pnpm check:agentic-model-runtime
+pnpm check:agentic-phase-d-exit
+```
+
+For mandatory external acceptance, set `OPENROUTER_API_KEY=<operator-owned-key>`
+only in ignored root `.env`, export it with `set -a; . ./.env; set +a`, then run
+`pnpm check:openrouter-live`. The runner sends synthetic `internal` context and
+writes aggregate temporary evidence only; it never prints the key, prompt, or
+provider response. Phase D remains in progress until this passes.
+
 The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a
 suffixed disposable PostgreSQL database and API process, obtains six distinct
 local Keycloak client credentials without printing them, invokes all 17 tools,

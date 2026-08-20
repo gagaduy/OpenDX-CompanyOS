@@ -106,3 +106,24 @@ def test_metrics_render_prometheus_counters_without_high_cardinality_values() ->
     assert 'state="department_analysis"' in rendered
     assert emitted
     assert all("run-" not in line and "task-" not in line for line in emitted)
+
+
+def test_model_execution_observability_is_bounded_and_never_accepts_content() -> None:
+    lines: list[str] = []
+    logger = StructuredEventLogger(lines.append)
+    logger.emit_model_execution(
+        agent_kind="catalog", model="google/gemma-4-26b-a4b-it:free",
+        status="completed", input_tokens=10, output_tokens=20, cost_micros=0,
+        latency_ms=12, fallback_position=0, correction_round=0,
+    )
+
+    payload = json.loads(lines[0])
+    assert payload["event"] == "model_execution_finished"
+    assert payload["model"] == "google/gemma-4-26b-a4b-it:free"
+    assert "content" not in payload and "prompt" not in payload
+    with pytest.raises(ValueError):
+        logger.emit_model_execution(
+            agent_kind="catalog", model="unknown-model", status="completed",
+            input_tokens=10, output_tokens=20, cost_micros=0, latency_ms=12,
+            fallback_position=0, correction_round=0,
+        )

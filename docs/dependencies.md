@@ -104,6 +104,10 @@ bounded observability, disposable acceptance runner, PostgreSQL views, and
 client-credentials checks reuse Zod, Node.js, PostgreSQL, Keycloak, and Docker
 Compose already present in the repository.
 
+Phase D adds no package or image dependency. The provider-neutral OpenRouter
+gateway uses the existing `httpx` transport; its credential-owned acceptance
+runner uses Python's standard library only.
+
 The Phase B compatibility pins are `temporalio==1.30.0` for workflow, worker,
 client, time-skipping, and replay code, and `temporalio/server:1.31.2` plus
 `temporalio/admin-tools:1.31.2` for persistence/schema/namespace operations.

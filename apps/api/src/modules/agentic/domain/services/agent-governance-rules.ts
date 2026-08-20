@@ -143,6 +143,8 @@ export function validateModelConfiguration(config: AgentModelConfiguration): voi
     || !isPositiveInteger(config.timeoutMs)
     || !Number.isSafeInteger(config.maxRetries)
     || config.maxRetries < 0
+    || !isNonnegativeInteger(config.inputCostMicrosPerMillion)
+    || !isNonnegativeInteger(config.outputCostMicrosPerMillion)
   ) {
     fail("CONFIGURATION_INVALID", "Model configuration is invalid");
   }
@@ -169,6 +171,10 @@ function nextRevision(
 
 function isPositiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
+}
+
+function isNonnegativeInteger(value: number): boolean {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function invalidDependencies(): never {

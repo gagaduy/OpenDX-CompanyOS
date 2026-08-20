@@ -13,7 +13,8 @@ import { createAgenticWorkloadRouter } from "../presentation/routes/agentic-work
 import {
   parseCancelWorkflow, parseCompleteActivity, parseCreateTask, parseDecision,
   parseFailActivity, parsePage, parseProjectWorkflowState, parseReserveActivity,
-  parseStartWorkflow,
+  parseStartWorkflow, parseReserveModelRun, parseStartModelRun,
+  parseCompleteModelRun, parseFailModelRun,
 } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
@@ -67,6 +68,41 @@ describe("Agentic validators", () => {
     expect(parseFailActivity({ expectedVersion: 1, outcomeCode: "RETRY_EXHAUSTED" }))
       .toEqual({ expectedVersion: 1, outcomeCode: "RETRY_EXHAUSTED" });
   });
+
+  it("accepts only digest-only model-run control DTOs", () => {
+    const reserve = {
+      taskId: "00000000-0000-4000-8000-000000000001",
+      agentKind: "catalog", generationRound: 0, idempotencyKey: "catalog-round-0",
+      inputDigest: "a".repeat(64), primaryModel: "google/gemma-4-26b-a4b-it:free",
+      fallbackModel: "liquid/lfm-2.5-2.6b:free",
+    };
+    expect(parseReserveModelRun(reserve)).toEqual(reserve);
+    expect(() => parseReserveModelRun({ ...reserve, delegation: { agentKind: "finance" } })).toThrow();
+    expect(() => parseReserveModelRun({ ...reserve, prompt: "secret" })).toThrow();
+    expect(() => parseReserveModelRun({ ...reserve, generationRound: 3 })).toThrow();
+    expect(parseStartModelRun({
+      expectedVersion: 1, returnedModel: reserve.primaryModel, fallbackPosition: 0,
+    })).toMatchObject({ fallbackPosition: 0 });
+    const terminal = {
+      expectedVersion: 2, idempotencyKey: "catalog-round-0-terminal", status: "completed",
+      outputDigest: "b".repeat(64), inputTokens: 10, outputTokens: 5,
+      providerRequestIdDigest: "c".repeat(64), latencyMs: 12,
+      statusCode: "QUALITY_ACCEPTED", qualityOutcome: "accepted",
+      qualityReasonCodes: ["EVIDENCE_VALID"],
+      provenanceIds: ["11111111-1111-4111-8111-111111111111"],
+      evidenceDigest: "d".repeat(64),
+    };
+    expect(parseCompleteModelRun(terminal)).toEqual(terminal);
+    expect(() => parseCompleteModelRun({ ...terminal, response: { summary: "leak" } })).toThrow();
+    expect(parseFailModelRun({
+      expectedVersion: 2, idempotencyKey: "catalog-round-0-terminal",
+      inputTokens: 10, outputTokens: 5, latencyMs: 12, statusCode: "PROVIDER_FAILED",
+      qualityOutcome: "correct", errorCode: "PROVIDER_TIMEOUT",
+      qualityReasonCodes: ["PROVIDER_UNAVAILABLE"],
+      provenanceIds: ["11111111-1111-4111-8111-111111111111"],
+      evidenceDigest: "d".repeat(64),
+    })).toMatchObject({ errorCode: "PROVIDER_TIMEOUT" });
+  });
 });
 
 describe("Agentic route authorization", () => {
@@ -95,6 +131,11 @@ describe("Agentic route authorization", () => {
     });
     const invalid = await request(app).get("/APPROVAL_BINDING_INVALID").expect(422);
     expect(invalid.body.errorCode).toBe("APPROVAL_BINDING_INVALID");
+    const auditUnavailable = await request(app).get("/AUDIT_UNAVAILABLE").expect(503);
+    expect(auditUnavailable.body).toMatchObject({
+      errorCode: "AUDIT_UNAVAILABLE",
+      message: "Safe workflow error",
+    });
   });
 
   it("keeps static action segments distinct from resource ids", async () => {
@@ -126,6 +167,10 @@ describe("Agentic route authorization", () => {
     expect((await application.post("/activity-invocations/reserve")).body.data.route).toBe("reserveActivity");
     expect((await application.post("/activity-invocations/invocation-key/complete")).body.data.route).toBe("completeActivity");
     expect((await application.post("/activity-invocations/invocation-key/fail")).body.data.route).toBe("failActivity");
+    expect((await application.post("/model-runs/reserve")).body.data.route).toBe("reserveModelRun");
+    expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/start")).body.data.route).toBe("startModelRun");
+    expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/complete")).body.data.route).toBe("completeModelRun");
+    expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/fail")).body.data.route).toBe("failModelRun");
   });
 });
 
@@ -172,6 +217,8 @@ function buildWorkload(authenticated: boolean) {
     loadPlan: handler("loadPlan"), projectState: handler("projectState"),
     reserveActivity: handler("reserveActivity"), completeActivity: handler("completeActivity"),
     failActivity: handler("failActivity"),
+    reserveModelRun: handler("reserveModelRun"), startModelRun: handler("startModelRun"),
+    completeModelRun: handler("completeModelRun"), failModelRun: handler("failModelRun"),
   }, authenticate));
   app.use(createErrorHandler());
   return request(app);

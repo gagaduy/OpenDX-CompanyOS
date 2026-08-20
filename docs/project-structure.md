@@ -144,8 +144,9 @@ Approved commerce module areas include:
 
 Skills, model-backed execution, Graph, and broad Integration modules remain in
 the post-commerce roadmap. Agent governance and durable workflow control are
-owned by the implemented `apps/api/src/modules/agentic` feature; do not split
-it before an approved need.
+owned by the implemented `apps/api/src/modules/agentic` feature. Phase D model
+execution remains in `services/ai-runtime/app/agentic` behind application ports
+and a Temporal activity; do not split it before an approved need.
 
 ## Branching Model
 

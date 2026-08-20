@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
+import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type { ActivityInvocation, WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { transitionWorkflowRun } from "../../../domain/services/workflow-run-rules";
 import { runAgenticMigrations } from "../../database/run-agentic-migrations";
@@ -22,7 +23,8 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_workflow_signal_receipts,
+    await pool.query(`TRUNCATE agentic_model_quality_evidence, agentic_model_runs,
+      agentic_workflow_signal_receipts,
       agentic_activity_invocations, agentic_workflow_runs,
       agentic_provenance_records, agentic_audit_events,
       agentic_revocations, agentic_approval_requests, agentic_budget_entries,
@@ -36,6 +38,277 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("stores exact model pricing and maps it without precision loss", async () => {
+    const revisionId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.createRevision(session, {
+        id: revisionId, state: "draft", createdBy: "admin-a", payloadDigest: "a".repeat(64),
+        version: 1, createdAt: "2026-08-19T00:00:00.000Z", updatedAt: "2026-08-19T00:00:00.000Z",
+      });
+      await repository.replaceRevisionChildren(session, revisionId, {
+        policies: [], toolGrants: [], budgetLimits: [],
+        modelConfigurations: [{
+          revisionId, agentKind: "catalog", primaryModel: "google/gemma-4-26b-a4b-it:free",
+          fallbackModels: ["liquid/lfm-2.5-2.6b:free"], maxInputTokens: 8_000,
+          maxOutputTokens: 2_000, timeoutMs: 30_000, maxRetries: 1,
+          inputCostMicrosPerMillion: 0, outputCostMicrosPerMillion: Number.MAX_SAFE_INTEGER,
+        }],
+      });
+    });
+
+    await expect(transactions.runReadOnly((session) =>
+      repository.findModelConfiguration(session, revisionId, "catalog")))
+      .resolves.toMatchObject({
+        inputCostMicrosPerMillion: 0,
+        outputCostMicrosPerMillion: Number.MAX_SAFE_INTEGER,
+      });
+  });
+
+  it.each([
+    ["quality reasons", { qualityReasonCodes: ["MODEL_RESULT_ACCEPTED"] }],
+    ["provenance", { provenanceIds: ["evidence-1"] }],
+  ])("rejects reserved model runs carrying %s", async (_case, evidence) => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...modelRun(taskId, revisionId),
+      ...evidence,
+    }))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+  });
+
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["requested model", { requestedModel: "different/model:free" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "rejects a running transition with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      await expect(transactions.run((session) => repository.markModelRunRunning(
+        session, { ...runningModelRun(reserved), ...identity }, 1,
+      ))).resolves.toBe(false);
+      await expect(transactions.runReadOnly((session) => repository.findModelRun(session, reserved.id)))
+        .resolves.toEqual(reserved);
+    },
+  );
+
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["requested model", { requestedModel: "different/model:free" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "rejects terminal settlement with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      const running = runningModelRun(reserved);
+      await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+      await expect(transactions.run((session) => repository.settleModelRunTerminal(
+        session, { ...completedModelRun(running), ...identity }, 2,
+      ))).resolves.toBe("conflict");
+      await expect(transactions.runReadOnly((session) => repository.findModelRun(session, reserved.id)))
+        .resolves.toEqual(running);
+    },
+  );
+
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["returned model", { returnedModel: "different/model:free" }],
+    ["fallback position", { fallbackPosition: 1 }],
+    ["started timestamp", { startedAt: "2026-08-19T01:01:01.000Z" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "conflicts terminal replay with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      const running = runningModelRun(reserved);
+      const completed = completedModelRun(running);
+      await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+      await transactions.run((session) => repository.settleModelRunTerminal(session, completed, 2));
+      await expect(transactions.run((session) => repository.settleModelRunTerminal(
+        session, { ...completed, ...identity }, 2,
+      ))).resolves.toBe("conflict");
+    },
+  );
+
+  it.each([
+    ["older", 1],
+    ["terminal", 3],
+    ["future", 4],
+  ] as const)("conflicts %s terminal replay version %i", async (_case, expectedVersion) => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const running = runningModelRun(reserved);
+    const completed = completedModelRun(running);
+    await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+    await transactions.run((session) => repository.settleModelRunTerminal(session, completed, 2));
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(
+      session, completed, expectedVersion,
+    ))).resolves.toBe("conflict");
+  });
+
+  it("converges model run reservation, optimistic lifecycle, and append evidence", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const run = modelRun(taskId, revisionId);
+    const reservations = await Promise.all([
+      transactions.run((session) => repository.reserveModelRun(session, run)),
+      transactions.run((session) => repository.reserveModelRun(session, { ...run, id: randomUUID() })),
+    ]);
+    expect(reservations.map(({ status }) => status).sort()).toEqual(["duplicate", "reserved"]);
+    expect(reservations.every(({ run: stored }) => stored.id === reservations[0]?.run.id)).toBe(true);
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...run, id: randomUUID(), inputDigest: "f".repeat(64),
+    }))).resolves.toMatchObject({ status: "conflict" });
+
+    const accepted = reservations[0]!.run;
+    const running = {
+      ...accepted, status: "running" as const, returnedModel: accepted.requestedModel,
+      fallbackPosition: 0 as const, version: 2, startedAt: "2026-08-19T01:01:00.000Z",
+      updatedAt: "2026-08-19T01:01:00.000Z",
+    };
+    const starts = await Promise.all([
+      transactions.run((session) => repository.markModelRunRunning(session, running, 1)),
+      transactions.run((session) => repository.markModelRunRunning(session, running, 1)),
+    ]);
+    expect(starts.sort()).toEqual([false, true]);
+
+    const completed = {
+      ...running, status: "completed" as const, outputDigest: "b".repeat(64),
+      inputTokens: 10, outputTokens: 5, settledCostMicros: 0,
+      providerRequestIdDigest: "c".repeat(64), latencyMs: 20,
+      statusCode: "MODEL_RESULT_ACCEPTED", qualityReasonCodes: [], provenanceIds: ["evidence-1"],
+      version: 3, completedAt: "2026-08-19T01:02:00.000Z", updatedAt: "2026-08-19T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("updated");
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed,
+      startedAt: "2026-08-19T08:01:00.000+07:00",
+      completedAt: "2026-08-19T08:02:00.000+07:00",
+      updatedAt: "2026-08-19T08:02:00.000+07:00",
+    }, 2))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed,
+      completedAt: "2026-08-19T08:02:01.000+07:00",
+      updatedAt: "2026-08-19T08:02:01.000+07:00",
+    }, 2))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(
+      session, { ...completed, outputDigest: "d".repeat(64) }, 2,
+    ))).resolves.toBe("conflict");
+    await expect(transactions.runReadOnly((session) => repository.findModelRun(session, accepted.id)))
+      .resolves.toEqual(completed);
+
+    const evidence = {
+      id: randomUUID(), modelRunId: accepted.id, generationRound: 0 as const,
+      idempotencyKey: "quality:catalog:0", outcome: "accepted" as const,
+      reasonCodes: [], provenanceIds: ["evidence-1"], evidenceDigest: "e".repeat(64),
+      recordedAt: "2026-08-19T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, evidence)))
+      .resolves.toBe("created");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID() },
+    ))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), recordedAt: "2026-08-19T08:02:00.000+07:00" },
+    ))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), recordedAt: "2026-08-19T08:02:01.000+07:00" },
+    ))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), evidenceDigest: "f".repeat(64) },
+    ))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), idempotencyKey: "quality:catalog:alternate" },
+    ))).resolves.toBe("duplicate");
+  });
+
+  it("replays delayed and concurrent semantic model run reservations despite new timestamps", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const first = modelRun(taskId, revisionId);
+    const delayed = {
+      ...first,
+      id: randomUUID(),
+      createdAt: "2026-08-19T01:00:01.000Z",
+      updatedAt: "2026-08-19T01:00:01.000Z",
+    };
+    const reserved = await transactions.run((session) => repository.reserveModelRun(session, first));
+
+    await expect(transactions.run((session) => repository.reserveModelRun(session, delayed)))
+      .resolves.toEqual({ status: "duplicate", run: reserved.run });
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...delayed,
+      inputDigest: "f".repeat(64),
+    }))).resolves.toMatchObject({ status: "conflict" });
+
+    const concurrentKey = "model:catalog:concurrent";
+    const concurrent = await Promise.all([
+      transactions.run((session) => repository.reserveModelRun(session, {
+        ...first, id: randomUUID(), idempotencyKey: concurrentKey,
+      })),
+      transactions.run((session) => repository.reserveModelRun(session, {
+        ...delayed, id: randomUUID(), idempotencyKey: concurrentKey,
+      })),
+    ]);
+    expect(concurrent.map(({ status }) => status).sort()).toEqual(["duplicate", "reserved"]);
+    expect(concurrent[0]!.run).toEqual(concurrent[1]!.run);
+  });
+
+  it("rejects quality evidence before its model run is terminal", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const evidence = modelQualityEvidence(reserved.id);
+    await expect(transactions.run((session) =>
+      repository.appendModelQualityEvidence(session, evidence)))
+      .rejects.toMatchObject({ code: "23514" });
+
+    const running = runningModelRun(reserved);
+    await expect(transactions.run((session) =>
+      repository.markModelRunRunning(session, running, 1))).resolves.toBe(true);
+    await expect(transactions.run((session) =>
+      repository.appendModelQualityEvidence(session, evidence)))
+      .rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("validates model run and evidence mutations before executing SQL", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const running = runningModelRun(reserved);
+    await expect(transactions.run((session) => repository.markModelRunRunning(session, {
+      ...running, startedAt: "infinity", updatedAt: "infinity",
+    }, 1))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) =>
+      repository.markModelRunRunning(session, running, 1))).resolves.toBe(true);
+
+    const completed = completedModelRun(running);
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed, completedAt: "infinity", updatedAt: "infinity",
+    }, 2))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed, status: "running",
+    } as unknown as ModelRun, 2))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("updated");
+
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, {
+      ...modelQualityEvidence(reserved.id), recordedAt: "infinity",
+    }))).rejects.toMatchObject({ code: "MODEL_QUALITY_EVIDENCE_INVALID" });
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, {
+      ...modelQualityEvidence(reserved.id), outcome: "retry",
+    } as unknown as ModelQualityEvidence))).rejects.toMatchObject({
+      code: "MODEL_QUALITY_EVIDENCE_INVALID",
+    });
   });
   afterAll(async () => {
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
@@ -193,6 +466,61 @@ suite("PostgresqlAgenticRepository", () => {
     expect([...results].sort()).toEqual(["exceeded", "reserved"]);
     const reservedKey = keys[results.indexOf("reserved")];
     await expect(reserve(reservedKey!)).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.reserveBudget(session, {
+      id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+      idempotencyKey: reservedKey!, costMicros: 61,
+      occurredAt: "2026-08-14T01:00:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.reserveBudget(session, {
+      id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+      idempotencyKey: reservedKey!, costMicros: 60, modelRunId: randomUUID(),
+      occurredAt: "2026-08-14T01:00:01.000Z",
+    }))).resolves.toBe("conflict");
+    for (const identity of [
+      { revisionId: randomUUID() },
+      { taskId: randomUUID() },
+      { agentKind: "finance" as const },
+    ]) {
+      await expect(transactions.run((session) => repository.reserveBudget(session, {
+        id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+        idempotencyKey: reservedKey!, costMicros: 60,
+        occurredAt: "2026-08-14T01:00:01.000Z", ...identity,
+      }))).resolves.toBe("conflict");
+    }
+  });
+
+  it("serializes aggregate quota across tasks while independent agent scopes proceed", async () => {
+    const revisionId = randomUUID();
+    const catalogTasks = [randomUUID(), randomUUID()];
+    const inventoryTask = randomUUID();
+    await pool.query(`INSERT INTO agentic_configuration_revisions
+      (id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)`,
+    [revisionId, "f".repeat(64)]);
+    await pool.query(`INSERT INTO agentic_budget_limits
+      (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+      VALUES($1,'catalog',100,100,100),($1,'inventory',100,100,100)`, [revisionId]);
+    await pool.query(`UPDATE agentic_configuration_revisions
+      SET state='active',decided_by='admin-b',decided_at='2026-08-14T00:00:00.000Z'
+      WHERE id=$1`, [revisionId]);
+    for (const taskId of [...catalogTasks, inventoryTask]) {
+      await pool.query("INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)", [taskId, revisionId]);
+    }
+    const reserve = (agentKind: "catalog" | "inventory", taskId: string, key: string) =>
+      transactions.run((session) => repository.reserveBudget(session, {
+        id: randomUUID(), revisionId, agentKind, taskId, idempotencyKey: key,
+        costMicros: 60, occurredAt: "2026-08-14T01:00:00.000Z",
+      }));
+
+    const [catalogA, catalogB, inventory] = await Promise.all([
+      reserve("catalog", catalogTasks[0]!, "catalog-task-a"),
+      reserve("catalog", catalogTasks[1]!, "catalog-task-b"),
+      reserve("inventory", inventoryTask, "inventory-task-a"),
+    ]);
+    expect([catalogA, catalogB].sort()).toEqual(["exceeded", "reserved"]);
+    expect(inventory).toBe("reserved");
+    await expect(pool.query<{ total: string }>(`SELECT COALESCE(sum(cost_micros),0)::text AS total
+      FROM agentic_budget_entries WHERE entry_type='reservation' AND agent_kind='catalog'`))
+      .resolves.toMatchObject({ rows: [{ total: "60" }] });
   });
 
   it("settles reservations once and persists append-only audit, provenance, and revocation evidence", async () => {
@@ -214,6 +542,21 @@ suite("PostgresqlAgenticRepository", () => {
     }));
     const settlementResults = await Promise.all([settle("settlement-a"), settle("settlement-b")]);
     expect([...settlementResults].sort()).toEqual(["settled", "stale"]);
+    const settledKey = ["settlement-a", "settlement-b"][settlementResults.indexOf("settled")]!;
+    await expect(settle(settledKey)).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId, idempotencyKey: settledKey, actualCostMicros: 69,
+      occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId: randomUUID(), idempotencyKey: settledKey,
+      actualCostMicros: 70, occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId, idempotencyKey: settledKey,
+      actualCostMicros: 70, modelRunId: randomUUID(),
+      occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
 
     const auditId = randomUUID();
     const provenanceId = randomUUID();
@@ -555,6 +898,13 @@ async function createReadyTask(pool: Pool): Promise<{
     [taskId, revisionId],
   );
   await pool.query(
+    `INSERT INTO agentic_model_configs
+     (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+      max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+     VALUES($1,'catalog','google/gemma-4-26b-a4b-it:free',8000,2000,30000,1,0,0)`,
+    [revisionId],
+  );
+  await pool.query(
     "INSERT INTO agentic_subtasks(id,task_id,agent_kind,title) VALUES($1,$2,'catalog','Catalog health')",
     [subtaskId, taskId],
   );
@@ -621,5 +971,45 @@ function toolInvocationReservation(taskId: string) {
     correlationId: "corr-tool",
     causationId: "cause-tool",
     occurredAt: "2026-08-16T01:00:00.000Z",
+  };
+}
+
+function modelRun(taskId: string, configurationRevisionId: string) {
+  return {
+    id: randomUUID(), taskId, agentKind: "catalog" as const, configurationRevisionId,
+    schemaVersion: 1, generationRound: 0 as const, idempotencyKey: "model:catalog:0",
+    requestedModel: "google/gemma-4-26b-a4b-it:free", policyVersion: 1,
+    configurationVersion: 1, resultSchemaVersion: 1, inputDigest: "a".repeat(64),
+    inputCostMicrosPerMillion: 0, outputCostMicrosPerMillion: 0,
+    maxReservedCostMicros: 0, status: "reserved" as const,
+    qualityReasonCodes: [], provenanceIds: [], version: 1,
+    createdAt: "2026-08-19T01:00:00.000Z", updatedAt: "2026-08-19T01:00:00.000Z",
+  };
+}
+
+function runningModelRun(run: ReturnType<typeof modelRun> | ModelRun): ModelRun {
+  return {
+    ...run, status: "running", returnedModel: run.requestedModel, fallbackPosition: 0,
+    version: 2, startedAt: "2026-08-19T01:01:00.000Z",
+    updatedAt: "2026-08-19T01:01:00.000Z",
+  };
+}
+
+function completedModelRun(run: ModelRun): ModelRun {
+  return {
+    ...run, status: "completed", outputDigest: "b".repeat(64), inputTokens: 10,
+    outputTokens: 5, settledCostMicros: 0, providerRequestIdDigest: "c".repeat(64),
+    latencyMs: 20, statusCode: "MODEL_RESULT_ACCEPTED", qualityReasonCodes: [],
+    provenanceIds: ["evidence-1"], version: 3,
+    completedAt: "2026-08-19T01:02:00.000Z", updatedAt: "2026-08-19T01:02:00.000Z",
+  };
+}
+
+function modelQualityEvidence(modelRunId: string): ModelQualityEvidence {
+  return {
+    id: randomUUID(), modelRunId, generationRound: 0,
+    idempotencyKey: `quality:${modelRunId}`, outcome: "accepted",
+    reasonCodes: [], provenanceIds: ["evidence-1"], evidenceDigest: "e".repeat(64),
+    recordedAt: "2026-08-19T01:02:00.000Z",
   };
 }

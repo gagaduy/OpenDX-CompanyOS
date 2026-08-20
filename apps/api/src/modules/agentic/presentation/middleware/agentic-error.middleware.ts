@@ -12,7 +12,7 @@ export const agenticErrorMiddleware: ErrorRequestHandler = (error, _request, _re
       : forbiddenCodes.has(error.code) ? 403
         : conflictCodes.has(error.code) || error.code.includes("STATE") || error.code.includes("ALREADY") ? 409
           : unprocessableCodes.has(error.code) ? 422
-            : error.code === "TOOL_UNAVAILABLE" ? 503 : 400;
+            : unavailableCodes.has(error.code) ? 503 : 400;
     next(new ApplicationError(status, error.code, error.message));
     return;
   }
@@ -29,6 +29,9 @@ const forbiddenCodes = new Set([
   "POLICY_DENIED",
   "WORKFLOW_POLICY_DENIED",
   "TOOL_SCOPE_DENIED",
+  "MODEL_POLICY_DENIED",
+  "MODEL_EXECUTION_REVOKED",
+  "AGENT_NOT_ACTIVE",
 ]);
 
 const conflictCodes = new Set([
@@ -39,6 +42,7 @@ const conflictCodes = new Set([
   "WORKFLOW_TERMINAL_IMMUTABLE",
   "APPROVAL_DECISION_CONFLICT",
   "ACTIVITY_INVOCATION_CONFLICT",
+  "MODEL_RUN_CONFLICT",
 ]);
 
 const unprocessableCodes = new Set([
@@ -47,4 +51,9 @@ const unprocessableCodes = new Set([
   "ACTIVITY_INPUT_INVALID",
   "ACTIVITY_OUTCOME_INVALID",
   "WORKFLOW_VERSION_UNSUPPORTED",
+]);
+
+const unavailableCodes = new Set([
+  "TOOL_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
 ]);

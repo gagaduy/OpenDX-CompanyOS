@@ -197,11 +197,6 @@ export function validateAgenticPhaseC({ sources }) {
     requireMatch(sources.productionRealm, new RegExp(`"clientId": "${client}"`), `Missing production ${client} identity`);
   }
   rejectMatch(
-    sources.runtimeSources,
-    /openrouter|OPENROUTER_API_KEY|callOpenRouter/i,
-    "OpenRouter integration is outside Phase C",
-  );
-  rejectMatch(
     sources.consoleSources,
     /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i,
     "Agentic Console UI is outside Phase C",

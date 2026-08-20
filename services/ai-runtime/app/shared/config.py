@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from typing import Literal, Mapping, cast
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 
 Environment = Literal["development", "test", "production"]
@@ -52,6 +52,17 @@ class ActivitySettings:
 
 
 @dataclass(frozen=True)
+class OpenRouterSettings:
+    execution_enabled: bool
+    base_url: str
+    api_key: str | None = dataclass_field(repr=False)
+    public_attribution_url: str | None
+    public_attribution_name: str | None
+    maximum_response_bytes: int
+    catalog_cache_ttl_seconds: int
+
+
+@dataclass(frozen=True)
 class RuntimeSettings:
     environment: Environment
     bind_host: str
@@ -60,6 +71,7 @@ class RuntimeSettings:
     agentic_api_base_url: str
     temporal: TemporalSettings
     activity: ActivitySettings
+    openrouter: OpenRouterSettings
     worker_shutdown_grace_seconds: int
     command_retry_interval_seconds: int
 
@@ -110,6 +122,28 @@ class RuntimeSettings:
             ),
         )
 
+        openrouter_execution_enabled = _boolean(
+            values, "OPENROUTER_EXECUTION_ENABLED", False
+        )
+        openrouter_api_key = _optional(values, "OPENROUTER_API_KEY")
+        if openrouter_execution_enabled and openrouter_api_key is None:
+            raise ConfigurationError(
+                "OPENROUTER_API_KEY is required when OpenRouter execution is enabled"
+            )
+        openrouter_base_url = _http_url_with_default(
+            values,
+            "OPENROUTER_BASE_URL",
+            "https://openrouter.ai/api/v1",
+        ).rstrip("/")
+        if (
+            environment == "production"
+            and openrouter_execution_enabled
+            and openrouter_base_url != "https://openrouter.ai/api/v1"
+        ):
+            raise ConfigurationError(
+                "OPENROUTER_BASE_URL must use the official HTTPS OpenRouter API in production"
+            )
+
         return cls(
             environment=environment,
             bind_host=_value(values, "AI_RUNTIME_HOST", "0.0.0.0"),
@@ -129,6 +163,29 @@ class RuntimeSettings:
                 schedule_to_close_seconds=schedule_to_close,
                 fake_delay_ms=_nonnegative_integer(
                     values, "FAKE_ACTIVITY_DELAY_MS", 0, maximum=60_000
+                ),
+            ),
+            openrouter=OpenRouterSettings(
+                execution_enabled=openrouter_execution_enabled,
+                base_url=openrouter_base_url,
+                api_key=openrouter_api_key,
+                public_attribution_url=_optional_http_url(
+                    values, "OPENROUTER_PUBLIC_ATTRIBUTION_URL"
+                ),
+                public_attribution_name=_optional_header_value(
+                    values, "OPENROUTER_PUBLIC_ATTRIBUTION_NAME", maximum=128
+                ),
+                maximum_response_bytes=_positive_integer(
+                    values,
+                    "OPENROUTER_MAXIMUM_RESPONSE_BYTES",
+                    1_048_576,
+                    maximum=10_485_760,
+                ),
+                catalog_cache_ttl_seconds=_positive_integer(
+                    values,
+                    "OPENROUTER_CATALOG_CACHE_TTL_SECONDS",
+                    300,
+                    maximum=3_600,
                 ),
             ),
             worker_shutdown_grace_seconds=_positive_integer(
@@ -162,14 +219,21 @@ def _required(values: Mapping[str, str], name: str) -> str:
     return _value(values, name, "")
 
 
+def _optional(values: Mapping[str, str], name: str) -> str | None:
+    raw = values.get(name)
+    if raw is None:
+        return None
+    value = raw.strip()
+    return value or None
+
+
 def _positive_integer(
     values: Mapping[str, str], name: str, default: int, *, maximum: int
 ) -> int:
     raw = values.get(name, str(default)).strip()
-    try:
-        value = int(raw)
-    except ValueError as error:
-        raise ConfigurationError(f"{name} must be an integer") from error
+    value = _try_integer(raw)
+    if value is None:
+        raise ConfigurationError(f"{name} must be an integer")
     if value < 1 or value > maximum:
         raise ConfigurationError(f"{name} must be between 1 and {maximum}")
     return value
@@ -179,10 +243,9 @@ def _nonnegative_integer(
     values: Mapping[str, str], name: str, default: int, *, maximum: int
 ) -> int:
     raw = values.get(name, str(default)).strip()
-    try:
-        value = int(raw)
-    except ValueError as error:
-        raise ConfigurationError(f"{name} must be an integer") from error
+    value = _try_integer(raw)
+    if value is None:
+        raise ConfigurationError(f"{name} must be an integer")
     if value < 0 or value > maximum:
         raise ConfigurationError(f"{name} must be between 0 and {maximum}")
     return value
@@ -201,9 +264,13 @@ def _http_url(
     values: Mapping[str, str], name: str, environment: Environment
 ) -> str:
     value = _required(values, name)
-    parsed = urlparse(value)
+    parsed = _try_parse_http_url(value)
+    if parsed is None:
+        raise ConfigurationError(f"{name} must be a valid HTTP or HTTPS URL")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
+    if not _has_valid_port(parsed):
+        raise ConfigurationError(f"{name} must contain a valid port")
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
     if environment == "production" and parsed.scheme == "http":
@@ -216,11 +283,78 @@ def _http_url(
     return value
 
 
+def _http_url_with_default(
+    values: Mapping[str, str], name: str, default: str
+) -> str:
+    value = _value(values, name, default)
+    _validate_http_url(value, name)
+    return value
+
+
+def _optional_http_url(values: Mapping[str, str], name: str) -> str | None:
+    value = _optional(values, name)
+    if value is None:
+        return None
+    _validate_http_url(value, name)
+    return value
+
+
+def _validate_http_url(value: str, name: str) -> None:
+    parsed = _try_parse_http_url(value)
+    if parsed is None:
+        raise ConfigurationError(f"{name} must be a valid HTTP or HTTPS URL")
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
+    if not _has_valid_port(parsed):
+        raise ConfigurationError(f"{name} must contain a valid port")
+    if parsed.username or parsed.password or parsed.fragment:
+        raise ConfigurationError(f"{name} must not contain credentials or fragments")
+
+
+def _try_integer(raw: str) -> int | None:
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _try_parse_http_url(value: str) -> ParseResult | None:
+    try:
+        return urlparse(value)
+    except ValueError:
+        return None
+
+
+def _has_valid_port(parsed: ParseResult) -> bool:
+    try:
+        parsed.port
+    except ValueError:
+        return False
+    return True
+
+
+def _optional_header_value(
+    values: Mapping[str, str], name: str, *, maximum: int
+) -> str | None:
+    value = _optional(values, name)
+    if value is None:
+        return None
+    if len(value) > maximum or "\r" in value or "\n" in value:
+        raise ConfigurationError(f"{name} must be a safe value up to {maximum} characters")
+    return value
+
+
 def _temporal_address(values: Mapping[str, str]) -> str:
     address = _required(values, "TEMPORAL_ADDRESS")
     if "://" in address or address.startswith(":") or address.endswith(":"):
         raise ConfigurationError("TEMPORAL_ADDRESS must use host:port syntax")
     host, separator, port = address.rpartition(":")
-    if not separator or not host or not port.isdigit() or not 1 <= int(port) <= 65_535:
+    parsed_port = _try_integer(port) if port.isdigit() else None
+    if (
+        not separator
+        or not host
+        or parsed_port is None
+        or not 1 <= parsed_port <= 65_535
+    ):
         raise ConfigurationError("TEMPORAL_ADDRESS must use host:port syntax")
     return address

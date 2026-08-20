@@ -415,6 +415,12 @@ provider contract and any new dependencies, define the exact structured result
 schema for all seven Agents, and define which data classifications may leave
 the local system.
 
+Approved focused design:
+`docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md`.
+
+Approved focused implementation plan:
+`docs/superpowers/plans/2026-08-19-openrouter-agent-runtime.md`.
+
 **Primary implementation areas:**
 
 - Create provider-neutral model ports and OpenRouter adapters under
@@ -481,7 +487,7 @@ class QualityDecision:
 **Exit gate:** Deterministic fake-provider runs prove separate Agent model and
 budget scopes, approved fallback order, prompt-injection containment, atomic
 cost accounting, structured output, and the two-attempt Quality Gate. An
-optional credential-owned OpenRouter check succeeds without exposing a key,
+mandatory credential-owned OpenRouter check succeeds without exposing a key,
 prompt, customer data, or provider payload.
 
 ---
@@ -785,7 +791,7 @@ optional credential-owned OpenRouter test, and pass/fail rubric.
 - [ ] Run focused tests, API/Python/Console suites, integration suites, browser
   acceptance, Compose acceptance, `git diff --check`, `pnpm audit:repo`, and
   root `pnpm check` from the committed tree.
-- [ ] Run optional real OpenRouter acceptance only with owner-supplied
+- [ ] Run mandatory real OpenRouter acceptance only with owner-supplied
   credentials and redact all external evidence; deterministic fakes remain the
   required normal gate.
 - [ ] Record the human production decision. Do not claim production readiness

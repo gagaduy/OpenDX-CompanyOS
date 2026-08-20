@@ -202,6 +202,8 @@ describe("Agent governance rules", () => {
       maxOutputTokens: 2_000,
       timeoutMs: 30_000,
       maxRetries: 2,
+      inputCostMicrosPerMillion: 0,
+      outputCostMicrosPerMillion: 0,
     })).not.toThrow();
   });
 
@@ -217,10 +219,28 @@ describe("Agent governance rules", () => {
         maxOutputTokens: 2_000,
         timeoutMs: 30_000,
         maxRetries: 2,
+        inputCostMicrosPerMillion: 0,
+        outputCostMicrosPerMillion: 0,
       }),
       "CONFIGURATION_INVALID",
     );
   });
+
+  it.each([true, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid model pricing %s",
+    (inputCostMicrosPerMillion) => {
+      expectDomainError(() => validateModelConfiguration({
+        primaryModel: "openai/gpt-primary",
+        fallbackModels: [],
+        maxInputTokens: 8_000,
+        maxOutputTokens: 2_000,
+        timeoutMs: 30_000,
+        maxRetries: 2,
+        inputCostMicrosPerMillion: inputCostMicrosPerMillion as number,
+        outputCostMicrosPerMillion: 0,
+      }), "CONFIGURATION_INVALID");
+    },
+  );
 
   it("rejects unsafe, negative, fractional, or inverted budget limits", () => {
     for (const values of [

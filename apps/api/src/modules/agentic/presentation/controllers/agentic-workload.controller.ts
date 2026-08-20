@@ -5,17 +5,25 @@ import type { Request, RequestHandler, Response } from "express";
 import type { WorkloadPrincipal } from "../../../../shared/auth/workload-principal";
 import { successResponse } from "../../../../shared/http/api-response";
 import type { WorkflowRunService } from "../../application/services/interfaces/workflow-run.service";
+import type { ModelRunService } from "../../application/services/interfaces/model-run.service";
 import {
+  parseCompleteModelRun,
   parseCompleteActivity,
   parseFailActivity,
+  parseFailModelRun,
   parseInvocationKey,
   parseProjectWorkflowState,
   parseReserveActivity,
+  parseReserveModelRun,
+  parseStartModelRun,
   parseUuid,
 } from "../validators/agentic.validator";
 
 export class AgenticWorkloadController {
-  constructor(private readonly workflows: WorkflowRunService) {}
+  constructor(
+    private readonly workflows: WorkflowRunService,
+    private readonly modelRuns: ModelRunService,
+  ) {}
 
   readonly loadPlan = handle(async (request, response) => {
     response.json(successResponse("Frozen workflow plan retrieved", await this.workflows.loadPlan(
@@ -49,6 +57,33 @@ export class AgenticWorkloadController {
     response.json(successResponse("Activity invocation failed", await this.workflows.failActivity({
       invocationKey: parseInvocationKey(request.params.invocationKey),
       ...parseFailActivity(request.body),
+    }, principal(response.locals))));
+  });
+
+  readonly reserveModelRun = handle(async (request, response) => {
+    response.json(successResponse("Model run reserved", await this.modelRuns.reserve(
+      parseReserveModelRun(request.body), principal(response.locals),
+    )));
+  });
+
+  readonly startModelRun = handle(async (request, response) => {
+    response.json(successResponse("Model run started", await this.modelRuns.start({
+      runId: parseUuid(request.params.runId),
+      ...parseStartModelRun(request.body),
+    }, principal(response.locals))));
+  });
+
+  readonly completeModelRun = handle(async (request, response) => {
+    response.json(successResponse("Model run completed", await this.modelRuns.complete({
+      runId: parseUuid(request.params.runId),
+      ...parseCompleteModelRun(request.body),
+    }, principal(response.locals))));
+  });
+
+  readonly failModelRun = handle(async (request, response) => {
+    response.json(successResponse("Model run failed", await this.modelRuns.fail({
+      runId: parseUuid(request.params.runId),
+      ...parseFailModelRun(request.body),
     }, principal(response.locals))));
   });
 }

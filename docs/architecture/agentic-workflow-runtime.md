@@ -97,6 +97,10 @@ suffixed disposable databases, restores a waiting workflow, replays its JSON
 history, and proves activity invocation idempotency.
 
 Phase C adds read-only Commerce tool adapters but does not replace Phase B fake
-workflow activities. There is still no OpenRouter/model execution, file intake,
-AI CEO synthesis, Agentic Console page, Temporal UI, public port `7233`, or
-production SePay activation. Those remain Phase D-H work.
+workflow activities. Phase D additionally composes an opt-in OpenRouter model
+activity beside the V1 workflow graph: the API remains the authority for model
+allow-lists, lifecycle, pricing, budgets, audit, and provenance. A Quality Gate
+settles each run as completed, partial, or escalated after at most two
+corrections and one primary/fallback attempt per correction. File intake, AI CEO
+delegation, Agentic Console UI, Temporal UI, public port `7233`, and production
+SePay activation remain outside Phase D.

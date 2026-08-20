@@ -79,9 +79,8 @@ test("rejects a missing zero-leakage fixture", () => {
   assert.throws(() => validateAgenticPhaseC(snapshot), /leakage fixture/i);
 });
 
-test("rejects Phase D-H and production payment scope", () => {
+test("rejects later Console scope and production payment activation", () => {
   for (const [field, addition, expected] of [
-    ["runtimeSources", "\nawait callOpenRouter(prompt);", /OpenRouter/i],
     ["consoleSources", "\nexport const AgenticDashboard = () => null;", /Agentic Console/i],
     ["agenticSources", "\nSEPAY_PRODUCTION_API_URL", /production SePay/i],
   ]) {

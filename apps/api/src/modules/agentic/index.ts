@@ -5,6 +5,11 @@ export { createAgenticModule, type AgenticModuleDependencies } from "./agentic.m
 export type { WorkflowGateway } from "./application/workflows/interfaces/workflow-gateway";
 export type { WorkflowRunService } from "./application/services/interfaces/workflow-run.service";
 export type {
+  ModelRunService,
+  ModelRunReservationReceipt,
+  ModelRunStateReceipt,
+} from "./application/services/interfaces/model-run.service";
+export type {
   DepartmentToolAdapter,
   DepartmentToolAdapterRegistry,
   DepartmentToolExecutionContext,

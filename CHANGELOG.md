@@ -11,6 +11,145 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Document Phase D runtime operations, mandatory live acceptance, and its
+  explicit boundary before file intake and AI CEO coordination.
+
+- Add deterministic model-runtime acceptance, credential-owned OpenRouter live
+  acceptance, Phase D static boundaries, and safe Compose environment wiring.
+
+- Compose the governed model executor as an opt-in Temporal activity that
+  returns digest-only analysis outcomes and records bounded execution metrics
+  and structured event fields without changing the existing workflow graph.
+
+- Execute governed model analysis through API-owned model-run authority with
+  bounded primary/fallback attempts, correction reservations, digest-only
+  settlement callbacks, and Quality Gate-driven completed, partial, and
+  escalated outcomes.
+
+- Keep model-run reservation receipts pinned to the original reserved
+  predecessor version so reserve/start retries converge after running or
+  terminal transitions without exposing mutable execution evidence.
+
+- Make model-run reservation and start retries converge across delayed and
+  concurrent attempts while preserving full semantic conflict checks, and
+  serialize daily/monthly budget reservations by revision and Agent scope.
+
+- Verify complete terminal model-run replays against immutable run identity,
+  Quality Gate evidence, provenance, usage, cost, and settlement idempotency,
+  and fail closed with a bounded service error when denial audit persistence is
+  unavailable.
+
+- Preserve bounded model-run denial evidence in a separate post-rollback
+  transaction and accept exact or equivalent concurrent terminal replays
+  without duplicating budget, Quality Gate, audit, or provenance writes.
+
+- Add authenticated internal model-run reservation, start, completion, and
+  failure control with pinned Agent assignment, exact approved models,
+  deny-first policy and revocation checks, API-owned pricing, atomic budget
+  settlement, Quality Gate evidence, digest-only audit, and provenance.
+
+- Reject stale and out-of-order terminal model-run replays unless they carry
+  the exact optimistic version immediately preceding the stored terminal row.
+
+- Protect model-run transitions and terminal replays by locking and comparing
+  complete immutable request and execution identity before persistence.
+
+- Harden model-run persistence with instant-based replay comparison, mandatory
+  domain validation, terminal-only quality evidence, and payload-safe budget
+  idempotency conflicts.
+
+- Align persisted reserved and running model-run states with domain evidence
+  rules, rejecting premature quality and provenance metadata.
+
+- Validate exact model-run lifecycle state fields and Quality Gate evidence
+  outcome literals at the Agentic domain boundary.
+
+- Enforce ordered offset-aware model-run timestamps, immutable execution
+  snapshots across terminal settlement, and exact model-run reservation and
+  settlement linkage through the existing Agentic budget ledger.
+
+- Persist governed model pricing, exact maximum-cost reservations, bounded
+  model-run lifecycle projections, append-only Quality Gate evidence, and
+  optional model-run references on the existing Agentic budget ledger.
+
+- Complete strict OpenRouter schema preflight coverage for `minProperties`,
+  `maxProperties`, and legacy `dependencies` object constraints.
+
+- Finalize OpenRouter preflight safety by cleaning completed catalog refreshes
+  after sole-waiter cancellation, consuming orphaned refresh failures, and
+  requiring exact-false `additionalProperties` across all object-schema forms.
+
+- Harden OpenRouter transport safety with exception-chain redaction, bounded
+  recursive strict-schema validation, request serialization preflight, and
+  cancellation-safe single-flight model catalog refreshes.
+
+- Reject malformed bracketed IPv6 OpenRouter and attribution URLs as stable,
+  secret-safe configuration failures before HTTP client construction.
+
+- Tighten OpenRouter preflight by rejecting malformed URL ports before HTTP
+  construction and requiring canonical string zero pricing for every approved
+  model before any model context may leave the runtime.
+
+- Add a fail-closed OpenRouter gateway with eight exact free-model catalog
+  checks, Agent-isolated model authorization, strict structured-output
+  requests, bounded response parsing, deterministic usage and cost accounting,
+  secret-safe failures, successful-preflight caching, and production-safe
+  configuration.
+
+- Preserve Quality Gate severity precedence by inspecting safe duplicate and
+  classification issue codes without allowing malformed model schemas.
+
+- Add a deterministic model Quality Gate that validates authoritative
+  provenance, scope, freshness, material payloads, leakage, and conflicts for
+  all seven governed Agents before accepting structured results, including
+  typed parser-level classification enforcement and complete evidence
+  freshness validation, terminal correction policy, exact evidence sources,
+  integrity-safe provenance outcomes, AI CEO coverage materiality, and bounded
+  decoded-JWT and payment-card leakage checks, while allowing bounded
+  correction of reference mistakes before terminal escalation.
+
+- Replace the generic nested model-context union with purpose-scoped typed
+  schemas for six departments and AI CEO aggregate summaries, risks, and exact
+  internal provenance metadata.
+
+- Restrict recursive model context to an explicit aggregate and provenance
+  metadata schema while blocking normalized identity, financial, cookie,
+  session, and authorization fields before sanitization.
+
+- Harden untrusted model-context intake with conservative nested credential and
+  PII key detection, pre-iteration collection budgets, and secret-safe raw
+  input representation without eager snapshots.
+
+- Count nested classified-context wrappers toward the iterative preflight depth
+  bound before immutable context construction.
+
+- Bound model-context structure before deep freeze, reject invalid Unicode and
+  unsafe JSON integers, and translate residual serialization failures into
+  fixed secret-safe boundary errors.
+
+- Harden the model context boundary against nested AI CEO coordination fields,
+  normalized credential and transaction keys, GitHub tokens, cyclic input, and
+  non-finite JSON numbers.
+
+- Enforce internal-only, Agent-specific, bounded and deeply immutable model
+  context with conservative sensitive-data blocking and role-isolated prompt
+  construction for all seven governed Agents.
+
+- Define deeply immutable framework-neutral model runtime contracts and strict
+  structured result schemas with bounded safe validation failures for all seven
+  governed Agents without enabling delegation behavior.
+
+- Add the Phase D file-level TDD plan for strict seven-Agent model results,
+  internal-only prompt context, deterministic Quality Gate decisions,
+  OpenRouter transport, API-owned model runs and accounting, runtime
+  composition, secret-safe fake/live acceptance, and closure validation.
+
+- Define the approved Phase D OpenRouter Agent Runtime boundary with seven
+  distinct free primary models, one bounded emergency fallback, internal-only
+  egress, strict Agent-specific result schemas, atomic model cost accounting,
+  deterministic Quality Gate behavior, and mandatory credential-owned
+  acceptance.
+
 - Advance Agentic Phase C closure with bounded tool telemetry, an exact three-view
   analytics grant, six-identity disposable live acceptance, static mutation
   guards, deterministic per-file migration cleanup, operator commands, and

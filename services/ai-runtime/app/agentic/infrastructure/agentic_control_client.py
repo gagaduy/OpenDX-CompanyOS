@@ -4,12 +4,23 @@
 from __future__ import annotations
 
 import json as json_module
+import re
 from typing import Any
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
-from app.agentic.application.ports import AgenticControlFailure, AccessTokenProvider
+from app.agentic.application.ports import (
+    AgenticControlFailure,
+    AccessTokenProvider,
+    CompleteModelRunRequest,
+    FailModelRunRequest,
+    ModelRunReservation,
+    ModelRunState,
+    ReserveModelRunRequest,
+    StartModelRunRequest,
+)
 from app.agentic.domain.contracts import (
     ActivityOutcome,
     ActivityReservationRequest,
@@ -21,6 +32,9 @@ from app.agentic.domain.contracts import (
 )
 
 AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({"INVALID_FROZEN_PLAN"})
+_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
+_MODEL_RUN_STATUSES = frozenset({"running", "completed", "failed", "partial", "escalated"})
+_MAX_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 class AgenticControlError(AgenticControlFailure):
@@ -95,6 +109,66 @@ class AgenticControlClient:
                             outcome: ActivityOutcome) -> dict[str, Any]:
         return await self._activity_outcome(invocation_key, "fail", outcome)
 
+    async def reserve_model_run(
+        self, request: ReserveModelRunRequest
+    ) -> ModelRunReservation:
+        data = await self._request("POST", "/model-runs/reserve", json={
+            "taskId": request.task_id, "agentKind": request.agent_kind,
+            "generationRound": request.generation_round,
+            "idempotencyKey": request.idempotency_key,
+            "inputDigest": request.input_digest,
+            "primaryModel": request.primary_model,
+            "fallbackModel": request.fallback_model,
+        }, idempotency_key=request.idempotency_key)
+        try:
+            return _model_run_reservation(data)
+        except (KeyError, TypeError, ValueError) as error:
+            raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+    async def start_model_run(self, request: StartModelRunRequest) -> ModelRunState:
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/start", json={
+                "expectedVersion": request.expected_version,
+                "returnedModel": request.returned_model,
+                "fallbackPosition": request.fallback_position,
+            }, idempotency_key=f"{request.run_id}:start:{request.expected_version}",
+        )
+        return _model_run_state(data)
+
+    async def complete_model_run(self, request: CompleteModelRunRequest) -> ModelRunState:
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/complete", json={
+                "expectedVersion": request.expected_version, "idempotencyKey": request.idempotency_key,
+                "status": request.status, "outputDigest": request.output_digest,
+                "inputTokens": request.input_tokens, "outputTokens": request.output_tokens,
+                "providerRequestIdDigest": request.provider_request_id_digest,
+                "latencyMs": request.latency_ms, "statusCode": request.status_code,
+                "qualityOutcome": request.quality_outcome,
+                "qualityReasonCodes": list(request.quality_reason_codes),
+                "provenanceIds": list(request.provenance_ids), "evidenceDigest": request.evidence_digest,
+            }, idempotency_key=request.idempotency_key,
+        )
+        return _model_run_state(data)
+
+    async def fail_model_run(self, request: FailModelRunRequest) -> ModelRunState:
+        body: dict[str, object] = {
+            "expectedVersion": request.expected_version, "idempotencyKey": request.idempotency_key,
+            "inputTokens": request.input_tokens, "outputTokens": request.output_tokens,
+            "latencyMs": request.latency_ms, "statusCode": request.status_code,
+            "errorCode": request.error_code, "qualityOutcome": request.quality_outcome,
+            "qualityReasonCodes": list(request.quality_reason_codes),
+            "provenanceIds": list(request.provenance_ids), "evidenceDigest": request.evidence_digest,
+        }
+        if request.output_digest is not None:
+            body["outputDigest"] = request.output_digest
+        if request.provider_request_id_digest is not None:
+            body["providerRequestIdDigest"] = request.provider_request_id_digest
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/fail", json=body,
+            idempotency_key=request.idempotency_key,
+        )
+        return _model_run_state(data)
+
     async def _activity_outcome(self, invocation_key: str, action: str,
                                 outcome: ActivityOutcome) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -156,3 +230,57 @@ class AgenticControlClient:
             return data
         except (ValueError, KeyError, TypeError) as error:
             raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+
+def _model_run_state(data: dict[str, Any]) -> ModelRunState:
+    try:
+        settled = data.get("settledCostMicros")
+        if settled is not None:
+            _safe_integer(settled, nonnegative=True)
+        return ModelRunState(
+            run_id=_uuid(data["runId"]), status=_status(data["status"]),
+            version=_safe_integer(data["version"], nonnegative=False),
+            settled_cost_micros=settled,
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+
+def _model_run_reservation(data: dict[str, Any]) -> ModelRunReservation:
+    if data.get("schemaVersion") != 1 or type(data["schemaVersion"]) is not int:
+        raise ValueError("schema version")
+    return ModelRunReservation(
+        run_id=_uuid(data["runId"]), primary_model=_model_id(data["primaryModel"]),
+        fallback_model=_model_id(data["fallbackModel"]),
+        max_input_tokens=_safe_integer(data["maxInputTokens"], nonnegative=False),
+        max_output_tokens=_safe_integer(data["maxOutputTokens"], nonnegative=False),
+        timeout_ms=_safe_integer(data["timeoutMs"], nonnegative=False), schema_version=1,
+        input_cost_micros_per_million=_safe_integer(data["inputCostMicrosPerMillion"], nonnegative=True),
+        output_cost_micros_per_million=_safe_integer(data["outputCostMicrosPerMillion"], nonnegative=True),
+        max_reserved_cost_micros=_safe_integer(data["maxReservedCostMicros"], nonnegative=True),
+        version=_safe_integer(data["version"], nonnegative=False),
+    )
+
+
+def _uuid(value: object) -> str:
+    if type(value) is not str or str(UUID(value)) != value:
+        raise ValueError("uuid")
+    return value
+
+
+def _model_id(value: object) -> str:
+    if type(value) is not str or _MODEL_ID.fullmatch(value) is None:
+        raise ValueError("model")
+    return value
+
+
+def _safe_integer(value: object, *, nonnegative: bool) -> int:
+    if type(value) is not int or value > _MAX_SAFE_INTEGER or (value < 0 if nonnegative else value < 1):
+        raise ValueError("integer")
+    return value
+
+
+def _status(value: object) -> str:
+    if type(value) is not str or value not in _MODEL_RUN_STATUSES:
+        raise ValueError("status")
+    return value

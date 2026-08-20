@@ -242,4 +242,363 @@ suite("Agentic PostgreSQL admin API", () => {
       [taskId],
     )).rows[0]?.count).toBe("1");
   });
+
+  it("authorizes and atomically settles digest-only internal model runs", async () => {
+    const worker = { authorization: "Bearer worker-token" };
+    const revisionId = randomUUID();
+    const taskId = randomUUID();
+    const provenanceId = randomUUID();
+    const alternateProvenanceId = randomUUID();
+    const primaryModel = "google/gemma-4-26b-a4b-it:free";
+    const fallbackModel = "liquid/lfm-2.5-2.6b:free";
+    await pool.query(
+      `INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest)
+       VALUES($1,'draft','creator',$2)`,
+      [revisionId, "1".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_configs
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+        max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,'catalog',$2,1000,500,5000,1,2000,4000)`,
+      [revisionId, primaryModel],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+       VALUES($1,'catalog',1,$2)`,
+      [revisionId, fallbackModel],
+    );
+    await pool.query(
+      `INSERT INTO agentic_budget_limits
+       (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+       VALUES($1,'catalog',100,1000,10000)`,
+      [revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_policies
+       (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+        data_classification,reason_code)
+       VALUES($1,$2,1,'ALLOW','agent','catalog','model','execute','department_analysis',
+        'internal','MODEL_EXECUTION_ALLOWED')`,
+      [randomUUID(), revisionId],
+    );
+    await pool.query(
+      `UPDATE agentic_configuration_revisions SET state='active',decided_by='reviewer',
+       decided_at=$2,version=4,updated_at=$2 WHERE id=$1`,
+      [revisionId, "2026-08-20T03:00:00.000Z"],
+    );
+    await pool.query(
+      `INSERT INTO agentic_tasks
+       (id,state,created_by,goal,instructions,configuration_revision_id,version)
+       VALUES($1,'ready','operator','Review catalog','sensitive prompt body',$2,2)`,
+      [taskId, revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title)
+       VALUES($1,$2,'catalog','Review catalog health')`,
+      [randomUUID(), taskId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_provenance_records
+       (id,task_id,source_type,source_id,source_digest,classification,recorded_by)
+       VALUES($1,$2,'tool_result','catalog.health',$3,'internal','agent-catalog')`,
+      [provenanceId, taskId, "2".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_provenance_records
+       (id,task_id,source_type,source_id,source_digest,classification,recorded_by)
+       VALUES($1,$2,'tool_result','catalog.risk',$3,'internal','agent-catalog')`,
+      [alternateProvenanceId, taskId, "3".repeat(64)],
+    );
+
+    const reserveBody = {
+      taskId,
+      agentKind: "catalog",
+      generationRound: 0,
+      idempotencyKey: "catalog-round-0",
+      inputDigest: "a".repeat(64),
+      primaryModel,
+      fallbackModel,
+    };
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .send(reserveBody).expect(401);
+    const reserved = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    const runId = reserved.body.data.runId as string;
+    expect(reserved.body.data).toMatchObject({
+      primaryModel, fallbackModel, maxReservedCostMicros: 4, version: 1,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const delayedReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    expect(delayedReserve.body.data).toEqual(reserved.body.data);
+    const startBody = { expectedVersion: 1, returnedModel: primaryModel, fallbackPosition: 0 };
+    const concurrentStarts = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`).set(worker).send(startBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`).set(worker).send(startBody),
+    ]);
+    expect(concurrentStarts.map(({ status }) => status)).toEqual([200, 200]);
+    const runningReserveReplay = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    expect(runningReserveReplay.body.data).toEqual(reserved.body.data);
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker).send({ ...startBody, expectedVersion: runningReserveReplay.body.data.version })
+      .expect(200);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({ ...reserveBody, inputDigest: "8".repeat(64) }).expect(409);
+
+    const startRaceReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({
+        ...reserveBody,
+        idempotencyKey: "catalog-round-0-start-race",
+        inputDigest: "9".repeat(64),
+      }).expect(200);
+    const startRaceRunId = startRaceReserve.body.data.runId as string;
+    const changedStarts = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${startRaceRunId}/start`)
+        .set(worker).send(startBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${startRaceRunId}/start`)
+        .set(worker).send({ expectedVersion: 1, returnedModel: fallbackModel, fallbackPosition: 1 }),
+    ]);
+    expect(changedStarts.map(({ status }) => status).sort()).toEqual([200, 409]);
+
+    const completeBody = {
+      expectedVersion: 2,
+      idempotencyKey: "catalog-round-0-terminal",
+      status: "completed",
+      outputDigest: "b".repeat(64),
+      inputTokens: 500,
+      outputTokens: 250,
+      providerRequestIdDigest: "c".repeat(64),
+      latencyMs: 20,
+      statusCode: "QUALITY_ACCEPTED",
+      qualityOutcome: "accepted",
+      qualityReasonCodes: ["EVIDENCE_VALID"],
+      provenanceIds: [provenanceId],
+      evidenceDigest: "d".repeat(64),
+    };
+    const concurrentCompletions = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+        .set(worker).send(completeBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+        .set(worker).send(completeBody),
+    ]);
+    expect(concurrentCompletions.map(({ status }) => status)).toEqual([200, 200]);
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+      .set(worker).send(completeBody).expect(200);
+    const terminalReserveReplay = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    expect(terminalReserveReplay.body.data).toEqual(reserved.body.data);
+    const terminalStartReplay = await request(app)
+      .post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker)
+      .send({ ...startBody, expectedVersion: terminalReserveReplay.body.data.version })
+      .expect(200);
+    expect(terminalStartReplay.body.data).toMatchObject({ status: "completed", version: 3 });
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({ ...reserveBody, inputDigest: "7".repeat(64) }).expect(409);
+    const conflict = await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+      .set(worker).send({ ...completeBody, evidenceDigest: "e".repeat(64) }).expect(409);
+    expect(JSON.stringify(conflict.body)).not.toContain("sensitive prompt body");
+
+    const conflictingReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({
+        ...reserveBody,
+        generationRound: 1,
+        idempotencyKey: "catalog-round-1",
+        inputDigest: "e".repeat(64),
+      }).expect(200);
+    const conflictingRunId = conflictingReserve.body.data.runId as string;
+    await request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/start`)
+      .set(worker).send(startBody).expect(200);
+    const roundOneCompletion = {
+      ...completeBody,
+      idempotencyKey: "catalog-round-1-terminal",
+    };
+    const changedEvidenceCompletion = {
+      ...roundOneCompletion,
+      evidenceDigest: "f".repeat(64),
+      qualityReasonCodes: ["ARITHMETIC_MISMATCH"],
+      provenanceIds: [alternateProvenanceId],
+    };
+    const conflictingCompletions = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/complete`)
+        .set(worker).send(roundOneCompletion),
+      request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/complete`)
+        .set(worker).send(changedEvidenceCompletion),
+    ]);
+    expect(conflictingCompletions.map(({ status }) => status).sort()).toEqual([200, 409]);
+
+    expect((await pool.query(
+      `SELECT status,settled_cost_micros::text,version FROM agentic_model_runs WHERE id=$1`,
+      [runId],
+    )).rows).toEqual([{ status: "completed", settled_cost_micros: "2", version: 3 }]);
+    expect((await pool.query(
+      `SELECT entry_type,cost_micros::text FROM agentic_budget_entries
+       WHERE model_run_id=$1 ORDER BY entry_type`,
+      [runId],
+    )).rows).toEqual([
+      { entry_type: "reservation", cost_micros: "4" },
+      { entry_type: "settlement", cost_micros: "2" },
+    ]);
+    expect((await pool.query(
+      "SELECT count(*)::text AS count FROM agentic_model_quality_evidence WHERE model_run_id=$1",
+      [runId],
+    )).rows[0]?.count).toBe("1");
+    const durableText = JSON.stringify((await pool.query(
+      `SELECT action,parameters_digest,result_digest,error_code FROM agentic_audit_events
+       WHERE resource_id=$1 ORDER BY occurred_at,id`,
+      [runId],
+    )).rows);
+    expect(durableText).not.toContain("sensitive prompt body");
+    expect(durableText).not.toContain("Bearer worker-token");
+  });
+
+  it("rolls back rejected model runs and durably records safe denial evidence", async () => {
+    const worker = { authorization: "Bearer worker-token" };
+    const revisionId = randomUUID();
+    const fallbackModel = "liquid/lfm-2.5-2.6b:free";
+    const primaryModels = {
+      catalog: "google/gemma-4-26b-a4b-it:free",
+      order: "nvidia/nemotron-3-super-120b-a12b:free",
+      inventory: "google/gemma-4-31b-it:free",
+    } as const;
+    await pool.query(
+      `INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest)
+       VALUES($1,'draft','creator',$2)`,
+      [revisionId, "4".repeat(64)],
+    );
+    for (const [agentKind, primaryModel] of Object.entries(primaryModels)) {
+      await pool.query(
+        `INSERT INTO agentic_model_configs
+         (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+          max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+         VALUES($1,$2,$3,1000,500,5000,1,2000,4000)`,
+        [revisionId, agentKind, primaryModel],
+      );
+      await pool.query(
+        `INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+         VALUES($1,$2,1,$3)`,
+        [revisionId, agentKind, fallbackModel],
+      );
+      await pool.query(
+        `INSERT INTO agentic_budget_limits
+         (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+         VALUES($1,$2,$3,1000,10000)`,
+        [revisionId, agentKind, agentKind === "inventory" ? 1 : 100],
+      );
+    }
+    for (const agentKind of ["catalog", "inventory"] as const) {
+      await pool.query(
+        `INSERT INTO agentic_policies
+         (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+          data_classification,reason_code)
+         VALUES($1,$2,$3,'ALLOW','agent',$4,'model','execute','department_analysis',
+          'internal','MODEL_EXECUTION_ALLOWED')`,
+        [randomUUID(), revisionId, agentKind === "catalog" ? 1 : 2, agentKind],
+      );
+    }
+    await pool.query(
+      `UPDATE agentic_configuration_revisions SET state='active',decided_by='reviewer',
+       decided_at=$2,version=4,updated_at=$2 WHERE id=$1`,
+      [revisionId, "2026-08-20T03:00:00.000Z"],
+    );
+    const taskIds = {
+      catalog: randomUUID(),
+      order: randomUUID(),
+      inventory: randomUUID(),
+    } as const;
+    for (const [agentKind, taskId] of Object.entries(taskIds)) {
+      await pool.query(
+        `INSERT INTO agentic_tasks
+         (id,state,created_by,goal,instructions,configuration_revision_id,version)
+         VALUES($1,'ready','operator','Review model denial','sensitive denied prompt',$2,2)`,
+        [taskId, revisionId],
+      );
+      await pool.query(
+        `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title)
+         VALUES($1,$2,$3,'Review assigned department')`,
+        [randomUUID(), taskId, agentKind],
+      );
+    }
+    const reserve = (agentKind: keyof typeof primaryModels, idempotencyKey: string) => ({
+      taskId: taskIds[agentKind],
+      agentKind,
+      generationRound: 0,
+      idempotencyKey,
+      inputDigest: "a".repeat(64),
+      primaryModel: primaryModels[agentKind],
+      fallbackModel,
+    });
+
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send({ ...reserve("catalog", "denied-validation"), fallbackModel: primaryModels.catalog })
+      .expect(400);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("order", "denied-policy")).expect(403);
+    await pool.query(
+      `INSERT INTO agentic_revocations
+       (id,target_type,target_id,reason,activated_by,activated_at,idempotency_key)
+       VALUES($1,'model',$2,'Emergency model stop','reviewer',$3,'revoke-catalog-model')`,
+      [randomUUID(), primaryModels.catalog, "2026-08-20T03:00:00.000Z"],
+    );
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("catalog", "denied-revocation")).expect(403);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("inventory", "denied-budget")).expect(400);
+
+    expect((await pool.query("SELECT count(*)::text AS count FROM agentic_model_runs")).rows[0]?.count)
+      .toBe("0");
+    expect((await pool.query("SELECT count(*)::text AS count FROM agentic_budget_entries")).rows[0]?.count)
+      .toBe("0");
+    const audits = (await pool.query(
+      `SELECT action,outcome,error_code,task_id::text,parameters_digest
+       FROM agentic_audit_events WHERE action='model_run.reserve.denied'
+       ORDER BY error_code`,
+    )).rows;
+    expect(audits).toHaveLength(4);
+    expect(audits.map(({ error_code }) => error_code)).toEqual([
+      "BUDGET_EXCEEDED",
+      "MODEL_CONFIGURATION_MISMATCH",
+      "MODEL_EXECUTION_REVOKED",
+      "MODEL_POLICY_DENIED",
+    ]);
+    expect(audits.every(({ outcome, parameters_digest }) =>
+      outcome === "denied" && parameters_digest === "a".repeat(64))).toBe(true);
+    const durableText = JSON.stringify(audits);
+    expect(durableText).not.toContain("sensitive denied prompt");
+    expect(durableText).not.toContain("Bearer worker-token");
+    expect(durableText).not.toContain(primaryModels.catalog);
+
+    await pool.query(`
+      CREATE FUNCTION agentic_test_reject_denial_audit() RETURNS trigger LANGUAGE plpgsql AS $f$
+      BEGIN
+        IF NEW.action='model_run.reserve.denied' THEN
+          RAISE EXCEPTION 'audit database secret marker';
+        END IF;
+        RETURN NEW;
+      END; $f$;
+      CREATE TRIGGER agentic_test_reject_denial_audit
+        BEFORE INSERT ON agentic_audit_events FOR EACH ROW
+        EXECUTE FUNCTION agentic_test_reject_denial_audit();
+    `);
+    try {
+      const unavailable = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+        .set(worker).send(reserve("order", "denied-audit-unavailable")).expect(503);
+      expect(unavailable.body).toMatchObject({
+        errorCode: "AUDIT_UNAVAILABLE",
+        message: "Audit evidence is unavailable",
+      });
+      expect(JSON.stringify(unavailable.body)).not.toContain("audit database secret marker");
+      expect((await pool.query("SELECT count(*)::text AS count FROM agentic_model_runs")).rows[0]?.count)
+        .toBe("0");
+      expect((await pool.query("SELECT count(*)::text AS count FROM agentic_budget_entries")).rows[0]?.count)
+        .toBe("0");
+    } finally {
+      await pool.query(`
+        DROP TRIGGER IF EXISTS agentic_test_reject_denial_audit ON agentic_audit_events;
+        DROP FUNCTION IF EXISTS agentic_test_reject_denial_audit();
+      `);
+    }
+  });
 });
