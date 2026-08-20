@@ -7,6 +7,7 @@ import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { ApprovalRequest, ApprovalState, ApproverScope } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
+import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type {
   ActivityInvocation,
   WorkflowRun,
@@ -125,6 +126,8 @@ export interface ModelConfigurationRecord {
   readonly maxOutputTokens: number;
   readonly timeoutMs: number;
   readonly maxRetries: number;
+  readonly inputCostMicrosPerMillion: number;
+  readonly outputCostMicrosPerMillion: number;
 }
 
 export interface BudgetLimitRecord {
@@ -211,6 +214,7 @@ export interface BudgetReservationInput {
   readonly idempotencyKey: string;
   readonly costMicros: number;
   readonly occurredAt: string;
+  readonly modelRunId?: string;
 }
 
 export interface AgentSubtaskRecord {
@@ -234,7 +238,16 @@ export interface BudgetSettlementInput {
   readonly idempotencyKey: string;
   readonly actualCostMicros: number;
   readonly occurredAt: string;
+  readonly modelRunId?: string;
 }
+
+export type ModelRunReservationResult = {
+  readonly status: "reserved" | "duplicate" | "conflict";
+  readonly run: ModelRun;
+};
+
+export type ModelRunTerminalResult = "updated" | "duplicate" | "stale" | "conflict";
+export type ModelQualityEvidenceAppendResult = "created" | "duplicate" | "conflict";
 
 export interface WorkflowRunCreateResult {
   readonly status: "created" | "duplicate";
@@ -287,6 +300,11 @@ export interface AgenticRepository {
   findActiveRevocation(session: DatabaseSession, targetType: RevocationRecord["targetType"], targetId: string): Promise<RevocationRecord | undefined>;
   reserveBudget(session: DatabaseSession, input: BudgetReservationInput): Promise<"reserved" | "duplicate" | "exceeded">;
   settleBudget(session: DatabaseSession, input: BudgetSettlementInput): Promise<"settled" | "duplicate" | "stale">;
+  reserveModelRun(session: DatabaseSession, run: ModelRun): Promise<ModelRunReservationResult>;
+  findModelRun(session: DatabaseSession, runId: string): Promise<ModelRun | undefined>;
+  markModelRunRunning(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<boolean>;
+  settleModelRunTerminal(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<ModelRunTerminalResult>;
+  appendModelQualityEvidence(session: DatabaseSession, evidence: ModelQualityEvidence): Promise<ModelQualityEvidenceAppendResult>;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
   countToolInvocations(
     session: DatabaseSession,

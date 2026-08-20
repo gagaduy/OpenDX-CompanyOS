@@ -61,6 +61,8 @@ const model = z.object({
   fallbackModels: z.array(z.string().trim().min(1).max(255)).max(5),
   maxInputTokens: positiveVersion, maxOutputTokens: positiveVersion,
   timeoutMs: positiveVersion, maxRetries: z.number().int().nonnegative(),
+  inputCostMicrosPerMillion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  outputCostMicrosPerMillion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 }).strict().superRefine((value, context) => {
   if (new Set([value.primaryModel, ...value.fallbackModels]).size !== value.fallbackModels.length + 1) {
     context.addIssue({ code: "custom", path: ["fallbackModels"], message: "Models must be unique" });

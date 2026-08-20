@@ -30,6 +30,8 @@ const tables = [
   "agentic_activity_invocations",
   "agentic_workflow_signal_receipts",
   "agentic_tool_invocations",
+  "agentic_model_runs",
+  "agentic_model_quality_evidence",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -51,12 +53,144 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("7");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("8");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+  });
+
+  it("enforces governed model run storage and append-only quality evidence", async () => {
+    const revisionId = "a1900000-0000-4000-8000-000000000010";
+    const taskId = "a1900000-0000-4000-8000-000000000011";
+    const runId = "a1900000-0000-4000-8000-000000000012";
+    const reservationId = "a1900000-0000-4000-8000-000000000013";
+    await pool.query(
+      "INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)",
+      [revisionId, "a".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_configs
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,
+        timeout_ms,max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,'catalog','google/gemma-4-26b-a4b-it:free',1000,500,30000,1,0,0)`,
+      [revisionId],
+    );
+    await pool.query(
+      "INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)",
+      [taskId, revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status)
+       VALUES($1,$2,'catalog',$3,1,0,'run:catalog:0','google/gemma-4-26b-a4b-it:free',
+        1,1,1,$4,0,0,0,'reserved')`,
+      [runId, taskId, revisionId, "b".repeat(64)],
+    );
+
+    await expect(pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status)
+       VALUES(gen_random_uuid(),$1,'catalog',$2,1,0,'run:catalog:0','different-model',
+        1,1,1,$3,0,0,0,'reserved')`,
+      [taskId, revisionId, "c".repeat(64)],
+    )).rejects.toMatchObject({ code: "23505" });
+    await expect(pool.query(
+      "UPDATE agentic_model_runs SET status='completed',completed_at=now() WHERE id=$1",
+      [runId],
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
+       fallback_position=0,started_at=now(),version=2,updated_at=now() WHERE id=$1`,
+      [runId],
+    );
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='completed',output_digest=$2,input_tokens=1,
+       output_tokens=1,settled_cost_micros=0,provider_request_id_digest=$3,latency_ms=1,
+       status_code='MODEL_RESULT_ACCEPTED',quality_reason_codes='{}',
+       provenance_ids=ARRAY['evidence-1'],completed_at=now(),version=3,updated_at=now()
+       WHERE id=$1`,
+      [runId, "d".repeat(64), "e".repeat(64)],
+    );
+    await expect(pool.query(
+      "UPDATE agentic_model_runs SET settled_cost_micros=1 WHERE id=$1",
+      [runId],
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      `INSERT INTO agentic_model_quality_evidence
+       (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,
+        provenance_ids,evidence_digest,recorded_at)
+       VALUES(gen_random_uuid(),$1,0,'quality:0','accepted','{}',ARRAY['evidence-1'],$2,now())`,
+      [runId, "f".repeat(64)],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_model_quality_evidence
+       (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,
+        provenance_ids,evidence_digest,recorded_at)
+       VALUES(gen_random_uuid(),$1,1,'quality:wrong-round','correct',
+        ARRAY['unsafe reason'],ARRAY['duplicate','duplicate'],$2,now())`,
+      [runId, "1".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status)
+       VALUES(gen_random_uuid(),$1,'catalog',$2,1,1,'unsafe key','google/gemma-4-26b-a4b-it:free',
+        1,1,1,$3,0,0,0,'reserved')`,
+      [taskId, revisionId, "2".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      "UPDATE agentic_model_quality_evidence SET outcome='escalate' WHERE model_run_id=$1",
+      [runId],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "DELETE FROM agentic_model_quality_evidence WHERE model_run_id=$1",
+      [runId],
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES($1,'catalog',$2,'reservation','budget:reserve',0,now(),$3)`,
+      [reservationId, taskId, runId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'reservation','budget:reserve:duplicate',0,now(),$2)`,
+      [taskId, runId],
+    )).rejects.toMatchObject({ code: "23505" });
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','budget:settle',$2,0,now(),$3)`,
+      [taskId, reservationId, runId],
+    );
+    await expect(pool.query(
+      "INSERT INTO agentic_budget_entries(id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id) VALUES(gen_random_uuid(),'inventory',$1,'reservation','wrong-agent',0,now(),$2)",
+      [taskId, runId],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await runAgenticMigrations(databaseUrl!, "down", 1);
+    expect((await pool.query("SELECT to_regclass('public.agentic_model_runs') AS name")).rows[0])
+      .toEqual({ name: null });
+    const pricingColumns = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name='agentic_model_configs' AND column_name LIKE '%cost_micros_per_million'",
+    );
+    expect(pricingColumns.rowCount).toBe(0);
+    await runAgenticMigrations(databaseUrl!, "up");
   });
 
   it("seeds immutable department tools and deduplicates invocation receipts", async () => {
@@ -299,7 +433,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 5);
+    await runAgenticMigrations(databaseUrl!, "down", 6);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");

@@ -315,7 +315,7 @@ function createFixture() {
     "SELECT id FROM agentic_configuration_revisions WHERE state='active' ORDER BY id",
   ).split("\n").filter(Boolean);
   const modelRows = [...new Set(DEPARTMENT_TOOLS.map(({ department }) => department))]
-    .map((department) => `('${created.revisionId}','${department}','openai/gpt-5-mini',1000,500,5000,1)`)
+    .map((department) => `('${created.revisionId}','${department}','openai/gpt-5-mini',1000,500,5000,1,0,0)`)
     .join(",\n");
   const budgetRows = [...new Set(DEPARTMENT_TOOLS.map(({ department }) => department))]
     .map((department) => `('${created.revisionId}','${department}',100,1000,10000)`)
@@ -337,7 +337,8 @@ function createFixture() {
       VALUES('${created.revisionId}','active','phase-c-check','${"a".repeat(64)}',
         'phase-c-reviewer','Live acceptance fixture',now(),1);
     INSERT INTO agentic_model_configs
-      (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,max_retries)
+      (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+       max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
       VALUES ${modelRows};
     INSERT INTO agentic_budget_limits
       (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)

@@ -22,7 +22,8 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_workflow_signal_receipts,
+    await pool.query(`TRUNCATE agentic_model_quality_evidence, agentic_model_runs,
+      agentic_workflow_signal_receipts,
       agentic_activity_invocations, agentic_workflow_runs,
       agentic_provenance_records, agentic_audit_events,
       agentic_revocations, agentic_approval_requests, agentic_budget_entries,
@@ -36,6 +37,93 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("stores exact model pricing and maps it without precision loss", async () => {
+    const revisionId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.createRevision(session, {
+        id: revisionId, state: "draft", createdBy: "admin-a", payloadDigest: "a".repeat(64),
+        version: 1, createdAt: "2026-08-19T00:00:00.000Z", updatedAt: "2026-08-19T00:00:00.000Z",
+      });
+      await repository.replaceRevisionChildren(session, revisionId, {
+        policies: [], toolGrants: [], budgetLimits: [],
+        modelConfigurations: [{
+          revisionId, agentKind: "catalog", primaryModel: "google/gemma-4-26b-a4b-it:free",
+          fallbackModels: ["liquid/lfm-2.5-2.6b:free"], maxInputTokens: 8_000,
+          maxOutputTokens: 2_000, timeoutMs: 30_000, maxRetries: 1,
+          inputCostMicrosPerMillion: 0, outputCostMicrosPerMillion: Number.MAX_SAFE_INTEGER,
+        }],
+      });
+    });
+
+    await expect(transactions.runReadOnly((session) =>
+      repository.findModelConfiguration(session, revisionId, "catalog")))
+      .resolves.toMatchObject({
+        inputCostMicrosPerMillion: 0,
+        outputCostMicrosPerMillion: Number.MAX_SAFE_INTEGER,
+      });
+  });
+
+  it("converges model run reservation, optimistic lifecycle, and append evidence", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const run = modelRun(taskId, revisionId);
+    const reservations = await Promise.all([
+      transactions.run((session) => repository.reserveModelRun(session, run)),
+      transactions.run((session) => repository.reserveModelRun(session, { ...run, id: randomUUID() })),
+    ]);
+    expect(reservations.map(({ status }) => status).sort()).toEqual(["duplicate", "reserved"]);
+    expect(reservations.every(({ run: stored }) => stored.id === reservations[0]?.run.id)).toBe(true);
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...run, id: randomUUID(), inputDigest: "f".repeat(64),
+    }))).resolves.toMatchObject({ status: "conflict" });
+
+    const accepted = reservations[0]!.run;
+    const running = {
+      ...accepted, status: "running" as const, returnedModel: accepted.requestedModel,
+      fallbackPosition: 0 as const, version: 2, startedAt: "2026-08-19T01:01:00.000Z",
+      updatedAt: "2026-08-19T01:01:00.000Z",
+    };
+    const starts = await Promise.all([
+      transactions.run((session) => repository.markModelRunRunning(session, running, 1)),
+      transactions.run((session) => repository.markModelRunRunning(session, running, 1)),
+    ]);
+    expect(starts.sort()).toEqual([false, true]);
+
+    const completed = {
+      ...running, status: "completed" as const, outputDigest: "b".repeat(64),
+      inputTokens: 10, outputTokens: 5, settledCostMicros: 0,
+      providerRequestIdDigest: "c".repeat(64), latencyMs: 20,
+      statusCode: "MODEL_RESULT_ACCEPTED", qualityReasonCodes: [], provenanceIds: ["evidence-1"],
+      version: 3, completedAt: "2026-08-19T01:02:00.000Z", updatedAt: "2026-08-19T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("updated");
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(
+      session, { ...completed, outputDigest: "d".repeat(64) }, 2,
+    ))).resolves.toBe("conflict");
+    await expect(transactions.runReadOnly((session) => repository.findModelRun(session, accepted.id)))
+      .resolves.toEqual(completed);
+
+    const evidence = {
+      id: randomUUID(), modelRunId: accepted.id, generationRound: 0 as const,
+      idempotencyKey: "quality:catalog:0", outcome: "accepted" as const,
+      reasonCodes: [], provenanceIds: ["evidence-1"], evidenceDigest: "e".repeat(64),
+      recordedAt: "2026-08-19T01:02:00.000Z",
+    };
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, evidence)))
+      .resolves.toBe("created");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID() },
+    ))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), evidenceDigest: "f".repeat(64) },
+    ))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), idempotencyKey: "quality:catalog:alternate" },
+    ))).resolves.toBe("duplicate");
   });
   afterAll(async () => {
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
@@ -555,6 +643,13 @@ async function createReadyTask(pool: Pool): Promise<{
     [taskId, revisionId],
   );
   await pool.query(
+    `INSERT INTO agentic_model_configs
+     (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+      max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+     VALUES($1,'catalog','google/gemma-4-26b-a4b-it:free',8000,2000,30000,1,0,0)`,
+    [revisionId],
+  );
+  await pool.query(
     "INSERT INTO agentic_subtasks(id,task_id,agent_kind,title) VALUES($1,$2,'catalog','Catalog health')",
     [subtaskId, taskId],
   );
@@ -621,5 +716,18 @@ function toolInvocationReservation(taskId: string) {
     correlationId: "corr-tool",
     causationId: "cause-tool",
     occurredAt: "2026-08-16T01:00:00.000Z",
+  };
+}
+
+function modelRun(taskId: string, configurationRevisionId: string) {
+  return {
+    id: randomUUID(), taskId, agentKind: "catalog" as const, configurationRevisionId,
+    schemaVersion: 1, generationRound: 0 as const, idempotencyKey: "model:catalog:0",
+    requestedModel: "google/gemma-4-26b-a4b-it:free", policyVersion: 1,
+    configurationVersion: 1, resultSchemaVersion: 1, inputDigest: "a".repeat(64),
+    inputCostMicrosPerMillion: 0, outputCostMicrosPerMillion: 0,
+    maxReservedCostMicros: 0, status: "reserved" as const,
+    qualityReasonCodes: [], provenanceIds: [], version: 1,
+    createdAt: "2026-08-19T01:00:00.000Z", updatedAt: "2026-08-19T01:00:00.000Z",
   };
 }

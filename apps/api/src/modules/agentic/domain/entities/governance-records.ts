@@ -21,6 +21,8 @@ export interface AgentModelConfiguration {
   readonly maxOutputTokens: number;
   readonly timeoutMs: number;
   readonly maxRetries: number;
+  readonly inputCostMicrosPerMillion: number;
+  readonly outputCostMicrosPerMillion: number;
 }
 
 export interface AgentBudgetLimits {
