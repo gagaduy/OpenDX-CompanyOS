@@ -18,6 +18,7 @@ from app.agentic.domain.model_result_schemas import (
     ModelResultValidationError,
     OrderPayload,
     SupportPayload,
+    inspect_model_result,
     parse_model_result,
 )
 from app.agentic.domain.model_runtime import ModelRequest, ModelResult
@@ -221,6 +222,31 @@ def test_rejects_duplicate_material_provenance_ids_without_retaining_them(
 
     assert captured.value.args == ("PROVENANCE_IDS_DUPLICATE",)
     assert canary not in repr(captured.value)
+
+
+def test_quality_inspection_accumulates_safe_issues_and_normalizes_classification() -> None:
+    value = valid_envelope("catalog")
+    value["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
+    value["evidence"][0]["classification"] = "restricted"
+
+    inspection = inspect_model_result(value)
+
+    assert inspection.issue_codes == (
+        "PROVENANCE_IDS_DUPLICATE",
+        "EVIDENCE_CLASSIFICATION_BLOCKED",
+    )
+    assert inspection.envelope.evidence[0].classification == "internal"
+    with pytest.raises(FrozenInstanceError):
+        inspection.issue_codes = ()  # type: ignore[misc]
+
+
+def test_quality_inspection_keeps_general_malformed_schema_strict() -> None:
+    value = valid_envelope("catalog")
+    value["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
+    value["payload"]["unknown"] = "malformed"
+
+    with pytest.raises(ValueError, match="unknown keys"):
+        inspect_model_result(value)
 
 
 def test_model_runtime_contracts_defensively_deep_freeze_json_data() -> None:

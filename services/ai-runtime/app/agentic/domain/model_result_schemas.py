@@ -42,6 +42,11 @@ class ModelResultValidationError(ValueError):
         super().__init__(code)
 
 
+ModelResultIssueCode = Literal[
+    "EVIDENCE_CLASSIFICATION_BLOCKED", "PROVENANCE_IDS_DUPLICATE"
+]
+
+
 @dataclass(frozen=True)
 class ProvenanceEvidence:
     provenance_id: str
@@ -175,7 +180,21 @@ class ModelResultEnvelope:
     payload: AgentPayload
 
 
+@dataclass(frozen=True)
+class ModelResultInspection:
+    envelope: ModelResultEnvelope
+    issue_codes: tuple[ModelResultIssueCode, ...]
+
+
 def parse_model_result(value: object) -> ModelResultEnvelope:
+    inspection = inspect_model_result(value)
+    if inspection.issue_codes:
+        raise ModelResultValidationError(inspection.issue_codes[0]) from None
+    return inspection.envelope
+
+
+def inspect_model_result(value: object) -> ModelResultInspection:
+    issue_codes: list[ModelResultIssueCode] = []
     document = _dictionary(value, "result")
     _exact_keys(
         document,
@@ -197,11 +216,15 @@ def parse_model_result(value: object) -> ModelResultEnvelope:
     agent_kind = _literal(document["agentKind"], _AGENT_KINDS, "agentKind")
     status = _literal(document["status"], _RESULT_STATUSES, "status")
     conclusions = tuple(
-        _parse_conclusion(item) for item in _array(document["conclusions"], 8, "conclusions")
+        _parse_conclusion(item, issue_codes)
+        for item in _array(document["conclusions"], 8, "conclusions")
     )
-    risks = tuple(_parse_risk(item) for item in _array(document["risks"], 8, "risks"))
+    risks = tuple(
+        _parse_risk(item, issue_codes)
+        for item in _array(document["risks"], 8, "risks")
+    )
     recommended_actions = tuple(
-        _parse_recommended_action(item)
+        _parse_recommended_action(item, issue_codes)
         for item in _array(document["recommendedActions"], 8, "recommendedActions")
     )
     parsed_evidence = tuple(
@@ -216,27 +239,27 @@ def parse_model_result(value: object) -> ModelResultEnvelope:
         risks=risks,
         recommended_actions=recommended_actions,
         evidence=tuple(item.value for item in parsed_evidence),
-        payload=_parse_payload(agent_kind, document["payload"]),
+        payload=_parse_payload(agent_kind, document["payload"], issue_codes),
     )
     if any(item.classification_blocked for item in parsed_evidence):
-        raise ModelResultValidationError(
-            "EVIDENCE_CLASSIFICATION_BLOCKED"
-        ) from None
-    return result
+        issue_codes.append("EVIDENCE_CLASSIFICATION_BLOCKED")
+    return ModelResultInspection(result, tuple(dict.fromkeys(issue_codes)))
 
 
-def _parse_conclusion(value: object) -> Conclusion:
+def _parse_conclusion(
+    value: object, issue_codes: list[ModelResultIssueCode]
+) -> Conclusion:
     item = _dictionary(value, "conclusion")
     _exact_keys(item, {"code", "statement", "confidenceBasis", "provenanceIds"}, "conclusion")
     return Conclusion(
         code=_reason_code(item["code"]),
         statement=_bounded_text(item["statement"], "conclusion statement"),
         confidence_basis=_bounded_text(item["confidenceBasis"], "confidence basis"),
-        provenance_ids=_provenance_ids(item["provenanceIds"]),
+        provenance_ids=_provenance_ids(item["provenanceIds"], issue_codes),
     )
 
 
-def _parse_risk(value: object) -> Risk:
+def _parse_risk(value: object, issue_codes: list[ModelResultIssueCode]) -> Risk:
     item = _dictionary(value, "risk")
     _exact_keys(item, {"code", "severity", "statement", "provenanceIds"}, "risk")
     return Risk(
@@ -245,11 +268,13 @@ def _parse_risk(value: object) -> Risk:
             item["severity"], _RISK_LEVELS, "risk severity"
         ),  # type: ignore[arg-type]
         statement=_bounded_text(item["statement"], "risk statement"),
-        provenance_ids=_provenance_ids(item["provenanceIds"]),
+        provenance_ids=_provenance_ids(item["provenanceIds"], issue_codes),
     )
 
 
-def _parse_recommended_action(value: object) -> RecommendedAction:
+def _parse_recommended_action(
+    value: object, issue_codes: list[ModelResultIssueCode]
+) -> RecommendedAction:
     item = _dictionary(value, "recommended action")
     _exact_keys(
         item,
@@ -262,7 +287,7 @@ def _parse_recommended_action(value: object) -> RecommendedAction:
         code=_reason_code(item["code"]),
         statement=_bounded_text(item["statement"], "recommended action statement"),
         requires_human_approval=item["requiresHumanApproval"],
-        provenance_ids=_provenance_ids(item["provenanceIds"]),
+        provenance_ids=_provenance_ids(item["provenanceIds"], issue_codes),
     )
 
 
@@ -303,10 +328,14 @@ def _parse_iso_timestamp(value: str) -> datetime | None:
         return None
 
 
-def _parse_payload(agent_kind: str, value: object) -> AgentPayload:
+def _parse_payload(
+    agent_kind: str,
+    value: object,
+    issue_codes: list[ModelResultIssueCode],
+) -> AgentPayload:
     item = _dictionary(value, f"{agent_kind} payload")
     if agent_kind == "ai_ceo":
-        return _parse_ai_ceo_payload(item)
+        return _parse_ai_ceo_payload(item, issue_codes)
     if agent_kind == "catalog":
         _exact_keys(
             item,
@@ -424,14 +453,18 @@ def _parse_payload(agent_kind: str, value: object) -> AgentPayload:
     )
 
 
-def _parse_ai_ceo_payload(item: dict[str, object]) -> AiCeoPayload:
+def _parse_ai_ceo_payload(
+    item: dict[str, object], issue_codes: list[ModelResultIssueCode]
+) -> AiCeoPayload:
     _exact_keys(
         item,
         {"departmentCoverage", "crossDepartmentRiskCount", "unresolvedConflictCodes", "riskLevel"},
         "ai_ceo payload",
     )
     coverage_values = _array(item["departmentCoverage"], 6, "department coverage")
-    coverage = tuple(_parse_department_coverage(value) for value in coverage_values)
+    coverage = tuple(
+        _parse_department_coverage(value, issue_codes) for value in coverage_values
+    )
     conflicts = tuple(
         _reason_code(value)
         for value in _array(item["unresolvedConflictCodes"], 8, "unresolved conflict codes")
@@ -446,7 +479,9 @@ def _parse_ai_ceo_payload(item: dict[str, object]) -> AiCeoPayload:
     )
 
 
-def _parse_department_coverage(value: object) -> DepartmentCoverage:
+def _parse_department_coverage(
+    value: object, issue_codes: list[ModelResultIssueCode]
+) -> DepartmentCoverage:
     item = _dictionary(value, "department coverage")
     _exact_keys(item, {"agentKind", "status", "provenanceIds"}, "department coverage")
     return DepartmentCoverage(
@@ -456,7 +491,7 @@ def _parse_department_coverage(value: object) -> DepartmentCoverage:
         status=_literal(
             item["status"], _RESULT_STATUSES, "department status"
         ),  # type: ignore[arg-type]
-        provenance_ids=_provenance_ids(item["provenanceIds"]),
+        provenance_ids=_provenance_ids(item["provenanceIds"], issue_codes),
     )
 
 
@@ -503,13 +538,15 @@ def _reason_code(value: object) -> str:
     return value
 
 
-def _provenance_ids(value: object) -> tuple[str, ...]:
+def _provenance_ids(
+    value: object, issue_codes: list[ModelResultIssueCode]
+) -> tuple[str, ...]:
     items = _array(value, 8, "provenanceIds")
     if not items:
         raise ValueError("provenanceIds requires one to eight entries")
     identifiers = tuple(_identifier(item, "provenanceId") for item in items)
     if len(set(identifiers)) != len(identifiers):
-        raise ModelResultValidationError("PROVENANCE_IDS_DUPLICATE") from None
+        issue_codes.append("PROVENANCE_IDS_DUPLICATE")
     return identifiers
 
 

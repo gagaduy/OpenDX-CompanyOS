@@ -546,6 +546,46 @@ def test_duplicate_material_refs_follow_provenance_retry_policy(
     assert decision.reasons == ("PROVENANCE_INVALID",)
 
 
+@pytest.mark.parametrize("correction_round", [0, 1, 2])
+@pytest.mark.parametrize(
+    ("combined_issue", "expected_reasons"),
+    [
+        (
+            "source",
+            ("PROVENANCE_INVALID", "PROVENANCE_SOURCE_MISMATCH"),
+        ),
+        (
+            "classification",
+            ("PROVENANCE_INVALID", "SCOPE_VIOLATION"),
+        ),
+        (
+            "leakage",
+            ("PROVENANCE_INVALID", "SENSITIVE_DATA_LEAKAGE"),
+        ),
+    ],
+)
+def test_duplicate_ref_does_not_hide_higher_severity_issue(
+    correction_round: int,
+    combined_issue: str,
+    expected_reasons: tuple[str, ...],
+) -> None:
+    result = valid_result()
+    result["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
+    if combined_issue == "source":
+        result["evidence"][0]["source"] = "department-tool:forged-v1"
+    elif combined_issue == "classification":
+        result["evidence"][0]["classification"] = "restricted"
+    else:
+        result["summary"] = "api_key=combined-secret-value"
+
+    decision = QualityGate().evaluate(
+        result, quality_context(correction_round=correction_round)
+    )
+
+    assert decision.outcome == "escalate"
+    assert decision.reasons == expected_reasons
+
+
 @pytest.mark.parametrize(
     ("correction_round", "expected_outcome"),
     [(0, "correct"), (1, "correct"), (2, "escalate")],

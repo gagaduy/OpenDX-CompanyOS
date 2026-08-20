@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve Quality Gate severity precedence by inspecting safe duplicate and
+  classification issue codes without allowing malformed model schemas.
+
 - Add a deterministic model Quality Gate that validates authoritative
   provenance, scope, freshness, material payloads, leakage, and conflicts for
   all seven governed Agents before accepting structured results, including

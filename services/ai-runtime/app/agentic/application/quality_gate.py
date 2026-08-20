@@ -17,10 +17,10 @@ from app.agentic.domain.model_result_schemas import (
     FinancePayload,
     InventoryPayload,
     ModelResultEnvelope,
-    ModelResultValidationError,
     OrderPayload,
     ProvenanceEvidence,
     SupportPayload,
+    inspect_model_result,
     parse_model_result,
 )
 from app.agentic.domain.model_runtime import (
@@ -155,23 +155,20 @@ class QualityGate:
         self, raw_result: object, context: AuthoritativeQualityContext
     ) -> QualityDecision:
         try:
-            result = parse_model_result(raw_result)
-        except ModelResultValidationError as error:
-            if error.code == "EVIDENCE_CLASSIFICATION_BLOCKED":
-                return QualityDecision("escalate", ("SCOPE_VIOLATION",), ())
-            if error.code == "PROVENANCE_IDS_DUPLICATE":
-                return _quality_failure_decision(
-                    context.correction_round, ("PROVENANCE_INVALID",), ()
-                )
-            return _quality_failure_decision(
-                context.correction_round, ("SCHEMA_INVALID",), ()
-            )
+            inspection = inspect_model_result(raw_result)
         except (TypeError, ValueError, RecursionError, OverflowError):
             return _quality_failure_decision(
                 context.correction_round, ("SCHEMA_INVALID",), ()
             )
 
+        result = inspection.envelope
         reasons: list[str] = []
+        escalation = False
+        if "PROVENANCE_IDS_DUPLICATE" in inspection.issue_codes:
+            _append_reason(reasons, "PROVENANCE_INVALID")
+        if "EVIDENCE_CLASSIFICATION_BLOCKED" in inspection.issue_codes:
+            _append_reason(reasons, "SCOPE_VIOLATION")
+            escalation = True
         authorized = {
             item.provenance_id: item for item in context.authorized_evidence
         }
@@ -211,7 +208,7 @@ class QualityGate:
         if result.status == "partial":
             _append_reason(reasons, "RESULT_STATUS_PARTIAL")
 
-        escalation = any(
+        escalation = escalation or any(
             reason in _IMMEDIATE_PROVENANCE_REASONS for reason in reasons
         )
         if result.agent_kind != context.expected_agent_kind:
@@ -265,7 +262,11 @@ class QualityGate:
             _append_reason(reasons, "UNRESOLVED_CONFLICT")
             escalation = True
 
-        safe_ids = tuple(sorted(safe_involved_ids))
+        safe_ids = (
+            ()
+            if "EVIDENCE_CLASSIFICATION_BLOCKED" in inspection.issue_codes
+            else tuple(sorted(safe_involved_ids))
+        )
         if escalation:
             return QualityDecision("escalate", tuple(reasons), safe_ids)
         if reasons:
