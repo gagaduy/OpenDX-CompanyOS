@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Protect model-run transitions and terminal replays by locking and comparing
+  complete immutable request and execution identity before persistence.
+
 - Harden model-run persistence with instant-based replay comparison, mandatory
   domain validation, terminal-only quality evidence, and payload-safe budget
   idempotency conflicts.

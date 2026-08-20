@@ -77,6 +77,66 @@ suite("PostgresqlAgenticRepository", () => {
     }))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
   });
 
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["requested model", { requestedModel: "different/model:free" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "rejects a running transition with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      await expect(transactions.run((session) => repository.markModelRunRunning(
+        session, { ...runningModelRun(reserved), ...identity }, 1,
+      ))).resolves.toBe(false);
+      await expect(transactions.runReadOnly((session) => repository.findModelRun(session, reserved.id)))
+        .resolves.toEqual(reserved);
+    },
+  );
+
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["requested model", { requestedModel: "different/model:free" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "rejects terminal settlement with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      const running = runningModelRun(reserved);
+      await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+      await expect(transactions.run((session) => repository.settleModelRunTerminal(
+        session, { ...completedModelRun(running), ...identity }, 2,
+      ))).resolves.toBe("conflict");
+      await expect(transactions.runReadOnly((session) => repository.findModelRun(session, reserved.id)))
+        .resolves.toEqual(running);
+    },
+  );
+
+  it.each([
+    ["task", { taskId: randomUUID() }],
+    ["configuration", { configurationRevisionId: randomUUID() }],
+    ["returned model", { returnedModel: "different/model:free" }],
+    ["fallback position", { fallbackPosition: 1 }],
+    ["started timestamp", { startedAt: "2026-08-19T01:01:01.000Z" }],
+  ] satisfies ReadonlyArray<readonly [string, Partial<ModelRun>]>)(
+    "conflicts terminal replay with forged %s identity",
+    async (_case, identity) => {
+      const { taskId, revisionId } = await createReadyTask(pool);
+      const reserved = (await transactions.run((session) =>
+        repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+      const running = runningModelRun(reserved);
+      const completed = completedModelRun(running);
+      await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+      await transactions.run((session) => repository.settleModelRunTerminal(session, completed, 2));
+      await expect(transactions.run((session) => repository.settleModelRunTerminal(
+        session, { ...completed, ...identity }, 2,
+      ))).resolves.toBe("conflict");
+    },
+  );
+
   it("converges model run reservation, optimistic lifecycle, and append evidence", async () => {
     const { taskId, revisionId } = await createReadyTask(pool);
     const run = modelRun(taskId, revisionId);
@@ -115,6 +175,7 @@ suite("PostgresqlAgenticRepository", () => {
       repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("duplicate");
     await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
       ...completed,
+      startedAt: "2026-08-19T08:01:00.000+07:00",
       completedAt: "2026-08-19T08:02:00.000+07:00",
       updatedAt: "2026-08-19T08:02:00.000+07:00",
     }, 2))).resolves.toBe("duplicate");

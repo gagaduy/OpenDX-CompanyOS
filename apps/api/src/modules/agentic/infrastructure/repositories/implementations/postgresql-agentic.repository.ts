@@ -691,6 +691,13 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     expectedVersion: number,
   ): Promise<boolean> {
     validateModelRun(run);
+    const stored = await this.findModelRunForUpdate(session, run.id);
+    if (
+      stored === undefined
+      || stored.status !== "reserved"
+      || stored.version !== expectedVersion
+      || !sameModelRunRequest(stored, run)
+    ) return false;
     const result = await session.query(
       `UPDATE agentic_model_runs SET status='running',returned_model=$2,
        fallback_position=$3,version=$4,started_at=$5,updated_at=$6
@@ -707,6 +714,16 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     expectedVersion: number,
   ): Promise<ModelRunTerminalResult> {
     validateModelRun(run);
+    const stored = await this.findModelRunForUpdate(session, run.id);
+    if (stored === undefined) return "stale";
+    if (isTerminalModelRun(stored)) {
+      if (stored.version <= expectedVersion) return "stale";
+      return sameModelRunTerminal(stored, run) ? "duplicate" : "conflict";
+    }
+    if (stored.status !== "running" || stored.version !== expectedVersion) return "stale";
+    if (!sameModelRunRequest(stored, run) || !sameModelRunExecution(stored, run)) {
+      return "conflict";
+    }
     const result = await session.query(
       `UPDATE agentic_model_runs SET status=$2,output_digest=$3,input_tokens=$4,
        output_tokens=$5,settled_cost_micros=$6,provider_request_id_digest=$7,
@@ -721,11 +738,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
         expectedVersion],
     );
     if (result.rowCount === 1) return "updated";
-    const stored = await this.findModelRun(session, run.id);
-    if (stored === undefined || stored.version <= expectedVersion || !isTerminalModelRun(stored)) {
-      return "stale";
-    }
-    return sameModelRunTerminal(stored, run) ? "duplicate" : "conflict";
+    return "stale";
   }
 
   async appendModelQualityEvidence(
@@ -766,6 +779,17 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     const result = await session.query<Row>(
       "SELECT * FROM agentic_model_runs WHERE idempotency_key=$1",
       [idempotencyKey],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelRun(result.rows[0]);
+  }
+
+  private async findModelRunForUpdate(
+    session: DatabaseSession,
+    runId: string,
+  ): Promise<ModelRun | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_model_runs WHERE id=$1 FOR UPDATE",
+      [runId],
     );
     return result.rows[0] === undefined ? undefined : mapModelRun(result.rows[0]);
   }
@@ -1515,19 +1539,24 @@ function mapModelQualityEvidence(row: Row): ModelQualityEvidence {
 }
 
 function sameModelRunRequest(left: ModelRun, right: ModelRun): boolean {
-  return left.taskId === right.taskId && left.agentKind === right.agentKind
+  return left.taskId === right.taskId
+    && left.agentKind === right.agentKind
     && left.configurationRevisionId === right.configurationRevisionId
     && left.schemaVersion === right.schemaVersion && left.generationRound === right.generationRound
+    && left.idempotencyKey === right.idempotencyKey
     && left.requestedModel === right.requestedModel && left.policyVersion === right.policyVersion
     && left.configurationVersion === right.configurationVersion
     && left.resultSchemaVersion === right.resultSchemaVersion && left.inputDigest === right.inputDigest
     && left.inputCostMicrosPerMillion === right.inputCostMicrosPerMillion
     && left.outputCostMicrosPerMillion === right.outputCostMicrosPerMillion
-    && left.maxReservedCostMicros === right.maxReservedCostMicros;
+    && left.maxReservedCostMicros === right.maxReservedCostMicros
+    && sameInstant(left.createdAt, right.createdAt);
 }
 
 function sameModelRunTerminal(left: ModelRun, right: ModelRun): boolean {
-  return left.status === right.status && left.outputDigest === right.outputDigest
+  return sameModelRunRequest(left, right)
+    && sameModelRunExecution(left, right)
+    && left.status === right.status && left.outputDigest === right.outputDigest
     && left.inputTokens === right.inputTokens && left.outputTokens === right.outputTokens
     && left.settledCostMicros === right.settledCostMicros
     && left.providerRequestIdDigest === right.providerRequestIdDigest
@@ -1535,8 +1564,15 @@ function sameModelRunTerminal(left: ModelRun, right: ModelRun): boolean {
     && left.errorCode === right.errorCode
     && sameStrings(left.qualityReasonCodes, right.qualityReasonCodes)
     && sameStrings(left.provenanceIds, right.provenanceIds)
+    && left.version === right.version
     && sameInstant(left.completedAt, right.completedAt)
     && sameInstant(left.updatedAt, right.updatedAt);
+}
+
+function sameModelRunExecution(left: ModelRun, right: ModelRun): boolean {
+  return left.returnedModel === right.returnedModel
+    && left.fallbackPosition === right.fallbackPosition
+    && sameInstant(left.startedAt, right.startedAt);
 }
 
 function sameModelQualityEvidence(left: ModelQualityEvidence, right: ModelQualityEvidence): boolean {
