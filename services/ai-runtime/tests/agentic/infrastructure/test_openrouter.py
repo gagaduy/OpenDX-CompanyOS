@@ -186,6 +186,85 @@ def test_cancelled_waiter_does_not_cancel_shared_catalog_refresh() -> None:
     assert catalog_calls == 1
 
 
+def test_sole_cancelled_waiter_does_not_leave_stale_successful_refresh() -> None:
+    paths: list[str] = []
+    now = [100.0]
+    catalog_started = asyncio.Event()
+    release_catalog = asyncio.Event()
+    response_released = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path.endswith("models") and paths.count("/api/v1/models") == 1:
+            catalog_started.set()
+            await release_catalog.wait()
+            response_released.set()
+            return _catalog_response()
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    async def scenario() -> None:
+        gateway = _gateway(handler, now=lambda: now[0])
+        waiter = asyncio.create_task(gateway.generate(_request()))
+        await catalog_started.wait()
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        release_catalog.set()
+        await response_released.wait()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        now[0] = 161.0
+        await gateway.generate(_request())
+
+    asyncio.run(scenario())
+
+    assert paths == [
+        "/api/v1/models",
+        "/api/v1/models",
+        "/api/v1/chat/completions",
+    ]
+
+
+def test_sole_cancelled_waiter_failed_refresh_retries_without_orphan_warning() -> None:
+    catalog_calls = 0
+    warnings: list[dict[str, object]] = []
+    catalog_started = asyncio.Event()
+    release_catalog = asyncio.Event()
+    response_released = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal catalog_calls
+        if request.url.path.endswith("models"):
+            catalog_calls += 1
+            if catalog_calls == 1:
+                catalog_started.set()
+                await release_catalog.wait()
+                response_released.set()
+                return httpx.Response(503, text="provider-secret-body")
+            return _catalog_response()
+        return _chat_response()
+
+    async def scenario() -> None:
+        loop = asyncio.get_running_loop()
+        loop.set_exception_handler(lambda _loop, context: warnings.append(context))
+        gateway = _gateway(handler)
+        waiter = asyncio.create_task(gateway.generate(_request()))
+        await catalog_started.wait()
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        release_catalog.set()
+        await response_released.wait()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        await gateway.generate(_request())
+
+    asyncio.run(scenario())
+
+    assert catalog_calls == 2
+    assert warnings == []
+
+
 def test_concurrent_failed_catalog_refresh_is_not_cached() -> None:
     catalog_calls = 0
 
@@ -626,6 +705,64 @@ def test_all_explicit_and_implicit_object_schemas_are_strict_before_network(
 
     assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
     assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"additionalProperties": True},
+        {"additionalProperties": {"type": "string"}},
+        {"dependentRequired": {"primary": ["secondary"]}},
+        {"propertyNames": {"type": "string"}},
+        {"unevaluatedProperties": False},
+    ],
+)
+def test_standalone_additional_properties_and_object_keywords_fail_closed(
+    schema: dict[str, object]
+) -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    failure = _failure(handler, request=_unsafe_request(result_schema=schema))
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"additionalProperties": False},
+        {
+            "dependentRequired": {"primary": ["secondary"]},
+            "additionalProperties": False,
+        },
+        {
+            "propertyNames": {"type": "string"},
+            "additionalProperties": False,
+        },
+        {
+            "unevaluatedProperties": False,
+            "additionalProperties": False,
+        },
+    ],
+)
+def test_object_keywords_accept_exact_false_additional_properties(
+    schema: dict[str, object]
+) -> None:
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    _generate(handler, request=_unsafe_request(result_schema=schema))
+
+    assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
 
 
 def test_nested_array_object_schema_with_strict_union_is_accepted() -> None:

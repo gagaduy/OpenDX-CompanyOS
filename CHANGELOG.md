@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Finalize OpenRouter preflight safety by cleaning completed catalog refreshes
+  after sole-waiter cancellation, consuming orphaned refresh failures, and
+  requiring exact-false `additionalProperties` across all object-schema forms.
+
 - Harden OpenRouter transport safety with exception-chain redaction, bounded
   recursive strict-schema validation, request serialization preflight, and
   cancellation-safe single-flight model catalog refreshes.

@@ -106,20 +106,25 @@ class OpenRouterModelGateway:
             _fail("OPENROUTER_SCHEMA_INVALID", retryable=False)
 
     async def _ensure_catalog(self) -> None:
-        if (
-            self._catalog_valid_until is not None
-            and self._now() < self._catalog_valid_until
-        ):
-            return
-        refresh = self._catalog_refresh
-        if refresh is None:
-            refresh = asyncio.create_task(self._refresh_catalog())
-            self._catalog_refresh = refresh
-        try:
-            await asyncio.shield(refresh)
-        finally:
-            if refresh.done() and self._catalog_refresh is refresh:
-                self._catalog_refresh = None
+        while True:
+            if (
+                self._catalog_valid_until is not None
+                and self._now() < self._catalog_valid_until
+            ):
+                return
+            refresh = self._catalog_refresh
+            if refresh is None:
+                refresh = asyncio.create_task(self._refresh_catalog())
+                self._catalog_refresh = refresh
+                refresh.add_done_callback(self._catalog_refresh_done)
+            await asyncio.wait((refresh,))
+            await refresh
+
+    def _catalog_refresh_done(self, refresh: asyncio.Task[None]) -> None:
+        if self._catalog_refresh is refresh:
+            self._catalog_refresh = None
+        if not refresh.cancelled():
+            refresh.exception()
 
     async def _refresh_catalog(self) -> None:
         document = await self._request_json("GET", "/models")
@@ -395,11 +400,19 @@ def _strict_object_schemas(value: object) -> bool:
                 key in current
                 for key in (
                     "properties",
-                    "required",
                     "patternProperties",
+                    "required",
+                    "dependentRequired",
                     "dependentSchemas",
+                    "propertyNames",
+                    "unevaluatedProperties",
                 )
             )
+            if (
+                "additionalProperties" in current
+                and current["additionalProperties"] is not False
+            ):
+                return False
             if (explicit_object or implicit_object) and current.get(
                 "additionalProperties"
             ) is not False:
