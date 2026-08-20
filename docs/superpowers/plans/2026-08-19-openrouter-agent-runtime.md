@@ -18,7 +18,7 @@ SPDX-License-Identifier: Apache-2.0
 - Implement only Phase D from `docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md`.
 - Keep AI CEO analysis single-input and read-only. Do not create subtasks, assign Departments, fan out, fan in, coordinate Agents, or promote memory.
 - Permit only aggregate, redacted `internal` context to leave the local system. Reject unknown, `confidential`, and `restricted` classifications before provider preflight or prompt construction.
-- Keep the seven approved primary model IDs distinct and the one approved fallback fixed. Reject aliases, `openrouter/free`, unknown IDs, non-zero live pricing, or missing structured-output support.
+- Keep seven explicit Agent assignments and one approved fallback fixed. Inventory and Order temporarily share their approved primary. Reject aliases, `openrouter/free`, unknown IDs, non-zero live pricing, or missing structured-output support.
 - Keep `agentic_budget_entries` as the only budget ledger. Model-run tables reference it; they do not duplicate task, daily, or monthly budget authority.
 - Never persist or print API keys, authorization headers, prompt bodies, response bodies, provider error bodies, PII, ticket text, customer identifiers, or payment/provider evidence.
 - Every behavior change follows RED-GREEN-REFACTOR. Run the named focused test in RED before changing production code and again in GREEN after the minimal implementation.
@@ -30,7 +30,7 @@ SPDX-License-Identifier: Apache-2.0
 PRIMARY_MODELS = {
     "ai_ceo": "z-ai/glm-5.2:free",
     "catalog": "google/gemma-4-26b-a4b-it:free",
-    "inventory": "google/gemma-4-31b-it:free",
+    "inventory": "nvidia/nemotron-3-super-120b-a12b:free",
     "order": "nvidia/nemotron-3-super-120b-a12b:free",
     "finance": "openai/gpt-oss-20b:free",
     "crm": "dots-studio/dots-3-note-preview:free",
@@ -548,8 +548,8 @@ git commit -m "feat(agentic): compose model execution activity"
 
 **Step 1: Write failing static, fake-provider, and live-runner tests**
 
-The fake gate must execute all seven schemas with distinct configured primary
-models, shared fallback, non-zero fake pricing, concurrent budget contention,
+The fake gate must execute all seven schemas with explicit configured primary
+assignments, shared fallback, non-zero fake pricing, concurrent budget contention,
 idempotent restart, timeout/429/5xx/malformed-response paths, prompt injection,
 correction exhaustion, partial, escalation, and evidence leakage scans.
 
@@ -698,7 +698,7 @@ set +a
 pnpm check:openrouter-live
 ```
 
-Expected: all eight catalog entries remain present/free/structured-output
+Expected: all seven unique catalog entries remain present/free/structured-output
 capable and all seven synthetic Agent requests pass schema and Quality Gate.
 No key, prompt, response, PII, or provider payload appears in stdout or temp
 evidence.
@@ -750,7 +750,7 @@ git commit -m "docs(agentic): close openrouter runtime phase"
 
 ## Completion Checklist
 
-- [ ] Seven distinct approved primary models and one fixed free fallback are enforced.
+- [ ] Seven approved Agent assignments and one fixed free fallback are enforced.
 - [ ] Live catalog preflight fails closed before company context egress.
 - [ ] Only aggregate/redacted `internal` context can reach OpenRouter.
 - [ ] Strict common envelope and all seven payload schemas pass.
@@ -763,4 +763,3 @@ git commit -m "docs(agentic): close openrouter runtime phase"
 - [ ] Existing Temporal V1 replay histories remain unchanged and pass.
 - [ ] Production Compose, recovery, full `pnpm check`, and repository audit pass.
 - [ ] Independent review has no unresolved Critical or Important findings.
-

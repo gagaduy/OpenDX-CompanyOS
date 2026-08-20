@@ -10,5 +10,6 @@ test("live runner is credential-owned and payload-safe", () => {
   assert.match(source, /tempfile\.mkdtemp/);
   assert.match(source, /"internal"/);
   assert.match(source, /zip\(AGENTS, MODELS/);
+  assert.doesNotMatch(source, /google\/gemma-4-31b-it:free/);
   assert.doesNotMatch(source, /print\(\s*(?:api_key|response\.text|payload)/i);
 });

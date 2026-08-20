@@ -41,7 +41,7 @@ _LABEL_VALUES = {
     }),
     "agent": frozenset({"ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"}),
     "model": frozenset({
-        "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free", "google/gemma-4-31b-it:free",
+        "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free",
         "nvidia/nemotron-3-super-120b-a12b:free", "openai/gpt-oss-20b:free",
         "dots-studio/dots-3-note-preview:free", "nvidia/nemotron-nano-9b-v2:free",
         "liquid/lfm-2.5-2.6b:free",

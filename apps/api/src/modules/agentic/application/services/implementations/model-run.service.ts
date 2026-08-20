@@ -28,7 +28,6 @@ import type {
 const workerClientId = "opendx-agentic-worker";
 const schemaVersion = 1 as const;
 const reservationVersion = 1 as const;
-
 type ModelRunRepository = Pick<AgenticRepository,
   | "findTaskForAgent" | "findRevision" | "findAgentByKind" | "findModelConfiguration"
   | "findActiveRevocation" | "reserveModelRun" | "findModelRun" | "markModelRunRunning"

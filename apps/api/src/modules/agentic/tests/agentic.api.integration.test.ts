@@ -461,7 +461,7 @@ suite("Agentic PostgreSQL admin API", () => {
     const primaryModels = {
       catalog: "google/gemma-4-26b-a4b-it:free",
       order: "nvidia/nemotron-3-super-120b-a12b:free",
-      inventory: "google/gemma-4-31b-it:free",
+      inventory: "nvidia/nemotron-3-super-120b-a12b:free",
     } as const;
     await pool.query(
       `INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest)

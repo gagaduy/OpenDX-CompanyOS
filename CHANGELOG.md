@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   revision rather than a source-code model allow-list, while retaining pricing,
   budget, policy, and revocation enforcement.
 
+- Replace Inventory's repeatedly rate-limited free Gemma model with the
+  structured-output Nemotron primary already used by Order, and repair live
+  acceptance to execute exactly one request for each of the seven Agents.
+
 - Keep the context-boundary private-key detector fixture out of the tracked
   private-key audit pattern while preserving its runtime security coverage.
 
