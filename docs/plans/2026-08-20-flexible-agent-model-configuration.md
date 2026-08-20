@@ -69,12 +69,10 @@ git add services/ai-runtime scripts/dev/agentic-model-runtime-check.mjs scripts/
 git commit -m "feat(agentic): preflight configured openrouter models"
 ```
 
-### Task 3: Require approval for paid model activation
+### Task 3: Prove paid model governance
 
 **Files:**
-- Modify: `apps/api/src/modules/agentic/application/services/implementations/configuration.service.ts`
 - Modify: `apps/api/src/modules/agentic/application/services/implementations/configuration.service.test.ts`
-- Modify: `apps/api/src/modules/agentic/presentation/validators/agentic.validator.ts`
 - Modify: `docs/api/agentic.md`
 - Modify: `docs/architecture/agentic-workflow-runtime.md`
 - Modify: `CHANGELOG.md`
@@ -82,8 +80,8 @@ git commit -m "feat(agentic): preflight configured openrouter models"
 **Step 1: Write failing tests**
 
 ```ts
-it("requires a governance approval decision before activating priced models", async () => {
-  await expect(service.decide(paidRevisionDecisionWithoutApproval)).rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
+it("requires a different Governance Admin to activate priced models", async () => {
+  await expect(service.decide(paidRevisionDecision, creator)).rejects.toMatchObject({ code: "SELF_APPROVAL_FORBIDDEN" });
 });
 ```
 
@@ -93,13 +91,13 @@ Run: `pnpm --filter @opendx/api exec vitest run src/modules/agentic/application/
 
 **Step 3: Implement minimal behavior**
 
-Treat a revision as paid when either configured input/output pricing is greater than zero. Require an approved `governance_configuration` approval bound to the revision digest before activation; preserve two-person governance and immutable revision history.
+Treat a revision as paid when either configured input/output pricing is greater than zero. Preserve the existing human decision gate for every submitted revision: only a different Governance Admin can activate the exact immutable, digest-bound payload. Do not add a nested approval request that duplicates the revision decision.
 
 **Step 4: Run GREEN and commit**
 
 ```bash
 git add apps/api/src/modules/agentic docs CHANGELOG.md
-git commit -m "feat(agentic): require approval for paid model revisions"
+git commit -m "test(agentic): prove paid model governance"
 ```
 
 ### Task 4: Validate complete configuration flow

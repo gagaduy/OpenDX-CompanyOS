@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Clarify that paid model revisions use the existing immutable, two-person
+  Governance Admin activation decision instead of a duplicate nested approval.
+
 - Authorize model-run primary and fallback pairs from the active configured
   revision rather than a source-code model allow-list, while retaining pricing,
   budget, policy, and revocation enforcement.
