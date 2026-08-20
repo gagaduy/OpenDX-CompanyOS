@@ -765,6 +765,55 @@ def test_object_keywords_accept_exact_false_additional_properties(
     assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
 
 
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"minProperties": 1},
+        {"maxProperties": 2},
+        {"dependencies": {"primary": ["secondary"]}},
+    ],
+)
+def test_remaining_object_keywords_require_additional_properties_false(
+    schema: dict[str, object]
+) -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    failure = _failure(handler, request=_unsafe_request(result_schema=schema))
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"minProperties": 1, "additionalProperties": False},
+        {"maxProperties": 2, "additionalProperties": False},
+        {
+            "dependencies": {"primary": ["secondary"]},
+            "additionalProperties": False,
+        },
+    ],
+)
+def test_remaining_object_keywords_accept_exact_false_additional_properties(
+    schema: dict[str, object]
+) -> None:
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    _generate(handler, request=_unsafe_request(result_schema=schema))
+
+    assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
+
+
 def test_nested_array_object_schema_with_strict_union_is_accepted() -> None:
     schema = {
         "type": "array",

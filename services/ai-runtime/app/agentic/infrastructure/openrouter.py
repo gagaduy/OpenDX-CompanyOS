@@ -406,6 +406,9 @@ def _strict_object_schemas(value: object) -> bool:
                     "dependentSchemas",
                     "propertyNames",
                     "unevaluatedProperties",
+                    "minProperties",
+                    "maxProperties",
+                    "dependencies",
                 )
             )
             if (

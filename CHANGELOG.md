@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Complete strict OpenRouter schema preflight coverage for `minProperties`,
+  `maxProperties`, and legacy `dependencies` object constraints.
+
 - Finalize OpenRouter preflight safety by cleaning completed catalog refreshes
   after sole-waiter cancellation, consuming orphaned refresh failures, and
   requiring exact-false `additionalProperties` across all object-schema forms.
