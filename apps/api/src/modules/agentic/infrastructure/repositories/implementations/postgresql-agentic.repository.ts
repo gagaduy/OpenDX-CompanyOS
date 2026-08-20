@@ -717,7 +717,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     const stored = await this.findModelRunForUpdate(session, run.id);
     if (stored === undefined) return "stale";
     if (isTerminalModelRun(stored)) {
-      if (stored.version <= expectedVersion) return "stale";
+      if (expectedVersion !== stored.version - 1) return "conflict";
       return sameModelRunTerminal(stored, run) ? "duplicate" : "conflict";
     }
     if (stored.status !== "running" || stored.version !== expectedVersion) return "stale";

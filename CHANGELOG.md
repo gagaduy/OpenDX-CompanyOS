@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Reject stale and out-of-order terminal model-run replays unless they carry
+  the exact optimistic version immediately preceding the stored terminal row.
+
 - Protect model-run transitions and terminal replays by locking and comparing
   complete immutable request and execution identity before persistence.
 

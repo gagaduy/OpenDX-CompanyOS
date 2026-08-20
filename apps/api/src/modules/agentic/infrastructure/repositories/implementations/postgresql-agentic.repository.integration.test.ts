@@ -137,6 +137,23 @@ suite("PostgresqlAgenticRepository", () => {
     },
   );
 
+  it.each([
+    ["older", 1],
+    ["terminal", 3],
+    ["future", 4],
+  ] as const)("conflicts %s terminal replay version %i", async (_case, expectedVersion) => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const running = runningModelRun(reserved);
+    const completed = completedModelRun(running);
+    await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+    await transactions.run((session) => repository.settleModelRunTerminal(session, completed, 2));
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(
+      session, completed, expectedVersion,
+    ))).resolves.toBe("conflict");
+  });
+
   it("converges model run reservation, optimistic lifecycle, and append evidence", async () => {
     const { taskId, revisionId } = await createReadyTask(pool);
     const run = modelRun(taskId, revisionId);
