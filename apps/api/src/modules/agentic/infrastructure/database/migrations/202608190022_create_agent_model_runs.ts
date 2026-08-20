@@ -80,14 +80,16 @@ export function up(pgm: MigrationBuilder): void {
           AND started_at IS NULL AND completed_at IS NULL AND input_tokens IS NULL
           AND output_tokens IS NULL AND settled_cost_micros IS NULL AND latency_ms IS NULL
           AND status_code IS NULL AND error_code IS NULL AND output_digest IS NULL
-          AND provider_request_id_digest IS NULL)
+          AND provider_request_id_digest IS NULL AND cardinality(quality_reason_codes)=0
+          AND cardinality(provenance_ids)=0)
         OR
         (status='running' AND returned_model IS NOT NULL AND fallback_position IS NOT NULL
           AND started_at IS NOT NULL AND completed_at IS NULL AND input_tokens IS NULL
           AND output_tokens IS NULL AND settled_cost_micros IS NULL AND latency_ms IS NULL
           AND status_code IS NULL AND error_code IS NULL AND output_digest IS NULL
           AND provider_request_id_digest IS NULL AND started_at>=created_at
-          AND updated_at>=started_at)
+          AND updated_at>=started_at AND cardinality(quality_reason_codes)=0
+          AND cardinality(provenance_ids)=0)
         OR
         (status IN ('completed','failed','partial','escalated')
           AND returned_model IS NOT NULL AND fallback_position IS NOT NULL

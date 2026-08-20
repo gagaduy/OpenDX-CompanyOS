@@ -65,6 +65,17 @@ suite("PostgresqlAgenticRepository", () => {
       });
   });
 
+  it.each([
+    ["quality reasons", { qualityReasonCodes: ["MODEL_RESULT_ACCEPTED"] }],
+    ["provenance", { provenanceIds: ["evidence-1"] }],
+  ])("rejects reserved model runs carrying %s", async (_case, evidence) => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...modelRun(taskId, revisionId),
+      ...evidence,
+    }))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+  });
+
   it("converges model run reservation, optimistic lifecycle, and append evidence", async () => {
     const { taskId, revisionId } = await createReadyTask(pool);
     const run = modelRun(taskId, revisionId);

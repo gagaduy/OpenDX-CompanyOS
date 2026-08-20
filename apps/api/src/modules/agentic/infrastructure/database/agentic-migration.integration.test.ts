@@ -97,6 +97,19 @@ suite("Agent governance migration", () => {
        (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
         idempotency_key,requested_model,policy_version,configuration_version,
         result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status,
+        quality_reason_codes,provenance_ids)
+       VALUES(gen_random_uuid(),$1,'catalog',$2,1,1,'run:catalog:reserved-evidence',
+        'google/gemma-4-26b-a4b-it:free',1,1,1,$3,0,0,0,'reserved',
+        ARRAY['MODEL_RESULT_ACCEPTED'],ARRAY['evidence-1'])`,
+      [taskId, revisionId, "c".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
+
+    await expect(pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
         output_cost_micros_per_million,max_reserved_cost_micros,status)
        VALUES(gen_random_uuid(),$1,'catalog',$2,1,0,'run:catalog:0','different-model',
         1,1,1,$3,0,0,0,'reserved')`,
@@ -106,6 +119,12 @@ suite("Agent governance migration", () => {
       "UPDATE agentic_model_runs SET status='completed',completed_at=now() WHERE id=$1",
       [runId],
     )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
+       fallback_position=0,started_at=now(),quality_reason_codes=ARRAY['MODEL_RESULT_ACCEPTED'],
+       provenance_ids=ARRAY['evidence-1'],version=2,updated_at=now() WHERE id=$1`,
+      [runId],
+    )).rejects.toMatchObject({ code: "23514" });
 
     await pool.query(
       `INSERT INTO agentic_budget_entries

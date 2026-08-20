@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Align persisted reserved and running model-run states with domain evidence
+  rules, rejecting premature quality and provenance metadata.
+
 - Validate exact model-run lifecycle state fields and Quality Gate evidence
   outcome literals at the Agentic domain boundary.
 

@@ -42,6 +42,7 @@ import type {
   WorkflowRun,
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
+import { validateModelRun } from "../../../domain/services/model-run-rules";
 
 type Row = Record<string, unknown>;
 
@@ -641,6 +642,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     session: DatabaseSession,
     run: ModelRun,
   ): Promise<ModelRunReservationResult> {
+    validateModelRun(run);
     const inserted = await session.query(
       `INSERT INTO agentic_model_runs
        (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
