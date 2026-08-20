@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Verify complete terminal model-run replays against immutable run identity,
+  Quality Gate evidence, provenance, usage, cost, and settlement idempotency,
+  and fail closed with a bounded service error when denial audit persistence is
+  unavailable.
+
 - Preserve bounded model-run denial evidence in a separate post-rollback
   transaction and accept exact or equivalent concurrent terminal replays
   without duplicating budget, Quality Gate, audit, or provenance writes.

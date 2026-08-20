@@ -248,6 +248,7 @@ suite("Agentic PostgreSQL admin API", () => {
     const revisionId = randomUUID();
     const taskId = randomUUID();
     const provenanceId = randomUUID();
+    const alternateProvenanceId = randomUUID();
     const primaryModel = "google/gemma-4-26b-a4b-it:free";
     const fallbackModel = "liquid/lfm-2.5-2.6b:free";
     await pool.query(
@@ -303,6 +304,12 @@ suite("Agentic PostgreSQL admin API", () => {
        VALUES($1,$2,'tool_result','catalog.health',$3,'internal','agent-catalog')`,
       [provenanceId, taskId, "2".repeat(64)],
     );
+    await pool.query(
+      `INSERT INTO agentic_provenance_records
+       (id,task_id,source_type,source_id,source_digest,classification,recorded_by)
+       VALUES($1,$2,'tool_result','catalog.risk',$3,'internal','agent-catalog')`,
+      [alternateProvenanceId, taskId, "3".repeat(64)],
+    );
 
     const reserveBody = {
       taskId,
@@ -356,6 +363,34 @@ suite("Agentic PostgreSQL admin API", () => {
     const conflict = await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
       .set(worker).send({ ...completeBody, evidenceDigest: "e".repeat(64) }).expect(409);
     expect(JSON.stringify(conflict.body)).not.toContain("sensitive prompt body");
+
+    const conflictingReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({
+        ...reserveBody,
+        generationRound: 1,
+        idempotencyKey: "catalog-round-1",
+        inputDigest: "e".repeat(64),
+      }).expect(200);
+    const conflictingRunId = conflictingReserve.body.data.runId as string;
+    await request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/start`)
+      .set(worker).send(startBody).expect(200);
+    const roundOneCompletion = {
+      ...completeBody,
+      idempotencyKey: "catalog-round-1-terminal",
+    };
+    const changedEvidenceCompletion = {
+      ...roundOneCompletion,
+      evidenceDigest: "f".repeat(64),
+      qualityReasonCodes: ["ARITHMETIC_MISMATCH"],
+      provenanceIds: [alternateProvenanceId],
+    };
+    const conflictingCompletions = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/complete`)
+        .set(worker).send(roundOneCompletion),
+      request(app).post(`/v1/internal/agentic/model-runs/${conflictingRunId}/complete`)
+        .set(worker).send(changedEvidenceCompletion),
+    ]);
+    expect(conflictingCompletions.map(({ status }) => status).sort()).toEqual([200, 409]);
 
     expect((await pool.query(
       `SELECT status,settled_cost_micros::text,version FROM agentic_model_runs WHERE id=$1`,
@@ -497,5 +532,36 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(durableText).not.toContain("sensitive denied prompt");
     expect(durableText).not.toContain("Bearer worker-token");
     expect(durableText).not.toContain(primaryModels.catalog);
+
+    await pool.query(`
+      CREATE FUNCTION agentic_test_reject_denial_audit() RETURNS trigger LANGUAGE plpgsql AS $f$
+      BEGIN
+        IF NEW.action='model_run.reserve.denied' THEN
+          RAISE EXCEPTION 'audit database secret marker';
+        END IF;
+        RETURN NEW;
+      END; $f$;
+      CREATE TRIGGER agentic_test_reject_denial_audit
+        BEFORE INSERT ON agentic_audit_events FOR EACH ROW
+        EXECUTE FUNCTION agentic_test_reject_denial_audit();
+    `);
+    try {
+      const unavailable = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+        .set(worker).send(reserve("order", "denied-audit-unavailable")).expect(503);
+      expect(unavailable.body).toMatchObject({
+        errorCode: "AUDIT_UNAVAILABLE",
+        message: "Audit evidence is unavailable",
+      });
+      expect(JSON.stringify(unavailable.body)).not.toContain("audit database secret marker");
+      expect((await pool.query("SELECT count(*)::text AS count FROM agentic_model_runs")).rows[0]?.count)
+        .toBe("0");
+      expect((await pool.query("SELECT count(*)::text AS count FROM agentic_budget_entries")).rows[0]?.count)
+        .toBe("0");
+    } finally {
+      await pool.query(`
+        DROP TRIGGER IF EXISTS agentic_test_reject_denial_audit ON agentic_audit_events;
+        DROP FUNCTION IF EXISTS agentic_test_reject_denial_audit();
+      `);
+    }
   });
 });

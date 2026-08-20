@@ -131,6 +131,11 @@ describe("Agentic route authorization", () => {
     });
     const invalid = await request(app).get("/APPROVAL_BINDING_INVALID").expect(422);
     expect(invalid.body.errorCode).toBe("APPROVAL_BINDING_INVALID");
+    const auditUnavailable = await request(app).get("/AUDIT_UNAVAILABLE").expect(503);
+    expect(auditUnavailable.body).toMatchObject({
+      errorCode: "AUDIT_UNAVAILABLE",
+      message: "Safe workflow error",
+    });
   });
 
   it("keeps static action segments distinct from resource ids", async () => {

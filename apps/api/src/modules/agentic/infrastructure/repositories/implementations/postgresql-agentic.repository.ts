@@ -798,6 +798,30 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       : { id: String(row.id), costMicros: safeInteger(row.cost_micros) };
   }
 
+  async findModelRunBudgetSettlementByIdempotencyKey(
+    session: DatabaseSession,
+    idempotencyKey: string,
+  ): Promise<{
+    readonly reservationId: string;
+    readonly modelRunId?: string;
+    readonly costMicros: number;
+  } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT reservation_id,model_run_id,cost_micros::text
+       FROM agentic_budget_entries
+       WHERE idempotency_key=$1 AND entry_type='settlement'`,
+      [idempotencyKey],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          reservationId: String(row.reservation_id),
+          ...(row.model_run_id === null ? {} : { modelRunId: String(row.model_run_id) }),
+          costMicros: safeInteger(row.cost_micros),
+        };
+  }
+
   private async findModelRunByIdempotencyKey(
     session: DatabaseSession,
     idempotencyKey: string,

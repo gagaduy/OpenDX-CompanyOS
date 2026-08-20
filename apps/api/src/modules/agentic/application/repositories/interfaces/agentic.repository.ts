@@ -254,6 +254,12 @@ export interface ModelRunBudgetReservationRecord {
   readonly costMicros: number;
 }
 
+export interface ModelRunBudgetSettlementRecord {
+  readonly reservationId: string;
+  readonly modelRunId?: string;
+  readonly costMicros: number;
+}
+
 export interface WorkflowRunCreateResult {
   readonly status: "created" | "duplicate";
   readonly run: WorkflowRun;
@@ -312,6 +318,7 @@ export interface AgenticRepository {
   appendModelQualityEvidence(session: DatabaseSession, evidence: ModelQualityEvidence): Promise<ModelQualityEvidenceAppendResult>;
   findModelQualityEvidenceByIdempotencyKey(session: DatabaseSession, idempotencyKey: string): Promise<ModelQualityEvidence | undefined>;
   findModelRunBudgetReservation(session: DatabaseSession, modelRunId: string): Promise<ModelRunBudgetReservationRecord | undefined>;
+  findModelRunBudgetSettlementByIdempotencyKey(session: DatabaseSession, idempotencyKey: string): Promise<ModelRunBudgetSettlementRecord | undefined>;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
   countToolInvocations(
     session: DatabaseSession,

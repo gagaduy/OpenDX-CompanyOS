@@ -18,6 +18,7 @@ const evidenceDigest = "b".repeat(64);
 const providerDigest = "c".repeat(64);
 const outputDigest = "d".repeat(64);
 const provenanceId = "11111111-1111-4111-8111-111111111111";
+const alternateProvenanceId = "12121212-1212-4212-8212-121212121212";
 const principal = {
   subject: "service-account-opendx-agentic-worker",
   clientId: "opendx-agentic-worker",
@@ -128,11 +129,14 @@ describe("ModelRunServiceImpl", () => {
     expect(auditText).not.toContain(fallbackModel);
   });
 
-  it("preserves the original safe error when denial audit persistence fails", async () => {
+  it("fails closed with a safe signal when denial audit persistence fails", async () => {
     const harness = createHarness({ policyEffect: "DENY", auditFailure: true });
 
     await expect(harness.service.reserve(reserveCommand, principal))
-      .rejects.toMatchObject({ code: "MODEL_POLICY_DENIED" });
+      .rejects.toMatchObject({
+        code: "AUDIT_UNAVAILABLE",
+        message: "Audit evidence is unavailable",
+      });
     expect(harness.transactionRuns()).toBe(2);
   });
 
@@ -286,30 +290,68 @@ describe("ModelRunServiceImpl", () => {
   });
 
   it("returns exact terminal replay and rejects payload conflicts", async () => {
-    await expect(createHarness({ runState: "completed", evidenceExists: true }).service.complete(
+    await expect(createHarness({
+      runState: "completed", evidenceExists: true, settlementExists: true,
+    }).service.complete(
       terminalCommand(), principal,
     )).resolves.toMatchObject({ status: "completed", version: 3 });
-    await expect(createHarness({ runState: "completed", evidenceExists: true }).service.complete(
+    await expect(createHarness({
+      runState: "completed", evidenceExists: true, settlementExists: true,
+    }).service.complete(
       { ...terminalCommand(), evidenceDigest: "e".repeat(64) }, principal,
     )).rejects.toMatchObject({ code: "MODEL_RUN_CONFLICT" });
   });
 
   it("accepts repository duplicate and equivalent concurrent terminal replay", async () => {
-    const duplicate = createHarness({ runState: "running", terminalResult: "duplicate" });
+    const duplicate = createHarness({
+      runState: "running", terminalResult: "duplicate", concurrentReplay: true,
+      evidenceExists: true, settlementExists: true,
+    });
     await expect(duplicate.service.complete(terminalCommand(), principal))
       .resolves.toMatchObject({ status: "completed", settledCostMicros: 2, version: 3 });
     expect(duplicate.repository.settleBudget).not.toHaveBeenCalled();
     expect(duplicate.repository.appendModelQualityEvidence).not.toHaveBeenCalled();
+    expect(duplicate.repository.findModelRunBudgetSettlementByIdempotencyKey).toHaveBeenCalledWith(
+      session, "catalog-round-0-terminal:budget",
+    );
 
     const concurrent = createHarness({
       runState: "running",
       terminalResult: "conflict",
       concurrentReplay: true,
       evidenceExists: true,
+      settlementExists: true,
     });
     await expect(concurrent.service.complete(terminalCommand(), principal))
       .resolves.toMatchObject({ status: "completed", settledCostMicros: 2, version: 3 });
     expect(concurrent.repository.settleBudget).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["evidence digest", { evidenceDigest: "e".repeat(64) }],
+    ["quality reasons", { qualityReasonCodes: ["ARITHMETIC_MISMATCH"] }],
+    ["provenance", { provenanceIds: [alternateProvenanceId] }],
+    ["terminal idempotency", { idempotencyKey: "catalog-round-0-other-terminal" }],
+  ] as const)("rejects repository duplicate with changed %s", async (_label, change) => {
+    const harness = createHarness({
+      runState: "running", terminalResult: "duplicate", concurrentReplay: true,
+      evidenceExists: true, settlementExists: true,
+    });
+
+    await expect(harness.service.complete({ ...terminalCommand(), ...change }, principal))
+      .rejects.toMatchObject({ code: "MODEL_RUN_CONFLICT" });
+    expect(harness.repository.settleBudget).not.toHaveBeenCalled();
+  });
+
+  it("rejects equivalent terminal payload when persisted immutable run identity differs", async () => {
+    const harness = createHarness({
+      runState: "running", terminalResult: "duplicate", concurrentReplay: true,
+      concurrentTaskId: "23232323-2323-4232-8232-232323232323",
+      evidenceExists: true, settlementExists: true,
+    });
+
+    await expect(harness.service.complete(terminalCommand(), principal))
+      .rejects.toMatchObject({ code: "MODEL_RUN_CONFLICT" });
   });
 });
 
@@ -367,6 +409,8 @@ function createHarness(options: {
   readonly evidenceExists?: boolean;
   readonly concurrentReplay?: boolean;
   readonly auditFailure?: boolean;
+  readonly settlementExists?: boolean;
+  readonly concurrentTaskId?: string;
 } = {}) {
   let transactionCount = 0;
   const countedTransactions: TransactionRunner = {
@@ -422,6 +466,9 @@ function createHarness(options: {
     version: 3,
     completedAt: now,
   };
+  const concurrentStoredRun = options.concurrentTaskId === undefined
+    ? completedRun
+    : { ...completedRun, taskId: options.concurrentTaskId };
   const currentRun = options.runState === "running"
     ? runningRun
     : options.runState === "completed"
@@ -464,15 +511,28 @@ function createHarness(options: {
     })),
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved"),
     findModelRun: options.concurrentReplay
-      ? vi.fn().mockResolvedValueOnce(currentRun).mockResolvedValue(completedRun)
+      ? vi.fn().mockResolvedValueOnce(currentRun).mockResolvedValue(concurrentStoredRun)
       : vi.fn(async () => currentRun),
     markModelRunRunning: vi.fn(async () => options.updateAccepted ?? true),
     settleModelRunTerminal: vi.fn(async () => options.terminalResult ?? "updated"),
     findModelRunBudgetReservation: vi.fn(async () => ({ id: "55555555-5555-4555-8555-555555555555", costMicros: maxReservedCost })),
     settleBudget: vi.fn(async () => "settled" as const),
     appendModelQualityEvidence: vi.fn(async () => "created" as const),
-    findModelQualityEvidenceByIdempotencyKey: vi.fn(async () => options.evidenceExists ? qualityEvidence : undefined),
-    listProvenance: vi.fn(async () => options.provenanceExists === false ? [] : [{ id: provenanceId }]),
+    findModelQualityEvidenceByIdempotencyKey: vi.fn(async (_session: unknown, idempotencyKey: string) =>
+      options.evidenceExists && idempotencyKey === qualityEvidence.idempotencyKey
+        ? qualityEvidence
+        : undefined),
+    findModelRunBudgetSettlementByIdempotencyKey: vi.fn(async (_session: unknown, idempotencyKey: string) =>
+      options.settlementExists && idempotencyKey === "catalog-round-0-terminal:budget"
+        ? {
+            reservationId: "55555555-5555-4555-8555-555555555555",
+            modelRunId: baseRun.id,
+            costMicros: 2,
+          }
+        : undefined),
+    listProvenance: vi.fn(async () => options.provenanceExists === false
+      ? []
+      : [{ id: provenanceId }, { id: alternateProvenanceId }]),
     appendAudit: vi.fn(async () => {
       if (options.auditFailure === true) throw new Error("audit unavailable");
     }),

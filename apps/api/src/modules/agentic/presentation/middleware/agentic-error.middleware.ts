@@ -12,7 +12,7 @@ export const agenticErrorMiddleware: ErrorRequestHandler = (error, _request, _re
       : forbiddenCodes.has(error.code) ? 403
         : conflictCodes.has(error.code) || error.code.includes("STATE") || error.code.includes("ALREADY") ? 409
           : unprocessableCodes.has(error.code) ? 422
-            : error.code === "TOOL_UNAVAILABLE" ? 503 : 400;
+            : unavailableCodes.has(error.code) ? 503 : 400;
     next(new ApplicationError(status, error.code, error.message));
     return;
   }
@@ -51,4 +51,9 @@ const unprocessableCodes = new Set([
   "ACTIVITY_INPUT_INVALID",
   "ACTIVITY_OUTCOME_INVALID",
   "WORKFLOW_VERSION_UNSUPPORTED",
+]);
+
+const unavailableCodes = new Set([
+  "TOOL_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
 ]);

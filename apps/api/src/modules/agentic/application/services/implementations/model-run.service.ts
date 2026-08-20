@@ -43,7 +43,8 @@ type ModelRunRepository = Pick<AgenticRepository,
   | "findTaskForAgent" | "findRevision" | "findAgentByKind" | "findModelConfiguration"
   | "findActiveRevocation" | "reserveModelRun" | "findModelRun" | "markModelRunRunning"
   | "settleModelRunTerminal" | "reserveBudget" | "settleBudget"
-  | "findModelRunBudgetReservation" | "appendModelQualityEvidence"
+  | "findModelRunBudgetReservation" | "findModelRunBudgetSettlementByIdempotencyKey"
+  | "appendModelQualityEvidence"
   | "findModelQualityEvidenceByIdempotencyKey" | "listProvenance" | "appendProvenance"
   | "appendAudit">;
 
@@ -274,7 +275,7 @@ export class ModelRunServiceImpl implements ModelRunService {
       }
       await this.requireProvenance(session, current.taskId, input.provenanceIds);
       if (isTerminal(current)) {
-        await this.requireExactReplay(session, current, input, status, actualCost);
+        await this.requireExactReplay(session, current, current, input, status, actualCost);
         return stateReceipt(current);
       }
       if (current.status !== "running" || current.version !== input.expectedVersion) {
@@ -305,11 +306,10 @@ export class ModelRunServiceImpl implements ModelRunService {
         session, next, input.expectedVersion,
       );
       if (terminalResult === "stale") fail("STALE_VERSION", "Model run version is stale");
-      if (terminalResult === "duplicate") return stateReceipt(next);
-      if (terminalResult === "conflict") {
+      if (terminalResult === "duplicate" || terminalResult === "conflict") {
         const stored = await this.requireRun(session, current.id);
         if (isTerminal(stored)) {
-          await this.requireExactReplay(session, stored, input, status, actualCost);
+          await this.requireExactReplay(session, stored, next, input, status, actualCost);
           return stateReceipt(stored);
         }
         fail("MODEL_RUN_CONFLICT", "Model run terminal payload conflicts with stored evidence");
@@ -397,7 +397,13 @@ export class ModelRunServiceImpl implements ModelRunService {
             errorCode: error.code,
             occurredAt: this.now(),
           }));
-        } catch {}
+        } catch {
+          throw new AgenticApplicationError(
+            "AUDIT_UNAVAILABLE",
+            "Audit evidence is unavailable",
+            true,
+          );
+        }
       }
       throw error;
     }
@@ -510,11 +516,13 @@ export class ModelRunServiceImpl implements ModelRunService {
   private async requireExactReplay(
     session: DatabaseSession,
     run: ModelRun,
+    expectedRun: ModelRun,
     input: TerminalCommand,
     status: ModelRun["status"],
     actualCost: number,
   ): Promise<void> {
-    const same = run.version === input.expectedVersion + 1
+    const same = sameReplayRun(run, expectedRun)
+      && run.version === input.expectedVersion + 1
       && run.status === status
       && run.outputDigest === input.outputDigest
       && run.inputTokens === input.inputTokens
@@ -529,6 +537,10 @@ export class ModelRunServiceImpl implements ModelRunService {
     const evidence = await this.repository.findModelQualityEvidenceByIdempotencyKey(
       session, `${input.idempotencyKey}:quality`,
     );
+    const reservation = await this.repository.findModelRunBudgetReservation(session, run.id);
+    const settlement = await this.repository.findModelRunBudgetSettlementByIdempotencyKey(
+      session, `${input.idempotencyKey}:budget`,
+    );
     if (
       !same
       || evidence === undefined
@@ -538,6 +550,12 @@ export class ModelRunServiceImpl implements ModelRunService {
       || evidence.evidenceDigest !== input.evidenceDigest
       || !sameStrings(evidence.reasonCodes, input.qualityReasonCodes)
       || !sameStrings(evidence.provenanceIds, input.provenanceIds)
+      || reservation === undefined
+      || reservation.costMicros !== run.maxReservedCostMicros
+      || settlement === undefined
+      || settlement.reservationId !== reservation.id
+      || settlement.modelRunId !== run.id
+      || settlement.costMicros !== actualCost
     ) fail("MODEL_RUN_CONFLICT", "Model run terminal replay conflicts with stored evidence");
   }
 }
@@ -592,6 +610,33 @@ function isTerminal(run: ModelRun): boolean {
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameReplayRun(stored: ModelRun, expected: ModelRun): boolean {
+  return stored.id === expected.id
+    && stored.taskId === expected.taskId
+    && stored.agentKind === expected.agentKind
+    && stored.configurationRevisionId === expected.configurationRevisionId
+    && stored.schemaVersion === expected.schemaVersion
+    && stored.generationRound === expected.generationRound
+    && stored.idempotencyKey === expected.idempotencyKey
+    && stored.requestedModel === expected.requestedModel
+    && stored.returnedModel === expected.returnedModel
+    && stored.fallbackPosition === expected.fallbackPosition
+    && stored.policyVersion === expected.policyVersion
+    && stored.configurationVersion === expected.configurationVersion
+    && stored.resultSchemaVersion === expected.resultSchemaVersion
+    && stored.inputDigest === expected.inputDigest
+    && stored.inputCostMicrosPerMillion === expected.inputCostMicrosPerMillion
+    && stored.outputCostMicrosPerMillion === expected.outputCostMicrosPerMillion
+    && stored.maxReservedCostMicros === expected.maxReservedCostMicros
+    && stored.version === expected.version
+    && sameInstant(stored.createdAt, expected.createdAt)
+    && sameInstant(stored.startedAt, expected.startedAt);
+}
+
+function sameInstant(left: string | undefined, right: string | undefined): boolean {
+  return left !== undefined && right !== undefined && Date.parse(left) === Date.parse(right);
 }
 
 function fail(code: string, message: string): never {
