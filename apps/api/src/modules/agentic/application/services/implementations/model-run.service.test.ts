@@ -70,6 +70,24 @@ describe("ModelRunServiceImpl", () => {
     expect(harness.transactionRuns()).toBe(1);
   });
 
+  it("accepts a distinct configured paid and free model pair without a source-code allow-list", async () => {
+    const configuredPrimary = "provider/paid-model";
+    const configuredFallback = "provider/free-model";
+    const harness = createHarness({
+      primaryModel: configuredPrimary,
+      fallbackModel: configuredFallback,
+    });
+
+    await expect(harness.service.reserve({
+      ...reserveCommand,
+      primaryModel: configuredPrimary,
+      fallbackModel: configuredFallback,
+    }, principal)).resolves.toMatchObject({
+      primaryModel: configuredPrimary,
+      fallbackModel: configuredFallback,
+    });
+  });
+
   it("fails closed before budget for assignment, configuration, model, revocation, and policy errors", async () => {
     const cases = [
       [{ taskAssigned: false }, "TASK_AGENT_MISMATCH"],
@@ -467,6 +485,8 @@ function createHarness(options: {
   readonly terminalResult?: "updated" | "duplicate" | "stale" | "conflict";
   readonly inputPrice?: number;
   readonly outputPrice?: number;
+  readonly primaryModel?: string;
+  readonly fallbackModel?: string;
   readonly maxReservedCost?: number;
   readonly provenanceExists?: boolean;
   readonly evidenceExists?: boolean;
@@ -484,6 +504,8 @@ function createHarness(options: {
   };
   const inputPrice = options.inputPrice ?? 2_000;
   const outputPrice = options.outputPrice ?? 4_000;
+  const configuredPrimaryModel = options.primaryModel ?? primaryModel;
+  const configuredFallbackModel = options.fallbackModel ?? fallbackModel;
   const maxReservedCost = options.maxReservedCost ?? 4;
   const baseRun = {
     id: "00000000-0000-4000-8000-000000000001",
@@ -493,7 +515,7 @@ function createHarness(options: {
     schemaVersion: 1,
     generationRound: 0 as const,
     idempotencyKey: reserveCommand.idempotencyKey,
-    requestedModel: primaryModel,
+    requestedModel: configuredPrimaryModel,
     policyVersion: 4,
     configurationVersion: 4,
     resultSchemaVersion: 1,
@@ -511,7 +533,7 @@ function createHarness(options: {
   const runningRun = {
     ...baseRun,
     status: "running" as const,
-    returnedModel: primaryModel,
+    returnedModel: configuredPrimaryModel,
     fallbackPosition: 0 as const,
     version: 2,
     startedAt: now,
@@ -564,8 +586,8 @@ function createHarness(options: {
       version: 1, createdAt: now, updatedAt: now,
     })),
     findModelConfiguration: vi.fn(async () => ({
-      revisionId: baseRun.configurationRevisionId, agentKind: "catalog", primaryModel,
-      fallbackModels: [fallbackModel], maxInputTokens: 1_000, maxOutputTokens: 500,
+      revisionId: baseRun.configurationRevisionId, agentKind: "catalog", primaryModel: configuredPrimaryModel,
+      fallbackModels: [configuredFallbackModel], maxInputTokens: 1_000, maxOutputTokens: 500,
       timeoutMs: 5_000, maxRetries: 1, inputCostMicrosPerMillion: inputPrice,
       outputCostMicrosPerMillion: outputPrice,
     })),

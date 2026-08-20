@@ -58,6 +58,8 @@ class ModelRequest:
     untrusted_context: Mapping[str, object]
     max_output_tokens: int
     idempotency_key: str
+    input_cost_micros_per_million: int
+    output_cost_micros_per_million: int
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "result_schema", FrozenJsonMapping(self.result_schema))

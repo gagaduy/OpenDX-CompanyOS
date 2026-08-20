@@ -265,6 +265,8 @@ def test_model_runtime_contracts_defensively_deep_freeze_json_data() -> None:
         untrusted_context=untrusted_context,
         max_output_tokens=1_000,
         idempotency_key="model-run-1",
+        input_cost_micros_per_million=0,
+        output_cost_micros_per_million=0,
     )
     result = ModelResult(
         provider_request_id="provider-request-1",

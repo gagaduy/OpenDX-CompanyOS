@@ -103,9 +103,41 @@ pnpm check:agentic-phase-d-exit
 ```
 
 For mandatory external acceptance, set `OPENROUTER_API_KEY=<operator-owned-key>`
-only in ignored root `.env`, export it with `set -a; . ./.env; set +a`, then run
-`pnpm check:openrouter-live`. The runner sends synthetic `internal` context and
-writes aggregate temporary evidence only; it never prints the key, prompt, or
+only in ignored root `.env`, export it with `set -a; . ./.env; set +a`, and set
+`OPENROUTER_CONFIGURATION_EXPORT` to the absolute path of a JSON export from
+the active, Governance-approved configuration revision. Model IDs must come
+from that API/database export, never from environment variables. The accepted
+shape is the revision response envelope, its `data`, or its `children`, with
+all seven records under `modelConfigurations`:
+
+```json
+{
+  "data": {
+    "children": {
+      "modelConfigurations": [
+        {
+          "agentKind": "catalog",
+          "primaryModel": "provider/configured-primary",
+          "fallbackModels": ["provider/configured-fallback"]
+        }
+      ]
+    }
+  }
+}
+```
+
+The real export must contain exactly one record for each of `ai_ceo`,
+`catalog`, `inventory`, `order`, `finance`, `crm`, and `support`, and every
+record must contain exactly one fallback model. Run either:
+
+```bash
+export OPENROUTER_CONFIGURATION_EXPORT=/absolute/path/configuration-revision.json
+pnpm check:openrouter-live
+make check-openrouter-live OPENROUTER_CONFIGURATION_EXPORT=/absolute/path/configuration-revision.json
+```
+
+The runner sends synthetic `internal` context and writes aggregate temporary
+evidence only; it never prints the key, prompt, configuration contents, or
 provider response. Phase D remains in progress until this passes.
 
 The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a

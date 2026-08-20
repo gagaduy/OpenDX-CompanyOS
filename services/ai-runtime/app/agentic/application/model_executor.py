@@ -226,6 +226,8 @@ class ModelExecutor:
             result_schema=command.result_schema, trusted_instructions=trusted,
             untrusted_context=context, max_output_tokens=reservation.max_output_tokens,
             idempotency_key=f"{command.idempotency_key}:round:{correction_round}:model:{fallback_position}",
+            input_cost_micros_per_million=reservation.input_cost_micros_per_million,
+            output_cost_micros_per_million=reservation.output_cost_micros_per_million,
         )
 
     async def _fail_gateway(

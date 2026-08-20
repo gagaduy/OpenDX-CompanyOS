@@ -7,7 +7,6 @@ import type {
   AgenticRepository,
   ModelConfigurationRecord,
 } from "../../repositories/interfaces/agentic.repository";
-import type { AgentKind } from "../../../domain/entities/agent-profile";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import { AgenticDomainError } from "../../../domain/exceptions/agentic-domain.error";
 import {
@@ -29,17 +28,6 @@ import type {
 const workerClientId = "opendx-agentic-worker";
 const schemaVersion = 1 as const;
 const reservationVersion = 1 as const;
-const approvedFallbackModel = "liquid/lfm-2.5-2.6b:free";
-const approvedPrimaryModels: Readonly<Record<AgentKind, string>> = {
-  ai_ceo: "z-ai/glm-5.2:free",
-  catalog: "google/gemma-4-26b-a4b-it:free",
-  inventory: "nvidia/nemotron-3-super-120b-a12b:free",
-  order: "nvidia/nemotron-3-super-120b-a12b:free",
-  finance: "openai/gpt-oss-20b:free",
-  crm: "dots-studio/dots-3-note-preview:free",
-  support: "nvidia/nemotron-nano-9b-v2:free",
-};
-
 type ModelRunRepository = Pick<AgenticRepository,
   | "findTaskForAgent" | "findRevision" | "findAgentByKind" | "findModelConfiguration"
   | "findActiveRevocation" | "reserveModelRun" | "findModelRun" | "markModelRunRunning"
@@ -442,14 +430,11 @@ export class ModelRunServiceImpl implements ModelRunService {
     const configuration = await this.repository.findModelConfiguration(
       session, revision.id, input.agentKind,
     );
-    const approvedPrimary = approvedPrimaryModels[input.agentKind];
     if (
       configuration === undefined
-      || configuration.primaryModel !== approvedPrimary
       || configuration.fallbackModels.length !== 1
-      || configuration.fallbackModels[0] !== approvedFallbackModel
-      || input.primaryModel !== approvedPrimary
-      || input.fallbackModel !== approvedFallbackModel
+      || input.primaryModel !== configuration.primaryModel
+      || input.fallbackModel !== configuration.fallbackModels[0]
     ) fail("MODEL_CONFIGURATION_MISMATCH", "Model pair does not match the approved configuration");
     const revokedAgent = await this.repository.findActiveRevocation(session, "agent", input.agentKind);
     const revokedPrimary = await this.repository.findActiveRevocation(session, "model", input.primaryModel);
@@ -485,9 +470,7 @@ export class ModelRunServiceImpl implements ModelRunService {
     );
     if (
       configuration === undefined
-      || configuration.primaryModel !== approvedPrimaryModels[run.agentKind]
       || configuration.fallbackModels.length !== 1
-      || configuration.fallbackModels[0] !== approvedFallbackModel
       || run.requestedModel !== configuration.primaryModel
       || run.inputCostMicrosPerMillion !== configuration.inputCostMicrosPerMillion
       || run.outputCostMicrosPerMillion !== configuration.outputCostMicrosPerMillion

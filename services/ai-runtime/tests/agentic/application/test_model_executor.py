@@ -31,8 +31,8 @@ class Receipt:
     max_output_tokens: int = 500
     timeout_ms: int = 1_000
     schema_version: int = 1
-    input_cost_micros_per_million: int = 0
-    output_cost_micros_per_million: int = 0
+    input_cost_micros_per_million: int = 123
+    output_cost_micros_per_million: int = 456
     max_reserved_cost_micros: int = 0
     version: int = 1
 
@@ -141,6 +141,11 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     assert completed.evidence_digest != result().content
     assert "content" not in vars(completed)
     assert controls.reservations[0].input_digest != "a" * 64
+    generated_request = next(
+        request for event, request in gateway.requests if event == "generate"
+    )
+    assert generated_request.input_cost_micros_per_million == 123
+    assert generated_request.output_cost_micros_per_million == 456
 
 
 def test_uses_shared_fallback_once_only_for_retryable_gateway_failure() -> None:
