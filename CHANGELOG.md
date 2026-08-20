@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Compose the governed model executor as an opt-in Temporal activity that
+  returns digest-only analysis outcomes and records bounded execution metrics
+  and structured event fields without changing the existing workflow graph.
+
 - Execute governed model analysis through API-owned model-run authority with
   bounded primary/fallback attempts, correction reservations, digest-only
   settlement callbacks, and Quality Gate-driven completed, partial, and

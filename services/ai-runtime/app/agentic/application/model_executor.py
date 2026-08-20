@@ -60,6 +60,14 @@ class ModelExecutionOutcome:
     run_id: str
     output_digest: str
     quality_reasons: tuple[str, ...]
+    agent_kind: AgentKind = "catalog"
+    model: str = "google/gemma-4-26b-a4b-it:free"
+    fallback_position: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_micros: int = 0
+    latency_ms: int = 0
+    correction_round: int = 0
 
 
 class QualityGatePort(Protocol):
@@ -73,7 +81,7 @@ class ModelExecutor:
         controls: ModelRunControlPort,
         gateway: Any,
         quality_gate: QualityGatePort,
-        context_filter: Callable[[object], object],
+        context_filter: Callable[[AgentKind, object], object],
         prompt_builder: Callable[[AgentKind, object], object],
         now: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -86,7 +94,7 @@ class ModelExecutor:
 
     async def execute(self, command: ModelExecutionCommand) -> ModelExecutionOutcome:
         try:
-            context = self._context_filter(command.context)
+            context = self._context_filter(command.agent_kind, command.context)
             prompt = self._prompt_builder(command.agent_kind, context)
         except Exception as error:
             raise ModelExecutionError("MODEL_CONTEXT_INVALID") from error
@@ -141,7 +149,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
                         decision.evidence_ids, evidence_digest,
                     ))
-                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, ())
+                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 if decision.outcome == "escalate":
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
@@ -150,7 +158,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
                         decision.reasons, decision.evidence_ids, evidence_digest,
                     ))
-                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons)
+                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 if decision.outcome == "partial" or correction_round == 2:
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
@@ -159,7 +167,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
                         decision.reasons, decision.evidence_ids, evidence_digest,
                     ))
-                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons)
+                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 await self._controls.fail_model_run(FailModelRunRequest(
                     reservation.run_id, state.version,
                     f"{command.idempotency_key}:round:{correction_round}:correct",

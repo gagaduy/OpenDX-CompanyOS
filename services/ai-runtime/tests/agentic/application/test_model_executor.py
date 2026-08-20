@@ -121,7 +121,7 @@ def executor(controls: Controls, gateway: Gateway, quality: Quality) -> ModelExe
         controls=controls,
         gateway=gateway,
         quality_gate=quality,
-        context_filter=lambda value: value,
+        context_filter=lambda _agent, value: value,
         prompt_builder=lambda _agent, value: value,
     )
 
@@ -247,7 +247,7 @@ def test_rejects_context_before_any_reservation() -> None:
     quality = Quality([])
     blocked = ModelExecutor(
         controls=controls, gateway=gateway, quality_gate=quality,
-        context_filter=lambda _value: (_ for _ in ()).throw(ValueError("blocked")),
+        context_filter=lambda _agent, _value: (_ for _ in ()).throw(ValueError("blocked")),
         prompt_builder=lambda _agent, value: value,
     )
 

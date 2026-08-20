@@ -19,6 +19,7 @@ _METRIC_LABELS = {
     "rejected_signal": frozenset({"signal"}),
     "worker_polling": frozenset({"outcome"}),
     "terminal_outcome": frozenset({"outcome"}),
+    "model_execution": frozenset({"agent", "model", "status"}),
 }
 _LABEL_VALUES = {
     "activity": frozenset({
@@ -38,6 +39,14 @@ _LABEL_VALUES = {
         "executive_synthesis", "awaiting_human_approval", "retrying",
         "completed", "partially_completed", "failed", "canceled",
     }),
+    "agent": frozenset({"ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"}),
+    "model": frozenset({
+        "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free", "google/gemma-4-31b-it:free",
+        "nvidia/nemotron-3-super-120b-a12b:free", "openai/gpt-oss-20b:free",
+        "dots-studio/dots-3-note-preview:free", "nvidia/nemotron-nano-9b-v2:free",
+        "liquid/lfm-2.5-2.6b:free",
+    }),
+    "status": frozenset({"completed", "partial", "escalated"}),
 }
 _LOG_FIELDS = frozenset({
     "workflow_id", "task_id", "correlation_id", "causation_id", "activity",
@@ -56,6 +65,7 @@ _METRIC_NAMES = {
     "rejected_signal": "opendx_agentic_rejected_signals_total",
     "worker_polling": "opendx_agentic_worker_polling_transitions_total",
     "terminal_outcome": "opendx_agentic_terminal_outcomes_total",
+    "model_execution": "opendx_agentic_model_executions_total",
 }
 _SAFE_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")
 
@@ -182,6 +192,27 @@ class StructuredEventLogger:
                 )
                 payload[output_key] = value
         self._sink(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+    def emit_model_execution(
+        self, *, agent_kind: str, model: str, status: str, input_tokens: int,
+        output_tokens: int, cost_micros: int, latency_ms: int,
+        fallback_position: int, correction_round: int,
+    ) -> None:
+        if (
+            agent_kind not in _LABEL_VALUES["agent"] or model not in _LABEL_VALUES["model"]
+            or status not in _LABEL_VALUES["status"]
+            or any(type(value) is not int or value < 0 or value > 9_007_199_254_740_991
+                   for value in (input_tokens, output_tokens, cost_micros, latency_ms))
+            or fallback_position not in {0, 1} or correction_round not in {0, 1, 2}
+        ):
+            raise ValueError("Model execution log is invalid")
+        self._sink(json.dumps({
+            "event": "model_execution_finished", "agentKind": agent_kind,
+            "model": model, "status": status, "inputTokens": input_tokens,
+            "outputTokens": output_tokens, "costMicros": cost_micros,
+            "latencyMs": latency_ms, "fallbackPosition": fallback_position,
+            "correctionRound": correction_round,
+        }, sort_keys=True, separators=(",", ":")))
 
 
 def _render_labels(labels: tuple[tuple[str, str], ...]) -> str:

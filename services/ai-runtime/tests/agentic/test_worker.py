@@ -9,6 +9,7 @@ from typing import Any
 
 from app.agentic.activities.store_health_activities import StoreHealthActivities
 from app.agentic.worker import (
+    WorkerActivities,
     configure_logging,
     run_supervised_worker,
     worker_identity,
@@ -99,6 +100,17 @@ def test_registers_exact_v1_workflow_and_activity_names_then_drains() -> None:
     assert worker.options["graceful_shutdown_timeout"].total_seconds() == 2
     assert worker.shutdown_calls == 1
     assert resource.closed is True
+
+
+def test_worker_activity_registry_adds_model_execution_without_changing_workflow() -> None:
+    class ModelActivities:
+        registered = [object()]
+
+    activities = WorkerActivities(StoreHealthActivities(None), ModelActivities())  # type: ignore[arg-type]
+
+    assert len(activities.registered) == 7
+    assert activities.registered[-1] is ModelActivities.registered[0]
+    assert StoreHealthReviewWorkflowV1.__name__ == "StoreHealthReviewWorkflowV1"
 
 
 def test_shutdown_timeout_still_closes_resources() -> None:

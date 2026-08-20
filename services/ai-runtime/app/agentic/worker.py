@@ -17,8 +17,14 @@ import httpx
 from temporalio.worker import Worker
 
 from app.agentic.activities.store_health_activities import StoreHealthActivities
+from app.agentic.activities.model_execution_activities import ModelExecutionActivities
+from app.agentic.application.context_boundary import enforce_context_boundary
+from app.agentic.application.model_executor import ModelExecutor
+from app.agentic.application.prompt_builder import build_model_prompt
+from app.agentic.application.quality_gate import QualityGate
 from app.agentic.infrastructure.agentic_control_client import AgenticControlClient
 from app.agentic.infrastructure.keycloak import KeycloakClientCredentialsProvider
+from app.agentic.infrastructure.openrouter import OpenRouterModelGateway
 from app.agentic.infrastructure.temporal_client import connect_temporal
 from app.agentic.observability import BoundedMetrics, StructuredEventLogger
 from app.agentic.worker_healthcheck import WorkerReadiness
@@ -26,10 +32,23 @@ from app.agentic.workflows.store_health_review_v1 import StoreHealthReviewWorkfl
 from app.shared.config import RuntimeSettings
 
 
+class WorkerActivities:
+    def __init__(self, store_health: StoreHealthActivities, model_execution: ModelExecutionActivities | None = None) -> None:
+        self._store_health = store_health
+        self._model_execution = model_execution
+
+    @property
+    def registered(self) -> list[object]:
+        registered = self._store_health.registered
+        if self._model_execution is not None:
+            registered.extend(self._model_execution.registered)
+        return registered
+
+
 async def run_supervised_worker(
     *,
     temporal_client: object,
-    activities: StoreHealthActivities,
+    activities: Any,
     task_queue: str,
     shutdown_grace_seconds: int,
     stop: asyncio.Event,
@@ -153,14 +172,20 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
         await temporal.wait_until_polling(settings.worker_shutdown_grace_seconds)
         readiness.publish()
 
+    store_health = StoreHealthActivities(
+        control, metrics, logger, fake_activity_delay_ms=settings.activity.fake_delay_ms,
+    )
+    model_execution = None
+    if settings.openrouter.execution_enabled:
+        gateway = OpenRouterModelGateway(settings=settings.openrouter, client=http)
+        model_execution = ModelExecutionActivities(ModelExecutor(
+            controls=control, gateway=gateway, quality_gate=QualityGate(),
+            context_filter=lambda agent_kind, value: enforce_context_boundary(agent_kind, value),
+            prompt_builder=build_model_prompt,
+        ), metrics, logger)
     await run_supervised_worker(
         temporal_client=temporal.raw_client,
-        activities=StoreHealthActivities(
-            control,
-            metrics,
-            logger,
-            fake_activity_delay_ms=settings.activity.fake_delay_ms,
-        ),
+        activities=WorkerActivities(store_health, model_execution),
         task_queue=settings.temporal.task_queue,
         shutdown_grace_seconds=settings.worker_shutdown_grace_seconds,
         stop=stop,
