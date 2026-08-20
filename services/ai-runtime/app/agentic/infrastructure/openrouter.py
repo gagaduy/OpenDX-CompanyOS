@@ -27,6 +27,7 @@ _MAX_OUTPUT_TOKENS = 32_768
 _MAX_PROVIDER_ID_LENGTH = 255
 _MAX_SCHEMA_DEPTH = 64
 _MAX_SCHEMA_NODES = 10_000
+_CATALOG_PRICE_TO_MICROS_PER_MILLION = Decimal(1_000_000_000_000)
 _PROVIDER_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}")
 _NONNEGATIVE_DECIMAL = re.compile(
     r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
@@ -59,7 +60,11 @@ class OpenRouterModelGateway:
     async def preflight(self, request: ModelRequest) -> None:
         self._validate_request(request)
         self._request_body(request)
-        await self._ensure_catalog(request.model)
+        await self._ensure_catalog(
+            request.model,
+            request.input_cost_micros_per_million,
+            request.output_cost_micros_per_million,
+        )
 
     def _validate_request(self, request: ModelRequest) -> None:
         if not self._settings.execution_enabled:
@@ -71,6 +76,14 @@ class OpenRouterModelGateway:
             or _PROVIDER_ID.fullmatch(request.model) is None
             or type(request.fallback_position) is not int
             or request.fallback_position not in {0, 1}
+        ):
+            _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
+        if not all(
+            _nonnegative_safe_integer(price)
+            for price in (
+                request.input_cost_micros_per_million,
+                request.output_cost_micros_per_million,
+            )
         ):
             _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
         if (
@@ -88,13 +101,23 @@ class OpenRouterModelGateway:
         if not _strict_object_schemas(request.result_schema):
             _fail("OPENROUTER_SCHEMA_INVALID", retryable=False)
 
-    async def _ensure_catalog(self, configured_model: str) -> None:
+    async def _ensure_catalog(
+        self,
+        configured_model: str,
+        approved_input_price: int,
+        approved_output_price: int,
+    ) -> None:
         while True:
             if (
                 self._catalog_valid_until is not None
                 and self._now() < self._catalog_valid_until
             ):
-                if not _configured_model_available(self._catalog, configured_model):
+                if not _configured_model_available(
+                    self._catalog,
+                    configured_model,
+                    approved_input_price,
+                    approved_output_price,
+                ):
                     _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
                 return
             refresh = self._catalog_refresh
@@ -104,7 +127,12 @@ class OpenRouterModelGateway:
                 refresh.add_done_callback(self._catalog_refresh_done)
             await asyncio.wait((refresh,))
             await refresh
-            if not _configured_model_available(self._catalog, configured_model):
+            if not _configured_model_available(
+                self._catalog,
+                configured_model,
+                approved_input_price,
+                approved_output_price,
+            ):
                 _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
             return
 
@@ -339,7 +367,12 @@ def _valid_catalog_document(value: object) -> bool:
         return False
 
 
-def _configured_model_available(value: object, configured_model: str) -> bool:
+def _configured_model_available(
+    value: object,
+    configured_model: str,
+    approved_input_price: int,
+    approved_output_price: int,
+) -> bool:
     try:
         document = _object(value)
         models = document["data"]
@@ -356,8 +389,12 @@ def _configured_model_available(value: object, configured_model: str) -> bool:
         pricing = _object(model["pricing"])
         parameters = model["supported_parameters"]
         return (
-            _nonnegative_decimal_string(pricing.get("prompt"))
-            and _nonnegative_decimal_string(pricing.get("completion"))
+            _catalog_price_within_approved(
+                pricing.get("prompt"), approved_input_price
+            )
+            and _catalog_price_within_approved(
+                pricing.get("completion"), approved_output_price
+            )
             and type(parameters) is list
             and "response_format" in parameters
         )
@@ -373,6 +410,13 @@ def _nonnegative_decimal_string(value: object) -> bool:
     except InvalidOperation:
         return False
     return price.is_finite() and price >= 0
+
+
+def _catalog_price_within_approved(value: object, approved_price: int) -> bool:
+    if type(value) is not str or not _nonnegative_decimal_string(value):
+        return False
+    price = Decimal(value)
+    return price * _CATALOG_PRICE_TO_MICROS_PER_MILLION <= approved_price
 
 
 def _strict_object_schemas(value: object) -> bool:

@@ -22,6 +22,7 @@ TEST_FALLBACK_MODEL = "provider/configured-fallback"
 OTHER_MODEL = "provider/other-configured-model"
 ALL_MODELS = (TEST_PRIMARY_MODEL, TEST_FALLBACK_MODEL)
 MISSING = object()
+MAX_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 def test_catalog_preflight_precedes_chat_and_chat_contract_is_strict() -> None:
@@ -75,7 +76,13 @@ def test_catalog_preflight_precedes_chat_and_chat_contract_is_strict() -> None:
     assert result.provider_cost_micros == 2
 
 
-def test_preflight_accepts_paid_model_from_authorized_reservation() -> None:
+@pytest.mark.parametrize(
+    ("input_price", "output_price"),
+    [(1_000_000, 2_000_000), (1_000_001, 2_000_001)],
+)
+def test_preflight_accepts_paid_model_with_sufficient_reservation_price(
+    input_price: int, output_price: int
+) -> None:
     configured_model = "provider/governance-approved-paid-model"
 
     result = _generate(
@@ -93,10 +100,77 @@ def test_preflight_accepts_paid_model_from_authorized_reservation() -> None:
         )
         if request.url.path.endswith("models")
         else _chat_response(model=configured_model),
-        request=_request(model=configured_model),
+        request=_request(
+            model=configured_model,
+            input_cost_micros_per_million=input_price,
+            output_cost_micros_per_million=output_price,
+        ),
     )
 
     assert result.model == configured_model
+
+
+@pytest.mark.parametrize(
+    ("input_price", "output_price"),
+    [(0, 0), (999_999, 2_000_000), (1_000_000, 1_999_999)],
+)
+def test_preflight_rejects_paid_catalog_price_above_reservation_price(
+    input_price: int, output_price: int
+) -> None:
+    configured_model = "provider/governance-approved-paid-model"
+    request = _request(
+        model=configured_model,
+        input_cost_micros_per_million=input_price,
+        output_cost_micros_per_million=output_price,
+    )
+
+    def handler(provider_request: httpx.Request) -> httpx.Response:
+        if not provider_request.url.path.endswith("models"):
+            return _chat_response(model=configured_model)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "id": configured_model,
+                        "pricing": {"prompt": "0.000001", "completion": "0.000002"},
+                        "supported_parameters": ["response_format"],
+                    }
+                ]
+            },
+        )
+
+    failure = _failure(handler, request=request)
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_CATALOG_INVALID", False)
+
+
+def test_catalog_price_overage_is_not_rounded_down() -> None:
+    configured_model = "provider/governance-approved-paid-model"
+
+    failure = _failure(
+        lambda _request: httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "id": configured_model,
+                        "pricing": {
+                            "prompt": "0.0000010000001",
+                            "completion": "0",
+                        },
+                        "supported_parameters": ["response_format"],
+                    }
+                ]
+            },
+        ),
+        request=_request(
+            model=configured_model,
+            input_cost_micros_per_million=1_000_000,
+        ),
+    )
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_CATALOG_INVALID", False)
 
 
 def test_public_attribution_headers_are_optional_and_configured() -> None:
@@ -410,7 +484,11 @@ def test_catalog_accepts_finite_nonnegative_numeric_price_strings(price: str) ->
     result = _generate(
         lambda request: httpx.Response(200, json={"data": models})
         if request.url.path.endswith("models")
-        else _chat_response()
+        else _chat_response(),
+        request=_request(
+            input_cost_micros_per_million=MAX_SAFE_INTEGER,
+            output_cost_micros_per_million=MAX_SAFE_INTEGER,
+        ),
     )
 
     assert result.model == TEST_PRIMARY_MODEL
@@ -549,6 +627,29 @@ def test_fallback_position_requires_exact_bounded_integer(position: object) -> N
     )
 
     assert (failure.code, failure.retryable) == ("OPENROUTER_REQUEST_INVALID", False)
+
+
+@pytest.mark.parametrize("value", [-1, True, 1.0, MAX_SAFE_INTEGER + 1])
+@pytest.mark.parametrize(
+    "field",
+    ["input_cost_micros_per_million", "output_cost_micros_per_million"],
+)
+def test_reservation_pricing_requires_nonnegative_safe_integers_before_network(
+    field: str, value: object
+) -> None:
+    calls = 0
+    request = _request()
+    object.__setattr__(request, field, value)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response()
+
+    failure = _failure(handler, request=request)
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_REQUEST_INVALID", False)
+    assert calls == 0
 
 
 def test_shared_fallback_is_authorized_for_each_agent() -> None:
@@ -1009,6 +1110,8 @@ def _request(
     model: str = TEST_PRIMARY_MODEL,
     fallback_position: int = 0,
     schema: dict[str, object] | None = None,
+    input_cost_micros_per_million: int = 0,
+    output_cost_micros_per_million: int = 0,
 ) -> ModelRequest:
     return ModelRequest(
         task_id="task-1",
@@ -1025,6 +1128,8 @@ def _request(
         untrusted_context={"canary": CANARY},
         max_output_tokens=512,
         idempotency_key="model-run-1",
+        input_cost_micros_per_million=input_cost_micros_per_million,
+        output_cost_micros_per_million=output_cost_micros_per_million,
     )
 
 

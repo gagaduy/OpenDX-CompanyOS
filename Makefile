@@ -52,7 +52,7 @@ check-agentic-model-runtime:
 	pnpm check:agentic-model-runtime
 
 check-openrouter-live:
-	pnpm check:openrouter-live
+	OPENROUTER_CONFIGURATION_EXPORT="$(OPENROUTER_CONFIGURATION_EXPORT)" pnpm check:openrouter-live
 
 temporal-cli:
 	$(COMPOSE) run --rm --no-deps temporal-cli $(ARGS)
