@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a fail-closed OpenRouter gateway with eight exact free-model catalog
+  checks, Agent-isolated model authorization, strict structured-output
+  requests, bounded response parsing, deterministic usage and cost accounting,
+  secret-safe failures, successful-preflight caching, and production-safe
+  configuration.
+
 - Preserve Quality Gate severity precedence by inspecting safe duplicate and
   classification issue codes without allowing malformed model schemas.
 
