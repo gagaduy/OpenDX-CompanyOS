@@ -173,6 +173,62 @@ describe("model run rules", () => {
     }
   });
 
+  it("accepts strict ISO timestamps with an explicit numeric offset", () => {
+    expect(() => validateModelRun(modelRun({
+      createdAt: "2026-08-19T08:00:00.000+07:00",
+      updatedAt: "2026-08-19T08:00:01.000+07:00",
+    }))).not.toThrow();
+  });
+
+  it.each([
+    { createdAt: "not-a-date" },
+    { createdAt: "2026-08-19T01:00:00" },
+    { updatedAt: "2026-08-19T00:59:59.999Z" },
+    { completedAt: "2026-08-19T01:01:00.000Z" },
+  ])("rejects malformed or inconsistent reservation timestamps %#", (overrides) => {
+    expectDomainError(
+      () => validateModelRun(modelRun(overrides)),
+      "MODEL_RUN_INVALID",
+    );
+  });
+
+  it("rejects running timestamps before creation or after update", () => {
+    for (const overrides of [
+      { startedAt: "2026-08-19T00:59:59.999Z", updatedAt: "2026-08-19T01:01:00.000Z" },
+      { startedAt: "2026-08-19T01:02:00.000Z", updatedAt: "2026-08-19T01:01:00.000Z" },
+      { startedAt: "2026-08-19T01:01:00" },
+    ]) {
+      expectDomainError(() => validateModelRun(modelRun({
+        status: "running",
+        returnedModel: "z-ai/glm-5.2:free",
+        fallbackPosition: 0,
+        ...overrides,
+      })), "MODEL_RUN_INVALID");
+    }
+  });
+
+  it("rejects terminal completion before start or after update", () => {
+    const terminal = modelRun({
+      status: "failed",
+      returnedModel: "z-ai/glm-5.2:free",
+      fallbackPosition: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      settledCostMicros: 0,
+      latencyMs: 1,
+      statusCode: "PROVIDER_UNAVAILABLE",
+      errorCode: "PROVIDER_UNAVAILABLE",
+      startedAt: "2026-08-19T01:02:00.000Z",
+      completedAt: "2026-08-19T01:01:00.000Z",
+      updatedAt: "2026-08-19T01:03:00.000Z",
+    });
+    expectDomainError(() => validateModelRun(terminal), "MODEL_RUN_INVALID");
+    expectDomainError(() => validateModelRun({
+      ...terminal,
+      completedAt: "2026-08-19T01:04:00.000Z",
+    }), "MODEL_RUN_INVALID");
+  });
+
   it.each([
     { generationRound: 3 },
     { fallbackPosition: 2 },

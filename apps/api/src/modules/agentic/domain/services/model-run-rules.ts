@@ -13,6 +13,7 @@ const MILLION = 1_000_000n;
 const DIGEST = /^[a-f0-9]{64}$/;
 const SAFE_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/;
+const OFFSET_ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
 export interface ModelRunReservationCostInput {
   readonly maxInputTokens: number;
@@ -137,6 +138,11 @@ export function validateModelRun(run: ModelRun): void {
     ...(run.providerRequestIdDigest === undefined ? [] : [run.providerRequestIdDigest]),
   ];
   const terminal = isTerminal(run.status);
+  const createdAt = parseOffsetIsoInstant(run.createdAt);
+  const updatedAt = parseOffsetIsoInstant(run.updatedAt);
+  const startedAt = run.startedAt === undefined ? undefined : parseOffsetIsoInstant(run.startedAt);
+  const completedAt = run.completedAt === undefined ? undefined : parseOffsetIsoInstant(run.completedAt);
+  const startedRequired = run.status === "running" || terminal;
   if (
     identifiers.some((value) => !SAFE_IDENTIFIER.test(value))
     || !validModel(run.requestedModel)
@@ -150,8 +156,18 @@ export function validateModelRun(run: ModelRun): void {
     || digests.some((value) => !DIGEST.test(value))
     || !validSafeCodes(run.qualityReasonCodes)
     || !validIdentifiers(run.provenanceIds)
-    || (run.status === "reserved" && (run.returnedModel !== undefined || run.startedAt !== undefined))
-    || (run.status === "running" && (run.returnedModel === undefined || run.startedAt === undefined))
+    || createdAt === undefined
+    || updatedAt === undefined
+    || updatedAt < createdAt
+    || (run.startedAt !== undefined && startedAt === undefined)
+    || (run.completedAt !== undefined && completedAt === undefined)
+    || startedRequired !== (startedAt !== undefined)
+    || terminal !== (completedAt !== undefined)
+    || (startedAt !== undefined && (startedAt < createdAt || updatedAt < startedAt))
+    || (completedAt !== undefined && startedAt !== undefined
+      && (completedAt < startedAt || updatedAt < completedAt))
+    || (run.status === "reserved" && run.returnedModel !== undefined)
+    || (run.status === "running" && run.returnedModel === undefined)
     || (terminal && (
       run.returnedModel === undefined
       || run.startedAt === undefined
@@ -180,7 +196,7 @@ export function validateModelQualityEvidence(evidence: ModelQualityEvidence): vo
     || !validSafeCodes(evidence.reasonCodes)
     || !validIdentifiers(evidence.provenanceIds)
     || !DIGEST.test(evidence.evidenceDigest)
-    || !Number.isFinite(Date.parse(evidence.recordedAt))
+    || parseOffsetIsoInstant(evidence.recordedAt) === undefined
   ) {
     fail("MODEL_QUALITY_EVIDENCE_INVALID", "Model quality evidence is invalid");
   }
@@ -210,6 +226,33 @@ function isNonnegativeSafeInteger(value: number): boolean {
 
 function isTerminal(status: ModelRun["status"]): boolean {
   return status === "completed" || status === "failed" || status === "partial" || status === "escalated";
+}
+
+function parseOffsetIsoInstant(value: string): number | undefined {
+  const match = OFFSET_ISO_INSTANT.exec(value);
+  if (match === null) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = Number((match[7] ?? "").padEnd(3, "0"));
+  const offsetHour = Number(match[10] ?? 0);
+  const offsetMinute = Number(match[11] ?? 0);
+  const local = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
+  if (
+    local.getUTCFullYear() !== year
+    || local.getUTCMonth() !== month - 1
+    || local.getUTCDate() !== day
+    || local.getUTCHours() !== hour
+    || local.getUTCMinutes() !== minute
+    || local.getUTCSeconds() !== second
+    || offsetHour > 23
+    || offsetMinute > 59
+  ) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function fail(code: string, message: string): never {

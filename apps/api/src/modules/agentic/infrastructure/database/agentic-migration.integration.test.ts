@@ -108,6 +108,19 @@ suite("Agent governance migration", () => {
     )).rejects.toMatchObject({ code: "P0001" });
 
     await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES($1,'catalog',$2,'reservation','budget:reserve',0,now(),$3)`,
+      [reservationId, taskId, runId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'reservation','budget:reserve:duplicate',0,now(),$2)`,
+      [taskId, runId],
+    )).rejects.toMatchObject({ code: "23505" });
+
+    await pool.query(
       `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
        fallback_position=0,started_at=now(),version=2,updated_at=now() WHERE id=$1`,
       [runId],
@@ -161,18 +174,6 @@ suite("Agent governance migration", () => {
 
     await pool.query(
       `INSERT INTO agentic_budget_entries
-       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
-       VALUES($1,'catalog',$2,'reservation','budget:reserve',0,now(),$3)`,
-      [reservationId, taskId, runId],
-    );
-    await expect(pool.query(
-      `INSERT INTO agentic_budget_entries
-       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
-       VALUES(gen_random_uuid(),'catalog',$1,'reservation','budget:reserve:duplicate',0,now(),$2)`,
-      [taskId, runId],
-    )).rejects.toMatchObject({ code: "23505" });
-    await pool.query(
-      `INSERT INTO agentic_budget_entries
        (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
         occurred_at,model_run_id)
        VALUES(gen_random_uuid(),'catalog',$1,'settlement','budget:settle',$2,0,now(),$3)`,
@@ -191,6 +192,275 @@ suite("Agent governance migration", () => {
     );
     expect(pricingColumns.rowCount).toBe(0);
     await runAgenticMigrations(databaseUrl!, "up");
+  });
+
+  it("preserves running execution fields and ordered lifecycle timestamps", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const revisionId = "a1900000-0000-4000-8000-000000000020";
+      const taskId = "a1900000-0000-4000-8000-000000000021";
+      const runId = "a1900000-0000-4000-8000-000000000022";
+      await client.query(
+        "INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)",
+        [revisionId, "3".repeat(64)],
+      );
+      await client.query(
+        `INSERT INTO agentic_model_configs
+         (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+          max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+         VALUES($1,'catalog','model/primary',1000,500,30000,1,7,11)`,
+        [revisionId],
+      );
+      await client.query(
+        "INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)",
+        [taskId, revisionId],
+      );
+      await client.query("SAVEPOINT before_reversed");
+      await expect(client.query(
+        `INSERT INTO agentic_model_runs
+         (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+          idempotency_key,requested_model,policy_version,configuration_version,
+          result_schema_version,input_digest,input_cost_micros_per_million,
+          output_cost_micros_per_million,max_reserved_cost_micros,status,created_at,updated_at)
+         VALUES(gen_random_uuid(),$1,'catalog',$2,1,0,'time:reversed','model/primary',
+          1,1,1,$3,7,11,1,'reserved',$5,$4)`,
+        [taskId, revisionId, "4".repeat(64), "2026-08-19T00:59:59.000Z", "2026-08-19T01:00:00.000Z"],
+      )).rejects.toMatchObject({ code: "23514" });
+      await client.query("ROLLBACK TO SAVEPOINT before_reversed").catch(() => undefined);
+      await client.query(
+        `INSERT INTO agentic_model_runs
+         (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+          idempotency_key,requested_model,policy_version,configuration_version,
+          result_schema_version,input_digest,input_cost_micros_per_million,
+          output_cost_micros_per_million,max_reserved_cost_micros,status,created_at,updated_at)
+         VALUES($1,$2,'catalog',$3,1,0,'run:immutable','model/primary',1,1,1,$4,7,11,1,
+          'reserved',$5,$5)`,
+        [runId, taskId, revisionId, "5".repeat(64), "2026-08-19T01:00:00.000Z"],
+      );
+      await client.query("SAVEPOINT before_early_start");
+      await expect(client.query(
+        `UPDATE agentic_model_runs SET status='running',returned_model='model/primary',
+         fallback_position=0,started_at='2026-08-19T00:59:59.000Z',version=2,
+         updated_at='2026-08-19T01:01:00.000Z' WHERE id=$1`,
+        [runId],
+      )).rejects.toMatchObject({ code: "23514" });
+      await client.query("ROLLBACK TO SAVEPOINT before_early_start");
+      await client.query(
+        `UPDATE agentic_model_runs SET status='running',returned_model='model/primary',
+         fallback_position=0,started_at='2026-08-19T01:01:00.000Z',version=2,
+         updated_at='2026-08-19T01:01:00.000Z' WHERE id=$1`,
+        [runId],
+      );
+
+      const mutations = [
+        "task_id=gen_random_uuid()",
+        "agent_kind='inventory'",
+        "configuration_revision_id=gen_random_uuid()",
+        "schema_version=2",
+        "generation_round=1",
+        "idempotency_key='run:changed'",
+        "requested_model='model/changed'",
+        "returned_model='model/changed'",
+        "fallback_position=1",
+        "started_at='2026-08-19T01:00:30.000Z'",
+        `input_digest='${"6".repeat(64)}'`,
+        "max_reserved_cost_micros=0",
+        "input_cost_micros_per_million=8",
+        "output_cost_micros_per_million=12",
+      ];
+      for (const [index, mutation] of mutations.entries()) {
+        const savepoint = `immutable_${index}`;
+        await client.query(`SAVEPOINT ${savepoint}`);
+        await expect(client.query(
+          `UPDATE agentic_model_runs SET ${mutation},status='failed',input_tokens=0,
+           output_tokens=0,settled_cost_micros=0,latency_ms=1,
+           status_code='PROVIDER_UNAVAILABLE',error_code='PROVIDER_UNAVAILABLE',
+           completed_at='2026-08-19T01:02:00.000Z',updated_at='2026-08-19T01:02:00.000Z',
+           version=3 WHERE id=$1`,
+          [runId],
+        )).rejects.toMatchObject({ code: "P0001" });
+        await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      }
+
+      await client.query("SAVEPOINT before_early_completion");
+      await expect(client.query(
+        `UPDATE agentic_model_runs SET status='failed',input_tokens=0,output_tokens=0,
+         settled_cost_micros=0,latency_ms=1,status_code='PROVIDER_UNAVAILABLE',
+         error_code='PROVIDER_UNAVAILABLE',completed_at='2026-08-19T01:00:30.000Z',
+         updated_at='2026-08-19T01:02:00.000Z',version=3 WHERE id=$1`,
+        [runId],
+      )).rejects.toMatchObject({ code: "23514" });
+      await client.query("ROLLBACK TO SAVEPOINT before_early_completion");
+      await client.query(
+        `UPDATE agentic_model_runs SET status='failed',input_tokens=0,output_tokens=0,
+         settled_cost_micros=0,latency_ms=1,status_code='PROVIDER_UNAVAILABLE',
+         error_code='PROVIDER_UNAVAILABLE',completed_at='2026-08-19T01:02:00.000Z',
+         updated_at='2026-08-19T01:02:00.000Z',version=3 WHERE id=$1`,
+        [runId],
+      );
+      expect((await client.query(
+        `SELECT requested_model,returned_model,fallback_position,input_digest,
+         input_cost_micros_per_million::text,max_reserved_cost_micros::text
+         FROM agentic_model_runs WHERE id=$1`,
+        [runId],
+      )).rows[0]).toMatchObject({
+        requested_model: "model/primary", returned_model: "model/primary",
+        fallback_position: 0, input_digest: "5".repeat(64),
+        input_cost_micros_per_million: "7", max_reserved_cost_micros: "1",
+      });
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  });
+
+  it("keeps linked budget reservation and settlement costs coherent", async () => {
+    const revisionId = "a1900000-0000-4000-8000-000000000030";
+    const taskId = "a1900000-0000-4000-8000-000000000031";
+    const paidRunId = "a1900000-0000-4000-8000-000000000032";
+    const paidReservationId = "a1900000-0000-4000-8000-000000000033";
+    const freeRunId = "a1900000-0000-4000-8000-000000000034";
+    const freeReservationId = "a1900000-0000-4000-8000-000000000035";
+    const unlinkedReservationId = "a1900000-0000-4000-8000-000000000036";
+    await pool.query(
+      "INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)",
+      [revisionId, "7".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_configs
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+        max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,'catalog','model/paid',1000,500,30000,1,1000,1000)`,
+      [revisionId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_model_configs
+       (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+        max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+       VALUES($1,'inventory','model/free',1000,500,30000,1,0,0)`,
+      [revisionId],
+    );
+    await pool.query(
+      "INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)",
+      [taskId, revisionId],
+    );
+    const insertRun = async (
+      id: string,
+      key: string,
+      maximum: number,
+      agentKind = "catalog",
+      model = "model/paid",
+      rate = 1000,
+    ) => pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status)
+       VALUES($1,$2,$7,$3,1,0,$4,$8,1,1,1,$5,$9,$9,$6,'reserved')`,
+      [id, taskId, revisionId, key, id.replaceAll("-", "").slice(0, 32).padEnd(64, "a"),
+        maximum, agentKind, model, rate],
+    );
+    await insertRun(paidRunId, "budget:paid", 1500);
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'reservation','paid:wrong:1',1,now(),$2)`,
+      [taskId, paidRunId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES($1,'catalog',$2,'reservation','paid:reserve',1500,now(),$3)`,
+      [paidReservationId, taskId, paidRunId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','paid:too-early',$2,2,now(),$3)`,
+      [taskId, paidReservationId, paidRunId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
+       fallback_position=0,started_at=now(),updated_at=now(),version=2 WHERE id=$1`,
+      [paidRunId],
+    );
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='failed',input_tokens=1,output_tokens=1,
+       settled_cost_micros=2,latency_ms=1,status_code='PROVIDER_UNAVAILABLE',
+       error_code='PROVIDER_UNAVAILABLE',completed_at=now(),updated_at=now(),version=3
+       WHERE id=$1`,
+      [paidRunId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,occurred_at)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','paid:null-run',$2,2,now())`,
+      [taskId, paidReservationId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','paid:wrong:0',$2,0,now(),$3)`,
+      [taskId, paidReservationId, paidRunId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','paid:settle',$2,2,now(),$3)`,
+      [taskId, paidReservationId, paidRunId],
+    );
+
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at)
+       VALUES($1,'catalog',$2,'reservation','unlinked:reserve',100,now())`,
+      [unlinkedReservationId, taskId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','unlinked:wrong-run',$2,1,now(),$3)`,
+      [taskId, unlinkedReservationId, paidRunId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,occurred_at)
+       VALUES(gen_random_uuid(),'catalog',$1,'settlement','unlinked:settle',$2,1,now())`,
+      [taskId, unlinkedReservationId],
+    );
+
+    await insertRun(freeRunId, "budget:free", 0, "inventory", "model/free", 0);
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,cost_micros,occurred_at,model_run_id)
+       VALUES($1,'inventory',$2,'reservation','free:reserve',0,now(),$3)`,
+      [freeReservationId, taskId, freeRunId],
+    );
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
+       fallback_position=0,started_at=now(),updated_at=now(),version=2 WHERE id=$1`,
+      [freeRunId],
+    );
+    await pool.query(
+      `UPDATE agentic_model_runs SET status='completed',output_digest=$2,input_tokens=0,
+       output_tokens=0,settled_cost_micros=0,provider_request_id_digest=$3,latency_ms=1,
+       status_code='MODEL_RESULT_ACCEPTED',completed_at=now(),updated_at=now(),version=3
+       WHERE id=$1`,
+      [freeRunId, "8".repeat(64), "9".repeat(64)],
+    );
+    await pool.query(
+      `INSERT INTO agentic_budget_entries
+       (id,agent_kind,task_id,entry_type,idempotency_key,reservation_id,cost_micros,
+        occurred_at,model_run_id)
+       VALUES(gen_random_uuid(),'inventory',$1,'settlement','free:settle',$2,0,now(),$3)`,
+      [taskId, freeReservationId, freeRunId],
+    );
   });
 
   it("seeds immutable department tools and deduplicates invocation receipts", async () => {

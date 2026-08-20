@@ -74,6 +74,7 @@ export function up(pgm: MigrationBuilder): void {
       UNIQUE(id,generation_round),
       CHECK(agentic_is_safe_code_array(quality_reason_codes,32)),
       CHECK(agentic_is_safe_identifier_array(provenance_ids,128)),
+      CHECK(updated_at>=created_at),
       CHECK(
         (status='reserved' AND returned_model IS NULL AND fallback_position IS NULL
           AND started_at IS NULL AND completed_at IS NULL AND input_tokens IS NULL
@@ -85,14 +86,16 @@ export function up(pgm: MigrationBuilder): void {
           AND started_at IS NOT NULL AND completed_at IS NULL AND input_tokens IS NULL
           AND output_tokens IS NULL AND settled_cost_micros IS NULL AND latency_ms IS NULL
           AND status_code IS NULL AND error_code IS NULL AND output_digest IS NULL
-          AND provider_request_id_digest IS NULL)
+          AND provider_request_id_digest IS NULL AND started_at>=created_at
+          AND updated_at>=started_at)
         OR
         (status IN ('completed','failed','partial','escalated')
           AND returned_model IS NOT NULL AND fallback_position IS NOT NULL
           AND started_at IS NOT NULL AND completed_at IS NOT NULL
           AND input_tokens IS NOT NULL AND output_tokens IS NOT NULL
           AND settled_cost_micros IS NOT NULL AND latency_ms IS NOT NULL
-          AND status_code IS NOT NULL
+          AND status_code IS NOT NULL AND started_at>=created_at
+          AND completed_at>=started_at AND updated_at>=completed_at
           AND (status<>'completed' OR (output_digest IS NOT NULL
             AND provider_request_id_digest IS NOT NULL)))
       )
@@ -117,6 +120,10 @@ export function up(pgm: MigrationBuilder): void {
         OLD.input_digest,OLD.input_cost_micros_per_million,
         OLD.output_cost_micros_per_million,OLD.max_reserved_cost_micros,OLD.created_at) THEN
         RAISE EXCEPTION 'Model run request fields are immutable' USING ERRCODE='P0001';
+      END IF;
+      IF OLD.status='running' AND ROW(NEW.returned_model,NEW.fallback_position,NEW.started_at)
+        IS DISTINCT FROM ROW(OLD.returned_model,OLD.fallback_position,OLD.started_at) THEN
+        RAISE EXCEPTION 'Running model execution fields are immutable' USING ERRCODE='P0001';
       END IF;
       IF NOT ((OLD.status='reserved' AND NEW.status='running')
         OR (OLD.status='running' AND NEW.status IN ('completed','failed','partial','escalated'))) THEN
@@ -167,20 +174,40 @@ export function up(pgm: MigrationBuilder): void {
       WHERE entry_type='settlement' AND model_run_id IS NOT NULL;
 
     CREATE FUNCTION agentic_validate_model_budget_reference() RETURNS trigger LANGUAGE plpgsql AS $f$
-    DECLARE run_task uuid; run_agent text; reserved_run uuid;
+    DECLARE
+      run_task uuid;
+      run_agent text;
+      run_status text;
+      run_maximum bigint;
+      run_settled bigint;
+      reserved_run uuid;
+      reserved_cost bigint;
     BEGIN
-      IF NEW.model_run_id IS NULL THEN RETURN NEW; END IF;
-      SELECT task_id,agent_kind INTO run_task,run_agent
-        FROM agentic_model_runs WHERE id=NEW.model_run_id;
-      IF run_task IS NULL OR run_task<>NEW.task_id OR run_agent<>NEW.agent_kind THEN
-        RAISE EXCEPTION 'Invalid model run budget reference' USING ERRCODE='23514';
-      END IF;
       IF NEW.entry_type='settlement' THEN
-        SELECT model_run_id INTO reserved_run FROM agentic_budget_entries
+        SELECT model_run_id,cost_micros INTO reserved_run,reserved_cost FROM agentic_budget_entries
           WHERE id=NEW.reservation_id AND entry_type='reservation';
         IF reserved_run IS DISTINCT FROM NEW.model_run_id THEN
           RAISE EXCEPTION 'Settlement model run does not match reservation' USING ERRCODE='23514';
         END IF;
+      END IF;
+      IF NEW.model_run_id IS NULL THEN RETURN NEW; END IF;
+      SELECT task_id,agent_kind,status,max_reserved_cost_micros,settled_cost_micros
+        INTO run_task,run_agent,run_status,run_maximum,run_settled
+        FROM agentic_model_runs WHERE id=NEW.model_run_id;
+      IF run_task IS NULL OR run_task<>NEW.task_id OR run_agent<>NEW.agent_kind THEN
+        RAISE EXCEPTION 'Invalid model run budget reference' USING ERRCODE='23514';
+      END IF;
+      IF NEW.entry_type='reservation'
+        AND (run_status<>'reserved' OR NEW.cost_micros<>run_maximum) THEN
+        RAISE EXCEPTION 'Model run reservation cost or status is invalid' USING ERRCODE='23514';
+      END IF;
+      IF NEW.entry_type='settlement' AND (
+        run_status NOT IN ('completed','failed','partial','escalated')
+        OR run_settled IS NULL
+        OR NEW.cost_micros<>run_settled
+        OR NEW.cost_micros>reserved_cost
+      ) THEN
+        RAISE EXCEPTION 'Model run settlement cost or status is invalid' USING ERRCODE='23514';
       END IF;
       RETURN NEW;
     END; $f$;

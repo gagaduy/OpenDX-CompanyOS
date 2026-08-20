@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Enforce ordered offset-aware model-run timestamps, immutable execution
+  snapshots across terminal settlement, and exact model-run reservation and
+  settlement linkage through the existing Agentic budget ledger.
+
 - Persist governed model pricing, exact maximum-cost reservations, bounded
   model-run lifecycle projections, append-only Quality Gate evidence, and
   optional model-run references on the existing Agentic budget ledger.
