@@ -113,9 +113,15 @@ class ModelExecutor:
                     error.failure.code, retryable=error.failure.retryable
                 ) from error
 
-            state = await self._controls.start_model_run(StartModelRunRequest(
-                reservation.run_id, reservation.version, result.model, fallback_position
-            ))
+            try:
+                state = await self._controls.start_model_run(StartModelRunRequest(
+                    reservation.run_id, reservation.version, result.model, fallback_position
+                ))
+            except Exception as error:
+                await self._settle_unexpected(
+                    reservation.run_id, reservation.version, command, correction_round
+                )
+                raise ModelExecutionError("MODEL_EXECUTION_FAILED") from error
             try:
                 output_digest = _digest(result.content)
                 provider_digest = _digest({"providerRequestId": result.provider_request_id})

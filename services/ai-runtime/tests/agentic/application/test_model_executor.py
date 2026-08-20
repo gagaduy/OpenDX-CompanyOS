@@ -44,6 +44,7 @@ class Controls:
         self.completed: list[Any] = []
         self.failed: list[Any] = []
         self.started: list[Any] = []
+        self.start_error: Exception | None = None
 
     async def reserve_model_run(self, command: object) -> Receipt:
         self.events.append("reserve")
@@ -53,6 +54,8 @@ class Controls:
     async def start_model_run(self, command: object) -> object:
         self.events.append("start")
         self.started.append(command)
+        if self.start_error is not None:
+            raise self.start_error
         return ModelRunState("run-1", "running", 2)
 
     async def complete_model_run(self, command: object) -> object:
@@ -222,6 +225,17 @@ def test_quality_gate_failure_settles_the_started_reservation() -> None:
     controls = Controls()
     with pytest.raises(ModelExecutionError) as captured:
         asyncio.run(executor(controls, Gateway([result()]), BrokenQuality()).execute(command()))
+
+    assert captured.value.code == "MODEL_EXECUTION_FAILED"
+    assert len(controls.failed) == 1
+
+
+def test_start_callback_failure_attempts_to_settle_the_reserved_run() -> None:
+    controls = Controls()
+    controls.start_error = RuntimeError("control timeout")
+
+    with pytest.raises(ModelExecutionError) as captured:
+        asyncio.run(executor(controls, Gateway([result()]), Quality([])).execute(command()))
 
     assert captured.value.code == "MODEL_EXECUTION_FAILED"
     assert len(controls.failed) == 1
