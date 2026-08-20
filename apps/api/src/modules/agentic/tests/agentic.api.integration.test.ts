@@ -338,6 +338,14 @@ suite("Agentic PostgreSQL admin API", () => {
       request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`).set(worker).send(startBody),
     ]);
     expect(concurrentStarts.map(({ status }) => status)).toEqual([200, 200]);
+    const runningReserveReplay = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    expect(runningReserveReplay.body.data).toEqual(reserved.body.data);
+    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker).send({ ...startBody, expectedVersion: runningReserveReplay.body.data.version })
+      .expect(200);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({ ...reserveBody, inputDigest: "8".repeat(64) }).expect(409);
 
     const startRaceReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
       .set(worker).send({
@@ -378,6 +386,17 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(concurrentCompletions.map(({ status }) => status)).toEqual([200, 200]);
     await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
       .set(worker).send(completeBody).expect(200);
+    const terminalReserveReplay = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send(reserveBody).expect(200);
+    expect(terminalReserveReplay.body.data).toEqual(reserved.body.data);
+    const terminalStartReplay = await request(app)
+      .post(`/v1/internal/agentic/model-runs/${runId}/start`)
+      .set(worker)
+      .send({ ...startBody, expectedVersion: terminalReserveReplay.body.data.version })
+      .expect(200);
+    expect(terminalStartReplay.body.data).toMatchObject({ status: "completed", version: 3 });
+    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({ ...reserveBody, inputDigest: "7".repeat(64) }).expect(409);
     const conflict = await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
       .set(worker).send({ ...completeBody, evidenceDigest: "e".repeat(64) }).expect(409);
     expect(JSON.stringify(conflict.body)).not.toContain("sensitive prompt body");

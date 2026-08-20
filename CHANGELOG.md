@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Keep model-run reservation receipts pinned to the original reserved
+  predecessor version so reserve/start retries converge after running or
+  terminal transitions without exposing mutable execution evidence.
+
 - Make model-run reservation and start retries converge across delayed and
   concurrent attempts while preserving full semantic conflict checks, and
   serialize daily/monthly budget reservations by revision and Agent scope.

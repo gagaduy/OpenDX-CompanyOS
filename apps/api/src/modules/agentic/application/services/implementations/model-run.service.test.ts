@@ -100,6 +100,35 @@ describe("ModelRunServiceImpl", () => {
       .rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
   });
 
+  it.each(["running", "completed"] as const)(
+    "returns the original reservation receipt after the run is %s and converges start replay",
+    async (runState) => {
+      const harness = createHarness({ reservationResult: "duplicate", runState });
+
+      const receipt = await harness.service.reserve(reserveCommand, principal);
+
+      expect(receipt).toEqual({
+        runId: "00000000-0000-4000-8000-000000000001",
+        primaryModel,
+        fallbackModel,
+        maxInputTokens: 1_000,
+        maxOutputTokens: 500,
+        timeoutMs: 5_000,
+        schemaVersion: 1,
+        inputCostMicrosPerMillion: 2_000,
+        outputCostMicrosPerMillion: 4_000,
+        maxReservedCostMicros: 4,
+        version: 1,
+      });
+      await expect(harness.service.start({
+        runId: receipt.runId,
+        expectedVersion: receipt.version,
+        returnedModel: primaryModel,
+        fallbackPosition: 0,
+      }, principal)).resolves.toMatchObject({ runId: receipt.runId, status: runState });
+    },
+  );
+
   it.each([
     [{ taskAssigned: false }, reserveCommand, "TASK_AGENT_MISMATCH"],
     [{ policyEffect: "DENY" as const }, reserveCommand, "MODEL_POLICY_DENIED"],
@@ -543,7 +572,8 @@ function createHarness(options: {
     findActiveRevocation: vi.fn(async (_session: unknown, targetType: string) =>
       targetType === options.revokedTarget ? { id: "revoked" } : undefined),
     reserveModelRun: vi.fn(async (_session: unknown, run: typeof baseRun) => ({
-      status: options.reservationResult ?? "reserved", run,
+      status: options.reservationResult ?? "reserved",
+      run: options.reservationResult === "duplicate" ? currentRun : run,
     })),
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved"),
     findModelRun: options.concurrentReplay

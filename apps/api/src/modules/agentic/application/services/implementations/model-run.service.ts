@@ -28,6 +28,7 @@ import type {
 
 const workerClientId = "opendx-agentic-worker";
 const schemaVersion = 1 as const;
+const reservationVersion = 1 as const;
 const approvedFallbackModel = "liquid/lfm-2.5-2.6b:free";
 const approvedPrimaryModels: Readonly<Record<AgentKind, string>> = {
   ai_ceo: "z-ai/glm-5.2:free",
@@ -120,7 +121,7 @@ export class ModelRunServiceImpl implements ModelRunService {
         status: "reserved",
         qualityReasonCodes: [],
         provenanceIds: [],
-        version: 1,
+        version: reservationVersion,
         createdAt: at,
         updatedAt: at,
       };
@@ -196,6 +197,14 @@ export class ModelRunServiceImpl implements ModelRunService {
           && current.fallbackPosition === input.fallbackPosition
         ) return stateReceipt(current);
         fail("MODEL_RUN_CONFLICT", "Model run already started with different execution fields");
+      }
+      if (isTerminal(current)) {
+        if (
+          input.expectedVersion === reservationVersion
+          && current.returnedModel === input.returnedModel
+          && current.fallbackPosition === input.fallbackPosition
+        ) return stateReceipt(current);
+        fail("MODEL_RUN_CONFLICT", "Model run start replay conflicts with terminal execution fields");
       }
       if (current.status !== "reserved" || current.version !== input.expectedVersion) {
         fail("STALE_VERSION", "Model run version is stale");
@@ -582,7 +591,7 @@ function reservationReceipt(
     inputCostMicrosPerMillion: run.inputCostMicrosPerMillion,
     outputCostMicrosPerMillion: run.outputCostMicrosPerMillion,
     maxReservedCostMicros: run.maxReservedCostMicros,
-    version: run.version,
+    version: reservationVersion,
   };
 }
 
