@@ -344,8 +344,13 @@ suite("Agentic PostgreSQL admin API", () => {
       provenanceIds: [provenanceId],
       evidenceDigest: "d".repeat(64),
     };
-    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
-      .set(worker).send(completeBody).expect(200);
+    const concurrentCompletions = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+        .set(worker).send(completeBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
+        .set(worker).send(completeBody),
+    ]);
+    expect(concurrentCompletions.map(({ status }) => status)).toEqual([200, 200]);
     await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
       .set(worker).send(completeBody).expect(200);
     const conflict = await request(app).post(`/v1/internal/agentic/model-runs/${runId}/complete`)
@@ -375,5 +380,122 @@ suite("Agentic PostgreSQL admin API", () => {
     )).rows);
     expect(durableText).not.toContain("sensitive prompt body");
     expect(durableText).not.toContain("Bearer worker-token");
+  });
+
+  it("rolls back rejected model runs and durably records safe denial evidence", async () => {
+    const worker = { authorization: "Bearer worker-token" };
+    const revisionId = randomUUID();
+    const fallbackModel = "liquid/lfm-2.5-2.6b:free";
+    const primaryModels = {
+      catalog: "google/gemma-4-26b-a4b-it:free",
+      order: "nvidia/nemotron-3-super-120b-a12b:free",
+      inventory: "google/gemma-4-31b-it:free",
+    } as const;
+    await pool.query(
+      `INSERT INTO agentic_configuration_revisions(id,state,created_by,payload_digest)
+       VALUES($1,'draft','creator',$2)`,
+      [revisionId, "4".repeat(64)],
+    );
+    for (const [agentKind, primaryModel] of Object.entries(primaryModels)) {
+      await pool.query(
+        `INSERT INTO agentic_model_configs
+         (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,
+          max_retries,input_cost_micros_per_million,output_cost_micros_per_million)
+         VALUES($1,$2,$3,1000,500,5000,1,2000,4000)`,
+        [revisionId, agentKind, primaryModel],
+      );
+      await pool.query(
+        `INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+         VALUES($1,$2,1,$3)`,
+        [revisionId, agentKind, fallbackModel],
+      );
+      await pool.query(
+        `INSERT INTO agentic_budget_limits
+         (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+         VALUES($1,$2,$3,1000,10000)`,
+        [revisionId, agentKind, agentKind === "inventory" ? 1 : 100],
+      );
+    }
+    for (const agentKind of ["catalog", "inventory"] as const) {
+      await pool.query(
+        `INSERT INTO agentic_policies
+         (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+          data_classification,reason_code)
+         VALUES($1,$2,$3,'ALLOW','agent',$4,'model','execute','department_analysis',
+          'internal','MODEL_EXECUTION_ALLOWED')`,
+        [randomUUID(), revisionId, agentKind === "catalog" ? 1 : 2, agentKind],
+      );
+    }
+    await pool.query(
+      `UPDATE agentic_configuration_revisions SET state='active',decided_by='reviewer',
+       decided_at=$2,version=4,updated_at=$2 WHERE id=$1`,
+      [revisionId, "2026-08-20T03:00:00.000Z"],
+    );
+    const taskIds = {
+      catalog: randomUUID(),
+      order: randomUUID(),
+      inventory: randomUUID(),
+    } as const;
+    for (const [agentKind, taskId] of Object.entries(taskIds)) {
+      await pool.query(
+        `INSERT INTO agentic_tasks
+         (id,state,created_by,goal,instructions,configuration_revision_id,version)
+         VALUES($1,'ready','operator','Review model denial','sensitive denied prompt',$2,2)`,
+        [taskId, revisionId],
+      );
+      await pool.query(
+        `INSERT INTO agentic_subtasks(id,task_id,agent_kind,title)
+         VALUES($1,$2,$3,'Review assigned department')`,
+        [randomUUID(), taskId, agentKind],
+      );
+    }
+    const reserve = (agentKind: keyof typeof primaryModels, idempotencyKey: string) => ({
+      taskId: taskIds[agentKind],
+      agentKind,
+      generationRound: 0,
+      idempotencyKey,
+      inputDigest: "a".repeat(64),
+      primaryModel: primaryModels[agentKind],
+      fallbackModel,
+    });
+
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send({ ...reserve("catalog", "denied-validation"), fallbackModel: primaryModels.catalog })
+      .expect(400);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("order", "denied-policy")).expect(403);
+    await pool.query(
+      `INSERT INTO agentic_revocations
+       (id,target_type,target_id,reason,activated_by,activated_at,idempotency_key)
+       VALUES($1,'model',$2,'Emergency model stop','reviewer',$3,'revoke-catalog-model')`,
+      [randomUUID(), primaryModels.catalog, "2026-08-20T03:00:00.000Z"],
+    );
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("catalog", "denied-revocation")).expect(403);
+    await request(app).post("/v1/internal/agentic/model-runs/reserve").set(worker)
+      .send(reserve("inventory", "denied-budget")).expect(400);
+
+    expect((await pool.query("SELECT count(*)::text AS count FROM agentic_model_runs")).rows[0]?.count)
+      .toBe("0");
+    expect((await pool.query("SELECT count(*)::text AS count FROM agentic_budget_entries")).rows[0]?.count)
+      .toBe("0");
+    const audits = (await pool.query(
+      `SELECT action,outcome,error_code,task_id::text,parameters_digest
+       FROM agentic_audit_events WHERE action='model_run.reserve.denied'
+       ORDER BY error_code`,
+    )).rows;
+    expect(audits).toHaveLength(4);
+    expect(audits.map(({ error_code }) => error_code)).toEqual([
+      "BUDGET_EXCEEDED",
+      "MODEL_CONFIGURATION_MISMATCH",
+      "MODEL_EXECUTION_REVOKED",
+      "MODEL_POLICY_DENIED",
+    ]);
+    expect(audits.every(({ outcome, parameters_digest }) =>
+      outcome === "denied" && parameters_digest === "a".repeat(64))).toBe(true);
+    const durableText = JSON.stringify(audits);
+    expect(durableText).not.toContain("sensitive denied prompt");
+    expect(durableText).not.toContain("Bearer worker-token");
+    expect(durableText).not.toContain(primaryModels.catalog);
   });
 });

@@ -9,6 +9,7 @@ import type {
 } from "../../repositories/interfaces/agentic.repository";
 import type { AgentKind } from "../../../domain/entities/agent-profile";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
+import { AgenticDomainError } from "../../../domain/exceptions/agentic-domain.error";
 import {
   calculateMaximumModelRunReservation,
   transitionModelRun,
@@ -55,6 +56,14 @@ interface AuthorizedReservation {
 
 type TerminalCommand = CompleteModelRunCommand | FailModelRunCommand;
 
+interface FailureAuditInput {
+  readonly action: string;
+  readonly resourceType: string;
+  readonly resourceId: string;
+  readonly parametersDigest?: string;
+  readonly attempt?: number;
+}
+
 export class ModelRunServiceImpl implements ModelRunService {
   constructor(
     private readonly repository: ModelRunRepository,
@@ -69,6 +78,19 @@ export class ModelRunServiceImpl implements ModelRunService {
     principal: WorkloadPrincipal,
   ): Promise<ModelRunReservationReceipt> {
     requireWorker(principal);
+    return this.withFailureAudit(principal, {
+      action: "model_run.reserve.denied",
+      resourceType: "agentic_task",
+      resourceId: input.taskId,
+      parametersDigest: input.inputDigest,
+      attempt: input.generationRound,
+    }, () => this.reserveAuthorized(input, principal));
+  }
+
+  private async reserveAuthorized(
+    input: ReserveModelRunCommand,
+    principal: WorkloadPrincipal,
+  ): Promise<ModelRunReservationReceipt> {
     return this.transactions.run(async (session) => {
       const authorization = await this.authorizeReservation(session, input);
       const at = this.now();
@@ -145,6 +167,17 @@ export class ModelRunServiceImpl implements ModelRunService {
     principal: WorkloadPrincipal,
   ): Promise<ModelRunStateReceipt> {
     requireWorker(principal);
+    return this.withFailureAudit(principal, {
+      action: "model_run.start.denied",
+      resourceType: "model_run",
+      resourceId: input.runId,
+    }, () => this.startAuthorized(input, principal));
+  }
+
+  private async startAuthorized(
+    input: StartModelRunCommand,
+    principal: WorkloadPrincipal,
+  ): Promise<ModelRunStateReceipt> {
     return this.transactions.run(async (session) => {
       const current = await this.requireRun(session, input.runId);
       const configuration = await this.requireStoredConfiguration(session, current);
@@ -205,7 +238,23 @@ export class ModelRunServiceImpl implements ModelRunService {
     principal: WorkloadPrincipal,
   ): Promise<ModelRunStateReceipt> {
     requireWorker(principal);
-    assertQualityOutcome(input);
+    const action = "status" in input
+      ? "model_run.complete.denied"
+      : "model_run.fail.denied";
+    return this.withFailureAudit(principal, {
+      action,
+      resourceType: "model_run",
+      resourceId: input.runId,
+    }, async () => {
+      assertQualityOutcome(input);
+      return this.settleAuthorized(input, principal);
+    });
+  }
+
+  private async settleAuthorized(
+    input: TerminalCommand,
+    principal: WorkloadPrincipal,
+  ): Promise<ModelRunStateReceipt> {
     return this.transactions.run(async (session) => {
       const current = await this.requireRun(session, input.runId);
       const status = "status" in input ? input.status : "failed";
@@ -256,7 +305,13 @@ export class ModelRunServiceImpl implements ModelRunService {
         session, next, input.expectedVersion,
       );
       if (terminalResult === "stale") fail("STALE_VERSION", "Model run version is stale");
-      if (terminalResult !== "updated") {
+      if (terminalResult === "duplicate") return stateReceipt(next);
+      if (terminalResult === "conflict") {
+        const stored = await this.requireRun(session, current.id);
+        if (isTerminal(stored)) {
+          await this.requireExactReplay(session, stored, input, status, actualCost);
+          return stateReceipt(stored);
+        }
         fail("MODEL_RUN_CONFLICT", "Model run terminal payload conflicts with stored evidence");
       }
       const budgetResult = await this.repository.settleBudget(session, {
@@ -313,6 +368,39 @@ export class ModelRunServiceImpl implements ModelRunService {
       });
       return stateReceipt(next);
     });
+  }
+
+  private async withFailureAudit<T>(
+    principal: WorkloadPrincipal,
+    input: FailureAuditInput,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof AgenticApplicationError || error instanceof AgenticDomainError) {
+        try {
+          await this.transactions.run((session) => this.repository.appendAudit(session, {
+            id: this.generateId(),
+            actorId: principal.subject,
+            clientId: principal.clientId,
+            actorType: "system",
+            action: input.action,
+            resourceType: input.resourceType,
+            resourceId: input.resourceId,
+            outcome: "denied",
+            correlationId: input.resourceId,
+            ...(input.parametersDigest === undefined
+              ? {}
+              : { parametersDigest: input.parametersDigest }),
+            ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
+            errorCode: error.code,
+            occurredAt: this.now(),
+          }));
+        } catch {}
+      }
+      throw error;
+    }
   }
 
   private async authorizeReservation(

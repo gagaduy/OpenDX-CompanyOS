@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve bounded model-run denial evidence in a separate post-rollback
+  transaction and accept exact or equivalent concurrent terminal replays
+  without duplicating budget, Quality Gate, audit, or provenance writes.
+
 - Add authenticated internal model-run reservation, start, completion, and
   failure control with pinned Agent assignment, exact approved models,
   deny-first policy and revocation checks, API-owned pricing, atomic budget

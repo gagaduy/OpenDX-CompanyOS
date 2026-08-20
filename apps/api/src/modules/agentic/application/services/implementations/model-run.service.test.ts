@@ -99,6 +99,43 @@ describe("ModelRunServiceImpl", () => {
       .rejects.toMatchObject({ code: "BUDGET_EXCEEDED" });
   });
 
+  it.each([
+    [{ taskAssigned: false }, reserveCommand, "TASK_AGENT_MISMATCH"],
+    [{ policyEffect: "DENY" as const }, reserveCommand, "MODEL_POLICY_DENIED"],
+    [{ revokedTarget: "model" as const }, reserveCommand, "MODEL_EXECUTION_REVOKED"],
+    [{ budgetResult: "exceeded" as const }, reserveCommand, "BUDGET_EXCEEDED"],
+    [{}, { ...reserveCommand, fallbackModel: primaryModel }, "MODEL_CONFIGURATION_MISMATCH"],
+  ] as const)("durably audits rejected reservation %s after rollback", async (options, command, code) => {
+    const harness = createHarness(options);
+
+    await expect(harness.service.reserve(command, principal)).rejects.toMatchObject({ code });
+
+    expect(harness.transactionRuns()).toBe(2);
+    expect(harness.repository.appendAudit).toHaveBeenCalledOnce();
+    expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
+      actorId: principal.subject,
+      clientId: principal.clientId,
+      action: "model_run.reserve.denied",
+      resourceType: "agentic_task",
+      resourceId: reserveCommand.taskId,
+      outcome: "denied",
+      parametersDigest: digest,
+      errorCode: code,
+    }));
+    const auditText = JSON.stringify(harness.repository.appendAudit.mock.calls);
+    expect(auditText).not.toContain("secret prompt");
+    expect(auditText).not.toContain(primaryModel);
+    expect(auditText).not.toContain(fallbackModel);
+  });
+
+  it("preserves the original safe error when denial audit persistence fails", async () => {
+    const harness = createHarness({ policyEffect: "DENY", auditFailure: true });
+
+    await expect(harness.service.reserve(reserveCommand, principal))
+      .rejects.toMatchObject({ code: "MODEL_POLICY_DENIED" });
+    expect(harness.transactionRuns()).toBe(2);
+  });
+
   it("starts only the exact primary or fallback and handles replay and stale versions", async () => {
     const harness = createHarness();
     await expect(harness.service.start({
@@ -140,6 +177,26 @@ describe("ModelRunServiceImpl", () => {
       .rejects.toMatchObject({ code: "AGENT_NOT_ACTIVE" });
     await expect(createHarness({ revokedTarget: "model" }).service.start(command, principal))
       .rejects.toMatchObject({ code: "MODEL_EXECUTION_REVOKED" });
+  });
+
+  it("durably audits rejected start without transitioning the run", async () => {
+    const harness = createHarness();
+
+    await expect(harness.service.start({
+      runId: "00000000-0000-4000-8000-000000000001",
+      expectedVersion: 1,
+      returnedModel: "openai/not-approved",
+      fallbackPosition: 0,
+    }, principal)).rejects.toMatchObject({ code: "MODEL_RETURN_MISMATCH" });
+
+    expect(harness.repository.markModelRunRunning).not.toHaveBeenCalled();
+    expect(harness.transactionRuns()).toBe(2);
+    expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
+      action: "model_run.start.denied",
+      resourceId: "00000000-0000-4000-8000-000000000001",
+      outcome: "denied",
+      errorCode: "MODEL_RETURN_MISMATCH",
+    }));
   });
 
   it.each([
@@ -210,6 +267,24 @@ describe("ModelRunServiceImpl", () => {
     }
   });
 
+  it("durably audits terminal semantic validation without business writes", async () => {
+    const harness = createHarness({ runState: "running" });
+
+    await expect(harness.service.complete(
+      terminalCommand("completed", "partial"), principal,
+    )).rejects.toMatchObject({ code: "MODEL_QUALITY_OUTCOME_INVALID" });
+
+    expect(harness.repository.settleModelRunTerminal).not.toHaveBeenCalled();
+    expect(harness.repository.settleBudget).not.toHaveBeenCalled();
+    expect(harness.transactionRuns()).toBe(1);
+    expect(harness.repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({
+      action: "model_run.complete.denied",
+      resourceId: "00000000-0000-4000-8000-000000000001",
+      outcome: "denied",
+      errorCode: "MODEL_QUALITY_OUTCOME_INVALID",
+    }));
+  });
+
   it("returns exact terminal replay and rejects payload conflicts", async () => {
     await expect(createHarness({ runState: "completed", evidenceExists: true }).service.complete(
       terminalCommand(), principal,
@@ -217,6 +292,24 @@ describe("ModelRunServiceImpl", () => {
     await expect(createHarness({ runState: "completed", evidenceExists: true }).service.complete(
       { ...terminalCommand(), evidenceDigest: "e".repeat(64) }, principal,
     )).rejects.toMatchObject({ code: "MODEL_RUN_CONFLICT" });
+  });
+
+  it("accepts repository duplicate and equivalent concurrent terminal replay", async () => {
+    const duplicate = createHarness({ runState: "running", terminalResult: "duplicate" });
+    await expect(duplicate.service.complete(terminalCommand(), principal))
+      .resolves.toMatchObject({ status: "completed", settledCostMicros: 2, version: 3 });
+    expect(duplicate.repository.settleBudget).not.toHaveBeenCalled();
+    expect(duplicate.repository.appendModelQualityEvidence).not.toHaveBeenCalled();
+
+    const concurrent = createHarness({
+      runState: "running",
+      terminalResult: "conflict",
+      concurrentReplay: true,
+      evidenceExists: true,
+    });
+    await expect(concurrent.service.complete(terminalCommand(), principal))
+      .resolves.toMatchObject({ status: "completed", settledCostMicros: 2, version: 3 });
+    expect(concurrent.repository.settleBudget).not.toHaveBeenCalled();
   });
 });
 
@@ -272,6 +365,8 @@ function createHarness(options: {
   readonly maxReservedCost?: number;
   readonly provenanceExists?: boolean;
   readonly evidenceExists?: boolean;
+  readonly concurrentReplay?: boolean;
+  readonly auditFailure?: boolean;
 } = {}) {
   let transactionCount = 0;
   const countedTransactions: TransactionRunner = {
@@ -368,7 +463,9 @@ function createHarness(options: {
       status: options.reservationResult ?? "reserved", run,
     })),
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved"),
-    findModelRun: vi.fn(async () => currentRun),
+    findModelRun: options.concurrentReplay
+      ? vi.fn().mockResolvedValueOnce(currentRun).mockResolvedValue(completedRun)
+      : vi.fn(async () => currentRun),
     markModelRunRunning: vi.fn(async () => options.updateAccepted ?? true),
     settleModelRunTerminal: vi.fn(async () => options.terminalResult ?? "updated"),
     findModelRunBudgetReservation: vi.fn(async () => ({ id: "55555555-5555-4555-8555-555555555555", costMicros: maxReservedCost })),
@@ -376,7 +473,9 @@ function createHarness(options: {
     appendModelQualityEvidence: vi.fn(async () => "created" as const),
     findModelQualityEvidenceByIdempotencyKey: vi.fn(async () => options.evidenceExists ? qualityEvidence : undefined),
     listProvenance: vi.fn(async () => options.provenanceExists === false ? [] : [{ id: provenanceId }]),
-    appendAudit: vi.fn(async () => undefined),
+    appendAudit: vi.fn(async () => {
+      if (options.auditFailure === true) throw new Error("audit unavailable");
+    }),
     appendProvenance: vi.fn(async () => undefined),
   };
   const policy = {
