@@ -7,6 +7,7 @@ import type {
   ModelRun,
   ModelRunTerminalStatus,
 } from "../entities/model-run";
+import { AGENT_KINDS } from "../entities/agent-profile";
 import { AgenticDomainError } from "../exceptions/agentic-domain.error";
 
 const MILLION = 1_000_000n;
@@ -14,6 +15,8 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const SAFE_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/;
 const OFFSET_ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+const MODEL_RUN_STATUSES = ["reserved", "running", "completed", "failed", "partial", "escalated"] as const;
+const QUALITY_OUTCOMES = ["accepted", "correct", "partial", "escalate"] as const;
 
 export interface ModelRunReservationCostInput {
   readonly maxInputTokens: number;
@@ -137,7 +140,8 @@ export function validateModelRun(run: ModelRun): void {
     ...(run.outputDigest === undefined ? [] : [run.outputDigest]),
     ...(run.providerRequestIdDigest === undefined ? [] : [run.providerRequestIdDigest]),
   ];
-  const terminal = isTerminal(run.status);
+  const statusValid = includesLiteral(MODEL_RUN_STATUSES, run.status);
+  const terminal = statusValid && isTerminal(run.status);
   const createdAt = parseOffsetIsoInstant(run.createdAt);
   const updatedAt = parseOffsetIsoInstant(run.updatedAt);
   const startedAt = run.startedAt === undefined ? undefined : parseOffsetIsoInstant(run.startedAt);
@@ -145,6 +149,8 @@ export function validateModelRun(run: ModelRun): void {
   const startedRequired = run.status === "running" || terminal;
   if (
     identifiers.some((value) => !SAFE_IDENTIFIER.test(value))
+    || !includesLiteral(AGENT_KINDS, run.agentKind)
+    || !statusValid
     || !validModel(run.requestedModel)
     || (run.returnedModel !== undefined && !validModel(run.returnedModel))
     || ![0, 1, 2].includes(run.generationRound)
@@ -166,18 +172,9 @@ export function validateModelRun(run: ModelRun): void {
     || (startedAt !== undefined && (startedAt < createdAt || updatedAt < startedAt))
     || (completedAt !== undefined && startedAt !== undefined
       && (completedAt < startedAt || updatedAt < completedAt))
-    || (run.status === "reserved" && run.returnedModel !== undefined)
-    || (run.status === "running" && run.returnedModel === undefined)
-    || (terminal && (
-      run.returnedModel === undefined
-      || run.startedAt === undefined
-      || run.completedAt === undefined
-      || run.inputTokens === undefined
-      || run.outputTokens === undefined
-      || run.settledCostMicros === undefined
-      || run.latencyMs === undefined
-      || run.statusCode === undefined
-    ))
+    || (run.status === "reserved" && !hasReservedFields(run))
+    || (run.status === "running" && !hasRunningFields(run))
+    || (terminal && !hasTerminalFields(run))
     || (run.status === "completed"
       && (run.outputDigest === undefined || run.providerRequestIdDigest === undefined))
     || (run.statusCode !== undefined && !SAFE_CODE.test(run.statusCode))
@@ -193,6 +190,7 @@ export function validateModelQualityEvidence(evidence: ModelQualityEvidence): vo
     || !SAFE_IDENTIFIER.test(evidence.modelRunId)
     || !SAFE_IDENTIFIER.test(evidence.idempotencyKey)
     || ![0, 1, 2].includes(evidence.generationRound)
+    || !includesLiteral(QUALITY_OUTCOMES, evidence.outcome)
     || !validSafeCodes(evidence.reasonCodes)
     || !validIdentifiers(evidence.provenanceIds)
     || !DIGEST.test(evidence.evidenceDigest)
@@ -206,18 +204,22 @@ function ceilDivide(value: bigint, divisor: bigint): bigint {
   return value === 0n ? 0n : (value + divisor - 1n) / divisor;
 }
 
-function validModel(value: string): boolean {
-  return value.trim() === value && value.length > 0 && value.length <= 255;
+function validModel(value: unknown): value is string {
+  return typeof value === "string"
+    && value.trim() === value
+    && value.length > 0
+    && value.length <= 255
+    && SAFE_IDENTIFIER.test(value);
 }
 
-function validSafeCodes(values: readonly string[]): boolean {
-  return values.length <= 32 && new Set(values).size === values.length
-    && values.every((value) => SAFE_CODE.test(value));
+function validSafeCodes(values: unknown): values is readonly string[] {
+  return Array.isArray(values) && values.length <= 32 && new Set(values).size === values.length
+    && values.every((value) => typeof value === "string" && SAFE_CODE.test(value));
 }
 
-function validIdentifiers(values: readonly string[]): boolean {
-  return values.length <= 128 && new Set(values).size === values.length
-    && values.every((value) => SAFE_IDENTIFIER.test(value));
+function validIdentifiers(values: unknown): values is readonly string[] {
+  return Array.isArray(values) && values.length <= 128 && new Set(values).size === values.length
+    && values.every((value) => typeof value === "string" && SAFE_IDENTIFIER.test(value));
 }
 
 function isNonnegativeSafeInteger(value: number): boolean {
@@ -228,7 +230,58 @@ function isTerminal(status: ModelRun["status"]): boolean {
   return status === "completed" || status === "failed" || status === "partial" || status === "escalated";
 }
 
-function parseOffsetIsoInstant(value: string): number | undefined {
+function hasReservedFields(run: ModelRun): boolean {
+  return run.returnedModel === undefined
+    && run.fallbackPosition === undefined
+    && run.startedAt === undefined
+    && run.completedAt === undefined
+    && !hasTerminalResultFields(run)
+    && run.qualityReasonCodes.length === 0
+    && run.provenanceIds.length === 0;
+}
+
+function hasRunningFields(run: ModelRun): boolean {
+  return run.returnedModel !== undefined
+    && run.fallbackPosition !== undefined
+    && run.startedAt !== undefined
+    && run.completedAt === undefined
+    && !hasTerminalResultFields(run)
+    && run.qualityReasonCodes.length === 0
+    && run.provenanceIds.length === 0;
+}
+
+function hasTerminalFields(run: ModelRun): boolean {
+  return run.returnedModel !== undefined
+    && run.fallbackPosition !== undefined
+    && run.startedAt !== undefined
+    && run.completedAt !== undefined
+    && run.inputTokens !== undefined
+    && run.outputTokens !== undefined
+    && run.settledCostMicros !== undefined
+    && run.latencyMs !== undefined
+    && run.statusCode !== undefined;
+}
+
+function hasTerminalResultFields(run: ModelRun): boolean {
+  return run.outputDigest !== undefined
+    || run.inputTokens !== undefined
+    || run.outputTokens !== undefined
+    || run.settledCostMicros !== undefined
+    || run.providerRequestIdDigest !== undefined
+    || run.latencyMs !== undefined
+    || run.statusCode !== undefined
+    || run.errorCode !== undefined;
+}
+
+function includesLiteral<const Value extends string>(
+  values: readonly Value[],
+  value: unknown,
+): value is Value {
+  return typeof value === "string" && values.includes(value as Value);
+}
+
+function parseOffsetIsoInstant(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
   const match = OFFSET_ISO_INSTANT.exec(value);
   if (match === null) return undefined;
   const year = Number(match[1]);

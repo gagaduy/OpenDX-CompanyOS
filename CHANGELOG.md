@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Validate exact model-run lifecycle state fields and Quality Gate evidence
+  outcome literals at the Agentic domain boundary.
+
 - Enforce ordered offset-aware model-run timestamps, immutable execution
   snapshots across terminal settlement, and exact model-run reservation and
   settlement linkage through the existing Agentic budget ledger.

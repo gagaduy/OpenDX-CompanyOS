@@ -229,6 +229,102 @@ describe("model run rules", () => {
     }), "MODEL_RUN_INVALID");
   });
 
+  it.each(["reserved", "running", "completed", "failed", "partial", "escalated"] as const)(
+    "accepts the exact model run status %s with its legal field matrix",
+    (status) => {
+      expect(() => validateModelRun(runInState(status))).not.toThrow();
+    },
+  );
+
+  it("rejects a model run status outside the persisted lifecycle", () => {
+    expectDomainError(
+      () => validateModelRun({ ...modelRun(), status: "queued" } as unknown as ModelRun),
+      "MODEL_RUN_INVALID",
+    );
+  });
+
+  it.each([
+    ["returned model", { returnedModel: "model/returned" }],
+    ["fallback position", { fallbackPosition: 0 }],
+    ["started timestamp", { startedAt: "2026-08-19T01:01:00.000Z" }],
+    ["completed timestamp", { completedAt: "2026-08-19T01:01:00.000Z" }],
+    ["output digest", { outputDigest: "b".repeat(64) }],
+    ["input usage", { inputTokens: 1 }],
+    ["output usage", { outputTokens: 1 }],
+    ["settled cost", { settledCostMicros: 0 }],
+    ["provider digest", { providerRequestIdDigest: "c".repeat(64) }],
+    ["latency", { latencyMs: 1 }],
+    ["status code", { statusCode: "MODEL_RESULT_ACCEPTED" }],
+    ["error code", { errorCode: "PROVIDER_UNAVAILABLE" }],
+    ["quality reasons", { qualityReasonCodes: ["SCHEMA_INVALID"] }],
+    ["provenance", { provenanceIds: ["evidence-1"] }],
+  ])("reserved forbids %s", (_case, overrides) => {
+    expectDomainError(
+      () => validateModelRun(modelRun(overrides as Partial<ModelRun>)),
+      "MODEL_RUN_INVALID",
+    );
+  });
+
+  it.each([
+    ["returned model", { returnedModel: undefined }],
+    ["fallback position", { fallbackPosition: undefined }],
+    ["started timestamp", { startedAt: undefined }],
+    ["completed timestamp", { completedAt: "2026-08-19T01:02:00.000Z" }],
+    ["output digest", { outputDigest: "b".repeat(64) }],
+    ["usage", { inputTokens: 1 }],
+    ["settled cost", { settledCostMicros: 0 }],
+    ["provider digest", { providerRequestIdDigest: "c".repeat(64) }],
+    ["latency", { latencyMs: 1 }],
+    ["terminal status", { statusCode: "MODEL_RESULT_ACCEPTED" }],
+    ["error", { errorCode: "PROVIDER_UNAVAILABLE" }],
+    ["quality reasons", { qualityReasonCodes: ["SCHEMA_INVALID"] }],
+    ["provenance", { provenanceIds: ["evidence-1"] }],
+  ])("running rejects missing or forbidden %s", (_case, overrides) => {
+    expectDomainError(
+      () => validateModelRun({ ...runInState("running"), ...overrides } as ModelRun),
+      "MODEL_RUN_INVALID",
+    );
+  });
+
+  it.each([
+    ["completed", { outputDigest: undefined }],
+    ["completed", { providerRequestIdDigest: undefined }],
+    ["failed", { inputTokens: undefined }],
+    ["failed", { latencyMs: undefined }],
+    ["partial", { completedAt: undefined }],
+    ["partial", { statusCode: undefined }],
+    ["escalated", { startedAt: undefined }],
+    ["escalated", { settledCostMicros: undefined }],
+  ] as const)("terminal %s rejects an illegal missing field %#", (status, overrides) => {
+    expectDomainError(
+      () => validateModelRun({ ...runInState(status), ...overrides } as ModelRun),
+      "MODEL_RUN_INVALID",
+    );
+  });
+
+  it.each(["accepted", "correct", "partial", "escalate"] as const)(
+    "accepts exact quality outcome %s",
+    (outcome) => {
+      expect(() => validateModelQualityEvidence(qualityEvidence({ outcome }))).not.toThrow();
+    },
+  );
+
+  it.each([
+    ["bogus outcome", { outcome: "retry" }],
+    ["missing reasons", { reasonCodes: undefined }],
+    ["too many reasons", { reasonCodes: Array.from({ length: 33 }, (_, index) => `REASON_${index}`) }],
+    ["missing provenance", { provenanceIds: undefined }],
+    ["too much provenance", { provenanceIds: Array.from({ length: 129 }, (_, index) => `evidence-${index}`) }],
+  ])("rejects quality evidence with %s", (_case, overrides) => {
+    expectDomainError(
+      () => validateModelQualityEvidence({
+        ...qualityEvidence(),
+        ...overrides,
+      } as unknown as Parameters<typeof validateModelQualityEvidence>[0]),
+      "MODEL_QUALITY_EVIDENCE_INVALID",
+    );
+  });
+
   it.each([
     { generationRound: 3 },
     { fallbackPosition: 2 },
@@ -265,6 +361,51 @@ function modelRun(overrides: Partial<ModelRun> = {}): ModelRun {
     version: 1,
     createdAt: "2026-08-19T01:00:00.000Z",
     updatedAt: "2026-08-19T01:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function runInState(status: ModelRun["status"]): ModelRun {
+  if (status === "reserved") return modelRun();
+  const running = modelRun({
+    status: "running",
+    returnedModel: "z-ai/glm-5.2:free",
+    fallbackPosition: 0,
+    startedAt: "2026-08-19T01:01:00.000Z",
+    updatedAt: "2026-08-19T01:01:00.000Z",
+    version: 2,
+  });
+  if (status === "running") return running;
+  return {
+    ...running,
+    status,
+    ...(status === "completed"
+      ? { outputDigest: "b".repeat(64), providerRequestIdDigest: "c".repeat(64) }
+      : {}),
+    inputTokens: 1,
+    outputTokens: 1,
+    settledCostMicros: 0,
+    latencyMs: 1,
+    statusCode: status === "completed" ? "MODEL_RESULT_ACCEPTED" : "MODEL_RESULT_NOT_ACCEPTED",
+    qualityReasonCodes: status === "completed" ? [] : ["AUTHORITATIVE_EVIDENCE_MISSING"],
+    provenanceIds: ["evidence-1"],
+    completedAt: "2026-08-19T01:02:00.000Z",
+    updatedAt: "2026-08-19T01:02:00.000Z",
+    version: 3,
+  };
+}
+
+function qualityEvidence(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "a1900000-0000-4000-8000-000000000004",
+    modelRunId: "a1900000-0000-4000-8000-000000000001",
+    generationRound: 0 as const,
+    idempotencyKey: "quality:ai-ceo:0",
+    outcome: "accepted" as const,
+    reasonCodes: ["MODEL_RESULT_ACCEPTED"],
+    provenanceIds: ["evidence-1"],
+    evidenceDigest: "d".repeat(64),
+    recordedAt: "2026-08-19T01:02:00.000Z",
     ...overrides,
   };
 }
