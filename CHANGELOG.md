@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Authorize model-run primary and fallback pairs from the active configured
+  revision rather than a source-code model allow-list, while retaining pricing,
+  budget, policy, and revocation enforcement.
+
 - Keep the context-boundary private-key detector fixture out of the tracked
   private-key audit pattern while preserving its runtime security coverage.
 
