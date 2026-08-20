@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add deterministic model-runtime acceptance, credential-owned OpenRouter live
+  acceptance, Phase D static boundaries, and safe Compose environment wiring.
+
 - Compose the governed model executor as an opt-in Temporal activity that
   returns digest-only analysis outcomes and records bounded execution metrics
   and structured event fields without changing the existing workflow graph.

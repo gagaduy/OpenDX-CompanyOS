@@ -6,10 +6,10 @@ COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
 REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export BACKUP
 
-.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools temporal-cli db-migrate db-rollback db-seed db-backup db-restore
+.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore
 
 help:
-	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
+	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -47,6 +47,12 @@ check-agentic-workflow-recovery:
 
 check-agentic-department-tools:
 	pnpm check:agentic-department-tools
+
+check-agentic-model-runtime:
+	pnpm check:agentic-model-runtime
+
+check-openrouter-live:
+	pnpm check:openrouter-live
 
 temporal-cli:
 	$(COMPOSE) run --rm --no-deps temporal-cli $(ARGS)

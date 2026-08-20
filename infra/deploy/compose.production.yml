@@ -128,6 +128,8 @@ x-ai-environment: &ai-environment
   FAKE_ACTIVITY_DELAY_MS: "0"
   WORKER_SHUTDOWN_GRACE_SECONDS: "30"
   COMMAND_RETRY_INTERVAL_SECONDS: "5"
+  OPENROUTER_EXECUTION_ENABLED: ${OPENROUTER_EXECUTION_ENABLED:-false}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   WORKER_READINESS_PATH: /tmp/opendx-worker-ready
 
 x-client-tls-volumes: &client-tls-volumes

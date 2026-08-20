@@ -48,9 +48,8 @@ test("rejects an incomplete recovery set or missing live gate", () => {
   assert.throws(() => validateAgenticPhaseB(missingGate), /live workflow lifecycle gate/i);
 });
 
-test("rejects Phase C-H runtime and unsafe Temporal exposure", () => {
+test("rejects unsafe Temporal exposure and later UI scope", () => {
   for (const [field, addition, expected] of [
-    ["runtimeSources", "\nOPENROUTER_API_KEY=x", /OpenRouter/i],
     ["consoleSources", "\nexport const AgenticDashboard = () => null", /Console Agentic page/i],
     ["localCompose", "\n  temporal-ui:\n    image: temporalio/ui:latest", /Temporal UI/i],
     ["productionCompose", '\n    ports: ["7233:7233"]', /public Temporal port/i],
