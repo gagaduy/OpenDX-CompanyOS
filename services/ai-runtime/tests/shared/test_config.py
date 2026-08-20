@@ -288,6 +288,35 @@ def test_openrouter_urls_reject_invalid_ports_without_retaining_input(
 
 
 @pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("OPENROUTER_BASE_URL", "https://[broken.example/api/v1"),
+        (
+            "OPENROUTER_PUBLIC_ATTRIBUTION_URL",
+            "https://[broken.example/opendx",
+        ),
+    ],
+)
+def test_openrouter_urls_reject_malformed_ipv6_without_retaining_input(
+    name: str, value: str
+) -> None:
+    values = environment() | {
+        "OPENROUTER_EXECUTION_ENABLED": "true",
+        "OPENROUTER_API_KEY": "private-key",
+        name: value,
+    }
+
+    with pytest.raises(ConfigurationError) as captured:
+        RuntimeSettings.from_mapping(values)
+
+    assert captured.value.args == (
+        f"{name} must be a valid HTTP or HTTPS URL",
+    )
+    assert captured.value.__cause__ is None
+    assert value not in repr(captured.value)
+
+
+@pytest.mark.parametrize(
     "base_url",
     [
         "http://openrouter.ai/api/v1",

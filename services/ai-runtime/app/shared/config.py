@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field as dataclass_field
 from typing import Literal, Mapping, cast
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 
 Environment = Literal["development", "test", "production"]
@@ -266,7 +266,7 @@ def _http_url(
     values: Mapping[str, str], name: str, environment: Environment
 ) -> str:
     value = _required(values, name)
-    parsed = urlparse(value)
+    parsed = _parse_http_url(value, name)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
     try:
@@ -302,7 +302,7 @@ def _optional_http_url(values: Mapping[str, str], name: str) -> str | None:
 
 
 def _validate_http_url(value: str, name: str) -> None:
-    parsed = urlparse(value)
+    parsed = _parse_http_url(value, name)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
     try:
@@ -311,6 +311,15 @@ def _validate_http_url(value: str, name: str) -> None:
         raise ConfigurationError(f"{name} must contain a valid port") from None
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
+
+
+def _parse_http_url(value: str, name: str) -> ParseResult:
+    try:
+        return urlparse(value)
+    except ValueError:
+        raise ConfigurationError(
+            f"{name} must be a valid HTTP or HTTPS URL"
+        ) from None
 
 
 def _optional_header_value(

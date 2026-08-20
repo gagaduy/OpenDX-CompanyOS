@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Reject malformed bracketed IPv6 OpenRouter and attribution URLs as stable,
+  secret-safe configuration failures before HTTP client construction.
+
 - Tighten OpenRouter preflight by rejecting malformed URL ports before HTTP
   construction and requiring canonical string zero pricing for every approved
   model before any model context may leave the runtime.
