@@ -74,6 +74,9 @@ export function up(pgm: MigrationBuilder): void {
       UNIQUE(id,generation_round),
       CHECK(agentic_is_safe_code_array(quality_reason_codes,32)),
       CHECK(agentic_is_safe_identifier_array(provenance_ids,128)),
+      CHECK(isfinite(created_at) AND isfinite(updated_at)
+        AND (started_at IS NULL OR isfinite(started_at))
+        AND (completed_at IS NULL OR isfinite(completed_at))),
       CHECK(updated_at>=created_at),
       CHECK(
         (status='reserved' AND returned_model IS NULL AND fallback_position IS NULL
@@ -153,7 +156,7 @@ export function up(pgm: MigrationBuilder): void {
       reason_codes text[] NOT NULL DEFAULT '{}',
       provenance_ids text[] NOT NULL DEFAULT '{}',
       evidence_digest text NOT NULL CHECK(evidence_digest~'^[a-f0-9]{64}$'),
-      recorded_at timestamptz NOT NULL,
+      recorded_at timestamptz NOT NULL CHECK(isfinite(recorded_at)),
       CHECK(agentic_is_safe_code_array(reason_codes,32)),
       CHECK(agentic_is_safe_identifier_array(provenance_ids,128)),
       FOREIGN KEY(model_run_id,generation_round)
@@ -162,6 +165,21 @@ export function up(pgm: MigrationBuilder): void {
     );
     CREATE INDEX agentic_model_quality_run_idx
       ON agentic_model_quality_evidence(model_run_id,recorded_at,id);
+    CREATE FUNCTION agentic_validate_model_quality_parent() RETURNS trigger LANGUAGE plpgsql AS $f$
+    DECLARE
+      parent_status text;
+    BEGIN
+      SELECT status INTO parent_status FROM agentic_model_runs
+        WHERE id=NEW.model_run_id AND generation_round=NEW.generation_round FOR SHARE;
+      IF parent_status IS NULL OR parent_status NOT IN ('completed','failed','partial','escalated') THEN
+        RAISE EXCEPTION 'model quality evidence requires a terminal model run'
+          USING ERRCODE='23514';
+      END IF;
+      RETURN NEW;
+    END; $f$;
+    CREATE TRIGGER agentic_model_quality_evidence_parent
+      BEFORE INSERT ON agentic_model_quality_evidence FOR EACH ROW
+      EXECUTE FUNCTION agentic_validate_model_quality_parent();
     CREATE TRIGGER agentic_model_quality_evidence_immutable
       BEFORE UPDATE OR DELETE ON agentic_model_quality_evidence FOR EACH ROW
       EXECUTE FUNCTION agentic_prevent_mutation();
@@ -226,6 +244,9 @@ export function down(pgm: MigrationBuilder): void {
     DROP INDEX IF EXISTS agentic_budget_one_model_settlement_idx;
     DROP INDEX IF EXISTS agentic_budget_one_model_reservation_idx;
     ALTER TABLE agentic_budget_entries DROP COLUMN IF EXISTS model_run_id;
+    DROP TRIGGER IF EXISTS agentic_model_quality_evidence_parent
+      ON agentic_model_quality_evidence;
+    DROP FUNCTION IF EXISTS agentic_validate_model_quality_parent;
     DROP TABLE IF EXISTS agentic_model_quality_evidence;
     DROP TRIGGER IF EXISTS agentic_model_runs_no_delete ON agentic_model_runs;
     DROP TRIGGER IF EXISTS agentic_model_runs_transition ON agentic_model_runs;

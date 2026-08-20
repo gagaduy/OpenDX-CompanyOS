@@ -42,7 +42,7 @@ import type {
   WorkflowRun,
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
-import { validateModelRun } from "../../../domain/services/model-run-rules";
+import { validateModelQualityEvidence, validateModelRun } from "../../../domain/services/model-run-rules";
 
 type Row = Record<string, unknown>;
 
@@ -555,16 +555,25 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async reserveBudget(
     session: DatabaseSession,
     input: BudgetReservationInput,
-  ): Promise<"reserved" | "duplicate" | "exceeded"> {
+  ): Promise<"reserved" | "duplicate" | "conflict" | "exceeded"> {
     if (!Number.isSafeInteger(input.costMicros) || input.costMicros < 0) return "exceeded";
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.budget.idempotency:${input.idempotencyKey}`,
+    ]);
     await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       `agentic.budget:${input.revisionId}:${input.agentKind}:${input.taskId}`,
     ]);
-    const duplicate = await session.query(
-      "SELECT id FROM agentic_budget_entries WHERE idempotency_key=$1",
+    const duplicate = await session.query<Row>(
+      `SELECT entry.entry_type,entry.agent_kind,entry.task_id,entry.cost_micros::text,
+         entry.model_run_id,task.configuration_revision_id
+       FROM agentic_budget_entries entry
+       JOIN agentic_tasks task ON task.id=entry.task_id
+       WHERE entry.idempotency_key=$1`,
       [input.idempotencyKey],
     );
-    if (duplicate.rowCount > 0) return "duplicate";
+    if (duplicate.rows[0] !== undefined) {
+      return sameBudgetReservation(duplicate.rows[0], input) ? "duplicate" : "conflict";
+    }
 
     const limits = await session.query<Row>(
       `SELECT task_cost_micros::text,daily_cost_micros::text,monthly_cost_micros::text
@@ -606,8 +615,19 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async settleBudget(
     session: DatabaseSession,
     input: BudgetSettlementInput,
-  ): Promise<"settled" | "duplicate" | "stale"> {
+  ): Promise<"settled" | "duplicate" | "conflict" | "stale"> {
     if (!Number.isSafeInteger(input.actualCostMicros) || input.actualCostMicros < 0) return "stale";
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.budget.idempotency:${input.idempotencyKey}`,
+    ]);
+    const existing = await session.query<Row>(
+      `SELECT entry_type,reservation_id,cost_micros::text,model_run_id
+       FROM agentic_budget_entries WHERE idempotency_key=$1`,
+      [input.idempotencyKey],
+    );
+    if (existing.rows[0] !== undefined) {
+      return sameBudgetSettlement(existing.rows[0], input) ? "duplicate" : "conflict";
+    }
     const reservation = await session.query<Row>(
       `SELECT id,agent_kind,task_id,cost_micros::text FROM agentic_budget_entries
        WHERE id=$1 AND entry_type='reservation' FOR UPDATE`,
@@ -617,11 +637,6 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     if (reserved === undefined || BigInt(input.actualCostMicros) > BigInt(String(reserved.cost_micros))) {
       return "stale";
     }
-    const existing = await session.query(
-      "SELECT id FROM agentic_budget_entries WHERE idempotency_key=$1",
-      [input.idempotencyKey],
-    );
-    if (existing.rowCount > 0) return "duplicate";
     const alreadySettled = await session.query(
       "SELECT id FROM agentic_budget_entries WHERE reservation_id=$1",
       [input.reservationId],
@@ -675,6 +690,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     run: ModelRun,
     expectedVersion: number,
   ): Promise<boolean> {
+    validateModelRun(run);
     const result = await session.query(
       `UPDATE agentic_model_runs SET status='running',returned_model=$2,
        fallback_position=$3,version=$4,started_at=$5,updated_at=$6
@@ -690,6 +706,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     run: ModelRun,
     expectedVersion: number,
   ): Promise<ModelRunTerminalResult> {
+    validateModelRun(run);
     const result = await session.query(
       `UPDATE agentic_model_runs SET status=$2,output_digest=$3,input_tokens=$4,
        output_tokens=$5,settled_cost_micros=$6,provider_request_id_digest=$7,
@@ -715,6 +732,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     session: DatabaseSession,
     evidence: ModelQualityEvidence,
   ): Promise<ModelQualityEvidenceAppendResult> {
+    validateModelQualityEvidence(evidence);
     const inserted = await session.query(
       `INSERT INTO agentic_model_quality_evidence
        (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,
@@ -1517,13 +1535,14 @@ function sameModelRunTerminal(left: ModelRun, right: ModelRun): boolean {
     && left.errorCode === right.errorCode
     && sameStrings(left.qualityReasonCodes, right.qualityReasonCodes)
     && sameStrings(left.provenanceIds, right.provenanceIds)
-    && left.completedAt === right.completedAt;
+    && sameInstant(left.completedAt, right.completedAt)
+    && sameInstant(left.updatedAt, right.updatedAt);
 }
 
 function sameModelQualityEvidence(left: ModelQualityEvidence, right: ModelQualityEvidence): boolean {
   return left.modelRunId === right.modelRunId && left.generationRound === right.generationRound
     && left.outcome === right.outcome && left.evidenceDigest === right.evidenceDigest
-    && left.recordedAt === right.recordedAt && sameStrings(left.reasonCodes, right.reasonCodes)
+    && sameInstant(left.recordedAt, right.recordedAt) && sameStrings(left.reasonCodes, right.reasonCodes)
     && sameStrings(left.provenanceIds, right.provenanceIds);
 }
 
@@ -1538,6 +1557,30 @@ function stringArray(value: unknown): readonly string[] {
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameInstant(left: string | undefined, right: string | undefined): boolean {
+  return left !== undefined && right !== undefined && Date.parse(left) === Date.parse(right);
+}
+
+function sameBudgetReservation(row: Row, input: BudgetReservationInput): boolean {
+  return row.entry_type === "reservation"
+    && String(row.configuration_revision_id) === input.revisionId
+    && row.agent_kind === input.agentKind
+    && String(row.task_id) === input.taskId
+    && BigInt(String(row.cost_micros)) === BigInt(input.costMicros)
+    && nullableString(row.model_run_id) === input.modelRunId;
+}
+
+function sameBudgetSettlement(row: Row, input: BudgetSettlementInput): boolean {
+  return row.entry_type === "settlement"
+    && String(row.reservation_id) === input.reservationId
+    && BigInt(String(row.cost_micros)) === BigInt(input.actualCostMicros)
+    && nullableString(row.model_run_id) === input.modelRunId;
+}
+
+function nullableString(value: unknown): string | undefined {
+  return value === null || value === undefined ? undefined : String(value);
 }
 
 function mapBudgetLimit(row: Row): BudgetLimitRecord {

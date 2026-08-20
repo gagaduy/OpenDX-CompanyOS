@@ -298,8 +298,8 @@ export interface AgenticRepository {
   decideApproval(session: DatabaseSession, approvalId: string, expectedVersion: number, state: Exclude<ApprovalState, "pending">, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   createRevocation(session: DatabaseSession, revocation: RevocationRecord): Promise<"created" | "duplicate">;
   findActiveRevocation(session: DatabaseSession, targetType: RevocationRecord["targetType"], targetId: string): Promise<RevocationRecord | undefined>;
-  reserveBudget(session: DatabaseSession, input: BudgetReservationInput): Promise<"reserved" | "duplicate" | "exceeded">;
-  settleBudget(session: DatabaseSession, input: BudgetSettlementInput): Promise<"settled" | "duplicate" | "stale">;
+  reserveBudget(session: DatabaseSession, input: BudgetReservationInput): Promise<"reserved" | "duplicate" | "conflict" | "exceeded">;
+  settleBudget(session: DatabaseSession, input: BudgetSettlementInput): Promise<"settled" | "duplicate" | "conflict" | "stale">;
   reserveModelRun(session: DatabaseSession, run: ModelRun): Promise<ModelRunReservationResult>;
   findModelRun(session: DatabaseSession, runId: string): Promise<ModelRun | undefined>;
   markModelRunRunning(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<boolean>;

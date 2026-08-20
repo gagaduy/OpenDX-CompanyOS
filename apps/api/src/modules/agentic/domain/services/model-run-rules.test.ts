@@ -165,6 +165,7 @@ describe("model run rules", () => {
       { reasonCodes: ["unsafe reason"] },
       { provenanceIds: ["duplicate", "duplicate"] },
       { evidenceDigest: "not-a-digest" },
+      { recordedAt: "infinity" },
     ]) {
       expectDomainError(
         () => validateModelQualityEvidence({ ...evidence, ...overrides } as typeof evidence),
@@ -182,6 +183,7 @@ describe("model run rules", () => {
 
   it.each([
     { createdAt: "not-a-date" },
+    { createdAt: "infinity" },
     { createdAt: "2026-08-19T01:00:00" },
     { updatedAt: "2026-08-19T00:59:59.999Z" },
     { completedAt: "2026-08-19T01:01:00.000Z" },

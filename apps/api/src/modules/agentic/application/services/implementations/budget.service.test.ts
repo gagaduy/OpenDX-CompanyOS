@@ -54,6 +54,22 @@ describe("PostgresqlBudgetService", () => {
     })).rejects.toThrow("audit unavailable");
     expect(repository.settleBudget).toHaveBeenCalledOnce();
   });
+
+  it("propagates idempotency conflicts with non-success audit outcomes", async () => {
+    const repository = {
+      reserveBudget: vi.fn().mockResolvedValue("conflict"),
+      settleBudget: vi.fn().mockResolvedValue("conflict"),
+      appendAudit: vi.fn(),
+    };
+    const service = createService(repository);
+    await expect(service.reserve(reservation)).resolves.toBe("conflict");
+    await expect(service.settle({
+      reservationId: "reservation", idempotencyKey: "settle-1",
+      actualCostMicros: 40, correlationId: "corr-2",
+    })).resolves.toBe("conflict");
+    expect(repository.appendAudit.mock.calls[0]?.[1]).toMatchObject({ outcome: "denied" });
+    expect(repository.appendAudit.mock.calls[1]?.[1]).toMatchObject({ outcome: "failed" });
+  });
 });
 
 function createService(repository: {

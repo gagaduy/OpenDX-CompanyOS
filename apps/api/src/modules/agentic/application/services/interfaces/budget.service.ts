@@ -20,6 +20,6 @@ export interface BudgetSettlementCommand {
 }
 
 export interface BudgetService {
-  reserve(input: BudgetReservationCommand): Promise<"reserved" | "duplicate" | "exceeded">;
-  settle(input: BudgetSettlementCommand): Promise<"settled" | "duplicate" | "stale">;
+  reserve(input: BudgetReservationCommand): Promise<"reserved" | "duplicate" | "conflict" | "exceeded">;
+  settle(input: BudgetSettlementCommand): Promise<"settled" | "duplicate" | "conflict" | "stale">;
 }

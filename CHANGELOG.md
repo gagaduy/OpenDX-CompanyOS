@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Harden model-run persistence with instant-based replay comparison, mandatory
+  domain validation, terminal-only quality evidence, and payload-safe budget
+  idempotency conflicts.
+
 - Align persisted reserved and running model-run states with domain evidence
   rules, rejecting premature quality and provenance metadata.
 

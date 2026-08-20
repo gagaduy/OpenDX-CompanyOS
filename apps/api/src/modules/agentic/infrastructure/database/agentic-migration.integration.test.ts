@@ -104,6 +104,16 @@ suite("Agent governance migration", () => {
         ARRAY['MODEL_RESULT_ACCEPTED'],ARRAY['evidence-1'])`,
       [taskId, revisionId, "c".repeat(64)],
     )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      `INSERT INTO agentic_model_runs
+       (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
+        idempotency_key,requested_model,policy_version,configuration_version,
+        result_schema_version,input_digest,input_cost_micros_per_million,
+        output_cost_micros_per_million,max_reserved_cost_micros,status,created_at,updated_at)
+       VALUES(gen_random_uuid(),$1,'catalog',$2,1,1,'run:catalog:infinite',
+        'google/gemma-4-26b-a4b-it:free',1,1,1,$3,0,0,0,'reserved','infinity','infinity')`,
+      [taskId, revisionId, "4".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
 
     await expect(pool.query(
       `INSERT INTO agentic_model_runs
@@ -124,6 +134,14 @@ suite("Agent governance migration", () => {
        fallback_position=0,started_at=now(),quality_reason_codes=ARRAY['MODEL_RESULT_ACCEPTED'],
        provenance_ids=ARRAY['evidence-1'],version=2,updated_at=now() WHERE id=$1`,
       [runId],
+    )).rejects.toMatchObject({ code: "23514" });
+    await expect(pool.query(
+      `INSERT INTO agentic_model_quality_evidence
+       (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,
+        provenance_ids,evidence_digest,recorded_at)
+       VALUES(gen_random_uuid(),$1,0,'quality:preterminal','accepted','{}',
+        ARRAY['evidence-1'],$2,now())`,
+      [runId, "3".repeat(64)],
     )).rejects.toMatchObject({ code: "23514" });
 
     await pool.query(
@@ -164,6 +182,14 @@ suite("Agent governance migration", () => {
        VALUES(gen_random_uuid(),$1,0,'quality:0','accepted','{}',ARRAY['evidence-1'],$2,now())`,
       [runId, "f".repeat(64)],
     );
+    await expect(pool.query(
+      `INSERT INTO agentic_model_quality_evidence
+       (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,
+        provenance_ids,evidence_digest,recorded_at)
+       VALUES(gen_random_uuid(),$1,0,'quality:infinite','accepted','{}',
+        ARRAY['evidence-1'],$2,'infinity')`,
+      [runId, "5".repeat(64)],
+    )).rejects.toMatchObject({ code: "23514" });
     await expect(pool.query(
       `INSERT INTO agentic_model_quality_evidence
        (id,model_run_id,generation_round,idempotency_key,outcome,reason_codes,

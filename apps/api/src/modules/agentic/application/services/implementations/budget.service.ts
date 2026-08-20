@@ -20,7 +20,7 @@ export class PostgresqlBudgetService implements BudgetService {
     private readonly now: () => string,
   ) {}
 
-  async reserve(input: BudgetReservationCommand): Promise<"reserved" | "duplicate" | "exceeded"> {
+  async reserve(input: BudgetReservationCommand): Promise<"reserved" | "duplicate" | "conflict" | "exceeded"> {
     assertCost(input.costMicros);
     return this.transactions.run(async (session) => {
       const occurredAt = this.now();
@@ -32,14 +32,15 @@ export class PostgresqlBudgetService implements BudgetService {
       await this.repository.appendAudit(session, {
         id: this.generateId(), actorId: `agent-${input.agentKind}`, actorType: "agent",
         taskId: input.taskId, action: "budget.reserve", resourceType: "agentic_task",
-        resourceId: input.taskId, outcome: result === "exceeded" ? "denied" : "allowed",
+        resourceId: input.taskId,
+        outcome: result === "exceeded" || result === "conflict" ? "denied" : "allowed",
         correlationId: input.correlationId, occurredAt,
       });
       return result;
     });
   }
 
-  async settle(input: BudgetSettlementCommand): Promise<"settled" | "duplicate" | "stale"> {
+  async settle(input: BudgetSettlementCommand): Promise<"settled" | "duplicate" | "conflict" | "stale"> {
     assertCost(input.actualCostMicros);
     return this.transactions.run(async (session) => {
       const occurredAt = this.now();
@@ -51,7 +52,8 @@ export class PostgresqlBudgetService implements BudgetService {
       await this.repository.appendAudit(session, {
         id: this.generateId(), actorId: "agentic-budget", actorType: "system",
         action: "budget.settle", resourceType: "budget_reservation",
-        resourceId: input.reservationId, outcome: result === "stale" ? "failed" : "allowed",
+        resourceId: input.reservationId,
+        outcome: result === "stale" || result === "conflict" ? "failed" : "allowed",
         correlationId: input.correlationId, occurredAt,
       });
       return result;

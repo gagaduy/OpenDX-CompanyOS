@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
+import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type { ActivityInvocation, WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { transitionWorkflowRun } from "../../../domain/services/workflow-run-rules";
 import { runAgenticMigrations } from "../../database/run-agentic-migrations";
@@ -112,6 +113,16 @@ suite("PostgresqlAgenticRepository", () => {
       repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("updated");
     await expect(transactions.run((session) =>
       repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed,
+      completedAt: "2026-08-19T08:02:00.000+07:00",
+      updatedAt: "2026-08-19T08:02:00.000+07:00",
+    }, 2))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed,
+      completedAt: "2026-08-19T08:02:01.000+07:00",
+      updatedAt: "2026-08-19T08:02:01.000+07:00",
+    }, 2))).resolves.toBe("conflict");
     await expect(transactions.run((session) => repository.settleModelRunTerminal(
       session, { ...completed, outputDigest: "d".repeat(64) }, 2,
     ))).resolves.toBe("conflict");
@@ -130,11 +141,65 @@ suite("PostgresqlAgenticRepository", () => {
       session, { ...evidence, id: randomUUID() },
     ))).resolves.toBe("duplicate");
     await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), recordedAt: "2026-08-19T08:02:00.000+07:00" },
+    ))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
+      session, { ...evidence, id: randomUUID(), recordedAt: "2026-08-19T08:02:01.000+07:00" },
+    ))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(
       session, { ...evidence, id: randomUUID(), evidenceDigest: "f".repeat(64) },
     ))).resolves.toBe("conflict");
     await expect(transactions.run((session) => repository.appendModelQualityEvidence(
       session, { ...evidence, id: randomUUID(), idempotencyKey: "quality:catalog:alternate" },
     ))).resolves.toBe("duplicate");
+  });
+
+  it("rejects quality evidence before its model run is terminal", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const evidence = modelQualityEvidence(reserved.id);
+    await expect(transactions.run((session) =>
+      repository.appendModelQualityEvidence(session, evidence)))
+      .rejects.toMatchObject({ code: "23514" });
+
+    const running = runningModelRun(reserved);
+    await expect(transactions.run((session) =>
+      repository.markModelRunRunning(session, running, 1))).resolves.toBe(true);
+    await expect(transactions.run((session) =>
+      repository.appendModelQualityEvidence(session, evidence)))
+      .rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("validates model run and evidence mutations before executing SQL", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const reserved = (await transactions.run((session) =>
+      repository.reserveModelRun(session, modelRun(taskId, revisionId)))).run;
+    const running = runningModelRun(reserved);
+    await expect(transactions.run((session) => repository.markModelRunRunning(session, {
+      ...running, startedAt: "infinity", updatedAt: "infinity",
+    }, 1))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) =>
+      repository.markModelRunRunning(session, running, 1))).resolves.toBe(true);
+
+    const completed = completedModelRun(running);
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed, completedAt: "infinity", updatedAt: "infinity",
+    }, 2))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) => repository.settleModelRunTerminal(session, {
+      ...completed, status: "running",
+    } as unknown as ModelRun, 2))).rejects.toMatchObject({ code: "MODEL_RUN_INVALID" });
+    await expect(transactions.run((session) =>
+      repository.settleModelRunTerminal(session, completed, 2))).resolves.toBe("updated");
+
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, {
+      ...modelQualityEvidence(reserved.id), recordedAt: "infinity",
+    }))).rejects.toMatchObject({ code: "MODEL_QUALITY_EVIDENCE_INVALID" });
+    await expect(transactions.run((session) => repository.appendModelQualityEvidence(session, {
+      ...modelQualityEvidence(reserved.id), outcome: "retry",
+    } as unknown as ModelQualityEvidence))).rejects.toMatchObject({
+      code: "MODEL_QUALITY_EVIDENCE_INVALID",
+    });
   });
   afterAll(async () => {
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
@@ -292,6 +357,27 @@ suite("PostgresqlAgenticRepository", () => {
     expect([...results].sort()).toEqual(["exceeded", "reserved"]);
     const reservedKey = keys[results.indexOf("reserved")];
     await expect(reserve(reservedKey!)).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.reserveBudget(session, {
+      id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+      idempotencyKey: reservedKey!, costMicros: 61,
+      occurredAt: "2026-08-14T01:00:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.reserveBudget(session, {
+      id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+      idempotencyKey: reservedKey!, costMicros: 60, modelRunId: randomUUID(),
+      occurredAt: "2026-08-14T01:00:01.000Z",
+    }))).resolves.toBe("conflict");
+    for (const identity of [
+      { revisionId: randomUUID() },
+      { taskId: randomUUID() },
+      { agentKind: "finance" as const },
+    ]) {
+      await expect(transactions.run((session) => repository.reserveBudget(session, {
+        id: randomUUID(), revisionId, agentKind: "catalog", taskId,
+        idempotencyKey: reservedKey!, costMicros: 60,
+        occurredAt: "2026-08-14T01:00:01.000Z", ...identity,
+      }))).resolves.toBe("conflict");
+    }
   });
 
   it("settles reservations once and persists append-only audit, provenance, and revocation evidence", async () => {
@@ -313,6 +399,21 @@ suite("PostgresqlAgenticRepository", () => {
     }));
     const settlementResults = await Promise.all([settle("settlement-a"), settle("settlement-b")]);
     expect([...settlementResults].sort()).toEqual(["settled", "stale"]);
+    const settledKey = ["settlement-a", "settlement-b"][settlementResults.indexOf("settled")]!;
+    await expect(settle(settledKey)).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId, idempotencyKey: settledKey, actualCostMicros: 69,
+      occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId: randomUUID(), idempotencyKey: settledKey,
+      actualCostMicros: 70, occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => repository.settleBudget(session, {
+      id: randomUUID(), reservationId, idempotencyKey: settledKey,
+      actualCostMicros: 70, modelRunId: randomUUID(),
+      occurredAt: "2026-08-14T01:01:01.000Z",
+    }))).resolves.toBe("conflict");
 
     const auditId = randomUUID();
     const provenanceId = randomUUID();
@@ -740,5 +841,32 @@ function modelRun(taskId: string, configurationRevisionId: string) {
     maxReservedCostMicros: 0, status: "reserved" as const,
     qualityReasonCodes: [], provenanceIds: [], version: 1,
     createdAt: "2026-08-19T01:00:00.000Z", updatedAt: "2026-08-19T01:00:00.000Z",
+  };
+}
+
+function runningModelRun(run: ReturnType<typeof modelRun> | ModelRun): ModelRun {
+  return {
+    ...run, status: "running", returnedModel: run.requestedModel, fallbackPosition: 0,
+    version: 2, startedAt: "2026-08-19T01:01:00.000Z",
+    updatedAt: "2026-08-19T01:01:00.000Z",
+  };
+}
+
+function completedModelRun(run: ModelRun): ModelRun {
+  return {
+    ...run, status: "completed", outputDigest: "b".repeat(64), inputTokens: 10,
+    outputTokens: 5, settledCostMicros: 0, providerRequestIdDigest: "c".repeat(64),
+    latencyMs: 20, statusCode: "MODEL_RESULT_ACCEPTED", qualityReasonCodes: [],
+    provenanceIds: ["evidence-1"], version: 3,
+    completedAt: "2026-08-19T01:02:00.000Z", updatedAt: "2026-08-19T01:02:00.000Z",
+  };
+}
+
+function modelQualityEvidence(modelRunId: string): ModelQualityEvidence {
+  return {
+    id: randomUUID(), modelRunId, generationRound: 0,
+    idempotencyKey: `quality:${modelRunId}`, outcome: "accepted",
+    reasonCodes: [], provenanceIds: ["evidence-1"], evidenceDigest: "e".repeat(64),
+    recordedAt: "2026-08-19T01:02:00.000Z",
   };
 }
