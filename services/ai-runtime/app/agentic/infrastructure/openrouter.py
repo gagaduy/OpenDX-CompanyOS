@@ -10,13 +10,11 @@ import re
 import time
 from collections.abc import Callable, Mapping
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from types import MappingProxyType
 
 import httpx
 
 from app.agentic.domain.model_result_schemas import parse_model_result
 from app.agentic.domain.model_runtime import (
-    AgentKind,
     ModelGatewayFailure,
     ModelRequest,
     ModelResult,
@@ -24,26 +22,15 @@ from app.agentic.domain.model_runtime import (
 from app.shared.config import OpenRouterSettings
 
 
-PRIMARY_MODELS: Mapping[AgentKind, str] = MappingProxyType(
-    {
-        "ai_ceo": "z-ai/glm-5.2:free",
-        "catalog": "google/gemma-4-26b-a4b-it:free",
-        "inventory": "nvidia/nemotron-3-super-120b-a12b:free",
-        "order": "nvidia/nemotron-3-super-120b-a12b:free",
-        "finance": "openai/gpt-oss-20b:free",
-        "crm": "dots-studio/dots-3-note-preview:free",
-        "support": "nvidia/nemotron-nano-9b-v2:free",
-    }
-)
-EMERGENCY_FALLBACK = "liquid/lfm-2.5-2.6b:free"
-
-_APPROVED_MODELS = frozenset((*PRIMARY_MODELS.values(), EMERGENCY_FALLBACK))
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 _MAX_OUTPUT_TOKENS = 32_768
 _MAX_PROVIDER_ID_LENGTH = 255
 _MAX_SCHEMA_DEPTH = 64
 _MAX_SCHEMA_NODES = 10_000
 _PROVIDER_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}")
+_NONNEGATIVE_DECIMAL = re.compile(
+    r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
+)
 
 
 class OpenRouterModelGateway:
@@ -58,6 +45,7 @@ class OpenRouterModelGateway:
         self._client = client
         self._now = now
         self._catalog_valid_until: float | None = None
+        self._catalog: object | None = None
         self._catalog_refresh: asyncio.Task[None] | None = None
 
     async def generate(self, request: ModelRequest) -> ModelResult:
@@ -71,29 +59,20 @@ class OpenRouterModelGateway:
     async def preflight(self, request: ModelRequest) -> None:
         self._validate_request(request)
         self._request_body(request)
-        await self._ensure_catalog()
+        await self._ensure_catalog(request.model)
 
     def _validate_request(self, request: ModelRequest) -> None:
         if not self._settings.execution_enabled:
             _fail("OPENROUTER_EXECUTION_DISABLED", retryable=False)
         if self._settings.api_key is None:
             _fail("OPENROUTER_AUTH_FAILED", retryable=False)
-        primary = PRIMARY_MODELS.get(request.agent_kind)
-        valid_position = type(request.fallback_position) is int
-        valid_primary = (
-            valid_position
-            and request.model == primary
-            and request.fallback_position == 0
-        )
-        valid_fallback = (
-            valid_position
-            and request.model == EMERGENCY_FALLBACK
-            and request.fallback_position == 1
-        )
-        if request.model not in _APPROVED_MODELS or not (
-            valid_primary or valid_fallback
+        if (
+            type(request.model) is not str
+            or _PROVIDER_ID.fullmatch(request.model) is None
+            or type(request.fallback_position) is not int
+            or request.fallback_position not in {0, 1}
         ):
-            _fail("OPENROUTER_MODEL_UNAUTHORIZED", retryable=False)
+            _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
         if (
             type(request.max_output_tokens) is not int
             or request.max_output_tokens < 1
@@ -109,12 +88,14 @@ class OpenRouterModelGateway:
         if not _strict_object_schemas(request.result_schema):
             _fail("OPENROUTER_SCHEMA_INVALID", retryable=False)
 
-    async def _ensure_catalog(self) -> None:
+    async def _ensure_catalog(self, configured_model: str) -> None:
         while True:
             if (
                 self._catalog_valid_until is not None
                 and self._now() < self._catalog_valid_until
             ):
+                if not _configured_model_available(self._catalog, configured_model):
+                    _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
                 return
             refresh = self._catalog_refresh
             if refresh is None:
@@ -123,6 +104,9 @@ class OpenRouterModelGateway:
                 refresh.add_done_callback(self._catalog_refresh_done)
             await asyncio.wait((refresh,))
             await refresh
+            if not _configured_model_available(self._catalog, configured_model):
+                _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
+            return
 
     def _catalog_refresh_done(self, refresh: asyncio.Task[None]) -> None:
         if self._catalog_refresh is refresh:
@@ -132,8 +116,9 @@ class OpenRouterModelGateway:
 
     async def _refresh_catalog(self) -> None:
         document = await self._request_json("GET", "/models")
-        if not _valid_catalog(document):
+        if not _valid_catalog_document(document):
             _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
+        self._catalog = document
         self._catalog_valid_until = (
             self._now() + self._settings.catalog_cache_ttl_seconds
         )
@@ -346,38 +331,48 @@ def _status_failure(status: int) -> ModelGatewayFailure | None:
     return ModelGatewayFailure("OPENROUTER_PROVIDER_REJECTED", retryable=False)
 
 
-def _valid_catalog(value: object) -> bool:
+def _valid_catalog_document(value: object) -> bool:
+    try:
+        document = _object(value)
+        return type(document["data"]) is list
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _configured_model_available(value: object, configured_model: str) -> bool:
     try:
         document = _object(value)
         models = document["data"]
         if type(models) is not list:
             return False
-        seen: set[str] = set()
-        for value in models:
-            model = _object(value)
-            identifier = model["id"]
-            if type(identifier) is not str:
-                return False
-            if identifier not in _APPROVED_MODELS:
-                continue
-            if identifier in seen:
-                return False
-            seen.add(identifier)
-            pricing = _object(model["pricing"])
-            if not _exact_zero(pricing.get("prompt")) or not _exact_zero(
-                pricing.get("completion")
-            ):
-                return False
-            parameters = model["supported_parameters"]
-            if type(parameters) is not list or "response_format" not in parameters:
-                return False
-        return seen == _APPROVED_MODELS
+        matches = [
+            _object(item)
+            for item in models
+            if type(item) is dict and item.get("id") == configured_model
+        ]
+        if len(matches) != 1:
+            return False
+        model = matches[0]
+        pricing = _object(model["pricing"])
+        parameters = model["supported_parameters"]
+        return (
+            _nonnegative_decimal_string(pricing.get("prompt"))
+            and _nonnegative_decimal_string(pricing.get("completion"))
+            and type(parameters) is list
+            and "response_format" in parameters
+        )
     except (KeyError, TypeError, ValueError):
         return False
 
 
-def _exact_zero(value: object) -> bool:
-    return type(value) is str and value == "0"
+def _nonnegative_decimal_string(value: object) -> bool:
+    if type(value) is not str or _NONNEGATIVE_DECIMAL.fullmatch(value) is None:
+        return False
+    try:
+        price = Decimal(value)
+    except InvalidOperation:
+        return False
+    return price.is_finite() and price >= 0
 
 
 def _strict_object_schemas(value: object) -> bool:

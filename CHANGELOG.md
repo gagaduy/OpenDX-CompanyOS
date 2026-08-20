@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preflight the exact primary or fallback model pinned by an API-authorized
+  reservation against OpenRouter's current catalog, accepting finite
+  non-negative paid pricing while retaining structured-output requirements.
+
 - Clarify that paid model revisions use the existing immutable, two-person
   Governance Admin activation decision instead of a duplicate nested approval.
 

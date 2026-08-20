@@ -7,14 +7,16 @@ import { fileURLToPath } from "node:url";
 
 const source = (path) => readFileSync(path, "utf8");
 export function collectModelRuntimeSnapshot() {
-  return { runtime: source("services/ai-runtime/app/agentic/domain/model_runtime.py"), activity: source("services/ai-runtime/app/agentic/activities/model_execution_activities.py"), executor: source("services/ai-runtime/app/agentic/application/model_executor.py") };
+  return { runtime: source("services/ai-runtime/app/agentic/domain/model_runtime.py"), activity: source("services/ai-runtime/app/agentic/activities/model_execution_activities.py"), executor: source("services/ai-runtime/app/agentic/application/model_executor.py"), gateway: source("services/ai-runtime/app/agentic/infrastructure/openrouter.py") };
 }
-export function validateModelRuntime({ runtime, activity, executor }) {
+export function validateModelRuntime({ runtime, activity, executor, gateway }) {
   for (const agent of ["ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"]) {
     if (!runtime.includes(`"${agent}"`)) throw new Error("Model runtime must retain seven Agents");
   }
   if (!activity.includes('"outputDigest": outcome.output_digest') || /"content"\s*:/.test(activity)) throw new Error("Activity result must remain digest-only");
   if (!executor.includes("for correction_round in range(3)") || !executor.includes("fallback_position")) throw new Error("Model attempts must remain bounded");
+  if (/PRIMARY_MODELS|EMERGENCY_FALLBACK|_APPROVED_MODELS/.test(gateway)) throw new Error("OpenRouter preflight must not retain a hard-coded Agent model map");
+  if (!gateway.includes("_configured_model_available(self._catalog, configured_model)") || !gateway.includes("await self._ensure_catalog(request.model)")) throw new Error("OpenRouter preflight must validate the configured reservation model against the catalog");
 }
 export function run() {
   validateModelRuntime(collectModelRuntimeSnapshot());
