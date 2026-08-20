@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Compare catalog USD/token prices to approved reservation thresholds without
+  Decimal context rounding, fail closed on extreme exponents, and require one
+  configured fallback model per Agent in live acceptance exports.
+
 - Bind OpenRouter catalog pricing to the exact non-negative unit prices in the
   API-authorized reservation, and require package/Make live acceptance to
   forward an explicit governance configuration-export path.

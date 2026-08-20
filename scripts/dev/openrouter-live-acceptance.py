@@ -38,7 +38,7 @@ def configured_models(path: Path) -> tuple[tuple[str, ...], frozenset[str]]:
         fallbacks = record.get("fallbackModels")
         if agent not in AGENTS or not isinstance(primary, str) or not primary:
             raise ValueError("model configuration identity is invalid")
-        if agent in by_agent or not isinstance(fallbacks, list):
+        if agent in by_agent or not isinstance(fallbacks, list) or len(fallbacks) != 1:
             raise ValueError("model configuration fallback is invalid")
         if any(not isinstance(model, str) or not model for model in fallbacks):
             raise ValueError("configured model is invalid")

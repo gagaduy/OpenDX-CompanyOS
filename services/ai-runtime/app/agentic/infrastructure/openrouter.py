@@ -9,7 +9,7 @@ import math
 import re
 import time
 from collections.abc import Callable, Mapping
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, DecimalException, InvalidOperation, ROUND_HALF_UP
 
 import httpx
 
@@ -27,7 +27,6 @@ _MAX_OUTPUT_TOKENS = 32_768
 _MAX_PROVIDER_ID_LENGTH = 255
 _MAX_SCHEMA_DEPTH = 64
 _MAX_SCHEMA_NODES = 10_000
-_CATALOG_PRICE_TO_MICROS_PER_MILLION = Decimal(1_000_000_000_000)
 _PROVIDER_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}")
 _NONNEGATIVE_DECIMAL = re.compile(
     r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
@@ -403,20 +402,28 @@ def _configured_model_available(
 
 
 def _nonnegative_decimal_string(value: object) -> bool:
+    return _nonnegative_decimal(value) is not None
+
+
+def _nonnegative_decimal(value: object) -> Decimal | None:
     if type(value) is not str or _NONNEGATIVE_DECIMAL.fullmatch(value) is None:
-        return False
+        return None
     try:
         price = Decimal(value)
-    except InvalidOperation:
-        return False
-    return price.is_finite() and price >= 0
+        return price if price.is_finite() and price >= 0 else None
+    except DecimalException:
+        return None
 
 
 def _catalog_price_within_approved(value: object, approved_price: int) -> bool:
-    if type(value) is not str or not _nonnegative_decimal_string(value):
+    price = _nonnegative_decimal(value)
+    if price is None:
         return False
-    price = Decimal(value)
-    return price * _CATALOG_PRICE_TO_MICROS_PER_MILLION <= approved_price
+    try:
+        approved_usd_per_token = Decimal(approved_price).scaleb(-12)
+        return price <= approved_usd_per_token
+    except DecimalException:
+        return False
 
 
 def _strict_object_schemas(value: object) -> bool:

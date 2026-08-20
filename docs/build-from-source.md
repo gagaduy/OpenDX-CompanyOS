@@ -127,7 +127,8 @@ all seven records under `modelConfigurations`:
 ```
 
 The real export must contain exactly one record for each of `ai_ceo`,
-`catalog`, `inventory`, `order`, `finance`, `crm`, and `support`. Run either:
+`catalog`, `inventory`, `order`, `finance`, `crm`, and `support`, and every
+record must contain exactly one fallback model. Run either:
 
 ```bash
 export OPENROUTER_CONFIGURATION_EXPORT=/absolute/path/configuration-revision.json

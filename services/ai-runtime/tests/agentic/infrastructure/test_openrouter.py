@@ -156,7 +156,7 @@ def test_catalog_price_overage_is_not_rounded_down() -> None:
                     {
                         "id": configured_model,
                         "pricing": {
-                            "prompt": "0.0000010000001",
+                            "prompt": "0.000001" + ("0" * 28) + "1",
                             "completion": "0",
                         },
                         "supported_parameters": ["response_format"],
@@ -167,6 +167,31 @@ def test_catalog_price_overage_is_not_rounded_down() -> None:
         request=_request(
             model=configured_model,
             input_cost_micros_per_million=1_000_000,
+        ),
+    )
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_CATALOG_INVALID", False)
+
+
+def test_huge_catalog_price_exponent_fails_closed() -> None:
+    configured_model = "provider/governance-approved-paid-model"
+
+    failure = _failure(
+        lambda _request: httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "id": configured_model,
+                        "pricing": {"prompt": "1e999999999", "completion": "0"},
+                        "supported_parameters": ["response_format"],
+                    }
+                ]
+            },
+        ),
+        request=_request(
+            model=configured_model,
+            input_cost_micros_per_million=MAX_SAFE_INTEGER,
         ),
     )
 
