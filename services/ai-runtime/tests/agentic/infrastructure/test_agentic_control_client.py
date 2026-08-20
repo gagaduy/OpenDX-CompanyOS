@@ -22,6 +22,12 @@ from app.agentic.infrastructure.agentic_control_client import (
     AgenticControlClient,
     AgenticControlError,
 )
+from app.agentic.application.ports import (
+    CompleteModelRunRequest,
+    FailModelRunRequest,
+    ReserveModelRunRequest,
+    StartModelRunRequest,
+)
 
 
 class Tokens:
@@ -105,6 +111,42 @@ def test_maps_plan_projection_and_reservation_requests_exactly() -> None:
     assert json.loads(requests[4].content) == {
         "expectedVersion": 1, "outcomeCode": "RETRY_EXHAUSTED"
     }
+
+
+def test_maps_digest_only_model_run_control_requests() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        data: dict[str, object] = {"runId": "00000000-0000-4000-8000-000000000001", "version": 1, "status": "running"}
+        if request.url.path.endswith("/reserve"):
+            data.update({"primaryModel": "google/gemma-4-26b-a4b-it:free", "fallbackModel": "liquid/lfm-2.5-2.6b:free", "maxInputTokens": 1000, "maxOutputTokens": 500, "timeoutMs": 1000, "schemaVersion": 1, "inputCostMicrosPerMillion": 0, "outputCostMicrosPerMillion": 0, "maxReservedCostMicros": 0})
+        return httpx.Response(200, json={"success": True, "data": data})
+
+    client = _client(handler)
+    run_id = "00000000-0000-4000-8000-000000000001"
+    reservation = asyncio.run(client.reserve_model_run(ReserveModelRunRequest(
+        task_id="00000000-0000-4000-8000-000000000002", agent_kind="catalog",
+        generation_round=0, idempotency_key="model:catalog:0", input_digest="a" * 64,
+        primary_model="google/gemma-4-26b-a4b-it:free", fallback_model="liquid/lfm-2.5-2.6b:free",
+    )))
+    asyncio.run(client.start_model_run(StartModelRunRequest(run_id, 1, reservation.primary_model, 0)))
+    asyncio.run(client.complete_model_run(CompleteModelRunRequest(
+        run_id, 2, "model:catalog:complete", "completed", "b" * 64, 10, 20,
+        "c" * 64, 12, "MODEL_COMPLETED", "accepted", (), (run_id,), "d" * 64,
+    )))
+    asyncio.run(client.fail_model_run(FailModelRunRequest(
+        run_id, 2, "model:catalog:fail", None, 0, 0, None, 12,
+        "MODEL_FAILED", "OPENROUTER_SCHEMA_INVALID", "correct", (), (run_id,), "e" * 64,
+    )))
+
+    assert [request.url.path for request in requests] == [
+        "/v1/internal/agentic/model-runs/reserve",
+        f"/v1/internal/agentic/model-runs/{run_id}/start",
+        f"/v1/internal/agentic/model-runs/{run_id}/complete",
+        f"/v1/internal/agentic/model-runs/{run_id}/fail",
+    ]
+    assert all(b"content" not in request.content for request in requests)
 
 
 @pytest.mark.parametrize("status,retryable", [(503, True), (400, False)])

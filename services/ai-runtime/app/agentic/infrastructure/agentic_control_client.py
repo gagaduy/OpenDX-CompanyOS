@@ -9,7 +9,16 @@ from urllib.parse import quote
 
 import httpx
 
-from app.agentic.application.ports import AgenticControlFailure, AccessTokenProvider
+from app.agentic.application.ports import (
+    AgenticControlFailure,
+    AccessTokenProvider,
+    CompleteModelRunRequest,
+    FailModelRunRequest,
+    ModelRunReservation,
+    ModelRunState,
+    ReserveModelRunRequest,
+    StartModelRunRequest,
+)
 from app.agentic.domain.contracts import (
     ActivityOutcome,
     ActivityReservationRequest,
@@ -95,6 +104,75 @@ class AgenticControlClient:
                             outcome: ActivityOutcome) -> dict[str, Any]:
         return await self._activity_outcome(invocation_key, "fail", outcome)
 
+    async def reserve_model_run(
+        self, request: ReserveModelRunRequest
+    ) -> ModelRunReservation:
+        data = await self._request("POST", "/model-runs/reserve", json={
+            "taskId": request.task_id, "agentKind": request.agent_kind,
+            "generationRound": request.generation_round,
+            "idempotencyKey": request.idempotency_key,
+            "inputDigest": request.input_digest,
+            "primaryModel": request.primary_model,
+            "fallbackModel": request.fallback_model,
+        }, idempotency_key=request.idempotency_key)
+        try:
+            return ModelRunReservation(
+                run_id=data["runId"], primary_model=data["primaryModel"],
+                fallback_model=data["fallbackModel"],
+                max_input_tokens=data["maxInputTokens"],
+                max_output_tokens=data["maxOutputTokens"], timeout_ms=data["timeoutMs"],
+                schema_version=data["schemaVersion"],
+                input_cost_micros_per_million=data["inputCostMicrosPerMillion"],
+                output_cost_micros_per_million=data["outputCostMicrosPerMillion"],
+                max_reserved_cost_micros=data["maxReservedCostMicros"], version=data["version"],
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+    async def start_model_run(self, request: StartModelRunRequest) -> ModelRunState:
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/start", json={
+                "expectedVersion": request.expected_version,
+                "returnedModel": request.returned_model,
+                "fallbackPosition": request.fallback_position,
+            }, idempotency_key=f"{request.run_id}:start:{request.expected_version}",
+        )
+        return _model_run_state(data)
+
+    async def complete_model_run(self, request: CompleteModelRunRequest) -> ModelRunState:
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/complete", json={
+                "expectedVersion": request.expected_version, "idempotencyKey": request.idempotency_key,
+                "status": request.status, "outputDigest": request.output_digest,
+                "inputTokens": request.input_tokens, "outputTokens": request.output_tokens,
+                "providerRequestIdDigest": request.provider_request_id_digest,
+                "latencyMs": request.latency_ms, "statusCode": request.status_code,
+                "qualityOutcome": request.quality_outcome,
+                "qualityReasonCodes": list(request.quality_reason_codes),
+                "provenanceIds": list(request.provenance_ids), "evidenceDigest": request.evidence_digest,
+            }, idempotency_key=request.idempotency_key,
+        )
+        return _model_run_state(data)
+
+    async def fail_model_run(self, request: FailModelRunRequest) -> ModelRunState:
+        body: dict[str, object] = {
+            "expectedVersion": request.expected_version, "idempotencyKey": request.idempotency_key,
+            "inputTokens": request.input_tokens, "outputTokens": request.output_tokens,
+            "latencyMs": request.latency_ms, "statusCode": request.status_code,
+            "errorCode": request.error_code, "qualityOutcome": request.quality_outcome,
+            "qualityReasonCodes": list(request.quality_reason_codes),
+            "provenanceIds": list(request.provenance_ids), "evidenceDigest": request.evidence_digest,
+        }
+        if request.output_digest is not None:
+            body["outputDigest"] = request.output_digest
+        if request.provider_request_id_digest is not None:
+            body["providerRequestIdDigest"] = request.provider_request_id_digest
+        data = await self._request(
+            "POST", f"/model-runs/{quote(request.run_id, safe='')}/fail", json=body,
+            idempotency_key=request.idempotency_key,
+        )
+        return _model_run_state(data)
+
     async def _activity_outcome(self, invocation_key: str, action: str,
                                 outcome: ActivityOutcome) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -156,3 +234,14 @@ class AgenticControlClient:
             return data
         except (ValueError, KeyError, TypeError) as error:
             raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+
+def _model_run_state(data: dict[str, Any]) -> ModelRunState:
+    try:
+        settled = data.get("settledCostMicros")
+        return ModelRunState(
+            run_id=data["runId"], status=data["status"], version=data["version"],
+            settled_cost_micros=settled,
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error

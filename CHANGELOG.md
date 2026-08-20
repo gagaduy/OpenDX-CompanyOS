@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Execute governed model analysis through API-owned model-run authority with
+  bounded primary/fallback attempts, correction reservations, digest-only
+  settlement callbacks, and Quality Gate-driven completed, partial, and
+  escalated outcomes.
+
 - Keep model-run reservation receipts pinned to the original reserved
   predecessor version so reserve/start retries converge after running or
   terminal transitions without exposing mutable execution evidence.

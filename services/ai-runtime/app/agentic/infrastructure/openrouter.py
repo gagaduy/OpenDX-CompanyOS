@@ -61,13 +61,17 @@ class OpenRouterModelGateway:
         self._catalog_refresh: asyncio.Task[None] | None = None
 
     async def generate(self, request: ModelRequest) -> ModelResult:
-        self._validate_request(request)
+        await self.preflight(request)
         body = self._request_body(request)
-        await self._ensure_catalog()
         document = await self._request_json(
             "POST", "/chat/completions", json_body=body
         )
         return self._parse_result(document, request)
+
+    async def preflight(self, request: ModelRequest) -> None:
+        self._validate_request(request)
+        self._request_body(request)
+        await self._ensure_catalog()
 
     def _validate_request(self, request: ModelRequest) -> None:
         if not self._settings.execution_enabled:
