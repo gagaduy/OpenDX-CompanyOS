@@ -232,6 +232,37 @@ suite("PostgresqlAgenticRepository", () => {
     ))).resolves.toBe("duplicate");
   });
 
+  it("replays delayed and concurrent semantic model run reservations despite new timestamps", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    const first = modelRun(taskId, revisionId);
+    const delayed = {
+      ...first,
+      id: randomUUID(),
+      createdAt: "2026-08-19T01:00:01.000Z",
+      updatedAt: "2026-08-19T01:00:01.000Z",
+    };
+    const reserved = await transactions.run((session) => repository.reserveModelRun(session, first));
+
+    await expect(transactions.run((session) => repository.reserveModelRun(session, delayed)))
+      .resolves.toEqual({ status: "duplicate", run: reserved.run });
+    await expect(transactions.run((session) => repository.reserveModelRun(session, {
+      ...delayed,
+      inputDigest: "f".repeat(64),
+    }))).resolves.toMatchObject({ status: "conflict" });
+
+    const concurrentKey = "model:catalog:concurrent";
+    const concurrent = await Promise.all([
+      transactions.run((session) => repository.reserveModelRun(session, {
+        ...first, id: randomUUID(), idempotencyKey: concurrentKey,
+      })),
+      transactions.run((session) => repository.reserveModelRun(session, {
+        ...delayed, id: randomUUID(), idempotencyKey: concurrentKey,
+      })),
+    ]);
+    expect(concurrent.map(({ status }) => status).sort()).toEqual(["duplicate", "reserved"]);
+    expect(concurrent[0]!.run).toEqual(concurrent[1]!.run);
+  });
+
   it("rejects quality evidence before its model run is terminal", async () => {
     const { taskId, revisionId } = await createReadyTask(pool);
     const reserved = (await transactions.run((session) =>
@@ -456,6 +487,40 @@ suite("PostgresqlAgenticRepository", () => {
         occurredAt: "2026-08-14T01:00:01.000Z", ...identity,
       }))).resolves.toBe("conflict");
     }
+  });
+
+  it("serializes aggregate quota across tasks while independent agent scopes proceed", async () => {
+    const revisionId = randomUUID();
+    const catalogTasks = [randomUUID(), randomUUID()];
+    const inventoryTask = randomUUID();
+    await pool.query(`INSERT INTO agentic_configuration_revisions
+      (id,state,created_by,payload_digest) VALUES($1,'draft','admin-a',$2)`,
+    [revisionId, "f".repeat(64)]);
+    await pool.query(`INSERT INTO agentic_budget_limits
+      (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+      VALUES($1,'catalog',100,100,100),($1,'inventory',100,100,100)`, [revisionId]);
+    await pool.query(`UPDATE agentic_configuration_revisions
+      SET state='active',decided_by='admin-b',decided_at='2026-08-14T00:00:00.000Z'
+      WHERE id=$1`, [revisionId]);
+    for (const taskId of [...catalogTasks, inventoryTask]) {
+      await pool.query("INSERT INTO agentic_tasks(id,state,created_by,goal,instructions,configuration_revision_id) VALUES($1,'ready','operator-a','Review','Evidence',$2)", [taskId, revisionId]);
+    }
+    const reserve = (agentKind: "catalog" | "inventory", taskId: string, key: string) =>
+      transactions.run((session) => repository.reserveBudget(session, {
+        id: randomUUID(), revisionId, agentKind, taskId, idempotencyKey: key,
+        costMicros: 60, occurredAt: "2026-08-14T01:00:00.000Z",
+      }));
+
+    const [catalogA, catalogB, inventory] = await Promise.all([
+      reserve("catalog", catalogTasks[0]!, "catalog-task-a"),
+      reserve("catalog", catalogTasks[1]!, "catalog-task-b"),
+      reserve("inventory", inventoryTask, "inventory-task-a"),
+    ]);
+    expect([catalogA, catalogB].sort()).toEqual(["exceeded", "reserved"]);
+    expect(inventory).toBe("reserved");
+    await expect(pool.query<{ total: string }>(`SELECT COALESCE(sum(cost_micros),0)::text AS total
+      FROM agentic_budget_entries WHERE entry_type='reservation' AND agent_kind='catalog'`))
+      .resolves.toMatchObject({ rows: [{ total: "60" }] });
   });
 
   it("settles reservations once and persists append-only audit, provenance, and revocation evidence", async () => {

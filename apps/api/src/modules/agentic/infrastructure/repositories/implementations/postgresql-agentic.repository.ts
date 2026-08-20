@@ -561,7 +561,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       `agentic.budget.idempotency:${input.idempotencyKey}`,
     ]);
     await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
-      `agentic.budget:${input.revisionId}:${input.agentKind}:${input.taskId}`,
+      `agentic.budget.quota:${input.revisionId}:${input.agentKind}`,
     ]);
     const duplicate = await session.query<Row>(
       `SELECT entry.entry_type,entry.agent_kind,entry.task_id,entry.cost_micros::text,
@@ -677,7 +677,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     const stored = await this.findModelRunByIdempotencyKey(session, run.idempotencyKey);
     if (stored === undefined) throw new Error("Model run reservation was not persisted");
     if (inserted.rowCount === 1) return { status: "reserved", run: stored };
-    return { status: sameModelRunRequest(stored, run) ? "duplicate" : "conflict", run: stored };
+    return { status: sameModelRunReservation(stored, run) ? "duplicate" : "conflict", run: stored };
   }
 
   async findModelRun(session: DatabaseSession, runId: string): Promise<ModelRun | undefined> {
@@ -1589,6 +1589,11 @@ function mapModelQualityEvidence(row: Row): ModelQualityEvidence {
 }
 
 function sameModelRunRequest(left: ModelRun, right: ModelRun): boolean {
+  return sameModelRunReservation(left, right)
+    && sameInstant(left.createdAt, right.createdAt);
+}
+
+function sameModelRunReservation(left: ModelRun, right: ModelRun): boolean {
   return left.taskId === right.taskId
     && left.agentKind === right.agentKind
     && left.configurationRevisionId === right.configurationRevisionId
@@ -1599,8 +1604,7 @@ function sameModelRunRequest(left: ModelRun, right: ModelRun): boolean {
     && left.resultSchemaVersion === right.resultSchemaVersion && left.inputDigest === right.inputDigest
     && left.inputCostMicrosPerMillion === right.inputCostMicrosPerMillion
     && left.outputCostMicrosPerMillion === right.outputCostMicrosPerMillion
-    && left.maxReservedCostMicros === right.maxReservedCostMicros
-    && sameInstant(left.createdAt, right.createdAt);
+    && left.maxReservedCostMicros === right.maxReservedCostMicros;
 }
 
 function sameModelRunTerminal(left: ModelRun, right: ModelRun): boolean {

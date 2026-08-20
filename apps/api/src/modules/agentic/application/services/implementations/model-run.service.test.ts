@@ -170,6 +170,40 @@ describe("ModelRunServiceImpl", () => {
     }, principal)).rejects.toMatchObject({ code: "STALE_VERSION" });
   });
 
+  it("converges an identical concurrent start after losing the optimistic update", async () => {
+    const harness = createHarness({ updateAccepted: false, concurrentStart: true });
+
+    await expect(harness.service.start({
+      runId: "00000000-0000-4000-8000-000000000001",
+      expectedVersion: 1,
+      returnedModel: primaryModel,
+      fallbackPosition: 0,
+    }, principal)).resolves.toMatchObject({ status: "running", version: 2 });
+
+    expect(harness.repository.findModelRun).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["model", { returnedModel: fallbackModel }],
+    ["fallback", { fallbackPosition: 1 as const }],
+    ["start time", { startedAt: "2026-08-20T03:00:01.000Z" }],
+    ["idempotency", { idempotencyKey: "different-start" }],
+    ["version", { version: 3 }],
+  ])("rejects a concurrent start with changed %s", async (_field, concurrentStartChange) => {
+    const harness = createHarness({
+      updateAccepted: false,
+      concurrentStart: true,
+      concurrentStartChange,
+    });
+
+    await expect(harness.service.start({
+      runId: "00000000-0000-4000-8000-000000000001",
+      expectedVersion: 1,
+      returnedModel: primaryModel,
+      fallbackPosition: 0,
+    }, principal)).rejects.toMatchObject({ code: "MODEL_RUN_CONFLICT" });
+  });
+
   it("rechecks Agent and model revocation immediately before execution starts", async () => {
     const command = {
       runId: "00000000-0000-4000-8000-000000000001",
@@ -408,6 +442,8 @@ function createHarness(options: {
   readonly provenanceExists?: boolean;
   readonly evidenceExists?: boolean;
   readonly concurrentReplay?: boolean;
+  readonly concurrentStart?: boolean;
+  readonly concurrentStartChange?: Readonly<Record<string, unknown>>;
   readonly auditFailure?: boolean;
   readonly settlementExists?: boolean;
   readonly concurrentTaskId?: string;
@@ -512,7 +548,12 @@ function createHarness(options: {
     reserveBudget: vi.fn(async () => options.budgetResult ?? "reserved"),
     findModelRun: options.concurrentReplay
       ? vi.fn().mockResolvedValueOnce(currentRun).mockResolvedValue(concurrentStoredRun)
-      : vi.fn(async () => currentRun),
+      : options.concurrentStart
+        ? vi.fn().mockResolvedValueOnce(baseRun).mockResolvedValue({
+            ...runningRun,
+            ...options.concurrentStartChange,
+          })
+        : vi.fn(async () => currentRun),
     markModelRunRunning: vi.fn(async () => options.updateAccepted ?? true),
     settleModelRunTerminal: vi.fn(async () => options.terminalResult ?? "updated"),
     findModelRunBudgetReservation: vi.fn(async () => ({ id: "55555555-5555-4555-8555-555555555555", costMicros: maxReservedCost })),

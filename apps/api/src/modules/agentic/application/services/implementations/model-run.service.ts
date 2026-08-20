@@ -206,7 +206,14 @@ export class ModelRunServiceImpl implements ModelRunService {
         fallbackPosition: input.fallbackPosition,
       }, this.now());
       if (!await this.repository.markModelRunRunning(session, next, input.expectedVersion)) {
-        fail("STALE_VERSION", "Model run version is stale");
+        const concurrent = await this.repository.findModelRun(session, input.runId);
+        if (concurrent !== undefined && sameConcurrentStart(current, concurrent, input)) {
+          return stateReceipt(concurrent);
+        }
+        if (concurrent?.status === "reserved" && concurrent.version === input.expectedVersion) {
+          fail("STALE_VERSION", "Model run version is stale");
+        }
+        fail("MODEL_RUN_CONFLICT", "Model run start conflicts with stored execution evidence");
       }
       await this.repository.appendAudit(session, {
         id: this.generateId(), actorId: principal.subject, clientId: principal.clientId,
@@ -610,6 +617,38 @@ function isTerminal(run: ModelRun): boolean {
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameConcurrentStart(
+  predecessor: ModelRun,
+  stored: ModelRun,
+  input: StartModelRunCommand,
+): boolean {
+  return predecessor.status === "reserved"
+    && predecessor.version === input.expectedVersion
+    && stored.status === "running"
+    && stored.version === input.expectedVersion + 1
+    && stored.id === predecessor.id
+    && stored.taskId === predecessor.taskId
+    && stored.agentKind === predecessor.agentKind
+    && stored.configurationRevisionId === predecessor.configurationRevisionId
+    && stored.schemaVersion === predecessor.schemaVersion
+    && stored.generationRound === predecessor.generationRound
+    && stored.idempotencyKey === predecessor.idempotencyKey
+    && stored.requestedModel === predecessor.requestedModel
+    && stored.policyVersion === predecessor.policyVersion
+    && stored.configurationVersion === predecessor.configurationVersion
+    && stored.resultSchemaVersion === predecessor.resultSchemaVersion
+    && stored.inputDigest === predecessor.inputDigest
+    && stored.inputCostMicrosPerMillion === predecessor.inputCostMicrosPerMillion
+    && stored.outputCostMicrosPerMillion === predecessor.outputCostMicrosPerMillion
+    && stored.maxReservedCostMicros === predecessor.maxReservedCostMicros
+    && sameStrings(stored.qualityReasonCodes, predecessor.qualityReasonCodes)
+    && sameStrings(stored.provenanceIds, predecessor.provenanceIds)
+    && sameInstant(stored.createdAt, predecessor.createdAt)
+    && stored.returnedModel === input.returnedModel
+    && stored.fallbackPosition === input.fallbackPosition
+    && sameInstant(stored.startedAt, stored.updatedAt);
 }
 
 function sameReplayRun(stored: ModelRun, expected: ModelRun): boolean {

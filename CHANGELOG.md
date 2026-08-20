@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Make model-run reservation and start retries converge across delayed and
+  concurrent attempts while preserving full semantic conflict checks, and
+  serialize daily/monthly budget reservations by revision and Agent scope.
+
 - Verify complete terminal model-run replays against immutable run identity,
   Quality Gate evidence, provenance, usage, cost, and settlement idempotency,
   and fail closed with a bounded service error when denial audit persistence is

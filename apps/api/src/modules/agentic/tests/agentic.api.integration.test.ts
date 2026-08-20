@@ -328,13 +328,31 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(reserved.body.data).toMatchObject({
       primaryModel, fallbackModel, maxReservedCostMicros: 4, version: 1,
     });
-    await request(app).post("/v1/internal/agentic/model-runs/reserve")
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const delayedReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
       .set(worker).send(reserveBody).expect(200);
+    expect(delayedReserve.body.data).toEqual(reserved.body.data);
     const startBody = { expectedVersion: 1, returnedModel: primaryModel, fallbackPosition: 0 };
-    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
-      .set(worker).send(startBody).expect(200);
-    await request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`)
-      .set(worker).send(startBody).expect(200);
+    const concurrentStarts = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`).set(worker).send(startBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${runId}/start`).set(worker).send(startBody),
+    ]);
+    expect(concurrentStarts.map(({ status }) => status)).toEqual([200, 200]);
+
+    const startRaceReserve = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+      .set(worker).send({
+        ...reserveBody,
+        idempotencyKey: "catalog-round-0-start-race",
+        inputDigest: "9".repeat(64),
+      }).expect(200);
+    const startRaceRunId = startRaceReserve.body.data.runId as string;
+    const changedStarts = await Promise.all([
+      request(app).post(`/v1/internal/agentic/model-runs/${startRaceRunId}/start`)
+        .set(worker).send(startBody),
+      request(app).post(`/v1/internal/agentic/model-runs/${startRaceRunId}/start`)
+        .set(worker).send({ expectedVersion: 1, returnedModel: fallbackModel, fallbackPosition: 1 }),
+    ]);
+    expect(changedStarts.map(({ status }) => status).sort()).toEqual([200, 409]);
 
     const completeBody = {
       expectedVersion: 2,
