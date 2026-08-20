@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Keep the context-boundary private-key detector fixture out of the tracked
+  private-key audit pattern while preserving its runtime security coverage.
+
 - Document Phase D runtime operations, mandatory live acceptance, and its
   explicit boundary before file intake and AI CEO coordination.
 

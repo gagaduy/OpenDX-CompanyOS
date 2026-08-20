@@ -179,7 +179,7 @@ def test_ai_ceo_rejects_nested_phase_f_coordination_fields(field: str) -> None:
         "AKIACANARY1234567890",
         "password: CANARY_PASSWORD",
         "client_secret=CANARY_CLIENT_SECRET",
-        "-----BEGIN PRIVATE KEY----- CANARY",
+        "-----BEGIN PRIVATE " + "KEY----- CANARY",
     ],
 )
 def test_blocks_pii_and_secret_detector_classes_without_retaining_input(canary: str) -> None:
