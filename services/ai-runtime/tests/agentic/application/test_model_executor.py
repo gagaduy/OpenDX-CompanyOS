@@ -43,6 +43,7 @@ class Controls:
         self.reservations: list[Any] = []
         self.completed: list[Any] = []
         self.failed: list[Any] = []
+        self.started: list[Any] = []
 
     async def reserve_model_run(self, command: object) -> Receipt:
         self.events.append("reserve")
@@ -51,6 +52,7 @@ class Controls:
 
     async def start_model_run(self, command: object) -> object:
         self.events.append("start")
+        self.started.append(command)
         return ModelRunState("run-1", "running", 2)
 
     async def complete_model_run(self, command: object) -> object:
@@ -135,6 +137,7 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     assert completed.output_digest != result().content
     assert completed.evidence_digest != result().content
     assert "content" not in vars(completed)
+    assert controls.reservations[0].input_digest != "a" * 64
 
 
 def test_uses_shared_fallback_once_only_for_retryable_gateway_failure() -> None:
@@ -195,6 +198,33 @@ def test_non_retryable_gateway_failure_settles_failure_without_fallback() -> Non
     assert [request.model for event, request in gateway.requests if event == "generate"] == [
         "google/gemma-4-26b-a4b-it:free",
     ]
+
+
+def test_retryable_primary_and_fallback_failure_settles_the_fallback_attempt() -> None:
+    controls = Controls()
+    gateway = Gateway([
+        ModelGatewayFailure("OPENROUTER_TRANSPORT_FAILED", retryable=True),
+        ModelGatewayFailure("OPENROUTER_TRANSPORT_FAILED", retryable=True),
+    ])
+
+    with pytest.raises(ModelExecutionError):
+        asyncio.run(executor(controls, gateway, Quality([])).execute(command()))
+
+    assert controls.started[0].returned_model == "liquid/lfm-2.5-2.6b:free"
+    assert controls.started[0].fallback_position == 1
+
+
+def test_quality_gate_failure_settles_the_started_reservation() -> None:
+    class BrokenQuality:
+        def evaluate(self, _raw: object, _context: object) -> QualityDecision:
+            raise RuntimeError("unexpected provider body")
+
+    controls = Controls()
+    with pytest.raises(ModelExecutionError) as captured:
+        asyncio.run(executor(controls, Gateway([result()]), BrokenQuality()).execute(command()))
+
+    assert captured.value.code == "MODEL_EXECUTION_FAILED"
+    assert len(controls.failed) == 1
 
 
 def test_rejects_context_before_any_reservation() -> None:

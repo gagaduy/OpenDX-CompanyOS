@@ -180,6 +180,27 @@ def test_rejects_oversized_response() -> None:
         asyncio.run(client.load_plan("run-1"))
 
 
+def test_rejects_malformed_model_run_receipts() -> None:
+    client = _client(lambda _request: httpx.Response(200, json={
+        "success": True,
+        "data": {
+            "runId": "not-a-uuid", "primaryModel": "model", "fallbackModel": "fallback",
+            "maxInputTokens": -1, "maxOutputTokens": 500, "timeoutMs": 1,
+            "schemaVersion": 2, "inputCostMicrosPerMillion": 0,
+            "outputCostMicrosPerMillion": 0, "maxReservedCostMicros": 0, "version": 1,
+        },
+    }))
+
+    with pytest.raises(AgenticControlError) as captured:
+        asyncio.run(client.reserve_model_run(ReserveModelRunRequest(
+            task_id="00000000-0000-4000-8000-000000000002", agent_kind="catalog",
+            generation_round=0, idempotency_key="model:catalog:0", input_digest="a" * 64,
+            primary_model="google/gemma-4-26b-a4b-it:free", fallback_model="liquid/lfm-2.5-2.6b:free",
+        )))
+
+    assert captured.value.code == "AGENTIC_RESPONSE_INVALID"
+
+
 def test_classifies_timeout_as_retryable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("sensitive timeout", request=request)

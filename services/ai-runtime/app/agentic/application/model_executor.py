@@ -32,6 +32,13 @@ class ModelExecutionError(RuntimeError):
         self.retryable = retryable
 
 
+class _GatewayAttemptFailure(RuntimeError):
+    def __init__(self, failure: ModelGatewayFailure, request: ModelRequest) -> None:
+        super().__init__(failure.code)
+        self.failure = failure
+        self.request = request
+
+
 @dataclass(frozen=True)
 class ModelExecutionCommand:
     task_id: str
@@ -90,7 +97,7 @@ class ModelExecutor:
                 task_id=command.task_id, agent_kind=command.agent_kind,
                 generation_round=correction_round,
                 idempotency_key=f"{command.idempotency_key}:round:{correction_round}",
-                input_digest=command.input_digest, primary_model=command.primary_model,
+                input_digest=_input_digest(prompt, correction), primary_model=command.primary_model,
                 fallback_model=command.fallback_model,
             ))
             started_at = self._now()
@@ -98,58 +105,68 @@ class ModelExecutor:
                 result, fallback_position = await self._generate(
                     command, prompt, reservation, correction_round, correction
                 )
-            except ModelGatewayFailure as error:
-                await self._fail_gateway(reservation, command, error, started_at)
-                raise ModelExecutionError(error.code, retryable=error.retryable) from error
+            except _GatewayAttemptFailure as error:
+                await self._fail_gateway(
+                    reservation, command, error.failure, error.request, started_at
+                )
+                raise ModelExecutionError(
+                    error.failure.code, retryable=error.failure.retryable
+                ) from error
 
             state = await self._controls.start_model_run(StartModelRunRequest(
                 reservation.run_id, reservation.version, result.model, fallback_position
             ))
-            output_digest = _digest(result.content)
-            provider_digest = _digest({"providerRequestId": result.provider_request_id})
-            latency_ms = _elapsed_ms(started_at, self._now())
-            decision = self._quality_gate.evaluate(
-                result.content, _with_correction_round(command.quality_context, correction_round)
-            )
-            evidence_digest = _digest({
-                "outcome": decision.outcome, "reasons": decision.reasons,
-                "evidenceIds": decision.evidence_ids,
-            })
-            if decision.outcome == "accepted":
-                await self._controls.complete_model_run(CompleteModelRunRequest(
+            try:
+                output_digest = _digest(result.content)
+                provider_digest = _digest({"providerRequestId": result.provider_request_id})
+                latency_ms = _elapsed_ms(started_at, self._now())
+                decision = self._quality_gate.evaluate(
+                    result.content, _with_correction_round(command.quality_context, correction_round)
+                )
+                evidence_digest = _digest({
+                    "outcome": decision.outcome, "reasons": decision.reasons,
+                    "evidenceIds": decision.evidence_ids,
+                })
+                if decision.outcome == "accepted":
+                    await self._controls.complete_model_run(CompleteModelRunRequest(
+                        reservation.run_id, state.version,
+                        f"{command.idempotency_key}:round:{correction_round}:complete",
+                        "completed", output_digest, result.input_tokens, result.output_tokens,
+                        provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
+                        decision.evidence_ids, evidence_digest,
+                    ))
+                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, ())
+                if decision.outcome == "escalate":
+                    await self._controls.complete_model_run(CompleteModelRunRequest(
+                        reservation.run_id, state.version,
+                        f"{command.idempotency_key}:round:{correction_round}:escalate",
+                        "escalated", output_digest, result.input_tokens, result.output_tokens,
+                        provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
+                        decision.reasons, decision.evidence_ids, evidence_digest,
+                    ))
+                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons)
+                if decision.outcome == "partial" or correction_round == 2:
+                    await self._controls.complete_model_run(CompleteModelRunRequest(
+                        reservation.run_id, state.version,
+                        f"{command.idempotency_key}:round:{correction_round}:partial",
+                        "partial", output_digest, result.input_tokens, result.output_tokens,
+                        provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
+                        decision.reasons, decision.evidence_ids, evidence_digest,
+                    ))
+                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons)
+                await self._controls.fail_model_run(FailModelRunRequest(
                     reservation.run_id, state.version,
-                    f"{command.idempotency_key}:round:{correction_round}:complete",
-                    "completed", output_digest, result.input_tokens, result.output_tokens,
-                    provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
-                    decision.evidence_ids, evidence_digest,
+                    f"{command.idempotency_key}:round:{correction_round}:correct",
+                    output_digest, result.input_tokens, result.output_tokens, provider_digest,
+                    latency_ms, "MODEL_CORRECTION_REQUESTED", "MODEL_QUALITY_CORRECTION",
+                    "correct", decision.reasons, decision.evidence_ids, evidence_digest,
                 ))
-                return ModelExecutionOutcome("completed", reservation.run_id, output_digest, ())
-            if decision.outcome == "escalate":
-                await self._controls.complete_model_run(CompleteModelRunRequest(
-                    reservation.run_id, state.version,
-                    f"{command.idempotency_key}:round:{correction_round}:escalate",
-                    "escalated", output_digest, result.input_tokens, result.output_tokens,
-                    provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
-                    decision.reasons, decision.evidence_ids, evidence_digest,
-                ))
-                return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons)
-            if decision.outcome == "partial" or correction_round == 2:
-                await self._controls.complete_model_run(CompleteModelRunRequest(
-                    reservation.run_id, state.version,
-                    f"{command.idempotency_key}:round:{correction_round}:partial",
-                    "partial", output_digest, result.input_tokens, result.output_tokens,
-                    provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
-                    decision.reasons, decision.evidence_ids, evidence_digest,
-                ))
-                return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons)
-            await self._controls.fail_model_run(FailModelRunRequest(
-                reservation.run_id, state.version,
-                f"{command.idempotency_key}:round:{correction_round}:correct",
-                output_digest, result.input_tokens, result.output_tokens, provider_digest,
-                latency_ms, "MODEL_CORRECTION_REQUESTED", "MODEL_QUALITY_CORRECTION",
-                "correct", decision.reasons, decision.evidence_ids, evidence_digest,
-            ))
-            correction = decision
+                correction = decision
+            except ModelExecutionError:
+                raise
+            except Exception as error:
+                await self._settle_unexpected(reservation.run_id, state.version, command, correction_round)
+                raise ModelExecutionError("MODEL_EXECUTION_FAILED") from error
         raise AssertionError("model correction loop must return")
 
     async def _generate(
@@ -162,10 +179,13 @@ class ModelExecutor:
             return await self._gateway.generate(primary), 0
         except ModelGatewayFailure as error:
             if not error.retryable:
-                raise
+                raise _GatewayAttemptFailure(error, primary) from error
         fallback = self._request(command, prompt, reservation, correction_round, 1, correction)
-        await self._gateway.preflight(fallback)
-        return await self._gateway.generate(fallback), 1
+        try:
+            await self._gateway.preflight(fallback)
+            return await self._gateway.generate(fallback), 1
+        except ModelGatewayFailure as error:
+            raise _GatewayAttemptFailure(error, fallback) from error
 
     @staticmethod
     def _request(
@@ -196,10 +216,10 @@ class ModelExecutor:
 
     async def _fail_gateway(
         self, reservation: object, command: ModelExecutionCommand,
-        error: ModelGatewayFailure, started_at: float,
+        error: ModelGatewayFailure, attempted: ModelRequest, started_at: float,
     ) -> None:
         state = await self._controls.start_model_run(StartModelRunRequest(
-            reservation.run_id, reservation.version, reservation.primary_model, 0
+            reservation.run_id, reservation.version, attempted.model, attempted.fallback_position
         ))
         await self._controls.fail_model_run(FailModelRunRequest(
             reservation.run_id, state.version,
@@ -208,10 +228,39 @@ class ModelExecutor:
             "escalate", (error.code,), (), _digest({"errorCode": error.code}),
         ))
 
+    async def _settle_unexpected(
+        self, run_id: str, version: int, command: ModelExecutionCommand,
+        correction_round: int,
+    ) -> None:
+        try:
+            await self._controls.fail_model_run(FailModelRunRequest(
+                run_id, version, f"{command.idempotency_key}:round:{correction_round}:unexpected",
+                None, 0, 0, None, 0, "MODEL_EXECUTION_FAILED",
+                "MODEL_EXECUTION_FAILED", "escalate", ("MODEL_EXECUTION_FAILED",), (),
+                _digest({"errorCode": "MODEL_EXECUTION_FAILED"}),
+            ))
+        except Exception:
+            pass
+
 
 def _digest(value: object) -> str:
     encoded = json.dumps(_plain_json(value), ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _input_digest(prompt: object, correction: QualityDecision | None) -> str:
+    trusted = [
+        message.content for message in getattr(prompt, "trusted_messages", ())
+        if getattr(message, "role", None) == "system"
+    ]
+    untrusted = getattr(prompt, "untrusted_message", None)
+    context: dict[str, object] = {"context": getattr(untrusted, "content", prompt)}
+    if correction is not None:
+        context["correction"] = {
+            "reasonCodes": list(correction.reasons),
+            "evidenceIds": list(correction.evidence_ids),
+        }
+    return _digest({"trustedInstructions": trusted, "untrustedContext": context})
 
 
 def _plain_json(value: object) -> object:

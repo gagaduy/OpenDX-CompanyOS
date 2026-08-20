@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json as json_module
+import re
 from typing import Any
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
@@ -30,6 +32,9 @@ from app.agentic.domain.contracts import (
 )
 
 AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({"INVALID_FROZEN_PLAN"})
+_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
+_MODEL_RUN_STATUSES = frozenset({"running", "completed", "failed", "partial", "escalated"})
+_MAX_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 class AgenticControlError(AgenticControlFailure):
@@ -116,16 +121,7 @@ class AgenticControlClient:
             "fallbackModel": request.fallback_model,
         }, idempotency_key=request.idempotency_key)
         try:
-            return ModelRunReservation(
-                run_id=data["runId"], primary_model=data["primaryModel"],
-                fallback_model=data["fallbackModel"],
-                max_input_tokens=data["maxInputTokens"],
-                max_output_tokens=data["maxOutputTokens"], timeout_ms=data["timeoutMs"],
-                schema_version=data["schemaVersion"],
-                input_cost_micros_per_million=data["inputCostMicrosPerMillion"],
-                output_cost_micros_per_million=data["outputCostMicrosPerMillion"],
-                max_reserved_cost_micros=data["maxReservedCostMicros"], version=data["version"],
-            )
+            return _model_run_reservation(data)
         except (KeyError, TypeError, ValueError) as error:
             raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
 
@@ -239,9 +235,52 @@ class AgenticControlClient:
 def _model_run_state(data: dict[str, Any]) -> ModelRunState:
     try:
         settled = data.get("settledCostMicros")
+        if settled is not None:
+            _safe_integer(settled, nonnegative=True)
         return ModelRunState(
-            run_id=data["runId"], status=data["status"], version=data["version"],
+            run_id=_uuid(data["runId"]), status=_status(data["status"]),
+            version=_safe_integer(data["version"], nonnegative=False),
             settled_cost_micros=settled,
         )
     except (KeyError, TypeError, ValueError) as error:
         raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+
+def _model_run_reservation(data: dict[str, Any]) -> ModelRunReservation:
+    if data.get("schemaVersion") != 1 or type(data["schemaVersion"]) is not int:
+        raise ValueError("schema version")
+    return ModelRunReservation(
+        run_id=_uuid(data["runId"]), primary_model=_model_id(data["primaryModel"]),
+        fallback_model=_model_id(data["fallbackModel"]),
+        max_input_tokens=_safe_integer(data["maxInputTokens"], nonnegative=False),
+        max_output_tokens=_safe_integer(data["maxOutputTokens"], nonnegative=False),
+        timeout_ms=_safe_integer(data["timeoutMs"], nonnegative=False), schema_version=1,
+        input_cost_micros_per_million=_safe_integer(data["inputCostMicrosPerMillion"], nonnegative=True),
+        output_cost_micros_per_million=_safe_integer(data["outputCostMicrosPerMillion"], nonnegative=True),
+        max_reserved_cost_micros=_safe_integer(data["maxReservedCostMicros"], nonnegative=True),
+        version=_safe_integer(data["version"], nonnegative=False),
+    )
+
+
+def _uuid(value: object) -> str:
+    if type(value) is not str or str(UUID(value)) != value:
+        raise ValueError("uuid")
+    return value
+
+
+def _model_id(value: object) -> str:
+    if type(value) is not str or _MODEL_ID.fullmatch(value) is None:
+        raise ValueError("model")
+    return value
+
+
+def _safe_integer(value: object, *, nonnegative: bool) -> int:
+    if type(value) is not int or value > _MAX_SAFE_INTEGER or (value < 0 if nonnegative else value < 1):
+        raise ValueError("integer")
+    return value
+
+
+def _status(value: object) -> str:
+    if type(value) is not str or value not in _MODEL_RUN_STATUSES:
+        raise ValueError("status")
+    return value
