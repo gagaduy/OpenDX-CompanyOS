@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -40,6 +41,8 @@ _APPROVED_MODELS = frozenset((*PRIMARY_MODELS.values(), EMERGENCY_FALLBACK))
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 _MAX_OUTPUT_TOKENS = 32_768
 _MAX_PROVIDER_ID_LENGTH = 255
+_MAX_SCHEMA_DEPTH = 64
+_MAX_SCHEMA_NODES = 10_000
 _PROVIDER_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}")
 
 
@@ -55,11 +58,12 @@ class OpenRouterModelGateway:
         self._client = client
         self._now = now
         self._catalog_valid_until: float | None = None
+        self._catalog_refresh: asyncio.Task[None] | None = None
 
     async def generate(self, request: ModelRequest) -> ModelResult:
         self._validate_request(request)
-        await self._ensure_catalog()
         body = self._request_body(request)
+        await self._ensure_catalog()
         document = await self._request_json(
             "POST", "/chat/completions", json_body=body
         )
@@ -107,6 +111,17 @@ class OpenRouterModelGateway:
             and self._now() < self._catalog_valid_until
         ):
             return
+        refresh = self._catalog_refresh
+        if refresh is None:
+            refresh = asyncio.create_task(self._refresh_catalog())
+            self._catalog_refresh = refresh
+        try:
+            await asyncio.shield(refresh)
+        finally:
+            if refresh.done() and self._catalog_refresh is refresh:
+                self._catalog_refresh = None
+
+    async def _refresh_catalog(self) -> None:
         document = await self._request_json("GET", "/models")
         if not _valid_catalog(document):
             _fail("OPENROUTER_CATALOG_INVALID", retryable=False)
@@ -115,6 +130,10 @@ class OpenRouterModelGateway:
         )
 
     def _request_body(self, request: ModelRequest) -> dict[str, object]:
+        invalid = False
+        schema: object = None
+        context = ""
+        messages: list[dict[str, str]] = []
         try:
             schema = _plain_json(request.result_schema)
             context = json.dumps(
@@ -128,7 +147,9 @@ class OpenRouterModelGateway:
                 {"role": "system", "content": instruction}
                 for instruction in request.trusted_instructions
             ]
-        except (TypeError, ValueError, OverflowError):
+        except (TypeError, ValueError, OverflowError, RecursionError):
+            invalid = True
+        if invalid:
             _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
         messages.append(
             {
@@ -136,7 +157,7 @@ class OpenRouterModelGateway:
                 "content": f"UNTRUSTED_CONTEXT_JSON\n{context}",
             }
         )
-        return {
+        body = {
             "model": request.model,
             "messages": messages,
             "response_format": {
@@ -151,6 +172,14 @@ class OpenRouterModelGateway:
             "max_tokens": request.max_output_tokens,
             "stream": False,
         }
+        serialization_failed = False
+        try:
+            json.dumps(body, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, OverflowError, RecursionError):
+            serialization_failed = True
+        if serialization_failed:
+            _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
+        return body
 
     async def _request_json(
         self,
@@ -167,12 +196,19 @@ class OpenRouterModelGateway:
             headers["HTTP-Referer"] = self._settings.public_attribution_url
         if self._settings.public_attribution_name is not None:
             headers["X-Title"] = self._settings.public_attribution_name
-        request = self._client.build_request(
-            method,
-            f"{self._settings.base_url}{path}",
-            headers=headers,
-            json=json_body,
-        )
+        request: httpx.Request | None = None
+        build_failed = False
+        try:
+            request = self._client.build_request(
+                method,
+                f"{self._settings.base_url}{path}",
+                headers=headers,
+                json=json_body,
+            )
+        except (httpx.HTTPError, TypeError, ValueError, OverflowError, UnicodeError):
+            build_failed = True
+        if build_failed or request is None:
+            _fail("OPENROUTER_REQUEST_INVALID", retryable=False)
         transport_failure: ModelGatewayFailure | None = None
         try:
             response = await self._client.send(request, stream=True)
@@ -193,18 +229,17 @@ class OpenRouterModelGateway:
         finally:
             await response.aclose()
 
-        try:
-            return json.loads(
-                payload,
-                parse_float=Decimal,
-                parse_constant=lambda _value: (_raise_json_value_error()),
-            )
-        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
-            raise ModelGatewayFailure(
-                "OPENROUTER_RESPONSE_INVALID", retryable=False
-            ) from None
+        decoded, document = _decode_json(payload)
+        if not decoded:
+            _fail("OPENROUTER_RESPONSE_INVALID", retryable=False)
+        return document
 
     def _parse_result(self, value: object, request: ModelRequest) -> ModelResult:
+        invalid = False
+        provider_request_id: object = None
+        returned_model: object = None
+        result_content: dict[str, object] = {}
+        usage: dict[str, object] = {}
         try:
             document = _object(value)
             provider_request_id = document["id"]
@@ -228,26 +263,26 @@ class OpenRouterModelGateway:
             if type(content) is str:
                 if len(content.encode("utf-8")) > self._settings.maximum_response_bytes:
                     raise ValueError
-                content = json.loads(
-                    content,
-                    parse_float=Decimal,
-                    parse_constant=lambda _value: (_raise_json_value_error()),
-                )
+                decoded, content = _decode_json(content)
+                if not decoded:
+                    raise ValueError
             result_content = _object(content)
             usage = _object(document["usage"])
         except ModelGatewayFailure:
             raise
         except (KeyError, TypeError, ValueError, json.JSONDecodeError, UnicodeError):
-            raise ModelGatewayFailure(
-                "OPENROUTER_RESPONSE_INVALID", retryable=False
-            ) from None
+            invalid = True
+        if invalid:
+            _fail("OPENROUTER_RESPONSE_INVALID", retryable=False)
 
+        result_invalid = False
         try:
             parsed = parse_model_result(result_content)
         except (TypeError, ValueError):
-            raise ModelGatewayFailure(
-                "OPENROUTER_RESULT_INVALID", retryable=False
-            ) from None
+            result_invalid = True
+            parsed = None
+        if result_invalid or parsed is None:
+            _fail("OPENROUTER_RESULT_INVALID", retryable=False)
         if parsed.agent_kind != request.agent_kind:
             _fail("OPENROUTER_RESULT_INVALID", retryable=False)
 
@@ -276,6 +311,7 @@ class OpenRouterModelGateway:
 async def _read_bounded(response: httpx.Response, maximum: int) -> bytes:
     chunks: list[bytes] = []
     size = 0
+    transport_failed = False
     try:
         async for chunk in response.aiter_bytes():
             size += len(chunk)
@@ -285,9 +321,9 @@ async def _read_bounded(response: httpx.Response, maximum: int) -> bytes:
     except ModelGatewayFailure:
         raise
     except (httpx.TimeoutException, httpx.TransportError):
-        raise ModelGatewayFailure(
-            "OPENROUTER_TRANSPORT_FAILED", retryable=True
-        ) from None
+        transport_failed = True
+    if transport_failed:
+        _fail("OPENROUTER_TRANSPORT_FAILED", retryable=True)
     return b"".join(chunks)
 
 
@@ -336,18 +372,52 @@ def _exact_zero(value: object) -> bool:
 
 
 def _strict_object_schemas(value: object) -> bool:
-    pending = [value]
+    pending = [(value, 0)]
+    seen: set[int] = set()
+    visited = 0
     while pending:
-        current = pending.pop()
+        current, depth = pending.pop()
+        visited += 1
+        if visited > _MAX_SCHEMA_NODES or depth > _MAX_SCHEMA_DEPTH:
+            return False
         if isinstance(current, Mapping):
-            if current.get("type") == "object" and current.get(
+            identity = id(current)
+            if identity in seen or len(current) > _MAX_SCHEMA_NODES:
+                return False
+            seen.add(identity)
+            if any(type(key) is not str for key in current):
+                return False
+            schema_type = current.get("type")
+            explicit_object = schema_type == "object" or (
+                type(schema_type) in (list, tuple) and "object" in schema_type
+            )
+            implicit_object = any(
+                key in current
+                for key in (
+                    "properties",
+                    "required",
+                    "patternProperties",
+                    "dependentSchemas",
+                )
+            )
+            if (explicit_object or implicit_object) and current.get(
                 "additionalProperties"
             ) is not False:
                 return False
-            pending.extend(current.values())
+            pending.extend((item, depth + 1) for item in current.values())
         elif type(current) in (list, tuple):
-            pending.extend(current)
-        elif current is None or type(current) in (str, int, float, bool):
+            identity = id(current)
+            if len(current) > _MAX_SCHEMA_NODES:
+                return False
+            if current:
+                if identity in seen:
+                    return False
+                seen.add(identity)
+            pending.extend((item, depth + 1) for item in current)
+        elif type(current) is float:
+            if not math.isfinite(current):
+                return False
+        elif current is None or type(current) in (str, int, bool):
             continue
         else:
             return False
@@ -379,12 +449,16 @@ def _cost_micros(value: object) -> int:
         _fail("OPENROUTER_COST_INVALID", retryable=False)
     if type(value) is float and not math.isfinite(value):
         _fail("OPENROUTER_COST_INVALID", retryable=False)
+    invalid = False
+    micros = 0
     try:
         cost = value if type(value) is Decimal else Decimal(str(value))
         if not cost.is_finite() or cost < 0:
             raise InvalidOperation
         micros = int((cost * 1_000_000).quantize(Decimal(1), rounding=ROUND_HALF_UP))
     except (InvalidOperation, ValueError, OverflowError):
+        invalid = True
+    if invalid:
         _fail("OPENROUTER_COST_INVALID", retryable=False)
     if micros > _MAX_SAFE_INTEGER:
         _fail("OPENROUTER_COST_INVALID", retryable=False)
@@ -397,3 +471,17 @@ def _fail(code: str, *, retryable: bool) -> None:
 
 def _raise_json_value_error() -> None:
     raise ValueError
+
+
+def _decode_json(value: bytes | str) -> tuple[bool, object]:
+    try:
+        return (
+            True,
+            json.loads(
+                value,
+                parse_float=Decimal,
+                parse_constant=lambda _value: (_raise_json_value_error()),
+            ),
+        )
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError, RecursionError):
+        return False, None

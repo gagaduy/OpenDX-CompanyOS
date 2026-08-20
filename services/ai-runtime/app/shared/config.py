@@ -231,10 +231,9 @@ def _positive_integer(
     values: Mapping[str, str], name: str, default: int, *, maximum: int
 ) -> int:
     raw = values.get(name, str(default)).strip()
-    try:
-        value = int(raw)
-    except ValueError as error:
-        raise ConfigurationError(f"{name} must be an integer") from error
+    value = _try_integer(raw)
+    if value is None:
+        raise ConfigurationError(f"{name} must be an integer")
     if value < 1 or value > maximum:
         raise ConfigurationError(f"{name} must be between 1 and {maximum}")
     return value
@@ -244,10 +243,9 @@ def _nonnegative_integer(
     values: Mapping[str, str], name: str, default: int, *, maximum: int
 ) -> int:
     raw = values.get(name, str(default)).strip()
-    try:
-        value = int(raw)
-    except ValueError as error:
-        raise ConfigurationError(f"{name} must be an integer") from error
+    value = _try_integer(raw)
+    if value is None:
+        raise ConfigurationError(f"{name} must be an integer")
     if value < 0 or value > maximum:
         raise ConfigurationError(f"{name} must be between 0 and {maximum}")
     return value
@@ -266,13 +264,13 @@ def _http_url(
     values: Mapping[str, str], name: str, environment: Environment
 ) -> str:
     value = _required(values, name)
-    parsed = _parse_http_url(value, name)
+    parsed = _try_parse_http_url(value)
+    if parsed is None:
+        raise ConfigurationError(f"{name} must be a valid HTTP or HTTPS URL")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
-    try:
-        parsed.port
-    except ValueError:
-        raise ConfigurationError(f"{name} must contain a valid port") from None
+    if not _has_valid_port(parsed):
+        raise ConfigurationError(f"{name} must contain a valid port")
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
     if environment == "production" and parsed.scheme == "http":
@@ -302,24 +300,37 @@ def _optional_http_url(values: Mapping[str, str], name: str) -> str | None:
 
 
 def _validate_http_url(value: str, name: str) -> None:
-    parsed = _parse_http_url(value, name)
+    parsed = _try_parse_http_url(value)
+    if parsed is None:
+        raise ConfigurationError(f"{name} must be a valid HTTP or HTTPS URL")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
-    try:
-        parsed.port
-    except ValueError:
-        raise ConfigurationError(f"{name} must contain a valid port") from None
+    if not _has_valid_port(parsed):
+        raise ConfigurationError(f"{name} must contain a valid port")
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
 
 
-def _parse_http_url(value: str, name: str) -> ParseResult:
+def _try_integer(raw: str) -> int | None:
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _try_parse_http_url(value: str) -> ParseResult | None:
     try:
         return urlparse(value)
     except ValueError:
-        raise ConfigurationError(
-            f"{name} must be a valid HTTP or HTTPS URL"
-        ) from None
+        return None
+
+
+def _has_valid_port(parsed: ParseResult) -> bool:
+    try:
+        parsed.port
+    except ValueError:
+        return False
+    return True
 
 
 def _optional_header_value(
@@ -338,6 +349,12 @@ def _temporal_address(values: Mapping[str, str]) -> str:
     if "://" in address or address.startswith(":") or address.endswith(":"):
         raise ConfigurationError("TEMPORAL_ADDRESS must use host:port syntax")
     host, separator, port = address.rpartition(":")
-    if not separator or not host or not port.isdigit() or not 1 <= int(port) <= 65_535:
+    parsed_port = _try_integer(port) if port.isdigit() else None
+    if (
+        not separator
+        or not host
+        or parsed_port is None
+        or not 1 <= parsed_port <= 65_535
+    ):
         raise ConfigurationError("TEMPORAL_ADDRESS must use host:port syntax")
     return address

@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Harden OpenRouter transport safety with exception-chain redaction, bounded
+  recursive strict-schema validation, request serialization preflight, and
+  cancellation-safe single-flight model catalog refreshes.
+
 - Reject malformed bracketed IPv6 OpenRouter and attribution URLs as stable,
   secret-safe configuration failures before HTTP client construction.
 

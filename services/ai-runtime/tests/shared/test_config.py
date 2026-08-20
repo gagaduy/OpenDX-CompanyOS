@@ -317,6 +317,36 @@ def test_openrouter_urls_reject_malformed_ipv6_without_retaining_input(
 
 
 @pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("AI_RUNTIME_PORT", "INTEGER-CANARY"),
+        ("TEMPORAL_ADDRESS", f"temporal:{'9' * 5_000}"),
+        ("OPENROUTER_BASE_URL", "https://[URL-CANARY/api/v1"),
+        ("OPENROUTER_BASE_URL", "https://example.test:PORT-CANARY/api/v1"),
+        (
+            "OPENROUTER_PUBLIC_ATTRIBUTION_URL",
+            "https://[ATTRIBUTION-CANARY/opendx",
+        ),
+    ],
+)
+def test_configuration_parse_failures_retain_no_untrusted_value(
+    name: str, value: str
+) -> None:
+    values = environment() | {
+        "OPENROUTER_EXECUTION_ENABLED": "true",
+        "OPENROUTER_API_KEY": "private-key",
+        name: value,
+    }
+
+    with pytest.raises(ConfigurationError) as captured:
+        RuntimeSettings.from_mapping(values)
+
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert value not in _exception_chain_text(captured.value)
+
+
+@pytest.mark.parametrize(
     "base_url",
     [
         "http://openrouter.ai/api/v1",
@@ -383,3 +413,20 @@ def test_openrouter_public_name_is_bounded_and_header_safe() -> None:
         values = environment() | {"OPENROUTER_PUBLIC_ATTRIBUTION_NAME": value}
         with pytest.raises(ConfigurationError, match="OPENROUTER_PUBLIC_ATTRIBUTION_NAME"):
             RuntimeSettings.from_mapping(values)
+
+
+def _exception_chain_text(error: BaseException) -> str:
+    pending: list[BaseException] = [error]
+    seen: set[int] = set()
+    rendered: list[str] = []
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        rendered.extend((repr(current), str(current), repr(current.args)))
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+    return " ".join(rendered)

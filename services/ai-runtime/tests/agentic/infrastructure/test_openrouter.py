@@ -130,6 +130,94 @@ def test_successful_catalog_is_cached_until_ttl_expires() -> None:
     assert paths.count("/api/v1/models") == 2
 
 
+def test_concurrent_first_and_expired_catalog_refreshes_are_single_flight() -> None:
+    catalog_calls = 0
+    now = [100.0]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal catalog_calls
+        if request.url.path.endswith("models"):
+            catalog_calls += 1
+            await asyncio.sleep(0.01)
+            return _catalog_response()
+        return _chat_response()
+
+    async def scenario() -> None:
+        gateway = _gateway(handler, now=lambda: now[0])
+        await asyncio.gather(*(gateway.generate(_request()) for _ in range(12)))
+        assert catalog_calls == 1
+        now[0] += 60
+        await asyncio.gather(*(gateway.generate(_request()) for _ in range(12)))
+
+    asyncio.run(scenario())
+
+    assert catalog_calls == 2
+
+
+def test_cancelled_waiter_does_not_cancel_shared_catalog_refresh() -> None:
+    catalog_calls = 0
+    catalog_started = asyncio.Event()
+    release_catalog = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal catalog_calls
+        if request.url.path.endswith("models"):
+            catalog_calls += 1
+            catalog_started.set()
+            await release_catalog.wait()
+            return _catalog_response()
+        return _chat_response()
+
+    async def scenario() -> None:
+        gateway = _gateway(handler)
+        cancelled = asyncio.create_task(gateway.generate(_request()))
+        await catalog_started.wait()
+        survivor = asyncio.create_task(gateway.generate(_request()))
+        await asyncio.sleep(0)
+        cancelled.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await cancelled
+        release_catalog.set()
+        await survivor
+        await gateway.generate(_request())
+
+    asyncio.run(scenario())
+
+    assert catalog_calls == 1
+
+
+def test_concurrent_failed_catalog_refresh_is_not_cached() -> None:
+    catalog_calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal catalog_calls
+        if request.url.path.endswith("models"):
+            catalog_calls += 1
+            await asyncio.sleep(0.01)
+            if catalog_calls == 1:
+                return httpx.Response(503, text="provider-secret-body")
+            return _catalog_response()
+        return _chat_response()
+
+    async def scenario() -> list[object]:
+        gateway = _gateway(handler)
+        failures = await asyncio.gather(
+            *(gateway.generate(_request()) for _ in range(12)),
+            return_exceptions=True,
+        )
+        await gateway.generate(_request())
+        return list(failures)
+
+    failures = asyncio.run(scenario())
+
+    assert catalog_calls == 2
+    assert all(
+        isinstance(failure, ModelGatewayFailure)
+        and failure.code == "OPENROUTER_PROVIDER_RETRYABLE"
+        for failure in failures
+    )
+
+
 def test_catalog_ignores_unconfigured_models_after_exact_approved_preflight() -> None:
     models = _catalog_models()
     models.append(
@@ -314,6 +402,27 @@ def test_malformed_provider_json_is_rejected(endpoint: str) -> None:
     assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
 
 
+@pytest.mark.parametrize("location", ["catalog", "chat", "message_content"])
+def test_json_decode_failures_retain_no_provider_content(location: str) -> None:
+    canary = f"JSON-DECODE-CANARY-{location}"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if location == "catalog":
+            return httpx.Response(200, content=f'{{"{canary}"'.encode())
+        if request.url.path.endswith("models"):
+            return _catalog_response()
+        if location == "chat":
+            return httpx.Response(200, content=f'{{"{canary}"'.encode())
+        return _chat_response(content=f'{{"{canary}"')
+
+    failure = _failure(handler)
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
+    assert failure.__cause__ is None
+    assert failure.__context__ is None
+    assert canary not in _exception_chain_text(failure)
+
+
 def test_request_model_is_agent_isolated_before_network() -> None:
     calls = 0
 
@@ -406,6 +515,20 @@ def test_invalid_provider_cost_is_rejected(cost: object) -> None:
     assert (failure.code, failure.retryable) == ("OPENROUTER_COST_INVALID", False)
 
 
+def test_decimal_parse_failure_retains_no_provider_cost() -> None:
+    canary = "DECIMAL-COST-CANARY"
+    failure = _failure(
+        lambda request: _catalog_response()
+        if request.url.path.endswith("models")
+        else _chat_response(cost=canary)
+    )
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_COST_INVALID", False)
+    assert failure.__cause__ is None
+    assert failure.__context__ is None
+    assert canary not in _exception_chain_text(failure)
+
+
 def test_missing_provider_cost_is_accepted() -> None:
     result = _generate(
         lambda request: _catalog_response()
@@ -469,6 +592,154 @@ def test_schema_requires_additional_properties_false_recursively_before_network(
 
     failure = _failure(handler, request=_request(schema=schema))
     assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": ["object", "null"], "properties": {}},
+        {"properties": {"value": {"type": "string"}}},
+        {"required": ["value"]},
+        {"patternProperties": {".*": {"type": "string"}}},
+        {"dependentSchemas": {"value": {"type": "string"}}},
+        {
+            "type": "array",
+            "items": {
+                "type": ["object", "null"],
+                "properties": {},
+            },
+        },
+    ],
+)
+def test_all_explicit_and_implicit_object_schemas_are_strict_before_network(
+    schema: dict[str, object]
+) -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response()
+
+    failure = _failure(handler, request=_unsafe_request(result_schema=schema))
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+    assert calls == 0
+
+
+def test_nested_array_object_schema_with_strict_union_is_accepted() -> None:
+    schema = {
+        "type": "array",
+        "items": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "properties": {"value": {"type": "string"}},
+        },
+    }
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    _generate(handler, request=_unsafe_request(result_schema=schema))
+
+    assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
+
+
+@pytest.mark.parametrize("unsafe", [float("nan"), float("inf"), object()])
+def test_unsafe_schema_values_are_rejected_before_network(unsafe: object) -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response()
+
+    failure = _failure(
+        handler,
+        request=_unsafe_request(
+            result_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"unsafe": unsafe},
+            }
+        ),
+    )
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+    assert calls == 0
+    _assert_safe_failure(failure)
+
+
+def test_cyclic_or_oversized_schema_is_rejected_before_network() -> None:
+    cycle: dict[str, object] = {
+        "type": "object",
+        "additionalProperties": False,
+    }
+    cycle["properties"] = cycle
+    oversized = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {str(index): {"type": "string"} for index in range(10_001)},
+    }
+    for schema in (cycle, oversized):
+        calls = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return _catalog_response()
+
+        failure = _failure(handler, request=_unsafe_request(result_schema=schema))
+
+        assert (failure.code, failure.retryable) == ("OPENROUTER_SCHEMA_INVALID", False)
+        assert calls == 0
+
+
+def test_nonfinite_context_serialization_fails_safely_before_catalog() -> None:
+    canary = "SERIALIZATION-CONTEXT-CANARY"
+    calls = 0
+    request = _unsafe_request(untrusted_context={canary: float("nan")})
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response()
+
+    failure = _failure(handler, request=request)
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_REQUEST_INVALID", False)
+    assert failure.__cause__ is None
+    assert failure.__context__ is None
+    assert canary not in _exception_chain_text(failure)
+    assert calls == 0
+
+
+def test_unserializable_schema_integer_fails_safely_before_catalog() -> None:
+    calls = 0
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "value": {
+                "type": "integer",
+                "maximum": 10**5_000,
+            }
+        },
+    }
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _catalog_response()
+
+    failure = _failure(handler, request=_unsafe_request(result_schema=schema))
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_REQUEST_INVALID", False)
+    assert failure.__cause__ is None
+    assert failure.__context__ is None
     assert calls == 0
 
 
@@ -543,6 +814,19 @@ def _request(
         max_output_tokens=512,
         idempotency_key="model-run-1",
     )
+
+
+def _unsafe_request(
+    *,
+    result_schema: object | None = None,
+    untrusted_context: object | None = None,
+) -> ModelRequest:
+    request = _request()
+    if result_schema is not None:
+        object.__setattr__(request, "result_schema", result_schema)
+    if untrusted_context is not None:
+        object.__setattr__(request, "untrusted_context", untrusted_context)
+    return request
 
 
 def _result_schema() -> dict[str, object]:
@@ -694,6 +978,23 @@ def _assert_safe_failure(failure: ModelGatewayFailure) -> None:
     assert API_KEY not in rendered
     assert CANARY not in rendered
     assert "provider-body" not in rendered
+
+
+def _exception_chain_text(error: BaseException) -> str:
+    pending: list[BaseException] = [error]
+    seen: set[int] = set()
+    rendered: list[str] = []
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        rendered.extend((repr(current), str(current), repr(current.args)))
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+    return " ".join(rendered)
 
 
 def _raise(error: Exception):
