@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Document Phase D runtime operations, mandatory live acceptance, and its
+  explicit boundary before file intake and AI CEO coordination.
+
 - Add deterministic model-runtime acceptance, credential-owned OpenRouter live
   acceptance, Phase D static boundaries, and safe Compose environment wiring.
 

@@ -239,7 +239,9 @@ remains a retryable internal delivery failure; unknown server failures return
 ## Governance Scope
 
 Phase A task, employee, configuration, revocation, audit, and approval list/read
-routes remain available as previously documented. Phase B still uses fake
-bounded workflow activities; Phase C tools are not yet consumed by a model
-runtime. There is no OpenRouter call, generic SQL, file intake, Agentic Console
-page, AI CEO synthesis, or production SePay activation.
+routes remain available as previously documented. Phase D adds an internal
+`execute_model_analysis_v1` Temporal activity. It accepts only an authorized
+Agent command, reserves and settles model runs through the API, and returns only
+`status`, `outputDigest`, and `qualityReasonCodes`; prompt and response bodies
+never leave the activity result. It does not add generic SQL, file intake,
+Agentic Console UI, AI CEO delegation, or production SePay activation.
