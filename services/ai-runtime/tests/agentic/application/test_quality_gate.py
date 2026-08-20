@@ -586,6 +586,29 @@ def test_duplicate_ref_does_not_hide_higher_severity_issue(
     assert decision.reasons == expected_reasons
 
 
+@pytest.mark.parametrize("correction_round", [0, 1, 2])
+def test_combined_quality_reasons_preserve_full_check_order(
+    correction_round: int,
+) -> None:
+    result = valid_result()
+    result["conclusions"][0]["provenanceIds"] = ["prov-1", "prov-1"]
+    result["evidence"][0]["source"] = "department-tool:forged-v1"
+    result["evidence"][0]["classification"] = "restricted"
+    result["summary"] = "api_key=combined-secret-value"
+
+    decision = QualityGate().evaluate(
+        result, quality_context(correction_round=correction_round)
+    )
+
+    assert decision.outcome == "escalate"
+    assert decision.reasons == (
+        "PROVENANCE_INVALID",
+        "PROVENANCE_SOURCE_MISMATCH",
+        "SCOPE_VIOLATION",
+        "SENSITIVE_DATA_LEAKAGE",
+    )
+
+
 @pytest.mark.parametrize(
     ("correction_round", "expected_outcome"),
     [(0, "correct"), (1, "correct"), (2, "escalate")],

@@ -166,9 +166,9 @@ class QualityGate:
         escalation = False
         if "PROVENANCE_IDS_DUPLICATE" in inspection.issue_codes:
             _append_reason(reasons, "PROVENANCE_INVALID")
-        if "EVIDENCE_CLASSIFICATION_BLOCKED" in inspection.issue_codes:
-            _append_reason(reasons, "SCOPE_VIOLATION")
-            escalation = True
+        classification_blocked = (
+            "EVIDENCE_CLASSIFICATION_BLOCKED" in inspection.issue_codes
+        )
         authorized = {
             item.provenance_id: item for item in context.authorized_evidence
         }
@@ -211,6 +211,9 @@ class QualityGate:
         escalation = escalation or any(
             reason in _IMMEDIATE_PROVENANCE_REASONS for reason in reasons
         )
+        if classification_blocked:
+            _append_reason(reasons, "SCOPE_VIOLATION")
+            escalation = True
         if result.agent_kind != context.expected_agent_kind:
             _append_reason(reasons, "AGENT_KIND_MISMATCH")
             escalation = True
@@ -264,7 +267,7 @@ class QualityGate:
 
         safe_ids = (
             ()
-            if "EVIDENCE_CLASSIFICATION_BLOCKED" in inspection.issue_codes
+            if classification_blocked
             else tuple(sorted(safe_involved_ids))
         )
         if escalation:
