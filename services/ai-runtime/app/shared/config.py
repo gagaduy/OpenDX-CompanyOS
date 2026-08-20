@@ -269,6 +269,10 @@ def _http_url(
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
+    try:
+        parsed.port
+    except ValueError:
+        raise ConfigurationError(f"{name} must contain a valid port") from None
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
     if environment == "production" and parsed.scheme == "http":
@@ -301,6 +305,10 @@ def _validate_http_url(value: str, name: str) -> None:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ConfigurationError(f"{name} must be an HTTP or HTTPS URL")
+    try:
+        parsed.port
+    except ValueError:
+        raise ConfigurationError(f"{name} must contain a valid port") from None
     if parsed.username or parsed.password or parsed.fragment:
         raise ConfigurationError(f"{name} must not contain credentials or fragments")
 

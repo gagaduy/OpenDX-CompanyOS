@@ -332,15 +332,7 @@ def _valid_catalog(value: object) -> bool:
 
 
 def _exact_zero(value: object) -> bool:
-    if type(value) not in (str, int, float, Decimal):
-        return False
-    if type(value) is float and not math.isfinite(value):
-        return False
-    try:
-        decimal = Decimal(str(value))
-    except InvalidOperation:
-        return False
-    return decimal.is_finite() and not decimal.is_signed() and decimal == Decimal(0)
+    return type(value) is str and value == "0"
 
 
 def _strict_object_schemas(value: object) -> bool:

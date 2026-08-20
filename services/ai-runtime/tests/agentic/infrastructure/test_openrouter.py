@@ -22,6 +22,7 @@ from app.shared.config import OpenRouterSettings
 API_KEY = "test-openrouter-key"
 CANARY = "CONTEXT-CANARY-DO-NOT-LEAK"
 ALL_MODELS = (*PRIMARY_MODELS.values(), EMERGENCY_FALLBACK)
+MISSING = object()
 
 
 def test_model_catalog_is_exact_distinct_and_immutable() -> None:
@@ -200,6 +201,42 @@ def test_catalog_rejects_non_exact_zero_prices(price: object) -> None:
     models[0]["pricing"] = {"prompt": price, "completion": "0"}
     failure = _failure(lambda _request: httpx.Response(200, json={"data": models}))
     assert (failure.code, failure.retryable) == ("OPENROUTER_CATALOG_INVALID", False)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        pytest.param("prompt", 0, id="numeric-integer-prompt"),
+        pytest.param("completion", 0.0, id="numeric-decimal-completion"),
+        pytest.param("prompt", "0.0", id="decimal-string-prompt"),
+        pytest.param("completion", "0.00", id="decimal-string-completion"),
+        pytest.param("prompt", " 0", id="leading-whitespace-prompt"),
+        pytest.param("completion", "0 ", id="trailing-whitespace-completion"),
+        pytest.param("prompt", "0e0", id="exponent-prompt"),
+        pytest.param("completion", MISSING, id="missing-completion"),
+    ],
+)
+def test_catalog_requires_canonical_zero_price_strings_before_chat(
+    field: str, value: object
+) -> None:
+    paths: list[str] = []
+    models = _catalog_models()
+    pricing = models[0]["pricing"]
+    assert type(pricing) is dict
+    if value is MISSING:
+        del pricing[field]
+    else:
+        pricing[field] = value
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, json={"data": models})
+
+    failure = _failure(handler)
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_CATALOG_INVALID", False)
+    assert paths == ["/api/v1/models"]
+    _assert_safe_failure(failure)
 
 
 def test_failed_catalog_is_not_cached() -> None:
@@ -579,7 +616,7 @@ def _catalog_models() -> list[dict[str, object]]:
     return [
         {
             "id": model,
-            "pricing": {"prompt": "0", "completion": 0},
+            "pricing": {"prompt": "0", "completion": "0"},
             "supported_parameters": ["response_format"],
         }
         for model in ALL_MODELS

@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Tighten OpenRouter preflight by rejecting malformed URL ports before HTTP
+  construction and requiring canonical string zero pricing for every approved
+  model before any model context may leave the runtime.
+
 - Add a fail-closed OpenRouter gateway with eight exact free-model catalog
   checks, Agent-isolated model authorization, strict structured-output
   requests, bounded response parsing, deterministic usage and cost accounting,
