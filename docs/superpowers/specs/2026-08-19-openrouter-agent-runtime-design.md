@@ -57,7 +57,7 @@ The approved initial model map is:
 | --- | --- |
 | AI CEO | `z-ai/glm-5.2:free` |
 | Catalog | `google/gemma-4-26b-a4b-it:free` |
-| Inventory | `google/gemma-4-31b-it:free` |
+| Inventory | `nvidia/nemotron-3-super-120b-a12b:free` |
 | Order | `nvidia/nemotron-3-super-120b-a12b:free` |
 | Finance | `openai/gpt-oss-20b:free` |
 | CRM | `dots-studio/dots-3-note-preview:free` |
@@ -66,7 +66,9 @@ The approved initial model map is:
 The emergency fallback for every Agent is
 `liquid/lfm-2.5-2.6b:free`.
 
-These IDs were reported by the OpenRouter model catalog on 2026-08-19 with
+Inventory temporarily shares the Order model after the original Gemma model
+repeatedly returned provider rate-limit responses during live acceptance on
+2026-08-20. These IDs were reported by the OpenRouter model catalog with
 zero prompt and completion prices and support for `response_format`. Runtime
 preflight and credential-owned acceptance must verify those properties again.
 If a configured model is absent, paid, or lacks strict structured output, the

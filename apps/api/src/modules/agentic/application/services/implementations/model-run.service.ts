@@ -33,7 +33,7 @@ const approvedFallbackModel = "liquid/lfm-2.5-2.6b:free";
 const approvedPrimaryModels: Readonly<Record<AgentKind, string>> = {
   ai_ceo: "z-ai/glm-5.2:free",
   catalog: "google/gemma-4-26b-a4b-it:free",
-  inventory: "google/gemma-4-31b-it:free",
+  inventory: "nvidia/nemotron-3-super-120b-a12b:free",
   order: "nvidia/nemotron-3-super-120b-a12b:free",
   finance: "openai/gpt-oss-20b:free",
   crm: "dots-studio/dots-3-note-preview:free",

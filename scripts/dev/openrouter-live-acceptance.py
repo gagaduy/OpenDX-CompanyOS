@@ -12,7 +12,16 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 AGENTS = ("ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support")
-MODELS = ("z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free", "google/gemma-4-31b-it:free", "nvidia/nemotron-3-super-120b-a12b:free", "openai/gpt-oss-20b:free", "dots-studio/dots-3-note-preview:free", "nvidia/nemotron-nano-9b-v2:free", "liquid/lfm-2.5-2.6b:free")
+MODELS = (
+    "z-ai/glm-5.2:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "openai/gpt-oss-20b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+)
+FALLBACK_MODEL = "liquid/lfm-2.5-2.6b:free"
 
 def request_json(url: str, key: str, payload: object | None = None) -> object:
     data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode()
@@ -30,13 +39,14 @@ def main() -> int:
     try:
         catalog = request_json(f"{base_url}/models", api_key)
         catalog_ids = {item.get("id") for item in catalog.get("data", []) if isinstance(item, dict)}
-        if not set(MODELS).issubset(catalog_ids): raise RuntimeError("approved catalog records are unavailable")
+        approved_models = {*MODELS, FALLBACK_MODEL}
+        if not approved_models.issubset(catalog_ids): raise RuntimeError("approved catalog records are unavailable")
         for agent, model in zip(AGENTS, MODELS, strict=True):
             payload = {"model": model, "messages": [{"role": "system", "content": "Return only a JSON object."}, {"role": "user", "content": json.dumps({"classification": "internal", "agent": agent, "summary": "synthetic acceptance data"})}], "response_format": {"type": "json_object"}, "max_tokens": 64}
             response = request_json(f"{base_url}/chat/completions", api_key, payload)
             if not isinstance(response, dict) or not response.get("choices"): raise RuntimeError("structured completion was rejected")
-        (evidence / "summary.json").write_text(json.dumps({"catalogRecords": len(MODELS), "agents": len(AGENTS)}), encoding="utf8")
-        print("OpenRouter live acceptance passed: 8 catalog records, 7 synthetic Agents", flush=True)
+        (evidence / "summary.json").write_text(json.dumps({"catalogRecords": len(approved_models), "agents": len(AGENTS)}), encoding="utf8")
+        print("OpenRouter live acceptance passed: 7 catalog records, 7 synthetic Agents", flush=True)
         return 0
     except (HTTPError, URLError, TimeoutError, ValueError, RuntimeError) as error:
         print(f"OpenRouter live acceptance failed: {type(error).__name__}", flush=True)

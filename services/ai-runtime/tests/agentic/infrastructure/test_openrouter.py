@@ -21,21 +21,21 @@ from app.shared.config import OpenRouterSettings
 
 API_KEY = "test-openrouter-key"
 CANARY = "CONTEXT-CANARY-DO-NOT-LEAK"
-ALL_MODELS = (*PRIMARY_MODELS.values(), EMERGENCY_FALLBACK)
+ALL_MODELS = (*dict.fromkeys(PRIMARY_MODELS.values()), EMERGENCY_FALLBACK)
 MISSING = object()
 
 
-def test_model_catalog_is_exact_distinct_and_immutable() -> None:
+def test_model_catalog_is_exact_and_immutable() -> None:
     assert dict(PRIMARY_MODELS) == {
         "ai_ceo": "z-ai/glm-5.2:free",
         "catalog": "google/gemma-4-26b-a4b-it:free",
-        "inventory": "google/gemma-4-31b-it:free",
+        "inventory": "nvidia/nemotron-3-super-120b-a12b:free",
         "order": "nvidia/nemotron-3-super-120b-a12b:free",
         "finance": "openai/gpt-oss-20b:free",
         "crm": "dots-studio/dots-3-note-preview:free",
         "support": "nvidia/nemotron-nano-9b-v2:free",
     }
-    assert len(set(PRIMARY_MODELS.values())) == 7
+    assert len(set(PRIMARY_MODELS.values())) == 6
     assert EMERGENCY_FALLBACK == "liquid/lfm-2.5-2.6b:free"
     assert EMERGENCY_FALLBACK not in PRIMARY_MODELS.values()
     with pytest.raises(TypeError):
