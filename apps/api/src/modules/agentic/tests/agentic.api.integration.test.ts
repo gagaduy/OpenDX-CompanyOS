@@ -162,6 +162,10 @@ suite("Agentic PostgreSQL admin API", () => {
     const subtaskId = created.body.data.subtasks[0].id as string;
     await request(app).post(`/v1/admin/agentic/tasks/${taskId}/ready`)
       .set(operator).send({ expectedVersion: 1 }).expect(200);
+    expect((await pool.query(
+      "SELECT configuration_revision_id FROM agentic_tasks WHERE id=$1",
+      [taskId],
+    )).rows[0]?.configuration_revision_id).toBe(revisionId);
 
     await request(app).post("/v1/admin/agentic/tasks/not-a-uuid/start")
       .set(operator).send({ expectedVersion: 2, workflowVersion: 1 }).expect(400);
@@ -177,6 +181,15 @@ suite("Agentic PostgreSQL admin API", () => {
     const runId = started.body.data.id as string;
     await request(app).post(`/v1/admin/agentic/tasks/${taskId}/start`)
       .set(operator).send({ expectedVersion: 2, workflowVersion: 1 }).expect(200);
+    const successor = await request(app).post("/v1/admin/agentic/configuration-revisions")
+      .set(governanceCreator).send({ children: emptyChildren }).expect(201);
+    const successorId = successor.body.data.id as string;
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${successorId}/activate`)
+      .set(governanceCreator).send({ expectedVersion: 1 }).expect(200);
+    expect((await pool.query(
+      "SELECT configuration_revision_id FROM agentic_tasks WHERE id=$1",
+      [taskId],
+    )).rows[0]?.configuration_revision_id).toBe(revisionId);
     await request(app).get(`/v1/admin/agentic/workflow-runs/${runId}`)
       .set("authorization", "Bearer agentic_approver:approver").expect(200);
     const approvals = await request(app).get("/v1/admin/agentic/approvals")
@@ -196,8 +209,9 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).post(`/v1/admin/agentic/approvals/${approvalId}/decision`)
       .set("authorization", "Bearer agentic_approver:approver")
       .send({ ...approvalDecision, decision: "rejected" }).expect(409);
-    await request(app).get(`/v1/internal/agentic/workflow-runs/${runId}/plan`)
+    const frozenPlan = await request(app).get(`/v1/internal/agentic/workflow-runs/${runId}/plan`)
       .set(worker).expect(200);
+    expect(frozenPlan.body.data.configurationRevisionId).toBe(revisionId);
     await request(app).post(`/v1/internal/agentic/workflow-runs/${runId}/state`)
       .set(worker).send({ projectionSequence: 1, state: "planning" }).expect(200);
 

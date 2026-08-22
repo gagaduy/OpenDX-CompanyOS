@@ -30,6 +30,12 @@ describe("ConfigurationServiceImpl", () => {
     await expect(own.service.activate({ revisionId: "revision-1", expectedVersion: 1 }, admin("creator")))
       .resolves.toMatchObject({ state: "active", decidedBy: "creator", version: 2 });
     expect(own.repository.activateRevision).toHaveBeenCalledOnce();
+    expect(own.repository.appendAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      action: "configuration.activate",
+      actorId: "creator",
+      resourceId: "revision-1",
+      resourceType: "configuration_revision",
+    }));
   });
 
   it("keeps direct configuration activation owned and in the Governance Admin scope", async () => {

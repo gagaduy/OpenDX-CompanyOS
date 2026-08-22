@@ -84,12 +84,12 @@ Phase D is not complete until it passes. Phases E-H are explicitly not started.
   adds Temporal execution with bounded fake activities only; it deliberately
   does not add OpenRouter, file intake, Commerce tool adapters, or an Agentic UI.
 - Phase A defines four human Agentic roles, seven distinct Keycloak service
-  identities, two-person versioned governance, deterministic deny-first policy,
+  identities, owner-admin versioned configuration governance, deterministic deny-first policy,
   task/configuration pinning, emergency revocation, Tool Registry authorization,
   budget accounting, bound approvals, and append-only audit/provenance without
   starting runtime execution.
 - Its focused implementation plan defines eight TDD tasks covering identity,
-  domain rules, PostgreSQL governance, policy/tools/budgets, two-person
+  domain rules, PostgreSQL governance, policy/tools/budgets, workflow-action
   approvals, non-executing tasks, staff APIs, composition, and phase-exit gates.
 - Phase B closure evidence on 2026-08-16 includes successful
   the complete command sequence below. The host has Python 3.12, so the

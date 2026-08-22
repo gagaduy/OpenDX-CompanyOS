@@ -28,6 +28,30 @@ All staff success responses use `{ "success": true, "message": "...", "data":
 ... }`. Errors use `{ "success": false, "message": "...", "errorCode":
 "CODE", "errors": [] }`.
 
+## Configuration Activation
+
+An `agentic_governance_admin` (or `administrator`) creates, edits, and directly
+activates only configuration revisions that they created. This is the same in
+local and production: the configuration owner calls:
+
+`POST /v1/admin/agentic/configuration-revisions/:revisionId/activate`
+
+```json
+{ "expectedVersion": 2 }
+```
+
+The revision must still be `draft`, pass child validation, and match the
+optimistic version. Activation atomically supersedes the prior active revision,
+records the activating administrator and time, and writes an audit event. A
+different administrator cannot activate or edit the owner's draft. Tasks that
+were already made `ready` retain their pinned revision; new tasks use the newly
+active revision. Emergency revocation and workflow-action approval remain
+separate safeguards.
+
+The former configuration `submit` and `decision` endpoints are retained only
+as compatibility routes and return `CONFIGURATION_LIFECYCLE_RETIRED`; clients
+must use `activate`.
+
 ## Department Tool Invocation
 
 `POST /v1/internal/agentic/tools/invoke` accepts only a confidential

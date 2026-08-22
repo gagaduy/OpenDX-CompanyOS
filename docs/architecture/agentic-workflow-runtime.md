@@ -33,6 +33,16 @@ The API and worker use distinct confidential Keycloak workload identities.
 Staff tokens cannot call internal workload routes; workload tokens cannot call
 staff administration routes. The public edge denies `/v1/internal/agentic*`.
 
+## Configuration Governance
+
+One `agentic_governance_admin` (or `administrator`) owns the cost, token, and
+model configuration lifecycle. The owner may directly activate a valid draft;
+the PostgreSQL transaction atomically supersedes the prior active revision and
+persists the actor, timestamp, and audit event. Ownership, optimistic version
+checks, immutable audit/provenance, revocation, and task configuration pinning
+remain enforced. This reduces configuration delay without changing the separate
+human approval requirement for risky workflow actions.
+
 ## Durable Execution Contract
 
 Temporal history owns orchestration progress, timers, retry scheduling, and

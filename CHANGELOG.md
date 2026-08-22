@@ -11,9 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Define direct single-Administrator activation for Agentic configuration
-  revisions while preserving immutable audit, provenance, revocation, and
-  task-pinning safeguards.
+- Allow one Agentic Governance Administrator to directly activate an owned
+  configuration revision while preserving immutable audit, provenance,
+  revocation, task-pinning, and workflow-action approval safeguards.
 
 - Restore local recovery sets with legacy orphaned Agentic policies by removing
   only rows without a configuration revision before recreating constraints.
@@ -37,8 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   reservation against OpenRouter's current catalog, accepting finite
   non-negative paid pricing while retaining structured-output requirements.
 
-- Clarify that paid model revisions use the existing immutable, two-person
-  Governance Admin activation decision instead of a duplicate nested approval.
+- Clarify that paid model revisions use direct owner-admin activation instead
+  of a duplicate nested approval.
 
 - Authorize model-run primary and fallback pairs from the active configured
   revision rather than a source-code model allow-list, while retaining pricing,
