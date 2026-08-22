@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Validate Agentic intake filename extension, declared MIME, text signature,
+  and bounded content through the domain rule before metadata or object writes.
+
 - Preserve safe scanner-dependency failures after the governed file transition
   is rejected and audited.
 

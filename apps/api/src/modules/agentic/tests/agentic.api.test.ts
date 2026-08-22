@@ -138,6 +138,13 @@ describe("Agentic route authorization", () => {
     await application.post("/files")
       .attach("file", Buffer.alloc(2 * 1024 * 1024 + 1), { filename: "too-large.csv", contentType: "text/csv" })
       .expect(413);
+
+    await application.post("/files")
+      .attach("file", Buffer.from("not executable bytes"), { filename: "payload.exe", contentType: "text/plain" })
+      .expect(400);
+    await application.post("/files")
+      .attach("file", Buffer.from("sku,quantity\nSKU-1,4\n"), { filename: "stock.csv", contentType: "text/plain" })
+      .expect(400);
   });
 
   it("limits file routes to governance administrators and returns only metadata or previews", async () => {
@@ -284,7 +291,13 @@ function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavai
     next();
   };
   const files = {
-    upload: vi.fn(async () => ({ file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } })),
+    upload: vi.fn(async (input: { originalFilename: string; mediaType: string }) => {
+      const extension = input.originalFilename.slice(input.originalFilename.lastIndexOf(".") + 1);
+      if ((extension === "csv" && input.mediaType !== "text/csv") || (extension === "txt" && input.mediaType !== "text/plain") || !["csv", "txt"].includes(extension)) {
+        throw new AgenticApplicationError("FILE_TYPE_NOT_ALLOWED", "Only CSV and plain-text file intake is allowed");
+      }
+      return { file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } };
+    }),
     get: vi.fn(async (_fileId: string, principal: { subject: string }) => {
       if (principal.subject !== "governance-admin") throw new AgenticApplicationError("FORBIDDEN", "Agentic file access is limited to its governance owner");
       return fileMetadata();

@@ -10,7 +10,7 @@ import type { AgenticFileStorage } from "../../storage/agentic-file-storage";
 import type { AgenticFileParser } from "../../parsing/agentic-file-parser";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { AgenticFilePreview, AgenticIntakeFile } from "../../../domain/entities/agentic-file";
-import { AGENTIC_FILE_LIMITS, transitionAgenticIntakeFile } from "../../../domain/services/agentic-file-rules";
+import { AGENTIC_FILE_LIMITS, transitionAgenticIntakeFile, validateAgenticFileUpload } from "../../../domain/services/agentic-file-rules";
 import { AgenticApplicationError } from "../agentic-application.error";
 import type { AgenticFilePreviewDto, AgenticFileService, AgenticFileUploadRequest, ApproveAgenticFilePreviewRequest } from "../interfaces/agentic-file.service";
 
@@ -19,7 +19,7 @@ type FileRepository = Pick<AgenticRepository, "createIntakeFile" | "findIntakeFi
 export class AgenticFileServiceImpl implements AgenticFileService {
   constructor(private readonly repository: FileRepository, private readonly storage: AgenticFileStorage, private readonly scanner: AgenticFileScanner, private readonly parser: AgenticFileParser, private readonly transactions: TransactionRunner, private readonly generateId: () => string, private readonly now: () => string) {}
   async upload(input: AgenticFileUploadRequest, principal: StaffPrincipal): Promise<{ readonly file: AgenticIntakeFile }> {
-    admin(principal); const format = formatFor(input); safe(input.content); const at = this.now(); const id = this.generateId();
+    admin(principal); const format = validateUpload(input); const at = this.now(); const id = this.generateId();
     const file: AgenticIntakeFile = { id, objectKey: `agentic-intake/${id}`, originalFilename: input.originalFilename.trim(), format, mediaType: input.mediaType, byteSize: input.content.byteLength, payloadDigest: sha(input.content), status: "uploaded", createdBy: principal.subject, version: 1, createdAt: at, updatedAt: at };
     try { await this.transactions.run(async (s) => { await this.repository.createIntakeFile(s, file); await this.audit(s, principal, file.id, "agentic_file.upload", at); }); await this.storage.put(file.objectKey, input.content, file.mediaType); } catch { await this.storage.delete(file.objectKey).catch(() => undefined); fail("FILE_UPLOAD_FAILED", "File upload could not be recorded safely"); }
     return { file };
@@ -64,8 +64,27 @@ export class AgenticFileServiceImpl implements AgenticFileService {
   private async file(s: DatabaseSession, id: string): Promise<AgenticIntakeFile> { const file = await this.repository.findIntakeFile(s, id); if (!file) fail("FILE_NOT_FOUND", "File was not found"); return file; }
   private async audit(s: DatabaseSession, p: StaffPrincipal, id: string, action: string, at: string): Promise<void> { await this.repository.appendAudit(s, { id: this.generateId(), actorId: p.subject, actorType: "staff", action, resourceType: "agentic_intake_file", resourceId: id, outcome: "allowed", correlationId: id, occurredAt: at }); }
 }
-function formatFor(input: AgenticFileUploadRequest): "csv" | "txt" { if (!input.originalFilename.trim() || input.originalFilename.length > 255) fail("FILE_TYPE_NOT_ALLOWED", "File name is invalid"); if (input.mediaType === "text/csv") return "csv"; if (input.mediaType === "text/plain") return "txt"; fail("FILE_TYPE_NOT_ALLOWED", "Only CSV and plain-text file intake is allowed"); }
-function safe(content: Buffer): void { if (!content.byteLength || content.byteLength > 2 * 1024 * 1024 || content.includes(0)) fail("FILE_CONTENT_INVALID", "File content is not safe for intake"); try { new TextDecoder("utf-8", { fatal: true }).decode(content); } catch { fail("FILE_CONTENT_INVALID", "File content is not safe for intake"); } }
+function validateUpload(input: AgenticFileUploadRequest): "csv" | "txt" {
+  const filename = input.originalFilename.trim();
+  const extension = filename.includes(".") ? filename.slice(filename.lastIndexOf(".") + 1) : "";
+  const hasNulByte = input.content.includes(0);
+  let text = "";
+  let hasValidUtf8 = false;
+  try { text = new TextDecoder("utf-8", { fatal: true }).decode(input.content); hasValidUtf8 = true; } catch { /* domain validator rejects invalid UTF-8 */ }
+  const rows = text.split(/\r?\n/).filter((line) => line.length > 0);
+  const fields = rows.flatMap((line) => line.split(","));
+  return validateAgenticFileUpload({
+    extension,
+    mediaType: input.mediaType,
+    signature: hasValidUtf8 && !hasNulByte ? "text" : "binary",
+    byteSize: input.content.byteLength,
+    rowCount: rows.length,
+    columnCount: Math.max(1, ...rows.map((line) => line.split(",").length)),
+    largestFieldBytes: Math.max(0, ...fields.map((field) => Buffer.byteLength(field, "utf8"))),
+    hasValidUtf8,
+    hasNulByte,
+  }).format;
+}
 export function createAgenticFilePreview(file: Pick<AgenticIntakeFile, "id" | "payloadDigest">, parsed: { readonly rowCount: number; readonly columnCount: number; readonly samples: readonly string[] }, id: string, at: string): AgenticFilePreview { const samples: string[] = []; const limit = AGENTIC_FILE_LIMITS.maxPreviewBytes - 8 * 1024; for (const sample of parsed.samples) { const candidate = [...samples, sample]; const summary = previewSummary(file.id, parsed.rowCount, parsed.columnCount, candidate); if (Buffer.byteLength(JSON.stringify(summary), "utf8") > limit) break; samples.push(sample); } const summary = previewSummary(file.id, parsed.rowCount, parsed.columnCount, samples); return { id, fileId: file.id, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: file.payloadDigest, previewDigest: sha(JSON.stringify(summary)), summary, createdAt: at }; }
 function previewSummary(fileId: string, rowCount: number, columnCount: number, samples: readonly string[]): Readonly<Record<string, unknown>> { return { rowCount, columnCount, samples: [...samples], sourceReferences: samples.map((_, i) => ({ fileId, line: i + 1 })) }; }
 function mapPreview(preview: AgenticFilePreview, format: "csv" | "txt"): AgenticFilePreviewDto { const s = preview.summary as { rowCount: number; columnCount: number; samples: readonly string[]; sourceReferences: readonly { fileId: string; line: number; column?: number }[] }; return { fileId: preview.fileId, previewVersion: preview.previewVersion, parserVersion: preview.parserVersion, payloadDigest: preview.payloadDigest, previewDigest: preview.previewDigest, format, rowCount: s.rowCount, columnCount: s.columnCount, samples: [...s.samples], sourceReferences: s.sourceReferences.map((r) => ({ ...r })) }; }

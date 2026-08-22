@@ -27,6 +27,16 @@ describe("AgenticFileServiceImpl", () => {
     expect(storage.delete).toHaveBeenCalledWith(expect.stringMatching(/^agentic-intake\//));
   });
 
+  it.each([
+    ["an executable name spoofed as plain text", "payload.exe", "text/plain"],
+    ["a CSV filename declared as plain text", "stock.csv", "text/plain"],
+  ])("rejects %s before private storage or metadata reservation", async (_case, originalFilename, mediaType) => {
+    const { service, storage, repository } = harness();
+    await expect(service.upload({ originalFilename, mediaType: mediaType as "text/plain", content }, admin)).rejects.toMatchObject({ code: "FILE_TYPE_NOT_ALLOWED" });
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(repository.createIntakeFile).not.toHaveBeenCalled();
+  });
+
   it("does not scan when another worker has already claimed the uploaded file", async () => {
     const { service, scanner } = harness({ transitionResults: [false] });
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
