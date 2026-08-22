@@ -85,10 +85,13 @@ suite("PostgresqlAgenticRepository", () => {
     expect(secondCompleted).toBe(false);
     release(); const [created, replay] = await Promise.all([first, second]);
     expect(created.status).toBe("created"); expect(replay).toEqual({ status: "duplicate", taskId: created.taskId });
-    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_tasks")).resolves.toMatchObject({ rows: [{ count: 1 }] });
-    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_file_approvals")).resolves.toMatchObject({ rows: [{ count: 1 }] });
-    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_audit_events WHERE action='agentic_file.approve'")).resolves.toMatchObject({ rows: [{ count: 1 }] });
-    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_provenance_records")).resolves.toMatchObject({ rows: [{ count: 2 }] });
+    await expect(pool.query("SELECT id,state FROM agentic_tasks")).resolves.toMatchObject({ rows: [{ id: created.taskId, state: "draft" }] });
+    await expect(pool.query("SELECT task_id,file_id,preview_version,preview_digest FROM agentic_file_approvals")).resolves.toMatchObject({ rows: [{ task_id: created.taskId, file_id: fileId, preview_version: 1, preview_digest: "b".repeat(64) }] });
+    await expect(pool.query("SELECT task_id,resource_id,action FROM agentic_audit_events WHERE action='agentic_file.approve'")).resolves.toMatchObject({ rows: [{ task_id: created.taskId, resource_id: fileId, action: "agentic_file.approve" }] });
+    await expect(pool.query("SELECT task_id,source_type,source_id,source_digest,source_version FROM agentic_provenance_records ORDER BY source_type")).resolves.toMatchObject({ rows: [
+      { task_id: created.taskId, source_type: "agentic_file_preview", source_id: previewId, source_digest: "b".repeat(64), source_version: 1 },
+      { task_id: created.taskId, source_type: "agentic_intake_file", source_id: fileId, source_digest: "a".repeat(64), source_version: 4 },
+    ] });
   });
 
   it("stores exact model pricing and maps it without precision loss", async () => {
