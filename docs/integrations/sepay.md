@@ -84,6 +84,28 @@ return page. This is an opt-in engineering acceptance, not approval to operate
 the store from a laptop. Stable hosting, managed secrets, TLS, monitoring,
 firewall policy, and incident operations remain Phase 8.
 
+Before attempting any real-money acceptance, run the guard tests:
+
+```bash
+pnpm test:sepay-production-acceptance
+```
+
+The opt-in production command intentionally fails unless every production
+environment guard is present:
+
+```bash
+SEPAY_ENVIRONMENT=production \
+PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION=I_UNDERSTAND_THIS_CREATES_A_REAL_PAYMENT \
+PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND=10000 \
+STOREFRONT_URL=https://shop.your-real-domain.vn \
+API_BASE_URL=https://api.your-real-domain.vn \
+pnpm check:sepay-production
+```
+
+The current command validates the guardrail and prints redacted metadata with
+`blocked_until_manual_flow_is_implemented`; it does not create a real payment.
+Do not bypass this by scripting against production provider endpoints directly.
+
 ## Opt-In Sandbox Acceptance
 
 The repository provides an interactive runner that creates a real sandbox

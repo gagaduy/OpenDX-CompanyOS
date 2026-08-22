@@ -13,7 +13,10 @@ export type StaffRole =
   | "catalog_manager"
   | "inventory_manager"
   | "operations_manager"
-  | "finance_operator";
+  | "finance_operator"
+  | "crm_operator"
+  | "support_operator"
+  | "executive_viewer";
 
 export interface AuthSession {
   readonly accessToken: string;
@@ -83,5 +86,8 @@ function isStaffRole(value: unknown): value is StaffRole {
     value === "catalog_manager" ||
     value === "inventory_manager" ||
     value === "operations_manager" ||
-    value === "finance_operator";
+    value === "finance_operator" ||
+    value === "crm_operator" ||
+    value === "support_operator" ||
+    value === "executive_viewer";
 }

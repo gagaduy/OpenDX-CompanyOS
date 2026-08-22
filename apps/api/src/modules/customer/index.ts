@@ -12,6 +12,11 @@ export type {
 export type { CustomerSessionServiceContract } from "./application/services/interfaces/customer-session.service";
 export type { CustomerCartLoginResolver } from "./application/services/interfaces/customer-cart-login-resolver";
 export type { CheckoutCustomerReader, CheckoutCustomerSnapshot } from "./application/services/interfaces/checkout-customer-reader";
+export type {
+  CustomerOperationsDetail,
+  CustomerOperationsReader,
+  CustomerOperationsSummary,
+} from "./application/services/interfaces/customer-operations-reader";
 export {
   clearCookie,
   readCookie,

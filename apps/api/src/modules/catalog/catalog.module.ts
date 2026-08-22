@@ -13,6 +13,7 @@ import { PublicCatalogService } from "./application/services/implementations/pub
 import { VariantService } from "./application/services/implementations/variant.service";
 import { CatalogVariantReaderService } from "./application/services/implementations/catalog-variant-reader";
 import { StorefrontVariantReaderService } from "./application/services/implementations/storefront-variant-reader";
+import { CatalogHealthReaderService } from "./application/services/implementations/catalog-health-reader";
 import type { ProductMediaInspector, ProductMediaStorage } from "./application/storage/product-media.storage";
 import { PostgresqlCatalogAuditRepository } from "./infrastructure/repositories/implementations/postgresql-catalog-audit.repository";
 import { PostgresqlCategoryRepository } from "./infrastructure/repositories/implementations/postgresql-category.repository";
@@ -20,6 +21,7 @@ import { PostgresqlProductMediaRepository } from "./infrastructure/repositories/
 import { PostgresqlProductRepository } from "./infrastructure/repositories/implementations/postgresql-product.repository";
 import { PostgresqlPublicCatalogRepository } from "./infrastructure/repositories/implementations/postgresql-public-catalog.repository";
 import { PostgresqlVariantRepository } from "./infrastructure/repositories/implementations/postgresql-variant.repository";
+import { PostgresqlCatalogHealthRepository } from "./infrastructure/repositories/implementations/postgresql-catalog-health.repository";
 import { CategoryController } from "./presentation/controllers/category.controller";
 import { ProductMediaController } from "./presentation/controllers/product-media.controller";
 import { ProductController } from "./presentation/controllers/product.controller";
@@ -52,6 +54,17 @@ export function createStorefrontVariantReader(transactions: TransactionRunner) {
   return new StorefrontVariantReaderService(
     new PostgresqlPublicCatalogRepository(),
     transactions,
+  );
+}
+
+export function createCatalogHealthReader(
+  transactions: TransactionRunner,
+  now: () => string,
+) {
+  return new CatalogHealthReaderService(
+    new PostgresqlCatalogHealthRepository(),
+    transactions,
+    now,
   );
 }
 
@@ -148,5 +161,10 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     adminRouter,
     publicRouter,
     storefrontVariants: new StorefrontVariantReaderService(publicCatalog, dependencies.transactions),
+    health: new CatalogHealthReaderService(
+      new PostgresqlCatalogHealthRepository(),
+      dependencies.transactions,
+      dependencies.now,
+    ),
   };
 }

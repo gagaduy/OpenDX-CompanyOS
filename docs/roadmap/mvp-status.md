@@ -8,15 +8,33 @@ SPDX-License-Identifier: Apache-2.0
 ## Current Phase
 
 Phase 5 Storefront, Customer, and Cart is complete and merged into `develop`.
-Phase 6 Checkout, Order, and SePay is complete on
-`feat/checkout-order-sepay` and ready to merge. Backend checkout, immutable
+Phase 6 Checkout, Order, and SePay is complete and merged into `develop`.
+Backend checkout, immutable
 orders, SePay payment processing, expiry, reconciliation, customer Storefront
 journey, staff Console operations, deterministic fixtures, container lifecycle,
 operational documentation, independent review, deterministic exit gates, and
 real SePay sandbox acceptance all pass.
 
+Phase 7 Operational CRM, Support, and Dashboard is complete on `phuong` after
+focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose,
+and documentation exit evidence.
+
+Phase 8 Production Hardening and Hosting Readiness is complete on `phuong`
+after exit preflight, root source validation, local commerce acceptance, and an
+explicit decision not to run real production SePay acceptance without real
+merchant/VPS prerequisites and human confirmation.
+
 Active commerce master plan:
 `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`.
+
+The Post-Commerce Agentic Workforce master design and plan are approved. Phase
+A governance and Phase B durable Store Health workflow are complete. Phase C
+implementation, exit gates, independent review, and atomic closure commit are
+complete on `feat/agentic-department-read-tools`.
+Phases D-H still require their focused design and file-level plan:
+`docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
+and
+`docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
 
 ## Phase Status
 
@@ -27,12 +45,113 @@ Active commerce master plan:
 | Phase 3: Commerce Product Foundation | Complete | `docs/superpowers/specs/2026-08-05-commerce-product-foundation-design.md` | `docs/superpowers/plans/2026-08-05-commerce-product-foundation.md` | Complete after full validation |
 | Phase 4: Inventory and Product Publication | Complete | `docs/superpowers/specs/2026-08-05-inventory-product-publication-design.md` | `docs/superpowers/plans/2026-08-05-inventory-product-publication.md` | Complete after oversell, publication, public-read, Docker, and full validation |
 | Phase 5: Storefront, Customer, and Cart | Complete | `docs/superpowers/specs/2026-08-05-storefront-customer-cart-design.md` | `docs/superpowers/plans/2026-08-05-storefront-customer-cart.md` | Complete after real Google login, full validation, independent review, and PR merge |
-| Phase 6: Checkout, Order, and SePay | Complete; feature branch ready to merge | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
-| Phase 7: Operational CRM, Support, and Dashboard | Not started | Master design only | Not created | Not decided |
-| Phase 8: Production Hardening and Hosting Readiness | Not started | Master design only | Not created | Not decided |
+| Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
+| Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
+| Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
+| Post-Commerce: Agentic Workforce | Phases A-C complete; Phase D in progress on `feat/openrouter-agent-runtime` | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase D awaits mandatory credential-owned live acceptance; Phases E-H not started |
+
+Focused Agentic delivery status:
+
+| Phase | Status | Focused Spec | Focused Plan | Exit Decision |
+| --- | --- | --- | --- | --- |
+| Phase A: Agent Governance Foundation | Complete on `phuong` | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Complete after focused unit, PostgreSQL concurrency, migration lifecycle, API, identity, and repository gates |
+| Phase B: Durable Store Health Workflow | Complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-store-health-temporal-workflow-design.md` | `docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md` | Complete after unit/integration/replay, worker-kill lifecycle, production topology, and three-database destroy/restore/resume gates |
+| Phase C: Read-only Department Tools | Complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-16-agentic-department-read-tools-design.md` | `docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md` | Complete after 17-tool six-identity acceptance, exact analytics grants, zero-leakage, lifecycle, recovery, full-source gates, and independent review |
+
+Phase D implementation is in progress on `feat/openrouter-agent-runtime`:
+governed OpenRouter execution, Quality Gate, and deterministic fake acceptance
+are implemented. Mandatory credential-owned live acceptance remains outstanding;
+Phase D is not complete until it passes. Phases E-H are explicitly not started.
 
 ## Latest Validation Evidence
 
+- Phase C pre-commit closure evidence on 2026-08-19 includes 206 passing API
+  integration tests across 54 files, 588 API unit tests, 113 Console tests, 74
+  Storefront tests, and 102 Python tests. Production/Agentic Compose,
+  backup/restore, six-identity 17-tool acceptance, worker/service/database
+  restart, three-database recovery/replay, repository audit, and the static
+  Phase C exit gate all pass. Independent re-review reports no Critical or
+  Important findings, and the atomic closure commit is recorded on the branch.
+
+- The Post-Commerce Agentic Workforce design defines rule-first AI CEO
+  delegation, six read-only Department Agents, Temporal orchestration,
+  OpenRouter model governance, Tool Registry mediation, file-preview approval,
+  Quality Gate, scoped memory, and a Store Health Review acceptance workflow.
+- Its master plan sequences Agent Governance, Temporal workflow, read-only
+  department tools, OpenRouter runtime, file intake, AI CEO coordination,
+  Console surfaces, and deterministic acceptance behind focused phase gates.
+- Phase A adds PostgreSQL governance and a staff administration API. Phase B
+  adds Temporal execution with bounded fake activities only; it deliberately
+  does not add OpenRouter, file intake, Commerce tool adapters, or an Agentic UI.
+- Phase A defines four human Agentic roles, seven distinct Keycloak service
+  identities, owner-admin versioned configuration governance, deterministic deny-first policy,
+  task/configuration pinning, emergency revocation, Tool Registry authorization,
+  budget accounting, bound approvals, and append-only audit/provenance without
+  starting runtime execution.
+- Its focused implementation plan defines eight TDD tasks covering identity,
+  domain rules, PostgreSQL governance, policy/tools/budgets, workflow-action
+  approvals, non-executing tasks, staff APIs, composition, and phase-exit gates.
+- Phase B closure evidence on 2026-08-16 includes successful
+  the complete command sequence below. The host has Python 3.12, so the
+  documented pinned Python 3.13.12 checks image supplied `python3`; the Vitest
+  worker limit avoids this machine's 5-second UI-test contention.
+
+  ```bash
+  pnpm install --frozen-lockfile
+  pnpm audit:repo
+  pnpm audit:env
+  pnpm audit:secrets
+  pnpm lint
+  pnpm typecheck
+  VITEST_MAX_WORKERS=1 pnpm test
+  docker build --target checks -t opendx-ai-runtime-checks -f services/ai-runtime/Dockerfile .
+  PATH=/tmp/opendx-python313:$PATH pnpm test:py
+  pnpm check:production-compose
+  pnpm check:agentic-production-compose
+  pnpm check:agentic-workflow
+  pnpm check:backup-restore
+  pnpm check:agentic-workflow-recovery
+  pnpm check:agentic-phase-b-exit
+  PATH=/tmp/opendx-python313:$PATH VITEST_MAX_WORKERS=1 pnpm check
+  git diff --check
+  git status --short
+  ```
+
+  These gates passed all 535 API, 113 Console, 74 Storefront, and 102 Python
+  tests plus both frontend production builds. The lifecycle gate
+  SIGKILLed/recreated the worker during a reserved invocation. The recovery gate
+  destroyed/restored suffixed `opendx`, `temporal`, and
+  `temporal_visibility` databases, resumed the waiting run exactly once, and
+  replayed the exported history against current workflow code.
+- Phase B relevant pins: Node `22.22.0`, Python `3.13.12`, PostgreSQL `18.3`,
+  Keycloak `26.4.2`, Temporal Server/admin-tools `1.31.2`, Temporal Python SDK
+  `1.30.0`, Caddy `2.10.2`, MinIO `RELEASE.2025-04-22T22-12-26Z`, and ClamAV
+  `1.5.3`; container images are digest-pinned in the Compose/Dockerfiles.
+
+- Phase 8 focused design:
+  `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md`.
+- Phase 8 implementation plan:
+  `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md`.
+- Phase 8 commit range on `phuong`: `2d093e1..e1676d6`, plus final closure
+  evidence commit.
+- Phase 8 preflight evidence on 2026-08-10: `pnpm check:phase8-exit` passed
+  with production Compose, authorization matrix, SePay production guard tests,
+  backup/restore safety, browser accessibility, performance, env/secret audits,
+  repository audit, and `git diff --check`; root `pnpm check` also passed.
+- Phase 8 local commerce acceptance on 2026-08-10:
+  `POSTGRES_PORT=55432 pnpm check:commerce-exit` passed and wrote evidence to
+  `/tmp/opendx-commerce-exit/deterministic.json`.
+- Production SePay real-money acceptance was not run: no real VPS/domain,
+  merchant production credentials, and explicit human confirmation were
+  provided. The opt-in guard test `pnpm test:sepay-production-acceptance`
+  passed and remains outside default CI/exit gates.
+- Phase 7 focused design is complete for least-privilege CRM, staff-created
+  support tickets, continuous SLA, private ClamAV-scanned attachments,
+  deterministic customer segments, aggregate PostgreSQL-backed reporting, and
+  Customer/Support/Dashboard Console workspaces. Exit evidence includes
+  `make check-crm-support-dashboard`, `pnpm check:crm-support-dashboard-browser`,
+  `pnpm check:crm-support-dashboard-lifecycle`, root `pnpm check`, and fresh
+  `make down && make up`.
 - Repository audit: run before each handoff.
 - Runtime validation: begins in Phase 1 after application scaffolding exists.
 - Phase 1 plan created; implementation validation begins after scaffold execution.
@@ -190,5 +309,6 @@ Active commerce master plan:
   credentials, operational monitoring, and the Phase 8 go-live review.
 - Shipping, refunds, returns, and electronic invoices are outside the current
   roadmap.
-- Workflow, agent runtime, and GraphRAG are deferred until commerce Phase 8 is
-  complete.
+- Workflow and agent runtime remain unimplemented while Phase A is ready for
+  its approved TDD implementation. GraphRAG remains deferred to a later focused
+  phase.

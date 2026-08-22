@@ -15,7 +15,7 @@ export function OrderListPage({ api }: { readonly api: OrderApi }) {
       <div className="page-heading"><div><span className="eyebrow">Tài khoản khách hàng</span><h1>Đơn hàng</h1></div><p>Lịch sử mua sắm của bạn</p></div>
       {error && <p role="alert" className="inline-alert">{error}</p>}
       {orders === undefined && !error ? <p role="status" className="state-panel">Đang tải đơn hàng...</p> : orders?.items.length === 0 ? (
-        <div className="state-panel"><PackageOpen aria-hidden="true" /><p>Bạn chưa có đơn hàng nào.</p><Link className="button primary" to="/">Khám phá sản phẩm</Link></div>
+        <div className="state-panel"><PackageOpen aria-hidden="true" /><p>Bạn chưa có đơn hàng nào.</p><Link className="button primary" to="/products">Khám phá sản phẩm</Link></div>
       ) : (
         <div className="order-list">
           {orders?.items.map((order) => (

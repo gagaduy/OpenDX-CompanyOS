@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 const storefrontUrl = process.env.STOREFRONT_URL ?? "http://localhost:3100";
+const catalogUrl = new URL("/products", storefrontUrl).toString();
 const outputDirectory =
   process.env.BROWSER_EVIDENCE_DIR ??
   join(tmpdir(), "opendx-storefront-browser");
@@ -51,6 +52,11 @@ async function main() {
       path: "/v1/storefront",
       sameSite: "Lax",
     });
+    await verifyIntroHomepage(client);
+    const intermediateHeader = await verifyIntermediateHeader(
+      client,
+      outputDirectory,
+    );
 
     const evidence = [];
     for (const viewport of [
@@ -64,8 +70,19 @@ async function main() {
         deviceScaleFactor: 1,
         mobile: viewport.width < 768,
       });
-      await client.send("Page.navigate", { url: storefrontUrl });
+      const homepage = await captureHomepageThemes(
+        client,
+        outputDirectory,
+        viewport,
+      );
+      await client.send("Page.navigate", { url: catalogUrl });
       await waitForCatalog(client);
+      const categoryHero = await verifyCategoryHero(
+        client,
+        outputDirectory,
+        viewport,
+      );
+      await setTheme(client, "dark");
       await client.send("Runtime.evaluate", {
         expression:
           "document.body.focus(); document.documentElement.scrollTop = 0",
@@ -125,15 +142,30 @@ async function main() {
         outputDirectory,
         viewport,
       );
-      evidence.push({ ...result, screenshotPath, lightTheme });
+      evidence.push({
+        ...result,
+        screenshotPath,
+        lightTheme,
+        homepage,
+        categoryHero,
+      });
     }
+    const staticHomepageFallback = await verifyStaticHomepageFallback(client);
     const guestCart = await verifyGuestCart(client);
     const signIn = await captureSignInSurface(client, outputDirectory);
     const commerce = await captureCommerceSurfaces(client, outputDirectory);
     client.close();
     console.log(
       JSON.stringify(
-        { storefrontUrl, evidence, guestCart, signIn, commerce },
+        {
+          storefrontUrl,
+          intermediateHeader,
+          evidence,
+          staticHomepageFallback,
+          guestCart,
+          signIn,
+          commerce,
+        },
         null,
         2,
       ),
@@ -510,6 +542,8 @@ async function stopProcess(processHandle) {
 }
 
 async function verifyGuestCart(client) {
+  await client.send("Page.navigate", { url: catalogUrl });
+  await waitForCatalog(client);
   const productUrl = await evaluate(
     client,
     "document.querySelector('article a')?.href ?? null",
@@ -567,6 +601,334 @@ async function verifyGuestCart(client) {
   return result;
 }
 
+async function verifyIntroHomepage(client) {
+  await client.send("Page.navigate", { url: storefrontUrl });
+  await waitForCondition(
+    client,
+    `
+      document.readyState === 'complete'
+      && document.querySelector('main h1')?.textContent?.includes('Bước vào tương lai')
+      && document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+      && ['3d', 'static'].includes(document.querySelector('main')?.dataset.experienceMode)
+      && [...document.querySelectorAll('a')].some(
+        (link) => link.textContent?.trim() === 'Xem sản phẩm'
+          && new URL(link.href).pathname === '/products'
+      )
+    `,
+    "Storefront introduction homepage did not expose the product discovery CTA",
+  );
+}
+
+async function verifyIntermediateHeader(client, outputDirectory) {
+  const evidence = [];
+  for (const viewport of [
+    { width: 800, height: 500, mode: "collapsed" },
+    { width: 1024, height: 600, mode: "collapsed" },
+    { width: 1100, height: 700, mode: "collapsed" },
+    { width: 1200, height: 700, mode: "wide" },
+  ]) {
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      width: viewport.width,
+      height: viewport.height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await client.send("Page.navigate", { url: storefrontUrl });
+    await waitForCondition(
+      client,
+      `document.querySelector('.topbar-inner') !== null`,
+      `${viewport.width}px: header did not settle`,
+    );
+
+    for (const theme of ["dark", "light"]) {
+      await setTheme(client, theme);
+      const closed = await evaluate(
+        client,
+        `(() => {
+          const visible = (element) => element instanceof HTMLElement
+            && getComputedStyle(element).display !== 'none'
+            && element.getBoundingClientRect().width > 0
+            && element.getBoundingClientRect().height > 0;
+          const nav = document.querySelector('.main-nav');
+          const search = document.querySelector('.header-search');
+          const menu = document.querySelector('.mobile-menu');
+          const navRect = nav?.getBoundingClientRect();
+          const searchRect = search?.getBoundingClientRect();
+          return {
+            viewportWidth: innerWidth,
+            menuVisible: visible(menu),
+            navVisible: visible(nav),
+            searchVisible: visible(search),
+            navRect: navRect ? { left: navRect.left, right: navRect.right } : null,
+            searchRect: searchRect ? { left: searchRect.left, right: searchRect.right } : null,
+            overlaps: Boolean(
+              visible(nav)
+              && visible(search)
+              && navRect.right > searchRect.left
+              && navRect.left < searchRect.right
+              && navRect.bottom > searchRect.top
+              && navRect.top < searchRect.bottom
+            ),
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        })()`,
+      );
+      const collapsed = viewport.mode === "collapsed";
+      if (
+        closed.menuVisible !== collapsed
+        || closed.navVisible === collapsed
+        || !closed.searchVisible
+        || closed.overlaps
+        || closed.documentWidth > viewport.width
+      ) {
+        throw new Error(
+          `${viewport.width}px ${theme}: invalid ${viewport.mode} header ${JSON.stringify(closed)}`,
+        );
+      }
+
+      const closedPath = join(
+        outputDirectory,
+        `header-${viewport.width}-${theme}-closed.png`,
+      );
+      await saveScreenshot(client, closedPath);
+      const result = { ...viewport, theme, closed, closedPath };
+
+      if (collapsed) {
+        await client.send("Runtime.evaluate", {
+          expression: `document.querySelector('[aria-label="Mở menu"]')?.click()`,
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.main-nav.open') !== null
+            && document.querySelector('[aria-label="Đóng menu"]') !== null`,
+          `${viewport.width}px ${theme}: intermediate menu did not open`,
+        );
+        const open = await evaluate(
+          client,
+          `(() => {
+            const nav = document.querySelector('.main-nav.open');
+            return {
+              display: nav ? getComputedStyle(nav).display : null,
+              linkCount: nav?.querySelectorAll('a').length ?? 0,
+              top: nav?.getBoundingClientRect().top ?? null,
+            };
+          })()`,
+        );
+        if (open.display !== "flex" || open.linkCount !== 4 || open.top !== 76) {
+          throw new Error(
+            `${viewport.width}px ${theme}: invalid open intermediate menu ${JSON.stringify(open)}`,
+          );
+        }
+        const openPath = join(
+          outputDirectory,
+          `header-${viewport.width}-${theme}-open.png`,
+        );
+        await saveScreenshot(client, openPath);
+        result.open = open;
+        result.openPath = openPath;
+        await client.send("Runtime.evaluate", {
+          expression: `document.querySelector('[aria-label="Đóng menu"]')?.click()`,
+        });
+        await waitForCondition(
+          client,
+          `document.querySelector('.main-nav.open') === null
+            && document.querySelector('[aria-label="Mở menu"]') !== null`,
+          `${viewport.width}px ${theme}: intermediate menu did not close`,
+        );
+      }
+      evidence.push(result);
+    }
+  }
+  return evidence;
+}
+
+async function captureHomepageThemes(client, outputDirectory, viewport) {
+  await client.send("Page.navigate", { url: storefrontUrl });
+  await waitForCondition(
+    client,
+    `document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+      && (
+        document.querySelector('main')?.dataset.experienceMode === 'static'
+        || (
+          document.querySelector('.homepage-experience-canvas canvas') !== null
+          && document.querySelector('[aria-label="Đang tải không gian 3D"]') === null
+        )
+      )`,
+    `${viewport.name}: homepage scenes did not settle`,
+  );
+  await client.send("Runtime.evaluate", {
+    expression: "document.body.focus(); document.documentElement.scrollTop = 0",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Tab",
+    code: "Tab",
+    windowsVirtualKeyCode: 9,
+  });
+  const evidence = [];
+  for (const theme of ["dark", "light"]) {
+    await setTheme(client, theme);
+    await client.send("Runtime.evaluate", {
+      expression: "document.documentElement.scrollTop = 0",
+    });
+    const result = await evaluate(
+      client,
+      `(() => ({
+        theme: document.documentElement.dataset.theme,
+        mode: document.querySelector('main')?.dataset.experienceMode ?? null,
+        sceneCount: document.querySelectorAll('[data-testid="homepage-scene"]').length,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        hasCanvas: document.querySelector('.homepage-experience-canvas canvas') !== null,
+        alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+        focusVisible: document.activeElement?.matches(':focus-visible') ?? false,
+        ctas: [...document.querySelectorAll('.homepage-scene-intro a')].map(
+          (link) => new URL(link.href).pathname + new URL(link.href).hash
+        ),
+      }))()`,
+    );
+    if (result.sceneCount !== 6 || !["3d", "static"].includes(result.mode)) {
+      throw new Error(`${viewport.name} ${theme}: homepage journey is incomplete`);
+    }
+    if (result.mode === "3d" && !result.hasCanvas) {
+      throw new Error(`${viewport.name} ${theme}: 3D mode has no canvas`);
+    }
+    if (result.alert !== null || !result.focusVisible) {
+      throw new Error(`${viewport.name} ${theme}: homepage accessibility state failed`);
+    }
+    if (
+      !result.ctas.includes("/products")
+      || !result.ctas.includes("/products#categories")
+    ) {
+      throw new Error(`${viewport.name} ${theme}: homepage Catalog CTAs are missing`);
+    }
+    if (result.documentWidth > result.viewportWidth) {
+      throw new Error(
+        `${viewport.name} ${theme}: homepage overflow ${result.documentWidth}px > ${result.viewportWidth}px`,
+      );
+    }
+    const screenshotPath = join(
+      outputDirectory,
+      `homepage-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+    );
+    await saveScreenshot(client, screenshotPath);
+    const sceneEvidence = [];
+    const sampledScenes = ["smartphones", "computing", "audio", "gaming"];
+    for (const scene of sampledScenes) {
+      await client.send("Runtime.evaluate", {
+        expression: `(() => {
+          const journey = document.querySelector('.homepage-experience-journey');
+          if (!(journey instanceof HTMLElement)) return;
+          const sceneIndex = ${JSON.stringify([
+            "intro",
+            "smartphones",
+            "computing",
+            "audio",
+            "gaming",
+            "featured",
+          ])}.indexOf(${JSON.stringify(scene)});
+          const journeyTop = scrollY + journey.getBoundingClientRect().top;
+          const scrollRange = Math.max(1, journey.scrollHeight - innerHeight);
+          const sceneMidpoint = (sceneIndex + 0.5) / 6;
+          scrollTo({ top: journeyTop + scrollRange * sceneMidpoint });
+        })()`,
+      });
+      await delay(250);
+      await client.send("Runtime.evaluate", {
+        expression: "window.dispatchEvent(new Event('scroll'))",
+      });
+      await waitForCondition(
+        client,
+        `document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+          ?.textContent?.trim() === ${JSON.stringify(homepageSceneLabel(scene))}
+          && document.querySelector('[role="alert"]') === null
+          && (
+            document.querySelector('main')?.dataset.experienceMode === 'static'
+            || document.querySelector('.homepage-experience-canvas canvas') !== null
+          )`,
+        `${viewport.name} ${theme}: ${scene} scene did not settle`,
+      );
+      await delay(250);
+      const sample = await evaluate(
+        client,
+        `({
+          scene: ${JSON.stringify(scene)},
+          activeLabel: document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+            ?.textContent?.trim() ?? null,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: innerWidth,
+          alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
+        })`,
+      );
+      if (sample.documentWidth > sample.viewportWidth || sample.alert !== null) {
+        throw new Error(`${viewport.name} ${theme}: ${scene} scene is outside its viewport`);
+      }
+      const samplePath = join(
+        outputDirectory,
+        `homepage-${viewport.name}-${theme}-${scene}.png`,
+      );
+      await saveScreenshot(client, samplePath);
+      sceneEvidence.push({ ...sample, screenshotPath: samplePath });
+    }
+    evidence.push({ ...result, screenshotPath, sceneEvidence });
+  }
+  return evidence;
+}
+
+function homepageSceneLabel(scene) {
+  return {
+    smartphones: "Điện thoại",
+    computing: "Máy tính",
+    audio: "Âm thanh",
+    gaming: "Gaming",
+  }[scene];
+}
+
+async function verifyStaticHomepageFallback(client) {
+  const script = await client.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      configurable: true,
+      value: () => null,
+    });`,
+  });
+  try {
+    await client.send("Page.navigate", { url: storefrontUrl });
+    await waitForCondition(
+      client,
+      `document.querySelector('main')?.dataset.experienceMode === 'static'
+        && document.querySelectorAll('[data-testid="homepage-scene"]').length === 6
+        && [...document.querySelectorAll('.homepage-scene-intro a')].some(
+          (link) => new URL(link.href).pathname === '/products' && new URL(link.href).hash === ''
+        )
+        && [...document.querySelectorAll('.homepage-scene-intro a')].some(
+          (link) => new URL(link.href).pathname === '/products'
+            && new URL(link.href).hash === '#categories'
+        )`,
+      "Homepage did not preserve its semantic journey without WebGL",
+    );
+    return evaluate(
+      client,
+      `({
+        mode: document.querySelector('main')?.dataset.experienceMode,
+        sceneCount: document.querySelectorAll('[data-testid="homepage-scene"]').length,
+        ctas: [...document.querySelectorAll('.homepage-scene-intro a')].map(
+          (link) => new URL(link.href).pathname + new URL(link.href).hash
+        ),
+      })`,
+    );
+  } finally {
+    await client.send("Page.removeScriptToEvaluateOnNewDocument", {
+      identifier: script.identifier,
+    });
+  }
+}
+
 async function waitForCondition(client, expression, timeoutMessage) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     if (await evaluate(client, expression)) return;
@@ -580,6 +942,16 @@ async function waitForCondition(client, expression, timeoutMessage) {
       heading: document.querySelector('h1')?.textContent?.trim() ?? null,
       alert: document.querySelector('[role="alert"]')?.textContent?.trim() ?? null,
       status: document.querySelector('[role="status"]')?.textContent?.trim() ?? null,
+      scrollY,
+      activeScene: document.querySelector('.homepage-scene-navigation button[aria-current="location"]')
+        ?.textContent?.trim() ?? null,
+      smartphoneTop: document.getElementById('homepage-smartphones')
+        ?.getBoundingClientRect().top ?? null,
+      journeyTop: document.querySelector('.homepage-experience-journey')
+        ?.getBoundingClientRect().top ?? null,
+      journeyHeight: document.querySelector('.homepage-experience-journey')
+        ?.scrollHeight ?? null,
+      innerHeight,
     })`,
   );
   throw new Error(`${timeoutMessage}: ${JSON.stringify(diagnostics)}`);
@@ -640,6 +1012,7 @@ async function waitForCatalog(client) {
       `
       document.readyState === 'complete'
       && (document.querySelectorAll('article').length > 0 || document.querySelector('[role="alert"]') !== null)
+      && document.querySelector('.hero-category-selector') !== null
       && [...document.images].every((image) => image.complete)
     `,
     );
@@ -649,6 +1022,88 @@ async function waitForCatalog(client) {
   throw new Error(
     "Storefront catalog did not settle before browser-check timeout",
   );
+}
+
+async function verifyCategoryHero(client, outputDirectory, viewport) {
+  const evidence = [];
+  for (const theme of ["dark", "light"]) {
+    await setTheme(client, theme);
+    await client.send("Runtime.evaluate", {
+      expression:
+        "document.querySelectorAll('.hero-category-selector button')[0]?.click()",
+    });
+    await waitForCondition(
+      client,
+      `document.querySelector('.hero-category-selector button[aria-pressed="true"]')
+        === document.querySelectorAll('.hero-category-selector button')[0]`,
+      `${viewport.name} ${theme}: first hero category did not settle`,
+    );
+    const initial = await evaluate(
+      client,
+      `(() => {
+        const buttons = [...document.querySelectorAll('.hero-category-selector button')];
+        return {
+          buttonCount: buttons.length,
+          title: document.querySelector('.storefront-hero h1')?.textContent?.trim() ?? null,
+          image: document.querySelector('.storefront-hero > img')?.getAttribute('src') ?? null,
+          selected: buttons.find((button) => button.getAttribute('aria-pressed') === 'true')?.textContent?.trim() ?? null,
+        };
+      })()`,
+    );
+    if (
+      initial.buttonCount < 2 ||
+      initial.title === null ||
+      initial.image === null
+    ) {
+      throw new Error(
+        `${viewport.name} ${theme}: category hero is incomplete: ${JSON.stringify(initial)}`,
+      );
+    }
+    await client.send("Runtime.evaluate", {
+      expression:
+        "document.querySelectorAll('.hero-category-selector button')[1]?.click()",
+    });
+    await waitForCondition(
+      client,
+      `document.querySelector('.storefront-hero h1')?.textContent?.trim() !== ${JSON.stringify(initial.title)}
+        && document.querySelector('.storefront-hero > img')?.getAttribute('src') !== ${JSON.stringify(initial.image)}
+        && document.querySelector('.storefront-hero > img')?.complete === true
+        && document.querySelector('.storefront-hero > img')?.naturalWidth > 0`,
+      `${viewport.name} ${theme}: category hero did not change slide`,
+    );
+    const selected = await evaluate(
+      client,
+      `(() => {
+        const button = [...document.querySelectorAll('.hero-category-selector button')]
+          .find((candidate) => candidate.getAttribute('aria-pressed') === 'true');
+        const href = document.querySelector('.storefront-hero a.button.primary')?.getAttribute('href') ?? null;
+        return {
+          category: button?.textContent?.trim() ?? null,
+          href,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: innerWidth,
+        };
+      })()`,
+    );
+    if (
+      selected.category === null ||
+      !selected.href?.startsWith("/products?category=") ||
+      !selected.href.endsWith("#catalog") ||
+      selected.documentWidth > selected.viewportWidth
+    ) {
+      throw new Error(
+        `${viewport.name} ${theme}: selected category hero is invalid: ${JSON.stringify(selected)}`,
+      );
+    }
+    await delay(300);
+    const screenshotPath = join(
+      outputDirectory,
+      `category-hero-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+    );
+    await saveScreenshot(client, screenshotPath);
+    evidence.push({ theme, initial, selected, screenshotPath });
+  }
+  return evidence;
 }
 
 function assertViewport(result, expected) {

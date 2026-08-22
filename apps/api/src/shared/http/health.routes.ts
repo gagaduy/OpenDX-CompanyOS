@@ -10,8 +10,12 @@ export interface ReadinessDependencies {
   readonly keycloak: DependencyStatus;
   readonly minio: DependencyStatus;
   readonly migrations: DependencyStatus;
+  readonly agenticWorkflow?: DependencyStatus;
 }
 export type ReadinessProbe = () => Promise<ReadinessDependencies>;
+export interface HealthRouterOptions {
+  readonly timeoutMs?: number;
+}
 
 const defaultReadiness: ReadinessProbe = async () => ({
   postgres: "up",
@@ -22,6 +26,7 @@ const defaultReadiness: ReadinessProbe = async () => ({
 
 export function createHealthRouter(
   readiness: ReadinessProbe = defaultReadiness,
+  options: HealthRouterOptions = {},
 ): Router {
   const router = Router();
   const liveness = {
@@ -32,7 +37,10 @@ export function createHealthRouter(
   router.get("/health", (_request, response) => response.json(liveness));
   router.get("/health/live", (_request, response) => response.json(liveness));
   router.get("/health/ready", async (_request, response) => {
-    const dependencies = await readiness();
+    const dependencies = await withReadinessTimeout(
+      readiness,
+      options.timeoutMs ?? 2_000,
+    );
     const ready = Object.values(dependencies).every((status) => status === "up");
     response.status(ready ? 200 : 503).json({
       status: ready ? "ready" : "unavailable",
@@ -42,4 +50,21 @@ export function createHealthRouter(
   });
 
   return router;
+}
+
+async function withReadinessTimeout(
+  readiness: ReadinessProbe,
+  timeoutMs: number,
+): Promise<ReadinessDependencies | { readonly readiness: "down" }> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      readiness(),
+      new Promise<{ readonly readiness: "down" }>((resolve) => {
+        timer = setTimeout(() => resolve({ readiness: "down" }), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

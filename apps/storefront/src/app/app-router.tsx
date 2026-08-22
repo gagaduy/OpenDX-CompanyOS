@@ -5,6 +5,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import type { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
 import { CategoryPage } from "../features/catalog/pages/category-page";
 import { HomePage } from "../features/catalog/pages/home-page";
+import { IntroHomePage } from "../features/catalog/pages/intro-home-page";
 import { SearchPage } from "../features/catalog/pages/search-page";
 import { StorefrontShell } from "./storefront-shell";
 import type { CartApi } from "../features/cart/api/cart-api";
@@ -12,7 +13,10 @@ import { CartProvider, useCart } from "../features/cart/hooks/cart-context";
 import { CartPage } from "../features/cart/pages/cart-page";
 import { ProductDetailPage } from "../features/catalog/pages/product-detail-page";
 import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
-import { CustomerSessionProvider } from "../features/authentication/hooks/customer-session-context";
+import {
+  CustomerSessionProvider,
+  useCustomerSession,
+} from "../features/authentication/hooks/customer-session-context";
 import { SignInPage } from "../features/authentication/pages/sign-in-page";
 import { CheckoutGate } from "../features/authentication/components/checkout-gate";
 import type { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
@@ -41,14 +45,21 @@ export function createAppRouter(dependencies: {
     {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
-          <CartProvider api={dependencies.cartApi}>
-            <ShellWithCart />
-          </CartProvider>
+          <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
         </CustomerSessionProvider>
       ),
       children: [
         {
           path: "/",
+          element: (
+            <IntroHomePage
+              api={dependencies.catalogApi}
+              apiBaseUrl={dependencies.apiBaseUrl}
+            />
+          ),
+        },
+        {
+          path: "/products",
           element: (
             <HomePage
               api={dependencies.catalogApi}
@@ -130,6 +141,26 @@ export function createAppRouter(dependencies: {
       ],
     },
   ]);
+}
+
+function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
+  const { loading } = useCustomerSession();
+  if (loading) {
+    return (
+      <StorefrontShell cartCount={0}>
+        <main id="main-content">
+          <p role="status" className="state-panel">
+            Đang tải cửa hàng...
+          </p>
+        </main>
+      </StorefrontShell>
+    );
+  }
+  return (
+    <CartProvider api={cartApi}>
+      <ShellWithCart />
+    </CartProvider>
+  );
 }
 
 function ShellWithCart() {

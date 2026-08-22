@@ -4,5 +4,11 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 export function SearchPage() {
   const [parameters] = useSearchParams();
-  return <Navigate replace to={`/?${parameters}`} />;
+  const queryString = parameters.toString();
+  return (
+    <Navigate
+      replace
+      to={`/products${queryString ? `?${queryString}` : ""}`}
+    />
+  );
 }

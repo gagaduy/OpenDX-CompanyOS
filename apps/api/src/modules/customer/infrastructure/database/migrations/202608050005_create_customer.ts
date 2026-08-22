@@ -166,12 +166,18 @@ export function down(pgm: MigrationBuilder): void {
     DELETE FROM audit_events WHERE actor_type = 'customer';
     ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS audit_events_actor_type_check;
     DO $block$
+    DECLARE
+      company_core_applied boolean := false;
     BEGIN
-      IF to_regclass('public.company_core_migrations') IS NOT NULL
-         AND EXISTS (
-           SELECT 1 FROM company_core_migrations
-           WHERE name = '202608050002_create_company_operating_core'
-         ) THEN
+      IF to_regclass('public.company_core_migrations') IS NOT NULL THEN
+        EXECUTE $query$
+          SELECT EXISTS (
+            SELECT 1 FROM company_core_migrations
+            WHERE name = '202608050002_create_company_operating_core'
+          )
+        $query$ INTO company_core_applied;
+      END IF;
+      IF company_core_applied THEN
         ALTER TABLE audit_events
           ADD CONSTRAINT audit_events_actor_type_check
           CHECK (actor_type IN ('user', 'agent', 'workflow', 'service_account', 'connector'));

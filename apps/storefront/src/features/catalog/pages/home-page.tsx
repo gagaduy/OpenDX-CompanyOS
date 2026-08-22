@@ -5,9 +5,11 @@ import { useSearchParams } from "react-router-dom";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
 import { CatalogFilters } from "../components/catalog-filters";
 import { CategoryShowcase } from "../components/category-showcase";
+import { DiscoverySidebar } from "../components/discovery-sidebar";
 import { ProductGrid } from "../components/product-grid";
 import { StorefrontHero } from "../components/storefront-hero";
 import { useProductDiscovery } from "../hooks/use-product-discovery";
+import { useHeroSlides } from "../hooks/use-hero-slides";
 
 export function HomePage({
   api,
@@ -23,12 +25,24 @@ export function HomePage({
   const landing =
     [...normalized.keys()].every((key) => key === "page" || key === "pageSize") &&
     (normalized.get("page") ?? "1") === "1";
+  const hero = useHeroSlides(api, landing);
   const products = discovery.page?.items ?? [];
   return (
     <main id="main-content">
-      {!discovery.loading && landing && products[0] !== undefined && (
+      <DiscoverySidebar
+        categories={discovery.categories}
+        parameters={normalized}
+        onSubmit={setParameters}
+      />
+      {!discovery.loading &&
+        landing &&
+        (hero.slides.length > 0 || products[0] !== undefined) && (
         <>
-          <StorefrontHero product={products[0]} apiBaseUrl={apiBaseUrl} />
+          <StorefrontHero
+            slides={hero.slides}
+            fallbackProduct={products[0]}
+            apiBaseUrl={apiBaseUrl}
+          />
           <CategoryShowcase
             categories={discovery.categories}
             products={products}

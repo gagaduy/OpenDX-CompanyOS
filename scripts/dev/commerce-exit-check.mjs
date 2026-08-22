@@ -9,7 +9,11 @@ import { spawn } from "node:child_process";
 
 const databaseName = `opendx_phase6_acceptance_${process.pid}_test`;
 const restoreDatabaseName = `${databaseName}_restore_test`;
-const databaseUrl = `postgres://opendx_local:opendx_local_password@localhost:5432/${databaseName}`;
+const postgresPort =
+  process.env.COMMERCE_ACCEPTANCE_POSTGRES_PORT ??
+  process.env.POSTGRES_PORT ??
+  "5432";
+const databaseUrl = `postgres://opendx_local:opendx_local_password@localhost:${postgresPort}/${databaseName}`;
 const evidenceDirectory =
   process.env.COMMERCE_ACCEPTANCE_EVIDENCE_DIR ??
   join(tmpdir(), "opendx-commerce-exit");

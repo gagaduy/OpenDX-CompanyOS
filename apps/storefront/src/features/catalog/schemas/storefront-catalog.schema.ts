@@ -38,6 +38,20 @@ export const productSchema = z.object({
   }),
   variants: z.array(variantSchema),
 });
+export const heroCategorySchema = categorySchema.pick({
+  id: true,
+  name: true,
+  slug: true,
+});
+export const heroSlideSchema = z.object({
+  category: heroCategorySchema,
+  product: productSchema,
+});
+export const heroSlidesEnvelopeSchema = z.object({
+  success: z.literal(true),
+  message: z.string(),
+  data: z.array(heroSlideSchema),
+});
 export const categoriesEnvelopeSchema = z.object({
   success: z.literal(true),
   message: z.string(),

@@ -4,13 +4,19 @@
 
 set -euo pipefail
 
-git diff --check
-pnpm lint
-pnpm typecheck
-pnpm test
+pnpm check:fast
 pnpm --filter @opendx/console build
 pnpm --filter @opendx/storefront build
 pnpm test:py
+pnpm test:make-database-backup
+pnpm test:temporal-compose
+pnpm test:agentic-production-compose
+pnpm test:agentic-phase-b-exit
+pnpm test:agentic-department-tools
+pnpm test:agentic-phase-c-exit
+pnpm test:agentic-model-runtime
+pnpm test:openrouter-live
+pnpm test:agentic-phase-d-exit
 pnpm audit:repo
 compose_env=()
 if [[ -f .env ]]; then

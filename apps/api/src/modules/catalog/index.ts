@@ -4,9 +4,19 @@
 export {
   createCatalogModule,
   createCatalogVariantReader,
+  createCatalogHealthReader,
   createStorefrontVariantReader,
   type CatalogModuleDependencies,
 } from "./catalog.module";
+export type {
+  CatalogHealthReader,
+  CatalogMerchandisingSummary,
+  CatalogProductCompleteness,
+  CatalogPublicationEvidence,
+  CatalogPublicationReadinessInput,
+  CatalogPublicationReadinessResult,
+  CatalogReadinessReason,
+} from "./application/services/interfaces/catalog-health-reader";
 export {
   type CatalogVariantReader,
   type CatalogVariantSummary,

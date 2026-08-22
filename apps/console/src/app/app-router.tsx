@@ -13,6 +13,9 @@ import { createCatalogApi } from "../features/catalog/api/catalog-api";
 import { CategoryPage } from "../features/catalog/pages/category-page";
 import { ProductEditorPage } from "../features/catalog/pages/product-editor-page";
 import { ProductListPage } from "../features/catalog/pages/product-list-page";
+import { createCrmOperationsApi, CustomerDetailPage } from "../features/crm";
+import { createCustomerOperationsApi, CustomerListPage } from "../features/customers";
+import { createDashboardApi, DashboardPage } from "../features/dashboard";
 import { createInventoryApi, InventoryPage } from "../features/inventory";
 import { createOrderOperationsApi } from "../features/orders/api/order-operations-api";
 import { OrderDetailPage } from "../features/orders/pages/order-detail-page";
@@ -20,6 +23,7 @@ import { OrderOperationsPage } from "../features/orders/pages/order-operations-p
 import { createPaymentOperationsApi } from "../features/payments/api/payment-operations-api";
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
+import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -39,6 +43,11 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/orders/:orderId" element={<OrderRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/payments" element={<PaymentRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/payments/:paymentId" element={<PaymentRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/customers" element={<CustomerRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/customers/:customerId" element={<CustomerRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/support" element={<SupportRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/support/:ticketId" element={<SupportRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/dashboard" element={<DashboardRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
         </Route>
       </Route>
@@ -52,11 +61,17 @@ function HomeRedirect() {
   const roles = session?.roles ?? [];
   const target = roles.includes("administrator") || roles.includes("catalog_manager")
     ? "/products"
+    : roles.includes("executive_viewer")
+      ? "/dashboard"
     : roles.includes("operations_manager")
       ? "/orders"
       : roles.includes("finance_operator")
         ? "/payments"
-        : "/inventory";
+        : roles.includes("crm_operator")
+          ? "/customers"
+          : roles.includes("support_operator")
+            ? "/support"
+            : "/inventory";
   return <Navigate to={target} replace />;
 }
 
@@ -87,4 +102,24 @@ function PaymentRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: str
   const { session } = useAuth();
   const api = useMemo(() => createPaymentOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   return <StaffRoleRoute allowed={["administrator", "finance_operator"]}>{detail ? <PaymentDetailPage api={api} /> : <PaymentOperationsPage api={api} />}</StaffRoleRoute>;
+}
+
+function CustomerRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: string; readonly detail?: boolean }) {
+  const { session } = useAuth();
+  const accessToken = session?.accessToken ?? "";
+  const customerApi = useMemo(() => createCustomerOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
+  const crmApi = useMemo(() => createCrmOperationsApi(apiBaseUrl, accessToken), [apiBaseUrl, accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "crm_operator"]}>{detail ? <CustomerDetailPage api={crmApi} /> : <CustomerListPage api={customerApi} />}</StaffRoleRoute>;
+}
+
+function SupportRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: string; readonly detail?: boolean }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createSupportOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "support_operator", "crm_operator"]}>{detail ? <TicketDetailPage api={api} roles={session?.roles ?? []} /> : <SupportPage api={api} roles={session?.roles ?? []} />}</StaffRoleRoute>;
+}
+
+function DashboardRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createDashboardApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  return <StaffRoleRoute allowed={["administrator", "executive_viewer"]}><DashboardPage api={api} /></StaffRoleRoute>;
 }

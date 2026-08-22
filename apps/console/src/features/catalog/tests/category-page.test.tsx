@@ -24,6 +24,8 @@ describe("CategoryPage", () => {
     const client = api();
     render(<MemoryRouter><CategoryPage api={client} /></MemoryRouter>);
     expect(await screen.findByText("Drinkware")).toBeVisible();
+    expect(screen.getByRole("tree", { name: "Category tree" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add category" })).toBeEnabled();
     await userEvent.type(screen.getByLabelText("Category name"), "Accessories");
     await userEvent.click(screen.getByRole("button", { name: /add category/i }));
     expect(client.createCategory).toHaveBeenCalledWith(expect.objectContaining({ name: "Accessories" }));

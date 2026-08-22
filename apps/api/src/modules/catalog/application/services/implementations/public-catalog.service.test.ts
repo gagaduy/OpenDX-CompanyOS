@@ -33,6 +33,86 @@ const product = {
 };
 
 describe("PublicCatalogService", () => {
+  it("enriches ordered newest-per-category hero slides without dropping sold-out products", async () => {
+    const phoneVariantId = "d1000000-0000-4000-8000-000000000002";
+    const laptop = {
+      ...product,
+      categoryName: "Laptops",
+      name: "Laptop X",
+      slug: "laptop-x",
+    };
+    const phone = {
+      ...product,
+      id: "d2000000-0000-4000-8000-000000000002",
+      categoryId: "d3000000-0000-4000-8000-000000000002",
+      categoryName: "Phones",
+      name: "Phone X",
+      slug: "phone-x",
+      primaryMedia: {
+        id: "d4000000-0000-4000-8000-000000000002",
+        altText: "Phone X front",
+      },
+      variants: [{ ...product.variants[0]!, id: phoneVariantId }],
+    };
+    const repository = {
+      listHeroSlides: vi.fn(async () => [
+        {
+          category: {
+            id: laptop.categoryId,
+            name: "Laptops",
+            slug: "laptops",
+          },
+          product: laptop,
+        },
+        {
+          category: {
+            id: phone.categoryId,
+            name: "Phones",
+            slug: "phones",
+          },
+          product: phone,
+        },
+      ]),
+    } as unknown as PublicCatalogRepository;
+    const availability: InventoryAvailabilityReader = {
+      getByVariantIds: vi.fn(async () =>
+        new Map([
+          [
+            VARIANT_ID,
+            { initialized: true, onHand: 3, reserved: 1, available: 2 },
+          ],
+          [
+            phoneVariantId,
+            { initialized: true, onHand: 2, reserved: 2, available: 0 },
+          ],
+        ]),
+      ),
+    };
+    const transactions: TransactionRunner = {
+      run: (work) => work({ query: vi.fn() }),
+      runReadOnly: (work) => work({ query: vi.fn() }),
+    };
+    const service = new PublicCatalogService(
+      repository,
+      availability,
+      transactions,
+    );
+
+    const slides = await service.listHeroSlides();
+
+    expect(slides.map(({ category }) => category.slug)).toEqual([
+      "laptops",
+      "phones",
+    ]);
+    expect(slides[0]?.product.primaryMedia.contentUrl).toBe(
+      `/v1/storefront/products/${laptop.id}/media/${laptop.primaryMedia.id}/content`,
+    );
+    expect(slides[1]?.product.variants[0]).toMatchObject({
+      availableQuantity: 0,
+      purchasable: false,
+    });
+  });
+
   it("keeps a sold-out published product discoverable and not purchasable", async () => {
     const repository = {
       listProducts: vi.fn(async () => ({ items: [product], totalItems: 1 })),

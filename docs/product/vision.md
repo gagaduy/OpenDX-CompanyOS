@@ -66,7 +66,8 @@ profiles and addresses, explicit cart resolution, checkout readiness,
 backend-authoritative promotion evaluation, transactional reservation,
 immutable orders, signed SePay sandbox initiation, trusted payment convergence,
 and role-aware Order/Payment operations. Production payment activation remains
-deferred to Phase 8.
+an explicit operator decision guarded by Phase 8 production hardening and
+hosting-readiness checks.
 
 ## Company Model
 

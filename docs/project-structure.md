@@ -37,6 +37,14 @@ domain, application, infrastructure, presentation, seed, and test code. Both
 commerce repositories use shared PostgreSQL transaction infrastructure; Catalog
 media storage remains behind its inward-facing storage port.
 
+Phase C health readers remain inside their owning Commerce modules and are
+exported through each module `index.ts`. Fixed mapping adapters live under
+`apps/api/src/modules/agentic/infrastructure/tools`; they depend on those public
+read ports, never private repositories. Reporting owns the three Agentic
+analytics views and its isolated read adapter.
+`apps/api/src/integration-test-setup.ts` is a test-only composition root that
+rolls module migrations back in dependency order after each integration file.
+
 `apps/storefront` contains the React + TypeScript customer commerce surface.
 Its feature-owned Catalog, authentication, Cart, customer-account, Checkout,
 and Order areas consume runtime-validated API envelopes; `src/app` owns
@@ -49,12 +57,13 @@ another feature's private implementation.
 
 ## Services
 
-`services/ai-runtime` contains the Python FastAPI shell for future document
-parsing, extraction, embeddings, reranking, and GraphRAG support. Its
-`app/create_app.py` file is the composition root, `app/main.py` exports the ASGI
-application, and `app/shared/health` owns the technical health endpoint and
-response schema. Business modules are created only when their implementation
-is approved.
+`services/ai-runtime` contains the Python FastAPI runtime and the Phase B
+Agentic Temporal worker. `app/agentic/workflows` owns deterministic workflow
+definitions, `activities` owns bounded idempotent execution adapters,
+`application` owns control use cases and inward ports, `infrastructure` owns
+Temporal/Keycloak/API clients, and `presentation` owns the private HTTP
+boundary. `app/create_app.py` and `app/main.py` compose the gateway while
+`app/agentic/worker.py` composes the separate worker process.
 
 ## Shared Packages
 
@@ -70,17 +79,27 @@ entities belong to their API module rather than this package.
 `infra/docker` contains the pinned full local Docker Compose topology,
 PostgreSQL test-database initialization, and Keycloak realm import.
 
-`infra/backups` is the ignored local destination for custom-format PostgreSQL
-archives created by the root `Makefile`.
+`infra/deploy` contains the hardened non-HA single-VPS production-candidate
+Compose topology and Caddy edge. Temporal and workload APIs stay private and
+use deployment-provided mTLS/identity secrets.
+
+`infra/backups` is the ignored local destination for verified PostgreSQL
+recovery-set directories. Each set contains the application, Temporal, and
+Temporal visibility databases plus a manifest and checksums.
 
 `scripts/audit` contains repository governance audit helpers.
 
-`scripts/dev` contains deterministic Storefront and Console browser validation,
-an isolated checkout-to-paid database exit gate, and an opt-in real SePay
-sandbox runner. Browser fixtures never claim provider payment confirmation;
-only the credential-owned sandbox runner waits for authoritative backend state.
+`scripts/dev` contains deterministic browser validation, isolated commerce
+gates, Agentic lifecycle/recovery/replay gates, the disposable six-identity
+Department-tool acceptance and Phase C static exit gate, and an opt-in real
+SePay sandbox runner. `scripts/ops` owns bounded backup and restore procedures.
 
-`docs` contains product, architecture, design, roadmap, build, dependency, and planning documentation.
+`docs` contains product, architecture, design, roadmap, build, dependency, and
+planning documentation. `docs/superpowers/specs` and
+`docs/superpowers/plans` hold approved implementation direction, while
+`docs/superpowers/reports` holds non-normative historical implementation and
+validation evidence. Repository documentation must not be stored in hidden
+tool-specific directories at the repository root.
 
 `.agents/skills` contains repo-local skill instructions for AI coding agents.
 
@@ -121,9 +140,13 @@ Approved commerce module areas include:
 - `modules/support`
 - `modules/reporting`
 - `modules/audit`
+- `modules/agentic` (governance, workflow control, safe projections, worker callbacks, and fixed read-tool adapters)
 
-Workflow, Agent, Skill, Policy, Graph, and broad Integration modules move to the
-post-commerce roadmap.
+Skills, model-backed execution, Graph, and broad Integration modules remain in
+the post-commerce roadmap. Agent governance and durable workflow control are
+owned by the implemented `apps/api/src/modules/agentic` feature. Phase D model
+execution remains in `services/ai-runtime/app/agentic` behind application ports
+and a Temporal activity; do not split it before an approved need.
 
 ## Branching Model
 

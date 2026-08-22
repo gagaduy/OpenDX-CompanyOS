@@ -48,7 +48,7 @@ export function validateOrderSnapshot(order: Order, lines: readonly OrderLine[])
 }
 
 export function transitionOrder(order: Order, target: OrderStatus, actorType: OrderActorType, timestamp: string): Order {
-  if (!transitions[order.status].includes(target) || !actorCanTransition(order.status, target, actorType)) {
+  if (!isOrderStatusTransitionAllowed(order.status, target) || !actorCanTransition(order.status, target, actorType)) {
     throw new OrderDomainError("INVALID_ORDER_TRANSITION", `Cannot transition order from ${order.status} to ${target}`);
   }
   if (!Number.isFinite(Date.parse(timestamp))) invalid("Transition timestamp is invalid");
@@ -60,6 +60,28 @@ export function transitionOrder(order: Order, target: OrderStatus, actorType: Or
     ...(target === "paid" ? { paidAt: timestamp } : {}),
     ...(target === "completed" ? { completedAt: timestamp } : {}),
   };
+}
+
+export function isOrderStatusTransitionAllowed(
+  current: OrderStatus | undefined,
+  target: OrderStatus,
+): boolean {
+  if (current === undefined) return target === "pending_payment";
+  return transitions[current].includes(target);
+}
+
+export function orderStatusTransitionPairs(): readonly {
+  readonly previousStatus: OrderStatus | null;
+  readonly newStatus: OrderStatus;
+}[] {
+  return [
+    { previousStatus: null, newStatus: "pending_payment" },
+    ...Object.entries(transitions).flatMap(([previousStatus, targets]) =>
+      targets.map((newStatus) => ({
+        previousStatus: previousStatus as OrderStatus,
+        newStatus,
+      }))),
+  ];
 }
 
 export function createPublicOrderNumber(timestamp: string, suffix: string): string {

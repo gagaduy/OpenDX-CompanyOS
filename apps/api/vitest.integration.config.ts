@@ -7,7 +7,8 @@ export default defineConfig({
   test: {
     include: ["src/**/*.integration.test.ts"],
     globalSetup: ["src/shared/testing/assert-integration-environment.ts"],
+    setupFiles: ["src/integration-test-setup.ts"],
     fileParallelism: false,
-    sequence: { concurrent: false },
+    sequence: { concurrent: false, hooks: "stack" },
   },
 });

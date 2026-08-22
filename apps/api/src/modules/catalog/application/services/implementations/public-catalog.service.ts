@@ -7,6 +7,7 @@ import type { PublicProductListQuery } from "../../dtos/requests/public-catalog-
 import type {
   PaginatedPublicProductsDto,
   PublicProductDto,
+  StorefrontHeroSlideDto,
 } from "../../dtos/responses/public-catalog-response.dto";
 import type {
   PublicCatalogRepository,
@@ -26,6 +27,19 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     return this.transactions.runReadOnly((session) =>
       this.repository.listCategories(session),
     );
+  }
+
+  async listHeroSlides(): Promise<readonly StorefrontHeroSlideDto[]> {
+    return this.transactions.runReadOnly(async (session) => {
+      const slides = await this.repository.listHeroSlides(session);
+      const products = await this.enrich(
+        slides.map(({ product }) => product),
+      );
+      return slides.map((slide, index) => ({
+        category: slide.category,
+        product: products[index]!,
+      }));
+    });
   }
 
   async listProducts(

@@ -13,8 +13,9 @@ NovaCommerce as a B2C single-store business.
 The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
 Storefront, Customer, Cart, Promotion, Checkout, immutable Order, SePay Payment,
 and staff commerce operations are implemented. Phase 6 real SePay sandbox
-acceptance passes. The active roadmap continues with Operational CRM, support,
-dashboard, and production hardening.
+acceptance passes. Agentic Phase B also provides the first governed durable
+Store Health workflow with Temporal, approval/cancellation, recovery, and
+replay; it intentionally uses fake activities and no model provider.
 
 ## What It Is
 
@@ -22,9 +23,9 @@ DX-OS models NovaCommerce's organization and commerce operations in one governed
 system. The commerce foundation is delivered before Digital Employees,
 workflow automation, and GraphRAG.
 
-Future AI agents will be represented as Digital Employees inside the company.
-They will be governed by role, skill, tools, data scope, permissions, policies,
-and human approval after the commerce foundation is complete.
+AI agents are represented as governed Digital Employees inside the company.
+Phase B proves their durable orchestration boundary; model execution, Commerce
+tools, file intake, GraphRAG, and the Agentic Console remain later phases.
 
 ## What It Is Not
 
@@ -58,6 +59,7 @@ See:
 - `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`
 - `docs/superpowers/plans/2026-08-04-novacommerce-commerce-platform.md`
 - `docs/architecture/system-baseline.md`
+- `docs/architecture/agentic-workflow-runtime.md`
 - `docs/architecture/mvp-phases.md`
 - `docs/design/linear-product-canvas.md`
 - `docs/agent-guidelines/implementation-guardrails.md`
@@ -103,25 +105,40 @@ make up
 
 Open the staff Console at `http://localhost:3000` and Storefront at
 `http://localhost:3100`. The stack includes
-PostgreSQL, Keycloak, MinIO, ordered migrations, deterministic product,
-Inventory, and Promotion seeds, API, Console, and Storefront. `make up` waits
-for the complete stack to become healthy. SePay credentials are optional for
-normal local startup.
+PostgreSQL, Keycloak, MinIO, Temporal, the AI Runtime/worker, ordered migrations,
+deterministic seeds, API, Console, and Storefront. `make up` waits for the
+complete stack to become healthy. SePay and OpenRouter credentials are not
+required for the Phase B local workflow.
 
 ### Run Validation
 
 ```bash
+pnpm check
+pnpm check:full
 make check
 pnpm check:commerce-exit
+pnpm check:crm-support-dashboard
+pnpm check:agentic-workflow
+pnpm check:agentic-workflow-recovery
+pnpm check:agentic-phase-b-exit
 ```
 
-The second command creates isolated PostgreSQL databases, validates the
+`pnpm check` is the fast source-only iteration gate. `pnpm check:full` adds
+all deterministic cross-workspace checks; use it before merge. `make check` is
+the reproducible container gate and includes API integration tests. Run the
+focused acceptance gates only when their owning module changes. The commerce
+exit command creates isolated PostgreSQL databases, validates the
 checkout-to-paid concurrency and failure gates, proves paid-order backup and
 restore, then removes its databases. Real SePay sandbox acceptance remains
 opt-in through `pnpm check:sepay-sandbox`; see `docs/integrations/sepay.md`.
+The Phase 7 command requires isolated CRM/Support test resources and verifies
+the source/build preflight before full browser, restart, and backup/restore
+evidence is recorded.
 
 Database operations are exposed through `make db-migrate`, `make db-rollback`,
-`make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. See
+`make db-seed`, `make db-backup`, and `make db-restore BACKUP=...`. PostgreSQL
+backup/restore uses one recovery set for `opendx`, `temporal`, and
+`temporal_visibility`. See
 `docs/development/database-operations.md` before restore.
 
 For host-based development after infrastructure is available:

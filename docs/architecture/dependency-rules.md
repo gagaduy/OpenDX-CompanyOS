@@ -83,6 +83,12 @@ mapped to framework-neutral values.
 
 ## Enforcement
 
+The `agentic` feature follows the same inward dependency direction. Its domain
+contains lifecycle rules; application services coordinate transaction-scoped
+repository ports; PostgreSQL, Keycloak middleware, Express routes, and Zod
+validators remain outward adapters. Agentic code must consume Commerce only
+through a separately approved public port; Phase A imports no Commerce module.
+
 Documentation defines intent. Automated import-boundary checks should be added
 when an implementation refactor begins and there are real paths to test. Until
 then, use

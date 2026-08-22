@@ -10,6 +10,7 @@ import { runCartMigrations } from "../../../../cart/infrastructure/database/run-
 import { runPromotionMigrations } from "../../../../promotion/infrastructure/database/run-promotion-migrations";
 import { runCheckoutMigrations } from "../../../../checkout/infrastructure/database/run-checkout-migrations";
 import { OrderService } from "../../../application/services/implementations/order.service";
+import { CustomerOrderOperationsReaderService } from "../../../application/services/implementations/customer-order-operations-reader";
 import type { Order } from "../../../domain/entities/order";
 import type { OrderLine } from "../../../domain/entities/order-line";
 import { runOrderMigrations } from "../../database/run-order-migrations";
@@ -24,7 +25,11 @@ const ids = {
   customer: "b1400000-0000-4000-8000-000000000001",
   cart: "b1500000-0000-4000-8000-000000000001",
   checkout: "b1600000-0000-4000-8000-000000000001",
+  checkoutTieLow: "b1600000-0000-4000-8000-000000000002",
+  checkoutTieHigh: "b1600000-0000-4000-8000-000000000003",
   order: "b1700000-0000-4000-8000-000000000001",
+  orderTieLow: "b1700000-0000-4000-8000-000000000002",
+  orderTieHigh: "b1700000-0000-4000-8000-000000000003",
   line: "b1800000-0000-4000-8000-000000000001",
 } as const;
 const now = "2026-08-06T08:00:00.000Z";
@@ -37,6 +42,10 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     new PostgresqlOrderRepository(), transactions,
     () => `b1900000-0000-4000-8000-${String(++sequence).padStart(12, "0")}`,
     () => now,
+  );
+  const operations = new CustomerOrderOperationsReaderService(
+    new PostgresqlOrderRepository(),
+    transactions,
   );
 
   beforeAll(async () => {
@@ -77,6 +86,47 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     await pool.end();
   });
 
+  it("lists customer operations newest first with a deterministic descending ID tie break", async () => {
+    await pool.query(
+      `INSERT INTO checkout_sessions
+       (id,customer_id,source_cart_id,source_cart_version,address_snapshot,contact_snapshot,subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,idempotency_key,request_fingerprint,expires_at,created_at,updated_at)
+       VALUES
+       ($1,$2,$3,2,'{}','{}',100000,0,100000,'VND','included_not_separated','order_created','checkout-tie-low',$4,'2026-08-06T08:15:00.000Z',$5,$5),
+       ($6,$2,$3,3,'{}','{}',100000,0,100000,'VND','included_not_separated','order_created','checkout-tie-high',$4,'2026-08-06T08:15:00.000Z',$5,$5)`,
+      [
+        ids.checkoutTieLow,
+        ids.customer,
+        ids.cart,
+        "b".repeat(64),
+        now,
+        ids.checkoutTieHigh,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO orders
+       (id,public_number,customer_id,checkout_id,address_snapshot,contact_snapshot,subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,reservation_expires_at,version,created_at,updated_at)
+       VALUES
+       ($1,'NVC-20260806-00000001',$2,$3,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T09:00:00.000Z','2026-08-06T09:00:00.000Z'),
+       ($4,'NVC-20260806-00000002',$2,$5,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T10:00:00.000Z','2026-08-06T10:00:00.000Z'),
+       ($6,'NVC-20260806-00000003',$2,$7,'{}','{}',100000,0,100000,'VND','included_not_separated','pending_payment','2026-08-06T08:15:00.000Z',1,'2026-08-06T10:00:00.000Z','2026-08-06T10:00:00.000Z')`,
+      [
+        ids.order,
+        ids.customer,
+        ids.checkout,
+        ids.orderTieLow,
+        ids.checkoutTieLow,
+        ids.orderTieHigh,
+        ids.checkoutTieHigh,
+      ],
+    );
+
+    await expect(operations.listByCustomer(ids.customer, 10)).resolves.toMatchObject([
+      { id: ids.orderTieHigh },
+      { id: ids.orderTieLow },
+      { id: ids.order },
+    ]);
+  });
+
   it("persists immutable snapshots, owned reads, and idempotent transitions", async () => {
     const order: Order = {
       id: ids.order, publicNumber: "NVC-20260806-A1B2C3D4", customerId: ids.customer, checkoutId: ids.checkout,
@@ -112,9 +162,94 @@ describeWithDatabase("PostgresqlOrderRepository", () => {
     await expect(service.getForCustomer("b1400000-0000-4000-8000-000000000002", created.id)).rejects.toMatchObject({ code: "ORDER_NOT_FOUND" });
     await expect(service.listForCustomer(ids.customer, { status: "processing", page: 1, pageSize: 20 })).resolves.toMatchObject({ totalItems: 1, items: [{ id: created.id }] });
     await expect(service.listForStaff({ status: "processing", page: 1, pageSize: 20 }, context)).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: ids.customer, customerEmail: "buyer@example.com" }] });
+    await expect(operations.listByCustomer(ids.customer, 10)).resolves.toEqual([
+      expect.objectContaining({
+        id: created.id,
+        status: "processing",
+        paidAt: "2026-08-06T08:05:00.000Z",
+      }),
+    ]);
+    await expect(operations.getOwned(ids.customer, created.id)).resolves.toEqual(
+      expect.objectContaining({ id: created.id, publicNumber: created.publicNumber }),
+    );
+    await expect(
+      operations.getOwned("b1400000-0000-4000-8000-000000000002", created.id),
+    ).resolves.toBeUndefined();
     const history = await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM order_status_history WHERE order_id=$1", [created.id]);
     expect(history.rows[0]?.count).toBe("3");
     const snapshots = await pool.query<{ address_snapshot: { recipientName: string }; sku: string }>("SELECT o.address_snapshot,l.sku FROM orders o JOIN order_lines l ON l.order_id=o.id WHERE o.id=$1", [created.id]);
     expect(snapshots.rows[0]).toEqual({ address_snapshot: expect.objectContaining({ recipientName: "Buyer" }), sku: "NOVA-128" });
+  });
+
+  it("pages exact authoritative paid-customer segment cohorts with a stable customer ID tie break", async () => {
+    const customerIds = [
+      "b1400000-0000-4000-8000-000000000011",
+      "b1400000-0000-4000-8000-000000000012",
+      "b1400000-0000-4000-8000-000000000013",
+      "b1400000-0000-4000-8000-000000000014",
+    ];
+    for (const [index, customerId] of customerIds.entries()) {
+      const cartId = `b1500000-0000-4000-8000-${String(index + 11).padStart(12, "0")}`;
+      await pool.query(
+        `INSERT INTO customers(id,email,email_verified_at,status,version,created_at,updated_at)
+         VALUES($1,$2,NOW(),'active',1,NOW(),NOW())`,
+        [customerId, `segment-${index}@example.com`],
+      );
+      await pool.query(
+        `INSERT INTO carts(id,customer_id,status,version,expires_at,created_at,updated_at)
+         VALUES($1,$2,'active',1,'2026-08-20T00:00:00.000Z',$3,$3)`,
+        [cartId, customerId, now],
+      );
+      const paidOrders = index === 1 ? 2 : 1;
+      for (let orderIndex = 0; orderIndex < paidOrders; orderIndex += 1) {
+        const suffix = (index + 11) * 10 + orderIndex;
+        const checkoutId = `b1600000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+        const orderId = `b1700000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+        const totalVnd = index === 2 ? 50_000_000 : 1_000_000;
+        const paidAt = index === 3
+          ? "2026-05-12T12:00:00.000Z"
+          : `2026-08-0${orderIndex + 1}T00:00:00.000Z`;
+        await pool.query(
+          `INSERT INTO checkout_sessions
+           (id,customer_id,source_cart_id,source_cart_version,address_snapshot,contact_snapshot,
+            subtotal_vnd,discount_vnd,total_vnd,status,idempotency_key,request_fingerprint,
+            expires_at,created_at,updated_at)
+           VALUES($1,$2,$3,$4,'{}','{}',$5,0,$5,'order_created',$6,$7,
+                  '2026-08-20T00:00:00.000Z',$8,$8)`,
+          [checkoutId, customerId, cartId, orderIndex + 1, totalVnd, `segment-${suffix}`, String(suffix).padStart(64, "a"), now],
+        );
+        await pool.query(
+          `INSERT INTO orders
+           (id,public_number,customer_id,checkout_id,address_snapshot,contact_snapshot,
+            subtotal_vnd,discount_vnd,total_vnd,currency,tax_mode,status,reservation_expires_at,
+            paid_at,version,created_at,updated_at)
+           VALUES($1,$2,$3,$4,'{}','{}',$5,0,$5,'VND','included_not_separated','paid',
+                  '2026-08-20T00:00:00.000Z',$6,1,$7,$7)`,
+          [orderId, `NVC-20260810-${suffix.toString(16).toUpperCase().padStart(8, "0")}`, customerId, checkoutId, totalVnd, paidAt, now],
+        );
+      }
+    }
+
+    const asOf = "2026-08-10T12:00:00.000Z";
+    await expect(operations.getPaidCustomerFacts(customerIds[1]!)).resolves.toEqual({
+      paidOrderCount: 2,
+      lifetimePaidVnd: 2_000_000,
+      latestPaidAt: "2026-08-02T00:00:00.000Z",
+    });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "new_customer", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: ids.customer }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "repeat_customer", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[1] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "high_value", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[2] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "inactive_90d", asOf, page: 1, pageSize: 20,
+    })).resolves.toMatchObject({ totalItems: 1, items: [{ customerId: customerIds[3] }] });
+    await expect(operations.listPaidSegmentCustomers({
+      segmentId: "first_time_buyer", asOf, page: 2, pageSize: 1,
+    })).resolves.toMatchObject({ totalItems: 3, items: [{ customerId: customerIds[2] }] });
   });
 });

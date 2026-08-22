@@ -45,17 +45,34 @@ describe("authenticateStaff", () => {
     };
   });
 
-  it("accepts commerce operations roles and discards unknown roles", async () => {
+  it("accepts Agentic staff roles and discards unknown roles", async () => {
     const response = await request(createApp())
       .get("/staff")
       .set("authorization", `Bearer ${await sign({
         realm_access: {
-          roles: ["operations_manager", "finance_operator", "offline_access"],
+          roles: [
+            "crm_operator",
+            "support_operator",
+            "executive_viewer",
+            "agentic_operator",
+            "agentic_approver",
+            "agentic_governance_admin",
+            "agentic_auditor",
+            "offline_access",
+          ],
         },
       })}`)
       .expect(200);
 
-    expect(response.body.roles).toEqual(["operations_manager", "finance_operator"]);
+    expect(response.body.roles).toEqual([
+      "crm_operator",
+      "support_operator",
+      "executive_viewer",
+      "agentic_operator",
+      "agentic_approver",
+      "agentic_governance_admin",
+      "agentic_auditor",
+    ]);
   });
 
   function createApp() {

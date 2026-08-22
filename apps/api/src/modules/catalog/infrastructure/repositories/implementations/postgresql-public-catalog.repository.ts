@@ -4,6 +4,7 @@
 import type {
   PublicationReadinessSnapshot,
   PublicCatalogRepository,
+  PublicHeroSlideProjection,
   PublicMediaAuthorization,
   PublicProductListResult,
   PublicProductProjection,
@@ -44,6 +45,10 @@ interface ProductRow {
   attributes: unknown;
   primary_media_id: string;
   primary_media_alt_text: string;
+}
+
+interface HeroProductRow extends ProductRow {
+  category_slug: string;
 }
 
 interface VariantRow {
@@ -91,6 +96,36 @@ const completePublishedProduct = `p.status = 'published'
           AND (current_price.valid_to IS NULL OR current_price.valid_to > NOW())
       )
   )`;
+
+const qualifyingSalesStatuses =
+  "('paid', 'processing', 'ready_for_fulfillment', 'completed')";
+
+const currentPricePredicate = `current_price.valid_from <= NOW()
+  AND (current_price.valid_to IS NULL OR current_price.valid_to > NOW())`;
+
+const onSaleProductPredicate = `EXISTS (
+  SELECT 1
+  FROM product_variants sale_variant
+  JOIN LATERAL (
+    SELECT current_price.amount_minor, current_price.valid_from
+    FROM product_prices current_price
+    WHERE current_price.variant_id = sale_variant.id
+      AND ${currentPricePredicate}
+    ORDER BY current_price.valid_from DESC, current_price.id DESC
+    LIMIT 1
+  ) current_sale_price ON true
+  JOIN LATERAL (
+    SELECT previous_price.amount_minor
+    FROM product_prices previous_price
+    WHERE previous_price.variant_id = sale_variant.id
+      AND previous_price.valid_from < current_sale_price.valid_from
+    ORDER BY previous_price.valid_from DESC, previous_price.id DESC
+    LIMIT 1
+  ) previous_sale_price ON true
+  WHERE sale_variant.product_id = p.id
+    AND sale_variant.status = 'active'
+    AND current_sale_price.amount_minor < previous_sale_price.amount_minor
+)`;
 
 const productProjectionColumns = `p.id, p.category_id,
   category.name AS category_name, p.name, p.slug, p.brand, p.description,
@@ -168,6 +203,38 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     }));
   }
 
+  async listHeroSlides(
+    session: DatabaseSession,
+  ): Promise<readonly PublicHeroSlideProjection[]> {
+    const result = await session.query<HeroProductRow>(
+      `WITH eligible_products AS (
+         SELECT p.id,
+                row_number() OVER (
+                  PARTITION BY p.category_id
+                  ORDER BY p.created_at DESC, p.id ASC
+                ) AS category_rank
+         FROM products p
+         JOIN categories category ON category.id = p.category_id
+         WHERE ${completePublishedProduct}
+       )
+       SELECT ${productProjectionColumns}, category.slug AS category_slug
+       FROM eligible_products eligible
+       JOIN products p ON p.id = eligible.id
+       ${productProjectionJoins}
+       WHERE eligible.category_rank = 1
+       ORDER BY category.sort_order ASC, category.id ASC`,
+    );
+    const products = await this.mapProducts(session, result.rows);
+    return result.rows.map((row, index) => ({
+      category: {
+        id: row.category_id,
+        name: row.category_name,
+        slug: row.category_slug,
+      },
+      product: products[index]!,
+    }));
+  }
+
   async listProducts(
     session: DatabaseSession,
     query: PublicProductListQuery,
@@ -203,6 +270,9 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
         WHERE ${priceConditions.join(" AND ")}
       )`);
     }
+    if (query.discountStatus === "on_sale") {
+      filters.push(onSaleProductPredicate);
+    }
     const where = filters.join(" AND ");
     const count = await session.query<{ total: string }>(
       `SELECT count(*)::text AS total FROM products p
@@ -212,13 +282,23 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     );
     const limit = bind(query.pageSize);
     const offset = bind((query.page - 1) * query.pageSize);
+    const bestSellingQuantity = `COALESCE((
+      SELECT sum(best_line.quantity)::bigint
+      FROM order_lines best_line
+      JOIN orders best_order ON best_order.id = best_line.order_id
+      JOIN product_variants best_variant ON best_variant.id = best_line.variant_id
+      WHERE best_variant.product_id = p.id
+        AND best_order.status IN ${qualifyingSalesStatuses}
+    ), 0)`;
     const orderBy = query.sort === "price_asc"
       ? "minimum_price ASC, p.id"
       : query.sort === "price_desc"
         ? "minimum_price DESC, p.id"
         : query.sort === "name_asc"
           ? "lower(p.name) ASC, p.id"
-          : "p.updated_at DESC, p.id";
+          : query.sort === "best_selling"
+            ? `${bestSellingQuantity} DESC, p.created_at DESC, p.id`
+            : "p.created_at DESC, p.id";
     const products = await session.query<ProductRow>(
       `SELECT ${productProjectionColumns}
               ,(SELECT min(sort_price.amount_minor)

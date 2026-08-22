@@ -57,6 +57,17 @@ export interface PublicProductDto {
   readonly variants: readonly PublicProductVariantDto[];
 }
 
+export interface PublicHeroCategoryDto {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+}
+
+export interface StorefrontHeroSlideDto {
+  readonly category: PublicHeroCategoryDto;
+  readonly product: PublicProductDto;
+}
+
 export interface PaginatedPublicProductsDto {
   readonly items: readonly PublicProductDto[];
   readonly page: number;

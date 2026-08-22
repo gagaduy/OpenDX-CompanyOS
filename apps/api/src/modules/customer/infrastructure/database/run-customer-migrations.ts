@@ -12,7 +12,7 @@ export async function runCustomerMigrations(
   await runner({
     databaseUrl,
     direction,
-    count,
+    count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
     dir,
     migrationsTable: "customer_migrations",
     advisoryLockMode: "wait",

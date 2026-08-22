@@ -25,5 +25,6 @@ describe("CatalogAuditTimeline", () => {
     expect(items[0]).toHaveTextContent("catalog.product.updated");
     expect(items[0]).toHaveTextContent("user_b");
     expect(items[0]).toHaveTextContent("corr_2");
+    expect(screen.getByText("Correlation: corr_2")).toHaveClass("technicalText");
   });
 });

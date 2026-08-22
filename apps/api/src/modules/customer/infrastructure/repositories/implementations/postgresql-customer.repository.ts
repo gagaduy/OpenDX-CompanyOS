@@ -3,6 +3,7 @@
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type {
   CustomerRepository,
+  CustomerOperationsSearchQuery,
   ExternalIdentityRecord,
 } from "../../../application/repositories/interfaces/customer.repository";
 import type { Customer } from "../../../domain/entities/customer";
@@ -107,6 +108,43 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
       [email],
     );
     return r.rows[0] === undefined ? undefined : customer(r.rows[0]);
+  }
+  async findCustomersByIds(s: DatabaseSession, ids: readonly string[]) {
+    const r = await s.query<Row>(
+      `SELECT * FROM customers
+       WHERE id = ANY($1::uuid[])
+       ORDER BY array_position($1::uuid[], id)`,
+      [ids],
+    );
+    return r.rows.map(customer);
+  }
+  async searchOperations(s: DatabaseSession, query: CustomerOperationsSearchQuery) {
+    const values: unknown[] = [];
+    const clauses: string[] = [];
+    if (query.search !== undefined) {
+      values.push(`%${query.search}%`);
+      const parameter = `$${values.length}`;
+      clauses.push(`(
+        id::text ILIKE ${parameter}
+        OR email ILIKE ${parameter}
+        OR COALESCE(full_name, '') ILIKE ${parameter}
+        OR COALESCE(phone_number, '') ILIKE ${parameter}
+      )`);
+    }
+    const where = clauses.length === 0 ? "TRUE" : clauses.join(" AND ");
+    const count = await s.query<{ total: string }>(
+      `SELECT count(*)::text AS total FROM customers WHERE ${where}`,
+      values,
+    );
+    const rows = await s.query<Row>(
+      `SELECT * FROM customers WHERE ${where} ORDER BY created_at DESC, id
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    return {
+      items: rows.rows.map(customer),
+      totalItems: safeInteger(count.rows[0]?.total ?? "0", "customer total"),
+    };
   }
   async findIdentity(
     s: DatabaseSession,
@@ -318,4 +356,12 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return true;
   }
+}
+
+function safeInteger(value: unknown, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`Unsafe persisted ${label}`);
+  }
+  return parsed;
 }

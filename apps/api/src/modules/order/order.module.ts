@@ -6,7 +6,10 @@ import { requireCustomerSession } from "../customer";
 import { authenticateStaff, type StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
 import { OrderService } from "./application/services/implementations/order.service";
+import { OrderHealthReaderService } from "./application/services/implementations/order-health-reader";
+import { CustomerOrderOperationsReaderService } from "./application/services/implementations/customer-order-operations-reader";
 import { PostgresqlOrderRepository } from "./infrastructure/repositories/implementations/postgresql-order.repository";
+import { PostgresqlOrderHealthRepository } from "./infrastructure/repositories/implementations/postgresql-order-health.repository";
 import { AdminOrderController } from "./presentation/controllers/admin-order.controller";
 import { CustomerOrderController } from "./presentation/controllers/customer-order.controller";
 import { orderErrorMiddleware } from "./presentation/middleware/order-error.middleware";
@@ -22,6 +25,20 @@ export interface OrderModuleDependencies {
   readonly generateId: () => string;
   readonly now: () => string;
 }
+
+export interface OrderHealthDependencies {
+  readonly transactions: TransactionRunner;
+  readonly now: () => string;
+}
+
+export function createOrderHealthReader(dependencies: OrderHealthDependencies) {
+  return new OrderHealthReaderService(
+    new PostgresqlOrderHealthRepository(),
+    dependencies.transactions,
+    dependencies.now,
+  );
+}
+
 export function createOrderModule(dependencies: OrderModuleDependencies) {
   const repository = new PostgresqlOrderRepository();
   let cancellation: PendingOrderCancellationPort | undefined;
@@ -32,6 +49,7 @@ export function createOrderModule(dependencies: OrderModuleDependencies) {
     },
   };
   const service = new OrderService(repository, dependencies.transactions, dependencies.generateId, dependencies.now, deferredCancellation);
+  const operations = new CustomerOrderOperationsReaderService(repository, dependencies.transactions);
   const appendDenied = (denied: { actorId: string; action: string; resourceId: string; correlationId: string }) =>
     dependencies.transactions.run((session) => repository.appendAudit(session, {
       id: dependencies.generateId(), actorType: "staff", actorId: denied.actorId,
@@ -46,6 +64,7 @@ export function createOrderModule(dependencies: OrderModuleDependencies) {
     adminRouter,
     customerRouter,
     checkout: service,
+    operations,
     connectCancellation(port: PendingOrderCancellationPort) {
       if (cancellation !== undefined) throw new Error("Order cancellation is already configured");
       cancellation = port;

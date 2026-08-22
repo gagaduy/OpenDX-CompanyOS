@@ -34,15 +34,23 @@ describe("payment operations", () => {
   it("renders pending payments and supports an explicit empty state", async () => {
     render(<MemoryRouter><PaymentOperationsPage api={api()} /></MemoryRouter>);
     expect(await screen.findByText("NVC-PAY-0001")).toBeVisible();
+    expect(screen.getByRole("table", { name: "Payments" })).toBeVisible();
     expect(screen.getByText("Pending provider")).toBeVisible();
   });
 
   it("shows review-required event and mismatch reconciliation evidence", async () => {
     render(<MemoryRouter initialEntries={["/payments/payment-1"]}><Routes><Route path="/payments/:paymentId" element={<PaymentDetailPage api={api()} />} /></Routes></MemoryRouter>);
     expect(await screen.findByText("ORDER_PAID")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "NVC-PAY-0001" })).toHaveClass("technicalText");
+    expect(screen.getByRole("region", { name: "Provider events" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Reconciliation history" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /View receipt.*Coming soon/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Export details.*Coming soon/i })).toBeDisabled();
     expect(screen.getByText("Review required")).toBeVisible();
     expect(screen.getByText("Mismatch")).toBeVisible();
     expect(screen.getAllByText(/31\.000\.000/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/VND|₫/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Stripe|Visa|USD/)).not.toBeInTheDocument();
     expect(screen.queryByText(/refund|void/i)).not.toBeInTheDocument();
   });
 
@@ -50,6 +58,7 @@ describe("payment operations", () => {
     const client = api();
     render(<MemoryRouter initialEntries={["/payments/payment-1"]}><Routes><Route path="/payments/:paymentId" element={<PaymentDetailPage api={client} />} /></Routes></MemoryRouter>);
     await userEvent.click(await screen.findByRole("button", { name: "Reconcile with SePay" }));
+    expect(client.reconcile).toHaveBeenCalledOnce();
     expect(client.reconcile).toHaveBeenCalledWith("payment-1", { providerOrderId: "SEPAY-ORDER-1" });
     expect(await screen.findByRole("status")).toHaveTextContent("Reconciliation completed");
   });

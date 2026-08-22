@@ -82,8 +82,36 @@ textarea:focus-visible {
   display: grid;
   width: 100%;
   overflow-x: hidden;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   min-height: 100vh;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.consoleLayout[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f5f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e8ebf0;
+  --hairline: #d8dde6;
+  --ink: #111827;
+  --ink-muted: #374151;
+  --ink-subtle: #667085;
+  --ink-tertiary: #98a2b3;
+}
+
+.consoleLayout[data-theme="night"] {
+  color-scheme: dark;
+  --canvas: #010102;
+  --surface-1: #08090a;
+  --surface-2: #0d0e10;
+  --surface-3: #141518;
+  --hairline: #24262c;
+  --ink: #fbfbfc;
+  --ink-muted: #c7ced8;
+  --ink-subtle: #858b96;
+  --ink-tertiary: #565b64;
 }
 
 .consoleSidebar {
@@ -92,6 +120,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  z-index: 30;
   padding: 18px 12px;
   border-right: 1px solid var(--hairline);
   background: var(--surface-1);
@@ -111,6 +140,11 @@ textarea:focus-visible {
   font-weight: 650;
 }
 
+.mobileCloseButton,
+.mobileMenuButton {
+  display: none;
+}
+
 .brandMark {
   display: inline-grid;
   width: 28px;
@@ -123,12 +157,27 @@ textarea:focus-visible {
   font-weight: 750;
 }
 
-.consoleSidebar nav {
+.consoleSidebar nav,
+.navGroup {
   display: grid;
   gap: 3px;
 }
 
+.consoleSidebar nav {
+  gap: 18px;
+}
+
+.navGroupLabel {
+  margin: 0 9px 5px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
 .consoleSidebar nav a {
+  border-left: 2px solid transparent;
   gap: 9px;
   min-height: 36px;
   padding: 0 9px;
@@ -142,6 +191,18 @@ textarea:focus-visible {
 .consoleSidebar nav a:hover {
   background: var(--surface-3);
   color: var(--ink);
+}
+
+.consoleSidebar nav a.active {
+  border-left-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-1));
+}
+
+.technicalText {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
 }
 
 .alphaBadge {
@@ -160,6 +221,12 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.staffActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .staffIdentity button {
   display: grid;
   width: 30px;
@@ -175,6 +242,292 @@ textarea:focus-visible {
 .consoleContent {
   min-width: 0;
   padding: 28px 32px;
+}
+
+.consoleWorkspace {
+  min-width: 0;
+}
+
+.consoleTopbar {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 32px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--canvas) 92%, transparent);
+}
+
+.consoleTopbar p {
+  margin: 0 0 3px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.consoleTopbar strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.consoleMobileBackdrop {
+  display: none;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.pageHeaderCopy {
+  min-width: 0;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.breadcrumb span + span::before {
+  margin-right: 7px;
+  content: "/";
+}
+
+.breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pageTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageTitleLine h1 {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 34px);
+}
+
+.pageDescription {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--ink-subtle);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pageHeaderActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.systemState {
+  display: grid;
+  width: min(640px, 100%);
+  min-height: 320px;
+  place-items: center;
+  align-content: center;
+  margin: 28px auto;
+  padding: 42px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.systemStateIcon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  margin-bottom: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+}
+
+.systemState h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.systemState > p:not(.sectionKicker) {
+  max-width: 480px;
+  margin: 10px 0 0;
+  color: var(--ink-subtle);
+  line-height: 1.55;
+}
+
+.systemStateAction {
+  margin-top: 22px;
+}
+
+.comingSoon {
+  border: 1px dashed var(--hairline);
+  color: var(--ink-subtle);
+  background: var(--surface-2);
+}
+
+.comingSoonButton {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.comingSoonButton small,
+.comingSoonPanel span {
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.comingSoonPanel {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  border-radius: 12px;
+}
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 72%);
+}
+
+.dialogSurface,
+.drawerSurface {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
+}
+
+.dialogSurface > h2,
+.drawerSurface > h2 {
+  margin-top: 0;
+}
+
+.drawerSurface {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(520px, 100%);
+  max-height: none;
+  border-radius: 0;
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .consoleLayout {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .consoleSidebar {
+    padding-inline: 8px;
+  }
+
+  .consoleBrand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .consoleSidebar .navText,
+  .consoleSidebar .navGroupLabel,
+  .consoleSidebar .alphaBadge {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .consoleSidebar nav a,
+  .staffIdentity {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .staffActions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 767px) {
+  .consoleLayout {
+    display: block;
+  }
+
+  .consoleSidebar {
+    position: fixed;
+    left: 0;
+    width: min(280px, 86vw);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .consoleSidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+
+  .mobileCloseButton,
+  .mobileMenuButton {
+    display: inline-grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    background: var(--surface-1);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .mobileCloseButton {
+    margin-left: auto;
+  }
+
+  .consoleMobileBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: block;
+    border: 0;
+    background: rgb(0 0 0 / 68%);
+  }
+
+  .consoleTopbar,
+  .consoleContent {
+    padding-inline: 18px;
+  }
+
+  .pageHeader {
+    display: grid;
+  }
 }
 
 .workspaceHeader h1,
@@ -201,20 +554,53 @@ textarea:focus-visible {
   padding: 24px;
 }
 
-.authPanel {
-  width: min(420px, 100%);
-  padding: 28px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: var(--surface-1);
+.authPage {
+  background-color: var(--canvas);
 }
 
-.authPanel .brandMark {
-  margin-bottom: 28px;
+.authPanel {
+  width: min(420px, 100%);
+  padding: 34px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: 0 28px 90px rgb(0 0 0 / 38%);
+}
+
+.authBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 42px;
+}
+
+.authBrand strong {
+  font-size: 17px;
 }
 
 .authPanel p {
   font-size: 14px;
+  line-height: 1.55;
+}
+
+.authPanel .primaryButton {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.authTrust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 22px;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+}
+
+.callbackPage .systemState {
+  min-height: 360px;
+  margin: 0;
 }
 
 .primaryButton {
@@ -333,6 +719,9 @@ textarea {
 }
 
 .tableFrame {
+  position: relative;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--hairline);
@@ -346,6 +735,7 @@ textarea {
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 12px;
+  line-height: 1.15;
 }
 
 .inventoryTable {
@@ -358,8 +748,9 @@ textarea {
 
 .inventoryTable th,
 .inventoryTable td {
-  min-height: 56px;
-  padding: 10px 12px;
+  height: 42px;
+  min-height: 42px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;
@@ -404,6 +795,32 @@ textarea {
 .balanceSummary div { padding: 12px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-2); }
 .balanceSummary dt { color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
 .balanceSummary dd { margin: 5px 0 0; font-size: 20px; font-weight: 650; }
+
+.inventorySummary {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.inventorySummary > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inventorySummary article {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.inventorySummary article span { color: var(--ink-subtle); font-size: 10px; text-transform: uppercase; }
+.inventorySummary article strong { font-size: 22px; }
 .movementList { margin: 0; padding: 0; list-style: none; }
 .movementList li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--hairline); font-size: 11px; text-align: right; }
 .movementList li > span:first-child { display: grid; text-align: left; }
@@ -414,8 +831,8 @@ textarea {
 
 .productTable th,
 .productTable td {
-  height: 56px;
-  padding: 8px 12px;
+  height: 28px;
+  padding: 1px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;
@@ -465,10 +882,15 @@ textarea {
   font-size: 10px;
 }
 
+.productTable .productIdentity small {
+  margin-top: 1px;
+  line-height: 1.1;
+}
+
 .thumbnail {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--hairline);
@@ -512,6 +934,12 @@ textarea {
   background: transparent;
   color: var(--ink-subtle);
   cursor: pointer;
+}
+
+.productTable .rowActions a,
+.productTable .rowActions button {
+  width: 24px;
+  height: 24px;
 }
 
 .pagination {
@@ -568,11 +996,7 @@ textarea {
 
 .editorForm {
   display: grid;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: var(--surface-1);
+  gap: 14px;
 }
 
 .editorForm label,
@@ -592,14 +1016,36 @@ textarea {
 
 .editorForm fieldset {
   display: grid;
-  gap: 10px;
+  gap: 16px;
   margin: 0;
-  padding: 14px;
+  padding: 18px 20px 20px;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: var(--surface-1);
 }
 
-.editorForm legend { padding: 0 5px; color: var(--ink-muted); font-size: 12px; }
+.editorForm legend {
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.attributeEditor {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+
+.fieldLabel {
+  margin: 0;
+  color: var(--ink-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .editorForm fieldset .secondaryButton { justify-self: start; }
 .formActions { display: flex; justify-content: flex-end; }
 .formError { color: #f0a6a6; font-size: 12px; }
@@ -607,9 +1053,12 @@ textarea {
 
 .categoryLayout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 0.75fr);
   gap: 16px;
 }
+
+.categoryRail { align-self: start; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
 .compactForm,
 .categoryPanel {
@@ -635,6 +1084,7 @@ textarea {
   .formGrid,
   .attributeRow,
   .categoryLayout { grid-template-columns: 1fr; }
+  .inventorySummary > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .splitHeader { align-items: flex-start; }
   .inventoryTable { min-width: 0; }
   .inventoryTable thead { display: none; }
@@ -649,6 +1099,19 @@ textarea {
   .inventoryTable td:first-child::before { display: none; }
   .inventoryTable .productIdentity { width: 100%; text-align: left; }
   .inventoryTable .rowActions { margin-left: auto; }
+  .productTable { min-width: 0; }
+  .productTable thead { display: none; }
+  .productTable,
+  .productTable tbody,
+  .productTable tr,
+  .productTable td { display: block; width: 100%; }
+  .productTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+  .productTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; height: auto; padding: 5px 0; border: 0; text-align: right; }
+  .productTable td::before { content: attr(data-label); flex: 0 0 auto; color: var(--ink-subtle); font-size: 9px; text-transform: uppercase; }
+  .productTable td:first-child { align-items: flex-start; flex-direction: column; text-align: left; }
+  .productTable td:first-child::before { display: none; }
+  .productTable .productIdentity { width: 100%; }
+  .productTable .rowActions { margin-left: auto; }
 }
 
 .editorTabs {
@@ -680,6 +1143,51 @@ textarea {
   opacity: 0.4;
 }
 
+.editorCanvas,
+.editorTabContent {
+  display: grid;
+  gap: 18px;
+}
+
+.editorCanvasWithRail {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+}
+
+.setupRail {
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.setupRail > div,
+.editorPanelToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.setupRail > div {
+  color: var(--ink-subtle);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.setupRail ol {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 0;
+  padding-left: 22px;
+  color: var(--ink-tertiary);
+  font-size: 12px;
+}
+
+.setupRail li.active { color: var(--ink); }
+.editorPanelToolbar h2 { margin: 0; font-size: 18px; }
+.editorPanelToolbar .sectionKicker { margin-bottom: 3px; }
+
 .editorPanel {
   display: grid;
   gap: 16px;
@@ -687,6 +1195,11 @@ textarea {
   border: 1px solid var(--hairline);
   border-radius: 12px;
   background: var(--surface-1);
+}
+
+@media (max-width: 960px) {
+  .editorCanvasWithRail { grid-template-columns: 1fr; }
+  .setupRail { order: -1; }
 }
 
 .publicationPanel > header,
@@ -919,36 +1432,6 @@ textarea {
   font-size: 13px;
 }
 
-@media (max-width: 700px) {
-  .consoleLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .consoleSidebar {
-    position: static;
-    height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  .consoleSidebar nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .consoleSidebar nav a {
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .staffIdentity {
-    margin-top: 12px;
-  }
-
-  .consoleContent {
-    padding: 20px 16px;
-  }
-}
-
 .shell {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
@@ -1134,8 +1617,8 @@ ul {
 
 .operationsTable th,
 .operationsTable td {
-  height: 58px;
-  padding: 9px 12px;
+  height: 42px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--hairline);
   text-align: left;
   vertical-align: middle;
@@ -1158,6 +1641,304 @@ ul {
 .operationsTable tr:last-child td { border-bottom: 0; }
 .operationsTable td > strong,
 .operationsTable td > small { display: block; }
+
+.customerWorkspace {
+  min-width: 0;
+}
+
+.customerWorkspace .operationsTable {
+  min-width: 760px;
+}
+
+.customerWorkspace .operationsTable td,
+.customerWorkspace .detailCard,
+.customerWorkspace .activityItem,
+.customerWorkspace address,
+.customerWorkspace .timelineList li {
+  overflow-wrap: anywhere;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.detailCard {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--surface-1);
+}
+
+.detailCard h2,
+.detailCard h3,
+.detailCard p {
+  margin-top: 0;
+}
+
+.detailCard address {
+  color: var(--ink-muted);
+  font-style: normal;
+  line-height: 1.7;
+}
+
+.supportDetailGrid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.75fr);
+}
+
+.supportDetailSide {
+  display: grid;
+  gap: 14px;
+}
+
+.supportDetailMain {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.supportComposerPanel {
+  width: 100%;
+}
+
+.ticketStateBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: -10px 0 18px;
+}
+
+.ticketVersion {
+  color: var(--ink-subtle);
+  font-weight: 500;
+}
+
+.ticketState,
+.ticketPriority {
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ticketState.status-escalated,
+.ticketPriority.priority-urgent {
+  border-color: color-mix(in srgb, #ff6b6b 58%, var(--hairline));
+  color: #ff9b9b;
+}
+
+.ticketPriority.priority-high,
+.supportSlaMonitor strong {
+  color: #e7c97b;
+}
+
+.supportSlaMonitor {
+  background: color-mix(in srgb, #e7c97b 6%, var(--surface-1));
+}
+
+.supportSlaMonitor strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.supportMessageComposer label,
+.supportMessageComposer textarea {
+  width: 100%;
+}
+
+.supportMessageComposer textarea {
+  min-height: 112px;
+}
+
+.timelineList {
+  display: grid;
+  gap: 12px;
+  padding-left: 18px;
+}
+
+.timelineList li,
+.activityItem {
+  display: grid;
+  gap: 5px;
+}
+
+.timelineList time,
+.subtleText {
+  color: var(--ink-subtle);
+  font-size: 12px;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.dashboardSection {
+  margin: 22px 0;
+}
+
+.dashboardSectionTitle {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.dashboardSection > .dashboardGrid,
+.dashboardSection > .dashboardPerformanceGrid {
+  margin: 10px 0 0;
+}
+
+.dashboardExecutiveGrid > :first-child {
+  border-color: color-mix(in srgb, #5bd39a 52%, var(--hairline));
+  background: color-mix(in srgb, #5bd39a 8%, var(--surface-1));
+}
+
+.dashboardSecondaryMetrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metricCardBody,
+.dashboardChartHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricSparkline {
+  width: 92px;
+  flex: 0 0 92px;
+  color: #5bd39a;
+}
+
+.metricSparkline polyline {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.metricChange {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metricChange-positive { color: #5bd39a; }
+.metricChange-negative { color: #ff8c8c; }
+.metricChange-neutral { color: var(--ink-muted); }
+
+.dashboardOperationalGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboardPerformanceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+  align-items: stretch;
+}
+
+.dashboardProductPerformance {
+  grid-column: 1 / -1;
+}
+
+.dashboardChartCard {
+  min-height: 300px;
+  overflow: hidden;
+}
+
+.dashboardChartCard svg[role="img"] {
+  display: block;
+  width: 100%;
+  min-height: 190px;
+}
+
+.dashboardChartHeader h2 {
+  margin: 2px 0 0;
+}
+
+.dashboardChartHeader > strong {
+  font-size: 16px;
+}
+
+.dashboardChartArea {
+  fill: color-mix(in srgb, #5e6ad2 13%, transparent);
+}
+
+.dashboardChartLine {
+  stroke: #5bd39a;
+  stroke-width: 3;
+}
+
+.dashboardChartBar {
+  fill: #5e6ad2;
+}
+
+.dashboardChartEmpty {
+  display: grid;
+  min-height: 190px;
+  place-items: center;
+  color: var(--ink-muted);
+}
+
+.dashboardPerformanceGrid > section {
+  min-width: 0;
+}
+
+.capabilityState {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 3px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metricCard strong,
+.dashboardGrid strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+@media (max-width: 768px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .supportComposerPanel {
+    width: 100%;
+  }
+
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardPerformanceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .customerWorkspace .filterBar {
+    justify-content: stretch;
+  }
+
+  .customerWorkspace .filterBar label {
+    width: 100%;
+  }
+}
 .operationsTable td > small { margin-top: 4px; overflow: hidden; color: var(--ink-subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
 .iconButton {
@@ -1317,8 +2098,6 @@ ul {
 }
 
 @media (max-width: 700px) {
-  .consoleSidebar nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .consoleSidebar nav a { min-width: 0; font-size: 11px; }
   .operationDetailHeader { align-items: flex-start; flex-direction: column; }
   .operationDetailHeader > div:last-child { width: 100%; justify-content: space-between; }
   .operationSide { grid-template-columns: 1fr; }

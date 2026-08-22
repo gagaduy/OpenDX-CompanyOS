@@ -20,6 +20,19 @@ export class PublicCatalogController {
     catch (error) { next(toHttpError(error)); }
   };
 
+  readonly heroSlides: RequestHandler = async (_request, response, next) => {
+    try {
+      response.json(
+        successResponse(
+          "Hero slides retrieved",
+          await this.service.listHeroSlides(),
+        ),
+      );
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
   readonly products: RequestHandler = async (request, response, next) => {
     try {
       const result = await this.service.listProducts(parsePublicProductList(request.query));

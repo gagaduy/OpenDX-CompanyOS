@@ -32,7 +32,7 @@ for required_file in "${required_files[@]}"; do
   fi
 done
 
-expected_make_targets="check db-backup db-migrate db-restore db-rollback db-seed down help logs up"
+expected_make_targets="check check-agentic-department-tools check-agentic-model-runtime check-agentic-workflow check-agentic-workflow-recovery check-crm-support-dashboard check-fast check-openrouter-live db-backup db-migrate db-restore db-rollback db-seed down help logs temporal-cli up"
 actual_make_targets="$(sed -n 's/^\([a-z][a-z-]*\):.*/\1/p' Makefile | sort -u | tr '\n' ' ' | sed 's/ $//')"
 if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
   echo "Repository audit failed: Makefile targets must be exactly: ${expected_make_targets}" >&2
@@ -40,8 +40,8 @@ if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
 fi
 
 compose_file="infra/docker/docker-compose.yml"
-if grep -Eq '(^|[[:space:]])temporal:|:latest([[:space:]]|$)' "${compose_file}"; then
-  echo "Repository audit failed: active Compose cannot contain Temporal or latest images" >&2
+if grep -Eq ':latest([[:space:]]|$)' "${compose_file}"; then
+  echo "Repository audit failed: active Compose cannot contain latest images" >&2
   exit 1
 fi
 
@@ -66,8 +66,8 @@ if grep -R "InMemoryCompanyOperatingCoreRepository" apps/api/src/server.ts apps/
   exit 1
 fi
 
-if git ls-files 'infra/backups/*.dump' | grep -q .; then
-  echo "Repository audit failed: database backup archives must not be tracked" >&2
+if git ls-files 'infra/backups/*.dump' 'infra/backups/*.sql' | grep -q .; then
+  echo "Repository audit failed: local database backups must not be tracked" >&2
   exit 1
 fi
 

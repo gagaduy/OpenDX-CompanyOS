@@ -7,7 +7,7 @@ export function CategoryPage() {
   return (
     <Navigate
       replace
-      to={`/?category=${encodeURIComponent(categorySlug ?? "")}`}
+      to={`/products?category=${encodeURIComponent(categorySlug ?? "")}`}
     />
   );
 }

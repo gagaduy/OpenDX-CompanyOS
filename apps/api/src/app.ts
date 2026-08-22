@@ -13,11 +13,21 @@ import {
   createHealthRouter,
   type ReadinessProbe,
 } from "./shared/http/health.routes";
+import { createMetricsRouter } from "./shared/http/metrics.routes";
+import { requestLogging } from "./shared/http/request-logging.middleware";
+import { securityHeaders } from "./shared/http/security-headers.middleware";
+import type { Logger } from "./shared/observability/logger";
+import type { MetricsRegistry } from "./shared/observability/metrics";
 
 export interface CreateApiAppOptions {
   readonly consoleOrigin?: string;
   readonly storefrontOrigin?: string;
   readonly readiness?: ReadinessProbe;
+  readonly readinessTimeoutMs?: number;
+  readonly jsonBodyLimit?: string;
+  readonly logger?: Logger;
+  readonly metrics?: MetricsRegistry;
+  readonly metricsPath?: string;
   readonly companyOperatingCoreRepository?: ICompanyOperatingCoreRepository;
   readonly catalogAdminRouter?: Router;
   readonly storefrontRouter?: Router;
@@ -25,6 +35,12 @@ export interface CreateApiAppOptions {
   readonly promotionAdminRouter?: Router;
   readonly orderAdminRouter?: Router;
   readonly paymentAdminRouter?: Router;
+  readonly crmAdminRouter?: Router;
+  readonly supportAdminRouter?: Router;
+  readonly reportingAdminRouter?: Router;
+  readonly agenticAdminRouter?: Router;
+  readonly agenticInternalRouter?: Router;
+  readonly agenticToolRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -52,11 +68,29 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   );
 
   app.use(correlationIdMiddleware);
+  app.use(securityHeaders());
+  if (options.logger !== undefined) {
+    app.use(requestLogging(options.logger, options.metrics));
+  }
   if (options.sepayWebhookRouter !== undefined) {
     app.use("/v1/webhooks/sepay", options.sepayWebhookRouter);
   }
-  app.use(express.json({ limit: "1mb" }));
-  app.use(createHealthRouter(options.readiness));
+  if (options.agenticToolRouter !== undefined) {
+    app.use(
+      "/v1/internal/agentic/tools",
+      express.json({ limit: "16kb" }),
+      options.agenticToolRouter,
+    );
+  }
+  app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
+  app.use(
+    createHealthRouter(options.readiness, {
+      timeoutMs: options.readinessTimeoutMs ?? 2_000,
+    }),
+  );
+  if (options.metrics !== undefined) {
+    app.use(options.metricsPath ?? "/metrics", createMetricsRouter(options.metrics));
+  }
   if (options.companyOperatingCoreRepository !== undefined) {
     app.use(
       "/v1",
@@ -78,6 +112,19 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.paymentAdminRouter !== undefined) {
     app.use("/v1/admin/payments", consoleCors, options.paymentAdminRouter);
+  }
+  if (options.crmAdminRouter !== undefined) {
+    app.use("/v1/admin/customers", consoleCors, options.crmAdminRouter);
+  }
+  if (options.supportAdminRouter !== undefined) app.use("/v1/admin/support/tickets", consoleCors, options.supportAdminRouter);
+  if (options.reportingAdminRouter !== undefined) {
+    app.use("/v1/admin/reporting", consoleCors, options.reportingAdminRouter);
+  }
+  if (options.agenticAdminRouter !== undefined) {
+    app.use("/v1/admin/agentic", consoleCors, options.agenticAdminRouter);
+  }
+  if (options.agenticInternalRouter !== undefined) {
+    app.use("/v1/internal/agentic", options.agenticInternalRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

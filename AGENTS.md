@@ -9,21 +9,13 @@ These instructions apply to AI coding agents working in this repository.
 
 ## Read First
 
-Before changing code or documentation, read:
+Before changing code or documentation, read
+`docs/agent-guidelines/current-delivery-brief.md`.
 
-- `docs/product/vision.md`
-- `docs/architecture/system-baseline.md`
-- `docs/architecture/clean-architecture.md` before creating or moving code
-- `docs/architecture/dependency-rules.md` before introducing module imports
-- `docs/roadmap/mvp-status.md`
-- `docs/agent-guidelines/implementation-guardrails.md`
-- `docs/design/linear-product-canvas.md` for frontend work
-- `docs/build-from-source.md` for validation commands
-- `docs/dependencies.md` before adding dependencies
-- `docs/project-structure.md` before creating new directories
-- `docs/development/coding-conventions.md` for TypeScript, Python, and React work
-- `docs/development/testing-strategy.md` before behavior changes or refactors
-- `.agents/skills/opendx-companyos-development/SKILL.md` for the repo-local AI development workflow
+The brief names the additional document required for each change type. Read
+only that focused document before editing. Also read
+`.agents/skills/opendx-companyos-development/SKILL.md` for the repo-local AI
+development workflow.
 
 ## Workflow
 
@@ -73,9 +65,8 @@ Preserve these properties:
 ## Product Guardrails
 
 - Company is the center of the system, not an agent or chatbot.
-- The active delivery target is the NovaCommerce B2C single-store Commerce
-  Platform defined in
-  `docs/superpowers/specs/2026-08-04-novacommerce-commerce-platform-design.md`.
+- `docs/roadmap/mvp-status.md` is the canonical source for the active delivery
+  phase and its approved spec and plan.
 - Do not add marketplace, multi-warehouse, shipping-provider, refund, return,
   electronic-invoice, workflow, agent, or GraphRAG behavior to the Commerce
   Foundation without a separately approved design.

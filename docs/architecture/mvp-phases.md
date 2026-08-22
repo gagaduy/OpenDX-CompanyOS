@@ -47,6 +47,10 @@ Security and authorization tests, payment idempotency, inventory concurrency,
 backup/restore, observability, accessibility, performance, deterministic
 seed/reset, production SePay readiness, and hosted HTTPS documentation.
 
+Phase 8 is complete on `phuong` after `pnpm check:phase8-exit`, root
+`pnpm check`, local commerce acceptance, and a recorded production SePay
+acceptance decision.
+
 ## Post-Commerce
 
 Workflow/iPaaS, Digital Employees, Skill and Tool registries, GraphRAG, company

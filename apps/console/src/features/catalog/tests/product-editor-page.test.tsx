@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -42,6 +42,16 @@ describe("ProductEditorPage", () => {
     expect(screen.getByRole("tab", { name: "Media" })).toBeEnabled();
   });
 
+  it("organizes product setup into named operational groups with progress context", async () => {
+    render(<MemoryRouter initialEntries={["/products/new"]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={api()} />} /></Routes></MemoryRouter>);
+
+    await screen.findByRole("option", { name: "Drinkware" });
+    expect(within(screen.getByRole("group", { name: "Basic details" })).getByLabelText("Name")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Classification" })).getByLabelText("Category")).toBeVisible();
+    expect(within(screen.getByRole("group", { name: "Description and attributes" })).getByLabelText("Description")).toBeVisible();
+    expect(screen.getByRole("complementary", { name: "Product setup progress" })).toBeVisible();
+  });
+
   it.each([
     ["CONFLICT", /slug already exists/i],
     ["STALE_VERSION", /refresh required/i],
@@ -59,8 +69,12 @@ describe("ProductEditorPage", () => {
     const client = api();
     render(<MemoryRouter initialEntries={[`/products/${product.id}`]}><Routes><Route path="/products/:productId" element={<ProductEditorPage api={client} />} /></Routes></MemoryRouter>);
     await screen.findByDisplayValue("Steel Bottle");
+    expect(screen.getByRole("tablist", { name: "Product editor sections" })).toBeVisible();
+    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: /Product tags.*Coming soon/i })).toBeDisabled();
     await userEvent.click(screen.getByRole("tab", { name: /variants and prices/i }));
     expect(screen.getByLabelText("SKU")).toBeVisible();
+    expect(screen.getByRole("button", { name: /Import.*Coming soon/i })).toBeDisabled();
     await userEvent.click(screen.getByRole("tab", { name: "Media" }));
     expect(screen.getByLabelText("Product image")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Publication" }));
@@ -70,5 +84,6 @@ describe("ProductEditorPage", () => {
     expect(await screen.findByText("Product published.")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Audit" }));
     expect(await screen.findByText(/no audit activity yet/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /Export CSV.*Coming soon/i })).toBeDisabled();
   });
 });

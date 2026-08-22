@@ -4,6 +4,7 @@
 import type { Order, OrderStatus } from "../../domain/entities/order";
 import type { OrderLine } from "../../domain/entities/order-line";
 import type { OrderStatusHistory } from "../../domain/entities/order-status-history";
+import type { StaffRole } from "../../../../shared/auth/staff-principal";
 
 export type OrderLineDto = Omit<OrderLine, "orderId">;
 export type OrderHistoryDto = Pick<OrderStatusHistory, "previousStatus" | "newStatus" | "actorType" | "reasonCode" | "occurredAt">;
@@ -31,7 +32,7 @@ export type AdminOrderSummaryDto = OrderSummaryDto & Pick<Order, "customerId"> &
 
 export interface StaffOrderContext {
   readonly actorId: string;
-  readonly roles: readonly ("administrator" | "catalog_manager" | "inventory_manager" | "operations_manager" | "finance_operator")[];
+  readonly roles: readonly StaffRole[];
   readonly correlationId: string;
 }
 export interface TransitionOrderRequest {

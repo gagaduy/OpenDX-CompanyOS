@@ -574,7 +574,9 @@ the repository documentation, with no undocumented manual intervention.
 - [x] Phase 4: Inventory and Product Publication
 - [x] Phase 5: Storefront, Customer, and Cart
 - [x] Phase 6: Checkout, Order, and SePay
-- [ ] Phase 7: Operational CRM, Support, and Dashboard
+- [x] Phase 7: Operational CRM, Support, and Dashboard — complete after focused
+  API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and
+  documentation exit evidence.
 - [ ] Phase 8: Production Hardening and Hosting Readiness
 - [ ] Master acceptance and milestone review
 

@@ -3,7 +3,8 @@
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { OrderListQuery } from "../../../application/dtos/order.dto";
-import type { OrderAggregate, OrderRepository } from "../../../application/repositories/interfaces/order.repository";
+import type { CustomerOrderOperationsRecord, OrderAggregate, OrderRepository } from "../../../application/repositories/interfaces/order.repository";
+import type { PaidCustomerFacts, PaidCustomerSegmentId, PaidSegmentCustomerFacts } from "../../../application/services/interfaces/customer-order-operations-reader";
 import type { Order, OrderAddressSnapshot, OrderContactSnapshot, OrderStatus } from "../../../domain/entities/order";
 import type { OrderLine } from "../../../domain/entities/order-line";
 import type { OrderStatusHistory } from "../../../domain/entities/order-status-history";
@@ -59,6 +60,68 @@ export class PostgresqlOrderRepository implements OrderRepository {
       [...values, query.pageSize, (query.page - 1) * query.pageSize],
     );
     return { items: rows.rows.map((row) => ({ ...mapSummary(row), customerId: String(row.customer_id), customerEmail: String(row.customer_email) })), totalItems: Number(count.rows[0]?.total ?? 0) };
+  }
+
+  async listOperationsByCustomer(session: DatabaseSession, customerId: string, limit: number): Promise<readonly CustomerOrderOperationsRecord[]> {
+    const result = await session.query<Row>(
+      `SELECT id,public_number,status,total_vnd,created_at,paid_at
+       FROM orders WHERE customer_id=$1
+       ORDER BY created_at DESC,id DESC LIMIT $2`,
+      [customerId, limit],
+    );
+    return result.rows.map(mapOperationsRecord);
+  }
+
+  async findOperationsOwned(session: DatabaseSession, customerId: string, orderId: string): Promise<CustomerOrderOperationsRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT id,public_number,status,total_vnd,created_at,paid_at
+       FROM orders WHERE customer_id=$1 AND id=$2`,
+      [customerId, orderId],
+    );
+    return result.rows[0] === undefined ? undefined : mapOperationsRecord(result.rows[0]);
+  }
+
+  async getPaidCustomerFacts(session: DatabaseSession, customerId: string): Promise<PaidCustomerFacts> {
+    const result = await session.query<Row>(
+      `SELECT count(*) FILTER (WHERE paid_at IS NOT NULL)::text AS paid_order_count,
+              COALESCE(sum(total_vnd) FILTER (WHERE paid_at IS NOT NULL), 0)::text AS lifetime_paid_vnd,
+              max(paid_at) AS latest_paid_at
+       FROM orders WHERE customer_id=$1`,
+      [customerId],
+    );
+    return mapPaidFacts(result.rows[0] ?? {});
+  }
+
+  async listPaidSegmentCustomers(
+    session: DatabaseSession,
+    query: Parameters<OrderRepository["listPaidSegmentCustomers"]>[1],
+  ): Promise<{ readonly items: readonly PaidSegmentCustomerFacts[]; readonly totalItems: number }> {
+    const predicate = paidSegmentPredicate(query.segmentId);
+    const cohort = `WITH paid_facts AS (
+      SELECT c.id AS customer_id,
+             count(o.id) FILTER (WHERE o.paid_at IS NOT NULL)::bigint AS paid_order_count,
+             COALESCE(sum(o.total_vnd) FILTER (WHERE o.paid_at IS NOT NULL), 0)::bigint AS lifetime_paid_vnd,
+             max(o.paid_at) AS latest_paid_at
+      FROM customers c
+      LEFT JOIN orders o ON o.customer_id=c.id
+      GROUP BY c.id
+    )`;
+    const count = await session.query<{ total: string }>(
+      `${cohort} SELECT count(*)::text AS total FROM paid_facts WHERE ${predicate}`,
+      [query.asOf],
+    );
+    const rows = await session.query<Row>(
+      `${cohort}
+       SELECT customer_id,paid_order_count::text,lifetime_paid_vnd::text,latest_paid_at
+       FROM paid_facts WHERE ${predicate}
+       ORDER BY customer_id ASC
+       LIMIT $2 OFFSET $3`,
+      [query.asOf, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    return {
+      items: rows.rows.map((row) => ({ customerId: String(row.customer_id), ...mapPaidFacts(row) })),
+      totalItems: safeNonnegativeInteger(count.rows[0]?.total ?? "0", "paid segment total"),
+    };
   }
 
   async findHistoryByIdempotencyKey(session: DatabaseSession, orderId: string, key: string): Promise<OrderStatusHistory | undefined> {
@@ -133,6 +196,38 @@ function mapHistory(row: Row): OrderStatusHistory {
   return { id: String(row.id), orderId: String(row.order_id), ...(row.previous_status === null ? {} : { previousStatus: status(row.previous_status) }), newStatus: status(row.new_status), actorType: actor(row.actor_type), actorId: String(row.actor_id), reasonCode: String(row.reason_code), idempotencyKey: String(row.idempotency_key), correlationId: String(row.correlation_id), occurredAt: iso(row.occurred_at) };
 }
 function mapSummary(row: Row) { return { id: String(row.id), publicNumber: String(row.public_number), status: status(row.status), totalVnd: money(row.total_vnd), currency: "VND" as const, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) }; }
+function mapOperationsRecord(row: Row): CustomerOrderOperationsRecord {
+  return {
+    id: String(row.id),
+    publicNumber: String(row.public_number),
+    status: status(row.status),
+    totalVnd: money(row.total_vnd),
+    createdAt: iso(row.created_at),
+    ...(row.paid_at === null ? {} : { paidAt: iso(row.paid_at) }),
+  };
+}
+function mapPaidFacts(row: Row): PaidCustomerFacts {
+  const latestPaidAt = row.latest_paid_at;
+  return {
+    paidOrderCount: safeNonnegativeInteger(row.paid_order_count ?? "0", "paid order count"),
+    lifetimePaidVnd: safeNonnegativeInteger(row.lifetime_paid_vnd ?? "0", "lifetime paid VND"),
+    ...(latestPaidAt === null || latestPaidAt === undefined ? {} : { latestPaidAt: iso(latestPaidAt) }),
+  };
+}
+function paidSegmentPredicate(segmentId: PaidCustomerSegmentId): string {
+  switch (segmentId) {
+    case "new_customer": return "$1::timestamptz IS NOT NULL AND paid_order_count = 0";
+    case "first_time_buyer": return "$1::timestamptz IS NOT NULL AND paid_order_count = 1";
+    case "repeat_customer": return "$1::timestamptz IS NOT NULL AND paid_order_count >= 2";
+    case "high_value": return "$1::timestamptz IS NOT NULL AND lifetime_paid_vnd >= 50000000";
+    case "inactive_90d": return "paid_order_count > 0 AND latest_paid_at <= $1::timestamptz - interval '90 days'";
+  }
+}
+function safeNonnegativeInteger(value: unknown, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) throw new Error(`Unsafe persisted ${label}`);
+  return parsed;
+}
 function filter(query: OrderListQuery, base: string, initial: readonly unknown[]) {
   const values = [...initial];
   const clauses = [base];

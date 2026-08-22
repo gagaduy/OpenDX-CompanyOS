@@ -11,6 +11,484 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Allow one Agentic Governance Administrator to directly activate an owned
+  configuration revision while preserving immutable audit, provenance,
+  revocation, task-pinning, and workflow-action approval safeguards.
+
+- Restore local recovery sets with legacy orphaned Agentic policies by removing
+  only rows without a configuration revision before recreating constraints.
+
+- Allow local Keycloak host-port configuration so the full stack can coexist
+  with another service using port 8080.
+
+- Add a compact current-delivery brief and focused document-routing rules for
+  agents, plus fast and full validation gates so routine work does not run
+  unrelated acceptance checks.
+
+- Compare catalog USD/token prices to approved reservation thresholds without
+  Decimal context rounding, fail closed on extreme exponents, and require one
+  configured fallback model per Agent in live acceptance exports.
+
+- Bind OpenRouter catalog pricing to the exact non-negative unit prices in the
+  API-authorized reservation, and require package/Make live acceptance to
+  forward an explicit governance configuration-export path.
+
+- Preflight the exact primary or fallback model pinned by an API-authorized
+  reservation against OpenRouter's current catalog, accepting finite
+  non-negative paid pricing while retaining structured-output requirements.
+
+- Clarify that paid model revisions use direct owner-admin activation instead
+  of a duplicate nested approval.
+
+- Authorize model-run primary and fallback pairs from the active configured
+  revision rather than a source-code model allow-list, while retaining pricing,
+  budget, policy, and revocation enforcement.
+
+- Replace Inventory's repeatedly rate-limited free Gemma model with the
+  structured-output Nemotron primary already used by Order, and repair live
+  acceptance to execute exactly one request for each of the seven Agents.
+
+- Keep the context-boundary private-key detector fixture out of the tracked
+  private-key audit pattern while preserving its runtime security coverage.
+
+- Document Phase D runtime operations, mandatory live acceptance, and its
+  explicit boundary before file intake and AI CEO coordination.
+
+- Add deterministic model-runtime acceptance, credential-owned OpenRouter live
+  acceptance, Phase D static boundaries, and safe Compose environment wiring.
+
+- Compose the governed model executor as an opt-in Temporal activity that
+  returns digest-only analysis outcomes and records bounded execution metrics
+  and structured event fields without changing the existing workflow graph.
+
+- Execute governed model analysis through API-owned model-run authority with
+  bounded primary/fallback attempts, correction reservations, digest-only
+  settlement callbacks, and Quality Gate-driven completed, partial, and
+  escalated outcomes.
+
+- Keep model-run reservation receipts pinned to the original reserved
+  predecessor version so reserve/start retries converge after running or
+  terminal transitions without exposing mutable execution evidence.
+
+- Make model-run reservation and start retries converge across delayed and
+  concurrent attempts while preserving full semantic conflict checks, and
+  serialize daily/monthly budget reservations by revision and Agent scope.
+
+- Verify complete terminal model-run replays against immutable run identity,
+  Quality Gate evidence, provenance, usage, cost, and settlement idempotency,
+  and fail closed with a bounded service error when denial audit persistence is
+  unavailable.
+
+- Preserve bounded model-run denial evidence in a separate post-rollback
+  transaction and accept exact or equivalent concurrent terminal replays
+  without duplicating budget, Quality Gate, audit, or provenance writes.
+
+- Add authenticated internal model-run reservation, start, completion, and
+  failure control with pinned Agent assignment, exact approved models,
+  deny-first policy and revocation checks, API-owned pricing, atomic budget
+  settlement, Quality Gate evidence, digest-only audit, and provenance.
+
+- Reject stale and out-of-order terminal model-run replays unless they carry
+  the exact optimistic version immediately preceding the stored terminal row.
+
+- Protect model-run transitions and terminal replays by locking and comparing
+  complete immutable request and execution identity before persistence.
+
+- Harden model-run persistence with instant-based replay comparison, mandatory
+  domain validation, terminal-only quality evidence, and payload-safe budget
+  idempotency conflicts.
+
+- Align persisted reserved and running model-run states with domain evidence
+  rules, rejecting premature quality and provenance metadata.
+
+- Validate exact model-run lifecycle state fields and Quality Gate evidence
+  outcome literals at the Agentic domain boundary.
+
+- Enforce ordered offset-aware model-run timestamps, immutable execution
+  snapshots across terminal settlement, and exact model-run reservation and
+  settlement linkage through the existing Agentic budget ledger.
+
+- Persist governed model pricing, exact maximum-cost reservations, bounded
+  model-run lifecycle projections, append-only Quality Gate evidence, and
+  optional model-run references on the existing Agentic budget ledger.
+
+- Complete strict OpenRouter schema preflight coverage for `minProperties`,
+  `maxProperties`, and legacy `dependencies` object constraints.
+
+- Finalize OpenRouter preflight safety by cleaning completed catalog refreshes
+  after sole-waiter cancellation, consuming orphaned refresh failures, and
+  requiring exact-false `additionalProperties` across all object-schema forms.
+
+- Harden OpenRouter transport safety with exception-chain redaction, bounded
+  recursive strict-schema validation, request serialization preflight, and
+  cancellation-safe single-flight model catalog refreshes.
+
+- Reject malformed bracketed IPv6 OpenRouter and attribution URLs as stable,
+  secret-safe configuration failures before HTTP client construction.
+
+- Tighten OpenRouter preflight by rejecting malformed URL ports before HTTP
+  construction and requiring canonical string zero pricing for every approved
+  model before any model context may leave the runtime.
+
+- Add a fail-closed OpenRouter gateway with eight exact free-model catalog
+  checks, Agent-isolated model authorization, strict structured-output
+  requests, bounded response parsing, deterministic usage and cost accounting,
+  secret-safe failures, successful-preflight caching, and production-safe
+  configuration.
+
+- Preserve Quality Gate severity precedence by inspecting safe duplicate and
+  classification issue codes without allowing malformed model schemas.
+
+- Add a deterministic model Quality Gate that validates authoritative
+  provenance, scope, freshness, material payloads, leakage, and conflicts for
+  all seven governed Agents before accepting structured results, including
+  typed parser-level classification enforcement and complete evidence
+  freshness validation, terminal correction policy, exact evidence sources,
+  integrity-safe provenance outcomes, AI CEO coverage materiality, and bounded
+  decoded-JWT and payment-card leakage checks, while allowing bounded
+  correction of reference mistakes before terminal escalation.
+
+- Replace the generic nested model-context union with purpose-scoped typed
+  schemas for six departments and AI CEO aggregate summaries, risks, and exact
+  internal provenance metadata.
+
+- Restrict recursive model context to an explicit aggregate and provenance
+  metadata schema while blocking normalized identity, financial, cookie,
+  session, and authorization fields before sanitization.
+
+- Harden untrusted model-context intake with conservative nested credential and
+  PII key detection, pre-iteration collection budgets, and secret-safe raw
+  input representation without eager snapshots.
+
+- Count nested classified-context wrappers toward the iterative preflight depth
+  bound before immutable context construction.
+
+- Bound model-context structure before deep freeze, reject invalid Unicode and
+  unsafe JSON integers, and translate residual serialization failures into
+  fixed secret-safe boundary errors.
+
+- Harden the model context boundary against nested AI CEO coordination fields,
+  normalized credential and transaction keys, GitHub tokens, cyclic input, and
+  non-finite JSON numbers.
+
+- Enforce internal-only, Agent-specific, bounded and deeply immutable model
+  context with conservative sensitive-data blocking and role-isolated prompt
+  construction for all seven governed Agents.
+
+- Define deeply immutable framework-neutral model runtime contracts and strict
+  structured result schemas with bounded safe validation failures for all seven
+  governed Agents without enabling delegation behavior.
+
+- Add the Phase D file-level TDD plan for strict seven-Agent model results,
+  internal-only prompt context, deterministic Quality Gate decisions,
+  OpenRouter transport, API-owned model runs and accounting, runtime
+  composition, secret-safe fake/live acceptance, and closure validation.
+
+- Define the approved Phase D OpenRouter Agent Runtime boundary with seven
+  distinct free primary models, one bounded emergency fallback, internal-only
+  egress, strict Agent-specific result schemas, atomic model cost accounting,
+  deterministic Quality Gate behavior, and mandatory credential-owned
+  acceptance.
+
+- Advance Agentic Phase C closure with bounded tool telemetry, an exact three-view
+  analytics grant, six-identity disposable live acceptance, static mutation
+  guards, deterministic per-file migration cleanup, operator commands, and
+  complete API/architecture documentation.
+- Harden Phase C review findings with task-scoped budget idempotency, stale
+  reservation recovery, complete audit/provenance evidence, signed five-minute
+  cursors, future-window rejection, Vietnam-time analytics, and exact migration
+  readiness.
+
+- Provision and idempotently reconcile six distinct department Agent service
+  credentials, with isolated analytics-role and production secret validation.
+- Expose the 17 governed department read tools through an Agent-service-only
+  endpoint with database-resolved identities, strict 16 KiB input, and
+  cross-department and zero-leakage enforcement.
+- Wire the 17 fixed department read tools through six public-port-only adapters
+  and an isolated analytics database pool with server-owned result metadata.
+- Expose bounded Support SLA risk, lifecycle classification, and ticket-bound
+  related-order context reads without ticket text, customer, or attachment data.
+- Expose aggregate-only CRM segment and follow-up opportunity health reads with
+  exact lifetime/recency boundaries and no customer, note, or assignee data.
+- Expose bounded Payment pending-age, reconciliation-discrepancy, and provider
+  evidence health reads without provider calls or sensitive provider payloads.
+- Expose bounded Order stalled-state, invariant, expiry-risk, and Support-safe
+  context reads using the authoritative transition graph and PII-free keyset
+  evidence.
+- Expose bounded Inventory stock-risk, slow-stock, and reservation-anomaly
+  reads with deterministic velocity, safe valuation, keyset evidence, and
+  owner-indexed query paths.
+- Isolate Agentic cross-module analytics behind three security-barrier Reporting
+  views, an exact-grant reader role, bounded read-only queries, and a distinct
+  production database credential.
+- Expose bounded Catalog-owned health snapshots, publication evidence, and
+  merchandising aggregates through a read-only public application port.
+- Execute authorized Phase C read adapters through immutable descriptor,
+  schema, budget, idempotency, retry, provenance, and freshness boundaries.
+- Persist bounded Phase C tool invocation receipts with database-enforced
+  idempotency, retry claims, terminal replay, and immutable completed results.
+- Define 17 immutable Phase C department read-tool contracts with strict
+  runtime schemas and fail-closed executive-summary sharing.
+- Add the file-level TDD plan for Phase C tool contracts, idempotent execution,
+  six module-owned readers, restricted analytics views, service identities,
+  zero-leakage acceptance, and production/local exit gates.
+- Define the Phase C Agentic Department read-tool boundary with 17 versioned
+  least-privilege contracts, module-owned public ports, restricted analytics
+  views, bounded queries, zero-leakage rules, and provenance-backed outputs.
+- Close Agentic Phase B with public/internal API contracts, durable runtime and
+  recovery architecture guidance, bounded scope assertions, and a repository
+  exit gate that rejects missing artifacts or later-phase behavior.
+- Retry namespace visibility after Temporal registration so fresh and restored
+  stacks do not fail during metadata propagation.
+- Back up and restore Commerce projections plus Temporal persistence and
+  visibility as one checksummed, versioned, atomically published recovery set,
+  with explicit local-only legacy dump compatibility.
+- Harden the single-VPS production candidate with private mTLS Temporal,
+  split PostgreSQL roles, production-safe Keycloak reconciliation, static
+  frontend images, ordered schema and namespace jobs, isolated networks,
+  bounded resources and logs, read-only workload containers, fail-closed
+  validation, and operator guidance for upgrades, rotation, and recovery.
+- Run the local Store Health workflow on pinned private Temporal services with
+  isolated PostgreSQL roles, one-shot schema and namespace setup, authenticated
+  worker callbacks, restart lifecycle acceptance, and an opt-in Temporal CLI.
+- Keep the API process alive across PostgreSQL restarts by observing idle pool
+  errors while readiness reports the actual recovered database connection.
+- Expose the authenticated AI Runtime Temporal control API, truthful liveness
+  and readiness, an independently supervised worker entrypoint, and bounded
+  redacted workflow observability in separate production container roles.
+- Add the immutable Store Health Temporal workflow with dependency-aware
+  orchestration, bounded retries, approval and cancellation signals,
+  idempotent fake activities, and five replay-tested V1 histories.
+- Add bounded AI Runtime Agentic contracts, RSA workload verification,
+  coalesced worker tokens, and a redacted purpose-specific API callback client.
+- Add a bounded authenticated HTTP workflow gateway with coalesced short-lived
+  client-credentials tokens, redacted transport failures, and safe runtime config.
+- Expose governed Agentic workflow staff and workload APIs with strict DTOs,
+  isolated workload JWT identity, durable replay semantics, and readiness wiring.
+- Add the Agentic workflow application boundary with governed starts, frozen
+  approvals, durable cancellation signals, activity evidence, and retryable dispatch.
+- Add the durable Agentic workflow-run, activity-invocation, and signal-receipt
+  state model with reversible PostgreSQL constraints and idempotent repositories.
+- Add pinned Temporal and JWT runtime dependencies plus fail-closed AI Runtime
+  configuration for workload identity, activity bounds, and production mTLS.
+- Add the approved file-level TDD implementation plan for the durable Store
+  Health Temporal workflow, authenticated workload boundaries, production
+  Compose hardening, replay validation, and three-database recovery.
+- Define the production-ready single-VPS Temporal workflow design for explicit
+  Store Health Review starts, durable branch orchestration, bound signals,
+  restart recovery, workload identity, and three-database backup/restore.
+- Make local database backup create matching readable SQL and custom archives,
+  and restore either format through an extension-aware fail-closed command.
+- Define the dual-format `make db-backup` and extension-aware `make db-restore`
+  contract for safe local SQL and custom-archive database recovery.
+- Add the file-level TDD plan for dual-format local backup creation,
+  fail-closed publication, extension-aware restore, and recovery verification.
+- Harden Agent governance with immutable identities, assigned approval scopes,
+  exact configuration diffs, intake provenance, filtered audit, and model revocation.
+- Document Phase A Agent governance architecture, staff API, migration order,
+  source validation, current non-executing scope, and roadmap completion.
+- Add the authenticated `/v1/admin/agentic` staff API with strict validators,
+  backend role enforcement, denied-access audit, and PostgreSQL composition.
+- Add owner-scoped, non-executing Agent task intake with validated dependency
+  graphs, active-configuration pinning, cancellation, and audit evidence.
+- Add two-person Agent configuration decisions, bound action approvals, and
+  Administrator or Governance Admin approved-request emergency revocation.
+- Add deny-by-default Agent policy evaluation, inert typed-tool authorization,
+  idempotent integer-micro budget accounting, and mandatory safe evidence.
+- Add the reversible PostgreSQL Agent governance schema and migration chain for
+  identities, tasks, configuration, policy, tools, models, budgets, approvals,
+  revocations, audit, and provenance.
+- Add pure Agent governance domain rules for task, configuration, approval,
+  dependency graph, model, and integer budget invariants.
+- Add distinct Agentic staff roles and an isolated Digital Employee service
+  principal boundary that cannot trust a payload-provided Agent identity.
+- Add the Agent Governance Foundation file-level TDD plan covering separate
+  identities, domain rules, PostgreSQL constraints, policy/tool/budget checks,
+  two-person approvals, task ownership, staff APIs, and phase-exit validation.
+- Define the Agent Governance Foundation focused design with separate human and
+  Digital Employee identities, two-person configuration control, deterministic
+  policy, versioned tasks, tool grants, budgets, approvals, audit, provenance,
+  and emergency revocation before runtime execution.
+- Add the Post-Commerce Agentic Workforce master implementation plan with eight
+  gated delivery phases from governance foundation through deterministic
+  cross-department acceptance.
+- Define the Post-Commerce Agentic Workforce design for a rule-first AI CEO,
+  six read-only Department Agents, Temporal orchestration, OpenRouter model
+  governance, approval-bound file intake, Tool Registry mediation, Quality
+  Gate, scoped memory, and auditable Store Health Review workflow.
+- Add a transaction-safe, idempotent PostgreSQL commerce fixture for testing
+  current and previous dashboard reporting windows without replacing contributor data.
+- Extend authoritative Reporting responses with equal-length prior-period
+  comparisons and zero-filled Vietnam-local daily commerce and customer facts.
+- Replace Dashboard analytics placeholders with accessible SVG revenue and
+  paid-order charts plus backend-derived KPI comparisons and sparklines.
+- Expand Dashboard browser acceptance to verify real chart landmarks and
+  accessible data tables across supported viewports and themes.
+- Align the Console's default 30-day Dashboard range with the backend's
+  Vietnam-local, end-exclusive reporting window so the current day is included.
+- Apply restrained technical typography to Console identifiers, evidence,
+  timestamps, SKUs, and audit provenance without changing application data.
+- Align the Support ticket detail with the approved timeline-and-context layout,
+  make status and priority explicit, and show an honest unavailable SLA state.
+- Reframe the Console dashboard into executive metrics, operational focus,
+  and performance overview regions using only authoritative report data.
+- Restructure the Console product editor into clear basic-details,
+  classification, and description-and-attributes setup panels.
+- Refine Console navigation emphasis, technical typography, and desktop table
+  density to more closely match the approved Obsidian Flux operations canvas.
+- Expand deterministic Console browser acceptance to all 17 routes at mobile,
+  tablet, and desktop widths in both themes, and fix the responsive product
+  table and mobile navigation cascade issues exposed by those checks.
+- Redesign the executive Dashboard around authoritative commerce aggregates,
+  explicit unavailable-chart placeholders, and operational focus, and label
+  every Company Overview capability with a truthful delivery state.
+- Redesign Support operations with a ticket-creation drawer, accessible queue
+  and evidence regions, clean-only attachment downloads, and a retryable real
+  customer reply composer while future internal notes remain disabled.
+- Redesign Customer operations as an accessible searchable list and a
+  three-region Customer 360 workspace while preserving URL-backed segments
+  and optimistic follow-up claiming.
+- Redesign Order and SePay Payment operations with accessible dense tables,
+  immutable evidence timelines, side snapshots, confirmed unpaid-order
+  cancellation, and truthful disabled receipt/export controls.
+- Redesign Inventory as a dense stock workspace with visible-result summaries,
+  an accessible stock table, and shared movement and mutation dialogs.
+- Redesign Product Editor as a five-tab Obsidian Flux workspace with truthful
+  setup progress and disabled Product Tags, Import, and Export CSV controls.
+- Redesign Console Product and Category workspaces with shared headers,
+  accessible filter/table/tree landmarks, explicit system states, and reusable
+  confirmation drawers while preserving catalog mutations.
+- Redesign Console staff authentication with a focused NovaCommerce Keycloak
+  entry surface and an explicit retry path for failed OIDC callbacks.
+- Add shared Console page-header, system-state, Coming soon, and accessible
+  modal/drawer primitives for the Obsidian Flux redesign.
+- Redesign the NovaCommerce Console shell with grouped role-aware navigation,
+  contextual route headers, a responsive mobile drawer, and night mode by
+  default while preserving the persisted light theme.
+- Add the file-level TDD implementation plan for the approved NovaCommerce
+  Console Obsidian Flux redesign.
+- Define the approved Obsidian Flux redesign for all NovaCommerce Console
+  routes, preserving real role-aware commerce behavior while clearly disabling
+  unsupported Stitch reference controls.
+- Move Phase 7 implementation evidence from the hidden `.superpowers`
+  tool-output directory into `docs/superpowers/reports`, and document the
+  distinction between normative specs/plans and historical execution reports.
+- Add an authoritative public Catalog read model that selects the newest
+  eligible product in every active category for Storefront hero merchandising.
+- Rotate the Storefront catalog hero through active categories with accessible
+  manual controls, reduced-motion handling, and graceful image fallbacks.
+- Collapse the Storefront navigation behind its existing hamburger at
+  intermediate widths so navigation labels cannot overlap product search.
+- Add reviewed local GLB assets, MIT WebGL dependencies, deterministic scene
+  progress, device quality budgets, and a six-section semantic journey backed
+  by authoritative Catalog product queries, native scroll coordination, and
+  accessible scene shortcuts, plus bounded GLB loading, shared caching, and
+  deterministic GPU disposal, lazy WebGL delivery, theme-aware lighting, and
+  adaptive intro, smartphone, computing, audio, gaming, and featured scenes,
+  progressive scroll-driven model loading, hidden-tab rendering suspension,
+  reduced-motion behavior, responsive showroom overlays, and browser evidence
+  for both themes and the no-WebGL fallback on the approved Storefront 3D
+  homepage, with upright per-asset poses, viewport-bounded model fitting, and
+  isolated model-specific dark palettes so products remain recognizable and
+  fully visible without changing their authored light-theme materials.
+- Define the approved Nexora-inspired six-scene 3D Storefront homepage design,
+  including real Catalog data, light/dark presentation, licensed GLB assets,
+  progressive loading, reduced motion, and static failure fallback.
+- Add a dedicated Storefront introduction homepage at `/` and move customer
+  product discovery/catalog navigation to `/products`.
+- Add a persisted Console light/night-mode toggle so staff can switch from a
+  light admin canvas into night mode.
+- Make the Storefront discovery filter toggle expose explicit open/closed state
+  so the sidebar panel opens reliably from the rail button.
+- Make the Storefront discovery sidebar rail icons actionable for catalog
+  navigation instead of decorative-only controls.
+- Replace the Storefront header search icon and duplicate quick-search chip with
+  a usable product search field that applies the catalog query directly.
+- Back Storefront `Sản phẩm mới`, `Bán chạy`, and `Đang giảm` shortcuts with
+  authoritative catalog, order, and price-history queries.
+- Align the Storefront header and discovery shortcut row into one compact
+  commerce navigation layout.
+- Add a Storefront customer discovery taskbar and collapsible catalog filter
+  sidebar design implementation.
+- Fix Storefront header hash navigation so customer `Danh mục` and `Khám phá`
+  links scroll to their discovery sections after React Router navigation.
+- Complete Phase 8 hardening readiness on `phuong` with exit preflight, root
+  source validation, local commerce acceptance, and recorded production SePay
+  acceptance decision.
+- Add Phase 8 exit preflight wiring and closure documentation for hardening
+  readiness evidence.
+- Add Phase 8 CI and security workflows with environment-contract and committed
+  secret-fixture audits.
+- Add Phase 8 accessibility and performance gates for local Storefront,
+  Console, CRM/Support/Dashboard, and public Storefront API checks.
+- Add Phase 8 PostgreSQL and MinIO backup/restore scripts with path validation,
+  restore guardrails, safety checks, and operations documentation.
+- Add Phase 8 payment threat-model documentation and an opt-in SePay
+  production acceptance guard that refuses accidental real-money checks.
+- Add Phase 8 authorization matrix documentation and a source check covering
+  staff, customer, guest, anonymous, and SePay provider boundaries.
+- Add Phase 8 PII-safe API observability with structured logs, bounded request
+  metrics, optional `/metrics`, and operations documentation.
+- Add Phase 8 API runtime hardening with security headers, configurable JSON
+  body limits, readiness timeouts, and graceful shutdown cleanup.
+- Add Phase 8 VPS production-candidate Docker targets, Caddy routing, Compose
+  topology validation, and production deployment documentation.
+- Add the Phase 8 production environment contract baseline with fail-closed
+  production validation for placeholder domains and typed observability,
+  request-size, readiness, and production SePay acceptance settings.
+- Fix Storefront startup so cart loading waits for customer session
+  restoration, preventing rotated customer cookies from being cleared by a
+  concurrent stale cart request.
+- Add guarded Phase 7 CRM/Support/Dashboard source preflight commands and
+  operations documentation for exit evidence collection, with test coverage for
+  isolated-environment enforcement, command ordering, focused API/Console
+  suites, PostgreSQL/MinIO/ClamAV integration, EICAR rejection, and reporting
+  scale query plans.
+- Add a Phase 7 CRM/Support/Dashboard browser check covering Customer, Support,
+  and Dashboard surfaces at 390x844, 768x1024, and 1440x900 with focus,
+  landmark, overflow, screenshot, and denied-route evidence.
+- Add a Phase 7 lifecycle check for disposable PostgreSQL restart persistence,
+  custom-format backup/restore, and CRM/Support rollback-forward migration
+  while preserving earlier commerce tables.
+- Run root source checks with sequential workspace test execution to keep UI
+  tests stable under local validation load.
+- Add the Executive Dashboard Console workspace with Administrator/Executive
+  route gating, default 30-day reporting range, max-range validation,
+  PII-free aggregate commerce/product/customer/operations metrics, stale
+  refresh warnings, and responsive dashboard cards.
+- Add the Support Console workspace with role-gated Support routes, ticket
+  queue/create/detail views, workflow actions, append-only timeline rendering,
+  stale mutation recovery, and authenticated attachment upload/download UI.
+- Add the Customer and CRM Console workspace with role-gated customer routes,
+  URL-backed search and segment filters, read-only Customer 360, note
+  correction timeline, versioned follow-up claiming, and responsive dark UI.
+- Add authoritative aggregate Reporting APIs for commerce, products, customers,
+  and operations under `/v1/admin/reporting`, with Administrator/Executive
+  access, PII-free DTOs, VND integer arithmetic, PostgreSQL-backed query
+  coverage, and scale query-plan verification.
+- Add the ClamAV local scanning lifecycle, private Support attachment MinIO
+  bucket readiness, and Support worker interval environment configuration.
+- Add private Support ticket attachment upload/download services, ClamD scan
+  adapter, MinIO storage adapter, and scan/retention workers.
+- Add staff Support ticket operations, PostgreSQL concurrency controls, and SLA escalation worker.
+- Add verified Support PostgreSQL, worker, and HTTP route coverage for role
+  boundaries, version races, idempotency, chronological history, and SLA claims.
+
+### Added
+
+- Add the reversible Support PostgreSQL schema for staff-created tickets,
+  append-only messages/events/audit history, exact lifecycle/version guards,
+  continuous SLA pause/stop state, and quarantined attachment tombstones.
+- Add pure Support ticket/SLA and attachment rules covering approved workflow
+  transitions, boundary breaches, allow-listed formats, limits, and retention.
+- Add the authenticated Operational CRM customer API with read-only Customer
+  360 composition, authoritative paid segments, immutable note corrections,
+  versioned self-claimed follow-ups, PostgreSQL concurrency controls, and
+  PII-minimized authorization audit evidence.
+- Add the reversible CRM schema for immutable customer notes, self-claimed
+  follow-ups, and CRM audit events, together with deterministic segmentation
+  and pure follow-up domain rules.
+
 ### Changed
 
 - Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
@@ -19,6 +497,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   credentials or customer data.
 
 ### Fixed
+
+- Use the effective SLA breach instant in automatic escalation keys, preserve
+  escalated status while a support operator claims unassigned work, and require
+  Support migrations before API readiness succeeds.
+- Scope Support ticket idempotency keys per ticket, reject closed-ticket
+  messages at service and PostgreSQL boundaries, enforce owned-or-available
+  Support operator access, and route administrator reassignment through the
+  staff ticket PATCH API.
 
 - Make pending-order cancellation converge atomically across Payment, Order,
   Inventory, Promotion, and Checkout while preserving the winning paid result
@@ -81,6 +567,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Phase 7 CRM, Support, and Executive staff roles plus PostgreSQL-backed
+  Customer and Order operations readers with least-privilege public contracts.
+- Add the approved twelve-task Phase 7 implementation plan covering public
+  operations readers, CRM, Support SLA and attachments, ClamAV, Reporting,
+  role-aware Console surfaces, and deterministic exit acceptance.
+- Add the approved Phase 7 focused design for least-privilege Operational CRM,
+  staff-created Support tickets and SLA, private ClamAV-scanned attachments,
+  deterministic customer segments, and aggregate PostgreSQL-backed reporting.
 - Add an isolated Phase 6 checkout-to-paid exit gate covering scarce-stock
   concurrency, exact-once IPN replay, provider/expiry races, fail-closed API
   boundaries, paid-order backup/restore, and migration rollback/reapply, plus a

@@ -41,6 +41,11 @@ link validation, repository audits, and review against the documented scope.
 Not every feature needs every layer. Choose the smallest set that covers its
 risks and public boundaries.
 
+API integration files run sequentially against the shared test database. The
+integration setup rolls all migration families back in reverse dependency
+order after each file so fixtures and newer module migrations cannot leak into
+the next suite.
+
 ## Critical CompanyOS Coverage
 
 Tests are mandatory around:
