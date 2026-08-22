@@ -1,0 +1,3 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+import type { Client } from "minio"; import type { AgenticFileStorage } from "../../application/storage/agentic-file-storage";
+export class MinioAgenticFileStorage implements AgenticFileStorage { constructor(private readonly client:Client,private readonly bucket:string){} async put(key:string,content:Buffer,mediaType:string){if(!/^agentic-intake\/[0-9a-f-]{36}$/.test(key))throw new Error("Unsafe agentic intake key");await this.client.putObject(this.bucket,key,content,content.byteLength,{"Content-Type":mediaType});} async open(key:string){return this.client.getObject(this.bucket,key);} async delete(key:string){await this.client.removeObject(this.bucket,key);} }
