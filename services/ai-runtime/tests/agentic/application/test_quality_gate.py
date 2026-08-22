@@ -15,6 +15,7 @@ from app.agentic.application.quality_gate import (
     AuthoritativeQualityContext,
     QualityGate,
 )
+from app.agentic.domain.model_runtime import FrozenJsonMapping
 
 
 PAYLOADS: dict[str, dict[str, Any]] = {
@@ -299,6 +300,16 @@ def test_schema_failure_classifies_invalid_reason_codes_without_retaining_output
 
     assert decision.reasons == ("RESULT_REASON_CODE_INVALID",)
     assert "not-a-governed-code" not in repr(decision)
+
+
+def test_accepts_frozen_gateway_result_content() -> None:
+    result = valid_result()
+
+    decision = QualityGate().evaluate(
+        FrozenJsonMapping(result), quality_context()
+    )
+
+    assert decision.outcome == "accepted"
 
 
 @pytest.mark.parametrize("correction_round", [0, 1, 2])

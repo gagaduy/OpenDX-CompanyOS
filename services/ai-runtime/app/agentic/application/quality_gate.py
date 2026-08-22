@@ -155,7 +155,7 @@ class QualityGate:
         self, raw_result: object, context: AuthoritativeQualityContext
     ) -> QualityDecision:
         try:
-            inspection = inspect_model_result(raw_result)
+            inspection = inspect_model_result(_mutable_json(raw_result))
         except (TypeError, ValueError, RecursionError, OverflowError) as error:
             return _quality_failure_decision(
                 context.correction_round, (_schema_failure_code(error),), ()
