@@ -57,4 +57,5 @@ const unprocessableCodes = new Set([
 const unavailableCodes = new Set([
   "TOOL_UNAVAILABLE",
   "AUDIT_UNAVAILABLE",
+  "FILE_SCAN_FAILED",
 ]);

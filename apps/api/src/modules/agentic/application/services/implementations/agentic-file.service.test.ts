@@ -15,6 +15,7 @@ import { AgenticFileServiceImpl, createAgenticFilePreview } from "./agentic-file
 const session = {} as DatabaseSession;
 const tx: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
 const admin: StaffPrincipal = { subject: "governance-admin", displayName: "Governance Admin", roles: ["agentic_governance_admin"] };
+const otherAdmin: StaffPrincipal = { subject: "other-governance-admin", displayName: "Other Governance Admin", roles: ["agentic_governance_admin"] };
 const content = Buffer.from("sku,quantity\nSKU-1,4\n", "utf8");
 
 describe("AgenticFileServiceImpl", () => {
@@ -96,6 +97,16 @@ describe("AgenticFileServiceImpl", () => {
     expect(repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({ action: "agentic_file.reject", resourceId: uploaded.file.id }));
     expect(repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({ action: "agentic_file.delete", resourceId: uploaded.file.id }));
     expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("denies every private file operation to a different governance administrator", async () => {
+    const { service } = harness();
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    await expect(service.get(uploaded.file.id, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(service.scanAndPreview(uploaded.file.id, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(service.approvePreview({ fileId: uploaded.file.id, expectedFileVersion: 1, previewVersion: 1, previewPayloadDigest: "a".repeat(64), idempotencyKey: "other-admin" }, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(service.reject(uploaded.file.id, 1, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(service.delete(uploaded.file.id, 1, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("replays an approval with the same task and creates neither subtasks nor runtime work", async () => {

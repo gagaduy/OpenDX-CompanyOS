@@ -45,7 +45,7 @@ export function createAgenticRouter(
   const governance = ["administrator", "agentic_governance_admin"] as const;
   const workforceReader = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"] as const;
   const auditReader = ["administrator", "agentic_governance_admin", "agentic_auditor"] as const;
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1 } }).single("file");
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 0, parts: 2 } }).single("file");
   const parseUpload: RequestHandler = (request, response, next) => {
     upload(request, response, (error: unknown) => {
       if (error instanceof MulterError) {

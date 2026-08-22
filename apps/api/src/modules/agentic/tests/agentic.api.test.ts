@@ -127,6 +127,12 @@ describe("Agentic route authorization", () => {
       .attach("file", Buffer.from("second"), { filename: "second.txt", contentType: "text/plain" })
       .expect(400);
 
+    await application.post("/files")
+      .field("unexpected", "field")
+      .field("another", "field")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(400);
+
     await application.post("/files").expect(400);
 
     await application.post("/files")
@@ -145,6 +151,12 @@ describe("Agentic route authorization", () => {
     const preview = await application.get(`/files/${FILE_ID}/preview`).expect(200);
     expect(preview.body.data).toEqual(expect.objectContaining({ fileId: FILE_ID, samples: ["name", "Ada"] }));
     expect(preview.body.data).not.toHaveProperty("content");
+  });
+
+  it("does not leak a private file to another governance administrator", async () => {
+    const response = await buildFiles("agentic_governance_admin", "other-governance-admin").get(`/files/${FILE_ID}`).expect(403);
+    expect(response.body.errorCode).toBe("FORBIDDEN");
+    expect(response.body).not.toHaveProperty("data");
   });
 
   it("validates file approval versions and maps duplicate approval idempotency keys", async () => {
@@ -191,6 +203,8 @@ describe("Agentic route authorization", () => {
       errorCode: "AUDIT_UNAVAILABLE",
       message: "Safe workflow error",
     });
+    const scanUnavailable = await request(app).get("/FILE_SCAN_FAILED").expect(503);
+    expect(scanUnavailable.body.errorCode).toBe("FILE_SCAN_FAILED");
   });
 
   it("keeps static action segments distinct from resource ids", async () => {
@@ -256,17 +270,20 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
 
 const FILE_ID = "00000000-0000-4000-8000-000000000010";
 
-function buildFiles(role: StaffRole) {
+function buildFiles(role: StaffRole, subject = "governance-admin") {
   const app = express();
   app.use(express.json());
   const authenticate: RequestHandler = (_request, response, next) => {
-    response.locals.staffPrincipal = { subject: "governance-admin", displayName: "Governance admin", roles: [role] };
+    response.locals.staffPrincipal = { subject, displayName: "Governance admin", roles: [role] };
     response.locals.correlationId = "corr";
     next();
   };
   const files = {
     upload: vi.fn(async () => ({ file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } })),
-    get: vi.fn(async () => fileMetadata()),
+    get: vi.fn(async (_fileId: string, principal: { subject: string }) => {
+      if (principal.subject !== "governance-admin") throw new AgenticApplicationError("FORBIDDEN", "Agentic file access is limited to its governance owner");
+      return fileMetadata();
+    }),
     scanAndPreview: vi.fn(async () => preview()),
     approvePreview: vi.fn(async (input: { idempotencyKey: string }) => {
       if (input.idempotencyKey === "duplicate-key") throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound");

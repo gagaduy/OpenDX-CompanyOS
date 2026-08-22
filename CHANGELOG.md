@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Restrict governed Agentic file operations to the uploading administrator and
+  fail closed when scanning dependencies are unavailable.
+
 - Expose governed private CSV/TXT Agentic file intake, preview, approval,
   rejection, and deletion staff endpoints with strict multipart limits and
   backend governance authorization.
