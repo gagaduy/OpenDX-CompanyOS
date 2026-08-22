@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Settle unexpected model-execution failures with the task's authorized
   provenance, keeping the API-owned model run terminal.
 
+- Defer semantic model-result validation to the Quality Gate so governed runs
+  retain their audit settlement rather than failing before it.
+
 - Classify malformed OpenRouter response envelopes, choices, and content
   separately while retaining redacted, failure-only diagnostics.
 

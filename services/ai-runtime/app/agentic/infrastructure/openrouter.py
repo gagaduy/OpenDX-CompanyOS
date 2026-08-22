@@ -13,7 +13,6 @@ from decimal import Decimal, DecimalException, InvalidOperation, ROUND_HALF_UP
 
 import httpx
 
-from app.agentic.domain.model_result_schemas import parse_model_result
 from app.agentic.domain.model_runtime import (
     ModelGatewayFailure,
     ModelRequest,
@@ -324,17 +323,6 @@ class OpenRouterModelGateway:
             usage_valid = False
         if not usage_valid:
             _fail("OPENROUTER_USAGE_INVALID", retryable=False)
-
-        result_invalid = False
-        try:
-            parsed = parse_model_result(result_content)
-        except (TypeError, ValueError):
-            result_invalid = True
-            parsed = None
-        if result_invalid or parsed is None:
-            _fail("OPENROUTER_RESULT_INVALID", retryable=False)
-        if parsed.agent_kind != request.agent_kind:
-            _fail("OPENROUTER_RESULT_INVALID", retryable=False)
 
         input_tokens = usage.get("prompt_tokens")
         output_tokens = usage.get("completion_tokens")

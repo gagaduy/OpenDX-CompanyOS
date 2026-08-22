@@ -818,7 +818,7 @@ def test_provider_cost_conversion_never_round_trips_through_float() -> None:
     assert result.provider_cost_micros == 1
 
 
-def test_json_string_content_is_accepted_and_exact_envelope_is_enforced() -> None:
+def test_json_string_content_is_accepted_and_semantic_validation_is_deferred() -> None:
     result = _generate(
         lambda request: _catalog_response()
         if request.url.path.endswith("models")
@@ -827,12 +827,12 @@ def test_json_string_content_is_accepted_and_exact_envelope_is_enforced() -> Non
     assert _thaw(result.content) == _result_envelope()
 
     invalid = _result_envelope() | {"unknown": "field"}
-    failure = _failure(
+    deferred = _generate(
         lambda request: _catalog_response()
         if request.url.path.endswith("models")
         else _chat_response(content=invalid)
     )
-    assert (failure.code, failure.retryable) == ("OPENROUTER_RESULT_INVALID", False)
+    assert _thaw(deferred.content) == invalid
 
 
 def test_schema_requires_additional_properties_false_recursively_before_network() -> None:

@@ -63,7 +63,7 @@ def load_model_execution_command(value: Mapping[str, object], *, retrieved_at: d
             expected_agent_kind="catalog", correction_round=0,
             authorized_evidence=(AuthoritativeEvidenceFact(provenance_id=provenance_id, source=_PROVENANCE_SOURCE, retrieved_at=timestamp, freshness_status="fresh"),),
             expected_payload=expected_payload, unresolved_conflict_codes=(),
-            purpose="catalog_live_acceptance", authorized_agent_scope=("catalog",), data_classification="internal",
+            purpose="department_analysis", authorized_agent_scope=("catalog",), data_classification="internal",
         ),
         maximum_correction_rounds=0, allow_fallback=False,
     )
