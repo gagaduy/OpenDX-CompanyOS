@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Define the safe CSV/TXT Agentic file-intake lifecycle and bounded domain
+  validation rules ahead of storage and transport integration.
+
 - Complete the governed OpenRouter Phase D Catalog live acceptance with a
   settled, audited, provenance-bound model run.
 
