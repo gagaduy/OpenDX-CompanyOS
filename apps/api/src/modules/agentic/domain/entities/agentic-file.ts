@@ -30,3 +30,14 @@ export interface AgenticIntakeFile {
   readonly rejectedAt?: string;
   readonly deletedAt?: string;
 }
+
+export interface AgenticFilePreview {
+  readonly id: string;
+  readonly fileId: string;
+  readonly previewVersion: number;
+  readonly parserVersion: string;
+  readonly payloadDigest: string;
+  readonly previewDigest: string;
+  readonly summary: Readonly<Record<string, unknown>>;
+  readonly createdAt: string;
+}

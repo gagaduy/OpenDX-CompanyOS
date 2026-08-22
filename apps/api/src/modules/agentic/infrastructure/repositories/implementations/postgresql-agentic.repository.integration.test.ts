@@ -7,6 +7,7 @@ import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
+import type { AgenticIntakeFile, AgenticFilePreview } from "../../../domain/entities/agentic-file";
 import type { ActivityInvocation, WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { transitionWorkflowRun } from "../../../domain/services/workflow-run-rules";
 import { runAgenticMigrations } from "../../database/run-agentic-migrations";
@@ -24,6 +25,7 @@ suite("PostgresqlAgenticRepository", () => {
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
     await pool.query(`TRUNCATE agentic_model_quality_evidence, agentic_model_runs,
+      agentic_file_approvals, agentic_file_previews, agentic_intake_files,
       agentic_workflow_signal_receipts,
       agentic_activity_invocations, agentic_workflow_runs,
       agentic_provenance_records, agentic_audit_events,
@@ -38,6 +40,32 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("persists bounded previews and atomically creates one draft task per approved file", async () => {
+    const at = "2026-08-22T00:00:00.000Z";
+    const file: AgenticIntakeFile = {
+      id: randomUUID(), objectKey: `agentic-intake/${randomUUID()}`, originalFilename: "catalog.csv",
+      format: "csv", mediaType: "text/csv", byteSize: 42, payloadDigest: "a".repeat(64),
+      status: "uploaded", createdBy: "governance-admin", version: 1, createdAt: at, updatedAt: at,
+    };
+    const preview: AgenticFilePreview = {
+      id: randomUUID(), fileId: file.id, previewVersion: 1, parserVersion: "csv-rfc4180-v1",
+      payloadDigest: file.payloadDigest, previewDigest: "b".repeat(64), summary: { rowCount: 1 }, createdAt: at,
+    };
+    await transactions.run(async (session) => {
+      await repository.createIntakeFile(session, file);
+      expect(await repository.transitionIntakeFile(session, { ...file, status: "scanning", version: 2, updatedAt: at }, 1)).toBe(true);
+      expect(await repository.transitionIntakeFile(session, { ...file, status: "clean", version: 3, updatedAt: at, scannedAt: at }, 2)).toBe(true);
+      await repository.appendFilePreview(session, preview);
+      expect(await repository.transitionIntakeFile(session, { ...file, status: "previewed", version: 4, updatedAt: at, scannedAt: at }, 3)).toBe(true);
+    });
+    const task = { id: randomUUID(), state: "draft" as const, createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at };
+    const first = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, task, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
+    const replay = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, task: { ...task, id: randomUUID() }, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
+    expect(first).toEqual({ status: "created", taskId: task.id });
+    expect(replay).toEqual({ status: "duplicate", taskId: task.id });
+    expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
   });
 
   it("stores exact model pricing and maps it without precision loss", async () => {

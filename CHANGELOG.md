@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add transactional Agentic repository operations for file intake previews and
+  idempotent draft-task approval.
+
 - Persist immutable Agentic file-intake metadata, derived previews, and
   one-preview-to-one-draft-task approval bindings.
 

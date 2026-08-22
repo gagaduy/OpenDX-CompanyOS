@@ -4,6 +4,7 @@
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { AgentKind, AgentProfile } from "../../../domain/entities/agent-profile";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import type { AgenticFilePreview, AgenticIntakeFile } from "../../../domain/entities/agentic-file";
 import type { ApprovalRequest, ApprovalState, ApproverScope } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
@@ -232,6 +233,22 @@ export interface AgentSubtaskDependencyRecord {
   readonly to: string;
 }
 
+export interface AgenticFileApprovalInput {
+  readonly id: string;
+  readonly fileId: string;
+  readonly previewVersion: number;
+  readonly previewDigest: string;
+  readonly task: AgentTask;
+  readonly idempotencyKey: string;
+  readonly approvedBy: string;
+  readonly approvedAt: string;
+}
+
+export interface AgenticFileApprovalResult {
+  readonly status: "created" | "duplicate";
+  readonly taskId: string;
+}
+
 export interface BudgetSettlementInput {
   readonly id: string;
   readonly reservationId: string;
@@ -276,6 +293,11 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  createIntakeFile(session: DatabaseSession, file: AgenticIntakeFile): Promise<void>;
+  findIntakeFile(session: DatabaseSession, fileId: string): Promise<AgenticIntakeFile | undefined>;
+  transitionIntakeFile(session: DatabaseSession, file: AgenticIntakeFile, expectedVersion: number): Promise<boolean>;
+  appendFilePreview(session: DatabaseSession, preview: AgenticFilePreview): Promise<void>;
+  approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult>;
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;
   listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]>;

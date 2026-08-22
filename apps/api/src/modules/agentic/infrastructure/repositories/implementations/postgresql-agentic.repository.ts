@@ -13,6 +13,8 @@ import type {
   BudgetReservationInput,
   BudgetSettlementInput,
   ActivityReservationResult,
+  AgenticFileApprovalInput,
+  AgenticFileApprovalResult,
   ModelQualityEvidenceAppendResult,
   ModelConfigurationRecord,
   ModelRunReservationResult,
@@ -34,6 +36,7 @@ import type {
 import { AgenticApplicationError } from "../../../application/services/agentic-application.error";
 import type { AgentKind, AgentProfile } from "../../../domain/entities/agent-profile";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import type { AgenticFilePreview, AgenticIntakeFile } from "../../../domain/entities/agentic-file";
 import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/approval-request";
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
@@ -47,6 +50,29 @@ import { validateModelQualityEvidence, validateModelRun } from "../../../domain/
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async createIntakeFile(session: DatabaseSession, file: AgenticIntakeFile): Promise<void> {
+    await session.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [file.id,file.objectKey,file.originalFilename,file.format,file.mediaType,file.byteSize,file.payloadDigest,file.status,file.createdBy,file.version,file.createdAt,file.updatedAt]);
+  }
+  async findIntakeFile(session: DatabaseSession, fileId: string): Promise<AgenticIntakeFile | undefined> {
+    const result = await session.query<Row>("SELECT * FROM agentic_intake_files WHERE id=$1", [fileId]);
+    return result.rows[0] === undefined ? undefined : mapIntakeFile(result.rows[0]);
+  }
+  async transitionIntakeFile(session: DatabaseSession, file: AgenticIntakeFile, expectedVersion: number): Promise<boolean> {
+    const result = await session.query("UPDATE agentic_intake_files SET status=$2,version=$3,updated_at=$4,scanned_at=$5,approved_at=$6,rejected_at=$7,deleted_at=$8 WHERE id=$1 AND version=$9", [file.id,file.status,file.version,file.updatedAt,file.scannedAt??null,file.approvedAt??null,file.rejectedAt??null,file.deletedAt??null,expectedVersion]); return result.rowCount===1;
+  }
+  async appendFilePreview(session: DatabaseSession, preview: AgenticFilePreview): Promise<void> {
+    await session.query("INSERT INTO agentic_file_previews(id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [preview.id,preview.fileId,preview.previewVersion,preview.parserVersion,preview.payloadDigest,preview.previewDigest,preview.summary,preview.createdAt]);
+  }
+  async approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`agentic.file.approve:${input.fileId}`]);
+    const existing = await session.query<Row>("SELECT task_id FROM agentic_file_approvals WHERE idempotency_key=$1", [input.idempotencyKey]);
+    if (existing.rows[0] !== undefined) return { status:"duplicate", taskId:String(existing.rows[0].task_id) };
+    await this.createTask(session,input.task);
+    await session.query("INSERT INTO agentic_file_approvals(id,file_id,preview_version,preview_digest,task_id,idempotency_key,approved_by,approved_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [input.id,input.fileId,input.previewVersion,input.previewDigest,input.task.id,input.idempotencyKey,input.approvedBy,input.approvedAt]);
+    const result = await session.query("UPDATE agentic_intake_files SET status='approved',approved_at=$2,version=version+1,updated_at=$2 WHERE id=$1 AND status='previewed'", [input.fileId,input.approvedAt]);
+    if (result.rowCount!==1) throw new AgenticApplicationError("FILE_APPROVAL_CONFLICT", "File preview is no longer approvable");
+    return { status:"created",taskId:input.task.id };
+  }
   async findAgentByClientId(
     session: DatabaseSession,
     clientId: string,
@@ -1429,6 +1455,10 @@ function mapTask(row: Row): AgentTask {
       : { configurationRevisionId: String(row.configuration_revision_id) }),
   };
   return task;
+}
+
+function mapIntakeFile(row: Row): AgenticIntakeFile {
+  return { id:String(row.id), objectKey:String(row.object_key), originalFilename:String(row.original_filename), format:row.format as AgenticIntakeFile["format"], mediaType:row.media_type as AgenticIntakeFile["mediaType"], byteSize:Number(row.byte_size), payloadDigest:String(row.payload_digest), status:row.status as AgenticIntakeFile["status"], createdBy:String(row.created_by), version:Number(row.version), createdAt:toIso(row.created_at), updatedAt:toIso(row.updated_at), ...(row.scanned_at===null?{}:{scannedAt:toIso(row.scanned_at)}), ...(row.approved_at===null?{}:{approvedAt:toIso(row.approved_at)}), ...(row.rejected_at===null?{}:{rejectedAt:toIso(row.rejected_at)}), ...(row.deleted_at===null?{}:{deletedAt:toIso(row.deleted_at)}) };
 }
 
 function mapAgent(row: Row): AgentProfile {
