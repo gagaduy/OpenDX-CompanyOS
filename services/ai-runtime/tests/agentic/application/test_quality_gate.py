@@ -291,6 +291,16 @@ def test_schema_failure_becomes_partial_after_correction_exhaustion() -> None:
     assert decision.evidence_ids == ()
 
 
+def test_schema_failure_classifies_invalid_reason_codes_without_retaining_output() -> None:
+    malformed = valid_result()
+    malformed["conclusions"][0]["code"] = "not-a-governed-code"
+
+    decision = QualityGate().evaluate(malformed, quality_context())
+
+    assert decision.reasons == ("RESULT_REASON_CODE_INVALID",)
+    assert "not-a-governed-code" not in repr(decision)
+
+
 @pytest.mark.parametrize("correction_round", [0, 1, 2])
 def test_restricted_result_classification_escalates_without_retaining_canary(
     correction_round: int,

@@ -156,9 +156,9 @@ class QualityGate:
     ) -> QualityDecision:
         try:
             inspection = inspect_model_result(raw_result)
-        except (TypeError, ValueError, RecursionError, OverflowError):
+        except (TypeError, ValueError, RecursionError, OverflowError) as error:
             return _quality_failure_decision(
-                context.correction_round, ("SCHEMA_INVALID",), ()
+                context.correction_round, (_schema_failure_code(error),), ()
             )
 
         result = inspection.envelope
@@ -298,6 +298,15 @@ def _quality_failure_decision(
     )
     outcome = "partial" if can_return_partial else "escalate"
     return QualityDecision(outcome, reasons, evidence_ids)
+
+
+def _schema_failure_code(error: Exception) -> str:
+    if type(error) is ValueError:
+        if str(error) == "invalid uppercase snake reason code":
+            return "RESULT_REASON_CODE_INVALID"
+        if str(error) == "provenanceIds requires one to eight entries":
+            return "RESULT_PROVENANCE_INVALID"
+    return "SCHEMA_INVALID"
 
 
 def _append_reason(reasons: list[str], reason: str) -> None:
