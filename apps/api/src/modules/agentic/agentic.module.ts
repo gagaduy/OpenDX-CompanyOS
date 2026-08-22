@@ -19,6 +19,7 @@ import { PolicyService } from "./application/services/implementations/policy.ser
 import { WorkflowCommandDispatcher } from "./application/services/implementations/workflow-command-dispatcher";
 import { WorkflowRunServiceImpl } from "./application/services/implementations/workflow-run.service";
 import { ModelRunServiceImpl } from "./application/services/implementations/model-run.service";
+import { OrchestrationServiceImpl } from "./application/services/implementations/orchestration.service";
 import type { WorkflowGateway } from "./application/workflows/interfaces/workflow-gateway";
 import { ConfigurationServiceImpl } from "./application/services/implementations/configuration.service";
 import { EmergencyRevocationService } from "./application/services/implementations/emergency-revocation.service";
@@ -91,6 +92,9 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dependencies.generateId,
     dependencies.now,
   );
+  const orchestration = new OrchestrationServiceImpl(
+    repository, dependencies.transactions, policy, dependencies.generateId,
+  );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
     ? undefined
@@ -119,7 +123,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   );
   const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files);
   const workflowController = new AgenticWorkflowController(workflows);
-  const workloadController = new AgenticWorkloadController(workflows, modelRuns);
+  const workloadController = new AgenticWorkloadController(workflows, modelRuns, orchestration);
   const toolController = new AgenticToolController(tools);
   const appendDenied = (denied: { readonly actorId: string; readonly action: string; readonly resourceId: string; readonly correlationId: string }) =>
     dependencies.transactions.run((session) => repository.appendAudit(session, {
@@ -158,6 +162,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     configurations,
     workflows,
     modelRuns,
+    orchestration,
     tools,
     ...(dependencies.executionEnabled === true
       ? { readiness: () => dependencies.workflowGateway.probe() }

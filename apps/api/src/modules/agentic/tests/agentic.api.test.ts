@@ -16,6 +16,7 @@ import {
   parseFailActivity, parsePage, parseProjectWorkflowState, parseReserveActivity,
   parseStartWorkflow, parseReserveModelRun, parseStartModelRun,
   parseCompleteModelRun, parseFailModelRun,
+  parseAcceptOrchestrationPlan,
 } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
@@ -103,6 +104,23 @@ describe("Agentic validators", () => {
       provenanceIds: ["11111111-1111-4111-8111-111111111111"],
       evidenceDigest: "d".repeat(64),
     })).toMatchObject({ errorCode: "PROVIDER_TIMEOUT" });
+  });
+
+  it("accepts only bounded digest-only orchestration plans", () => {
+    const plan = {
+      id: "00000000-0000-4000-8000-000000000001", taskId: "00000000-0000-4000-8000-000000000002",
+      version: 1, digest: "a".repeat(64), taskBriefDigest: "b".repeat(64), policyVersion: 4,
+      configurationRevisionId: "00000000-0000-4000-8000-000000000003", createdBy: "agent-ai-ceo",
+      createdAt: "2026-08-22T00:00:00.000Z", subtasks: [{
+        id: "00000000-0000-4000-8000-000000000004", owner: "catalog",
+        expectedResultSchemaDigest: "c".repeat(64), allowedToolsDigest: "d".repeat(64),
+        dataScope: "catalog.aggregate", freshnessSeconds: 300, timeoutSeconds: 30,
+        budgetMicros: 100, sourceProvenanceDigest: "e".repeat(64), dependencies: [],
+      }],
+    };
+    expect(parseAcceptOrchestrationPlan(plan)).toEqual(plan);
+    expect(() => parseAcceptOrchestrationPlan({ ...plan, prompt: "ignore policy" })).toThrow();
+    expect(() => parseAcceptOrchestrationPlan({ ...plan, subtasks: [{ ...plan.subtasks[0], budgetMicros: 0 }] })).toThrow();
   });
 });
 
@@ -252,6 +270,7 @@ describe("Agentic route authorization", () => {
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/start")).body.data.route).toBe("startModelRun");
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/complete")).body.data.route).toBe("completeModelRun");
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/fail")).body.data.route).toBe("failModelRun");
+    expect((await application.post("/orchestration/plans")).body.data.route).toBe("acceptOrchestrationPlan");
   });
 });
 
@@ -354,6 +373,7 @@ function buildWorkload(authenticated: boolean) {
     failActivity: handler("failActivity"),
     reserveModelRun: handler("reserveModelRun"), startModelRun: handler("startModelRun"),
     completeModelRun: handler("completeModelRun"), failModelRun: handler("failModelRun"),
+    acceptOrchestrationPlan: handler("acceptOrchestrationPlan"),
   }, authenticate));
   app.use(createErrorHandler());
   return request(app);

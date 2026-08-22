@@ -6,6 +6,7 @@ import type { WorkloadPrincipal } from "../../../../shared/auth/workload-princip
 import { successResponse } from "../../../../shared/http/api-response";
 import type { WorkflowRunService } from "../../application/services/interfaces/workflow-run.service";
 import type { ModelRunService } from "../../application/services/interfaces/model-run.service";
+import type { OrchestrationService } from "../../application/services/interfaces/orchestration.service";
 import {
   parseCompleteModelRun,
   parseCompleteActivity,
@@ -17,12 +18,14 @@ import {
   parseReserveModelRun,
   parseStartModelRun,
   parseUuid,
+  parseAcceptOrchestrationPlan,
 } from "../validators/agentic.validator";
 
 export class AgenticWorkloadController {
   constructor(
     private readonly workflows: WorkflowRunService,
     private readonly modelRuns: ModelRunService,
+    private readonly orchestration: OrchestrationService,
   ) {}
 
   readonly loadPlan = handle(async (request, response) => {
@@ -85,6 +88,11 @@ export class AgenticWorkloadController {
       runId: parseUuid(request.params.runId),
       ...parseFailModelRun(request.body),
     }, principal(response.locals))));
+  });
+
+  readonly acceptOrchestrationPlan = handle(async (request, response) => {
+    await this.orchestration.acceptPlan(parseAcceptOrchestrationPlan(request.body), principal(response.locals));
+    response.status(202).json(successResponse("Orchestration plan accepted", { accepted: true }));
   });
 }
 

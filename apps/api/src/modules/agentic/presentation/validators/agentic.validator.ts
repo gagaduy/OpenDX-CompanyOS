@@ -132,6 +132,22 @@ const failActivity = z.object({
 const safeIdentifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,219}$/);
 const modelId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$/);
 const nonnegativeSafeInteger = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const orchestrationSubtask = z.object({
+  id: uuid, owner: agentKind, expectedResultSchemaDigest: digest, allowedToolsDigest: digest,
+  dataScope: z.string().trim().min(1).max(255), freshnessSeconds: safePositive,
+  timeoutSeconds: safePositive, budgetMicros: safePositive, sourceProvenanceDigest: digest,
+  dependencies: z.array(uuid).max(100).refine((values) => new Set(values).size === values.length,
+    "Dependencies must be unique"),
+}).strict();
+const acceptOrchestrationPlan = z.object({
+  id: uuid, taskId: uuid, version: positiveVersion, digest, taskBriefDigest: digest,
+  policyVersion: positiveVersion, configurationRevisionId: uuid, createdBy: safeIdentifier,
+  createdAt: z.iso.datetime({ offset: true }), subtasks: z.array(orchestrationSubtask).min(1).max(100),
+}).strict().superRefine((value, context) => {
+  if (new Set(value.subtasks.map(({ id }) => id)).size !== value.subtasks.length) {
+    context.addIssue({ code: "custom", path: ["subtasks"], message: "Subtask identifiers must be unique" });
+  }
+});
 const modelRunProvenanceIds = z.array(uuid).min(1).max(128).refine(
   (values) => new Set(values).size === values.length,
   "Provenance identifiers must be unique",
@@ -211,6 +227,7 @@ export const parseReserveModelRun = (value: unknown) => parse(reserveModelRun, v
 export const parseStartModelRun = (value: unknown) => parse(startModelRun, value);
 export const parseCompleteModelRun = (value: unknown) => parse(completeModelRun, value);
 export const parseFailModelRun = (value: unknown) => parse(failModelRun, value);
+export const parseAcceptOrchestrationPlan = (value: unknown) => parse(acceptOrchestrationPlan, value);
 export const parseFileAction = (value: unknown) => parse(fileAction, value);
 export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
 export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);

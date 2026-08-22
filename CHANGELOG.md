@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   workload identity, re-evaluates assignment policy, validates the plan DAG,
   and persists accepted plan audit and provenance atomically.
 
+- Expose a workload-authenticated, strict digest-only orchestration-plan
+  acceptance contract without echoing task, model, or source content.
+
 - Persist immutable AI CEO orchestration plan revisions, scoped subtasks,
   dependency edges, digest-only mediated collaboration requests, accepted
   Department evidence, and provenance-bound executive report summaries with

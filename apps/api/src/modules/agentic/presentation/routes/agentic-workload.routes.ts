@@ -13,6 +13,7 @@ export interface AgenticWorkloadControllerHandlers {
   readonly startModelRun: RequestHandler;
   readonly completeModelRun: RequestHandler;
   readonly failModelRun: RequestHandler;
+  readonly acceptOrchestrationPlan: RequestHandler;
 }
 
 export function createAgenticWorkloadRouter(
@@ -29,5 +30,6 @@ export function createAgenticWorkloadRouter(
   router.post("/model-runs/:runId/start", authenticate, controller.startModelRun);
   router.post("/model-runs/:runId/complete", authenticate, controller.completeModelRun);
   router.post("/model-runs/:runId/fail", authenticate, controller.failModelRun);
+  router.post("/orchestration/plans", authenticate, controller.acceptOrchestrationPlan);
   return router;
 }
