@@ -3,6 +3,7 @@
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type {
+  AcceptedOrchestrationResultAppendInput,
   AgenticRepository,
   AgentSubtaskDependencyRecord,
   AgentSubtaskRecord,
@@ -12,6 +13,8 @@ import type {
   BudgetLimitRecord,
   BudgetReservationInput,
   BudgetSettlementInput,
+  CollaborationRequestAppendInput,
+  ExecutiveReportAppendInput,
   ActivityReservationResult,
   AgenticFileApprovalInput,
   AgenticFileApprovalReplay,
@@ -20,6 +23,7 @@ import type {
   ModelConfigurationRecord,
   ModelRunReservationResult,
   ModelRunTerminalResult,
+  OrchestrationPlanAppendInput,
   PolicyRecord,
   ProvenanceRecord,
   RevisionChildren,
@@ -51,6 +55,59 @@ import { validateModelQualityEvidence, validateModelRun } from "../../../domain/
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<void> {
+    await session.query(`INSERT INTO agentic_accepted_orchestration_results
+      (id,task_id,plan_version,subtask_id,result_digest,quality_evidence_digest,provenance_digest,accepted_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [result.id,result.taskId,result.planVersion,result.subtaskId,result.resultDigest,result.qualityEvidenceDigest,result.provenanceDigest,result.acceptedAt]);
+  }
+
+  async appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<void> {
+    await session.query(`INSERT INTO agentic_executive_reports
+      (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,unavailable_branches_digest,cost_micros,approval_history_digest,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [report.id,report.taskId,report.planVersion,report.reportDigest,report.completionState,report.conclusionProvenanceDigest,report.unavailableBranchesDigest,report.costMicros,report.approvalHistoryDigest,report.createdAt]);
+  }
+
+  async appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<void> {
+    await session.query(
+      `INSERT INTO agentic_collaboration_requests
+       (id,task_id,plan_version,requester_agent_kind,requested_agent_kind,question_digest,purpose,
+        requested_data_classification,evidence_digest,redacted_payload_digest,policy_version,
+        policy_decision,idempotency_key,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [request.id, request.taskId, request.planVersion, request.requester, request.requested,
+        request.questionDigest, request.purpose, request.requestedDataClassification,
+        request.evidenceDigest, request.redactedPayloadDigest, request.policyVersion,
+        request.policyDecision, request.idempotencyKey, request.createdAt],
+    );
+  }
+
+  async appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void> {
+    await session.query(
+      `INSERT INTO agentic_orchestration_plan_revisions
+       (id,task_id,version,plan_digest,task_brief_digest,policy_version,configuration_revision_id,created_by,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [plan.id, plan.taskId, plan.version, plan.digest, plan.taskBriefDigest,
+        plan.policyVersion, plan.configurationRevisionId, plan.createdBy, plan.createdAt],
+    );
+    for (const subtask of plan.subtasks) {
+      await session.query(
+        `INSERT INTO agentic_orchestration_plan_subtasks
+         (id,plan_id,agent_kind,expected_result_schema_digest,allowed_tools_digest,data_scope,
+          freshness_seconds,timeout_seconds,budget_micros,source_provenance_digest)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [subtask.id, plan.id, subtask.owner, subtask.expectedResultSchemaDigest,
+          subtask.allowedToolsDigest, subtask.dataScope, subtask.freshnessSeconds,
+          subtask.timeoutSeconds, subtask.budgetMicros, subtask.sourceProvenanceDigest],
+      );
+      for (const dependencyId of subtask.dependencies) {
+        await session.query(
+          `INSERT INTO agentic_orchestration_plan_dependencies(plan_id,subtask_id,dependency_subtask_id)
+           VALUES($1,$2,$3)`, [plan.id, subtask.id, dependencyId],
+        );
+      }
+    }
+  }
+
   async claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]> {
     const result = await session.query<Row>(`WITH claimed AS (SELECT id FROM agentic_intake_files WHERE status='uploaded' OR (status='scanning' AND (processing_claimed_at IS NULL OR processing_claimed_at < $1::timestamptz - interval '10 minutes')) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE agentic_intake_files f SET status='scanning',processing_claimed_at=$1::timestamptz,version=version+1,updated_at=$1::timestamptz FROM claimed WHERE f.id=claimed.id RETURNING f.id`, [now, limit]); return result.rows.map((row) => String(row.id));
   }

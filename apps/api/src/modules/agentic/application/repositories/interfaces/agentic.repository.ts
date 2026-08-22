@@ -233,6 +233,64 @@ export interface AgentSubtaskDependencyRecord {
   readonly to: string;
 }
 
+export interface OrchestrationPlanSubtaskInput {
+  readonly id: string;
+  readonly owner: AgentKind;
+  readonly expectedResultSchemaDigest: string;
+  readonly allowedToolsDigest: string;
+  readonly dataScope: string;
+  readonly freshnessSeconds: number;
+  readonly timeoutSeconds: number;
+  readonly budgetMicros: number;
+  readonly sourceProvenanceDigest: string;
+  readonly dependencies: readonly string[];
+}
+
+export interface OrchestrationPlanAppendInput {
+  readonly id: string;
+  readonly taskId: string;
+  readonly version: number;
+  readonly digest: string;
+  readonly taskBriefDigest: string;
+  readonly policyVersion: number;
+  readonly configurationRevisionId: string;
+  readonly createdBy: string;
+  readonly createdAt: string;
+  readonly subtasks: readonly OrchestrationPlanSubtaskInput[];
+}
+
+export interface CollaborationRequestAppendInput {
+  readonly id: string;
+  readonly taskId: string;
+  readonly planVersion: number;
+  readonly requester: AgentKind;
+  readonly requested: AgentKind;
+  readonly questionDigest: string;
+  readonly purpose: string;
+  readonly requestedDataClassification: string;
+  readonly evidenceDigest: string;
+  readonly redactedPayloadDigest: string;
+  readonly policyVersion: number;
+  readonly policyDecision: "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
+  readonly idempotencyKey: string;
+  readonly createdAt: string;
+}
+
+export interface AcceptedOrchestrationResultAppendInput {
+  readonly id: string; readonly taskId: string; readonly planVersion: number;
+  readonly subtaskId: string; readonly resultDigest: string;
+  readonly qualityEvidenceDigest: string; readonly provenanceDigest: string;
+  readonly acceptedAt: string;
+}
+
+export interface ExecutiveReportAppendInput {
+  readonly id: string; readonly taskId: string; readonly planVersion: number;
+  readonly reportDigest: string;
+  readonly completionState: "complete" | "partial" | "quality_escalated" | "canceled";
+  readonly conclusionProvenanceDigest: string; readonly unavailableBranchesDigest: string;
+  readonly costMicros: number; readonly approvalHistoryDigest: string; readonly createdAt: string;
+}
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -296,6 +354,10 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void>;
+  appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<void>;
+  appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<void>;
+  appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<void>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;

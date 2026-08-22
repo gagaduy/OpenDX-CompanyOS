@@ -24,7 +24,9 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_model_quality_evidence, agentic_model_runs,
+    await pool.query(`TRUNCATE agentic_executive_reports, agentic_accepted_orchestration_results,
+      agentic_collaboration_requests, agentic_orchestration_plan_dependencies, agentic_orchestration_plan_subtasks,
+      agentic_orchestration_plan_revisions, agentic_model_quality_evidence, agentic_model_runs,
       agentic_file_approvals, agentic_file_previews, agentic_intake_files,
       agentic_workflow_signal_receipts,
       agentic_activity_invocations, agentic_workflow_runs,
@@ -40,6 +42,85 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("persists one immutable orchestration plan revision per task", async () => {
+    const at = "2026-08-22T00:00:00.000Z";
+    const taskId = randomUUID();
+    const configurationRevisionId = randomUUID();
+    await transactions.run((session) => repository.createRevision(session, {
+      id: configurationRevisionId, state: "draft", createdBy: "governance-admin",
+      payloadDigest: "f".repeat(64), version: 1, createdAt: at, updatedAt: at,
+    }));
+    await transactions.run((session) => repository.createTask(session, {
+      id: taskId, state: "draft", createdBy: "governance-admin",
+      goal: "Review Store Health", instructions: "Use approved aggregate evidence only",
+      version: 1, createdAt: at, updatedAt: at,
+    }));
+    const plan = {
+      id: randomUUID(), taskId, version: 1, digest: "a".repeat(64),
+      taskBriefDigest: "b".repeat(64), policyVersion: 1,
+      configurationRevisionId, createdBy: "agent-ai-ceo", createdAt: at,
+      subtasks: [{
+        id: randomUUID(), owner: "catalog" as const, expectedResultSchemaDigest: "c".repeat(64),
+        allowedToolsDigest: "d".repeat(64), dataScope: "catalog.aggregate",
+        freshnessSeconds: 300, timeoutSeconds: 30, budgetMicros: 100,
+        sourceProvenanceDigest: "e".repeat(64), dependencies: [],
+      }],
+    };
+
+    await transactions.run((session) => repository.appendOrchestrationPlan(session, plan));
+    await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, plan)))
+      .rejects.toMatchObject({ code: "23505" });
+    await expect(pool.query(`SELECT plan_digest, task_brief_digest, policy_version
+      FROM agentic_orchestration_plan_revisions WHERE task_id=$1`, [taskId]))
+      .resolves.toMatchObject({ rows: [{ plan_digest: plan.digest, task_brief_digest: plan.taskBriefDigest, policy_version: 1 }] });
+  });
+
+  it("persists one mediated collaboration request without its untrusted payload", async () => {
+    const at = "2026-08-22T00:00:00.000Z";
+    const taskId = randomUUID();
+    const configurationRevisionId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.createRevision(session, {
+        id: configurationRevisionId, state: "draft", createdBy: "governance-admin",
+        payloadDigest: "a".repeat(64), version: 1, createdAt: at, updatedAt: at,
+      });
+      await repository.createTask(session, {
+        id: taskId, state: "draft", createdBy: "governance-admin", goal: "Review Store Health",
+        instructions: "Use approved aggregate evidence only", version: 1, createdAt: at, updatedAt: at,
+      });
+      await repository.appendOrchestrationPlan(session, {
+        id: randomUUID(), taskId, version: 1, digest: "b".repeat(64), taskBriefDigest: "c".repeat(64),
+        policyVersion: 1, configurationRevisionId, createdBy: "agent-ai-ceo", createdAt: at,
+        subtasks: [{ id: randomUUID(), owner: "catalog", expectedResultSchemaDigest: "d".repeat(64),
+          allowedToolsDigest: "e".repeat(64), dataScope: "catalog.aggregate", freshnessSeconds: 300,
+          timeoutSeconds: 30, budgetMicros: 100, sourceProvenanceDigest: "f".repeat(64), dependencies: [] }],
+      });
+    });
+    const request = {
+      id: randomUUID(), taskId, planVersion: 1, requester: "catalog" as const, requested: "inventory" as const,
+      questionDigest: "a".repeat(64), purpose: "compare availability", requestedDataClassification: "internal",
+      evidenceDigest: "b".repeat(64), redactedPayloadDigest: "c".repeat(64), policyVersion: 1,
+      policyDecision: "ALLOW" as const, idempotencyKey: `collaboration:${taskId}:1`, createdAt: at,
+    };
+    await transactions.run((session) => repository.appendCollaborationRequest(session, request));
+    await expect(pool.query(`SELECT requester_agent_kind,requested_agent_kind,redacted_payload_digest
+      FROM agentic_collaboration_requests WHERE id=$1`, [request.id]))
+      .resolves.toMatchObject({ rows: [{ requester_agent_kind: "catalog", requested_agent_kind: "inventory", redacted_payload_digest: request.redactedPayloadDigest }] });
+  });
+
+  it("persists accepted evidence before a provenance-bound partial executive report", async () => {
+    const at = "2026-08-22T00:00:00.000Z";
+    const taskId = randomUUID(); const configurationRevisionId = randomUUID(); const planId = randomUUID(); const subtaskId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.createRevision(session, { id: configurationRevisionId, state: "draft", createdBy: "governance-admin", payloadDigest: "a".repeat(64), version: 1, createdAt: at, updatedAt: at });
+      await repository.createTask(session, { id: taskId, state: "draft", createdBy: "governance-admin", goal: "Review Store Health", instructions: "Use approved aggregate evidence only", version: 1, createdAt: at, updatedAt: at });
+      await repository.appendOrchestrationPlan(session, { id: planId, taskId, version: 1, digest: "b".repeat(64), taskBriefDigest: "c".repeat(64), policyVersion: 1, configurationRevisionId, createdBy: "agent-ai-ceo", createdAt: at, subtasks: [{ id: subtaskId, owner: "catalog", expectedResultSchemaDigest: "d".repeat(64), allowedToolsDigest: "e".repeat(64), dataScope: "catalog.aggregate", freshnessSeconds: 300, timeoutSeconds: 30, budgetMicros: 100, sourceProvenanceDigest: "f".repeat(64), dependencies: [] }] });
+      await repository.appendAcceptedOrchestrationResult(session, { id: randomUUID(), taskId, planVersion: 1, subtaskId, resultDigest: "1".repeat(64), qualityEvidenceDigest: "2".repeat(64), provenanceDigest: "3".repeat(64), acceptedAt: at });
+      await repository.appendExecutiveReport(session, { id: randomUUID(), taskId, planVersion: 1, reportDigest: "4".repeat(64), completionState: "partial", conclusionProvenanceDigest: "5".repeat(64), unavailableBranchesDigest: "6".repeat(64), costMicros: 100, approvalHistoryDigest: "7".repeat(64), createdAt: at });
+    });
+    await expect(pool.query("SELECT completion_state,unavailable_branches_digest FROM agentic_executive_reports WHERE task_id=$1", [taskId])).resolves.toMatchObject({ rows: [{ completion_state: "partial", unavailable_branches_digest: "6".repeat(64) }] });
   });
 
   it("persists bounded previews and atomically creates one draft task per approved file", async () => {

@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Persist immutable AI CEO orchestration plan revisions, scoped subtasks,
+  dependency edges, digest-only mediated collaboration requests, accepted
+  Department evidence, and provenance-bound executive report summaries with
+  PostgreSQL identity, policy, configuration, and idempotency bindings.
+
 - Define the focused Phase F AI CEO orchestration design for governed direct
   Store Health Review coordination.
 
