@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Complete the governed OpenRouter Phase D Catalog live acceptance with a
+  settled, audited, provenance-bound model run.
+
 - Preserve valid authoritative Quality Gate context when the runtime replaces
   its correction-round value for an initial model generation.
 
