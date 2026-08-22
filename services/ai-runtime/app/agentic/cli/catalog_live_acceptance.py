@@ -28,8 +28,7 @@ from app.shared.config import RuntimeSettings
 CONFIRMATION = "run-one-catalog"
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _MODEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
-_COMMAND_KEYS = frozenset({"agentKind", "taskId", "configurationRevisionId", "primaryModel", "fallbackModel", "inputDigest", "idempotencyKey"})
-_PROVENANCE_ID = "catalog-live-acceptance:synthetic"
+_COMMAND_KEYS = frozenset({"agentKind", "taskId", "configurationRevisionId", "primaryModel", "fallbackModel", "provenanceId", "inputDigest", "idempotencyKey"})
 _PROVENANCE_SOURCE = "catalog-live-acceptance"
 
 
@@ -44,6 +43,7 @@ def load_model_execution_command(value: Mapping[str, object], *, retrieved_at: d
     revision_id = _uuid(value.get("configurationRevisionId"))
     primary_model = _model(value.get("primaryModel"))
     fallback_model = _model(value.get("fallbackModel"))
+    provenance_id = _uuid(value.get("provenanceId"))
     input_digest = _digest(value.get("inputDigest"))
     idempotency_key = _digest(value.get("idempotencyKey"))
     observed_at = (retrieved_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -52,7 +52,7 @@ def load_model_execution_command(value: Mapping[str, object], *, retrieved_at: d
         "completenessBasisPoints": 10_000, "productsAtRisk": 0,
         "publicationBlockerCount": 0, "merchandisingSignalCount": 0, "riskLevel": "low",
     }
-    evidence = {"provenanceId": _PROVENANCE_ID, "source": _PROVENANCE_SOURCE, "retrievedAt": timestamp, "freshnessStatus": "fresh", "classification": "internal"}
+    evidence = {"provenanceId": provenance_id, "source": _PROVENANCE_SOURCE, "retrievedAt": timestamp, "freshnessStatus": "fresh", "classification": "internal"}
     return ModelExecutionCommand(
         task_id=task_id, agent_kind="catalog", configuration_revision_id=revision_id,
         primary_model=primary_model, fallback_model=fallback_model, input_digest=input_digest,
@@ -61,7 +61,7 @@ def load_model_execution_command(value: Mapping[str, object], *, retrieved_at: d
         context=AuthorizedContextInput("internal", {**expected_payload, "summary": "Synthetic internal local acceptance context.", "evidence": [evidence]}),
         quality_context=AuthoritativeQualityContext(
             expected_agent_kind="catalog", correction_round=0,
-            authorized_evidence=(AuthoritativeEvidenceFact(provenance_id=_PROVENANCE_ID, source=_PROVENANCE_SOURCE, retrieved_at=timestamp, freshness_status="fresh"),),
+            authorized_evidence=(AuthoritativeEvidenceFact(provenance_id=provenance_id, source=_PROVENANCE_SOURCE, retrieved_at=timestamp, freshness_status="fresh"),),
             expected_payload=expected_payload, unresolved_conflict_codes=(),
             purpose="catalog_live_acceptance", authorized_agent_scope=("catalog",), data_classification="internal",
         ),

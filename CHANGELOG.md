@@ -23,6 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Document the opt-in Catalog live acceptance, its $0.10 governed task cap,
   one-generation boundary, and local-only execution procedure.
 
+- Bind Catalog live-acceptance quality evidence to the task's persisted
+  provenance UUID so failed provider runs can settle safely.
+
 - Allow one Agentic Governance Administrator to directly activate an owned
   configuration revision while preserving immutable audit, provenance,
   revocation, task-pinning, and workflow-action approval safeguards.

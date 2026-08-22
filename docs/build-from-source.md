@@ -157,7 +157,10 @@ fallback nor Quality Gate correction retry is permitted. Its configured task
 budget remains authoritative (currently $0.10); non-accepted quality results
 settle as `partial`. No public endpoint is added, and output contains only run
 ID, status, token counts, and settled cost. The normal worker remains disabled
-unless separately configured; remove the confirmation variable after use.
+unless separately configured; remove the confirmation variable after use. The
+wrapper signs in to the local `opendx` realm as `admin@novacommerce.example`;
+set `AGENTIC_LIVE_ACCEPTANCE_ADMIN_USERNAME` only when the local staff
+administrator uses a different username.
 
 The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a
 suffixed disposable PostgreSQL database and API process, obtains six distinct

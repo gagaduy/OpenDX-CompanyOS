@@ -246,6 +246,11 @@ class ModelExecutor:
         self, reservation: object, command: ModelExecutionCommand,
         error: ModelGatewayFailure, attempted: ModelRequest, started_at: float,
     ) -> None:
+        provenance_ids = tuple(
+            item.provenance_id
+            for item in getattr(command.quality_context, "authorized_evidence", ())
+            if type(getattr(item, "provenance_id", None)) is str
+        )
         state = await self._controls.start_model_run(StartModelRunRequest(
             reservation.run_id, reservation.version, attempted.model, attempted.fallback_position
         ))
@@ -253,7 +258,7 @@ class ModelExecutor:
             reservation.run_id, state.version,
             f"{command.idempotency_key}:gateway-failure", None, 0, 0, None,
             _elapsed_ms(started_at, self._now()), "MODEL_GATEWAY_FAILED", error.code,
-            "escalate", (error.code,), (), _digest({"errorCode": error.code}),
+            "escalate", (error.code,), provenance_ids, _digest({"errorCode": error.code}),
         ))
 
     async def _settle_unexpected(

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -240,6 +241,22 @@ def test_non_retryable_gateway_failure_settles_failure_without_fallback() -> Non
     assert [request.model for event, request in gateway.requests if event == "generate"] == [
         "google/gemma-4-26b-a4b-it:free",
     ]
+
+
+def test_gateway_failure_settlement_retains_authorized_evidence_provenance() -> None:
+    controls = Controls()
+    gateway = Gateway([ModelGatewayFailure("OPENROUTER_SCHEMA_INVALID", retryable=False)])
+    command_with_evidence = ModelExecutionCommand(**{
+        **command().__dict__,
+        "quality_context": SimpleNamespace(
+            authorized_evidence=(SimpleNamespace(provenance_id="prov-1"),),
+        ),
+    })
+
+    with pytest.raises(ModelExecutionError):
+        asyncio.run(executor(controls, gateway, Quality([])).execute(command_with_evidence))
+
+    assert controls.failed[0].provenance_ids == ("prov-1",)
 
 
 def test_retryable_primary_and_fallback_failure_settles_the_fallback_attempt() -> None:

@@ -43,6 +43,7 @@ def test_loads_catalog_command_with_one_provider_attempt_only() -> None:
             "configurationRevisionId": "d8a87b5e-399b-4b2a-bdd0-a8ddc02f0105",
             "primaryModel": "openai/gpt-5-mini",
             "fallbackModel": "openai/gpt-5-mini",
+            "provenanceId": "741dbf9f-6e80-4a36-a52b-bd9f9f8ef6e8",
             "inputDigest": "a" * 64,
             "idempotencyKey": "b" * 64,
         },
@@ -53,3 +54,4 @@ def test_loads_catalog_command_with_one_provider_attempt_only() -> None:
     assert command.allow_fallback is False
     assert command.agent_kind == "catalog"
     assert command.context.classification == "internal"
+    assert command.quality_context.authorized_evidence[0].provenance_id == "741dbf9f-6e80-4a36-a52b-bd9f9f8ef6e8"

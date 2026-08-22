@@ -40,11 +40,24 @@ function queryCatalogConfiguration() {
   return JSON.parse(raw);
 }
 
+function queryTaskProvenance(taskId) {
+  const query = `SELECT id FROM agentic_provenance_records
+    WHERE task_id='${taskId}'
+    ORDER BY recorded_at ASC
+    LIMIT 1`;
+  const provenanceId = compose([
+    "exec", "-T", "postgres", "psql", "-X", "-U", "opendx_local", "-d", "opendx",
+    "-v", "ON_ERROR_STOP=1", "-Atqc", query,
+  ]);
+  if (!provenanceId) fail("The ready Catalog task has no persisted provenance record.");
+  return provenanceId;
+}
+
 async function operatorToken() {
-  const username = process.env.KEYCLOAK_ADMIN;
+  const username = process.env.AGENTIC_LIVE_ACCEPTANCE_ADMIN_USERNAME ?? "admin@novacommerce.example";
   const password = process.env.KEYCLOAK_DEV_ADMIN_PASSWORD ?? process.env.KEYCLOAK_ADMIN_PASSWORD;
   const authority = process.env.AGENTIC_LIVE_ACCEPTANCE_KEYCLOAK_URL ?? process.env.KEYCLOAK_URL ?? "http://localhost:8080";
-  if (!username || !password) fail("Export KEYCLOAK_ADMIN and KEYCLOAK_DEV_ADMIN_PASSWORD before running live acceptance.");
+  if (!password) fail("Export KEYCLOAK_DEV_ADMIN_PASSWORD before running live acceptance.");
   const body = new URLSearchParams({ grant_type: "password", client_id: "opendx-lifecycle-check", username, password });
   const response = await fetch(`${authority}/realms/opendx/protocol/openid-connect/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
   const payload = await response.json();
@@ -75,9 +88,11 @@ async function main() {
   });
   const taskId = task.task.id;
   await request(`/v1/admin/agentic/tasks/${taskId}/ready`, token, { expectedVersion: 1 });
+  const provenanceId = queryTaskProvenance(taskId);
   const command = {
     agentKind: "catalog", taskId, configurationRevisionId: config.configurationRevisionId,
     primaryModel: config.primaryModel, fallbackModel: config.fallbackModel,
+    provenanceId,
     inputDigest: digest(`catalog-live-input:${taskId}`), idempotencyKey: digest(`catalog-live-run:${taskId}`),
   };
   compose(["build", "ai-worker"]);

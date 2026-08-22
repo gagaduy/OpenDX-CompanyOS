@@ -10,6 +10,8 @@ test("catalog live acceptance has an explicit one-call local safety contract", (
   assert.match(source, /OPENROUTER_LIVE_ACCEPTANCE_CONFIRM/);
   assert.match(source, /run-one-catalog/);
   assert.match(source, /agent_kind='catalog'/);
+  assert.match(source, /provenanceId/);
+  assert.match(source, /admin@novacommerce\.example/);
   assert.match(source, /docker compose/);
   assert.match(source, /"python", "-m", "app\.agentic\.cli\.catalog_live_acceptance"/);
   assert.doesNotMatch(source, /sk-or-v1-/);
