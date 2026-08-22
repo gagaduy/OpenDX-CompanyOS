@@ -5,6 +5,7 @@
 set -euo pipefail
 
 git diff --check
+node --test scripts/dev/check-fast.test.mjs scripts/dev/keycloak-port-config.test.mjs
 pnpm lint
 pnpm typecheck
 pnpm --workspace-concurrency=1 --filter './packages/**' --filter './apps/**' test

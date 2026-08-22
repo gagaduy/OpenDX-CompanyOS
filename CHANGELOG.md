@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Allow local Keycloak host-port configuration so the full stack can coexist
+  with another service using port 8080.
+
 - Add a compact current-delivery brief and focused document-routing rules for
   agents, plus fast and full validation gates so routine work does not run
   unrelated acceptance checks.

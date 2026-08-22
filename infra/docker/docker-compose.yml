@@ -18,7 +18,7 @@ x-api-environment: &api-environment
   CUSTOMER_SESSION_TTL_SECONDS: "2592000"
   GUEST_SESSION_TTL_SECONDS: "604800"
   AUTH_RATE_LIMIT: "20"
-  KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
+  KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
   KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
   KEYCLOAK_AUDIENCE: opendx-api
   KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
@@ -68,7 +68,7 @@ x-ai-environment: &ai-environment
   APP_ENV: development
   AI_RUNTIME_HOST: 0.0.0.0
   AI_RUNTIME_PORT: "8000"
-  KEYCLOAK_ISSUER: http://localhost:8080/realms/opendx
+  KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
   KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
   KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
   AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
@@ -200,7 +200,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: opendx_admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: opendx_admin_password
       KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8080}
       AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
       AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
       AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
@@ -210,7 +210,7 @@ services:
       AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
       AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT:-8080}:8080"
     volumes:
       - ../keycloak/realm-export.json:/opt/keycloak/data/import/opendx-realm.json:ro
     healthcheck:
@@ -385,7 +385,7 @@ services:
       network: host
     environment:
       VITE_API_BASE_URL: http://localhost:4000
-      VITE_OIDC_AUTHORITY: http://localhost:8080/realms/opendx
+      VITE_OIDC_AUTHORITY: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
       VITE_OIDC_CLIENT_ID: opendx-console
       VITE_OIDC_REDIRECT_URI: http://localhost:3000/auth/callback
       VITE_OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/sign-in
