@@ -8,7 +8,8 @@ import type { DatabaseSession, TransactionRunner } from "../../../../../shared/d
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgenticFileScanner, AgenticFileScanResult } from "../../security/agentic-file-scanner";
 import type { AgenticFileStorage } from "../../storage/agentic-file-storage";
-import { AgenticFileServiceImpl } from "./agentic-file.service";
+import { AGENTIC_FILE_LIMITS } from "../../../domain/services/agentic-file-rules";
+import { AgenticFileServiceImpl, createAgenticFilePreview } from "./agentic-file.service";
 
 const session = {} as DatabaseSession;
 const tx: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
@@ -23,14 +24,11 @@ describe("AgenticFileServiceImpl", () => {
     expect(storage.delete).toHaveBeenCalledWith(expect.stringMatching(/^agentic-intake\//));
   });
 
-  it("claims scanning once and replays an existing immutable preview during a scan race", async () => {
-    const { service, repository, scanner } = harness({ transitionResults: [true, true, true, false] });
+  it("does not scan when another worker has already claimed the uploaded file", async () => {
+    const { service, scanner } = harness({ transitionResults: [false] });
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
-    const first = await service.scanAndPreview(uploaded.file.id, admin);
-    const replay = await service.scanAndPreview(uploaded.file.id, admin);
-    expect(replay).toEqual(first);
-    expect(scanner.scan).toHaveBeenCalledOnce();
-    expect(repository.appendFilePreview).toHaveBeenCalledOnce();
+    await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_PROCESSING" });
+    expect(scanner.scan).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -44,6 +42,14 @@ describe("AgenticFileServiceImpl", () => {
     expect(repository.appendFilePreview).not.toHaveBeenCalled();
   });
 
+  it("rejects a malformed file after clean transition using the clean record version", async () => {
+    const { service, storage, repository } = harness({ content: Buffer.from('"unterminated'), enforceExpectedVersion: true });
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: Buffer.from('"unterminated') }, admin);
+    await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
+    expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 4 });
+    expect(storage.delete).toHaveBeenCalledWith(uploaded.file.objectKey);
+  });
+
   it("returns a stable digest over an aggregate-only bounded preview", async () => {
     const { service } = harness();
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
@@ -52,6 +58,21 @@ describe("AgenticFileServiceImpl", () => {
     expect(preview.sourceReferences[0]).toEqual({ fileId: uploaded.file.id, line: 1 });
     expect(preview.previewDigest).toMatch(/^[a-f0-9]{64}$/);
     expect("content" in preview).toBe(false);
+  });
+
+  it("caps retained aggregate preview content at 256 KiB", async () => {
+    const longRows = Buffer.from(Array.from({ length: 50 }, (_, index) => `${index},${"x".repeat(6_000)}`).join("\n"));
+    const { service } = harness({ content: longRows });
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: longRows }, admin);
+    const preview = await service.scanAndPreview(uploaded.file.id, admin);
+    expect(Buffer.byteLength(JSON.stringify(preview), "utf8")).toBeLessThanOrEqual(AGENTIC_FILE_LIMITS.maxPreviewBytes);
+  });
+
+  it("produces the same preview digest for equivalent parsed content", () => {
+    const file = { id: "file-1", payloadDigest: "a".repeat(64) };
+    const parsed = { rowCount: 2, columnCount: 2, samples: ["sku,quantity", "SKU-1,4"] };
+    expect(createAgenticFilePreview(file, parsed, "preview-1", "2026-08-22T00:00:00.000Z").previewDigest)
+      .toBe(createAgenticFilePreview(file, { ...parsed, samples: [...parsed.samples] }, "preview-2", "2026-08-22T00:01:00.000Z").previewDigest);
   });
 
   it("replays an approval with the same task and creates neither subtasks nor runtime work", async () => {
@@ -86,7 +107,7 @@ describe("AgenticFileServiceImpl", () => {
   });
 });
 
-function harness(options: { readonly createFails?: boolean; readonly transitionResults?: readonly boolean[]; readonly scanResult?: { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string }; readonly content?: Buffer; readonly approvalResults?: readonly { readonly status: "created" | "duplicate"; readonly taskId: string }[] } = {}) {
+function harness(options: { readonly createFails?: boolean; readonly transitionResults?: readonly boolean[]; readonly enforceExpectedVersion?: boolean; readonly scanResult?: { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string }; readonly content?: Buffer; readonly approvalResults?: readonly { readonly status: "created" | "duplicate"; readonly taskId: string }[] } = {}) {
   const files = new Map<string, any>(); const previews = new Map<string, any>();
   const storage: AgenticFileStorage = { put: vi.fn(async () => undefined), open: vi.fn(async () => Readable.from([options.content ?? content])), delete: vi.fn(async () => undefined) };
   const clean: AgenticFileScanResult = { status: "clean" };
@@ -95,7 +116,7 @@ function harness(options: { readonly createFails?: boolean; readonly transitionR
   const repository = {
     createIntakeFile: vi.fn(async (_: DatabaseSession, file: any) => { if (options.createFails) throw new Error("db unavailable"); files.set(file.id, file); }),
     findIntakeFile: vi.fn(async (_: DatabaseSession, id: string) => files.get(id)),
-    transitionIntakeFile: vi.fn(async (_: DatabaseSession, file: any) => { const result = transitions.shift() ?? true; if (result) files.set(file.id, file); return result; }),
+    transitionIntakeFile: vi.fn(async (_: DatabaseSession, file: any, expectedVersion: number) => { const result = transitions.shift() ?? true; if (result && (!options.enforceExpectedVersion || files.get(file.id)?.version === expectedVersion)) { files.set(file.id, file); return true; } return false; }),
     appendFilePreview: vi.fn(async (_: DatabaseSession, preview: any) => { previews.set(`${preview.fileId}:${preview.previewVersion}`, preview); }),
     findFilePreview: vi.fn(async (_: DatabaseSession, fileId: string, version: number) => previews.get(`${fileId}:${version}`)),
     findFileApprovalByIdempotency: vi.fn(async (_: DatabaseSession, key: string) => { const taskId = approved.get(key); return taskId === undefined ? undefined : { status: "duplicate" as const, taskId }; }),
