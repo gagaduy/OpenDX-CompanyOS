@@ -136,7 +136,7 @@ class AuthoritativeQualityContext:
             if self.data_classification not in _CLASSIFICATIONS:
                 _invalid_context()
             parsed_payload = _parse_authoritative_payload(
-                self.expected_agent_kind, self.expected_payload
+                self.expected_agent_kind, _mutable_json(self.expected_payload)
             )
         except ValueError:
             _invalid_context()
@@ -432,6 +432,14 @@ def _parse_authoritative_payload(agent_kind: AgentKind, payload: object) -> obje
         }
     )
     return result.payload
+
+
+def _mutable_json(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {key: _mutable_json(item) for key, item in value.items()}
+    if type(value) in (tuple, list):
+        return [_mutable_json(item) for item in value]
+    return value
 
 
 def _is_safe_identifier(value: object) -> bool:

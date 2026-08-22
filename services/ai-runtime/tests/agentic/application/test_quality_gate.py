@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from typing import Any
@@ -156,6 +157,14 @@ def quality_context(
         authorized_agent_scope=authorized_scope or (agent_kind,),
         data_classification=classification,
     )
+
+
+def test_authoritative_quality_context_can_be_replaced_for_initial_generation() -> None:
+    context = quality_context(correction_round=0)
+
+    replaced = replace(context, correction_round=0)
+
+    assert replaced.correction_round == 0
 
 
 @pytest.mark.parametrize("agent_kind", PAYLOADS)

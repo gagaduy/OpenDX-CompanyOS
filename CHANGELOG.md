@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve valid authoritative Quality Gate context when the runtime replaces
+  its correction-round value for an initial model generation.
+
 - Classify malformed OpenRouter response envelopes, choices, and content
   separately while retaining redacted, failure-only diagnostics.
 
