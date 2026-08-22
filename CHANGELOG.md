@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Keep the local Catalog live-acceptance response schema within the strict
+  structured-output subset accepted by the configured provider.
+
 - Define a local-only, single-Catalog governed OpenRouter live-acceptance
   command that requires an explicit cost confirmation.
 

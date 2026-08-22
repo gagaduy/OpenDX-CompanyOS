@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 
 import pytest
 
 from app.agentic.cli.catalog_live_acceptance import (
     CatalogLiveAcceptanceError,
+    _catalog_result_schema,
     load_model_execution_command,
     run_catalog_acceptance,
 )
@@ -55,3 +57,13 @@ def test_loads_catalog_command_with_one_provider_attempt_only() -> None:
     assert command.agent_kind == "catalog"
     assert command.context.classification == "internal"
     assert command.quality_context.authorized_evidence[0].provenance_id == "741dbf9f-6e80-4a36-a52b-bd9f9f8ef6e8"
+
+
+def test_catalog_result_schema_uses_strict_structured_output_subset() -> None:
+    schema = _catalog_result_schema()
+
+    assert schema["properties"]["schemaVersion"] == {"enum": [1]}
+    assert schema["properties"]["agentKind"] == {"enum": ["catalog"]}
+    evidence = schema["properties"]["evidence"]["items"]
+    assert evidence["properties"]["classification"] == {"enum": ["internal"]}
+    assert '"const"' not in json.dumps(schema)

@@ -137,12 +137,12 @@ def _error_code(error: ValueError) -> str:
 
 
 def _catalog_result_schema() -> dict[str, object]:
-    evidence = _object({"provenanceId": {"type": "string"}, "source": {"type": "string"}, "retrievedAt": {"type": "string"}, "freshnessStatus": {"enum": ["fresh", "stale"]}, "classification": {"const": "internal"}})
+    evidence = _object({"provenanceId": {"type": "string"}, "source": {"type": "string"}, "retrievedAt": {"type": "string"}, "freshnessStatus": {"enum": ["fresh", "stale"]}, "classification": {"enum": ["internal"]}})
     reference = _object({"code": {"type": "string"}, "statement": {"type": "string"}, "confidenceBasis": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
     risk = _object({"code": {"type": "string"}, "severity": {"enum": ["low", "medium", "high"]}, "statement": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
     action = _object({"code": {"type": "string"}, "statement": {"type": "string"}, "requiresHumanApproval": {"type": "boolean"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
     payload = _object({"completenessBasisPoints": {"type": "integer"}, "productsAtRisk": {"type": "integer"}, "publicationBlockerCount": {"type": "integer"}, "merchandisingSignalCount": {"type": "integer"}, "riskLevel": {"enum": ["low", "medium", "high"]}})
-    return _object({"schemaVersion": {"const": 1}, "agentKind": {"const": "catalog"}, "status": {"enum": ["complete", "partial"]}, "summary": {"type": "string"}, "conclusions": {"type": "array", "items": reference}, "risks": {"type": "array", "items": risk}, "recommendedActions": {"type": "array", "items": action}, "evidence": {"type": "array", "items": evidence}, "payload": payload})
+    return _object({"schemaVersion": {"enum": [1]}, "agentKind": {"enum": ["catalog"]}, "status": {"enum": ["complete", "partial"]}, "summary": {"type": "string"}, "conclusions": {"type": "array", "items": reference}, "risks": {"type": "array", "items": risk}, "recommendedActions": {"type": "array", "items": action}, "evidence": {"type": "array", "items": evidence}, "payload": payload})
 
 
 def _object(properties: Mapping[str, object]) -> dict[str, object]:
