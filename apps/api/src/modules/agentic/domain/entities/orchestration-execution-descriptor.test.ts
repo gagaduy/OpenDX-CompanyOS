@@ -45,6 +45,7 @@ const payload = (overrides: Partial<ExecutionDescriptorPayload> = {}): Execution
     dataScope: "catalog:health:read",
     dataClassification: "internal",
     maximumInvocations: 5,
+    parameterTemplate: "empty",
   }],
   ...overrides,
 });

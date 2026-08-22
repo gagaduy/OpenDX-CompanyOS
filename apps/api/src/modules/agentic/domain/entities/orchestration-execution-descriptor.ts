@@ -14,6 +14,7 @@ export interface ExecutionToolGrant {
   readonly dataScope: string;
   readonly dataClassification: "internal" | "confidential" | "restricted";
   readonly maximumInvocations: number;
+  readonly parameterTemplate: "empty" | "aggregate_window_24h" | "evidence_window_24h";
 }
 
 export interface ExecutionDescriptorPayload {
@@ -146,7 +147,8 @@ function validToolGrant(grant: ExecutionToolGrant): boolean {
     && grant.purpose === "store_health_review"
     && SAFE_IDENTIFIER.test(grant.dataScope)
     && ["internal", "confidential", "restricted"].includes(grant.dataClassification)
-    && positive(grant.maximumInvocations);
+    && positive(grant.maximumInvocations)
+    && ["empty", "aggregate_window_24h", "evidence_window_24h"].includes(grant.parameterTemplate);
 }
 
 function canonicalize(value: unknown, depth: number, seen: Set<object>, rejectSensitive: boolean): unknown {

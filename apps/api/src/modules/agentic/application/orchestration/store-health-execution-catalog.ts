@@ -58,7 +58,7 @@ export const STORE_HEALTH_EXECUTION_CATALOG: readonly StoreHealthExecutionCatalo
   deepFreeze(DEPARTMENTS.map((agentKind) => {
     const resultSchema = departmentResultSchema(agentKind);
     const toolGrants = DEPARTMENT_TOOL_CATALOG
-      .filter((tool) => tool.agentKind === agentKind)
+      .filter((tool) => tool.agentKind === agentKind && tool.name !== "support.related_order_context")
       .map((tool): ExecutionToolGrant => ({
         name: tool.name,
         version: tool.version,
@@ -66,16 +66,29 @@ export const STORE_HEALTH_EXECUTION_CATALOG: readonly StoreHealthExecutionCatalo
         dataScope: tool.dataScope,
         dataClassification: tool.classification,
         maximumInvocations: tool.maximumInvocations,
+        parameterTemplate: parameterTemplate(tool.name),
       }));
     return {
       agentKind,
-      resultSchemaName: `store_health.${agentKind}.v1`,
+      resultSchemaName: `store_health_${agentKind}_v1`,
       resultSchema,
       resultSchemaDigest: canonicalDigest(resultSchema),
       toolGrants,
       allowedToolsDigest: canonicalDigest(toolGrants),
     };
   }));
+
+function parameterTemplate(name: string): ExecutionToolGrant["parameterTemplate"] {
+  if (["catalog.product_completeness", "catalog.merchandising_summary"].includes(name)) {
+    return "empty";
+  }
+  if (["finance.pending_payments", "finance.provider_evidence_status",
+    "crm.segment_summary", "crm.followup_opportunities",
+    "support.classification_summary"].includes(name)) {
+    return "aggregate_window_24h";
+  }
+  return "evidence_window_24h";
+}
 
 export function resolveStoreHealthExecution(
   agentKind: DepartmentAgentKind,

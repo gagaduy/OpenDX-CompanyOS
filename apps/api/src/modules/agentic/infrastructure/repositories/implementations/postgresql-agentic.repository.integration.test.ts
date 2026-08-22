@@ -115,7 +115,7 @@ suite("PostgresqlAgenticRepository", () => {
       authorizedContext: [],
       toolGrants: [{ name: "catalog.product_completeness", version: 1,
         purpose: "store_health_review", dataScope: "catalog:health:read",
-        dataClassification: "internal", maximumInvocations: 5 }],
+        dataClassification: "internal", maximumInvocations: 5, parameterTemplate: "empty" }],
     };
     const descriptor = createExecutionDescriptor({
       id: randomUUID(), version: 1, taskId, planVersion: 1, subtaskId,

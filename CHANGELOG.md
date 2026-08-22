@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Validate descriptor-bound Department execution before side effects, lock the
+  Python result-schema catalog to API digests, materialize only API-owned tool
+  parameter templates, and expose a digest-reference Temporal activity.
+
 - Isolate AI runtime worker, AI CEO, and six Department client credentials,
   and add bounded redacting transports for worker orchestration control,
   AI CEO plan submission, and explicit Department Tool Registry invocation.
