@@ -162,6 +162,18 @@ wrapper signs in to the local `opendx` realm as `admin@novacommerce.example`;
 set `AGENTIC_LIVE_ACCEPTANCE_ADMIN_USERNAME` only when the local staff
 administrator uses a different username.
 
+To inspect an existing terminal run without calling a provider, use the
+read-only local diagnostic:
+
+```bash
+pnpm diagnose:catalog-live -- --run-id 3c55ada2-7c52-4663-bd77-38d427171e1f
+```
+
+It reads only the persisted model run, audit count, and provenance count. Its
+category is intentionally `provider_unknown` when the historical run retained
+only a generic provider-rejection code; it never guesses a schema/model cause,
+prints a provider body, or creates another model run.
+
 The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a
 suffixed disposable PostgreSQL database and API process, obtains six distinct
 local Keycloak client credentials without printing them, invokes all 17 tools,

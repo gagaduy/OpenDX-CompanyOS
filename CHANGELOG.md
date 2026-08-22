@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Define a local-only, single-Catalog governed OpenRouter live-acceptance
   command that requires an explicit cost confirmation.
 
+- Add a redacted, read-only local diagnostic for terminal Catalog live
+  acceptance runs.
+
 - Limit Catalog live acceptance to one provider generation: no fallback model
   and no Quality Gate correction retry; record a partial outcome instead.
 
