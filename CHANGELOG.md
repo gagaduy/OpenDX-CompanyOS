@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add strict frozen AI CEO orchestration schemas, policy-eligible DAG
+  validation, and provenance-only executive synthesis with explicit partial
+  disclosure for unavailable Department branches.
+
 - Add the AI CEO orchestration application boundary that verifies the AI CEO
   workload identity, re-evaluates assignment policy, validates the plan DAG,
   and persists accepted plan audit and provenance atomically.
