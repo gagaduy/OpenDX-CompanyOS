@@ -200,11 +200,8 @@ async function ensureApprovalConfiguration(tokens) {
     method: "PATCH",
     body: { expectedVersion: 1, children: { ...emptyChildren, policies: [policy] } },
   });
-  await request(`/v1/admin/agentic/configuration-revisions/${revision.id}/submit`, {
+  await request(`/v1/admin/agentic/configuration-revisions/${revision.id}/activate`, {
     token: tokens.creator, method: "POST", body: { expectedVersion: 2 },
-  });
-  await request(`/v1/admin/agentic/configuration-revisions/${revision.id}/decision`, {
-    token: tokens.reviewer, method: "POST", body: { expectedVersion: 3, decision: "activate" },
   });
   return revision.id;
 }
