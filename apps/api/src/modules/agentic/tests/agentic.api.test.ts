@@ -159,6 +159,11 @@ describe("Agentic route authorization", () => {
     expect(response.body).not.toHaveProperty("data");
   });
 
+  it("returns 503 when the private file scanner is unavailable", async () => {
+    const response = await buildFiles("agentic_governance_admin", "governance-admin", true).get(`/files/${FILE_ID}/preview`).expect(503);
+    expect(response.body.errorCode).toBe("FILE_SCAN_FAILED");
+  });
+
   it("validates file approval versions and maps duplicate approval idempotency keys", async () => {
     const application = buildFiles("agentic_governance_admin");
     await application.post(`/files/${FILE_ID}/approve`)
@@ -270,7 +275,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
 
 const FILE_ID = "00000000-0000-4000-8000-000000000010";
 
-function buildFiles(role: StaffRole, subject = "governance-admin") {
+function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavailable = false) {
   const app = express();
   app.use(express.json());
   const authenticate: RequestHandler = (_request, response, next) => {
@@ -284,7 +289,10 @@ function buildFiles(role: StaffRole, subject = "governance-admin") {
       if (principal.subject !== "governance-admin") throw new AgenticApplicationError("FORBIDDEN", "Agentic file access is limited to its governance owner");
       return fileMetadata();
     }),
-    scanAndPreview: vi.fn(async () => preview()),
+    scanAndPreview: vi.fn(async () => {
+      if (scannerUnavailable) throw new AgenticApplicationError("FILE_SCAN_FAILED", "Scanner is unavailable");
+      return preview();
+    }),
     approvePreview: vi.fn(async (input: { idempotencyKey: string }) => {
       if (input.idempotencyKey === "duplicate-key") throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound");
       return { id: "00000000-0000-4000-8000-000000000011", state: "draft" as const, createdBy: "governance-admin", goal: "Review intake file: people.csv", instructions: "Review the approved file preview.", version: 1, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" };

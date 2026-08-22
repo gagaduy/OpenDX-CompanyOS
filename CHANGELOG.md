@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve safe scanner-dependency failures after the governed file transition
+  is rejected and audited.
+
 - Restrict governed Agentic file operations to the uploading administrator and
   fail closed when scanning dependencies are unavailable.
 

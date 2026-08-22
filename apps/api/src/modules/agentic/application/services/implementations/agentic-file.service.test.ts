@@ -10,6 +10,7 @@ import type { AgenticFileScanner, AgenticFileScanResult } from "../../security/a
 import type { AgenticFileStorage } from "../../storage/agentic-file-storage";
 import type { AgenticFileParser } from "../../parsing/agentic-file-parser";
 import { AGENTIC_FILE_LIMITS } from "../../../domain/services/agentic-file-rules";
+import { AgenticApplicationError } from "../agentic-application.error";
 import { AgenticFileServiceImpl, createAgenticFilePreview } from "./agentic-file.service";
 
 const session = {} as DatabaseSession;
@@ -54,6 +55,14 @@ describe("AgenticFileServiceImpl", () => {
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
     expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 4 });
     expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("rejects and audits a scanner outage once while preserving its dependency error", async () => {
+    const { service, repository } = harness({ scanError: new AgenticApplicationError("FILE_SCAN_FAILED", "Scanner is unavailable") });
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_SCAN_FAILED" });
+    expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 3 });
+    expect(repository.appendAudit).toHaveBeenCalledTimes(2);
   });
 
   it("returns a stable digest over an aggregate-only bounded preview", async () => {
@@ -154,11 +163,11 @@ describe("AgenticFileServiceImpl", () => {
   });
 });
 
-function harness(options: { readonly createFails?: boolean; readonly transitionResults?: readonly boolean[]; readonly enforceExpectedVersion?: boolean; readonly scanResult?: { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string }; readonly content?: Buffer; readonly approvalResults?: readonly { readonly status: "created" | "duplicate"; readonly taskId: string }[] } = {}) {
+function harness(options: { readonly createFails?: boolean; readonly transitionResults?: readonly boolean[]; readonly enforceExpectedVersion?: boolean; readonly scanResult?: { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string }; readonly scanError?: Error; readonly content?: Buffer; readonly approvalResults?: readonly { readonly status: "created" | "duplicate"; readonly taskId: string }[] } = {}) {
   const files = new Map<string, any>(); const previews = new Map<string, any>();
   const storage: AgenticFileStorage = { put: vi.fn(async () => undefined), open: vi.fn(async () => Readable.from([options.content ?? content])), delete: vi.fn(async () => undefined) };
   const clean: AgenticFileScanResult = { status: "clean" };
-  const scanner: AgenticFileScanner = { scan: vi.fn(async () => options.scanResult ?? clean) };
+  const scanner: AgenticFileScanner = { scan: vi.fn(async () => { if (options.scanError !== undefined) throw options.scanError; return options.scanResult ?? clean; }) };
   const parser: AgenticFileParser = { parse: vi.fn((_format, bytes) => { const text = Buffer.from(bytes).toString("utf8"); if (text === '"unterminated') throw new Error("invalid csv"); const samples = text.split("\n").filter((line) => line.length > 0); return { rowCount: samples.length, columnCount: samples[0]?.split(",").length ?? 1, samples }; }) };
   const transitions = [...(options.transitionResults ?? [])]; const approvals = [...(options.approvalResults ?? [])]; const approved = new Map<string, string>(); const approvalRecords = new Map<string, any>(); const approvedTasks = new Map<string, any>();
   const repository = {

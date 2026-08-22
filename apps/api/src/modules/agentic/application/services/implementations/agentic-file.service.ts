@@ -41,7 +41,13 @@ export class AgenticFileServiceImpl implements AgenticFileService {
       const clean = transitionAgenticIntakeFile(scanning, "clean", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, clean, scanning.version))) return this.replay(fileId); current = clean;
       const parsed = this.parser.parse(clean.format, await bytes(await this.storage.open(file.objectKey))); const preview = createAgenticFilePreview(clean, parsed, this.generateId(), this.now()); const previewed = transitionAgenticIntakeFile(clean, "previewed", this.now());
       const settled = await this.transactions.run(async (s) => { await this.repository.appendFilePreview(s, preview); return this.repository.transitionIntakeFile(s, previewed, clean.version); }); if (!settled) return this.replay(fileId); return mapPreview(preview, clean.format);
-    } catch (error) { if (error instanceof FileRejectedError) throw error; await this.rejectClaim(current, principal); if (error instanceof AgenticApplicationError) throw error; fail("FILE_CONTENT_INVALID", "File content is not safe for intake"); }
+    } catch (error) {
+      if (error instanceof FileRejectedError) throw error;
+      try { await this.rejectClaim(current, principal); }
+      catch (rejection) { if (!(rejection instanceof FileRejectedError)) throw rejection; }
+      if (error instanceof AgenticApplicationError) throw error;
+      fail("FILE_CONTENT_INVALID", "File content is not safe for intake");
+    }
   }
   async reject(id: string, version: number, principal: StaffPrincipal): Promise<AgenticIntakeFile> { return this.terminal(id, version, "rejected", principal); }
   async delete(id: string, version: number, principal: StaffPrincipal): Promise<AgenticIntakeFile> { return this.terminal(id, version, "deleted", principal); }
