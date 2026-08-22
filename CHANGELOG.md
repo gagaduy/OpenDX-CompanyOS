@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Persist immutable Agentic file-intake metadata, derived previews, and
+  one-preview-to-one-draft-task approval bindings.
+
 - Define the safe CSV/TXT Agentic file-intake lifecycle and bounded domain
   validation rules ahead of storage and transport integration.
 

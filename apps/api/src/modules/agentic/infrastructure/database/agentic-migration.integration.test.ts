@@ -32,6 +32,9 @@ const tables = [
   "agentic_tool_invocations",
   "agentic_model_runs",
   "agentic_model_quality_evidence",
+  "agentic_intake_files",
+  "agentic_file_previews",
+  "agentic_file_approvals",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -53,12 +56,67 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("9");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("10");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+  });
+
+  it("keeps file metadata immutable and binds one approved preview to one draft task", async () => {
+    const fileId = "a1900000-0000-4000-8000-000000000001";
+    const previewId = "a1900000-0000-4000-8000-000000000002";
+    const taskId = "a1900000-0000-4000-8000-000000000003";
+    const approvalId = "a1900000-0000-4000-8000-000000000004";
+    const payloadDigest = "a".repeat(64);
+    const previewDigest = "b".repeat(64);
+
+    await pool.query(
+      `INSERT INTO agentic_intake_files
+       (id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by)
+       VALUES($1,'agentic-intake/a1900000-0000-4000-8000-000000000001','catalog.csv',
+         'csv','text/csv',42,$2,'uploaded','governance-admin')`,
+      [fileId, payloadDigest],
+    );
+    await expect(pool.query("UPDATE agentic_intake_files SET original_filename='changed.csv' WHERE id=$1", [fileId]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query("UPDATE agentic_intake_files SET status='clean',version=2 WHERE id=$1", [fileId]))
+      .rejects.toMatchObject({ code: "P0001" });
+    await pool.query("UPDATE agentic_intake_files SET status='scanning',version=2 WHERE id=$1", [fileId]);
+    await pool.query("UPDATE agentic_intake_files SET status='clean',scanned_at=now(),version=3 WHERE id=$1", [fileId]);
+    await pool.query(
+      `INSERT INTO agentic_file_previews
+       (id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary)
+       VALUES($1,$2,1,'csv-rfc4180-v1',$3,$4,'{"rowCount":1}'::jsonb)`,
+      [previewId, fileId, payloadDigest, previewDigest],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_file_previews
+       (id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary)
+       VALUES(gen_random_uuid(),$1,1,'csv-rfc4180-v1',$2,$3,'{}'::jsonb)`,
+      [fileId, payloadDigest, previewDigest],
+    )).rejects.toMatchObject({ code: "23505" });
+    await pool.query("UPDATE agentic_intake_files SET status='previewed',version=4 WHERE id=$1", [fileId]);
+    await pool.query(
+      `INSERT INTO agentic_tasks(id,state,created_by,goal,instructions)
+       VALUES($1,'draft','governance-admin','Review file intake','Bounded CSV evidence')`,
+      [taskId],
+    );
+    await pool.query(
+      `INSERT INTO agentic_file_approvals
+       (id,file_id,preview_version,preview_digest,task_id,idempotency_key,approved_by)
+       VALUES($1,$2,1,$3,$4,'file-approval:one','governance-admin')`,
+      [approvalId, fileId, previewDigest, taskId],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_file_approvals
+       (id,file_id,preview_version,preview_digest,task_id,idempotency_key,approved_by)
+       VALUES(gen_random_uuid(),$1,1,$2,gen_random_uuid(),'file-approval:two','governance-admin')`,
+      [fileId, previewDigest],
+    )).rejects.toMatchObject({ code: "23505" });
+    await expect(pool.query("DELETE FROM agentic_intake_files WHERE id=$1", [fileId]))
+      .rejects.toMatchObject({ code: "P0001" });
   });
 
   it("enforces governed model run storage and append-only quality evidence", async () => {
@@ -229,7 +287,7 @@ suite("Agent governance migration", () => {
       [taskId, runId],
     )).rejects.toMatchObject({ code: "23514" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 2);
+    await runAgenticMigrations(databaseUrl!, "down", 3);
     expect((await pool.query("SELECT to_regclass('public.agentic_model_runs') AS name")).rows[0])
       .toEqual({ name: null });
     const pricingColumns = await pool.query(
@@ -748,7 +806,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 7);
+    await runAgenticMigrations(databaseUrl!, "down", 8);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");
