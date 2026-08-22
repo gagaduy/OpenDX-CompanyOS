@@ -7,6 +7,10 @@ import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
 import { assertIntegrationEnvironment } from "../../../../../shared/testing/assert-integration-environment";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
+import {
+  createExecutionDescriptor,
+  type ExecutionDescriptorPayload,
+} from "../../../domain/entities/orchestration-execution-descriptor";
 import type { AgenticIntakeFile, AgenticFilePreview } from "../../../domain/entities/agentic-file";
 import type { ActivityInvocation, WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { transitionWorkflowRun } from "../../../domain/services/workflow-run-rules";
@@ -24,7 +28,9 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_executive_reports, agentic_accepted_orchestration_results,
+    await pool.query(`TRUNCATE agentic_orchestration_execution_payloads,
+      agentic_orchestration_execution_descriptors,
+      agentic_executive_reports, agentic_accepted_orchestration_results,
       agentic_collaboration_requests, agentic_orchestration_plan_dependencies, agentic_orchestration_plan_subtasks,
       agentic_orchestration_plan_revisions, agentic_model_quality_evidence, agentic_model_runs,
       agentic_file_approvals, agentic_file_previews, agentic_intake_files,
@@ -75,6 +81,89 @@ suite("PostgresqlAgenticRepository", () => {
     await expect(pool.query(`SELECT plan_digest, task_brief_digest, policy_version
       FROM agentic_orchestration_plan_revisions WHERE task_id=$1`, [taskId]))
       .resolves.toMatchObject({ rows: [{ plan_digest: plan.digest, task_brief_digest: plan.taskBriefDigest, policy_version: 1 }] });
+  });
+
+  it("converges exact descriptor replay and rejects changed authority", async () => {
+    const at = "2026-08-22T00:00:00.000Z";
+    const taskId = randomUUID();
+    const configurationRevisionId = randomUUID();
+    const planId = randomUUID();
+    const subtaskId = randomUUID();
+    await transactions.run(async (session) => {
+      await repository.createRevision(session, {
+        id: configurationRevisionId, state: "draft", createdBy: "governance-admin",
+        payloadDigest: "f".repeat(64), version: 1, createdAt: at, updatedAt: at,
+      });
+      await repository.createTask(session, {
+        id: taskId, state: "draft", createdBy: "governance-admin",
+        goal: "Review Store Health", instructions: "Use approved aggregate evidence only",
+        version: 1, createdAt: at, updatedAt: at,
+      });
+      await repository.appendOrchestrationPlan(session, {
+        id: planId, taskId, version: 1, digest: "a".repeat(64),
+        taskBriefDigest: "b".repeat(64), policyVersion: 1,
+        configurationRevisionId, createdBy: "agent-ai-ceo", createdAt: at,
+        subtasks: [{ id: subtaskId, owner: "catalog", expectedResultSchemaDigest: "c".repeat(64),
+          allowedToolsDigest: "d".repeat(64), dataScope: "catalog:health:read",
+          freshnessSeconds: 300, timeoutSeconds: 30, budgetMicros: 10_000,
+          sourceProvenanceDigest: "e".repeat(64), dependencies: [] }],
+      });
+    });
+    const payload: ExecutionDescriptorPayload = {
+      taskBrief: { goal: "Review Store Health", taskId },
+      resultSchema: { type: "object", additionalProperties: false, properties: {} },
+      authorizedContext: [],
+      toolGrants: [{ name: "catalog.product_completeness", version: 1,
+        purpose: "store_health_review", dataScope: "catalog:health:read",
+        dataClassification: "internal", maximumInvocations: 5 }],
+    };
+    const descriptor = createExecutionDescriptor({
+      id: randomUUID(), version: 1, taskId, planVersion: 1, subtaskId,
+      agentKind: "catalog", configurationRevisionId, policyVersion: 1,
+      primaryModel: "provider/primary", fallbackModel: "provider/fallback",
+      resultSchemaName: "store_health.catalog.v1", resultSchemaDigest: "c".repeat(64),
+      authorizedContextDigest: "f".repeat(64), allowedToolsDigest: "d".repeat(64),
+      budgetAuthorizationMicros: 10_000, timeoutSeconds: 30, freshnessSeconds: 300,
+      createdAt: at, expiresAt: "2026-08-22T00:10:00.000Z",
+    }, payload);
+
+    await expect(transactions.run((session) => repository.appendExecutionDescriptor(
+      session, descriptor, payload,
+    ))).resolves.toBe("created");
+    await expect(transactions.run((session) => repository.appendExecutionDescriptor(
+      session, descriptor, payload,
+    ))).resolves.toBe("duplicate");
+
+    const { payloadDigest: _payloadDigest, descriptorDigest: _descriptorDigest, ...descriptorDraft } = descriptor;
+    const changed = createExecutionDescriptor({
+      ...descriptorDraft, primaryModel: "provider/changed",
+    }, payload);
+    await expect(transactions.run((session) => repository.appendExecutionDescriptor(
+      session, changed, payload,
+    ))).rejects.toMatchObject({ code: "EXECUTION_DESCRIPTOR_CONFLICT" });
+    await expect(transactions.runReadOnly((session) => repository.findExecutionDescriptor(
+      session, descriptor.id,
+    ))).resolves.toEqual({ descriptor, payload });
+    await expect(pool.query(
+      "UPDATE agentic_orchestration_execution_descriptors SET expires_at=expires_at+interval '1 minute' WHERE id=$1",
+      [descriptor.id],
+    )).rejects.toMatchObject({ code: "P0001" });
+
+    const descriptorWithoutPayload = randomUUID();
+    await pool.query(
+      `INSERT INTO agentic_orchestration_execution_descriptors
+       SELECT $1,version+1,task_id,plan_version,subtask_id,agent_kind,configuration_revision_id,
+         policy_version,primary_model,fallback_model,result_schema_name,result_schema_digest,
+         authorized_context_digest,allowed_tools_digest,budget_authorization_micros,
+         timeout_seconds,freshness_seconds,expires_at,payload_digest,$2,created_at
+       FROM agentic_orchestration_execution_descriptors WHERE id=$3`,
+      [descriptorWithoutPayload, "9".repeat(64), descriptor.id],
+    );
+    await expect(pool.query(
+      `INSERT INTO agentic_orchestration_execution_payloads(descriptor_id,payload,payload_digest)
+       VALUES($1,'{}'::jsonb,$2)`,
+      [descriptorWithoutPayload, "8".repeat(64)],
+    )).rejects.toMatchObject({ code: "23503" });
   });
 
   it("persists one mediated collaboration request without its untrusted payload", async () => {

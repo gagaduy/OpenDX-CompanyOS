@@ -46,6 +46,11 @@ import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/ap
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type {
+  ExecutionDescriptor,
+  ExecutionDescriptorPayload,
+} from "../../../domain/entities/orchestration-execution-descriptor";
+import { validateExecutionDescriptor } from "../../../domain/entities/orchestration-execution-descriptor";
+import type {
   ActivityInvocation,
   WorkflowRun,
   WorkflowSignalReceipt,
@@ -55,6 +60,69 @@ import { validateModelQualityEvidence, validateModelRun } from "../../../domain/
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async appendExecutionDescriptor(
+    session: DatabaseSession,
+    descriptor: ExecutionDescriptor,
+    payload: ExecutionDescriptorPayload,
+  ): Promise<"created" | "duplicate"> {
+    validateExecutionDescriptor(descriptor, payload);
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.execution-descriptor:${descriptor.id}`,
+    ]);
+    const existing = await this.findExecutionDescriptor(session, descriptor.id);
+    if (existing !== undefined) {
+      if (
+        existing.descriptor.descriptorDigest === descriptor.descriptorDigest
+        && existing.descriptor.payloadDigest === descriptor.payloadDigest
+      ) return "duplicate";
+      throw new AgenticApplicationError(
+        "EXECUTION_DESCRIPTOR_CONFLICT",
+        "Execution descriptor identity is already bound to different authority",
+      );
+    }
+    await session.query(
+      `INSERT INTO agentic_orchestration_execution_descriptors
+       (id,version,task_id,plan_version,subtask_id,agent_kind,configuration_revision_id,
+        policy_version,primary_model,fallback_model,result_schema_name,result_schema_digest,
+        authorized_context_digest,allowed_tools_digest,budget_authorization_micros,
+        timeout_seconds,freshness_seconds,expires_at,payload_digest,descriptor_digest,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [descriptor.id, descriptor.version, descriptor.taskId, descriptor.planVersion,
+        descriptor.subtaskId, descriptor.agentKind, descriptor.configurationRevisionId,
+        descriptor.policyVersion, descriptor.primaryModel, descriptor.fallbackModel,
+        descriptor.resultSchemaName, descriptor.resultSchemaDigest,
+        descriptor.authorizedContextDigest, descriptor.allowedToolsDigest,
+        descriptor.budgetAuthorizationMicros, descriptor.timeoutSeconds,
+        descriptor.freshnessSeconds, descriptor.expiresAt, descriptor.payloadDigest,
+        descriptor.descriptorDigest, descriptor.createdAt],
+    );
+    await session.query(
+      `INSERT INTO agentic_orchestration_execution_payloads
+       (descriptor_id,payload,payload_digest) VALUES($1,$2,$3)`,
+      [descriptor.id, payload, descriptor.payloadDigest],
+    );
+    return "created";
+  }
+
+  async findExecutionDescriptor(
+    session: DatabaseSession,
+    descriptorId: string,
+  ): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT descriptor.*, execution_payload.payload
+       FROM agentic_orchestration_execution_descriptors descriptor
+       JOIN agentic_orchestration_execution_payloads execution_payload
+         ON execution_payload.descriptor_id=descriptor.id
+        AND execution_payload.payload_digest=descriptor.payload_digest
+       WHERE descriptor.id=$1`,
+      [descriptorId],
+    );
+    if (result.rows[0] === undefined) return undefined;
+    const value = mapExecutionDescriptor(result.rows[0]);
+    validateExecutionDescriptor(value.descriptor, value.payload);
+    return value;
+  }
+
   async appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<void> {
     await session.query(`INSERT INTO agentic_accepted_orchestration_results
       (id,task_id,plan_version,subtask_id,result_digest,quality_evidence_digest,provenance_digest,accepted_at)
@@ -1648,6 +1716,30 @@ function mapModelConfiguration(row: Row): ModelConfigurationRecord {
     timeoutMs: Number(row.timeout_ms), maxRetries: Number(row.max_retries),
     inputCostMicrosPerMillion: safeInteger(row.input_cost_micros_per_million),
     outputCostMicrosPerMillion: safeInteger(row.output_cost_micros_per_million),
+  };
+}
+
+function mapExecutionDescriptor(row: Row): {
+  readonly descriptor: ExecutionDescriptor;
+  readonly payload: ExecutionDescriptorPayload;
+} {
+  return {
+    descriptor: {
+      id: String(row.id), version: Number(row.version), taskId: String(row.task_id),
+      planVersion: Number(row.plan_version), subtaskId: String(row.subtask_id),
+      agentKind: row.agent_kind as ExecutionDescriptor["agentKind"],
+      configurationRevisionId: String(row.configuration_revision_id),
+      policyVersion: Number(row.policy_version), primaryModel: String(row.primary_model),
+      fallbackModel: String(row.fallback_model), resultSchemaName: String(row.result_schema_name),
+      resultSchemaDigest: String(row.result_schema_digest),
+      authorizedContextDigest: String(row.authorized_context_digest),
+      allowedToolsDigest: String(row.allowed_tools_digest),
+      budgetAuthorizationMicros: safeInteger(row.budget_authorization_micros),
+      timeoutSeconds: Number(row.timeout_seconds), freshnessSeconds: Number(row.freshness_seconds),
+      expiresAt: toIso(row.expires_at), payloadDigest: String(row.payload_digest),
+      descriptorDigest: String(row.descriptor_digest), createdAt: toIso(row.created_at),
+    },
+    payload: row.payload as ExecutionDescriptorPayload,
   };
 }
 

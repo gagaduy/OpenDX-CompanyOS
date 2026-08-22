@@ -35,6 +35,14 @@ const tables = [
   "agentic_intake_files",
   "agentic_file_previews",
   "agentic_file_approvals",
+  "agentic_orchestration_plan_revisions",
+  "agentic_orchestration_plan_subtasks",
+  "agentic_orchestration_plan_dependencies",
+  "agentic_collaboration_requests",
+  "agentic_accepted_orchestration_results",
+  "agentic_executive_reports",
+  "agentic_orchestration_execution_descriptors",
+  "agentic_orchestration_execution_payloads",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -56,12 +64,14 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("10");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("14");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
+    expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+    expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: "agentic_orchestration_execution_descriptors" });
   });
 
   it("keeps file metadata immutable and binds one approved preview to one draft task", async () => {

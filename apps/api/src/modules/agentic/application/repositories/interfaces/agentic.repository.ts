@@ -10,6 +10,10 @@ import type { ConfigurationRevision } from "../../../domain/entities/configurati
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type {
+  ExecutionDescriptor,
+  ExecutionDescriptorPayload,
+} from "../../../domain/entities/orchestration-execution-descriptor";
+import type {
   ActivityInvocation,
   WorkflowRun,
   WorkflowSignalReceipt,
@@ -354,6 +358,8 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  appendExecutionDescriptor(session: DatabaseSession, descriptor: ExecutionDescriptor, payload: ExecutionDescriptorPayload): Promise<"created" | "duplicate">;
+  findExecutionDescriptor(session: DatabaseSession, descriptorId: string): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined>;
   appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void>;
   appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<void>;
   appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<void>;
