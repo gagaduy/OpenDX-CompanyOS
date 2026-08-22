@@ -11,7 +11,7 @@ import type { ConfigurationService } from "../../application/services/interfaces
 import type { EmergencyRevocationService } from "../../application/services/implementations/emergency-revocation.service";
 import {
   parseAgentKind, parseAuditQuery, parseCreateRevision, parseCreateTask, parseDecision,
-  parseExpectedVersion, parsePage, parseRevisionDecision, parseRevocation, parseUpdateRevision,
+  parseExpectedVersion, parsePage, parseRevocation, parseUpdateRevision,
   parseUpdateTask, parseUuid,
 } from "../validators/agentic.validator";
 
@@ -66,7 +66,7 @@ export class AgenticController {
     response.json(successResponse("Configuration draft updated", await this.configurations.updateDraft({ revisionId: parseUuid(request.params.revisionId), ...parseUpdateRevision(request.body) }, principal(response.locals))));
   });
   readonly submitRevision = handle(async (request, response) => {
-    response.json(successResponse("Configuration submitted", await this.configurations.submit({ revisionId: parseUuid(request.params.revisionId), ...parseExpectedVersion(request.body) }, principal(response.locals))));
+    response.json(successResponse("Configuration submitted", await this.configurations.submit({ revisionId: parseUuid(request.params.revisionId), expectedVersion: 0 }, principal(response.locals))));
   });
   readonly activateRevision = handle(async (request, response) => {
     response.json(successResponse("Configuration activated", await this.configurations.activate({ revisionId: parseUuid(request.params.revisionId), ...parseExpectedVersion(request.body) }, principal(response.locals))));
@@ -75,7 +75,7 @@ export class AgenticController {
     response.json(successResponse("Configuration diff retrieved", await this.configurations.getDiff(parseUuid(request.params.revisionId), principal(response.locals))));
   });
   readonly decideRevision = handle(async (request, response) => {
-    response.json(successResponse("Configuration decided", await this.configurations.decide({ revisionId: parseUuid(request.params.revisionId), ...parseRevisionDecision(request.body) }, principal(response.locals))));
+    response.json(successResponse("Configuration decided", await this.configurations.decide({ revisionId: parseUuid(request.params.revisionId), expectedVersion: 0, decision: "reject" }, principal(response.locals))));
   });
   readonly createRevocation = handle(async (request, response) => {
     response.status(201).json(successResponse("Revocation request accepted", await this.revocations.request({ ...parseRevocation(request.body), correlationId: String(response.locals.correlationId) }, principal(response.locals))));
