@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Serialize Agentic file-approval idempotency keys across files to return a
+  governed conflict instead of a database uniqueness error.
+
 - Validate approved-preview replay identity and avoid duplicate rejection audit
   transitions after a controlled infected scan result.
 
