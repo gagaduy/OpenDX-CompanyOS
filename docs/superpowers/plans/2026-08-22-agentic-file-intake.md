@@ -6,7 +6,7 @@
 
 **Goal:** Safely turn an approved private CSV or TXT upload into one auditable Agentic intake task.
 
-**Architecture:** The Agentic API owns an immutable file/preview lifecycle and uses inward-facing storage and malware-scan ports. MinIO and ClamAV remain infrastructure adapters; parsing is bounded deterministic TypeScript. Approval atomically binds one preview digest to one existing Agentic task without Agent execution.
+**Architecture:** The Agentic API owns an immutable file/preview lifecycle and uses inward-facing storage and malware-scan ports. MinIO and ClamAV remain infrastructure adapters; parsing is bounded deterministic TypeScript. Approval atomically binds one preview digest to one new `draft` Agentic task without Agent execution.
 
 **Tech Stack:** TypeScript, Express, multer 2.2.0, PostgreSQL migrations, MinIO, ClamAV, Vitest, Docker Compose.
 
@@ -53,7 +53,7 @@
 **Files:** create service/interface/tests; modify Agentic repository and task service only through public contracts.
 
 - [ ] Write failing service tests for orphan-storage compensation, scan race, malformed/infected rejection, preview digest stability, approval replay, concurrent approval, and stale version/digest rejection.
-- [ ] Implement upload metadata reservation, private write, scan/parse claim, immutable preview, reject/delete, and `approvePreview`. Approval must use a transaction to create exactly one task with file/preview provenance; it creates no subtask and never invokes runtime/model/tool ports.
+- [ ] Implement upload metadata reservation, private write, scan/parse claim, immutable preview, reject/delete, and `approvePreview`. Approval must use a transaction to create exactly one `draft` task with file/preview provenance; it creates no subtask and never invokes runtime/model/tool ports.
 - [ ] Return aggregate preview DTOs only: counts, bounded samples, source references and digests; never raw quarantined file bytes.
 - [ ] Run focused service tests; commit `feat(agentic): approve bounded file previews`.
 

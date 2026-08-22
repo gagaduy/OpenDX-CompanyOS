@@ -80,8 +80,10 @@ assignment, subtask, model output, or executable content.
 Approval accepts `fileId`, `expectedFileVersion`, `previewVersion`,
 `previewPayloadDigest`, and an idempotency key. It rejects stale, changed,
 unclean, rejected, deleted, or previously decided previews. A successful first
-approval creates exactly one `agentic_tasks` intake task with immutable file and
-preview provenance, then emits audit/provenance records atomically. Replay
+approval creates exactly one `agentic_tasks` intake task in `draft` state with
+immutable file and preview provenance, then emits audit/provenance records
+atomically. It has no configuration revision, subtask, workflow run, model
+call, or tool invocation; Phase F alone may transition it to `ready`. Replay
 returns that same task. Preview/parser/file/policy changes invalidate approval.
 
 ## Authorization and API
