@@ -100,6 +100,7 @@ Phase D has deterministic and credential-owned acceptance gates:
 ```bash
 pnpm check:agentic-model-runtime
 pnpm check:agentic-phase-d-exit
+pnpm check:agentic-phase-e-exit # requires AGENTIC_PHASE_E_API_URL and AGENTIC_PHASE_E_BEARER_TOKEN plus PostgreSQL/MinIO/ClamAV
 ```
 
 Phase E file-intake transport contracts can be exercised without credentials or

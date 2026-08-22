@@ -50,6 +50,8 @@
     "diagnose:catalog-live": "node scripts/dev/catalog-live-acceptance-diagnose.mjs",
     "test:agentic-phase-d-exit": "node --test scripts/dev/agentic-phase-d-exit-check.test.mjs",
     "check:agentic-phase-d-exit": "pnpm test:agentic-phase-d-exit && node scripts/dev/agentic-phase-d-exit-check.mjs",
+    "test:agentic-phase-e-exit": "node --test scripts/dev/agentic-phase-e-exit-check.test.mjs",
+    "check:agentic-phase-e-exit": "pnpm test:agentic-phase-e-exit && node scripts/dev/agentic-phase-e-exit-check.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",
