@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add a frozen server-owned Store Health execution catalog that binds each of
+  the six Department Agents to its strict result schema and exact governed
+  Tool Registry grant digest.
+
 - Persist canonical, append-only Phase F execution descriptors and bounded
   private payloads with exact replay convergence, plan-subtask authority
   binding, mutation prevention, and nested secret-field rejection.
