@@ -68,6 +68,9 @@ export class AgenticController {
   readonly submitRevision = handle(async (request, response) => {
     response.json(successResponse("Configuration submitted", await this.configurations.submit({ revisionId: parseUuid(request.params.revisionId), ...parseExpectedVersion(request.body) }, principal(response.locals))));
   });
+  readonly activateRevision = handle(async (request, response) => {
+    response.json(successResponse("Configuration activated", await this.configurations.activate({ revisionId: parseUuid(request.params.revisionId), ...parseExpectedVersion(request.body) }, principal(response.locals))));
+  });
   readonly getRevisionDiff = handle(async (request, response) => {
     response.json(successResponse("Configuration diff retrieved", await this.configurations.getDiff(parseUuid(request.params.revisionId), principal(response.locals))));
   });

@@ -187,7 +187,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
     createTask: handler("createTask"), listTasks: handler("listTasks"), getTask: handler("getTask"), updateTask: handler("updateTask"), readyTask: handler("readyTask"), cancelTask: handler("cancelTask"),
     listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), decideApproval: handler("decideApproval"),
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),
-    createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
+    createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), activateRevision: handler("activateRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
     createRevocation: handler("createRevocation"), listAudit: handler("listAudit"),
     startWorkflow: handler("startWorkflow"), getWorkflow: handler("getWorkflow"),
     cancelWorkflow: handler("cancelWorkflow"),

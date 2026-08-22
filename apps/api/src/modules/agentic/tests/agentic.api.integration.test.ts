@@ -96,27 +96,28 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(audit[0]?.value).not.toContain("Bearer catalog_manager");
   });
 
-  it("shows the exact configuration diff and enforces a different Governance Admin", async () => {
+  it("shows the exact configuration diff and lets the draft owner activate", async () => {
     const children = { policies: [], toolGrants: [], modelConfigurations: [], budgetLimits: [] };
     const created = await request(app).post("/v1/admin/agentic/configuration-revisions")
       .set("authorization", "Bearer agentic_governance_admin:creator").send({ children }).expect(201);
     const revisionId = created.body.data.id as string;
-    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/submit`)
-      .set("authorization", "Bearer agentic_governance_admin:creator").send({ expectedVersion: 1 }).expect(200);
     const diff = await request(app).get(`/v1/admin/agentic/configuration-revisions/${revisionId}/diff`)
       .set("authorization", "Bearer agentic_governance_admin:reviewer").expect(200);
     expect(diff.body.data).toMatchObject({ revisionId, changed: true, candidate: children });
-    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/decision`)
-      .set("authorization", "Bearer agentic_governance_admin:creator")
-      .send({ expectedVersion: 2, decision: "activate" }).expect(403);
-    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/decision`)
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/activate`)
       .set("authorization", "Bearer agentic_governance_admin:reviewer")
-      .send({ expectedVersion: 2, decision: "activate" }).expect(200);
+      .send({ expectedVersion: 1 }).expect(403);
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/activate`)
+      .set("authorization", "Bearer agentic_governance_admin:creator")
+      .send({ expectedVersion: 1 }).expect(200);
+    const retired = await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/submit`)
+      .set("authorization", "Bearer agentic_governance_admin:creator")
+      .send({ expectedVersion: 2 }).expect(400);
+    expect(retired.body).toMatchObject({ errorCode: "CONFIGURATION_LIFECYCLE_RETIRED" });
   });
 
   it("runs the durable staff and workload HTTP control contract idempotently", async () => {
     const governanceCreator = { authorization: "Bearer agentic_governance_admin:creator" };
-    const governanceReviewer = { authorization: "Bearer agentic_governance_admin:reviewer" };
     const operator = { authorization: "Bearer agentic_operator:operator" };
     const worker = { authorization: "Bearer worker-token" };
     const emptyChildren = { policies: [], toolGrants: [], modelConfigurations: [], budgetLimits: [] };
@@ -141,10 +142,8 @@ suite("Agentic PostgreSQL admin API", () => {
     };
     await request(app).patch(`/v1/admin/agentic/configuration-revisions/${revisionId}`)
       .set(governanceCreator).send({ expectedVersion: 1, children }).expect(200);
-    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/submit`)
+    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/activate`)
       .set(governanceCreator).send({ expectedVersion: 2 }).expect(200);
-    await request(app).post(`/v1/admin/agentic/configuration-revisions/${revisionId}/decision`)
-      .set(governanceReviewer).send({ expectedVersion: 3, decision: "activate" }).expect(200);
 
     const created = await request(app).post("/v1/admin/agentic/tasks")
       .set(operator).send({
