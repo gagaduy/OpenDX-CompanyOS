@@ -16,8 +16,17 @@ async function live() {
   if (!url || !token) throw new Error("Phase E live acceptance requires AGENTIC_PHASE_E_API_URL and AGENTIC_PHASE_E_BEARER_TOKEN (authorized governance-admin stack with PostgreSQL, private MinIO, and ClamAV)");
   const response = await fetch(`${url.replace(/\/$/, "")}/health/ready`, { headers: { authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error(`Phase E stack readiness failed: HTTP ${response.status}`);
-  // Upload/approval vectors are executed by the authenticated integration runner; this gate deliberately never logs bytes or tokens.
-  console.info("Phase E live stack is ready; run the configured authenticated file-intake integration suite for CSV/TXT approval and rejection vectors.");
+  const base = `${url.replace(/\/$/, "")}/v1/admin/agentic/files`;
+  for (const [name, type, body] of [["phase-e-clean.csv", "text/csv", "name,quantity\nwidget,1\n"], ["phase-e-clean.txt", "text/plain", "review this bounded evidence\n"]]) await approveExactlyOnce(base, token, name, type, body);
+  await rejectedUpload(base, token, "phase-e-unsupported.pdf", "application/pdf", "not a PDF");
+  await rejectedUpload(base, token, "phase-e-invalid.csv", "text/csv", "bad\0content");
+  await rejectedUpload(base, token, "phase-e-oversized.csv", "text/csv", "x".repeat(2 * 1024 * 1024 + 1));
+  // Infection and scanner-outage proof require a controlled ClamAV test stack; the public API intentionally has no unsafe simulation switch.
+  if (process.env.AGENTIC_PHASE_E_CLAMAV_CONTROLLED !== "true") throw new Error("Phase E requires AGENTIC_PHASE_E_CLAMAV_CONTROLLED=true after controlled infected and scanner-unavailable integration vectors pass");
 }
+async function request(url, token, init = {}) { const r = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, ...(init.headers ?? {}) } }); const body = await r.json().catch(() => ({})); return { r, body }; }
+async function upload(base, token, name, type, value) { const form = new FormData(); form.set("file", new Blob([value], { type }), name); return request(base, token, { method: "POST", body: form }); }
+async function approveExactlyOnce(base, token, name, type, value) { const uploaded = await upload(base, token, name, type, value); if (uploaded.r.status !== 201 || uploaded.body.data?.objectKey !== undefined) throw new Error("Phase E clean upload must return private metadata only"); const id = uploaded.body.data?.id; const preview = await request(`${base}/${id}/preview`, token); if (!preview.r.ok || !preview.body.data?.payloadDigest) throw new Error("Phase E clean upload must produce bounded preview"); const file = await request(`${base}/${id}`, token); const input = { expectedFileVersion: file.body.data?.version, previewVersion: preview.body.data.previewVersion, previewPayloadDigest: preview.body.data.payloadDigest }; const key = `phase-e-${id}`; const first = await request(`${base}/${id}/approve`, token, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body: JSON.stringify(input) }); const replay = await request(`${base}/${id}/approve`, token, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body: JSON.stringify(input) }); if (first.body.data?.state !== "draft" || first.body.data?.id !== replay.body.data?.id) throw new Error("Phase E approval must create exactly one draft task"); }
+async function rejectedUpload(base, token, name, type, value) { const result = await upload(base, token, name, type, value); if (result.r.ok) throw new Error(`Phase E rejected upload unexpectedly succeeded: ${name}`); }
 export async function run() { validateAgenticPhaseE(collectAgenticPhaseE()); await live(); console.info("Agentic Phase E exit check passed."); }
 if (process.argv[1] === fileURLToPath(import.meta.url)) await run();
