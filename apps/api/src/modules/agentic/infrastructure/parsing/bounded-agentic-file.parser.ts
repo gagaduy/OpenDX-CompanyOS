@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AgenticApplicationError } from "../../application/services/agentic-application.error";
+import type { AgenticFileParser, ParsedAgenticFile } from "../../application/parsing/agentic-file-parser";
 import { AGENTIC_FILE_LIMITS } from "../../domain/services/agentic-file-rules";
 
-export interface ParsedAgenticFile { readonly rowCount:number; readonly columnCount:number; readonly samples:readonly string[] }
+export type { ParsedAgenticFile } from "../../application/parsing/agentic-file-parser";
 
 export function parseBoundedAgenticFile(format: "csv" | "txt", bytes: Uint8Array): ParsedAgenticFile {
   let text: string;
@@ -18,6 +19,7 @@ export function parseBoundedAgenticFile(format: "csv" | "txt", bytes: Uint8Array
   if (rows.some((row) => row.length === 0 || row.length > AGENTIC_FILE_LIMITS.maxColumns)) fail();
   return { rowCount: rows.length, columnCount: Math.max(...rows.map((row) => row.length)), samples: lines.slice(0, AGENTIC_FILE_LIMITS.maxSourceSamples) };
 }
+export class BoundedAgenticFileParser implements AgenticFileParser { parse(format: "csv" | "txt", bytes: Uint8Array): ParsedAgenticFile { return parseBoundedAgenticFile(format, bytes); } }
 
 function csvRow(line: string): string[] {
   const result: string[]=[]; let value=""; let quoted=false;

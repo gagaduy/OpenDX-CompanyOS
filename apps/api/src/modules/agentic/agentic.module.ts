@@ -7,6 +7,10 @@ import type { WorkloadTokenVerifier } from "../../shared/auth/workload-auth.midd
 import { authenticateWorkload } from "../../shared/auth/workload-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
 import { AgentTaskServiceImpl } from "./application/services/implementations/agent-task.service";
+import { AgenticFileServiceImpl } from "./application/services/implementations/agentic-file.service";
+import type { AgenticFileParser } from "./application/parsing/agentic-file-parser";
+import type { AgenticFileScanner } from "./application/security/agentic-file-scanner";
+import type { AgenticFileStorage } from "./application/storage/agentic-file-storage";
 import { AgenticQueryServiceImpl } from "./application/services/implementations/agentic-query.service";
 import { ApprovalServiceImpl } from "./application/services/implementations/approval.service";
 import { PolicyService } from "./application/services/implementations/policy.service";
@@ -45,6 +49,9 @@ export interface AgenticModuleDependencies {
   readonly onDispatcherError?: (error: unknown) => void;
   readonly executionEnabled?: boolean;
   readonly toolAdapters: DepartmentToolAdapterRegistry;
+  readonly agenticFileStorage?: AgenticFileStorage;
+  readonly agenticFileScanner?: AgenticFileScanner;
+  readonly agenticFileParser?: AgenticFileParser;
   readonly logger?: Logger;
   readonly metrics?: MetricsRegistry;
   readonly monotonicNow?: () => number;
@@ -81,6 +88,9 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dependencies.now,
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
+    ? undefined
+    : new AgenticFileServiceImpl(repository, dependencies.agenticFileStorage, dependencies.agenticFileScanner, dependencies.agenticFileParser, dependencies.transactions, dependencies.generateId, dependencies.now);
   const approvals = new ApprovalServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now, dispatcher, onDispatcherError);
   const configurations = new ConfigurationServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const revocations = new EmergencyRevocationService(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
@@ -136,6 +146,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     toolRouter,
     dispatcher,
     tasks,
+    ...(files === undefined ? {} : { files }),
     approvals,
     configurations,
     workflows,

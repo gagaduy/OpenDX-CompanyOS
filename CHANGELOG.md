@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve Agentic file-intake parser dependency direction and serialize
+  concurrent preview approvals through PostgreSQL advisory locking.
+
 - Add governed Agentic CSV/TXT intake orchestration with immutable aggregate
   previews, fail-closed rejection, and idempotent draft-task approval.
 

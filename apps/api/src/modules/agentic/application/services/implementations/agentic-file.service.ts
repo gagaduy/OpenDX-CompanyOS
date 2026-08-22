@@ -7,17 +7,17 @@ import type { DatabaseSession, TransactionRunner } from "../../../../../shared/d
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgenticFileScanner } from "../../security/agentic-file-scanner";
 import type { AgenticFileStorage } from "../../storage/agentic-file-storage";
+import type { AgenticFileParser } from "../../parsing/agentic-file-parser";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { AgenticFilePreview, AgenticIntakeFile } from "../../../domain/entities/agentic-file";
 import { AGENTIC_FILE_LIMITS, transitionAgenticIntakeFile } from "../../../domain/services/agentic-file-rules";
-import { parseBoundedAgenticFile } from "../../../infrastructure/parsing/bounded-agentic-file.parser";
 import { AgenticApplicationError } from "../agentic-application.error";
 import type { AgenticFilePreviewDto, AgenticFileService, AgenticFileUploadRequest, ApproveAgenticFilePreviewRequest } from "../interfaces/agentic-file.service";
 
 type FileRepository = Pick<AgenticRepository, "createIntakeFile" | "findIntakeFile" | "transitionIntakeFile" | "appendFilePreview" | "findFilePreview" | "findFileApprovalByIdempotency" | "approveFilePreview" | "findTaskById" | "appendAudit" | "appendProvenance">;
 
 export class AgenticFileServiceImpl implements AgenticFileService {
-  constructor(private readonly repository: FileRepository, private readonly storage: AgenticFileStorage, private readonly scanner: AgenticFileScanner, private readonly transactions: TransactionRunner, private readonly generateId: () => string, private readonly now: () => string) {}
+  constructor(private readonly repository: FileRepository, private readonly storage: AgenticFileStorage, private readonly scanner: AgenticFileScanner, private readonly parser: AgenticFileParser, private readonly transactions: TransactionRunner, private readonly generateId: () => string, private readonly now: () => string) {}
   async upload(input: AgenticFileUploadRequest, principal: StaffPrincipal): Promise<{ readonly file: AgenticIntakeFile }> {
     admin(principal); const format = formatFor(input); safe(input.content); const at = this.now(); const id = this.generateId();
     const file: AgenticIntakeFile = { id, objectKey: `agentic-intake/${id}`, originalFilename: input.originalFilename.trim(), format, mediaType: input.mediaType, byteSize: input.content.byteLength, payloadDigest: sha(input.content), status: "uploaded", createdBy: principal.subject, version: 1, createdAt: at, updatedAt: at };
@@ -31,7 +31,7 @@ export class AgenticFileServiceImpl implements AgenticFileService {
     try {
       if ((await this.scanner.scan(await this.storage.open(file.objectKey))).status !== "clean") return this.rejectClaim(scanning, principal);
       const clean = transitionAgenticIntakeFile(scanning, "clean", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, clean, scanning.version))) return this.replay(fileId); current = clean;
-      const parsed = parseBoundedAgenticFile(clean.format, await bytes(await this.storage.open(file.objectKey))); const preview = createAgenticFilePreview(clean, parsed, this.generateId(), this.now()); const previewed = transitionAgenticIntakeFile(clean, "previewed", this.now());
+      const parsed = this.parser.parse(clean.format, await bytes(await this.storage.open(file.objectKey))); const preview = createAgenticFilePreview(clean, parsed, this.generateId(), this.now()); const previewed = transitionAgenticIntakeFile(clean, "previewed", this.now());
       const settled = await this.transactions.run(async (s) => { await this.repository.appendFilePreview(s, preview); return this.repository.transitionIntakeFile(s, previewed, clean.version); }); if (!settled) return this.replay(fileId); return mapPreview(preview, clean.format);
     } catch (error) { await this.rejectClaim(current, principal); if (error instanceof AgenticApplicationError) throw error; fail("FILE_CONTENT_INVALID", "File content is not safe for intake"); }
   }

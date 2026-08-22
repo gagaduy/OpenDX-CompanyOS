@@ -34,6 +34,9 @@ import { createAgenticAnalyticsReader, createReportingModule } from "./modules/r
 import { createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
+import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
+import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
+import { MinioAgenticFileStorage } from "./modules/agentic/infrastructure/storage/minio-agentic-file.storage";
 import { ClamdSupportAttachmentScanner } from "./modules/support/infrastructure/security/clamd-support-attachment.scanner";
 import { MinioSupportAttachmentStorage } from "./modules/support/infrastructure/storage/minio-support-attachment.storage";
 
@@ -238,6 +241,9 @@ const agentic = createAgenticModule({
   onDispatcherError: (error) => console.error("Agentic workflow dispatch failed", error),
   executionEnabled: environment.agentic.executionEnabled,
   toolAdapters,
+  agenticFileStorage: new MinioAgenticFileStorage(minio, environment.minioBucket),
+  agenticFileScanner: new ClamdAgenticFileScanner(environment.clamavHost, environment.clamavPort, environment.clamavTimeoutMs),
+  agenticFileParser: new BoundedAgenticFileParser(),
   logger,
   ...(metrics === undefined ? {} : { metrics }),
   monotonicNow: performance.now.bind(performance),

@@ -68,6 +68,25 @@ suite("PostgresqlAgenticRepository", () => {
     expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
   });
 
+  it("serializes concurrent file approvals into one task, approval, audit, and provenance set", async () => {
+    const at = "2026-08-22T00:00:00.000Z"; const fileId = randomUUID(); const previewId = randomUUID();
+    await pool.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at,scanned_at)
+      VALUES($1,$2,'catalog.csv','csv','text/csv',42,$3,'previewed','governance-admin',4,$4,$4,$4)`, [fileId, `agentic-intake/${randomUUID()}`, "a".repeat(64), at]);
+    await pool.query(`INSERT INTO agentic_file_previews(id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary,created_at)
+      VALUES($1,$2,1,'csv-rfc4180-v1',$3,$4,'{}',$5)`, [previewId, fileId, "a".repeat(64), "b".repeat(64), at]);
+    let entered!: () => void; const firstEntered = new Promise<void>((resolve) => { entered = resolve; }); let release!: () => void; const releaseFirst = new Promise<void>((resolve) => { release = resolve; }); let secondStarted!: () => void; const secondReady = new Promise<void>((resolve) => { secondStarted = resolve; }); const key = `file-approval:${fileId}`;
+    const approval = (taskId: string) => ({ id: randomUUID(), fileId, previewVersion: 1, previewDigest: "b".repeat(64), expectedFileVersion: 4, previewPayloadDigest: "a".repeat(64), task: { id: taskId, state: "draft" as const, createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at }, idempotencyKey: key, approvedBy: "governance-admin", approvedAt: at });
+    const first = transactions.run(async (session) => { const input = approval(randomUUID()); const result = await repository.approveFilePreview(session, input); entered(); await releaseFirst; if (result.status === "created") { await repository.appendAudit(session, { id: randomUUID(), actorId: "governance-admin", actorType: "staff", taskId: input.task.id, action: "agentic_file.approve", resourceType: "agentic_intake_file", resourceId: fileId, outcome: "allowed", correlationId: fileId, occurredAt: at }); await repository.appendProvenance(session, { id: randomUUID(), taskId: input.task.id, sourceType: "agentic_intake_file", sourceId: fileId, sourceDigest: "a".repeat(64), sourceVersion: 4, classification: "internal", recordedBy: "governance-admin", recordedAt: at }); await repository.appendProvenance(session, { id: randomUUID(), taskId: input.task.id, sourceType: "agentic_file_preview", sourceId: previewId, sourceDigest: "b".repeat(64), sourceVersion: 1, classification: "internal", recordedBy: "governance-admin", recordedAt: at }); } return result; });
+    await firstEntered;
+    const second = transactions.run(async (session) => { secondStarted(); return repository.approveFilePreview(session, approval(randomUUID())); });
+    await secondReady; release(); const [created, replay] = await Promise.all([first, second]);
+    expect(created.status).toBe("created"); expect(replay).toEqual({ status: "duplicate", taskId: created.taskId });
+    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_tasks")).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_file_approvals")).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_audit_events WHERE action='agentic_file.approve'")).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    await expect(pool.query("SELECT count(*)::int AS count FROM agentic_provenance_records")).resolves.toMatchObject({ rows: [{ count: 2 }] });
+  });
+
   it("stores exact model pricing and maps it without precision loss", async () => {
     const revisionId = randomUUID();
     await transactions.run(async (session) => {

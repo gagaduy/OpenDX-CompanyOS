@@ -8,6 +8,7 @@ import type { DatabaseSession, TransactionRunner } from "../../../../../shared/d
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgenticFileScanner, AgenticFileScanResult } from "../../security/agentic-file-scanner";
 import type { AgenticFileStorage } from "../../storage/agentic-file-storage";
+import type { AgenticFileParser } from "../../parsing/agentic-file-parser";
 import { AGENTIC_FILE_LIMITS } from "../../../domain/services/agentic-file-rules";
 import { AgenticFileServiceImpl, createAgenticFilePreview } from "./agentic-file.service";
 
@@ -58,6 +59,13 @@ describe("AgenticFileServiceImpl", () => {
     expect(preview.sourceReferences[0]).toEqual({ fileId: uploaded.file.id, line: 1 });
     expect(preview.previewDigest).toMatch(/^[a-f0-9]{64}$/);
     expect("content" in preview).toBe(false);
+  });
+
+  it("uses an injected application parser rather than infrastructure parsing", async () => {
+    const { service, parser } = harness();
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    await service.scanAndPreview(uploaded.file.id, admin);
+    expect(parser.parse).toHaveBeenCalledWith("csv", expect.any(Buffer));
   });
 
   it("caps retained aggregate preview content at 256 KiB", async () => {
@@ -112,6 +120,7 @@ function harness(options: { readonly createFails?: boolean; readonly transitionR
   const storage: AgenticFileStorage = { put: vi.fn(async () => undefined), open: vi.fn(async () => Readable.from([options.content ?? content])), delete: vi.fn(async () => undefined) };
   const clean: AgenticFileScanResult = { status: "clean" };
   const scanner: AgenticFileScanner = { scan: vi.fn(async () => options.scanResult ?? clean) };
+  const parser: AgenticFileParser = { parse: vi.fn((_format, bytes) => { const text = Buffer.from(bytes).toString("utf8"); if (text === '"unterminated') throw new Error("invalid csv"); const samples = text.split("\n").filter((line) => line.length > 0); return { rowCount: samples.length, columnCount: samples[0]?.split(",").length ?? 1, samples }; }) };
   const transitions = [...(options.transitionResults ?? [])]; const approvals = [...(options.approvalResults ?? [])]; const approved = new Map<string, string>(); const approvedTasks = new Map<string, any>();
   const repository = {
     createIntakeFile: vi.fn(async (_: DatabaseSession, file: any) => { if (options.createFails) throw new Error("db unavailable"); files.set(file.id, file); }),
@@ -133,5 +142,5 @@ function harness(options: { readonly createFails?: boolean; readonly transitionR
     appendAudit: vi.fn(async () => undefined), appendProvenance: vi.fn(async () => undefined),
   };
   let id = 0;
-  return { service: new AgenticFileServiceImpl(repository as unknown as AgenticRepository, storage, scanner, tx, () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`, () => "2026-08-22T00:00:00.000Z"), storage, scanner, repository };
+  return { service: new AgenticFileServiceImpl(repository as unknown as AgenticRepository, storage, scanner, parser, tx, () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`, () => "2026-08-22T00:00:00.000Z"), storage, scanner, parser, repository };
 }
