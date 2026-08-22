@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Define the focused Phase F AI CEO orchestration design for governed direct
+  Store Health Review coordination.
+
 - Contain terminal hostile Agentic file rejections in the lifecycle worker so
   one rejected upload does not interrupt the remaining bounded batch.
 
