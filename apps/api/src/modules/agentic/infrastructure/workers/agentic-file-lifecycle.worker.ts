@@ -6,6 +6,7 @@ export interface AgenticFileLifecyclePort {
   processClaimed(fileId: string): Promise<void>;
   claimExpired(limit: number): Promise<readonly string[]>;
   deleteClaimed(fileId: string): Promise<void>;
+  deleteExpired?(limit: number): Promise<void>;
 }
 
 /** Bounded, restart-safe driver: claim semantics live in the durable file port. */
@@ -18,6 +19,7 @@ export class AgenticFileLifecycleWorker {
   stop(): void { if (this.timer !== undefined) clearInterval(this.timer); this.timer = undefined; }
   async tick(): Promise<void> {
     for (const fileId of await this.files.claimPending(this.batchSize)) await this.files.processClaimed(fileId);
-    for (const fileId of await this.files.claimExpired(this.batchSize)) await this.files.deleteClaimed(fileId);
+    if (this.files.deleteExpired !== undefined) await this.files.deleteExpired(this.batchSize);
+    else for (const fileId of await this.files.claimExpired(this.batchSize)) await this.files.deleteClaimed(fileId);
   }
 }

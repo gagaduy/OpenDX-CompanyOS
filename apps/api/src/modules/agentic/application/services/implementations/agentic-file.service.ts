@@ -14,7 +14,7 @@ import { AGENTIC_FILE_LIMITS, transitionAgenticIntakeFile, validateAgenticFileUp
 import { AgenticApplicationError } from "../agentic-application.error";
 import type { AgenticFilePreviewDto, AgenticFileService, AgenticFileUploadRequest, ApproveAgenticFilePreviewRequest } from "../interfaces/agentic-file.service";
 
-type FileRepository = Pick<AgenticRepository, "createIntakeFile" | "findIntakeFile" | "transitionIntakeFile" | "appendFilePreview" | "findFilePreview" | "findFileApprovalByIdempotency" | "approveFilePreview" | "findTaskById" | "appendAudit" | "appendProvenance">;
+type FileRepository = Pick<AgenticRepository, "createIntakeFile" | "findIntakeFile" | "transitionIntakeFile" | "appendFilePreview" | "findFilePreview" | "findFileApprovalByIdempotency" | "approveFilePreview" | "findTaskById" | "appendAudit" | "appendProvenance" | "claimIntakeFilesForProcessing">;
 
 export class AgenticFileServiceImpl implements AgenticFileService {
   constructor(private readonly repository: FileRepository, private readonly storage: AgenticFileStorage, private readonly scanner: AgenticFileScanner, private readonly parser: AgenticFileParser, private readonly transactions: TransactionRunner, private readonly generateId: () => string, private readonly now: () => string) {}
@@ -33,14 +33,20 @@ export class AgenticFileServiceImpl implements AgenticFileService {
     });
   }
   async scanAndPreview(fileId: string, principal: StaffPrincipal): Promise<AgenticFilePreviewDto> {
-    admin(principal); const file = await this.transactions.runReadOnly(async (s) => { const found = await this.file(s, fileId); owner(found, principal); return found; }); if (file.status === "previewed") return this.preview(file.id); if (file.status !== "uploaded") fail("FILE_STATE_INVALID", "File cannot be scanned");
-    const scanning = transitionAgenticIntakeFile(file, "scanning", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, scanning, file.version))) return this.replay(fileId);
+    admin(principal); const system = principal.subject === "agentic-file-lifecycle"; const file = await this.transactions.runReadOnly(async (s) => { const found = await this.file(s, fileId); if (!system) owner(found, principal); return found; }); if (file.status === "previewed") return this.preview(file.id); if (file.status === "scanning" && system) return this.processScanClaim(file, principal); if (file.status !== "uploaded") fail("FILE_STATE_INVALID", "File cannot be scanned");
+    const scanning = transitionAgenticIntakeFile(file, "scanning", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, scanning, file.version))) return this.replay(fileId); return this.processScanClaim(scanning, principal);
+  }
+  async claimPending(limit: number): Promise<readonly string[]> { return this.transactions.run((s) => this.repository.claimIntakeFilesForProcessing(s, this.now(), limit)); }
+  async processClaimed(fileId: string): Promise<void> { await this.scanAndPreview(fileId, { subject: "agentic-file-lifecycle", displayName: "Agentic file lifecycle", roles: ["agentic_governance_admin"] }); }
+  async claimExpired(_limit: number): Promise<readonly string[]> { return []; }
+  async deleteClaimed(_fileId: string): Promise<void> { /* retention is delegated by composition to its storage-safe application service */ }
+  private async processScanClaim(scanning: AgenticIntakeFile, principal: StaffPrincipal): Promise<AgenticFilePreviewDto> {
     let current = scanning;
     try {
-      if ((await this.scanner.scan(await this.storage.open(file.objectKey))).status !== "clean") return this.rejectClaim(scanning, principal);
-      const clean = transitionAgenticIntakeFile(scanning, "clean", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, clean, scanning.version))) return this.replay(fileId); current = clean;
-      const parsed = this.parser.parse(clean.format, await bytes(await this.storage.open(file.objectKey))); const preview = createAgenticFilePreview(clean, parsed, this.generateId(), this.now()); const previewed = transitionAgenticIntakeFile(clean, "previewed", this.now());
-      const settled = await this.transactions.run(async (s) => { await this.repository.appendFilePreview(s, preview); return this.repository.transitionIntakeFile(s, previewed, clean.version); }); if (!settled) return this.replay(fileId); return mapPreview(preview, clean.format);
+      if ((await this.scanner.scan(await this.storage.open(scanning.objectKey))).status !== "clean") return this.rejectClaim(scanning, principal);
+      const clean = transitionAgenticIntakeFile(scanning, "clean", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, clean, scanning.version))) return this.replay(scanning.id); current = clean;
+      const parsed = this.parser.parse(clean.format, await bytes(await this.storage.open(scanning.objectKey))); const preview = createAgenticFilePreview(clean, parsed, this.generateId(), this.now()); const previewed = transitionAgenticIntakeFile(clean, "previewed", this.now());
+      const settled = await this.transactions.run(async (s) => { await this.repository.appendFilePreview(s, preview); return this.repository.transitionIntakeFile(s, previewed, clean.version); }); if (!settled) return this.replay(scanning.id); return mapPreview(preview, clean.format);
     } catch (error) {
       if (error instanceof FileRejectedError) throw error;
       try { await this.rejectClaim(current, principal); }

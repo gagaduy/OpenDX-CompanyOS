@@ -51,6 +51,9 @@ import { validateModelQualityEvidence, validateModelRun } from "../../../domain/
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]> {
+    const result = await session.query<Row>(`WITH claimed AS (SELECT id FROM agentic_intake_files WHERE status='uploaded' ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE agentic_intake_files f SET status='scanning',version=version+1,updated_at=$1 FROM claimed WHERE f.id=claimed.id RETURNING f.id`, [now, limit]); return result.rows.map((row) => String(row.id));
+  }
   async claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]> {
     const result = await session.query<Row>(`WITH eligible AS (SELECT id FROM agentic_intake_files WHERE object_deleted_at IS NULL AND (retention_claimed_at IS NULL OR retention_claimed_at < $1::timestamptz - interval '10 minutes') AND ((status='rejected' AND rejected_at <= $1::timestamptz - interval '7 days') OR (status IN ('approved','deleted') AND COALESCE(approved_at,deleted_at) <= $1::timestamptz - interval '30 days')) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE agentic_intake_files f SET retention_claimed_at=$1::timestamptz, version=f.version+1, updated_at=$1::timestamptz FROM eligible WHERE f.id=eligible.id RETURNING f.id,f.object_key,f.version`, [now,limit]);
     return result.rows.map((row) => ({ id: String(row.id), objectKey: String(row.object_key), version: Number(row.version) }));

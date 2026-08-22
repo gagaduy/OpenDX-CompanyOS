@@ -8,6 +8,8 @@ import { authenticateWorkload } from "../../shared/auth/workload-auth.middleware
 import type { TransactionRunner } from "../../shared/database/transaction";
 import { AgentTaskServiceImpl } from "./application/services/implementations/agent-task.service";
 import { AgenticFileServiceImpl } from "./application/services/implementations/agentic-file.service";
+import { AgenticFileRetentionService } from "./application/services/implementations/agentic-file-retention.service";
+import { AgenticFileLifecycleWorker } from "./infrastructure/workers/agentic-file-lifecycle.worker";
 import type { AgenticFileParser } from "./application/parsing/agentic-file-parser";
 import type { AgenticFileScanner } from "./application/security/agentic-file-scanner";
 import type { AgenticFileStorage } from "./application/storage/agentic-file-storage";
@@ -52,6 +54,8 @@ export interface AgenticModuleDependencies {
   readonly agenticFileStorage?: AgenticFileStorage;
   readonly agenticFileScanner?: AgenticFileScanner;
   readonly agenticFileParser?: AgenticFileParser;
+  readonly fileLifecycleIntervalMs?: number;
+  readonly fileLifecycleBatchSize?: number;
   readonly logger?: Logger;
   readonly metrics?: MetricsRegistry;
   readonly monotonicNow?: () => number;
@@ -91,6 +95,8 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
     ? undefined
     : new AgenticFileServiceImpl(repository, dependencies.agenticFileStorage, dependencies.agenticFileScanner, dependencies.agenticFileParser, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const fileRetention = dependencies.agenticFileStorage === undefined ? undefined : new AgenticFileRetentionService(repository, dependencies.agenticFileStorage, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const fileLifecycleWorker = files === undefined || fileRetention === undefined ? undefined : new AgenticFileLifecycleWorker({ claimPending: (limit) => files.claimPending(limit), processClaimed: (fileId) => files.processClaimed(fileId), claimExpired: async () => [], deleteClaimed: async () => undefined, deleteExpired: (limit) => fileRetention.deleteExpired(limit) }, dependencies.fileLifecycleIntervalMs ?? 30_000, dependencies.fileLifecycleBatchSize ?? 20);
   const approvals = new ApprovalServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now, dispatcher, onDispatcherError);
   const configurations = new ConfigurationServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const revocations = new EmergencyRevocationService(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
@@ -147,6 +153,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dispatcher,
     tasks,
     ...(files === undefined ? {} : { files }),
+    ...(fileLifecycleWorker === undefined ? {} : { fileLifecycleWorker }),
     approvals,
     configurations,
     workflows,

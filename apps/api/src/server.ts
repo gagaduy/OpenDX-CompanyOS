@@ -238,6 +238,8 @@ const agentic = createAgenticModule({
   workflowApprovalTtlMs: 60 * 60 * 1_000,
   dispatcherIntervalMs: environment.agentic.dispatcherIntervalMs,
   dispatcherBatchSize: environment.agentic.dispatcherBatchSize,
+  fileLifecycleIntervalMs: environment.agentic.fileLifecycleIntervalMs,
+  fileLifecycleBatchSize: environment.agentic.fileLifecycleBatchSize,
   onDispatcherError: (error) => console.error("Agentic workflow dispatch failed", error),
   executionEnabled: environment.agentic.executionEnabled,
   toolAdapters,
@@ -321,6 +323,7 @@ const server = app.listen(environment.apiPort, () => {
   support.attachmentScanWorker.start();
   support.attachmentRetentionWorker.start();
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
+  agentic.fileLifecycleWorker?.start();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
@@ -344,6 +347,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
   await agentic.dispatcher.stop();
+  agentic.fileLifecycleWorker?.stop();
   const closeError = await new Promise<Error | undefined>((resolve) => {
     server.close((error) => resolve(error));
   });

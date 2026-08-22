@@ -78,6 +78,8 @@ const apiEnvironmentSchema = z.object({
   WORKFLOW_GATEWAY_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(500).max(30_000)),
   WORKFLOW_DISPATCHER_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)),
   WORKFLOW_DISPATCHER_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(1_000)),
+  AGENTIC_FILE_LIFECYCLE_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)).default(30_000),
+  AGENTIC_FILE_LIFECYCLE_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(100)).default(20),
   MINIO_ENDPOINT: z.url(),
   MINIO_ACCESS_KEY: z.string().trim().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
@@ -276,6 +278,8 @@ export interface ApiEnvironment {
     readonly gatewayTimeoutMs: number;
     readonly dispatcherIntervalMs: number;
     readonly dispatcherBatchSize: number;
+    readonly fileLifecycleIntervalMs: number;
+    readonly fileLifecycleBatchSize: number;
     readonly departmentClientSecrets: {
       readonly catalog: string;
       readonly inventory: string;
@@ -374,6 +378,8 @@ export function parseApiEnvironment(
       gatewayTimeoutMs: value.WORKFLOW_GATEWAY_TIMEOUT_MS,
       dispatcherIntervalMs: value.WORKFLOW_DISPATCHER_INTERVAL_MS,
       dispatcherBatchSize: value.WORKFLOW_DISPATCHER_BATCH_SIZE,
+      fileLifecycleIntervalMs: value.AGENTIC_FILE_LIFECYCLE_INTERVAL_MS,
+      fileLifecycleBatchSize: value.AGENTIC_FILE_LIFECYCLE_BATCH_SIZE,
       departmentClientSecrets: {
         catalog: value.AGENT_CATALOG_CLIENT_SECRET,
         inventory: value.AGENT_INVENTORY_CLIENT_SECRET,
