@@ -78,8 +78,12 @@ suite("PostgresqlAgenticRepository", () => {
     const approval = (taskId: string) => ({ id: randomUUID(), fileId, previewVersion: 1, previewDigest: "b".repeat(64), expectedFileVersion: 4, previewPayloadDigest: "a".repeat(64), task: { id: taskId, state: "draft" as const, createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at }, idempotencyKey: key, approvedBy: "governance-admin", approvedAt: at });
     const first = transactions.run(async (session) => { const input = approval(randomUUID()); const result = await repository.approveFilePreview(session, input); entered(); await releaseFirst; if (result.status === "created") { await repository.appendAudit(session, { id: randomUUID(), actorId: "governance-admin", actorType: "staff", taskId: input.task.id, action: "agentic_file.approve", resourceType: "agentic_intake_file", resourceId: fileId, outcome: "allowed", correlationId: fileId, occurredAt: at }); await repository.appendProvenance(session, { id: randomUUID(), taskId: input.task.id, sourceType: "agentic_intake_file", sourceId: fileId, sourceDigest: "a".repeat(64), sourceVersion: 4, classification: "internal", recordedBy: "governance-admin", recordedAt: at }); await repository.appendProvenance(session, { id: randomUUID(), taskId: input.task.id, sourceType: "agentic_file_preview", sourceId: previewId, sourceDigest: "b".repeat(64), sourceVersion: 1, classification: "internal", recordedBy: "governance-admin", recordedAt: at }); } return result; });
     await firstEntered;
-    const second = transactions.run(async (session) => { secondStarted(); return repository.approveFilePreview(session, approval(randomUUID())); });
-    await secondReady; release(); const [created, replay] = await Promise.all([first, second]);
+    let secondCompleted = false;
+    const second = transactions.run(async (session) => { secondStarted(); return repository.approveFilePreview(session, approval(randomUUID())); }).then((result) => { secondCompleted = true; return result; });
+    await secondReady;
+    await waitForWaitingAdvisoryLock(pool);
+    expect(secondCompleted).toBe(false);
+    release(); const [created, replay] = await Promise.all([first, second]);
     expect(created.status).toBe("created"); expect(replay).toEqual({ status: "duplicate", taskId: created.taskId });
     await expect(pool.query("SELECT count(*)::int AS count FROM agentic_tasks")).resolves.toMatchObject({ rows: [{ count: 1 }] });
     await expect(pool.query("SELECT count(*)::int AS count FROM agentic_file_approvals")).resolves.toMatchObject({ rows: [{ count: 1 }] });
@@ -927,6 +931,16 @@ suite("PostgresqlAgenticRepository", () => {
     ))).resolves.toEqual([]);
   });
 });
+
+async function waitForWaitingAdvisoryLock(pool: Pool): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ count: number }>("SELECT count(*)::int AS count FROM pg_locks WHERE locktype='advisory' AND NOT granted");
+    if (result.rows[0]?.count === 1) return;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error("Concurrent approval never waited on the advisory lock");
+}
 
 async function createReadyTask(pool: Pool): Promise<{
   readonly taskId: string;
