@@ -286,6 +286,29 @@ def test_quality_gate_failure_settles_the_started_reservation() -> None:
     assert len(controls.failed) == 1
 
 
+def test_quality_gate_failure_retains_authorized_evidence_provenance() -> None:
+    class BrokenQuality:
+        def evaluate(self, _raw: object, _context: object) -> QualityDecision:
+            raise RuntimeError("quality gate failed")
+
+    controls = Controls()
+    command_with_evidence = ModelExecutionCommand(**{
+        **command().__dict__,
+        "quality_context": SimpleNamespace(
+            authorized_evidence=(SimpleNamespace(provenance_id="prov-1"),),
+        ),
+    })
+
+    with pytest.raises(ModelExecutionError):
+        asyncio.run(executor(controls, Gateway([result()]), BrokenQuality()).execute(command_with_evidence))
+
+    failed = controls.failed[0]
+    assert failed.provenance_ids == ("prov-1",)
+    assert (failed.input_tokens, failed.output_tokens) == (10, 20)
+    assert failed.output_digest is not None
+    assert failed.provider_request_id_digest is not None
+
+
 def test_start_callback_failure_attempts_to_settle_the_reserved_run() -> None:
     controls = Controls()
     controls.start_error = RuntimeError("control timeout")

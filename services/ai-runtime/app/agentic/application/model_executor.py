@@ -136,7 +136,8 @@ class ModelExecutor:
                 ))
             except Exception as error:
                 await self._settle_unexpected(
-                    reservation.run_id, reservation.version, command, correction_round
+                    reservation.run_id, reservation.version, command, correction_round,
+                    result, started_at,
                 )
                 raise ModelExecutionError("MODEL_EXECUTION_FAILED") from error
             try:
@@ -191,7 +192,10 @@ class ModelExecutor:
             except ModelExecutionError:
                 raise
             except Exception as error:
-                await self._settle_unexpected(reservation.run_id, state.version, command, correction_round)
+                await self._settle_unexpected(
+                    reservation.run_id, state.version, command, correction_round,
+                    result, started_at,
+                )
                 raise ModelExecutionError("MODEL_EXECUTION_FAILED") from error
         raise AssertionError("model correction loop must return")
 
@@ -263,13 +267,32 @@ class ModelExecutor:
 
     async def _settle_unexpected(
         self, run_id: str, version: int, command: ModelExecutionCommand,
-        correction_round: int,
+        correction_round: int, result: object, started_at: float,
     ) -> None:
+        provenance_ids = tuple(
+            item.provenance_id
+            for item in getattr(command.quality_context, "authorized_evidence", ())
+            if type(getattr(item, "provenance_id", None)) is str
+        )
+        output_digest = None
+        provider_request_id_digest = None
+        input_tokens = 0
+        output_tokens = 0
+        try:
+            output_digest = _digest(result.content)
+            provider_request_id_digest = _digest(
+                {"providerRequestId": result.provider_request_id}
+            )
+            input_tokens = result.input_tokens
+            output_tokens = result.output_tokens
+        except (AttributeError, TypeError, ValueError):
+            pass
         try:
             await self._controls.fail_model_run(FailModelRunRequest(
                 run_id, version, f"{command.idempotency_key}:round:{correction_round}:unexpected",
-                None, 0, 0, None, 0, "MODEL_EXECUTION_FAILED",
-                "MODEL_EXECUTION_FAILED", "escalate", ("MODEL_EXECUTION_FAILED",), (),
+                output_digest, input_tokens, output_tokens, provider_request_id_digest,
+                _elapsed_ms(started_at, self._now()), "MODEL_EXECUTION_FAILED",
+                "MODEL_EXECUTION_FAILED", "escalate", ("MODEL_EXECUTION_FAILED",), provenance_ids,
                 _digest({"errorCode": "MODEL_EXECUTION_FAILED"}),
             ))
         except Exception:

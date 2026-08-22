@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Preserve valid authoritative Quality Gate context when the runtime replaces
   its correction-round value for an initial model generation.
 
+- Settle unexpected model-execution failures with the task's authorized
+  provenance, keeping the API-owned model run terminal.
+
 - Classify malformed OpenRouter response envelopes, choices, and content
   separately while retaining redacted, failure-only diagnostics.
 
