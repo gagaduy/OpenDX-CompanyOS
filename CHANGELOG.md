@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Classify malformed OpenRouter response envelopes, choices, and content
+  separately while retaining redacted, failure-only diagnostics.
+
 - Keep the local Catalog live-acceptance response schema within the strict
   structured-output subset accepted by the configured provider.
 

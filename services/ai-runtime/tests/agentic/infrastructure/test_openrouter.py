@@ -595,8 +595,17 @@ def test_malformed_provider_json_is_rejected(endpoint: str) -> None:
     assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
 
 
-@pytest.mark.parametrize("location", ["catalog", "chat", "message_content"])
-def test_json_decode_failures_retain_no_provider_content(location: str) -> None:
+@pytest.mark.parametrize(
+    ("location", "expected_code"),
+    [
+        ("catalog", "OPENROUTER_RESPONSE_INVALID"),
+        ("chat", "OPENROUTER_RESPONSE_INVALID"),
+        ("message_content", "OPENROUTER_RESPONSE_CONTENT_INVALID"),
+    ],
+)
+def test_json_decode_failures_retain_no_provider_content(
+    location: str, expected_code: str
+) -> None:
     canary = f"JSON-DECODE-CANARY-{location}"
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -610,7 +619,7 @@ def test_json_decode_failures_retain_no_provider_content(location: str) -> None:
 
     failure = _failure(handler)
 
-    assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
+    assert (failure.code, failure.retryable) == (expected_code, False)
     assert failure.__cause__ is None
     assert failure.__context__ is None
     assert canary not in _exception_chain_text(failure)
@@ -702,21 +711,34 @@ def test_wrong_returned_model_is_rejected() -> None:
 
 
 @pytest.mark.parametrize(
-    "response",
+    ("response", "expected_code"),
     [
-        {"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": []},
-        {"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {}}]},
-        {"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "[]"}}]},
-        {"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "not-json"}}]},
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": []}, "OPENROUTER_RESPONSE_CHOICES_INVALID"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "[]"}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "not-json"}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
     ],
 )
-def test_malformed_chat_contract_is_rejected(response: dict[str, object]) -> None:
+def test_malformed_chat_contract_is_classified_without_provider_content(
+    response: dict[str, object], expected_code: str
+) -> None:
     failure = _failure(
         lambda request: _catalog_response()
         if request.url.path.endswith("models")
         else httpx.Response(200, json=response)
     )
-    assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
+    assert (failure.code, failure.retryable) == (expected_code, False)
+
+
+def test_missing_chat_envelope_fields_are_classified_without_provider_content() -> None:
+    failure = _failure(
+        lambda request: _catalog_response()
+        if request.url.path.endswith("models")
+        else httpx.Response(200, json={"provider-body": "must-not-leak"})
+    )
+
+    assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_ENVELOPE_INVALID", False)
+    _assert_safe_failure(failure)
 
 
 @pytest.mark.parametrize(
@@ -1102,7 +1124,7 @@ def test_provider_request_id_is_safe_and_bounded() -> None:
             if request.url.path.endswith("models")
             else _chat_response(request_id=value)
         )
-        assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_INVALID", False)
+        assert (failure.code, failure.retryable) == ("OPENROUTER_RESPONSE_ENVELOPE_INVALID", False)
         _assert_safe_failure(failure)
 
 

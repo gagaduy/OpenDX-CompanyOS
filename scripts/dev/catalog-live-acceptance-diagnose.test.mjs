@@ -20,6 +20,9 @@ test("catalog acceptance diagnosis is read-only and redacted", () => {
   assert.match(source, /OPENROUTER_REQUEST_REJECTED/);
   assert.match(source, /OPENROUTER_MODEL_UNAVAILABLE/);
   assert.match(source, /OPENROUTER_SCHEMA_REJECTED/);
+  assert.match(source, /OPENROUTER_RESPONSE_ENVELOPE_INVALID/);
+  assert.match(source, /OPENROUTER_RESPONSE_CHOICES_INVALID/);
+  assert.match(source, /OPENROUTER_RESPONSE_CONTENT_INVALID/);
   assert.match(source, /settledCostMicros/);
   assert.doesNotMatch(source, /OPENROUTER_API_KEY/);
   assert.doesNotMatch(source, /chat\/completions/);

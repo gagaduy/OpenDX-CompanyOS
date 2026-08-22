@@ -256,11 +256,12 @@ class OpenRouterModelGateway:
         return document
 
     def _parse_result(self, value: object, request: ModelRequest) -> ModelResult:
-        invalid = False
         provider_request_id: object = None
         returned_model: object = None
         result_content: dict[str, object] = {}
         usage: dict[str, object] = {}
+        document: dict[str, object] = {}
+        envelope_valid = True
         try:
             document = _object(value)
             provider_request_id = document["id"]
@@ -273,13 +274,28 @@ class OpenRouterModelGateway:
                 raise ValueError
             if type(returned_model) is not str:
                 raise ValueError
-            if returned_model != request.model:
-                _fail("OPENROUTER_MODEL_MISMATCH", retryable=False)
+        except (KeyError, TypeError, ValueError, UnicodeError):
+            envelope_valid = False
+        if not envelope_valid:
+            _fail("OPENROUTER_RESPONSE_ENVELOPE_INVALID", retryable=False)
+        if returned_model != request.model:
+            _fail("OPENROUTER_MODEL_MISMATCH", retryable=False)
+
+        message: dict[str, object] = {}
+        choices_valid = True
+        try:
             choices = document["choices"]
             if type(choices) is not list or not choices:
                 raise ValueError
             first = _object(choices[0])
             message = _object(first["message"])
+        except (KeyError, TypeError, ValueError):
+            choices_valid = False
+        if not choices_valid:
+            _fail("OPENROUTER_RESPONSE_CHOICES_INVALID", retryable=False)
+
+        content_valid = True
+        try:
             content = message["content"]
             if type(content) is str:
                 if len(content.encode("utf-8")) > self._settings.maximum_response_bytes:
@@ -288,13 +304,18 @@ class OpenRouterModelGateway:
                 if not decoded:
                     raise ValueError
             result_content = _object(content)
+        except (KeyError, TypeError, ValueError, UnicodeError):
+            content_valid = False
+        if not content_valid:
+            _fail("OPENROUTER_RESPONSE_CONTENT_INVALID", retryable=False)
+
+        usage_valid = True
+        try:
             usage = _object(document["usage"])
-        except ModelGatewayFailure:
-            raise
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError, UnicodeError):
-            invalid = True
-        if invalid:
-            _fail("OPENROUTER_RESPONSE_INVALID", retryable=False)
+        except (KeyError, TypeError, ValueError):
+            usage_valid = False
+        if not usage_valid:
+            _fail("OPENROUTER_USAGE_INVALID", retryable=False)
 
         result_invalid = False
         try:
