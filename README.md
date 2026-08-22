@@ -110,6 +110,11 @@ deterministic seeds, API, Console, and Storefront. `make up` waits for the
 complete stack to become healthy. SePay and OpenRouter credentials are not
 required for the Phase B local workflow.
 
+For one explicitly confirmed local Catalog provider smoke acceptance, see the
+Phase D instructions in [docs/build-from-source.md](docs/build-from-source.md).
+It uses the active governed Catalog configuration, emits aggregate-only output,
+and permits exactly one provider generation.
+
 ### Run Validation
 
 ```bash

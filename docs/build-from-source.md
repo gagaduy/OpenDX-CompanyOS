@@ -140,6 +140,25 @@ The runner sends synthetic `internal` context and writes aggregate temporary
 evidence only; it never prints the key, prompt, configuration contents, or
 provider response. Phase D remains in progress until this passes.
 
+For a deliberately narrow, local smoke acceptance of only the active Catalog
+configuration, run the static guard first, then explicitly opt in:
+
+```bash
+set -a; . ./.env; set +a
+export OPENROUTER_LIVE_ACCEPTANCE_CONFIRM=run-one-catalog
+pnpm test:catalog-live-acceptance
+pnpm run:catalog-live-acceptance
+```
+
+This command reads the active Catalog record from the local Compose PostgreSQL
+service, pins a disposable ready Catalog task to it, and starts a one-shot
+worker container. It makes at most one provider generation: neither model
+fallback nor Quality Gate correction retry is permitted. Its configured task
+budget remains authoritative (currently $0.10); non-accepted quality results
+settle as `partial`. No public endpoint is added, and output contains only run
+ID, status, token counts, and settled cost. The normal worker remains disabled
+unless separately configured; remove the confirmation variable after use.
+
 The live runner acquires `/tmp/opendx-database-maintenance.lock`, creates a
 suffixed disposable PostgreSQL database and API process, obtains six distinct
 local Keycloak client credentials without printing them, invokes all 17 tools,

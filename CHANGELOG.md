@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add a local Compose wrapper that creates and pins one disposable Catalog task,
   reads only the active Catalog configuration, and emits aggregate-only output.
 
+- Document the opt-in Catalog live acceptance, its $0.10 governed task cap,
+  one-generation boundary, and local-only execution procedure.
+
 - Allow one Agentic Governance Administrator to directly activate an owned
   configuration revision while preserving immutable audit, provenance,
   revocation, task-pinning, and workflow-action approval safeguards.
