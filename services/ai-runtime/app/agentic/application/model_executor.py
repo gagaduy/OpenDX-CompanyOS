@@ -157,7 +157,7 @@ class ModelExecutor:
                         f"{command.idempotency_key}:round:{correction_round}:complete",
                         "completed", output_digest, result.input_tokens, result.output_tokens,
                         provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
-                        decision.evidence_ids, evidence_digest,
+                        _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
                     return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 if decision.outcome == "escalate":
@@ -166,7 +166,7 @@ class ModelExecutor:
                         f"{command.idempotency_key}:round:{correction_round}:escalate",
                         "escalated", output_digest, result.input_tokens, result.output_tokens,
                         provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
-                        decision.reasons, decision.evidence_ids, evidence_digest,
+                        decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
                     return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 if (
@@ -178,7 +178,7 @@ class ModelExecutor:
                         f"{command.idempotency_key}:round:{correction_round}:partial",
                         "partial", output_digest, result.input_tokens, result.output_tokens,
                         provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
-                        decision.reasons, decision.evidence_ids, evidence_digest,
+                        decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
                     return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
                 await self._controls.fail_model_run(FailModelRunRequest(
@@ -186,7 +186,7 @@ class ModelExecutor:
                     f"{command.idempotency_key}:round:{correction_round}:correct",
                     output_digest, result.input_tokens, result.output_tokens, provider_digest,
                     latency_ms, "MODEL_CORRECTION_REQUESTED", "MODEL_QUALITY_CORRECTION",
-                    "correct", decision.reasons, decision.evidence_ids, evidence_digest,
+                    "correct", decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                 ))
                 correction = decision
             except ModelExecutionError:
@@ -297,6 +297,18 @@ class ModelExecutor:
             ))
         except Exception:
             pass
+
+
+def _settlement_provenance_ids(
+    decision: QualityDecision, command: ModelExecutionCommand,
+) -> tuple[str, ...]:
+    if decision.evidence_ids:
+        return decision.evidence_ids
+    return tuple(
+        item.provenance_id
+        for item in getattr(command.quality_context, "authorized_evidence", ())
+        if type(getattr(item, "provenance_id", None)) is str
+    )
 
 
 def _digest(value: object) -> str:

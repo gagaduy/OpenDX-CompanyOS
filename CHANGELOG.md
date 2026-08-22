@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Defer semantic model-result validation to the Quality Gate so governed runs
   retain their audit settlement rather than failing before it.
 
+- Preserve authorized task provenance when the Quality Gate rejects malformed
+  model output, allowing its terminal audit record to be settled.
+
 - Classify malformed OpenRouter response envelopes, choices, and content
   separately while retaining redacted, failure-only diagnostics.
 

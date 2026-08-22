@@ -216,7 +216,13 @@ def test_zero_correction_limit_settles_partial_without_a_second_model_call() -> 
 
     outcome = asyncio.run(executor(controls, gateway, quality).execute(
         ModelExecutionCommand(
-            **{**command().__dict__, "maximum_correction_rounds": 0},
+            **{
+                **command().__dict__,
+                "maximum_correction_rounds": 0,
+                "quality_context": SimpleNamespace(
+                    authorized_evidence=(SimpleNamespace(provenance_id="prov-1"),),
+                ),
+            },
         )
     ))
 
@@ -225,6 +231,7 @@ def test_zero_correction_limit_settles_partial_without_a_second_model_call() -> 
     assert len(controls.reservations) == 1
     assert [event for event, _request in gateway.requests if event == "generate"] == ["generate"]
     assert len(controls.completed) == 1
+    assert controls.completed[0].provenance_ids == ("prov-1",)
     assert controls.failed == []
 
 
