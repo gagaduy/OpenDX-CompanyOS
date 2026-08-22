@@ -296,6 +296,8 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
+  markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;
   createIntakeFile(session: DatabaseSession, file: AgenticIntakeFile): Promise<void>;
   findIntakeFile(session: DatabaseSession, fileId: string): Promise<AgenticIntakeFile | undefined>;
   transitionIntakeFile(session: DatabaseSession, file: AgenticIntakeFile, expectedVersion: number): Promise<boolean>;
