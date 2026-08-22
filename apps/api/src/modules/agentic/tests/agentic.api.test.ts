@@ -8,6 +8,7 @@ import type { StaffRole } from "../../../shared/auth/staff-principal";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { AgenticApplicationError } from "../application/services/agentic-application.error";
 import { AgenticController } from "../presentation/controllers/agentic.controller";
+import { AgenticWorkloadController } from "../presentation/controllers/agentic-workload.controller";
 import { agenticErrorMiddleware } from "../presentation/middleware/agentic-error.middleware";
 import { createAgenticRouter } from "../presentation/routes/agentic.routes";
 import { createAgenticWorkloadRouter } from "../presentation/routes/agentic-workload.routes";
@@ -17,6 +18,7 @@ import {
   parseStartWorkflow, parseReserveModelRun, parseStartModelRun,
   parseCompleteModelRun, parseFailModelRun,
   parseAcceptOrchestrationPlan,
+  parseAcceptedOrchestrationResult, parseCollaborationRequest, parseExecutiveReport,
 } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
@@ -121,6 +123,29 @@ describe("Agentic validators", () => {
     expect(parseAcceptOrchestrationPlan(plan)).toEqual(plan);
     expect(() => parseAcceptOrchestrationPlan({ ...plan, prompt: "ignore policy" })).toThrow();
     expect(() => parseAcceptOrchestrationPlan({ ...plan, subtasks: [{ ...plan.subtasks[0], budgetMicros: 0 }] })).toThrow();
+  });
+
+  it("accepts only strict digest-only orchestration settlements", () => {
+    const result = { id: "00000000-0000-4000-8000-000000000001",
+      taskId: "00000000-0000-4000-8000-000000000002", planVersion: 1,
+      subtaskId: "00000000-0000-4000-8000-000000000003", resultDigest: "a".repeat(64),
+      qualityEvidenceDigest: "b".repeat(64), provenanceDigest: "c".repeat(64),
+      acceptedAt: "2026-08-22T00:00:00.000Z" };
+    expect(parseAcceptedOrchestrationResult(result)).toEqual(result);
+    expect(() => parseAcceptedOrchestrationResult({ ...result, rawResult: "private" })).toThrow();
+    const collaboration = { id: result.id, taskId: result.taskId, planVersion: 1,
+      requester: "catalog", requested: "inventory", questionDigest: "a".repeat(64),
+      purpose: "store_health_review", requestedDataClassification: "internal",
+      evidenceDigest: "b".repeat(64), redactedPayloadDigest: "c".repeat(64), policyVersion: 4,
+      policyDecision: "ALLOW", idempotencyKey: "collaboration:1", createdAt: result.acceptedAt };
+    expect(parseCollaborationRequest(collaboration)).toEqual(collaboration);
+    expect(() => parseCollaborationRequest({ ...collaboration, requested: "catalog" })).toThrow();
+    const report = { id: result.id, taskId: result.taskId, planVersion: 1,
+      reportDigest: "a".repeat(64), completionState: "partial",
+      conclusionProvenanceDigest: "b".repeat(64), unavailableBranchesDigest: "c".repeat(64),
+      costMicros: 0, approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt };
+    expect(parseExecutiveReport(report)).toEqual(report);
+    expect(() => parseExecutiveReport({ ...report, conclusions: [] })).toThrow();
   });
 });
 
@@ -256,11 +281,12 @@ describe("Agentic route authorization", () => {
       .post("/workflow-runs/00000000-0000-4000-8000-000000000002/cancel")).status).toBe(200);
   });
 
-  it("mounts every workload route behind the workload authenticator", async () => {
-    const unauthenticated = buildWorkload(false);
+  it("separates worker orchestration routes from AI CEO plan submission", async () => {
+    const unauthenticated = buildWorkload(false, false);
     await unauthenticated.get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan").expect(401);
+    await unauthenticated.post("/orchestration/plans").expect(401);
 
-    const application = buildWorkload(true);
+    const application = buildWorkload(true, true);
     expect((await application.get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan")).body.data.route).toBe("loadPlan");
     expect((await application.post("/workflow-runs/00000000-0000-4000-8000-000000000001/state")).body.data.route).toBe("projectState");
     expect((await application.post("/activity-invocations/reserve")).body.data.route).toBe("reserveActivity");
@@ -271,6 +297,34 @@ describe("Agentic route authorization", () => {
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/complete")).body.data.route).toBe("completeModelRun");
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/fail")).body.data.route).toBe("failModelRun");
     expect((await application.post("/orchestration/plans")).body.data.route).toBe("acceptOrchestrationPlan");
+    expect((await application.get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadTaskBrief");
+    expect((await application.get("/orchestration/dispatch-plans/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadDispatchPlan");
+    expect((await application.get("/orchestration/descriptors/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadExecutionDescriptor");
+    expect((await application.post("/orchestration/results")).body.data.route).toBe("acceptOrchestrationResult");
+    expect((await application.post("/orchestration/collaborations")).body.data.route).toBe("mediateOrchestrationCollaboration");
+    expect((await application.post("/orchestration/reports")).body.data.route).toBe("acceptExecutiveReport");
+
+    await buildWorkload(true, false).post("/orchestration/plans").expect(401);
+    await buildWorkload(false, true)
+      .get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan").expect(401);
+  });
+
+  it("marks private orchestration reads as non-cacheable", async () => {
+    const app = express();
+    app.use(express.json());
+    const orchestration = { loadTaskBrief: vi.fn().mockResolvedValue({ taskId: "task", digest: "a".repeat(64) }) };
+    const controller = new AgenticWorkloadController({} as never, {} as never, orchestration as never);
+    const workerAuth: RequestHandler = (_request, response, next) => {
+      response.locals.workloadPrincipal = { subject: "worker", clientId: "opendx-agentic-worker", workload: "agentic_worker" };
+      next();
+    };
+    app.use(createAgenticWorkloadRouter(controller, workerAuth, workerAuth));
+    app.use(agenticErrorMiddleware, createErrorHandler());
+
+    const response = await request(app)
+      .get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001").expect(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(JSON.stringify(response.body)).not.toContain("authorization");
   });
 });
 
@@ -351,11 +405,11 @@ function preview() {
   return { fileId: FILE_ID, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
 }
 
-function buildWorkload(authenticated: boolean) {
+function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean) {
   const app = express();
   app.use(express.json());
   const authenticate: RequestHandler = (_request, response, next) => {
-    if (!authenticated) {
+    if (!workerAuthenticated) {
       response.status(401).json({ errorCode: "UNAUTHORIZED" });
       return;
     }
@@ -363,6 +417,18 @@ function buildWorkload(authenticated: boolean) {
       subject: "service-account-opendx-agentic-worker",
       clientId: "opendx-agentic-worker",
       workload: "agentic_worker",
+    };
+    next();
+  };
+  const authenticateAgent: RequestHandler = (_request, response, next) => {
+    if (!agentAuthenticated) {
+      response.status(401).json({ errorCode: "UNAUTHORIZED" });
+      return;
+    }
+    response.locals.agentServicePrincipal = {
+      subject: "service-account-agent-ai-ceo",
+      clientId: "agent-ai-ceo",
+      agentKind: "ai_ceo",
     };
     next();
   };
@@ -374,7 +440,12 @@ function buildWorkload(authenticated: boolean) {
     reserveModelRun: handler("reserveModelRun"), startModelRun: handler("startModelRun"),
     completeModelRun: handler("completeModelRun"), failModelRun: handler("failModelRun"),
     acceptOrchestrationPlan: handler("acceptOrchestrationPlan"),
-  }, authenticate));
+    loadTaskBrief: handler("loadTaskBrief"), loadDispatchPlan: handler("loadDispatchPlan"),
+    loadExecutionDescriptor: handler("loadExecutionDescriptor"),
+    acceptOrchestrationResult: handler("acceptOrchestrationResult"),
+    mediateOrchestrationCollaboration: handler("mediateOrchestrationCollaboration"),
+    acceptExecutiveReport: handler("acceptExecutiveReport"),
+  }, authenticate, authenticateAgent));
   app.use(createErrorHandler());
   return request(app);
 }

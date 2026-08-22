@@ -295,6 +295,21 @@ export interface ExecutiveReportAppendInput {
   readonly costMicros: number; readonly approvalHistoryDigest: string; readonly createdAt: string;
 }
 
+export interface OrchestrationDispatchPlanRecord {
+  readonly taskId: string;
+  readonly planVersion: number;
+  readonly planDigest: string;
+  readonly nodes: readonly {
+    readonly subtaskId: string;
+    readonly agentKind: Exclude<AgentKind, "ai_ceo">;
+    readonly dependencies: readonly string[];
+    readonly descriptorId: string;
+    readonly descriptorDigest: string;
+  }[];
+}
+
+export type ImmutableAppendResult = "created" | "duplicate" | "conflict";
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -360,10 +375,14 @@ export interface WorkflowSignalReceiptCreateResult {
 export interface AgenticRepository {
   appendExecutionDescriptor(session: DatabaseSession, descriptor: ExecutionDescriptor, payload: ExecutionDescriptorPayload): Promise<"created" | "duplicate">;
   findExecutionDescriptor(session: DatabaseSession, descriptorId: string): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined>;
+  findExecutionDescriptorForSubtask(session: DatabaseSession, taskId: string, planVersion: number, subtaskId: string): Promise<ExecutionDescriptor | undefined>;
+  findOrchestrationDispatchPlan(session: DatabaseSession, runId: string): Promise<OrchestrationDispatchPlanRecord | undefined>;
+  orchestrationPlanExists(session: DatabaseSession, taskId: string, planVersion: number): Promise<boolean>;
+  orchestrationPlanHasAgent(session: DatabaseSession, taskId: string, planVersion: number, agentKind: AgentKind): Promise<boolean>;
   appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void>;
-  appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<void>;
-  appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<void>;
-  appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<void>;
+  appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<ImmutableAppendResult>;
+  appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<ImmutableAppendResult>;
+  appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<ImmutableAppendResult>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;

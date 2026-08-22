@@ -148,6 +148,29 @@ const acceptOrchestrationPlan = z.object({
     context.addIssue({ code: "custom", path: ["subtasks"], message: "Subtask identifiers must be unique" });
   }
 });
+const departmentAgentKind = z.enum(["catalog", "inventory", "order", "finance", "crm", "support"]);
+const acceptedOrchestrationResult = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion, subtaskId: uuid,
+  resultDigest: digest, qualityEvidenceDigest: digest, provenanceDigest: digest,
+  acceptedAt: z.iso.datetime({ offset: true }),
+}).strict();
+const collaborationRequest = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion,
+  requester: departmentAgentKind, requested: departmentAgentKind,
+  questionDigest: digest, purpose: z.string().trim().min(1).max(500),
+  requestedDataClassification: z.enum(["internal", "confidential", "restricted"]),
+  evidenceDigest: digest, redactedPayloadDigest: digest, policyVersion: positiveVersion,
+  policyDecision: z.literal("ALLOW"), idempotencyKey: safeIdentifier,
+  createdAt: z.iso.datetime({ offset: true }),
+}).strict().refine((value) => value.requester !== value.requested,
+  { path: ["requested"], message: "Requested Department must differ from requester" });
+const executiveReport = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion, reportDigest: digest,
+  completionState: z.enum(["complete", "partial", "quality_escalated", "canceled"]),
+  conclusionProvenanceDigest: digest, unavailableBranchesDigest: digest,
+  costMicros: nonnegativeSafeInteger, approvalHistoryDigest: digest,
+  createdAt: z.iso.datetime({ offset: true }),
+}).strict();
 const modelRunProvenanceIds = z.array(uuid).min(1).max(128).refine(
   (values) => new Set(values).size === values.length,
   "Provenance identifiers must be unique",
@@ -228,6 +251,9 @@ export const parseStartModelRun = (value: unknown) => parse(startModelRun, value
 export const parseCompleteModelRun = (value: unknown) => parse(completeModelRun, value);
 export const parseFailModelRun = (value: unknown) => parse(failModelRun, value);
 export const parseAcceptOrchestrationPlan = (value: unknown) => parse(acceptOrchestrationPlan, value);
+export const parseAcceptedOrchestrationResult = (value: unknown) => parse(acceptedOrchestrationResult, value);
+export const parseCollaborationRequest = (value: unknown) => parse(collaborationRequest, value);
+export const parseExecutiveReport = (value: unknown) => parse(executiveReport, value);
 export const parseFileAction = (value: unknown) => parse(fileAction, value);
 export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
 export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);

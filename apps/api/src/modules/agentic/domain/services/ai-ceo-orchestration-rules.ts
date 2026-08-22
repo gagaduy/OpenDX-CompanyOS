@@ -6,6 +6,10 @@ export interface OrchestrationPlan { readonly taskId: string; readonly version: 
 
 export function validateOrchestrationPlan(plan: OrchestrationPlan, eligibleOwners: ReadonlySet<string>): void {
   const nodes = new Map(plan.subtasks.map((subtask) => [subtask.id, subtask]));
+  if (nodes.size !== plan.subtasks.length
+    || new Set(plan.subtasks.map(({ owner }) => owner)).size !== plan.subtasks.length) {
+    fail("INVALID_PLAN", "Plan subtask identities and Department owners must be unique");
+  }
   for (const subtask of plan.subtasks) {
     if (!eligibleOwners.has(subtask.owner)) fail("POLICY_DENIED", "Subtask owner is not policy eligible");
     if (!Number.isInteger(subtask.budgetMicros) || subtask.budgetMicros < 1 || !Number.isInteger(subtask.timeoutSeconds) || subtask.timeoutSeconds < 1) fail("INVALID_PLAN", "Subtask budget and timeout must be positive integers");

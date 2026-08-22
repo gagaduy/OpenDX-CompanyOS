@@ -44,6 +44,9 @@ const conflictCodes = new Set([
   "ACTIVITY_INVOCATION_CONFLICT",
   "MODEL_RUN_CONFLICT",
   "IDEMPOTENCY_CONFLICT",
+  "SETTLEMENT_CONFLICT",
+  "DESCRIPTOR_EXPIRED",
+  "DESCRIPTOR_REVOKED",
 ]);
 
 const unprocessableCodes = new Set([
@@ -52,6 +55,8 @@ const unprocessableCodes = new Set([
   "ACTIVITY_INPUT_INVALID",
   "ACTIVITY_OUTCOME_INVALID",
   "WORKFLOW_VERSION_UNSUPPORTED",
+  "DESCRIPTOR_BINDING_INVALID",
+  "PLAN_BINDING_INVALID",
 ]);
 
 const unavailableCodes = new Set([

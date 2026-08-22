@@ -93,7 +93,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dependencies.now,
   );
   const orchestration = new OrchestrationServiceImpl(
-    repository, dependencies.transactions, policy, dependencies.generateId,
+    repository, dependencies.transactions, policy, dependencies.generateId, dependencies.now,
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
@@ -131,23 +131,25 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
       action: denied.action, resourceType: "agentic", resourceId: denied.resourceId,
       outcome: "denied", correlationId: denied.correlationId, occurredAt: dependencies.now(),
     }));
+  const authenticateAgent = authenticateAgentService(dependencies.staffTokenVerifier, {
+    resolve: (clientId) => dependencies.transactions.runReadOnly(async (session) => {
+      const agent = await repository.findAgentByClientId(session, clientId);
+      return agent === undefined
+        ? undefined
+        : { agentKind: agent.kind, active: agent.active };
+    }),
+  });
   const adminRouter = createAgenticRouter(controller, workflowController, authenticateStaff(dependencies.staffTokenVerifier), appendDenied);
   adminRouter.use(agenticErrorMiddleware);
   const internalRouter = createAgenticWorkloadRouter(
     workloadController,
     authenticateWorkload(dependencies.workloadTokenVerifier),
+    authenticateAgent,
   );
   internalRouter.use(agenticErrorMiddleware);
   const toolRouter = createAgenticToolRouter(
     toolController,
-    authenticateAgentService(dependencies.staffTokenVerifier, {
-      resolve: (clientId) => dependencies.transactions.runReadOnly(async (session) => {
-        const agent = await repository.findAgentByClientId(session, clientId);
-        return agent === undefined
-          ? undefined
-          : { agentKind: agent.kind, active: agent.active };
-      }),
-    }),
+    authenticateAgent,
   );
   toolRouter.use(agenticErrorMiddleware);
   return {

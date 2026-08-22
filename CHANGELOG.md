@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Govern Phase F Task Brief, dispatch-plan, execution-descriptor, Department
+  result, mediated collaboration, and executive-report internal contracts with
+  distinct AI CEO submission identity, worker-only private reads, current
+  authority checks, no-store responses, and exact replay settlement.
+
 - Add a frozen server-owned Store Health execution catalog that binds each of
   the six Department Agents to its strict result schema and exact governed
   Tool Registry grant digest.
