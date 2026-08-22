@@ -45,6 +45,17 @@ class WorkerActivities:
         return registered
 
 
+def build_model_executor(settings: RuntimeSettings, control: object, client: httpx.AsyncClient) -> ModelExecutor | None:
+    if not settings.openrouter.execution_enabled:
+        return None
+    gateway = OpenRouterModelGateway(settings=settings.openrouter, client=client)
+    return ModelExecutor(
+        controls=control, gateway=gateway, quality_gate=QualityGate(),
+        context_filter=lambda agent_kind, value: enforce_context_boundary(agent_kind, value),
+        prompt_builder=build_model_prompt,
+    )
+
+
 async def run_supervised_worker(
     *,
     temporal_client: object,
@@ -175,14 +186,8 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
     store_health = StoreHealthActivities(
         control, metrics, logger, fake_activity_delay_ms=settings.activity.fake_delay_ms,
     )
-    model_execution = None
-    if settings.openrouter.execution_enabled:
-        gateway = OpenRouterModelGateway(settings=settings.openrouter, client=http)
-        model_execution = ModelExecutionActivities(ModelExecutor(
-            controls=control, gateway=gateway, quality_gate=QualityGate(),
-            context_filter=lambda agent_kind, value: enforce_context_boundary(agent_kind, value),
-            prompt_builder=build_model_prompt,
-        ), metrics, logger)
+    executor = build_model_executor(settings, control, http)
+    model_execution = None if executor is None else ModelExecutionActivities(executor, metrics, logger)
     await run_supervised_worker(
         temporal_client=temporal.raw_client,
         activities=WorkerActivities(store_health, model_execution),

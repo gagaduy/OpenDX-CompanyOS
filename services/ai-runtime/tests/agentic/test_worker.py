@@ -10,6 +10,7 @@ from typing import Any
 from app.agentic.activities.store_health_activities import StoreHealthActivities
 from app.agentic.worker import (
     WorkerActivities,
+    build_model_executor,
     configure_logging,
     run_supervised_worker,
     worker_identity,
@@ -54,6 +55,15 @@ def test_standalone_worker_enables_structured_info_logs(
 
 def test_worker_identity_is_unique_to_the_current_process_instance() -> None:
     assert worker_identity("a" * 32) == f"opendx-ai-worker:{'a' * 32}"
+
+
+def test_model_executor_factory_returns_none_when_execution_is_disabled() -> None:
+    class Settings:
+        class OpenRouter:
+            execution_enabled = False
+        openrouter = OpenRouter()
+
+    assert build_model_executor(Settings(), object(), object()) is None  # type: ignore[arg-type]
 
 
 def test_registers_exact_v1_workflow_and_activity_names_then_drains() -> None:
