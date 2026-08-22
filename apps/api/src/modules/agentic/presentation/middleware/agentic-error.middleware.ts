@@ -43,6 +43,7 @@ const conflictCodes = new Set([
   "APPROVAL_DECISION_CONFLICT",
   "ACTIVITY_INVOCATION_CONFLICT",
   "MODEL_RUN_CONFLICT",
+  "IDEMPOTENCY_CONFLICT",
 ]);
 
 const unprocessableCodes = new Set([

@@ -52,6 +52,27 @@ The former configuration `submit` and `decision` endpoints are retained only
 as compatibility routes and return `CONFIGURATION_LIFECYCLE_RETIRED`; clients
 must use `activate`.
 
+## Governed File Intake
+
+Only `agentic_governance_admin` and `administrator` may use these routes. They
+are private staff APIs: neither file bytes, storage keys, public URLs, nor
+browser credentials appear in any response.
+
+| Method and path | Contract |
+| --- | --- |
+| `POST /v1/admin/agentic/files` | Multipart with exactly one `file` field. Only `text/csv` CSV or `text/plain` TXT is accepted; the memory limit is exactly 2 MiB. The `201` response contains metadata only. |
+| `GET /v1/admin/agentic/files/:fileId` | Returns private intake metadata without `objectKey` or bytes. |
+| `GET /v1/admin/agentic/files/:fileId/preview` | Scans and derives the bounded preview; returns preview metadata, digest, samples, and source references only. |
+| `POST /v1/admin/agentic/files/:fileId/approve` | Body is `{ "expectedFileVersion": 2, "previewVersion": 1, "previewPayloadDigest": "64-lowercase-hex" }`; `idempotency-key` is a required header. Creates or replays the governed draft task. |
+| `POST /v1/admin/agentic/files/:fileId/reject` | Body is `{ "expectedFileVersion": 2 }`. |
+| `POST /v1/admin/agentic/files/:fileId/delete` | Body is `{ "expectedFileVersion": 3 }`. |
+
+All JSON request bodies are strict: unknown fields fail validation. File
+approval validates both version values and the preview payload digest; reuse of
+an idempotency key for a different approval request returns
+`IDEMPOTENCY_CONFLICT`. There is deliberately no download, content, or public
+file endpoint.
+
 ## Department Tool Invocation
 
 `POST /v1/internal/agentic/tools/invoke` accepts only a confidential

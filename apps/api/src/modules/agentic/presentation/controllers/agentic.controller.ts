@@ -4,8 +4,11 @@
 import type { Request, RequestHandler, Response } from "express";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { successResponse } from "../../../../shared/http/api-response";
+import { ApplicationError } from "../../../../shared/http/application-error";
 import type { AgentTaskService } from "../../application/services/interfaces/agent-task.service";
 import type { AgenticQueryService } from "../../application/services/interfaces/agentic-query.service";
+import type { AgenticFileService } from "../../application/services/interfaces/agentic-file.service";
+import type { AgenticIntakeFile } from "../../domain/entities/agentic-file";
 import type { ApprovalService } from "../../application/services/interfaces/approval.service";
 import type { ConfigurationService } from "../../application/services/interfaces/configuration.service";
 import type { EmergencyRevocationService } from "../../application/services/implementations/emergency-revocation.service";
@@ -13,6 +16,7 @@ import {
   parseAgentKind, parseAuditQuery, parseCreateRevision, parseCreateTask, parseDecision,
   parseExpectedVersion, parsePage, parseRevocation, parseUpdateRevision,
   parseUpdateTask, parseUuid,
+  parseFileAction, parseFileApproval, parseIdempotencyKey,
 } from "../validators/agentic.validator";
 
 export class AgenticController {
@@ -22,6 +26,7 @@ export class AgenticController {
     private readonly configurations: ConfigurationService,
     private readonly revocations: EmergencyRevocationService,
     private readonly queries: AgenticQueryService,
+    private readonly files?: AgenticFileService,
   ) {}
 
   readonly createTask = handle(async (request, response) => {
@@ -83,6 +88,31 @@ export class AgenticController {
   readonly listAudit = handle(async (request, response) => {
     response.json(successResponse("Agent audit retrieved", await this.queries.listAudit(parseAuditQuery(request.query), principal(response.locals))));
   });
+  readonly uploadFile = handle(async (request, response) => {
+    if (request.file === undefined) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
+    if (Object.keys(request.body).length !== 0) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
+    const result = await files(this.files).upload({ originalFilename: request.file.originalname, mediaType: request.file.mimetype as "text/csv" | "text/plain", content: request.file.buffer }, principal(response.locals));
+    response.status(201).json(successResponse("Agentic file uploaded", fileResponse(result.file)));
+  });
+  readonly getFile = handle(async (request, response) => {
+    response.json(successResponse("Agentic file retrieved", fileResponse(await files(this.files).get(parseUuid(request.params.fileId), principal(response.locals)))));
+  });
+  readonly previewFile = handle(async (request, response) => {
+    response.json(successResponse("Agentic file preview retrieved", await files(this.files).scanAndPreview(parseUuid(request.params.fileId), principal(response.locals))));
+  });
+  readonly approveFile = handle(async (request, response) => {
+    const input = parseFileApproval(request.body);
+    const task = await files(this.files).approvePreview({ fileId: parseUuid(request.params.fileId), ...input, idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]) }, principal(response.locals));
+    response.status(201).json(successResponse("Agentic file preview approved", task));
+  });
+  readonly rejectFile = handle(async (request, response) => {
+    const result = await files(this.files).reject(parseUuid(request.params.fileId), parseFileAction(request.body).expectedFileVersion, principal(response.locals));
+    response.json(successResponse("Agentic file rejected", fileResponse(result)));
+  });
+  readonly deleteFile = handle(async (request, response) => {
+    const result = await files(this.files).delete(parseUuid(request.params.fileId), parseFileAction(request.body).expectedFileVersion, principal(response.locals));
+    response.json(successResponse("Agentic file deleted", fileResponse(result)));
+  });
 }
 
 function principal(locals: Record<string, unknown>): StaffPrincipal {
@@ -91,4 +121,14 @@ function principal(locals: Record<string, unknown>): StaffPrincipal {
 
 function handle(operation: (request: Request, response: Response) => Promise<void>): RequestHandler {
   return (request, response, next) => { void operation(request, response).catch(next); };
+}
+
+function files(service: AgenticFileService | undefined): AgenticFileService {
+  if (service === undefined) throw new ApplicationError(503, "FILE_INTAKE_UNAVAILABLE", "Agentic file intake is unavailable");
+  return service;
+}
+
+function fileResponse(file: AgenticIntakeFile) {
+  const { objectKey: _objectKey, ...response } = file;
+  return response;
 }

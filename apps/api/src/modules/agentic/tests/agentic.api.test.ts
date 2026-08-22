@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "../../../shared/auth/staff-principal";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { AgenticApplicationError } from "../application/services/agentic-application.error";
+import { AgenticController } from "../presentation/controllers/agentic.controller";
 import { agenticErrorMiddleware } from "../presentation/middleware/agentic-error.middleware";
 import { createAgenticRouter } from "../presentation/routes/agentic.routes";
 import { createAgenticWorkloadRouter } from "../presentation/routes/agentic-workload.routes";
@@ -106,6 +107,60 @@ describe("Agentic validators", () => {
 });
 
 describe("Agentic route authorization", () => {
+  it("exposes governed file intake with one bounded multipart file and no private storage metadata", async () => {
+    const application = buildFiles("agentic_governance_admin");
+    const uploaded = await application.post("/files")
+      .field("ignored", "no")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(400);
+    expect(uploaded.body.errorCode).toBe("VALIDATION_ERROR");
+
+    const accepted = await application.post("/files")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(201);
+    expect(accepted.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "uploaded" }));
+    expect(accepted.body.data).not.toHaveProperty("objectKey");
+    expect(accepted.body.data).not.toHaveProperty("content");
+
+    await application.post("/files")
+      .attach("file", Buffer.from("first"), { filename: "first.txt", contentType: "text/plain" })
+      .attach("file", Buffer.from("second"), { filename: "second.txt", contentType: "text/plain" })
+      .expect(400);
+
+    await application.post("/files").expect(400);
+
+    await application.post("/files")
+      .attach("file", Buffer.alloc(2 * 1024 * 1024 + 1), { filename: "too-large.csv", contentType: "text/csv" })
+      .expect(413);
+  });
+
+  it("limits file routes to governance administrators and returns only metadata or previews", async () => {
+    const denied = await buildFiles("agentic_operator").get(`/files/${FILE_ID}`).expect(403);
+    expect(denied.body.errorCode).toBe("FORBIDDEN");
+
+    const application = buildFiles("administrator");
+    const metadata = await application.get(`/files/${FILE_ID}`).expect(200);
+    expect(metadata.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "previewed" }));
+    expect(metadata.body.data).not.toHaveProperty("objectKey");
+    const preview = await application.get(`/files/${FILE_ID}/preview`).expect(200);
+    expect(preview.body.data).toEqual(expect.objectContaining({ fileId: FILE_ID, samples: ["name", "Ada"] }));
+    expect(preview.body.data).not.toHaveProperty("content");
+  });
+
+  it("validates file approval versions and maps duplicate approval idempotency keys", async () => {
+    const application = buildFiles("agentic_governance_admin");
+    await application.post(`/files/${FILE_ID}/approve`)
+      .set("idempotency-key", "file-approval-1")
+      .send({ expectedFileVersion: 2, previewVersion: 1, previewPayloadDigest: "a".repeat(64), extra: true })
+      .expect(400);
+    await application.post(`/files/${FILE_ID}/approve`)
+      .set("idempotency-key", "duplicate-key")
+      .send({ expectedFileVersion: 2, previewVersion: 1, previewPayloadDigest: "a".repeat(64) })
+      .expect(409);
+    await application.post(`/files/${FILE_ID}/reject`).send({ expectedFileVersion: 2 }).expect(200);
+    await application.post(`/files/${FILE_ID}/delete`).send({ expectedFileVersion: 3 }).expect(200);
+  });
+
   it("requires authentication, enforces minimum roles, and audits denial", async () => {
     const denied = vi.fn(async () => undefined);
     expect((await build(undefined, denied).get("/tasks")).status).toBe(401);
@@ -189,12 +244,54 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),
     createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), activateRevision: handler("activateRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
     createRevocation: handler("createRevocation"), listAudit: handler("listAudit"),
+    uploadFile: handler("uploadFile"), getFile: handler("getFile"), previewFile: handler("previewFile"),
+    approveFile: handler("approveFile"), rejectFile: handler("rejectFile"), deleteFile: handler("deleteFile"),
     startWorkflow: handler("startWorkflow"), getWorkflow: handler("getWorkflow"),
     cancelWorkflow: handler("cancelWorkflow"),
   };
   app.use(createAgenticRouter(controller, controller, authenticate, appendDenied));
   app.use(createErrorHandler());
   return request(app);
+}
+
+const FILE_ID = "00000000-0000-4000-8000-000000000010";
+
+function buildFiles(role: StaffRole) {
+  const app = express();
+  app.use(express.json());
+  const authenticate: RequestHandler = (_request, response, next) => {
+    response.locals.staffPrincipal = { subject: "governance-admin", displayName: "Governance admin", roles: [role] };
+    response.locals.correlationId = "corr";
+    next();
+  };
+  const files = {
+    upload: vi.fn(async () => ({ file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } })),
+    get: vi.fn(async () => fileMetadata()),
+    scanAndPreview: vi.fn(async () => preview()),
+    approvePreview: vi.fn(async (input: { idempotencyKey: string }) => {
+      if (input.idempotencyKey === "duplicate-key") throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound");
+      return { id: "00000000-0000-4000-8000-000000000011", state: "draft" as const, createdBy: "governance-admin", goal: "Review intake file: people.csv", instructions: "Review the approved file preview.", version: 1, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" };
+    }),
+    reject: vi.fn(async () => ({ ...fileMetadata(), status: "rejected" as const, version: 3 })),
+    delete: vi.fn(async () => ({ ...fileMetadata(), status: "deleted" as const, version: 4 })),
+  };
+  const controller = new AgenticController({} as never, {} as never, {} as never, {} as never, {} as never, files);
+  const workflow = {
+    startWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
+    getWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
+    cancelWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
+  };
+  app.use(createAgenticRouter(controller, workflow, authenticate, vi.fn(async () => undefined)));
+  app.use(agenticErrorMiddleware, createErrorHandler());
+  return request(app);
+}
+
+function fileMetadata() {
+  return { id: FILE_ID, objectKey: "agentic-intake/private", originalFilename: "people.csv", format: "csv" as const, mediaType: "text/csv" as const, byteSize: 9, payloadDigest: "a".repeat(64), status: "previewed" as const, createdBy: "governance-admin", version: 2, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" };
+}
+
+function preview() {
+  return { fileId: FILE_ID, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
 }
 
 function buildWorkload(authenticated: boolean) {

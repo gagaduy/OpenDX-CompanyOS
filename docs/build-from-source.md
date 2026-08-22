@@ -102,6 +102,18 @@ pnpm check:agentic-model-runtime
 pnpm check:agentic-phase-d-exit
 ```
 
+Phase E file-intake transport contracts can be exercised without credentials or
+object-storage access:
+
+```bash
+pnpm --filter @opendx/api exec vitest run src/modules/agentic/tests/agentic.api.test.ts
+```
+
+The API accepts one CSV (`text/csv`) or TXT (`text/plain`) multipart field
+named `file`, held in process memory only while the private object-storage
+adapter records it. The transport hard limit is exactly 2 MiB; no public URL or
+content-download route is exposed.
+
 For mandatory external acceptance, set `OPENROUTER_API_KEY=<operator-owned-key>`
 only in ignored root `.env`, export it with `set -a; . ./.env; set +a`, and set
 `OPENROUTER_CONFIGURATION_EXPORT` to the absolute path of a JSON export from

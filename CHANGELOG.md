@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Expose governed private CSV/TXT Agentic file intake, preview, approval,
+  rejection, and deletion staff endpoints with strict multipart limits and
+  backend governance authorization.
+
 - Serialize Agentic file-approval idempotency keys across files to return a
   governed conflict instead of a database uniqueness error.
 

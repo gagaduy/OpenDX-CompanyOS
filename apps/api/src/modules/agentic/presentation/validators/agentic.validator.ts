@@ -179,6 +179,13 @@ const failModelRun = z.object({
   errorCode: reasonCode,
   qualityOutcome: z.enum(["correct", "escalate"]),
 }).strict();
+const fileAction = z.object({ expectedFileVersion: positiveVersion }).strict();
+const fileApproval = z.object({
+  expectedFileVersion: positiveVersion,
+  previewVersion: positiveVersion,
+  previewPayloadDigest: digest,
+}).strict();
+const idempotencyKey = z.string().trim().min(1).max(255);
 
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);
@@ -204,6 +211,9 @@ export const parseReserveModelRun = (value: unknown) => parse(reserveModelRun, v
 export const parseStartModelRun = (value: unknown) => parse(startModelRun, value);
 export const parseCompleteModelRun = (value: unknown) => parse(completeModelRun, value);
 export const parseFailModelRun = (value: unknown) => parse(failModelRun, value);
+export const parseFileAction = (value: unknown) => parse(fileAction, value);
+export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
+export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   try { return schema.parse(value); }

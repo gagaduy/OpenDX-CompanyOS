@@ -111,7 +111,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
           monotonicNow: dependencies.monotonicNow ?? performance.now.bind(performance),
         },
   );
-  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries);
+  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files);
   const workflowController = new AgenticWorkflowController(workflows);
   const workloadController = new AgenticWorkloadController(workflows, modelRuns);
   const toolController = new AgenticToolController(tools);

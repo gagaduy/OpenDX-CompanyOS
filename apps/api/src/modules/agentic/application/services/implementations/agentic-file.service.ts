@@ -24,6 +24,10 @@ export class AgenticFileServiceImpl implements AgenticFileService {
     try { await this.transactions.run(async (s) => { await this.repository.createIntakeFile(s, file); await this.audit(s, principal, file.id, "agentic_file.upload", at); }); await this.storage.put(file.objectKey, input.content, file.mediaType); } catch { await this.storage.delete(file.objectKey).catch(() => undefined); fail("FILE_UPLOAD_FAILED", "File upload could not be recorded safely"); }
     return { file };
   }
+  async get(fileId: string, principal: StaffPrincipal): Promise<AgenticIntakeFile> {
+    admin(principal);
+    return this.transactions.runReadOnly((session) => this.file(session, fileId));
+  }
   async scanAndPreview(fileId: string, principal: StaffPrincipal): Promise<AgenticFilePreviewDto> {
     admin(principal); const file = await this.transactions.runReadOnly((s) => this.file(s, fileId)); if (file.status === "previewed") return this.preview(file.id); if (file.status !== "uploaded") fail("FILE_STATE_INVALID", "File cannot be scanned");
     const scanning = transitionAgenticIntakeFile(file, "scanning", this.now()); if (!await this.transactions.run((s) => this.repository.transitionIntakeFile(s, scanning, file.version))) return this.replay(fileId);
