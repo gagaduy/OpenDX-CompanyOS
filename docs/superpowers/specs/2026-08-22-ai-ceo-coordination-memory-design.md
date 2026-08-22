@@ -49,6 +49,36 @@ durable orchestration state and retries. Existing OpenRouter runtime,
 Quality Gate, Department identities, Tool Registry, policy, budgets, and
 read-only Commerce ports remain the only model/tool execution paths.
 
+### Execution Descriptor and Department Identity Bridge
+
+The API prepares an immutable `ExecutionDescriptor` for every accepted
+Department subtask before Temporal may dispatch it. The descriptor is the
+API-owned authorization snapshot for that execution, not a capability that the
+workflow may broaden. It binds the task, plan revision, subtask, assigned
+Department Agent, configuration and policy revisions, approved model pair,
+strict result schema, authorized context and provenance references, allowed
+tool/data scope, budget authorization, freshness boundary, expiry, and a digest.
+The descriptor is append-only; a changed, revoked, stale, or expired decision
+requires a new descriptor and a fresh policy evaluation.
+
+Temporal history contains only the descriptor ID and digest, assigned Agent,
+dependency result references, and idempotency keys. It never contains the
+descriptor body, raw context, prompts, responses, access tokens, client
+secrets, attachment content, or Department tool results. The AI worker uses
+its control-plane workload identity to load the purpose-specific descriptor
+from the internal API, verifies its binding and expiry, and obtains the exact
+Department service identity only for that Department's Tool Registry calls.
+The six Department identities remain separate from one another and from the AI
+CEO and worker identities; no fallback to a shared Agent credential is
+permitted.
+
+Model execution continues through the API-owned governed model-run lifecycle.
+The runtime submits the descriptor binding and assigned Agent rather than
+selecting authority locally. The API revalidates active configuration, policy,
+revocation, model pair, budget, schema, context provenance, and idempotency
+before reserving or starting a run. This bridge adds no direct database access,
+no general credential broker, and no new public runtime endpoint.
+
 ## Immutable Contracts
 
 `TaskBrief` contains task ID, goal, instructions, deadline, expected output,
@@ -63,6 +93,17 @@ allowed tools/data scope, freshness requirement, timeout, budget, and source
 provenance. A model may rank eligible assignments, but deterministic validation
 rejects cycles, unknown Agents/tools, duplicate ownership, unsupported work,
 scope expansion, and budget/timeout violations before dispatch.
+
+`ExecutionDescriptor` is a short-lived immutable dispatch contract. Its
+identity fields are descriptor ID and version, task ID, plan version, subtask
+ID, Agent kind, configuration revision ID, policy version, and descriptor
+digest. Its authority fields are the approved primary/fallback model IDs,
+result-schema name and digest, authorized context/provenance reference IDs and
+digest, allowed tool grants with purpose, data scope, version and invocation
+limit, budget authorization reference, timeout, freshness limit, and expiry.
+The internal read DTO may return the strict schema and minimized authorized
+context needed for execution, but those values never enter Temporal history or
+normal logs. Secrets are never descriptor fields.
 
 `CollaborationRequest` is the sole cross-Agent channel. It records requester,
 requested Department, task, question, purpose, requested data class, evidence
@@ -93,6 +134,34 @@ most two corrections; it then produces `PARTIAL_RESULT` or
 same plan revision and idempotency keys, and cannot duplicate tool effects,
 model charges, collaboration, or report artifacts.
 
+New executions use a named Temporal patch boundary for descriptor-based
+dispatch. Existing Store Health Review histories remain on their original
+deterministic Phase B path and must replay without receiving new commands.
+On the new path, each dependency-ready subtask follows this sequence:
+
+1. Load and verify the descriptor by ID, digest, task, plan, subtask, Agent,
+   expiry, and current revocation state.
+2. Invoke only descriptor-authorized typed tools with the assigned
+   Department's service token; retain result references and digests rather
+   than raw bodies in workflow state.
+3. Submit minimized tool evidence to the existing governed model-run and
+   Quality Gate lifecycle under the descriptor binding.
+4. Append one accepted result or an explicit unavailable/partial result, then
+   release newly dependency-ready subtasks.
+5. Route any cross-Department need through a persisted, policy-re-evaluated
+   `CollaborationRequest`; the target receives only the approved redacted
+   payload, never the requester's complete context.
+
+Descriptor digest, scope, identity, or binding mismatches fail closed without
+tool or model execution. Expired, stale, or revoked descriptors produce a
+safe paused/replan outcome and cannot be retried as if authority were still
+valid. Transient API, identity-provider, or Tool Registry failures may use
+bounded activity retries with the same idempotency keys. A terminal Department
+authentication or tool failure is reported as unavailable evidence; it never
+causes another Department identity to be substituted. Idempotency is enforced
+independently at descriptor creation, tool invocation, model run, accepted
+result, collaboration forwarding, and executive report persistence.
+
 ## Security and Governance
 
 All model inputs label untrusted task, file, tool, and collaboration content.
@@ -105,6 +174,15 @@ identity, task, policy/model/tool versions, correlation/causation, outcome,
 digest, audit, and provenance without normal-log prompt, response, secret, or
 attachment bodies.
 
+Department client credentials are deployment secrets loaded into a typed
+Agent-to-credential mapping by the worker. Descriptor dispatch is disabled
+unless all six distinct Department identities are configured; duplicate or
+missing identities fail startup/configuration validation. Tokens are acquired
+just in time, bounded to the intended audience, cached no longer than their
+validity permits, and excluded from exceptions, metrics, logs, audit,
+provenance, activity arguments/results, and workflow history. The worker's
+control-plane identity cannot impersonate a Department at the Tool Registry.
+
 ## Validation
 
 Deterministic fake models and typed fake tools prove Task Brief construction,
@@ -115,6 +193,16 @@ cross-department leakage, direct collaboration channel, unapproved tool/model
 selection, permission inheritance, Commerce mutation, or fabricated report
 conclusion. PostgreSQL/Temporal integration covers versioning, idempotency,
 state projection, cancellation, approval waits, and recovery.
+
+Descriptor bridge tests additionally prove digest and cross-task/subtask
+binding rejection, expiry and revocation failure, exact Agent/model/schema/tool
+authorization, context minimization, all six distinct Department token
+selections, and fail-closed handling of missing or duplicate identities. They
+inspect serialized histories and structured logs for absence of descriptor
+bodies, raw tool/model data, and secrets. Retry/restart tests prove exactly-once
+descriptor, tool, model-charge, collaboration, result, and report effects.
+Replay tests cover both exported pre-bridge histories and new patched histories
+so deployment cannot invalidate in-flight Phase B runs.
 
 ## Deferred Phase F Slices
 
