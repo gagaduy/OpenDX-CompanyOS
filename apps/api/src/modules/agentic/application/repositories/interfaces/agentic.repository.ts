@@ -295,7 +295,7 @@ export interface AgenticRepository {
   updateRevision(session: DatabaseSession, revision: ConfigurationRevision, expectedVersion: number): Promise<boolean>;
   replaceRevisionChildren(session: DatabaseSession, revisionId: string, children: RevisionChildren): Promise<boolean>;
   getRevisionChildren(session: DatabaseSession, revisionId: string): Promise<RevisionChildren>;
-  activateRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, decidedAt: string): Promise<boolean>;
+  activateRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, activatedBy: string, activatedAt: string): Promise<boolean>;
   rejectRevision(session: DatabaseSession, revisionId: string, expectedVersion: number, decidedBy: string, reason: string, decidedAt: string): Promise<boolean>;
   listPolicies(session: DatabaseSession, revisionId: string): Promise<readonly PolicyRecord[]>;
   registerTool(session: DatabaseSession, tool: ToolRecord): Promise<"created" | "duplicate">;

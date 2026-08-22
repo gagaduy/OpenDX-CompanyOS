@@ -322,28 +322,28 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     session: DatabaseSession,
     revisionId: string,
     expectedVersion: number,
-    decidedBy: string,
-    decidedAt: string,
+    activatedBy: string,
+    activatedAt: string,
   ): Promise<boolean> {
     await session.query("SELECT pg_advisory_xact_lock(hashtext('agentic.configuration.activation'))");
     const candidate = await session.query<{ created_by: string }>(
       `SELECT created_by FROM agentic_configuration_revisions
-       WHERE id=$1 AND state='pending_approval' AND version=$2 FOR UPDATE`,
-      [revisionId, expectedVersion],
+       WHERE id=$1 AND state='draft' AND version=$2 AND created_by=$3 FOR UPDATE`,
+      [revisionId, expectedVersion, activatedBy],
     );
-    if (candidate.rows[0] === undefined || candidate.rows[0].created_by === decidedBy) return false;
+    if (candidate.rows[0] === undefined) return false;
 
     await session.query(
       `UPDATE agentic_configuration_revisions
        SET state='superseded',version=version+1,updated_at=$1
        WHERE state='active' AND id<>$2`,
-      [decidedAt, revisionId],
+      [activatedAt, revisionId],
     );
     const result = await session.query(
       `UPDATE agentic_configuration_revisions
        SET state='active',decided_by=$3,decided_at=$4,version=version+1,updated_at=$4
-       WHERE id=$1 AND state='pending_approval' AND version=$2`,
-      [revisionId, expectedVersion, decidedBy, decidedAt],
+       WHERE id=$1 AND state='draft' AND version=$2 AND created_by=$3`,
+      [revisionId, expectedVersion, activatedBy, activatedAt],
     );
     return result.rowCount === 1;
   }

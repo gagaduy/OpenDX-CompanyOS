@@ -392,13 +392,13 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_configuration_revisions
       (id,state,created_by,payload_digest,decided_by,decided_at) VALUES
       ($1,'active','admin-a',$4,'admin-z',now()),
-      ($2,'pending_approval','admin-b',$5,NULL,NULL),
-      ($3,'pending_approval','admin-c',$6,NULL,NULL)`,
+      ($2,'draft','admin-b',$5,NULL,NULL),
+      ($3,'draft','admin-c',$6,NULL,NULL)`,
       [activeId, candidateA, candidateB, "a".repeat(64), "b".repeat(64), "c".repeat(64)]);
 
     const results = await Promise.all([
-      transactions.run((session) => repository.activateRevision(session, candidateA, 1, "admin-x", "2026-08-14T01:00:00.000Z")),
-      transactions.run((session) => repository.activateRevision(session, candidateB, 1, "admin-y", "2026-08-14T01:00:00.000Z")),
+      transactions.run((session) => repository.activateRevision(session, candidateA, 1, "admin-b", "2026-08-14T01:00:00.000Z")),
+      transactions.run((session) => repository.activateRevision(session, candidateB, 1, "admin-c", "2026-08-14T01:00:00.000Z")),
     ]);
     expect(results.some(Boolean)).toBe(true);
     expect((await pool.query("SELECT id FROM agentic_configuration_revisions WHERE state='active'")).rowCount).toBe(1);

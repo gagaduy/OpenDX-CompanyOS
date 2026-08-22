@@ -53,7 +53,7 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("8");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("9");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
@@ -229,7 +229,7 @@ suite("Agent governance migration", () => {
       [taskId, runId],
     )).rejects.toMatchObject({ code: "23514" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 1);
+    await runAgenticMigrations(databaseUrl!, "down", 2);
     expect((await pool.query("SELECT to_regclass('public.agentic_model_runs') AS name")).rows[0])
       .toEqual({ name: null });
     const pricingColumns = await pool.query(
@@ -748,7 +748,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 6);
+    await runAgenticMigrations(databaseUrl!, "down", 7);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");
