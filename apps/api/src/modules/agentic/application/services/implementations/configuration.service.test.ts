@@ -87,6 +87,9 @@ function harness(options: { readonly revision?: Record<string, unknown>; readonl
     updateRevision: vi.fn(async () => true), activateRevision: vi.fn(async () => true),
     rejectRevision: vi.fn(async () => true),
     appendAudit: vi.fn(async () => { if (options.auditFailure) throw new Error("audit unavailable"); }),
+    appendProvenance: vi.fn(async () => undefined),
+    findTool: vi.fn(async () => ({ active: true })),
+    findActiveRevocation: vi.fn(async () => undefined),
   };
   let id = 0;
   const service = new ConfigurationServiceImpl(repository as unknown as AgenticRepository, tx,

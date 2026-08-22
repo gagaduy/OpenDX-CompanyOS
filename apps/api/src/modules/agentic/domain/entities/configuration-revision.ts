@@ -15,6 +15,7 @@ export interface ConfigurationRevision {
   readonly payloadDigest: string;
   readonly decidedBy?: string;
   readonly decisionReason?: string;
+  readonly activationAuditId?: string;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;

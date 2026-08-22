@@ -15,7 +15,8 @@ import type {
 
 type ConfigurationRepository = Pick<AgenticRepository,
   | "createRevision" | "findRevision" | "findActiveRevision" | "updateRevision"
-  | "replaceRevisionChildren" | "getRevisionChildren" | "activateRevision" | "rejectRevision" | "appendAudit">;
+  | "replaceRevisionChildren" | "getRevisionChildren" | "activateRevision" | "rejectRevision"
+  | "appendAudit" | "appendProvenance" | "findTool" | "findActiveRevocation">;
 
 export class ConfigurationServiceImpl implements ConfigurationService {
   constructor(
@@ -82,12 +83,28 @@ export class ConfigurationServiceImpl implements ConfigurationService {
       }
       if (current.version !== input.expectedVersion) fail("STALE_VERSION", "Configuration version is stale");
       const at = this.now();
-      validateChildren(await this.repository.getRevisionChildren(session, current.id));
+      const children = await this.repository.getRevisionChildren(session, current.id);
+      await validateActivationDependencies(this.repository, session, children);
+      const previous = await this.repository.findActiveRevision(session);
       const next = transitionRevision(current, { type: "activate", activatedBy: principal.subject }, at);
       const changed = await this.repository.activateRevision(session, current.id, input.expectedVersion, principal.subject, at);
       if (!changed) fail("STALE_VERSION", "Configuration decision is stale");
-      await this.audit(session, principal, current.id, "configuration.activate", at);
-      return next;
+      const auditId = this.generateId();
+      const summary = childSummary(children);
+      await this.repository.appendAudit(session, {
+        id: auditId, actorId: principal.subject, actorType: "staff", action: "configuration.activate",
+        resourceType: "configuration_revision", resourceId: current.id, outcome: "allowed",
+        correlationId: current.id, causationId: previous?.id, parametersDigest: current.payloadDigest,
+        policyVersion: previous?.version, modelVersion: next.version, resultDigest: digest(summary), occurredAt: at,
+      });
+      await this.repository.appendProvenance(session, {
+        id: this.generateId(), sourceType: "configuration_activation", sourceId: auditId,
+        sourceDigest: current.payloadDigest, sourceVersion: next.version,
+        normalizedWindow: { previousRevisionId: previous?.id, previousVersion: previous?.version,
+          newRevisionId: current.id, newVersion: next.version, ...summary },
+        classification: "internal", recordedBy: principal.subject, recordedAt: at,
+      });
+      return { ...next, activationAuditId: auditId };
     });
   }
 
@@ -128,6 +145,37 @@ export class ConfigurationServiceImpl implements ConfigurationService {
 function validateChildren(children: RevisionChildren): void {
   for (const model of children.modelConfigurations) validateModelConfiguration(model);
   for (const budget of children.budgetLimits) validateBudgetLimits(budget);
+}
+
+async function validateActivationDependencies(
+  repository: ConfigurationRepository,
+  session: Parameters<ConfigurationRepository["findRevision"]>[0],
+  children: RevisionChildren,
+): Promise<void> {
+  validateChildren(children);
+  for (const grant of children.toolGrants) {
+    if (await repository.findTool(session, grant.toolName, grant.toolVersion) === undefined) {
+      fail("CONFIGURATION_INVALID", "A configured tool no longer exists");
+    }
+    if (await repository.findActiveRevocation(session, "tool_grant", grant.id) !== undefined) {
+      fail("CONFIGURATION_REVOKED", "A configured tool grant is revoked");
+    }
+  }
+  for (const model of children.modelConfigurations) {
+    if (await repository.findActiveRevocation(session, "agent", model.agentKind) !== undefined) {
+      fail("CONFIGURATION_REVOKED", "A configured Agent is revoked");
+    }
+    for (const modelId of [model.primaryModel, ...model.fallbackModels]) {
+      if (await repository.findActiveRevocation(session, "model", modelId) !== undefined) {
+        fail("CONFIGURATION_REVOKED", "A configured model is revoked");
+      }
+    }
+  }
+}
+
+function childSummary(children: RevisionChildren): Record<string, number> {
+  return { policies: children.policies.length, toolGrants: children.toolGrants.length,
+    modelConfigurations: children.modelConfigurations.length, budgetLimits: children.budgetLimits.length };
 }
 
 function digest(value: unknown): string {
