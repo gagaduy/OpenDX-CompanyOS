@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Define a local-only, single-Catalog governed OpenRouter live-acceptance
   command that requires an explicit cost confirmation.
 
+- Limit Catalog live acceptance to one provider generation: no fallback model
+  and no Quality Gate correction retry; record a partial outcome instead.
+
 - Allow one Agentic Governance Administrator to directly activate an owned
   configuration revision while preserving immutable audit, provenance,
   revocation, task-pinning, and workflow-action approval safeguards.

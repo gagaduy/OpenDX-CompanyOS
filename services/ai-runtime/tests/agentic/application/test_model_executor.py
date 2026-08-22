@@ -166,6 +166,21 @@ def test_uses_shared_fallback_once_only_for_retryable_gateway_failure() -> None:
     assert controls.failed == []
 
 
+def test_single_provider_attempt_does_not_use_fallback_after_retryable_failure() -> None:
+    controls = Controls()
+    gateway = Gateway([ModelGatewayFailure("OPENROUTER_TRANSPORT_FAILED", retryable=True)])
+
+    with pytest.raises(ModelExecutionError) as captured:
+        asyncio.run(executor(controls, gateway, Quality([])).execute(
+            ModelExecutionCommand(**{**command().__dict__, "allow_fallback": False})
+        ))
+
+    assert captured.value.code == "OPENROUTER_TRANSPORT_FAILED"
+    assert [request.model for event, request in gateway.requests if event == "generate"] == [
+        "google/gemma-4-26b-a4b-it:free",
+    ]
+
+
 def test_correction_uses_distinct_reservations_then_escalates_without_fallback() -> None:
     controls = Controls()
     gateway = Gateway([result(), result(), result()])
@@ -191,6 +206,25 @@ def test_correction_uses_distinct_reservations_then_escalates_without_fallback()
     assert second_request.untrusted_context["correction"] == {
         "reasonCodes": ("SCHEMA_INVALID",), "evidenceIds": ("prov-1",),
     }
+
+
+def test_zero_correction_limit_settles_partial_without_a_second_model_call() -> None:
+    controls = Controls()
+    gateway = Gateway([result()])
+    quality = Quality([QualityDecision("correct", ("SCHEMA_INVALID",), ("prov-1",))])
+
+    outcome = asyncio.run(executor(controls, gateway, quality).execute(
+        ModelExecutionCommand(
+            **{**command().__dict__, "maximum_correction_rounds": 0},
+        )
+    ))
+
+    assert outcome.status == "partial"
+    assert outcome.quality_reasons == ("SCHEMA_INVALID",)
+    assert len(controls.reservations) == 1
+    assert [event for event, _request in gateway.requests if event == "generate"] == ["generate"]
+    assert len(controls.completed) == 1
+    assert controls.failed == []
 
 
 def test_non_retryable_gateway_failure_settles_failure_without_fallback() -> None:

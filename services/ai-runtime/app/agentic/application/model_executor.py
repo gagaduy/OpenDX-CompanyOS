@@ -52,6 +52,8 @@ class ModelExecutionCommand:
     result_schema: Mapping[str, object]
     context: object
     quality_context: object
+    maximum_correction_rounds: int = 2
+    allow_fallback: bool = True
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,13 @@ class ModelExecutor:
         self._now = now
 
     async def execute(self, command: ModelExecutionCommand) -> ModelExecutionOutcome:
+        if (
+            type(command.maximum_correction_rounds) is not int
+            or not 0 <= command.maximum_correction_rounds <= 2
+        ):
+            raise ModelExecutionError("MODEL_CORRECTION_LIMIT_INVALID")
+        if type(command.allow_fallback) is not bool:
+            raise ModelExecutionError("MODEL_FALLBACK_POLICY_INVALID")
         try:
             context = self._context_filter(command.agent_kind, command.context)
             prompt = self._prompt_builder(command.agent_kind, context)
@@ -100,7 +109,7 @@ class ModelExecutor:
             raise ModelExecutionError("MODEL_CONTEXT_INVALID") from error
 
         correction: QualityDecision | None = None
-        for correction_round in range(3):
+        for correction_round in range(command.maximum_correction_rounds + 1):
             reservation = await self._controls.reserve_model_run(ReserveModelRunRequest(
                 task_id=command.task_id, agent_kind=command.agent_kind,
                 generation_round=correction_round,
@@ -159,7 +168,10 @@ class ModelExecutor:
                         decision.reasons, decision.evidence_ids, evidence_digest,
                     ))
                     return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
-                if decision.outcome == "partial" or correction_round == 2:
+                if (
+                    decision.outcome == "partial"
+                    or correction_round == command.maximum_correction_rounds
+                ):
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:partial",
@@ -192,7 +204,7 @@ class ModelExecutor:
             await self._gateway.preflight(primary)
             return await self._gateway.generate(primary), 0
         except ModelGatewayFailure as error:
-            if not error.retryable:
+            if not error.retryable or not command.allow_fallback:
                 raise _GatewayAttemptFailure(error, primary) from error
         fallback = self._request(command, prompt, reservation, correction_round, 1, correction)
         try:
