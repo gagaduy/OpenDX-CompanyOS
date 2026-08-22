@@ -71,9 +71,9 @@ export function transitionRevision(
     fail("CONFIGURATION_INVALID", "A rejection reason is required");
   }
   return nextRevision(revision, {
-    state: command.type === "activate" ? "active" : "rejected",
+    state: "rejected",
     decidedBy: command.decidedBy,
-    ...(command.type === "reject" ? { decisionReason: command.reason.trim() } : {}),
+    decisionReason: command.reason.trim(),
   }, at);
 }
 

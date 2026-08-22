@@ -13,7 +13,8 @@ export interface AgenticControllerHandlers {
   readonly decideApproval: RequestHandler; readonly listEmployees: RequestHandler;
   readonly getEmployee: RequestHandler; readonly createRevision: RequestHandler;
   readonly updateRevision: RequestHandler; readonly submitRevision: RequestHandler;
-  readonly getRevisionDiff: RequestHandler; readonly decideRevision: RequestHandler;
+  readonly activateRevision: RequestHandler; readonly getRevisionDiff: RequestHandler;
+  readonly decideRevision: RequestHandler;
   readonly createRevocation: RequestHandler; readonly listAudit: RequestHandler;
 }
 
