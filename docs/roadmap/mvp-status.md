@@ -48,7 +48,7 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Phases A-D complete | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase D completed after credential-owned Catalog live acceptance; Phases E-H not started |
+| Post-Commerce: Agentic Workforce | Phases A-E complete | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase D completed after credential-owned Catalog live acceptance; Phase E completed after controlled ClamAV and live file-intake acceptance; Phases F-H not started |
 
 Focused Agentic delivery status:
 
@@ -57,12 +57,24 @@ Focused Agentic delivery status:
 | Phase A: Agent Governance Foundation | Complete on `phuong` | `docs/superpowers/specs/2026-08-14-agent-governance-foundation-design.md` | `docs/superpowers/plans/2026-08-14-agent-governance-foundation.md` | Complete after focused unit, PostgreSQL concurrency, migration lifecycle, API, identity, and repository gates |
 | Phase B: Durable Store Health Workflow | Complete on `feat/store-health-temporal` | `docs/superpowers/specs/2026-08-14-store-health-temporal-workflow-design.md` | `docs/superpowers/plans/2026-08-14-store-health-temporal-workflow.md` | Complete after unit/integration/replay, worker-kill lifecycle, production topology, and three-database destroy/restore/resume gates |
 | Phase C: Read-only Department Tools | Complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-16-agentic-department-read-tools-design.md` | `docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md` | Complete after 17-tool six-identity acceptance, exact analytics grants, zero-leakage, lifecycle, recovery, full-source gates, and independent review |
+| Phase D: OpenRouter Agent Runtime | Complete on `develop` | `docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md` | `docs/superpowers/plans/2026-08-19-openrouter-agent-runtime.md` | Complete after credential-owned Catalog live acceptance |
+| Phase E: File Intake and Bulk Preview | Complete on `develop` | `docs/superpowers/specs/2026-08-22-agentic-file-intake-design.md` | `docs/superpowers/plans/2026-08-22-agentic-file-intake.md` | Complete after controlled ClamAV infected/outage, authenticated CSV/TXT intake, exactly-once approval, and source gates |
 
 Phase D is complete: governed OpenRouter execution, Quality Gate, deterministic
 fake acceptance, Phase D exit gate, and credential-owned Catalog live acceptance
 all pass. Phases E-H are explicitly not started.
 
 ## Latest Validation Evidence
+
+- Phase E closure evidence on 2026-08-22: local PostgreSQL migrations applied;
+  authenticated governance-admin acceptance uploaded clean CSV/TXT, produced
+  private bounded previews, and replayed each exact approval into one `draft`
+  task. Unsupported, NUL-invalid, and oversized uploads rejected. A canonical
+  EICAR preview returned `400 FILE_CONTENT_INVALID` without crashing the API;
+  a controlled stopped ClamAV returned `503 FILE_SCAN_FAILED`, after which
+  ClamAV was restored healthy. `pnpm check:agentic-phase-e-exit` then passed
+  with controlled ClamAV evidence, as did root `pnpm check`, `git diff --check`,
+  and `pnpm audit:repo` (748 API, 113 Console, and 74 Storefront tests).
 
 - Phase D closure evidence on 2026-08-22: `pnpm check:agentic-phase-d-exit`
   passed, and the credential-owned Catalog live acceptance completed with 671
