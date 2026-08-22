@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Retain Agentic intake evidence through terminal metadata transitions and
+  bind approval idempotency keys to their original request identity.
+
 - Preserve Agentic file-intake parser dependency direction and serialize
   concurrent preview approvals through PostgreSQL advisory locking.
 

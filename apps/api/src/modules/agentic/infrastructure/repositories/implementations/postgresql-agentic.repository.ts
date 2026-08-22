@@ -73,8 +73,8 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   }
   async approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult> {
     await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`agentic.file.approve:${input.fileId}`]);
-    const existing = await session.query<Row>("SELECT task_id FROM agentic_file_approvals WHERE idempotency_key=$1", [input.idempotencyKey]);
-    if (existing.rows[0] !== undefined) return { status:"duplicate", taskId:String(existing.rows[0].task_id) };
+    const existing = await session.query<Row>("SELECT approval.task_id,approval.file_id,approval.preview_version,approval.preview_digest,preview.payload_digest FROM agentic_file_approvals approval JOIN agentic_file_previews preview ON preview.file_id=approval.file_id AND preview.preview_version=approval.preview_version WHERE approval.idempotency_key=$1", [input.idempotencyKey]);
+    if (existing.rows[0] !== undefined) { const record = existing.rows[0]; if (String(record.file_id) !== input.fileId || Number(record.preview_version) !== input.previewVersion || String(record.preview_digest) !== input.previewDigest || String(record.payload_digest) !== input.previewPayloadDigest) throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound to another approval request"); return { status:"duplicate", taskId:String(record.task_id) }; }
     const preview = await session.query<Row>("SELECT preview_digest FROM agentic_file_previews WHERE file_id=$1 AND preview_version=$2 AND payload_digest=$3", [input.fileId, input.previewVersion, input.previewPayloadDigest]);
     if (preview.rows[0] === undefined || String(preview.rows[0].preview_digest) !== input.previewDigest) throw new AgenticApplicationError("FILE_APPROVAL_CONFLICT", "File preview has changed");
     await this.createTask(session,input.task);

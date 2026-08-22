@@ -35,11 +35,11 @@ describe("AgenticFileServiceImpl", () => {
   it.each([
     ["infected", { status: "infected", signature: "Eicar-Test-Signature" }],
     ["malformed", { status: "clean" }],
-  ] as const)("rejects and removes %s content without producing a preview", async (kind, result) => {
+  ] as const)("rejects %s content without producing a preview or deleting retained evidence", async (kind, result) => {
     const { service, storage, repository } = harness({ scanResult: result, content: kind === "malformed" ? Buffer.from('"unterminated') : content });
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: kind === "malformed" ? Buffer.from('"unterminated') : content }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
-    expect(storage.delete).toHaveBeenCalledWith(uploaded.file.objectKey);
+    expect(storage.delete).not.toHaveBeenCalled();
     expect(repository.appendFilePreview).not.toHaveBeenCalled();
   });
 
@@ -48,7 +48,7 @@ describe("AgenticFileServiceImpl", () => {
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: Buffer.from('"unterminated') }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
     expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 4 });
-    expect(storage.delete).toHaveBeenCalledWith(uploaded.file.objectKey);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
   it("returns a stable digest over an aggregate-only bounded preview", async () => {
@@ -81,6 +81,17 @@ describe("AgenticFileServiceImpl", () => {
     const parsed = { rowCount: 2, columnCount: 2, samples: ["sku,quantity", "SKU-1,4"] };
     expect(createAgenticFilePreview(file, parsed, "preview-1", "2026-08-22T00:00:00.000Z").previewDigest)
       .toBe(createAgenticFilePreview(file, { ...parsed, samples: [...parsed.samples] }, "preview-2", "2026-08-22T00:01:00.000Z").previewDigest);
+  });
+
+  it("audits manual reject and tombstone deletion while retaining the private object", async () => {
+    const { service, repository, storage } = harness();
+    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const rejected = await service.reject(uploaded.file.id, 1, admin);
+    const deleted = await service.delete(uploaded.file.id, rejected.version, admin);
+    expect(deleted.status).toBe("deleted");
+    expect(repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({ action: "agentic_file.reject", resourceId: uploaded.file.id }));
+    expect(repository.appendAudit).toHaveBeenCalledWith(session, expect.objectContaining({ action: "agentic_file.delete", resourceId: uploaded.file.id }));
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
   it("replays an approval with the same task and creates neither subtasks nor runtime work", async () => {

@@ -68,6 +68,17 @@ suite("PostgresqlAgenticRepository", () => {
     expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
   });
 
+  it("rejects reuse of an approval idempotency key with a changed preview payload", async () => {
+    const at = "2026-08-22T00:00:00.000Z"; const fileId = randomUUID(); const key = `file-approval:${fileId}`;
+    await pool.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at,scanned_at)
+      VALUES($1,$2,'catalog.csv','csv','text/csv',42,$3,'previewed','governance-admin',4,$4,$4,$4)`, [fileId, `agentic-intake/${randomUUID()}`, "a".repeat(64), at]);
+    await pool.query(`INSERT INTO agentic_file_previews(id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary,created_at)
+      VALUES($1,$2,1,'csv-rfc4180-v1',$3,$4,'{}',$5)`, [randomUUID(), fileId, "a".repeat(64), "b".repeat(64), at]);
+    const request = { fileId, previewVersion: 1, previewDigest: "b".repeat(64), expectedFileVersion: 4, previewPayloadDigest: "a".repeat(64), idempotencyKey: key, approvedBy: "governance-admin", approvedAt: at };
+    await transactions.run((session) => repository.approveFilePreview(session, { ...request, id: randomUUID(), task: { id: randomUUID(), state: "draft", createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at } }));
+    await expect(transactions.run((session) => repository.approveFilePreview(session, { ...request, id: randomUUID(), previewPayloadDigest: "c".repeat(64), task: { id: randomUUID(), state: "draft", createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at } }))).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
   it("serializes concurrent file approvals into one task, approval, audit, and provenance set", async () => {
     const at = "2026-08-22T00:00:00.000Z"; const fileId = randomUUID(); const previewId = randomUUID();
     await pool.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at,scanned_at)
