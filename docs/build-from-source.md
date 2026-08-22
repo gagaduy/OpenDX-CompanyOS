@@ -172,11 +172,25 @@ This runs:
 - ClamAV and private Support attachment bucket readiness through the Compose API
   health checks
 
-The faster host gate remains available after installing dependencies:
+The fast host gate remains available after installing dependencies:
 
 ```bash
 pnpm check
 ```
+
+It runs source-integrity checks, TypeScript lint/typecheck, TypeScript tests,
+and the repository audit. It intentionally excludes Python, frontend builds,
+and Agentic exit contracts so an unrelated change can iterate quickly.
+
+Before merge, run the broader host gate:
+
+```bash
+pnpm check:full
+```
+
+Use `make check` when a reproducible container gate and API integration suite
+are required. Run lifecycle, recovery, browser, financial, and provider gates
+only when their documented ownership or contract is affected.
 
 With the full stack running and Chrome or Chromium installed, repeat the
 responsive Storefront browser acceptance with:

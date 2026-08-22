@@ -32,7 +32,7 @@ for required_file in "${required_files[@]}"; do
   fi
 done
 
-expected_make_targets="check check-agentic-department-tools check-agentic-model-runtime check-agentic-workflow check-agentic-workflow-recovery check-crm-support-dashboard check-openrouter-live db-backup db-migrate db-restore db-rollback db-seed down help logs temporal-cli up"
+expected_make_targets="check check-agentic-department-tools check-agentic-model-runtime check-agentic-workflow check-agentic-workflow-recovery check-crm-support-dashboard check-fast check-openrouter-live db-backup db-migrate db-restore db-rollback db-seed down help logs temporal-cli up"
 actual_make_targets="$(sed -n 's/^\([a-z][a-z-]*\):.*/\1/p' Makefile | sort -u | tr '\n' ' ' | sed 's/ $//')"
 if [[ "${actual_make_targets}" != "${expected_make_targets}" ]]; then
   echo "Repository audit failed: Makefile targets must be exactly: ${expected_make_targets}" >&2

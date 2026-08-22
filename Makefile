@@ -6,10 +6,10 @@ COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
 REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export BACKUP
 
-.PHONY: help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore
+.PHONY: help up down logs check check-fast check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore
 
 help:
-	@echo "help up down logs check check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
+	@echo "help up down logs check check-fast check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -27,6 +27,9 @@ check:
 	$(COMPOSE) run --rm -e TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test -e MINIO_BUCKET=product-media-test api sh -ec 'pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @opendx/api test:integration && pnpm --filter @opendx/console build && pnpm --filter @opendx/storefront build && pnpm audit:repo'
 	$(COMPOSE) --profile checks run --rm ai-check
 	$(COMPOSE) config --quiet
+
+check-fast:
+	pnpm check:fast
 
 check-crm-support-dashboard:
 	$(COMPOSE) up -d postgres minio clamav

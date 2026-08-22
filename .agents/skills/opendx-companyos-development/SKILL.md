@@ -14,22 +14,11 @@ Use this skill before changing OpenDX CompanyOS product behavior, architecture, 
 
 ## Read First
 
-Read the smallest relevant set before acting:
-
-- `AGENTS.md` for agent workflow and guardrails.
-- `docs/product/vision.md` for Company-first product intent.
-- `docs/architecture/system-baseline.md` for system boundaries and technology baseline.
-- `docs/architecture/clean-architecture.md` before adding or moving application code.
-- `docs/architecture/dependency-rules.md` before changing module dependencies.
-- `docs/architecture/mvp-phases.md` for phase scope.
-- `docs/roadmap/mvp-status.md` for current completion status.
-- `docs/design/linear-product-canvas.md` before frontend work.
-- `docs/project-structure.md` before creating directories or moving code.
-- `docs/development/coding-conventions.md` for language and framework conventions.
-- `docs/development/testing-strategy.md` before behavior changes or refactors.
-- `docs/dependencies.md` before adding runtime, build, test, or infrastructure dependencies.
-- `docs/build-from-source.md` before changing setup, validation, or run commands.
-- `docs/agent-guidelines/implementation-guardrails.md` before agent, workflow, policy, GraphRAG, or permission work.
+Read `AGENTS.md` and
+`docs/agent-guidelines/current-delivery-brief.md` before acting. The brief
+routes each change type to its smallest relevant set of architecture, product,
+design, dependency, testing, or build documentation. Do not load unrelated
+historical plans or phase documents for a focused change.
 
 ## Product Rules
 
@@ -106,8 +95,11 @@ git diff --check
 pnpm audit:repo
 ```
 
-For code or build changes, prefer the full gate:
+For broad pre-merge code or build validation, use the full host gate:
 
 ```bash
-pnpm check
+pnpm check:full
 ```
+
+`pnpm check` is the fast source-only iteration gate. Use `make check` when the
+reproducible container gate and API integration suite are required.

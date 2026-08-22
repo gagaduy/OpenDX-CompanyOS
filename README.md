@@ -113,6 +113,8 @@ required for the Phase B local workflow.
 ### Run Validation
 
 ```bash
+pnpm check
+pnpm check:full
 make check
 pnpm check:commerce-exit
 pnpm check:crm-support-dashboard
@@ -121,7 +123,11 @@ pnpm check:agentic-workflow-recovery
 pnpm check:agentic-phase-b-exit
 ```
 
-The second command creates isolated PostgreSQL databases, validates the
+`pnpm check` is the fast source-only iteration gate. `pnpm check:full` adds
+all deterministic cross-workspace checks; use it before merge. `make check` is
+the reproducible container gate and includes API integration tests. Run the
+focused acceptance gates only when their owning module changes. The commerce
+exit command creates isolated PostgreSQL databases, validates the
 checkout-to-paid concurrency and failure gates, proves paid-order backup and
 restore, then removes its databases. Real SePay sandbox acceptance remains
 opt-in through `pnpm check:sepay-sandbox`; see `docs/integrations/sepay.md`.

@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a compact current-delivery brief and focused document-routing rules for
+  agents, plus fast and full validation gates so routine work does not run
+  unrelated acceptance checks.
+
 - Compare catalog USD/token prices to approved reservation thresholds without
   Decimal context rounding, fail closed on extreme exponents, and require one
   configured fallback model per Agent in live acceptance exports.
