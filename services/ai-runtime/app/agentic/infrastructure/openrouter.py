@@ -355,6 +355,12 @@ def _status_failure(status: int) -> ModelGatewayFailure | None:
         return ModelGatewayFailure("OPENROUTER_AUTH_FAILED", retryable=False)
     if status in {408, 429} or 500 <= status <= 599:
         return ModelGatewayFailure("OPENROUTER_PROVIDER_RETRYABLE", retryable=True)
+    if status == 400:
+        return ModelGatewayFailure("OPENROUTER_REQUEST_REJECTED", retryable=False)
+    if status == 404:
+        return ModelGatewayFailure("OPENROUTER_MODEL_UNAVAILABLE", retryable=False)
+    if status == 422:
+        return ModelGatewayFailure("OPENROUTER_SCHEMA_REJECTED", retryable=False)
     return ModelGatewayFailure("OPENROUTER_PROVIDER_REJECTED", retryable=False)
 
 

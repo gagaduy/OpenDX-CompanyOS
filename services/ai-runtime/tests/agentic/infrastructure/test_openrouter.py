@@ -545,8 +545,9 @@ def test_failed_catalog_is_not_cached() -> None:
         (429, True, "OPENROUTER_PROVIDER_RETRYABLE"),
         (500, True, "OPENROUTER_PROVIDER_RETRYABLE"),
         (599, True, "OPENROUTER_PROVIDER_RETRYABLE"),
-        (400, False, "OPENROUTER_PROVIDER_REJECTED"),
-        (422, False, "OPENROUTER_PROVIDER_REJECTED"),
+        (400, False, "OPENROUTER_REQUEST_REJECTED"),
+        (404, False, "OPENROUTER_MODEL_UNAVAILABLE"),
+        (422, False, "OPENROUTER_SCHEMA_REJECTED"),
     ],
 )
 def test_status_failures_are_stable_and_secret_safe(

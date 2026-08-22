@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add a redacted, read-only local diagnostic for terminal Catalog live
   acceptance runs.
 
+- Preserve safe HTTP categories for OpenRouter request, model, and schema
+  rejections without retaining provider response bodies.
+
 - Limit Catalog live acceptance to one provider generation: no fallback model
   and no Quality Gate correction retry; record a partial outcome instead.
 

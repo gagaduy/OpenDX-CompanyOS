@@ -42,8 +42,8 @@ function readRun(runId) {
 function categoryFor(errorCode) {
   if (errorCode === "OPENROUTER_AUTH_FAILED") return "credential_or_account";
   if (errorCode === "OPENROUTER_TRANSPORT_FAILED" || errorCode === "OPENROUTER_PROVIDER_RETRYABLE") return "transport";
-  if (errorCode === "OPENROUTER_REQUEST_INVALID") return "request_schema";
-  if (errorCode === "OPENROUTER_RESPONSE_INVALID" || errorCode === "OPENROUTER_RESULT_INVALID") return "model_capability";
+  if (errorCode === "OPENROUTER_REQUEST_INVALID" || errorCode === "OPENROUTER_REQUEST_REJECTED" || errorCode === "OPENROUTER_SCHEMA_REJECTED") return "request_schema";
+  if (errorCode === "OPENROUTER_MODEL_UNAVAILABLE" || errorCode === "OPENROUTER_RESPONSE_INVALID" || errorCode === "OPENROUTER_RESULT_INVALID") return "model_capability";
   return "provider_unknown";
 }
 
