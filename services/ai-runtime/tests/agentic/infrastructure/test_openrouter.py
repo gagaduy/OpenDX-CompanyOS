@@ -600,7 +600,7 @@ def test_malformed_provider_json_is_rejected(endpoint: str) -> None:
     [
         ("catalog", "OPENROUTER_RESPONSE_INVALID"),
         ("chat", "OPENROUTER_RESPONSE_INVALID"),
-        ("message_content", "OPENROUTER_RESPONSE_CONTENT_INVALID"),
+        ("message_content", "OPENROUTER_RESPONSE_CONTENT_JSON_INVALID"),
     ],
 )
 def test_json_decode_failures_retain_no_provider_content(
@@ -714,9 +714,10 @@ def test_wrong_returned_model_is_rejected() -> None:
     ("response", "expected_code"),
     [
         ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": []}, "OPENROUTER_RESPONSE_CHOICES_INVALID"),
-        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
-        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "[]"}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
-        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "not-json"}}]}, "OPENROUTER_RESPONSE_CONTENT_INVALID"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {}}]}, "OPENROUTER_RESPONSE_CONTENT_ABSENT"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": None}}]}, "OPENROUTER_RESPONSE_CONTENT_ABSENT"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "[]"}}]}, "OPENROUTER_RESPONSE_CONTENT_TYPE_INVALID"),
+        ({"id": "safe", "model": TEST_PRIMARY_MODEL, "choices": [{"message": {"content": "not-json"}}]}, "OPENROUTER_RESPONSE_CONTENT_JSON_INVALID"),
     ],
 )
 def test_malformed_chat_contract_is_classified_without_provider_content(

@@ -294,20 +294,28 @@ class OpenRouterModelGateway:
         if not choices_valid:
             _fail("OPENROUTER_RESPONSE_CHOICES_INVALID", retryable=False)
 
-        content_valid = True
+        content: object = None
+        content_missing = False
         try:
             content = message["content"]
-            if type(content) is str:
-                if len(content.encode("utf-8")) > self._settings.maximum_response_bytes:
-                    raise ValueError
-                decoded, content = _decode_json(content)
-                if not decoded:
-                    raise ValueError
-            result_content = _object(content)
-        except (KeyError, TypeError, ValueError, UnicodeError):
-            content_valid = False
-        if not content_valid:
-            _fail("OPENROUTER_RESPONSE_CONTENT_INVALID", retryable=False)
+        except KeyError:
+            content_missing = True
+        if content_missing or content is None:
+            _fail("OPENROUTER_RESPONSE_CONTENT_ABSENT", retryable=False)
+        if type(content) is str:
+            try:
+                content_size = len(content.encode("utf-8"))
+            except UnicodeError:
+                content_size = self._settings.maximum_response_bytes + 1
+            if content_size > self._settings.maximum_response_bytes:
+                _fail("OPENROUTER_RESPONSE_CONTENT_TYPE_INVALID", retryable=False)
+            decoded, decoded_content = _decode_json(content)
+            if not decoded:
+                _fail("OPENROUTER_RESPONSE_CONTENT_JSON_INVALID", retryable=False)
+            content = decoded_content
+        if type(content) is not dict:
+            _fail("OPENROUTER_RESPONSE_CONTENT_TYPE_INVALID", retryable=False)
+        result_content = content
 
         usage_valid = True
         try:
