@@ -4,281 +4,577 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver governed, durable AI CEO orchestration for direct Store Health Review tasks, from immutable Task Brief through an honest provenance-backed executive report.
+**Goal:** Deliver governed, durable AI CEO orchestration for direct Store Health Review tasks, using API-owned execution descriptors and six distinct Department identities to produce an honest provenance-backed executive report.
 
-**Architecture:** The Agentic API persists immutable task-brief, plan, collaboration, and report contracts under PostgreSQL transaction/audit control. The Python runtime uses structured AI CEO activities and existing model/Quality Gate ports; Temporal owns dependency execution and recovery. Policy and Tool Registry are re-evaluated at every execution boundary.
+**Architecture:** The Agentic API owns immutable plans, execution descriptors, policy/model/tool/budget authority, collaboration, accepted results, audit, and provenance. The Python worker loads purpose-specific descriptor payloads with its control identity, invokes Tool Registry with the assigned Department identity, and uses the existing governed model/Quality Gate lifecycle. A named Temporal patch preserves every Phase B replay history while new runs dispatch dependency-ready descriptor references only.
 
-**Tech Stack:** TypeScript, Express, PostgreSQL, Python 3.13, Temporal, Pydantic, existing OpenRouter gateway, Vitest, pytest.
+**Tech Stack:** TypeScript, Express, Zod, PostgreSQL 18, Python 3.13, Pydantic 2, httpx, Temporal 1.30, Keycloak client credentials, Vitest, pytest.
 
 ---
 
-## File structure
+## Completed foundation
 
-- Create API domain entities and rules under `apps/api/src/modules/agentic/domain/{entities,services}/ai-ceo-*`.
-- Create API application orchestration/query ports and implementations under `apps/api/src/modules/agentic/application/services/`.
-- Extend the Agentic repository interface, PostgreSQL repository, migrations, module composition, and internal authenticated routes only as contracts require.
-- Create Python planning/synthesis contracts, ports, activities, and workflow tests under `services/ai-runtime/app/agentic/`.
-- Extend `store_health_review_v1.py`; do not create a generic workflow engine.
+The following approved units are already implemented and verified on
+`feat/ai-ceo-coordination`; do not repeat them:
 
-### Task 1: Immutable Task Brief and plan-DAG domain rules
+- `c3c74e8`: immutable orchestration plan domain rules.
+- `62d2a1d`: append-only plan, collaboration, accepted-result, and report persistence.
+- `7a4ed30`: AI CEO identity and assignment-policy enforcement.
+- `e9255f0`: strict internal plan-intake endpoint.
+- `c420b9a`: frozen Python planning and synthesis contracts.
+- `59841cf`: approved descriptor and Department-identity design amendment.
 
-**Files:**
-- Create: `apps/api/src/modules/agentic/domain/entities/ai-ceo-orchestration.ts`
-- Create: `apps/api/src/modules/agentic/domain/services/ai-ceo-orchestration-rules.ts`
-- Test: `apps/api/src/modules/agentic/domain/services/ai-ceo-orchestration-rules.test.ts`
+## Remaining file map
 
-- [ ] **Step 1: Write failing domain tests**
+- `apps/api/src/modules/agentic/domain/entities/orchestration-execution-descriptor.ts`
+  owns immutable descriptor and private execution-payload types and validation.
+- `apps/api/src/modules/agentic/infrastructure/database/migrations/202608220006_create_orchestration_execution_descriptors.ts`
+  owns append-only descriptor/payload storage; it stores no credentials.
+- Existing Agentic repository files own transactional descriptor reads/writes
+  and authoritative source lookups.
+- Existing orchestration service, workload controller, validator, routes, and
+  module composition own internal Task Brief/dispatch-plan reads, descriptor
+  preparation/read, and result, collaboration, and report settlement. No
+  public Agent route is added.
+- `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.ts`
+  owns the bounded server-side result schemas and Department tool sets used to
+  resolve plan digests; the AI CEO cannot supply models or arbitrary tools.
+- `services/ai-runtime/app/agentic/domain/execution_descriptor.py` owns strict
+  purpose-specific runtime DTOs.
+- `services/ai-runtime/app/agentic/infrastructure/department_tools.py` owns the
+  authenticated Tool Registry transport; it never owns authorization policy.
+- Existing runtime config and Keycloak files own the typed AI CEO plus six
+  Department identity map and token providers.
+- `services/ai-runtime/app/agentic/application/department_execution.py` owns
+  descriptor verification, bounded tools, model command assembly, accepted
+  results, and mediated collaboration.
+- `services/ai-runtime/app/agentic/activities/orchestration_activities.py` is
+  the Temporal adapter for Department execution and synthesis.
+- Existing `store_health_review_v1.py` owns the named patch and deterministic
+  DAG scheduling; the original Phase B path remains intact.
+- Phase F scripts and focused API/build docs own reproducible exit evidence.
 
-```ts
-it("rejects a cyclic or policy-ineligible assignment before dispatch", () => {
-  expect(() => validatePlan(cyclicPlan, eligibleAssignments)).toThrow("INVALID_PLAN");
-  expect(() => validatePlan(ineligiblePlan, eligibleAssignments)).toThrow("POLICY_DENIED");
-});
-```
-
-- [ ] **Step 2: Run the focused test**
-
-Run: `pnpm --filter @opendx/api test -- ai-ceo-orchestration-rules`
-
-Expected: FAIL because contracts do not exist.
-
-- [ ] **Step 3: Implement immutable contracts and pure rules**
-
-```ts
-export interface OrchestrationPlan { readonly taskId: string; readonly version: number; readonly digest: string; readonly subtasks: readonly PlannedSubtask[]; }
-export function validatePlan(plan: OrchestrationPlan, eligible: ReadonlyMap<string, EligibleAssignment>): void { /* reject cycles, unknown scope, duplicate owner, timeout/budget violations */ }
-```
-
-- [ ] **Step 4: Re-run focused test**
-
-Run: `pnpm --filter @opendx/api test -- ai-ceo-orchestration-rules`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/api/src/modules/agentic/domain
-git commit -m "feat(agentic): define orchestration plan rules"
-```
-
-### Task 2: PostgreSQL plan, collaboration, and report persistence
+### Task 5: Persist immutable execution descriptors and private payloads
 
 **Files:**
-- Create: `apps/api/src/modules/agentic/infrastructure/database/migrations/202608220005_create_ai_ceo_orchestration.ts`
+- Create: `apps/api/src/modules/agentic/domain/entities/orchestration-execution-descriptor.ts`
+- Create: `apps/api/src/modules/agentic/domain/entities/orchestration-execution-descriptor.test.ts`
+- Create: `apps/api/src/modules/agentic/infrastructure/database/migrations/202608220006_create_orchestration_execution_descriptors.ts`
 - Modify: `apps/api/src/modules/agentic/application/repositories/interfaces/agentic.repository.ts`
 - Modify: `apps/api/src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.ts`
-- Test: `apps/api/src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.integration.test.ts`
+- Modify: `apps/api/src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.integration.test.ts`
+- Modify: `apps/api/src/modules/agentic/infrastructure/database/agentic-migration.integration.test.ts`
+- Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write failing migration/repository tests**
+- [ ] **Step 1: Write failing domain and PostgreSQL tests**
+
+Prove descriptor versions are append-only; the digest binds task, plan,
+subtask, Agent, configuration, policy, expiry, and payload; exact replay
+converges; conflicting replay fails; and UPDATE/DELETE is blocked.
 
 ```ts
-it("persists one immutable plan revision and rejects duplicate collaboration delivery", async () => {
-  await repository.appendPlan(session, plan);
-  await expect(repository.appendPlan(session, plan)).rejects.toThrow();
+it("rejects a descriptor replay with changed authority", async () => {
+  await repository.appendExecutionDescriptor(session, descriptor);
+  await expect(repository.appendExecutionDescriptor(session, {
+    ...descriptor,
+    primaryModel: "unapproved/model",
+  })).rejects.toMatchObject({ code: "EXECUTION_DESCRIPTOR_CONFLICT" });
 });
 ```
 
-- [ ] **Step 2: Run integration test**
-
-Run: `TEST_DATABASE_URL="$TEST_DATABASE_URL" pnpm --filter @opendx/api test:integration -- postgresql-agentic.repository.integration.test.ts`
-
-Expected: FAIL because tables and repository methods do not exist.
-
-- [ ] **Step 3: Add migration and repository methods**
-
-Persist digests and typed metadata only for task briefs, plan revisions,
-subtasks/dependencies, collaboration requests, accepted results, and executive
-reports. Add unique idempotency constraints and append audit/provenance inside
-the same transaction; never persist prompt/response bodies.
-
-- [ ] **Step 4: Re-run integration test**
-
-Run: `TEST_DATABASE_URL="$TEST_DATABASE_URL" pnpm --filter @opendx/api test:integration -- postgresql-agentic.repository.integration.test.ts`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Run tests and observe the missing contract**
 
 ```bash
-git add apps/api/src/modules/agentic
-git commit -m "feat(agentic): persist ai ceo orchestration"
+pnpm --filter @opendx/api test -- orchestration-execution-descriptor
+TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test pnpm --filter @opendx/api test:integration -- postgresql-agentic.repository.integration.test.ts agentic-migration.integration.test.ts
 ```
 
-### Task 3: API orchestration service and authenticated internal contracts
+Expected: FAIL because the entity, migration, and repository methods do not exist.
+
+- [ ] **Step 3: Add the immutable domain contract and digest rule**
+
+The private payload may contain only a minimized Task Brief, strict result
+schema, authorized context references, and validated grants. Reject keys named
+like tokens, passwords, or secrets.
+
+```ts
+export interface ExecutionDescriptor {
+  readonly id: string; readonly version: number; readonly taskId: string;
+  readonly planVersion: number; readonly subtaskId: string;
+  readonly agentKind: DepartmentAgentKind; readonly configurationRevisionId: string;
+  readonly policyVersion: number; readonly primaryModel: string;
+  readonly fallbackModel: string; readonly resultSchemaName: string;
+  readonly resultSchemaDigest: string; readonly authorizedContextDigest: string;
+  readonly allowedToolsDigest: string; readonly budgetAuthorizationMicros: number;
+  readonly timeoutSeconds: number; readonly freshnessSeconds: number;
+  readonly expiresAt: string; readonly payloadDigest: string;
+  readonly descriptorDigest: string; readonly createdAt: string;
+}
+
+export interface ExecutionDescriptorPayload {
+  readonly taskBrief: Readonly<Record<string, unknown>>;
+  readonly resultSchema: Readonly<Record<string, unknown>>;
+  readonly authorizedContext: readonly Readonly<Record<string, unknown>>[];
+  readonly toolGrants: readonly {
+    readonly name: DepartmentToolName; readonly version: 1;
+    readonly purpose: "store_health_review"; readonly dataScope: DepartmentToolScope;
+    readonly dataClassification: ToolClassification; readonly maximumInvocations: number;
+  }[];
+}
+```
+
+- [ ] **Step 4: Add append-only tables and repository operations**
+
+Create `agentic_orchestration_execution_descriptors` and
+`agentic_orchestration_execution_payloads`, protected by
+`agentic_prevent_mutation()`. Use `UNIQUE(task_id, plan_version, subtask_id,
+version)` and `UNIQUE(descriptor_digest)`. Add exact append/replay, ID lookup,
+and plan/task/provenance/configuration source reads required for preparation in
+one transaction.
+
+- [ ] **Step 5: Re-run focused tests**
+
+Run both commands from Step 2. Expected: PASS, including migration up/down and
+immutability assertions.
+
+- [ ] **Step 6: Update changelog and commit**
+
+```bash
+git add apps/api/src/modules/agentic CHANGELOG.md
+git commit -m "feat(agentic): persist execution descriptors"
+```
+
+### Task 6: Govern descriptor preparation, reads, and settlements
 
 **Files:**
-- Create: `apps/api/src/modules/agentic/application/services/interfaces/orchestration.service.ts`
-- Create: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.ts`
-- Modify: `apps/api/src/modules/agentic/presentation/controllers/agentic-workflow.controller.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/interfaces/orchestration.service.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.test.ts`
+- Create: `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.ts`
+- Create: `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.test.ts`
+- Modify: `apps/api/src/modules/agentic/presentation/validators/agentic.validator.ts`
+- Modify: `apps/api/src/modules/agentic/presentation/controllers/agentic-workload.controller.ts`
 - Modify: `apps/api/src/modules/agentic/presentation/routes/agentic-workload.routes.ts`
-- Test: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.test.ts`
+- Modify: `apps/api/src/modules/agentic/agentic.module.ts`
+- Modify: `apps/api/src/modules/agentic/tests/agentic.api.test.ts`
+- Modify: `apps/api/src/modules/agentic/tests/agentic.api.integration.test.ts`
+- Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write failing service tests**
+- [ ] **Step 1: Write failing service and HTTP tests**
+
+Cover trusted Task Brief construction, server-owned schema/tool resolution,
+policy evaluation per tool/data scope,
+revoked/stale/expired rejection, digest and cross-task binding, worker-only
+reads, idempotent settlements, and `Cache-Control: no-store`.
 
 ```ts
-it("re-evaluates policy before plan persistence and dispatch", async () => {
-  await expect(service.acceptPlan(input, principal)).rejects.toMatchObject({ code: "POLICY_DENIED" });
-  expect(repository.appendPlan).not.toHaveBeenCalled();
+it("stops before descriptor creation when one tool grant is denied", async () => {
+  policy.evaluateInSession.mockResolvedValueOnce(allowAssignment).mockResolvedValueOnce(denyTool);
+  await expect(service.acceptPlan(plan, aiCeo)).rejects.toMatchObject({ code: "POLICY_DENIED" });
+  expect(repository.appendExecutionDescriptor).not.toHaveBeenCalled();
 });
 ```
 
-- [ ] **Step 2: Run focused test**
-
-Run: `pnpm --filter @opendx/api test -- orchestration.service`
-
-Expected: FAIL because service is absent.
-
-- [ ] **Step 3: Implement service and internal DTO validation**
-
-The service constructs Task Briefs from trusted task state, accepts only schema-
-validated plan/result/collaboration commands from the authenticated runtime,
-re-evaluates policy, writes audit/provenance, and returns purpose-specific DTOs.
-Do not expose a public Agent-to-Agent endpoint.
-
-- [ ] **Step 4: Re-run focused test**
-
-Run: `pnpm --filter @opendx/api test -- orchestration.service agentic-workflow`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Run focused tests and observe failure**
 
 ```bash
-git add apps/api/src/modules/agentic
-git commit -m "feat(agentic): govern orchestration commands"
+pnpm --filter @opendx/api test -- orchestration.service agentic.api.test.ts
 ```
 
-### Task 4: Structured Python planning and synthesis contracts
+Expected: FAIL because descriptor preparation/read and settlement are absent.
+
+- [ ] **Step 3: Extend the inward-facing service**
+
+```ts
+export interface OrchestrationService {
+  acceptPlan(plan: OrchestrationPlanAppendInput, principal: WorkloadPrincipal): Promise<void>;
+  loadTaskBrief(taskId: string, principal: WorkloadPrincipal): Promise<TaskBriefView>;
+  loadDispatchPlan(runId: string, principal: WorkloadPrincipal): Promise<OrchestrationDispatchPlanView>;
+  loadExecutionDescriptor(id: string, digest: string, principal: WorkloadPrincipal): Promise<ExecutionDescriptorView>;
+  acceptResult(input: AcceptedOrchestrationResultAppendInput, principal: WorkloadPrincipal): Promise<void>;
+  mediateCollaboration(input: CollaborationRequestAppendInput, principal: WorkloadPrincipal): Promise<void>;
+  acceptExecutiveReport(input: ExecutiveReportAppendInput, principal: WorkloadPrincipal): Promise<void>;
+}
+```
+
+`store-health-execution-catalog.ts` maps each of the six Department kinds to a
+fixed result-schema name/body/digest and bounded subset of
+`DEPARTMENT_TOOL_CATALOG`. During `acceptPlan`, resolve the submitted digests
+against this catalog, derive the Task Brief from the persisted task, resolve
+the exact configured model/budget/tool grants, re-evaluate assignment and tool
+policy, bind trusted provenance, generate a short expiry, and append plan plus
+descriptors atomically. Never accept model IDs, schema bodies, credentials, raw
+attachments, or arbitrary tools from the AI CEO.
+`TaskBriefView` includes only the policy-eligible Department assignments and
+their server-owned schema/tool digests, allowing the AI CEO to propose a plan
+without receiving configuration secrets or selecting authority.
+
+- [ ] **Step 4: Add strict internal routes**
+
+```text
+GET  /orchestration/task-briefs/:taskId
+GET  /orchestration/dispatch-plans/:runId
+GET  /orchestration/descriptors/:descriptorId
+POST /orchestration/results
+POST /orchestration/collaborations
+POST /orchestration/reports
+```
+
+Task Brief and dispatch-plan reads require the worker identity and return only
+bounded fields. The dispatch plan returns descriptor ID/digest bindings for the
+accepted plan revision. Require `x-opendx-descriptor-digest` for descriptor
+reads. Re-evaluate revocation/expiry
+before returning `ExecutionDescriptorView`; re-evaluate collaboration policy
+before persistence. POST responses are digest-only acknowledgements.
+
+- [ ] **Step 5: Run API unit and PostgreSQL HTTP integration tests**
+
+```bash
+pnpm --filter @opendx/api test -- orchestration.service agentic.api.test.ts
+TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test pnpm --filter @opendx/api test:integration -- agentic.api.integration.test.ts
+```
+
+Expected: PASS for forged identity, expiry, revocation, replay, and no-echo cases.
+
+- [ ] **Step 6: Update changelog and commit**
+
+```bash
+git add apps/api/src/modules/agentic CHANGELOG.md
+git commit -m "feat(agentic): govern execution descriptors"
+```
+
+### Task 7: Configure distinct AI CEO and Department identities and safe transports
 
 **Files:**
-- Create: `services/ai-runtime/app/agentic/domain/orchestration_schemas.py`
-- Create: `services/ai-runtime/app/agentic/application/orchestration.py`
-- Test: `services/ai-runtime/tests/test_orchestration.py`
+- Modify: `services/ai-runtime/app/shared/config.py`
+- Modify: `services/ai-runtime/app/agentic/application/ports.py`
+- Modify: `services/ai-runtime/app/agentic/infrastructure/keycloak.py`
+- Modify: `services/ai-runtime/app/agentic/infrastructure/agentic_control_client.py`
+- Create: `services/ai-runtime/app/agentic/infrastructure/agent_submission_client.py`
+- Create: `services/ai-runtime/app/agentic/infrastructure/department_tools.py`
+- Modify: `services/ai-runtime/tests/shared/test_config.py`
+- Modify: `services/ai-runtime/tests/agentic/infrastructure/test_keycloak.py`
+- Modify: `services/ai-runtime/tests/agentic/infrastructure/test_agentic_control_client.py`
+- Create: `services/ai-runtime/tests/agentic/infrastructure/test_agent_submission_client.py`
+- Create: `services/ai-runtime/tests/agentic/infrastructure/test_department_tools.py`
+- Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write failing Python tests**
+- [ ] **Step 1: Write failing identity-routing and transport tests**
+
+Assert planning refuses a missing AI CEO identity, descriptor execution refuses
+missing/duplicate Department identities, plan submission uses only the AI CEO
+token, Department tools select the assigned Department provider, the worker
+token is never used for either impersonation path, responses are bounded, and
+tokens/provider bodies are absent from exceptions.
 
 ```python
-def test_planner_rejects_unapproved_assignment_and_synthesizer_discloses_missing_branch() -> None:
-    assert planner.validate(ineligible_plan).code == "POLICY_DENIED"
-    assert "unavailable" in synthesizer.report(partial_results).disclosure.lower()
+@pytest.mark.parametrize("agent_kind", ("catalog", "inventory", "order", "finance", "crm", "support"))
+def test_routes_each_department_to_its_own_token(agent_kind: str) -> None:
+    router = DepartmentTokenRouter(distinct_providers())
+    assert asyncio.run(router.for_agent(agent_kind).get_token()) == f"{agent_kind}-token"
 ```
 
-- [ ] **Step 2: Run test**
-
-Run: `pnpm test:py -- tests/test_orchestration.py`
-
-Expected: FAIL because orchestration contracts are absent.
-
-- [ ] **Step 3: Implement typed planner/synthesizer ports**
-
-Use Pydantic schemas with `extra="forbid"`; label untrusted content; accept
-only policy-eligible assignment candidates and Quality-Gate-accepted results.
-Executive conclusions require provenance IDs; unavailable/failed work becomes
-explicit partial disclosure.
-
-- [ ] **Step 4: Re-run test**
-
-Run: `pnpm test:py -- tests/test_orchestration.py`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Run focused Python tests and observe failure**
 
 ```bash
-git add services/ai-runtime
-git commit -m "feat(ai-runtime): add structured orchestration contracts"
+pnpm test:py -- tests/shared/test_config.py tests/agentic/infrastructure/test_keycloak.py tests/agentic/infrastructure/test_agentic_control_client.py tests/agentic/infrastructure/test_agent_submission_client.py tests/agentic/infrastructure/test_department_tools.py
 ```
 
-### Task 5: Temporal dependency dispatch and mediated collaboration
+Expected: FAIL because the identity maps and transports do not exist.
+
+- [ ] **Step 3: Add typed settings and identity router**
+
+```python
+DepartmentAgentKind = Literal["catalog", "inventory", "order", "finance", "crm", "support"]
+
+@dataclass(frozen=True)
+class DepartmentIdentitySettings:
+    client_id: str
+    client_secret: str = dataclass_field(repr=False)
+
+@dataclass(frozen=True)
+class DepartmentExecutionSettings:
+    enabled: bool
+    tool_api_base_url: str
+    identities: Mapping[DepartmentAgentKind, DepartmentIdentitySettings]
+```
+
+Add a separate redacted `ai_ceo_identity: DepartmentIdentitySettings` and parse
+`AGENT_AI_CEO_CLIENT_ID`/`AGENT_AI_CEO_CLIENT_SECRET`. Parse
+`AGENT_{CATALOG,INVENTORY,ORDER,FINANCE,CRM,SUPPORT}_CLIENT_ID` and
+`_CLIENT_SECRET` only when `ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED=true`.
+Require all seven Agent client IDs and secrets to be distinct from one another
+and from the worker client.
+
+- [ ] **Step 4: Add descriptor and Tool Registry clients**
+
+Extend `AgenticControlClient` with Task Brief, dispatch-plan, descriptor read,
+and orchestration settlement methods using the worker identity. Implement
+`AgentSubmissionClient.accept_plan` using only the AI CEO identity. Implement
+`DepartmentToolClient.invoke` against
+`/v1/agentic/tools/invoke`, taking an explicit Agent and selecting only its
+provider. Validate response envelope/size; never log request or response bodies.
+
+- [ ] **Step 5: Re-run focused tests**
+
+Run Step 2. Expected: PASS for all identities, configuration failures,
+redaction, response bounds, and retry classifications.
+
+- [ ] **Step 6: Update changelog and commit**
+
+```bash
+git add services/ai-runtime CHANGELOG.md
+git commit -m "feat(ai-runtime): isolate department identities"
+```
+
+### Task 8: Execute descriptor-bound Department work
 
 **Files:**
+- Create: `services/ai-runtime/app/agentic/domain/execution_descriptor.py`
+- Create: `services/ai-runtime/app/agentic/application/department_execution.py`
+- Create: `services/ai-runtime/app/agentic/activities/orchestration_activities.py`
+- Modify: `services/ai-runtime/app/agentic/worker.py`
+- Create: `services/ai-runtime/tests/agentic/application/test_department_execution.py`
+- Create: `services/ai-runtime/tests/agentic/activities/test_orchestration_activities.py`
+- Modify: `services/ai-runtime/tests/agentic/test_worker.py`
+- Modify: `CHANGELOG.md`
+
+- [ ] **Step 1: Write failing application/activity tests**
+
+Cover Task Brief loading, governed AI CEO planning and plan submission, binding
+mismatch, expiry, tool limits, Department token selection, safe context,
+existing model executor/Quality Gate use, accepted/partial outcomes, mediated
+collaboration, and exact settlement. An unavailable Department must never cause
+identity substitution or a fabricated result. The runtime's named result schema
+must hash to the exact schema digest in the descriptor before any model call.
+
+```python
+async def test_descriptor_mismatch_stops_before_tools_or_model() -> None:
+    with pytest.raises(DepartmentExecutionError, match="DESCRIPTOR_BINDING_INVALID"):
+        await executor.execute(command_with_wrong_subtask)
+    tools.invoke.assert_not_awaited()
+    models.execute.assert_not_awaited()
+```
+
+- [ ] **Step 2: Run focused tests and observe failure**
+
+```bash
+pnpm test:py -- tests/agentic/application/test_department_execution.py tests/agentic/activities/test_orchestration_activities.py tests/agentic/test_worker.py
+```
+
+Expected: FAIL because execution contracts and activities are absent.
+
+- [ ] **Step 3: Add strict frozen runtime contracts**
+
+```python
+class DescriptorExecutionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    descriptor_id: UUID
+    descriptor_digest: Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
+    task_id: UUID
+    plan_version: PositiveInt
+    subtask_id: UUID
+    agent_kind: DepartmentAgentKind
+    idempotency_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+
+class DescriptorExecutionReference(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    status: Literal["usable", "partial", "unavailable"]
+    result_digest: Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
+    provenance_ids: tuple[UUID, ...]
+```
+
+- [ ] **Step 4: Implement service and activity adapter**
+
+Implement `plan_orchestration_v1` to load the bounded Task Brief with the worker
+identity, run the AI CEO through the existing governed model/Quality Gate path,
+validate the structured plan with `OrchestrationPlanner`, and submit it using
+only the AI CEO identity. Then load descriptors with the worker token; verify
+every binding and expiry; invoke only typed
+grants using the assigned Department token; build minimized labeled context;
+construct the existing `ModelExecutionCommand` from API-authorized model,
+schema, context, and Quality Gate data; append one accepted result. Structured
+collaboration requests are persisted and policy-checked before target execution.
+Only `DescriptorExecutionInput` and `DescriptorExecutionReference` cross Temporal.
+
+- [ ] **Step 5: Register and test activities**
+
+Register `plan_orchestration_v1`, `execute_department_subtask_v1`, and
+`synthesize_executive_report_v1` only when descriptor execution is enabled.
+Run Step 2. Expected: PASS with no raw payload/secret serialization and exact
+retry idempotency.
+
+- [ ] **Step 6: Update changelog and commit**
+
+```bash
+git add services/ai-runtime CHANGELOG.md
+git commit -m "feat(ai-runtime): execute governed department work"
+```
+
+### Task 9: Add the replay-safe Temporal descriptor path
+
+**Files:**
+- Modify: `services/ai-runtime/app/agentic/domain/contracts.py`
+- Modify: `services/ai-runtime/app/agentic/infrastructure/agentic_control_client.py`
 - Modify: `services/ai-runtime/app/agentic/workflows/store_health_review_v1.py`
-- Modify: `services/ai-runtime/app/agentic/activities/store_health_activities.py`
-- Create: `services/ai-runtime/tests/test_store_health_orchestration.py`
+- Modify: `services/ai-runtime/tests/agentic/workflows/test_store_health_review_v1.py`
+- Modify: `services/ai-runtime/tests/agentic/workflows/test_store_health_replay.py`
+- Create: `services/ai-runtime/tests/agentic/workflows/test_store_health_orchestration.py`
+- Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write failing workflow tests**
+- [ ] **Step 1: Write failing new-history and old-history replay tests**
+
+Prove roots fan out, dependents wait, failures become unavailable, partial
+completion is honest, cancellation drains work, and restart does not duplicate
+effects. Replay all five Phase B fixtures unchanged and one new patched history.
 
 ```python
-async def test_independent_branches_fan_out_while_collaboration_is_mediated() -> None:
-    result = await run_workflow(plan_with_two_roots_and_one_dependency)
-    assert result.state == "completed"
-    assert activity_calls.direct_agent_message_count == 0
+async def test_new_runs_use_descriptor_references_without_raw_payloads() -> None:
+    result, history = await run_descriptor_workflow(plan_with_two_roots)
+    assert result.successful_branches == tuple(sorted(result.successful_branches))
+    serialized = history.to_json()
+    assert "authorizedContext" not in serialized
+    assert "client_secret" not in serialized
 ```
 
-- [ ] **Step 2: Run test**
-
-Run: `pnpm test:py -- tests/test_store_health_orchestration.py`
-
-Expected: FAIL because workflow has no orchestration activities.
-
-- [ ] **Step 3: Implement deterministic workflow activities**
-
-Use existing retry policies and stable idempotency keys. Dispatch only ready DAG
-nodes; persist CollaborationRequest before forwarding redacted context; allow
-other ready branches during approval waits. Keep plan revisions immutable and
-do not change existing workflow behavior in place without a versioned path.
-
-- [ ] **Step 4: Re-run workflow test**
-
-Run: `pnpm test:py -- tests/test_store_health_orchestration.py`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Run workflow/replay tests and observe failure**
 
 ```bash
-git add services/ai-runtime
-git commit -m "feat(ai-runtime): orchestrate governed department plans"
+pnpm test:py -- tests/agentic/workflows/test_store_health_review_v1.py tests/agentic/workflows/test_store_health_replay.py tests/agentic/workflows/test_store_health_orchestration.py
 ```
 
-### Task 6: Quality, recovery, and Phase F Slice 1 acceptance
+Expected: FAIL because the patched descriptor path is absent.
+
+- [ ] **Step 3: Extend frozen plan references compatibly**
+
+Add an `OrchestrationDispatchPlan` whose nodes require `descriptor_id` and
+`descriptor_digest`; keep the existing `FrozenWorkflowPlan` and `PlanNode`
+unchanged for Phase B replay. Map the new dispatch-plan endpoint only into the
+new type so old recorded activity results retain their exact decoder.
+
+- [ ] **Step 4: Add the named deterministic patch**
+
+```python
+if workflow.patched("phase-f-execution-descriptor-v1"):
+    return await self._run_descriptor_orchestration(run_id, value)
+return await self._run_phase_b_path(run_id, value)
+```
+
+Keep fake activity names, ordering, retries, timers, signals, and projections
+unchanged in `_run_phase_b_path`. The new graph schedules dependency-ready
+descriptor inputs in stable ID order after `plan_orchestration_v1` succeeds and
+the worker loads the accepted `OrchestrationDispatchPlan`. It propagates
+cancellation and synthesizes from result references only.
+
+- [ ] **Step 5: Re-run workflow and replay tests**
+
+Run Step 2. Expected: PASS for all unchanged Phase B histories and the new one.
+
+- [ ] **Step 6: Update changelog and commit**
+
+```bash
+git add services/ai-runtime CHANGELOG.md
+git commit -m "feat(ai-runtime): dispatch descriptor plan graph"
+```
+
+### Task 10: Wire deployment identities and Slice 1 acceptance
 
 **Files:**
+- Modify: `.env.example`
+- Modify: `infra/docker/docker-compose.yml`
+- Modify: `infra/deploy/compose.production.yml`
+- Modify: `infra/keycloak/realm-export.json`
+- Modify: `infra/keycloak/realm-production.json`
+- Modify: `infra/keycloak/reconcile-production-realm.sh`
+- Modify: `scripts/dev/agentic-production-compose-check.mjs`
 - Create: `scripts/dev/agentic-phase-f-orchestration-check.mjs`
 - Create: `scripts/dev/agentic-phase-f-orchestration-check.test.mjs`
 - Modify: `package.json`
 - Modify: `docs/api/agentic.md`
 - Modify: `docs/build-from-source.md`
+- Modify: `docs/roadmap/mvp-status.md`
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Write failing acceptance checks**
+- [ ] **Step 1: Write failing static and deterministic acceptance tests**
 
-Assert a deterministic direct task produces a validated DAG, six scoped fake
-Agent executions, no direct communication, a Quality-Gate-backed partial or
-complete report, provenance, cancellation/recovery safety, and zero Commerce
-mutation.
+Assert Keycloak and Compose define one AI CEO plus six Department credentials,
+pass them only to the worker, require them when execution is enabled, keep the
+API/worker non-public, and
+Temporal receives references only. The scenario executes six fake Department
+branches, one mediated collaboration, report synthesis, worker restart/history
+replay, no duplicate tool/model/report rows, and zero Commerce mutation.
 
-- [ ] **Step 2: Run acceptance test**
+```js
+test("phase F gate rejects shared Department credentials", () => {
+  assert.throws(
+    () => validateDepartmentSecrets(Object.fromEntries(DEPARTMENTS.map((name) => [name, "shared"]))),
+    /distinct/,
+  );
+});
+```
 
-Run: `node --test scripts/dev/agentic-phase-f-orchestration-check.test.mjs`
-
-Expected: FAIL because the gate does not exist.
-
-- [ ] **Step 3: Implement gate and document operations**
-
-Add `check:agentic-phase-f-orchestration`; document only authenticated internal
-contracts and developer acceptance setup. Do not add UI, schedules, Company
-Memory, GraphRAG, or a public runtime API.
-
-- [ ] **Step 4: Run all validations**
-
-Run: `pnpm check:agentic-phase-f-orchestration && pnpm check && git diff --check && pnpm audit:repo`
-
-Expected: all commands exit `0`.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Run the static test and observe failure**
 
 ```bash
-git add scripts package.json docs CHANGELOG.md
+node --test scripts/dev/agentic-phase-f-orchestration-check.test.mjs
+```
+
+Expected: FAIL because the gate and Compose wiring do not exist.
+
+- [ ] **Step 3: Wire environment and add the exit gate**
+
+Add `ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED`,
+`DEPARTMENT_TOOL_API_BASE_URL`, the AI CEO client pair, and six explicit
+Department client pairs to Keycloak plus local/production worker environments.
+Keep secrets out of image layers and documented values. Add package scripts
+`test:agentic-phase-f-orchestration` and `check:agentic-phase-f-orchestration`.
+
+- [ ] **Step 4: Document contracts and operations**
+
+Document descriptor/read/settlement DTOs without sensitive example bodies,
+identity separation, opt-in local setup, failure/replan behavior, replay
+compatibility, and verification commands. Mark only Slice 1 complete after all
+exit gates pass; keep schedules and Company Memory deferred.
+
+- [ ] **Step 5: Run complete Slice 1 verification**
+
+```bash
+node --test scripts/dev/agentic-phase-f-orchestration-check.test.mjs
+pnpm check:agentic-phase-f-orchestration
+pnpm --filter @opendx/api typecheck
+pnpm --filter @opendx/api test
+pnpm test:py
+pnpm check:agentic-production-compose
+pnpm check
+git diff --check
+pnpm audit:repo
+```
+
+Expected: every command exits `0`; Python includes old/new replay tests, and the
+Phase F gate reports six identities with no duplicate effects or Commerce mutation.
+
+- [ ] **Step 6: Commit Slice 1 acceptance evidence**
+
+```bash
+git add .env.example infra scripts package.json docs CHANGELOG.md
 git commit -m "test(agentic): verify ai ceo orchestration"
 ```
 
 ## Plan self-review
 
-Tasks 1–3 cover the API-owned immutable contracts, authorization, policy,
-persistence, audit, and provenance. Tasks 4–5 cover structured model behavior,
-Temporal dispatch, mediated collaboration, Quality Gate integration, and
-recovery. Task 6 covers deterministic acceptance and documentation. The plan
-does not implement schedules, durable Company Memory, GraphRAG, UI, customer
-communication, or Commerce mutation.
+- Spec coverage: Tasks 5–6 own descriptors, trusted preparation,
+  policy/revocation/expiry, collaboration, results, reports, audit, and
+  provenance. Tasks 7–8 own distinct identities, safe context, typed tools,
+  governed models, Quality Gate, AI CEO plan submission, and secret-safe
+  transports. Task 9 owns DAG,
+  cancellation, recovery, and old/new replay. Task 10 owns Compose, docs,
+  deterministic acceptance, and closure evidence.
+- Type consistency: `ExecutionDescriptor` is the API persistence contract;
+  `ExecutionDescriptorView` is the internal DTO; `DescriptorExecutionInput`
+  and `DescriptorExecutionReference` are the only new Temporal payloads.
+  Department kinds are exactly Catalog, Inventory, Order, Finance, CRM, and
+  Support; AI CEO and worker remain separate identities across TypeScript,
+  Python, Keycloak, and Compose.
+- Scope: no schedule, Company Memory, GraphRAG, Console UI, public runtime API,
+  direct Agent messaging, Commerce mutation, generic workflow engine, or new
+  dependency is included.

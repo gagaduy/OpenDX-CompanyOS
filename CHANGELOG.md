@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Refine the remaining Phase F implementation plan around API-owned execution
+  descriptors, isolated AI CEO and Department identities, and replay-safe
+  Temporal dispatch before continuing orchestration implementation.
+
 - Define the API-owned immutable execution-descriptor bridge for Phase F,
   keeping authority and sensitive context out of Temporal while enforcing six
   distinct Department identities for governed tool dispatch.
