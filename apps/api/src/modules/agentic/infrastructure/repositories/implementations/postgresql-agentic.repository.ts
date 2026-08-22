@@ -63,13 +63,23 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async appendFilePreview(session: DatabaseSession, preview: AgenticFilePreview): Promise<void> {
     await session.query("INSERT INTO agentic_file_previews(id,file_id,preview_version,parser_version,payload_digest,preview_digest,summary,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [preview.id,preview.fileId,preview.previewVersion,preview.parserVersion,preview.payloadDigest,preview.previewDigest,preview.summary,preview.createdAt]);
   }
+  async findFilePreview(session: DatabaseSession, fileId: string, previewVersion: number): Promise<AgenticFilePreview | undefined> {
+    const result = await session.query<Row>("SELECT * FROM agentic_file_previews WHERE file_id=$1 AND preview_version=$2", [fileId, previewVersion]);
+    return result.rows[0] === undefined ? undefined : mapFilePreview(result.rows[0]);
+  }
+  async findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalResult | undefined> {
+    const result = await session.query<Row>("SELECT task_id FROM agentic_file_approvals WHERE idempotency_key=$1", [idempotencyKey]);
+    return result.rows[0] === undefined ? undefined : { status: "duplicate", taskId: String(result.rows[0].task_id) };
+  }
   async approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult> {
     await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`agentic.file.approve:${input.fileId}`]);
     const existing = await session.query<Row>("SELECT task_id FROM agentic_file_approvals WHERE idempotency_key=$1", [input.idempotencyKey]);
     if (existing.rows[0] !== undefined) return { status:"duplicate", taskId:String(existing.rows[0].task_id) };
+    const preview = await session.query<Row>("SELECT preview_digest FROM agentic_file_previews WHERE file_id=$1 AND preview_version=$2 AND payload_digest=$3", [input.fileId, input.previewVersion, input.previewPayloadDigest]);
+    if (preview.rows[0] === undefined || String(preview.rows[0].preview_digest) !== input.previewDigest) throw new AgenticApplicationError("FILE_APPROVAL_CONFLICT", "File preview has changed");
     await this.createTask(session,input.task);
     await session.query("INSERT INTO agentic_file_approvals(id,file_id,preview_version,preview_digest,task_id,idempotency_key,approved_by,approved_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [input.id,input.fileId,input.previewVersion,input.previewDigest,input.task.id,input.idempotencyKey,input.approvedBy,input.approvedAt]);
-    const result = await session.query("UPDATE agentic_intake_files SET status='approved',approved_at=$2,version=version+1,updated_at=$2 WHERE id=$1 AND status='previewed'", [input.fileId,input.approvedAt]);
+    const result = await session.query("UPDATE agentic_intake_files SET status='approved',approved_at=$2,version=version+1,updated_at=$2 WHERE id=$1 AND status='previewed' AND version=$3", [input.fileId,input.approvedAt,input.expectedFileVersion]);
     if (result.rowCount!==1) throw new AgenticApplicationError("FILE_APPROVAL_CONFLICT", "File preview is no longer approvable");
     return { status:"created",taskId:input.task.id };
   }
@@ -1460,6 +1470,7 @@ function mapTask(row: Row): AgentTask {
 function mapIntakeFile(row: Row): AgenticIntakeFile {
   return { id:String(row.id), objectKey:String(row.object_key), originalFilename:String(row.original_filename), format:row.format as AgenticIntakeFile["format"], mediaType:row.media_type as AgenticIntakeFile["mediaType"], byteSize:Number(row.byte_size), payloadDigest:String(row.payload_digest), status:row.status as AgenticIntakeFile["status"], createdBy:String(row.created_by), version:Number(row.version), createdAt:toIso(row.created_at), updatedAt:toIso(row.updated_at), ...(row.scanned_at===null?{}:{scannedAt:toIso(row.scanned_at)}), ...(row.approved_at===null?{}:{approvedAt:toIso(row.approved_at)}), ...(row.rejected_at===null?{}:{rejectedAt:toIso(row.rejected_at)}), ...(row.deleted_at===null?{}:{deletedAt:toIso(row.deleted_at)}) };
 }
+function mapFilePreview(row: Row): AgenticFilePreview { return { id:String(row.id), fileId:String(row.file_id), previewVersion:Number(row.preview_version), parserVersion:String(row.parser_version), payloadDigest:String(row.payload_digest), previewDigest:String(row.preview_digest), summary:row.summary as Readonly<Record<string, unknown>>, createdAt:toIso(row.created_at) }; }
 
 function mapAgent(row: Row): AgentProfile {
   return {

@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add governed Agentic CSV/TXT intake orchestration with immutable aggregate
+  previews, fail-closed rejection, and idempotent draft-task approval.
+
 - Add private Agentic file storage and fail-closed ClamAV scanning adapters.
 
 - Add bounded deterministic CSV/TXT parsing for Agentic file intake.

@@ -11,6 +11,7 @@ export function parseBoundedAgenticFile(format: "csv" | "txt", bytes: Uint8Array
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { fail(); }
   if (text.includes("\0") || bytes.byteLength > AGENTIC_FILE_LIMITS.maxFileBytes) fail();
   const lines = text.split(/\r\n|\n|\r/);
+  if (lines.length > 1 && lines.at(-1) === "") lines.pop();
   if (lines.length > AGENTIC_FILE_LIMITS.maxRows || lines.some((line) => new TextEncoder().encode(line).byteLength > AGENTIC_FILE_LIMITS.maxFieldBytes)) fail();
   if (format === "txt") return { rowCount: lines.length, columnCount: 1, samples: lines.slice(0, AGENTIC_FILE_LIMITS.maxSourceSamples) };
   const rows = lines.map(csvRow);

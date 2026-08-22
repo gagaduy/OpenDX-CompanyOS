@@ -238,6 +238,8 @@ export interface AgenticFileApprovalInput {
   readonly fileId: string;
   readonly previewVersion: number;
   readonly previewDigest: string;
+  readonly expectedFileVersion: number;
+  readonly previewPayloadDigest: string;
   readonly task: AgentTask;
   readonly idempotencyKey: string;
   readonly approvedBy: string;
@@ -297,6 +299,8 @@ export interface AgenticRepository {
   findIntakeFile(session: DatabaseSession, fileId: string): Promise<AgenticIntakeFile | undefined>;
   transitionIntakeFile(session: DatabaseSession, file: AgenticIntakeFile, expectedVersion: number): Promise<boolean>;
   appendFilePreview(session: DatabaseSession, preview: AgenticFilePreview): Promise<void>;
+  findFilePreview(session: DatabaseSession, fileId: string, previewVersion: number): Promise<AgenticFilePreview | undefined>;
+  findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalResult | undefined>;
   approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult>;
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;

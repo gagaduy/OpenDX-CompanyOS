@@ -61,8 +61,8 @@ suite("PostgresqlAgenticRepository", () => {
       expect(await repository.transitionIntakeFile(session, { ...file, status: "previewed", version: 4, updatedAt: at, scannedAt: at }, 3)).toBe(true);
     });
     const task = { id: randomUUID(), state: "draft" as const, createdBy: "governance-admin", goal: "Review catalog", instructions: "Use bounded preview", version: 1, createdAt: at, updatedAt: at };
-    const first = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, task, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
-    const replay = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, task: { ...task, id: randomUUID() }, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
+    const first = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, expectedFileVersion: 4, previewPayloadDigest: preview.payloadDigest, task, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
+    const replay = await transactions.run((session) => repository.approveFilePreview(session, { id: randomUUID(), fileId: file.id, previewVersion: 1, previewDigest: preview.previewDigest, expectedFileVersion: 4, previewPayloadDigest: preview.payloadDigest, task: { ...task, id: randomUUID() }, idempotencyKey: `file-approval:${file.id}`, approvedBy: "governance-admin", approvedAt: at }));
     expect(first).toEqual({ status: "created", taskId: task.id });
     expect(replay).toEqual({ status: "duplicate", taskId: task.id });
     expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
