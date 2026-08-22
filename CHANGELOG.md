@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Restore local recovery sets with legacy orphaned Agentic policies by removing
+  only rows without a configuration revision before recreating constraints.
+
 - Allow local Keycloak host-port configuration so the full stack can coexist
   with another service using port 8080.
 

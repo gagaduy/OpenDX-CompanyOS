@@ -53,10 +53,11 @@ if (args.includes("ps") && args.includes("--services")) {
 } else if (args.includes("pg_restore") && args.includes("-l")) {
   if (process.env.FAIL_ARCHIVE_DATABASE === database) process.exit(24);
   process.stdout.write("archive listing\\n");
-} else if (args.includes("psql") && args.includes("-Atqc")) {
-  const query = args[args.indexOf("-Atqc") + 1] ?? "";
-  if (query.includes("server_version")) process.stdout.write("18.3\\n");
-  else if (query.includes("pg_roles")) process.stdout.write("2\\n");
+  } else if (args.includes("psql") && args.includes("-Atqc")) {
+    const query = args[args.indexOf("-Atqc") + 1] ?? "";
+    if (query.includes("server_version")) process.stdout.write("18.3\\n");
+    else if (query.includes("pg_roles")) process.stdout.write("2\\n");
+    else if (query.includes("agentic_policies")) process.stdout.write((process.env.ORPHANED_AGENTIC_POLICY_COUNT ?? "0") + "\\n");
   else if (database === "temporal") process.stdout.write("1.17\\n");
   else if (database === "temporal_visibility") process.stdout.write("1.9\\n");
   else process.stdout.write('{"agentic":"001_initial"}\\n');
@@ -235,7 +236,10 @@ test("db-restore verifies and restores all recovery-set members in order", (cont
   assert.equal(result.status, 0, result.stderr);
   const calls = harness.dockerCalls();
   assert.equal(calls.filter((call) => call.includes("pg_restore") && call.includes("-l")).length, 3);
-  assert.equal(calls.filter((call) => call.includes("pg_restore") && !call.includes("-l")).length, 3);
+  const restores = calls.filter((call) => call.includes("pg_restore") && !call.includes("-l"));
+  assert.equal(restores.length, 4);
+  assert(restores[0].includes("opendx") && restores[0].includes("--section=pre-data") && restores[0].includes("--section=data"));
+  assert(restores[1].includes("opendx") && restores[1].includes("--section=post-data"));
   assert(calls.some((call) => call.includes("run") && call.includes("migrate")));
   assert(calls.some((call) => call.includes("run") && call.includes("temporal-schema")));
   assert(calls.some((call) => call.includes("run") && call.includes("temporal-namespace")));
@@ -256,6 +260,22 @@ test("production restore validates and uses the production application owner", (
   assert(opendxRestore);
   assert.equal(opendxRestore[opendxRestore.indexOf("-U") + 1], "opendx");
   assert(harness.dockerCalls().some((call) => call.some((argument) => argument.includes("pg_roles"))));
+});
+
+test("production restore refuses orphaned Agentic policies", (context) => {
+  const harness = createHarness();
+  context.after(harness.cleanup);
+  const recoverySet = harness.createRecoverySet();
+
+  const result = harness.runMake("db-restore", {
+    OPENDX_DEPLOYMENT_MODE: "production",
+    ORPHANED_AGENTIC_POLICY_COUNT: "4",
+  }, [`BACKUP=${recoverySet}`]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /4 orphaned Agentic policies/);
+  assert.equal(harness.dockerCalls().filter((call) => call.includes("stop")).length, 0);
+  assert.equal(harness.dockerCalls().filter((call) => call.includes("DELETE FROM agentic_policies")).length, 0);
 });
 
 test("db-restore rejects checksum mismatch before stopping services", (context) => {

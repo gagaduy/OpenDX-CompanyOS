@@ -32,6 +32,7 @@ if [[ -n "${COMPOSE_ENV_FILE:-}" ]]; then compose+=(--env-file "$COMPOSE_ENV_FIL
 compose+=(-f "$compose_file")
 maintenance_lock="${OPENDX_MAINTENANCE_LOCK_DIR:-/tmp/opendx-database-maintenance.lock}"
 maintenance_lock_owned=0
+preflight_database=""
 if mkdir "$maintenance_lock" 2>/dev/null; then
   maintenance_lock_owned=1
   printf '%s\n' "$$" > "$maintenance_lock/owner"
@@ -42,6 +43,12 @@ elif [[ -z "${OPENDX_MAINTENANCE_LOCK_OWNER:-}" \
   exit 1
 fi
 release_maintenance_lock() {
+  if [[ -n "$preflight_database" ]]; then
+    "${compose[@]}" exec -T postgres psql -X -U "$admin_user" -d postgres \
+      --set preflight_db="$preflight_database" <<'SQL' >/dev/null 2>&1 || true
+SELECT format('DROP DATABASE IF EXISTS %I WITH (FORCE)', :'preflight_db') \gexec
+SQL
+  fi
   if [[ "$maintenance_lock_owned" == 1 ]]; then
     rm -f -- "$maintenance_lock/owner"
     rmdir "$maintenance_lock" 2>/dev/null || true
@@ -87,6 +94,27 @@ role_count="$("${compose[@]}" exec -T postgres psql -X -U "$admin_user" -d postg
   exit 1
 }
 
+if [[ "$legacy" == 0 && "$deployment_mode" == production ]]; then
+  preflight_database="opendx_restore_preflight_$$"
+  "${compose[@]}" exec -T postgres psql -X -U "$admin_user" -d postgres \
+    --set ON_ERROR_STOP=1 --set app_user="$app_user" --set preflight_db="$preflight_database" <<'SQL'
+SELECT format('CREATE DATABASE %I OWNER %I', :'preflight_db', :'app_user') \gexec
+SQL
+  "${compose[@]}" exec -T postgres pg_restore -U "$app_user" -d "$preflight_database" \
+    --no-owner --section=pre-data --section=data --exit-on-error < "$resolved_backup/opendx.dump"
+  orphan_policy_count="$("${compose[@]}" exec -T postgres psql -X -U "$app_user" -d "$preflight_database" -Atqc \
+    "SELECT CASE WHEN to_regclass('public.agentic_policies') IS NULL OR to_regclass('public.agentic_configuration_revisions') IS NULL THEN 0 ELSE (SELECT count(*) FROM agentic_policies p WHERE NOT EXISTS (SELECT 1 FROM agentic_configuration_revisions r WHERE r.id = p.revision_id)) END")"
+  [[ "$orphan_policy_count" == 0 ]] || {
+    echo "Recovery set contains $orphan_policy_count orphaned Agentic policies; repair the source backup before a production restore" >&2
+    exit 1
+  }
+  "${compose[@]}" exec -T postgres psql -X -U "$admin_user" -d postgres \
+    --set ON_ERROR_STOP=1 --set preflight_db="$preflight_database" <<'SQL'
+SELECT format('DROP DATABASE %I WITH (FORCE)', :'preflight_db') \gexec
+SQL
+  preflight_database=""
+fi
+
 if [[ "${RECOVERY_SERVICES_QUIESCED:-}" == 1 ]]; then
   [[ -n "$database_suffix" && "$deployment_mode" != production ]] || {
     echo "Pre-quiesced mode is allowed only for disposable local recovery databases" >&2; exit 1;
@@ -117,11 +145,24 @@ SELECT format('CREATE DATABASE %I OWNER %I', :'opendx_db', :'app_user') \gexec
 SELECT format('CREATE DATABASE %I OWNER %I', :'temporal_db', :'temporal_user') \gexec
 SELECT format('CREATE DATABASE %I OWNER %I', :'visibility_db', :'temporal_user') \gexec
 SQL
-  for database in opendx temporal temporal_visibility; do
+  opendx_database="opendx$database_suffix"
+  "${compose[@]}" exec -T postgres pg_restore -U "$app_user" -d "$opendx_database" \
+    --no-owner --section=pre-data --section=data --exit-on-error < "$resolved_backup/opendx.dump"
+  orphan_policy_count="$("${compose[@]}" exec -T postgres psql -X -U "$app_user" -d "$opendx_database" -Atqc \
+    "SELECT CASE WHEN to_regclass('public.agentic_policies') IS NULL OR to_regclass('public.agentic_configuration_revisions') IS NULL THEN 0 ELSE (SELECT count(*) FROM agentic_policies p WHERE NOT EXISTS (SELECT 1 FROM agentic_configuration_revisions r WHERE r.id = p.revision_id)) END")"
+  if [[ "$orphan_policy_count" != 0 ]]; then
+    [[ "$deployment_mode" != production ]] || {
+      echo "Recovery set contains $orphan_policy_count orphaned Agentic policies; repair the source backup before a production restore" >&2
+      exit 1
+    }
+    "${compose[@]}" exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$app_user" -d "$opendx_database" \
+      -c 'DELETE FROM agentic_policies p WHERE NOT EXISTS (SELECT 1 FROM agentic_configuration_revisions r WHERE r.id = p.revision_id)'
+  fi
+  "${compose[@]}" exec -T postgres pg_restore -U "$app_user" -d "$opendx_database" \
+    --no-owner --section=post-data --exit-on-error --single-transaction < "$resolved_backup/opendx.dump"
+  for database in temporal temporal_visibility; do
     physical_database="$database$database_suffix"
-    restore_user="$temporal_user"
-    if [[ "$database" == opendx ]]; then restore_user="$app_user"; fi
-    "${compose[@]}" exec -T postgres pg_restore -U "$restore_user" -d "$physical_database" \
+    "${compose[@]}" exec -T postgres pg_restore -U "$temporal_user" -d "$physical_database" \
       --no-owner --exit-on-error --single-transaction < "$resolved_backup/$database.dump"
   done
 fi

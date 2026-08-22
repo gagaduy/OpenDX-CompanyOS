@@ -58,6 +58,10 @@ objects and can destroy newer local data, so retain a separate backup first.
 MinIO objects are not included and need an independent object-storage backup
 for disaster recovery.
 
+When a local recovery set contains legacy Agentic policy rows without their
+configuration revision, restore removes only those unusable orphan rows before
+recreating foreign-key constraints. The command reports the number removed.
+
 Phase 8 production-style backup and restore scripts are documented in
 [`../operations/backup-restore.md`](../operations/backup-restore.md). Use those
 scripts for explicit PostgreSQL and MinIO backup/restore operations that need
