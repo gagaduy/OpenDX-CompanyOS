@@ -61,10 +61,13 @@ def test_loads_catalog_command_with_one_provider_attempt_only() -> None:
 
 
 def test_catalog_result_schema_uses_strict_structured_output_subset() -> None:
-    schema = _catalog_result_schema()
+    schema = _catalog_result_schema(provenance_id="prov-1", retrieved_at="2026-08-22T00:00:00Z")
 
     assert schema["properties"]["schemaVersion"] == {"enum": [1]}
     assert schema["properties"]["agentKind"] == {"enum": ["catalog"]}
+    assert schema["properties"]["status"] == {"enum": ["complete"]}
+    assert schema["properties"]["conclusions"]["items"]["properties"]["code"] == {"enum": ["CATALOG_LIVE_ACCEPTANCE"]}
+    assert schema["properties"]["evidence"]["items"]["properties"]["provenanceId"] == {"enum": ["prov-1"]}
     evidence = schema["properties"]["evidence"]["items"]
     assert evidence["properties"]["classification"] == {"enum": ["internal"]}
     assert '"const"' not in json.dumps(schema)

@@ -57,7 +57,10 @@ def load_model_execution_command(value: Mapping[str, object], *, retrieved_at: d
         task_id=task_id, agent_kind="catalog", configuration_revision_id=revision_id,
         primary_model=primary_model, fallback_model=fallback_model, input_digest=input_digest,
         idempotency_key=idempotency_key, result_schema_name="catalog_live_acceptance_v1",
-        result_schema=_catalog_result_schema(),
+        result_schema=_catalog_result_schema(
+            provenance_id=provenance_id, retrieved_at=timestamp,
+            expected_payload=expected_payload,
+        ),
         context=AuthorizedContextInput("internal", {**expected_payload, "summary": "Synthetic internal local acceptance context.", "evidence": [evidence]}),
         quality_context=AuthoritativeQualityContext(
             expected_agent_kind="catalog", correction_round=0,
@@ -136,13 +139,20 @@ def _error_code(error: ValueError) -> str:
     return value if re.fullmatch(r"[A-Z][A-Z0-9_]{0,99}", value) else "CATALOG_ACCEPTANCE_FAILED"
 
 
-def _catalog_result_schema() -> dict[str, object]:
-    evidence = _object({"provenanceId": {"type": "string"}, "source": {"type": "string"}, "retrievedAt": {"type": "string"}, "freshnessStatus": {"enum": ["fresh", "stale"]}, "classification": {"enum": ["internal"]}})
-    reference = _object({"code": {"type": "string"}, "statement": {"type": "string"}, "confidenceBasis": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
-    risk = _object({"code": {"type": "string"}, "severity": {"enum": ["low", "medium", "high"]}, "statement": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
-    action = _object({"code": {"type": "string"}, "statement": {"type": "string"}, "requiresHumanApproval": {"type": "boolean"}, "provenanceIds": {"type": "array", "items": {"type": "string"}}})
-    payload = _object({"completenessBasisPoints": {"type": "integer"}, "productsAtRisk": {"type": "integer"}, "publicationBlockerCount": {"type": "integer"}, "merchandisingSignalCount": {"type": "integer"}, "riskLevel": {"enum": ["low", "medium", "high"]}})
-    return _object({"schemaVersion": {"enum": [1]}, "agentKind": {"enum": ["catalog"]}, "status": {"enum": ["complete", "partial"]}, "summary": {"type": "string"}, "conclusions": {"type": "array", "items": reference}, "risks": {"type": "array", "items": risk}, "recommendedActions": {"type": "array", "items": action}, "evidence": {"type": "array", "items": evidence}, "payload": payload})
+def _catalog_result_schema(
+    *, provenance_id: str = "provenance-1", retrieved_at: str = "2026-08-22T00:00:00Z",
+    expected_payload: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    payload_values = expected_payload or {
+        "completenessBasisPoints": 10_000, "productsAtRisk": 0,
+        "publicationBlockerCount": 0, "merchandisingSignalCount": 0, "riskLevel": "low",
+    }
+    evidence = _object({"provenanceId": {"enum": [provenance_id]}, "source": {"enum": [_PROVENANCE_SOURCE]}, "retrievedAt": {"enum": [retrieved_at]}, "freshnessStatus": {"enum": ["fresh"]}, "classification": {"enum": ["internal"]}})
+    reference = _object({"code": {"enum": ["CATALOG_LIVE_ACCEPTANCE"]}, "statement": {"type": "string"}, "confidenceBasis": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"enum": [provenance_id]}}})
+    risk = _object({"code": {"enum": ["CATALOG_LIVE_ACCEPTANCE"]}, "severity": {"enum": ["low", "medium", "high"]}, "statement": {"type": "string"}, "provenanceIds": {"type": "array", "items": {"enum": [provenance_id]}}})
+    action = _object({"code": {"enum": ["CATALOG_LIVE_ACCEPTANCE"]}, "statement": {"type": "string"}, "requiresHumanApproval": {"type": "boolean"}, "provenanceIds": {"type": "array", "items": {"enum": [provenance_id]}}})
+    payload = _object({key: {"enum": [value]} for key, value in payload_values.items()})
+    return _object({"schemaVersion": {"enum": [1]}, "agentKind": {"enum": ["catalog"]}, "status": {"enum": ["complete"]}, "summary": {"type": "string"}, "conclusions": {"type": "array", "items": reference}, "risks": {"type": "array", "items": risk}, "recommendedActions": {"type": "array", "items": action}, "evidence": {"type": "array", "items": evidence}, "payload": payload})
 
 
 def _object(properties: Mapping[str, object]) -> dict[str, object]:
