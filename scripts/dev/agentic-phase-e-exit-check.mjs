@@ -7,7 +7,8 @@ const source = (path) => readFileSync(path, "utf8");
 export function collectAgenticPhaseE() { return { api: source("docs/api/agentic.md"), service: source("apps/api/src/modules/agentic/application/services/implementations/agentic-file.service.ts"), storage: source("apps/api/src/modules/agentic/infrastructure/storage/minio-agentic-file.storage.ts"), parser: source("apps/api/src/modules/agentic/infrastructure/parsing/bounded-agentic-file.parser.ts"), routes: source("apps/api/src/modules/agentic/presentation/routes/agentic.routes.ts") }; }
 export function validateAgenticPhaseE(s) {
   const privateApi = /private\s+staff\s+APIs/i.test(s.api) && /neither\s+file\s+bytes,\s+storage\s+keys,\s+public\s+URLs/i.test(s.api);
-  if (!s.storage.includes("agentic-intake/") || !privateApi) throw new Error("Phase E storage must remain private");
+  const opaqueKeyBoundary = s.service.includes("agentic-intake/") && /agentic-intake\\\//.test(s.storage);
+  if (!opaqueKeyBoundary || !privateApi) throw new Error("Phase E storage must remain private");
   if (!s.service.includes("FILE_SCAN_FAILED") || !s.service.includes("FILE_CONTENT_INVALID")) throw new Error("Phase E must fail closed for scanner and hostile content");
   if (!s.parser.includes("maxRows") || !s.routes.includes("upload.single")) throw new Error("Phase E must keep bounded CSV/TXT intake");
   if (!s.api.includes("/:fileId/approve")) throw new Error("Phase E must bind preview approval to one task");
