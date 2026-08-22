@@ -36,11 +36,15 @@ describe("AgenticFileServiceImpl", () => {
     ["infected", { status: "infected", signature: "Eicar-Test-Signature" }],
     ["malformed", { status: "clean" }],
   ] as const)("rejects %s content without producing a preview or deleting retained evidence", async (kind, result) => {
-    const { service, storage, repository } = harness({ scanResult: result, content: kind === "malformed" ? Buffer.from('"unterminated') : content });
+    const { service, storage, repository } = harness({ scanResult: result, enforceExpectedVersion: kind === "infected", content: kind === "malformed" ? Buffer.from('"unterminated') : content });
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: kind === "malformed" ? Buffer.from('"unterminated') : content }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
     expect(storage.delete).not.toHaveBeenCalled();
     expect(repository.appendFilePreview).not.toHaveBeenCalled();
+    if (kind === "infected") {
+      expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 3 });
+      expect(repository.appendAudit).toHaveBeenCalledTimes(2);
+    }
   });
 
   it("rejects a malformed file after clean transition using the clean record version", async () => {
@@ -108,6 +112,19 @@ describe("AgenticFileServiceImpl", () => {
     expect(repository.appendProvenance).toHaveBeenCalledTimes(2);
   });
 
+  it("rejects changed preview payload and cross-file reuse on the approved replay fast path", async () => {
+    const { service } = harness();
+    const first = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const firstPreview = await service.scanAndPreview(first.file.id, admin);
+    const key = "approved-replay";
+    await service.approvePreview({ fileId: first.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: firstPreview.payloadDigest, idempotencyKey: key }, admin);
+    await expect(service.approvePreview({ fileId: first.file.id, expectedFileVersion: 5, previewVersion: 1, previewPayloadDigest: "c".repeat(64), idempotencyKey: key }, admin)).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    const second = await service.upload({ originalFilename: "second.csv", mediaType: "text/csv", content }, admin);
+    const secondPreview = await service.scanAndPreview(second.file.id, admin);
+    await service.approvePreview({ fileId: second.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: secondPreview.payloadDigest, idempotencyKey: "second-key" }, admin);
+    await expect(service.approvePreview({ fileId: second.file.id, expectedFileVersion: 5, previewVersion: 1, previewPayloadDigest: secondPreview.payloadDigest, idempotencyKey: key }, admin)).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
   it("returns one task when concurrent approvals race", async () => {
     const { service } = harness();
     const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
@@ -132,19 +149,20 @@ function harness(options: { readonly createFails?: boolean; readonly transitionR
   const clean: AgenticFileScanResult = { status: "clean" };
   const scanner: AgenticFileScanner = { scan: vi.fn(async () => options.scanResult ?? clean) };
   const parser: AgenticFileParser = { parse: vi.fn((_format, bytes) => { const text = Buffer.from(bytes).toString("utf8"); if (text === '"unterminated') throw new Error("invalid csv"); const samples = text.split("\n").filter((line) => line.length > 0); return { rowCount: samples.length, columnCount: samples[0]?.split(",").length ?? 1, samples }; }) };
-  const transitions = [...(options.transitionResults ?? [])]; const approvals = [...(options.approvalResults ?? [])]; const approved = new Map<string, string>(); const approvedTasks = new Map<string, any>();
+  const transitions = [...(options.transitionResults ?? [])]; const approvals = [...(options.approvalResults ?? [])]; const approved = new Map<string, string>(); const approvalRecords = new Map<string, any>(); const approvedTasks = new Map<string, any>();
   const repository = {
     createIntakeFile: vi.fn(async (_: DatabaseSession, file: any) => { if (options.createFails) throw new Error("db unavailable"); files.set(file.id, file); }),
     findIntakeFile: vi.fn(async (_: DatabaseSession, id: string) => files.get(id)),
     transitionIntakeFile: vi.fn(async (_: DatabaseSession, file: any, expectedVersion: number) => { const result = transitions.shift() ?? true; if (result && (!options.enforceExpectedVersion || files.get(file.id)?.version === expectedVersion)) { files.set(file.id, file); return true; } return false; }),
     appendFilePreview: vi.fn(async (_: DatabaseSession, preview: any) => { previews.set(`${preview.fileId}:${preview.previewVersion}`, preview); }),
     findFilePreview: vi.fn(async (_: DatabaseSession, fileId: string, version: number) => previews.get(`${fileId}:${version}`)),
-    findFileApprovalByIdempotency: vi.fn(async (_: DatabaseSession, key: string) => { const taskId = approved.get(key); return taskId === undefined ? undefined : { status: "duplicate" as const, taskId }; }),
+    findFileApprovalByIdempotency: vi.fn(async (_: DatabaseSession, key: string) => approvalRecords.get(key)),
     approveFilePreview: vi.fn(async (_: DatabaseSession, input: any) => {
       const existing = approved.get(input.idempotencyKey);
       if (existing !== undefined) return { status: "duplicate" as const, taskId: existing };
       const result = approvals.shift() ?? { status: "created" as const, taskId: input.task.id };
       approved.set(input.idempotencyKey, result.status === "created" ? input.task.id : result.taskId);
+      approvalRecords.set(input.idempotencyKey, { status: "duplicate" as const, taskId: input.task.id, fileId: input.fileId, previewVersion: input.previewVersion, previewDigest: input.previewDigest, previewPayloadDigest: input.previewPayloadDigest });
       approvedTasks.set(input.task.id, input.task);
       const file = files.get(input.fileId); if (file && result.status === "created") files.set(input.fileId, { ...file, status: "approved", version: file.version + 1 });
       return result.status === "created" ? { status: "created" as const, taskId: input.task.id } : result;

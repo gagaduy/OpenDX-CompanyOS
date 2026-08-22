@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Validate approved-preview replay identity and avoid duplicate rejection audit
+  transitions after a controlled infected scan result.
+
 - Retain Agentic intake evidence through terminal metadata transitions and
   bind approval idempotency keys to their original request identity.
 

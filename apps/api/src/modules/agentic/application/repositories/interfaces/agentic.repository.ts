@@ -250,6 +250,7 @@ export interface AgenticFileApprovalResult {
   readonly status: "created" | "duplicate";
   readonly taskId: string;
 }
+export interface AgenticFileApprovalReplay extends AgenticFileApprovalResult { readonly fileId: string; readonly previewVersion: number; readonly previewDigest: string; readonly previewPayloadDigest: string; }
 
 export interface BudgetSettlementInput {
   readonly id: string;
@@ -300,7 +301,7 @@ export interface AgenticRepository {
   transitionIntakeFile(session: DatabaseSession, file: AgenticIntakeFile, expectedVersion: number): Promise<boolean>;
   appendFilePreview(session: DatabaseSession, preview: AgenticFilePreview): Promise<void>;
   findFilePreview(session: DatabaseSession, fileId: string, previewVersion: number): Promise<AgenticFilePreview | undefined>;
-  findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalResult | undefined>;
+  findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalReplay | undefined>;
   approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult>;
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;

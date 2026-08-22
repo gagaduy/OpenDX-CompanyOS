@@ -14,6 +14,7 @@ import type {
   BudgetSettlementInput,
   ActivityReservationResult,
   AgenticFileApprovalInput,
+  AgenticFileApprovalReplay,
   AgenticFileApprovalResult,
   ModelQualityEvidenceAppendResult,
   ModelConfigurationRecord,
@@ -67,9 +68,9 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     const result = await session.query<Row>("SELECT * FROM agentic_file_previews WHERE file_id=$1 AND preview_version=$2", [fileId, previewVersion]);
     return result.rows[0] === undefined ? undefined : mapFilePreview(result.rows[0]);
   }
-  async findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalResult | undefined> {
-    const result = await session.query<Row>("SELECT task_id FROM agentic_file_approvals WHERE idempotency_key=$1", [idempotencyKey]);
-    return result.rows[0] === undefined ? undefined : { status: "duplicate", taskId: String(result.rows[0].task_id) };
+  async findFileApprovalByIdempotency(session: DatabaseSession, idempotencyKey: string): Promise<AgenticFileApprovalReplay | undefined> {
+    const result = await session.query<Row>("SELECT approval.task_id,approval.file_id,approval.preview_version,approval.preview_digest,preview.payload_digest FROM agentic_file_approvals approval JOIN agentic_file_previews preview ON preview.file_id=approval.file_id AND preview.preview_version=approval.preview_version WHERE approval.idempotency_key=$1", [idempotencyKey]);
+    return result.rows[0] === undefined ? undefined : { status: "duplicate", taskId: String(result.rows[0].task_id), fileId: String(result.rows[0].file_id), previewVersion: Number(result.rows[0].preview_version), previewDigest: String(result.rows[0].preview_digest), previewPayloadDigest: String(result.rows[0].payload_digest) };
   }
   async approveFilePreview(session: DatabaseSession, input: AgenticFileApprovalInput): Promise<AgenticFileApprovalResult> {
     await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`agentic.file.approve:${input.fileId}`]);
