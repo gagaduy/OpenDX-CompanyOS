@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { AgenticApplicationError } from "../../application/services/agentic-application.error";
+
 export interface AgenticFileLifecyclePort {
   claimPending(limit: number): Promise<readonly string[]>;
   processClaimed(fileId: string): Promise<void>;
@@ -18,8 +20,15 @@ export class AgenticFileLifecycleWorker {
   start(): void { if (this.timer === undefined) this.timer = setInterval(() => { void this.tick(); }, this.intervalMs); }
   stop(): void { if (this.timer !== undefined) clearInterval(this.timer); this.timer = undefined; }
   async tick(): Promise<void> {
-    for (const fileId of await this.files.claimPending(this.batchSize)) await this.files.processClaimed(fileId);
+    for (const fileId of await this.files.claimPending(this.batchSize)) {
+      try { await this.files.processClaimed(fileId); }
+      catch (error) { if (!isTerminalContentRejection(error)) throw error; }
+    }
     if (this.files.deleteExpired !== undefined) await this.files.deleteExpired(this.batchSize);
     else for (const fileId of await this.files.claimExpired(this.batchSize)) await this.files.deleteClaimed(fileId);
   }
+}
+
+function isTerminalContentRejection(error: unknown): boolean {
+  return error instanceof AgenticApplicationError && error.code === "FILE_CONTENT_INVALID" && !error.retryable;
 }
