@@ -58,38 +58,21 @@ describe("Agent governance rules", () => {
     );
   });
 
-  it("submits a draft configuration without changing its creator", () => {
-    const result = transitionRevision(revision(), { type: "submit" }, at);
+  it("allows a draft creator to activate their own configuration", () => {
+    const result = transitionRevision(revision(), { type: "activate", activatedBy: "governance-a" }, at);
     expect(result).toMatchObject({
-      state: "pending_approval",
+      state: "active",
       createdBy: "governance-a",
+      decidedBy: "governance-a",
       version: 2,
       updatedAt: at,
     });
   });
 
-  it("activates a pending configuration only through a different subject", () => {
-    const result = transitionRevision(
-      revision({ state: "pending_approval", version: 2 }),
-      { type: "activate", decidedBy: "governance-b" },
-      at,
-    );
-    expect(result).toMatchObject({
-      state: "active",
-      decidedBy: "governance-b",
-      version: 3,
-      updatedAt: at,
-    });
-  });
-
-  it("rejects configuration self-approval even when roles overlap", () => {
+  it.each(["pending_approval", "active", "superseded"] as const)("rejects direct activation from %s", (state) => {
     expectDomainError(
-      () => transitionRevision(
-        revision({ state: "pending_approval", version: 2 }),
-        { type: "activate", decidedBy: "governance-a" },
-        at,
-      ),
-      "SELF_APPROVAL_FORBIDDEN",
+      () => transitionRevision(revision({ state, version: 2 }), { type: "activate", activatedBy: "governance-a" }, at),
+      "CONFIGURATION_STATE_INVALID",
     );
   });
 
@@ -105,7 +88,7 @@ describe("Agent governance rules", () => {
     expectDomainError(
       () => transitionRevision(
         revision({ state: "active", version: 3, decidedBy: "governance-b" }),
-        { type: "submit" },
+        { type: "activate", activatedBy: "governance-b" },
         at,
       ),
       "CONFIGURATION_STATE_INVALID",

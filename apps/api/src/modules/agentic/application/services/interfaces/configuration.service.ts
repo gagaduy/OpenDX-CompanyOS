@@ -9,6 +9,7 @@ export interface CreateConfigurationDraftInput { readonly children: RevisionChil
 export interface UpdateConfigurationDraftInput { readonly revisionId: string; readonly expectedVersion: number; readonly children: RevisionChildren }
 export interface SubmitConfigurationInput { readonly revisionId: string; readonly expectedVersion: number }
 export interface DecideConfigurationInput { readonly revisionId: string; readonly expectedVersion: number; readonly decision: "activate" | "reject"; readonly reason?: string }
+export interface ActivateConfigurationInput { readonly revisionId: string; readonly expectedVersion: number }
 export interface ConfigurationDiff {
   readonly revisionId: string;
   readonly activeRevisionId?: string;
@@ -20,6 +21,7 @@ export interface ConfigurationDiff {
 export interface ConfigurationService {
   createDraft(input: CreateConfigurationDraftInput, principal: StaffPrincipal): Promise<ConfigurationRevision>;
   updateDraft(input: UpdateConfigurationDraftInput, principal: StaffPrincipal): Promise<ConfigurationRevision>;
+  activate(input: ActivateConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision>;
   submit(input: SubmitConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision>;
   decide(input: DecideConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision>;
   getDiff(revisionId: string, principal: StaffPrincipal): Promise<ConfigurationDiff>;

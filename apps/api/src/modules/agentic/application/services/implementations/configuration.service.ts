@@ -10,7 +10,7 @@ import { transitionRevision, validateBudgetLimits, validateModelConfiguration } 
 import { AgenticApplicationError } from "../agentic-application.error";
 import type {
   ConfigurationDiff, ConfigurationService, CreateConfigurationDraftInput,
-  DecideConfigurationInput, SubmitConfigurationInput, UpdateConfigurationDraftInput,
+  ActivateConfigurationInput, DecideConfigurationInput, SubmitConfigurationInput, UpdateConfigurationDraftInput,
 } from "../interfaces/configuration.service";
 
 type ConfigurationRepository = Pick<AgenticRepository,
@@ -63,32 +63,30 @@ export class ConfigurationServiceImpl implements ConfigurationService {
 
   async submit(input: SubmitConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision> {
     requireRole(principal, "agentic_governance_admin", "administrator");
-    return this.transactions.run(async (session) => {
-      const current = await this.requireRevision(session, input.revisionId);
-      if (current.createdBy !== principal.subject) fail("FORBIDDEN", "Only the draft owner can submit a revision");
-      if (current.version !== input.expectedVersion) fail("STALE_VERSION", "Configuration version is stale");
-      const at = this.now();
-      const next = transitionRevision(current, { type: "submit" }, at);
-      if (!await this.repository.updateRevision(session, next, input.expectedVersion)) fail("STALE_VERSION", "Configuration version is stale");
-      await this.audit(session, principal, current.id, "configuration.submit", at);
-      return next;
-    });
+    void input;
+    fail("CONFIGURATION_LIFECYCLE_RETIRED", "Configuration submission is retired; activate an owned draft directly");
   }
 
   async decide(input: DecideConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision> {
     requireRole(principal, "agentic_governance_admin", "administrator");
+    void input;
+    fail("CONFIGURATION_LIFECYCLE_RETIRED", "Configuration decisions are retired; activate an owned draft directly");
+  }
+
+  async activate(input: ActivateConfigurationInput, principal: StaffPrincipal): Promise<ConfigurationRevision> {
+    requireRole(principal, "agentic_governance_admin", "administrator");
     return this.transactions.run(async (session) => {
       const current = await this.requireRevision(session, input.revisionId);
+      if (current.state !== "draft" || current.createdBy !== principal.subject) {
+        fail("FORBIDDEN", "Only the draft owner can activate a revision");
+      }
       if (current.version !== input.expectedVersion) fail("STALE_VERSION", "Configuration version is stale");
       const at = this.now();
-      const next = transitionRevision(current, input.decision === "activate"
-        ? { type: "activate", decidedBy: principal.subject }
-        : { type: "reject", decidedBy: principal.subject, reason: input.reason ?? "" }, at);
-      const changed = input.decision === "activate"
-        ? await this.repository.activateRevision(session, current.id, input.expectedVersion, principal.subject, at)
-        : await this.repository.rejectRevision(session, current.id, input.expectedVersion, principal.subject, input.reason ?? "", at);
+      validateChildren(await this.repository.getRevisionChildren(session, current.id));
+      const next = transitionRevision(current, { type: "activate", activatedBy: principal.subject }, at);
+      const changed = await this.repository.activateRevision(session, current.id, input.expectedVersion, principal.subject, at);
       if (!changed) fail("STALE_VERSION", "Configuration decision is stale");
-      await this.audit(session, principal, current.id, `configuration.${input.decision}`, at);
+      await this.audit(session, principal, current.id, "configuration.activate", at);
       return next;
     });
   }

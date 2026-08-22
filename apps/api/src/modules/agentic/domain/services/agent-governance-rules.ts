@@ -42,7 +42,7 @@ export function transitionTask(
 export function transitionRevision(
   revision: ConfigurationRevision,
   command: { readonly type: "submit" }
-    | { readonly type: "activate"; readonly decidedBy: string }
+    | { readonly type: "activate"; readonly activatedBy: string }
     | { readonly type: "reject"; readonly decidedBy: string; readonly reason: string },
   at: string,
 ): ConfigurationRevision {
@@ -51,6 +51,15 @@ export function transitionRevision(
       fail("CONFIGURATION_STATE_INVALID", "Only draft revisions can be submitted");
     }
     return nextRevision(revision, { state: "pending_approval" }, at);
+  }
+  if (command.type === "activate") {
+    if (revision.state !== "draft") {
+      fail("CONFIGURATION_STATE_INVALID", "Only draft revisions can be activated");
+    }
+    return nextRevision(revision, {
+      state: "active",
+      decidedBy: command.activatedBy,
+    }, at);
   }
   if (revision.state !== "pending_approval") {
     fail("CONFIGURATION_STATE_INVALID", "Only pending revisions can be decided");

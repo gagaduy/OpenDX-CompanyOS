@@ -24,25 +24,33 @@ describe("ConfigurationServiceImpl", () => {
     expect(repository.appendAudit).toHaveBeenCalledOnce();
   });
 
-  it("forbids overlapping-role self approval and activates a different-subject decision", async () => {
-    const pending = { id: "revision-1", state: "pending_approval" as const, createdBy: "creator", payloadDigest: "a".repeat(64), version: 2, createdAt: "", updatedAt: "" };
-    const own = harness({ revision: pending });
-    await expect(own.service.decide({ revisionId: "revision-1", expectedVersion: 2, decision: "activate" }, admin("creator")))
-      .rejects.toMatchObject({ code: "SELF_APPROVAL_FORBIDDEN" });
-    expect(own.repository.activateRevision).not.toHaveBeenCalled();
-
-    const other = harness({ revision: pending });
-    await expect(other.service.decide({ revisionId: "revision-1", expectedVersion: 2, decision: "activate" }, admin("approver")))
-      .resolves.toMatchObject({ state: "active", decidedBy: "approver", version: 3 });
-    expect(other.repository.activateRevision).toHaveBeenCalledOnce();
+  it("activates an owned draft without a second Governance Admin", async () => {
+    const draft = { id: "revision-1", state: "draft" as const, createdBy: "creator", payloadDigest: "a".repeat(64), version: 1, createdAt: "", updatedAt: "" };
+    const own = harness({ revision: draft });
+    await expect(own.service.activate({ revisionId: "revision-1", expectedVersion: 1 }, admin("creator")))
+      .resolves.toMatchObject({ state: "active", decidedBy: "creator", version: 2 });
+    expect(own.repository.activateRevision).toHaveBeenCalledOnce();
   });
 
-  it("keeps configuration decisions in the Governance Admin scope", async () => {
-    const pending = { id: "revision-1", state: "pending_approval" as const, createdBy: "creator", payloadDigest: "a".repeat(64), version: 2, createdAt: "", updatedAt: "" };
+  it("keeps direct configuration activation owned and in the Governance Admin scope", async () => {
+    const draft = { id: "revision-1", state: "draft" as const, createdBy: "creator", payloadDigest: "a".repeat(64), version: 1, createdAt: "", updatedAt: "" };
 
-    await expect(harness({ revision: pending }).service.decide(
-      { revisionId: pending.id, expectedVersion: 2, decision: "activate" }, approver("action-approver"),
+    await expect(harness({ revision: draft }).service.activate(
+      { revisionId: draft.id, expectedVersion: 1 }, approver("action-approver"),
     )).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    await expect(harness({ revision: draft }).service.activate(
+      { revisionId: draft.id, expectedVersion: 1 }, admin("another-admin"),
+    )).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects a stale direct activation before repository mutation", async () => {
+    const draft = { id: "revision-1", state: "draft" as const, createdBy: "creator", payloadDigest: "a".repeat(64), version: 2, createdAt: "", updatedAt: "" };
+    const stale = harness({ revision: draft });
+    await expect(stale.service.activate({ revisionId: draft.id, expectedVersion: 1 }, admin("creator")))
+      .rejects.toMatchObject({ code: "STALE_VERSION" });
+    expect(stale.repository.activateRevision).not.toHaveBeenCalled();
+    expect(stale.repository.appendAudit).not.toHaveBeenCalled();
   });
 
   it("propagates required audit failure so the surrounding transaction rolls back", async () => {
