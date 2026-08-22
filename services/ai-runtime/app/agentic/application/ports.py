@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Mapping, Protocol
 
 from app.agentic.domain.contracts import (
     ActivityOutcome,
@@ -14,6 +14,7 @@ from app.agentic.domain.contracts import (
     WorkloadPrincipal,
 )
 from app.agentic.domain.model_runtime import ModelRequest, ModelResult
+from app.agentic.domain.orchestration_schemas import DepartmentAgentKind
 
 
 class AgenticControlFailure(RuntimeError):
@@ -127,3 +128,21 @@ class AgenticControlPort(Protocol):
     async def reserve_activity(self, reservation: ActivityReservationRequest) -> object: ...
     async def complete_activity(self, invocation_key: str, outcome: ActivityOutcome) -> object: ...
     async def fail_activity(self, invocation_key: str, outcome: ActivityOutcome) -> object: ...
+    async def load_task_brief(self, task_id: str) -> dict[str, object]: ...
+    async def load_dispatch_plan(self, run_id: str) -> dict[str, object]: ...
+    async def load_execution_descriptor(
+        self, descriptor_id: str, descriptor_digest: str
+    ) -> dict[str, object]: ...
+    async def accept_orchestration_result(self, body: Mapping[str, object]) -> str: ...
+    async def mediate_collaboration(self, body: Mapping[str, object]) -> str: ...
+    async def accept_executive_report(self, body: Mapping[str, object]) -> str: ...
+
+
+class AgentSubmissionPort(Protocol):
+    async def accept_plan(self, plan: Mapping[str, object]) -> None: ...
+
+
+class DepartmentToolPort(Protocol):
+    async def invoke(
+        self, agent_kind: DepartmentAgentKind, request: Mapping[str, object]
+    ) -> dict[str, object]: ...

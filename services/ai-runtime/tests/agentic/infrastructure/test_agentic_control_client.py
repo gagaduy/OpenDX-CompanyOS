@@ -149,6 +149,39 @@ def test_maps_digest_only_model_run_control_requests() -> None:
     assert all(b"content" not in request.content for request in requests)
 
 
+def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"success": True, "data": {"kind": "private"}})
+        return httpx.Response(202, json={"success": True, "data": {"digest": "a" * 64}})
+
+    client = _client(handler)
+    identity = "00000000-0000-4000-8000-000000000001"
+    assert asyncio.run(client.load_task_brief(identity)) == {"kind": "private"}
+    assert asyncio.run(client.load_dispatch_plan(identity)) == {"kind": "private"}
+    assert asyncio.run(client.load_execution_descriptor(identity, "b" * 64)) == {"kind": "private"}
+    for operation in (
+        client.accept_orchestration_result,
+        client.mediate_collaboration,
+        client.accept_executive_report,
+    ):
+        assert asyncio.run(operation({"resultDigest": "a" * 64})) == "a" * 64
+
+    assert [request.url.path for request in requests] == [
+        f"/v1/internal/agentic/orchestration/task-briefs/{identity}",
+        f"/v1/internal/agentic/orchestration/dispatch-plans/{identity}",
+        f"/v1/internal/agentic/orchestration/descriptors/{identity}",
+        "/v1/internal/agentic/orchestration/results",
+        "/v1/internal/agentic/orchestration/collaborations",
+        "/v1/internal/agentic/orchestration/reports",
+    ]
+    assert requests[2].headers["x-opendx-descriptor-digest"] == "b" * 64
+    assert all(request.headers["authorization"] == "Bearer worker-token" for request in requests)
+
+
 @pytest.mark.parametrize("status,retryable", [(503, True), (400, False)])
 def test_classifies_and_redacts_http_failures(status: int, retryable: bool) -> None:
     client = _client(lambda _request: httpx.Response(status, text="sensitive-body"))
@@ -172,6 +205,24 @@ def test_preserves_only_the_authoritative_invalid_plan_error_code() -> None:
     assert captured.value.code == "INVALID_FROZEN_PLAN"
     assert captured.value.retryable is False
     assert "sensitive plan detail" not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "code", ["DESCRIPTOR_BINDING_INVALID", "DESCRIPTOR_EXPIRED", "DESCRIPTOR_REVOKED"]
+)
+def test_preserves_safe_authoritative_descriptor_rejections(code: str) -> None:
+    client = _client(lambda _request: httpx.Response(409, json={
+        "success": False, "errorCode": code, "message": "private descriptor detail",
+    }))
+
+    with pytest.raises(AgenticControlError) as captured:
+        asyncio.run(client.load_execution_descriptor(
+            "00000000-0000-4000-8000-000000000001", "a" * 64
+        ))
+
+    assert captured.value.code == code
+    assert captured.value.retryable is False
+    assert "private descriptor detail" not in str(captured.value)
 
 
 def test_rejects_oversized_response() -> None:

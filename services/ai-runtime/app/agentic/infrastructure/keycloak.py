@@ -6,12 +6,15 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable
-from typing import Any
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, Mapping
 
 import httpx
 import jwt
 
 from app.agentic.domain.contracts import WorkloadPrincipal
+from app.shared.config import DepartmentAgentKind, KeycloakSettings
 
 
 class WorkloadTokenError(ValueError):
@@ -20,6 +23,12 @@ class WorkloadTokenError(ValueError):
 
 class KeycloakTokenError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class AgentTokenProviders:
+    ai_ceo: KeycloakClientCredentialsProvider
+    departments: Mapping[DepartmentAgentKind, KeycloakClientCredentialsProvider]
 
 
 class KeycloakWorkloadVerifier:
@@ -102,3 +111,27 @@ class KeycloakClientCredentialsProvider:
             raise KeycloakTokenError("KEYCLOAK_TOKEN_RESPONSE_INVALID") from error
         self._cached = (token, self._now() + expires_in)
         return token
+
+
+def build_agent_token_providers(
+    settings: KeycloakSettings, *, client: httpx.AsyncClient
+) -> AgentTokenProviders:
+    def provider(client_id: str, client_secret: str) -> KeycloakClientCredentialsProvider:
+        return KeycloakClientCredentialsProvider(
+            token_url=settings.token_url, client_id=client_id,
+            client_secret=client_secret, audience=settings.worker_audience,
+            client=client,
+        )
+
+    ai_ceo = provider(
+        settings.ai_ceo_identity.client_id,
+        settings.ai_ceo_identity.client_secret,
+    )
+    departments = {
+        agent_kind: provider(identity.client_id, identity.client_secret)
+        for agent_kind, identity in settings.department_identities.items()
+    }
+    return AgentTokenProviders(
+        ai_ceo=ai_ceo,
+        departments=MappingProxyType(departments),
+    )

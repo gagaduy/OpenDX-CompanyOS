@@ -17,6 +17,8 @@ def environment() -> dict[str, str]:
         "AGENTIC_WORKER_AUDIENCE": "opendx-api",
         "AGENTIC_WORKER_CLIENT_ID": "opendx-agentic-worker",
         "AGENTIC_WORKER_CLIENT_SECRET": "local-worker-secret",
+        "AGENT_AI_CEO_CLIENT_ID": "agent-ai-ceo",
+        "AGENT_AI_CEO_CLIENT_SECRET": "local-ai-ceo-secret",
         "AGENTIC_API_BASE_URL": "http://api:4000",
         "TEMPORAL_ADDRESS": "temporal:7233",
     }
@@ -97,6 +99,57 @@ def test_workload_identity_values_are_required(name: str) -> None:
     values[name] = "  "
 
     with pytest.raises(ConfigurationError, match=name):
+        RuntimeSettings.from_mapping(values)
+
+
+def test_ai_ceo_identity_is_required_and_redacted() -> None:
+    settings = RuntimeSettings.from_mapping(environment())
+
+    assert settings.keycloak.ai_ceo_identity.client_id == "agent-ai-ceo"
+    assert settings.keycloak.ai_ceo_identity.client_secret == "local-ai-ceo-secret"
+    assert "local-ai-ceo-secret" not in repr(settings)
+
+
+def test_descriptor_execution_requires_six_distinct_department_identities() -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true"
+    }
+
+    settings = RuntimeSettings.from_mapping(values)
+
+    assert settings.orchestration_descriptor_execution_enabled is True
+    assert tuple(settings.keycloak.department_identities) == (
+        "catalog", "inventory", "order", "finance", "crm", "support"
+    )
+    assert "catalog-secret" not in repr(settings)
+
+
+def test_descriptor_execution_fails_closed_when_one_department_secret_is_missing() -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true"
+    }
+    values.pop("AGENT_SUPPORT_CLIENT_SECRET")
+
+    with pytest.raises(ConfigurationError, match="AGENT_SUPPORT_CLIENT_SECRET"):
+        RuntimeSettings.from_mapping(values)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("AGENT_CATALOG_CLIENT_ID", "agent-ai-ceo"),
+        ("AGENT_INVENTORY_CLIENT_SECRET", "catalog-secret"),
+        ("AGENT_AI_CEO_CLIENT_ID", "opendx-agentic-worker"),
+        ("AGENT_AI_CEO_CLIENT_SECRET", "local-worker-secret"),
+    ],
+)
+def test_agent_and_worker_credentials_must_be_distinct(name: str, value: str) -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        name: value,
+    }
+
+    with pytest.raises(ConfigurationError, match="distinct"):
         RuntimeSettings.from_mapping(values)
 
 
@@ -430,3 +483,11 @@ def _exception_chain_text(error: BaseException) -> str:
         if current.__context__ is not None:
             pending.append(current.__context__)
     return " ".join(rendered)
+
+
+def _department_identities() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for department in ("CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"):
+        values[f"AGENT_{department}_CLIENT_ID"] = f"agent-{department.lower()}"
+        values[f"AGENT_{department}_CLIENT_SECRET"] = f"{department.lower()}-secret"
+    return values

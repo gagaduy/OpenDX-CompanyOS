@@ -9,9 +9,11 @@ import httpx
 import pytest
 
 from app.agentic.infrastructure.keycloak import (
+    build_agent_token_providers,
     KeycloakClientCredentialsProvider,
     KeycloakTokenError,
 )
+from app.shared.config import DepartmentIdentitySettings, KeycloakSettings
 
 
 def test_acquires_encoded_token_and_caches_until_skew() -> None:
@@ -72,6 +74,39 @@ def test_redacts_provider_failures(response: httpx.Response) -> None:
         asyncio.run(provider.get_token())
     assert "private-worker-secret" not in str(captured.value)
     assert "sensitive-provider-body" not in str(captured.value)
+
+
+def test_builds_isolated_ai_ceo_and_department_token_providers() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={
+            "access_token": "isolated-token", "token_type": "Bearer", "expires_in": 60
+        })
+
+    settings = KeycloakSettings(
+        issuer="https://identity.test", jwks_url="https://identity.test/jwks",
+        token_url="https://identity.test/token", control_audience="control",
+        control_client_id="control", worker_audience="opendx-api",
+        worker_client_id="worker", worker_client_secret="worker-secret",
+        ai_ceo_identity=DepartmentIdentitySettings("agent-ai-ceo", "ai-ceo-secret"),
+        department_identities={
+            "catalog": DepartmentIdentitySettings("agent-catalog", "catalog-secret"),
+            "inventory": DepartmentIdentitySettings("agent-inventory", "inventory-secret"),
+        },  # type: ignore[arg-type]
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    providers = build_agent_token_providers(settings, client=client)
+    asyncio.run(providers.ai_ceo.get_token())
+    asyncio.run(providers.departments["inventory"].get_token())
+
+    bodies = [request.content.decode() for request in requests]
+    assert "client_id=agent-ai-ceo" in bodies[0]
+    assert "client_secret=ai-ceo-secret" in bodies[0]
+    assert "client_id=agent-inventory" in bodies[1]
+    assert "client_secret=inventory-secret" in bodies[1]
+    assert all("worker-secret" not in body for body in bodies)
 
 
 def _provider(handler: object, now: object) -> KeycloakClientCredentialsProvider:

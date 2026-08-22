@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Isolate AI runtime worker, AI CEO, and six Department client credentials,
+  and add bounded redacting transports for worker orchestration control,
+  AI CEO plan submission, and explicit Department Tool Registry invocation.
+
 - Govern Phase F Task Brief, dispatch-plan, execution-descriptor, Department
   result, mediated collaboration, and executive-report internal contracts with
   distinct AI CEO submission identity, worker-only private reads, current
