@@ -30,8 +30,12 @@ Active commerce master plan:
 The Post-Commerce Agentic Workforce master design and plan are approved. Phase
 A governance and Phase B durable Store Health workflow are complete. Phase C
 implementation, exit gates, independent review, and atomic closure commit are
-complete on `feat/agentic-department-read-tools`.
-Phases D-H still require their focused design and file-level plan:
+complete on `feat/agentic-department-read-tools`. Phases D-E are complete on
+`develop`; Phase F Slice 1 is complete on `feat/ai-ceo-coordination` and still
+awaits integration. The Phase G focused design is review-ready on
+`feat/console-digital-workforce`; its implementation plan and code remain
+blocked on written-spec approval and Phase F integration. Phase H remains
+unstarted:
 `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
 and
 `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
@@ -48,7 +52,7 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Phases A-E complete | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase D completed after credential-owned Catalog live acceptance; Phase E completed after controlled ClamAV and live file-intake acceptance; Phases F-H not started |
+| Post-Commerce: Agentic Workforce | Phases A-E complete; Phase F Slice 1 complete pending integration; Phase G design review-ready | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase F must integrate before Phase G implementation; schedules, Company Memory, GraphRAG, and Phase H remain deferred |
 
 Focused Agentic delivery status:
 
@@ -59,10 +63,14 @@ Focused Agentic delivery status:
 | Phase C: Read-only Department Tools | Complete on `feat/agentic-department-read-tools` | `docs/superpowers/specs/2026-08-16-agentic-department-read-tools-design.md` | `docs/superpowers/plans/2026-08-16-agentic-department-read-tools.md` | Complete after 17-tool six-identity acceptance, exact analytics grants, zero-leakage, lifecycle, recovery, full-source gates, and independent review |
 | Phase D: OpenRouter Agent Runtime | Complete on `develop` | `docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md` | `docs/superpowers/plans/2026-08-19-openrouter-agent-runtime.md` | Complete after credential-owned Catalog live acceptance |
 | Phase E: File Intake and Bulk Preview | Complete on `develop` | `docs/superpowers/specs/2026-08-22-agentic-file-intake-design.md` | `docs/superpowers/plans/2026-08-22-agentic-file-intake.md` | Complete after controlled ClamAV infected/outage, authenticated CSV/TXT intake, exactly-once approval, and source gates |
+| Phase F: AI CEO Coordination | Slice 1 complete on `feat/ai-ceo-coordination`; integration pending | `docs/superpowers/specs/2026-08-22-ai-ceo-coordination-memory-design.md` | `docs/superpowers/plans/2026-08-22-ai-ceo-orchestration.md` | Slice 1 complete after descriptor orchestration, isolated execution identities, deterministic recovery, and zero Commerce mutation; schedules and Company Memory remain deferred |
+| Phase G: Console Digital Workforce | Review-ready design on `feat/console-digital-workforce`; implementation blocked on Phase F integration | `docs/superpowers/specs/2026-08-25-console-digital-workforce-design.md` | Not started | Written-spec approval, focused plan, and Phase F integration are required before implementation |
 
-Phase D is complete: governed OpenRouter execution, Quality Gate, deterministic
-fake acceptance, Phase D exit gate, and credential-owned Catalog live acceptance
-all pass. Phases E-H are explicitly not started.
+Phase F Slice 1 is complete on its feature branch but has not been integrated
+into `develop`. Phase G has started its design gate only: implementation remains
+blocked until this focused design and its later plan are approved and Phase F
+is integrated. Schedules, Company Memory, GraphRAG, and Phase H remain
+explicitly deferred.
 
 ## Latest Validation Evidence
 
