@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+# SPDX-License-Identifier: Apache-2.0
+
+{
+	email admin@example.com
+}
+
+{$STOREFRONT_HOST:shop.example.com} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy storefront:3100
+}
+
+{$CONSOLE_HOST:console.example.com} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy console:3000
+}
+
+{$API_HOST:api.example.com} {
+	encode zstd gzip
+	@internalAgentic path /v1/internal/agentic*
+	respond @internalAgentic 404
+	request_body {
+		max_size 11MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	reverse_proxy api:4000
+}
+
+{$KEYCLOAK_HOST:auth.example.com} {
+	encode zstd gzip
+	reverse_proxy keycloak:8080
+}

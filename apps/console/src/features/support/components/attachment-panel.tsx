@@ -1,0 +1,6 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import type { SupportAttachmentView } from "../types/support.types";
+
+export function AttachmentPanel({attachments,onUpload,onDownload}:{readonly attachments:readonly SupportAttachmentView[];readonly onUpload:(file:File)=>void;readonly onDownload:(attachment:SupportAttachmentView)=>void}){ return <section className="detailCard" aria-label="Attachments"><h2>Attachments</h2><p className="subtleText">Allowed: JPG, PNG, PDF, DOCX, TXT; one file per upload.</p><label><span>Upload support attachment</span><input aria-label="Upload support attachment" type="file" accept=".jpg,.jpeg,.png,.pdf,.docx,.txt,image/jpeg,image/png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={event=>{const file=event.currentTarget.files?.[0]; if(file)onUpload(file); event.currentTarget.value="";}} /></label>{attachments.length===0?<p>No attachments.</p>:<ul className="timelineList">{attachments.map(attachment=><li key={attachment.id}><span>{attachment.originalFilename}</span><span className="subtleText">{attachment.status}</span>{attachment.status==="clean"?<button className="secondaryButton" type="button" onClick={()=>onDownload(attachment)}>Download {attachment.originalFilename}</button>:null}</li>)}</ul>}</section>; }

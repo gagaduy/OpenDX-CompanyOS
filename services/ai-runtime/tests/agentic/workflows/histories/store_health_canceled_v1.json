@@ -1,0 +1,954 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-08-14T12:49:05.006Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "workflowExecutionStartedEventAttributes": {
+        "attempt": 1,
+        "firstExecutionRunId": "99c03153-4ca1-4262-a3ab-66bb188779f6",
+        "firstWorkflowTaskBackoff": "0s",
+        "identity": "history-worker",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJhY3Rpdml0eV9zY2hlZHVsZV90b19jbG9zZV9zZWNvbmRzIjoxODAsImFjdGl2aXR5X3N0YXJ0X3RvX2Nsb3NlX3NlY29uZHMiOjMwLCJwbGFuX3JldmlzaW9uIjoyLCJ0YXNrX2lkIjoidGFzay0xIiwid29ya2Zsb3dfdmVyc2lvbiI6MX0=",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "originalExecutionRunId": "99c03153-4ca1-4262-a3ab-66bb188779f6",
+        "priority": {},
+        "taskQueue": {
+          "name": "store-health-replay"
+        },
+        "workflowExecutionTimeout": "315360000s",
+        "workflowRunTimeout": "315360000s",
+        "workflowTaskTimeout": "10s",
+        "workflowType": {
+          "name": "StoreHealthReviewWorkflowV1"
+        }
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-08-14T12:49:05.006Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-08-14T12:49:05.007Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "414",
+        "identity": "history-worker",
+        "scheduledEventId": "2"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-08-14T12:49:05.139Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "2",
+        "sdkMetadata": {
+          "coreUsedFlags": [
+            3,
+            1,
+            2
+          ],
+          "sdkName": "temporal-python",
+          "sdkVersion": "1.30.0"
+        }
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "1",
+        "activityType": {
+          "name": "project_state"
+        },
+        "header": {},
+        "heartbeatTimeout": "0s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJvdXRjb21lX2NvZGUiOm51bGwsInByb2plY3Rpb25fc2VxdWVuY2UiOjEsInJ1bl9pZCI6Imhpc3RvcnktNSIsInN0YXRlIjoicGxhbm5pbmcifQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 3,
+          "maximumInterval": "10s",
+          "nonRetryableErrorTypes": [
+            "BUSINESS_REJECTED",
+            "POLICY_DENIED",
+            "STALE_INPUT",
+            "SCHEMA_INVALID"
+          ]
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "3"
+      },
+      "eventId": "5",
+      "eventTime": "2026-08-14T12:49:05.139Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "5"
+      },
+      "eventId": "6",
+      "eventTime": "2026-08-14T12:49:05.139Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "YmluYXJ5L251bGw="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "5",
+        "startedEventId": "6"
+      },
+      "eventId": "7",
+      "eventTime": "2026-08-14T12:49:05.146Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-08-14T12:49:05.146Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-08-14T12:49:05.146Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "1002",
+        "identity": "history-worker",
+        "scheduledEventId": "8"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2026-08-14T12:49:05.158Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "8",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "2",
+        "activityType": {
+          "name": "load_frozen_plan"
+        },
+        "header": {},
+        "heartbeatTimeout": "5s",
+        "input": {
+          "payloads": [
+            {
+              "data": "Imhpc3RvcnktNSI=",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 3,
+          "maximumInterval": "10s",
+          "nonRetryableErrorTypes": [
+            "BUSINESS_REJECTED",
+            "POLICY_DENIED",
+            "STALE_INPUT",
+            "SCHEMA_INVALID"
+          ]
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "9"
+      },
+      "eventId": "11",
+      "eventTime": "2026-08-14T12:49:05.158Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "11"
+      },
+      "eventId": "12",
+      "eventTime": "2026-08-14T12:49:05.158Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "data": "eyJhcHByb3ZhbCI6bnVsbCwiY29uZmlndXJhdGlvbl9yZXZpc2lvbl9pZCI6InJldmlzaW9uLTEiLCJkZXBlbmRlbmNpZXMiOlt7InNvdXJjZSI6ImNhdGFsb2ciLCJ0YXJnZXQiOiJpbnZlbnRvcnkifV0sInBhcnRpYWxfY29tcGxldGlvbl9hbGxvd2VkIjp0cnVlLCJwbGFuX3JldmlzaW9uIjoyLCJzdWJ0YXNrcyI6W3siYWdlbnRfa2luZCI6ImNhdGFsb2ciLCJpZCI6ImNhdGFsb2ciLCJ2ZXJzaW9uIjoxfSx7ImFnZW50X2tpbmQiOiJpbnZlbnRvcnkiLCJpZCI6ImludmVudG9yeSIsInZlcnNpb24iOjF9LHsiYWdlbnRfa2luZCI6InN1cHBvcnQiLCJpZCI6InN1cHBvcnQiLCJ2ZXJzaW9uIjoxfV0sInRhc2tfaWQiOiJ0YXNrLTEiLCJ3b3JrZmxvd19ydW5faWQiOiJoaXN0b3J5LTUiLCJ3b3JrZmxvd192ZXJzaW9uIjoxfQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "11",
+        "startedEventId": "12"
+      },
+      "eventId": "13",
+      "eventTime": "2026-08-14T12:49:05.162Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "14",
+      "eventTime": "2026-08-14T12:49:05.162Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "15",
+      "eventTime": "2026-08-14T12:49:05.162Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "1908",
+        "identity": "history-worker",
+        "scheduledEventId": "14"
+      }
+    },
+    {
+      "eventId": "16",
+      "eventTime": "2026-08-14T12:49:05.175Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "14",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "3",
+        "activityType": {
+          "name": "project_state"
+        },
+        "header": {},
+        "heartbeatTimeout": "0s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJvdXRjb21lX2NvZGUiOm51bGwsInByb2plY3Rpb25fc2VxdWVuY2UiOjIsInJ1bl9pZCI6Imhpc3RvcnktNSIsInN0YXRlIjoiZGlzcGF0Y2hpbmcifQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 3,
+          "maximumInterval": "10s",
+          "nonRetryableErrorTypes": [
+            "BUSINESS_REJECTED",
+            "POLICY_DENIED",
+            "STALE_INPUT",
+            "SCHEMA_INVALID"
+          ]
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "15"
+      },
+      "eventId": "17",
+      "eventTime": "2026-08-14T12:49:05.175Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "17"
+      },
+      "eventId": "18",
+      "eventTime": "2026-08-14T12:49:05.175Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "YmluYXJ5L251bGw="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "17",
+        "startedEventId": "18"
+      },
+      "eventId": "19",
+      "eventTime": "2026-08-14T12:49:05.178Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "20",
+      "eventTime": "2026-08-14T12:49:05.178Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "21",
+      "eventTime": "2026-08-14T12:49:05.179Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "2469",
+        "identity": "history-worker",
+        "scheduledEventId": "20"
+      }
+    },
+    {
+      "eventId": "22",
+      "eventTime": "2026-08-14T12:49:05.187Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "20",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "4",
+        "activityType": {
+          "name": "project_state"
+        },
+        "header": {},
+        "heartbeatTimeout": "0s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJvdXRjb21lX2NvZGUiOm51bGwsInByb2plY3Rpb25fc2VxdWVuY2UiOjMsInJ1bl9pZCI6Imhpc3RvcnktNSIsInN0YXRlIjoiZGVwYXJ0bWVudF9hbmFseXNpcyJ9",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 3,
+          "maximumInterval": "10s",
+          "nonRetryableErrorTypes": [
+            "BUSINESS_REJECTED",
+            "POLICY_DENIED",
+            "STALE_INPUT",
+            "SCHEMA_INVALID"
+          ]
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "21"
+      },
+      "eventId": "23",
+      "eventTime": "2026-08-14T12:49:05.187Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "23"
+      },
+      "eventId": "24",
+      "eventTime": "2026-08-14T12:49:05.187Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "YmluYXJ5L251bGw="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "23",
+        "startedEventId": "24"
+      },
+      "eventId": "25",
+      "eventTime": "2026-08-14T12:49:05.192Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "26",
+      "eventTime": "2026-08-14T12:49:05.192Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "27",
+      "eventTime": "2026-08-14T12:49:05.192Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "3038",
+        "identity": "history-worker",
+        "scheduledEventId": "26"
+      }
+    },
+    {
+      "eventId": "28",
+      "eventTime": "2026-08-14T12:49:05.205Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "26",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "5",
+        "activityType": {
+          "name": "execute_fake_analysis"
+        },
+        "header": {},
+        "heartbeatTimeout": "5s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJicmFuY2hfaWQiOiJjYXRhbG9nIiwiZXhlY3V0aW9uX2F0dGVtcHQiOjEsInJ1bl9pZCI6Imhpc3RvcnktNSIsInNvdXJjZV9icmFuY2hlcyI6W10sIndvcmtmbG93X3ZlcnNpb24iOjF9",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 1,
+          "maximumInterval": "100s"
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "27"
+      },
+      "eventId": "29",
+      "eventTime": "2026-08-14T12:49:05.205Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "6",
+        "activityType": {
+          "name": "execute_fake_analysis"
+        },
+        "header": {},
+        "heartbeatTimeout": "5s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJicmFuY2hfaWQiOiJzdXBwb3J0IiwiZXhlY3V0aW9uX2F0dGVtcHQiOjEsInJ1bl9pZCI6Imhpc3RvcnktNSIsInNvdXJjZV9icmFuY2hlcyI6W10sIndvcmtmbG93X3ZlcnNpb24iOjF9",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 1,
+          "maximumInterval": "100s"
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "27"
+      },
+      "eventId": "30",
+      "eventTime": "2026-08-14T12:49:05.205Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "eventId": "31",
+      "eventTime": "2026-08-14T12:49:05.205Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED",
+      "workflowExecutionSignaledEventAttributes": {
+        "identity": "history-worker",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJpZGVtcG90ZW5jeV9rZXkiOiJoaXN0b3J5LWNhbmNlbCIsInBheWxvYWRfZGlnZXN0IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsInJlYXNvbl9jb2RlIjoiQ0FOQ0VMRURfQllfU1RBRkYifQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "signalName": "cancel"
+      }
+    },
+    {
+      "eventId": "32",
+      "eventTime": "2026-08-14T12:49:05.205Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 2,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "33",
+      "eventTime": "2026-08-14T12:49:05.206Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "3949",
+        "identity": "history-worker",
+        "scheduledEventId": "32"
+      }
+    },
+    {
+      "eventId": "34",
+      "eventTime": "2026-08-14T12:49:05.217Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "32",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskCancelRequestedEventAttributes": {
+        "scheduledEventId": "29",
+        "workflowTaskCompletedEventId": "33"
+      },
+      "eventId": "35",
+      "eventTime": "2026-08-14T12:49:05.217Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_CANCEL_REQUESTED"
+    },
+    {
+      "activityTaskCancelRequestedEventAttributes": {
+        "scheduledEventId": "30",
+        "workflowTaskCompletedEventId": "33"
+      },
+      "eventId": "36",
+      "eventTime": "2026-08-14T12:49:05.217Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_CANCEL_REQUESTED"
+    },
+    {
+      "eventId": "37",
+      "eventTime": "2026-08-14T12:49:05.217Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "38",
+      "eventTime": "2026-08-14T12:49:05.217Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "4160",
+        "identity": "history-worker",
+        "scheduledEventId": "37"
+      }
+    },
+    {
+      "eventId": "39",
+      "eventTime": "2026-08-14T12:49:05.219Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "37",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "eventId": "40",
+      "eventTime": "2026-08-14T12:49:05.219Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "41",
+      "eventTime": "2026-08-14T12:49:05.219Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "4323",
+        "identity": "history-worker",
+        "scheduledEventId": "40"
+      }
+    },
+    {
+      "eventId": "42",
+      "eventTime": "2026-08-14T12:49:05.221Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "40",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskCanceledEventAttributes": {
+        "scheduledEventId": "30",
+        "startedEventId": "-1"
+      },
+      "eventId": "43",
+      "eventTime": "2026-08-14T12:49:05.221Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_CANCELED"
+    },
+    {
+      "eventId": "44",
+      "eventTime": "2026-08-14T12:49:05.221Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "45",
+      "eventTime": "2026-08-14T12:49:05.222Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "4519",
+        "identity": "history-worker",
+        "scheduledEventId": "44"
+      }
+    },
+    {
+      "eventId": "46",
+      "eventTime": "2026-08-14T12:49:05.226Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "44",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "29"
+      },
+      "eventId": "47",
+      "eventTime": "2026-08-14T12:49:05.206Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "data": "eyJicmFuY2hJZCI6ImNhdGFsb2ciLCJzdGF0dXMiOiJ1c2FibGUifQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "29",
+        "startedEventId": "47"
+      },
+      "eventId": "48",
+      "eventTime": "2026-08-14T12:49:05.233Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "49",
+      "eventTime": "2026-08-14T12:49:05.233Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "50",
+      "eventTime": "2026-08-14T12:49:05.233Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "4832",
+        "identity": "history-worker",
+        "scheduledEventId": "49"
+      }
+    },
+    {
+      "eventId": "51",
+      "eventTime": "2026-08-14T12:49:05.242Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "49",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "7",
+        "activityType": {
+          "name": "project_state"
+        },
+        "header": {},
+        "heartbeatTimeout": "0s",
+        "input": {
+          "payloads": [
+            {
+              "data": "eyJvdXRjb21lX2NvZGUiOiJDQU5DRUxFRF9CWV9TVEFGRiIsInByb2plY3Rpb25fc2VxdWVuY2UiOjQsInJ1bl9pZCI6Imhpc3RvcnktNSIsInN0YXRlIjoiY2FuY2VsZWQifQ==",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "priority": {},
+        "retryPolicy": {
+          "backoffCoefficient": 2.0,
+          "initialInterval": "1s",
+          "maximumAttempts": 3,
+          "maximumInterval": "10s",
+          "nonRetryableErrorTypes": [
+            "BUSINESS_REJECTED",
+            "POLICY_DENIED",
+            "STALE_INPUT",
+            "SCHEMA_INVALID"
+          ]
+        },
+        "scheduleToCloseTimeout": "180s",
+        "scheduleToStartTimeout": "180s",
+        "startToCloseTimeout": "30s",
+        "taskQueue": {
+          "kind": "TASK_QUEUE_KIND_NORMAL",
+          "name": "store-health-replay"
+        },
+        "workflowTaskCompletedEventId": "50"
+      },
+      "eventId": "52",
+      "eventTime": "2026-08-14T12:49:05.242Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED"
+    },
+    {
+      "activityTaskStartedEventAttributes": {
+        "attempt": 1,
+        "identity": "history-worker",
+        "scheduledEventId": "52"
+      },
+      "eventId": "53",
+      "eventTime": "2026-08-14T12:49:05.243Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED"
+    },
+    {
+      "activityTaskCompletedEventAttributes": {
+        "identity": "history-worker",
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "YmluYXJ5L251bGw="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "52",
+        "startedEventId": "53"
+      },
+      "eventId": "54",
+      "eventTime": "2026-08-14T12:49:05.246Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED"
+    },
+    {
+      "eventId": "55",
+      "eventTime": "2026-08-14T12:49:05.246Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "attempt": 1,
+        "startToCloseTimeout": "10s",
+        "taskQueue": {
+          "name": "store-health-replay"
+        }
+      }
+    },
+    {
+      "eventId": "56",
+      "eventTime": "2026-08-14T12:49:05.247Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "historySizeBytes": "5406",
+        "identity": "history-worker",
+        "scheduledEventId": "55"
+      }
+    },
+    {
+      "eventId": "57",
+      "eventTime": "2026-08-14T12:49:05.255Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "binaryChecksum": "e92a790d6788d8f392110c4cac096793",
+        "identity": "history-worker",
+        "meteringMetadata": {},
+        "scheduledEventId": "55",
+        "sdkMetadata": {}
+      }
+    },
+    {
+      "eventId": "58",
+      "eventTime": "2026-08-14T12:49:05.255Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED",
+      "workflowExecutionCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "data": "eyJmYWlsZWRfYnJhbmNoZXMiOltdLCJvdXRjb21lX2NvZGUiOiJDQU5DRUxFRF9CWV9TVEFGRiIsInN0YXRlIjoiY2FuY2VsZWQiLCJzdWNjZXNzZnVsX2JyYW5jaGVzIjpbXX0=",
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              }
+            }
+          ]
+        },
+        "workflowTaskCompletedEventId": "56"
+      }
+    }
+  ]
+}

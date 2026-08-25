@@ -3,42 +3,249 @@
 
 name: opendx-companyos
 
+x-api-environment: &api-environment
+  OPENDX_ENV: development
+  API_PORT: "4000"
+  DATABASE_URL: postgres://opendx_local:opendx_local_password@postgres:5432/opendx
+  AGENTIC_ANALYTICS_DATABASE_URL: postgres://opendx_agentic_reader:opendx_agentic_reader_password@postgres:5432/opendx
+  CONSOLE_ORIGIN: http://localhost:3000
+  STOREFRONT_ORIGIN: http://localhost:3100
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  CUSTOMER_COOKIE_NAME: opendx_customer
+  GUEST_COOKIE_NAME: opendx_guest
+  CSRF_COOKIE_NAME: opendx_csrf
+  COOKIE_SECURE: "false"
+  CUSTOMER_SESSION_TTL_SECONDS: "2592000"
+  GUEST_SESSION_TTL_SECONDS: "604800"
+  AUTH_RATE_LIMIT: "20"
+  KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
+  KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
+  KEYCLOAK_AUDIENCE: opendx-api
+  KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
+  AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
+  AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+  AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
+  AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
+  AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-true}
+  WORKFLOW_GATEWAY_TIMEOUT_MS: ${WORKFLOW_GATEWAY_TIMEOUT_MS:-5000}
+  WORKFLOW_DISPATCHER_INTERVAL_MS: ${WORKFLOW_DISPATCHER_INTERVAL_MS:-5000}
+  WORKFLOW_DISPATCHER_BATCH_SIZE: ${WORKFLOW_DISPATCHER_BATCH_SIZE:-20}
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: opendx_minio
+  MINIO_SECRET_KEY: opendx_minio_password
+  MINIO_BUCKET: product-media
+  MINIO_SUPPORT_BUCKET: support-attachments
+  MEDIA_MAX_BYTES: "10485760"
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: "3310"
+  CLAMAV_TIMEOUT_SECONDS: "30"
+  SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: "30"
+  SUPPORT_ESCALATION_INTERVAL_SECONDS: "30"
+  SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: "3600"
+  INVENTORY_RESERVATION_TTL_SECONDS: "900"
+  INVENTORY_EXPIRY_INTERVAL_SECONDS: "30"
+  CHECKOUT_TTL_SECONDS: "900"
+  CHECKOUT_EXPIRY_INTERVAL_SECONDS: "30"
+  SEPAY_ENVIRONMENT: ${SEPAY_ENVIRONMENT:-sandbox}
+  SEPAY_CHECKOUT_URL: ${SEPAY_CHECKOUT_URL:-https://pay-sandbox.sepay.vn/v1/checkout/init}
+  SEPAY_API_BASE_URL: ${SEPAY_API_BASE_URL:-https://pgapi-sandbox.sepay.vn}
+  SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:-}
+  SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:-}
+  SEPAY_IPN_SECRET: ${SEPAY_IPN_SECRET:-}
+  SEPAY_SUCCESS_URL: ${SEPAY_SUCCESS_URL:-http://localhost:3100/payment/return?outcome=success}
+  SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-http://localhost:3100/payment/return?outcome=error}
+  SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-http://localhost:3100/payment/return?outcome=cancel}
+  SEPAY_REQUEST_TIMEOUT_MS: ${SEPAY_REQUEST_TIMEOUT_MS:-5000}
+  PAYMENT_RECONCILIATION_INTERVAL_SECONDS: ${PAYMENT_RECONCILIATION_INTERVAL_SECONDS:-60}
+
+x-ai-environment: &ai-environment
+  APP_ENV: development
+  AI_RUNTIME_HOST: 0.0.0.0
+  AI_RUNTIME_PORT: "8000"
+  KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
+  KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/certs
+  KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
+  AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
+  AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
+  AGENTIC_WORKER_AUDIENCE: opendx-api
+  AGENTIC_WORKER_CLIENT_ID: opendx-agentic-worker
+  AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+  AGENTIC_API_BASE_URL: http://api:4000/v1/internal/agentic
+  TEMPORAL_ADDRESS: temporal:7233
+  TEMPORAL_NAMESPACE: opendx
+  TEMPORAL_TASK_QUEUE: store-health-v1
+  TEMPORAL_TLS_ENABLED: "false"
+  ACTIVITY_START_TO_CLOSE_SECONDS: "30"
+  ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS: "180"
+  FAKE_ACTIVITY_DELAY_MS: ${FAKE_ACTIVITY_DELAY_MS:-3000}
+  WORKER_SHUTDOWN_GRACE_SECONDS: "30"
+  COMMAND_RETRY_INTERVAL_SECONDS: "5"
+  OPENROUTER_EXECUTION_ENABLED: ${OPENROUTER_EXECUTION_ENABLED:-false}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+
 services:
   postgres:
-    image: pgvector/pgvector:pg18
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
     environment:
-      POSTGRES_DB: opendx
-      POSTGRES_USER: opendx_local
-      POSTGRES_PASSWORD: opendx_local_password
+      POSTGRES_DB: postgres
+      POSTGRES_USER: opendx_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - opendx_postgres:/var/lib/postgresql/data
+      - opendx_postgres:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U opendx_admin -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  postgres-role-init:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    environment:
+      POSTGRES_ADMIN_USER: opendx_admin
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      POSTGRES_APP_USER: opendx_local
+      POSTGRES_APP_PASSWORD: opendx_local_password
+      POSTGRES_AGENTIC_READER_USER: opendx_agentic_reader
+      POSTGRES_AGENTIC_READER_PASSWORD: opendx_agentic_reader_password
+    volumes:
+      - ../temporal/scripts/prepare-postgres-roles.sh:/opt/opendx/prepare-postgres-roles.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/prepare-postgres-roles.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  temporal-db-init:
+    image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
+    environment:
+      POSTGRES_ADMIN_USER: opendx_admin
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      POSTGRES_APP_USER: opendx_local
+      TEMPORAL_DB_USER: temporal
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+    volumes:
+      - ../temporal/scripts/create-databases.sh:/opt/opendx/create-databases.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/create-databases.sh"]
+    depends_on:
+      postgres-role-init:
+        condition: service_completed_successfully
+
+  temporal-schema:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    environment:
+      TEMPORAL_DB_USER: temporal
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+    volumes:
+      - ../temporal/scripts/setup-schema.sh:/opt/opendx/setup-schema.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/setup-schema.sh"]
+    depends_on:
+      temporal-db-init:
+        condition: service_completed_successfully
+
+  temporal:
+    image: temporalio/server:1.31.2@sha256:b5ecdb8282bededae2a10c36e8d862e27d0bc2d247fc73c5416025997ab4a1da
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal_local_password}
+      POSTGRES_SEEDS: postgres
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      TEMPORAL_ALLOW_NO_AUTH: "true"
+    expose:
+      - "7233"
+    volumes:
+      - ../temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z $$(hostname -i) 7233"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  temporal-namespace:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    volumes:
+      - ../temporal/scripts/register-namespace.sh:/opt/opendx/register-namespace.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/register-namespace.sh"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  temporal-cli:
+    image: temporalio/admin-tools:1.31.2@sha256:dbc5fcd6ee8f0f4d808bf765af9a87dea9d8a283abfdcfbd2fc148496ba66107
+    profiles: ["tools"]
+    entrypoint: ["temporal", "--address", "temporal:7233"]
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.4.2
-    command: ["start-dev"]
+    image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: opendx_admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: opendx_admin_password
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8080}
+      AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+      AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/opendx-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
-  temporal:
-    image: temporalio/auto-setup:1.29.1
+  keycloak-reconcile:
+    image: quay.io/keycloak/keycloak:26.4.2@sha256:3617b09bb4b7510a8d8d9b9fc5707399e2d70688dbcc2f8fb013a144829be1b9
     environment:
-      DB: postgresql
-      DB_PORT: 5432
-      POSTGRES_USER: opendx_local
-      POSTGRES_PWD: opendx_local_password
-      POSTGRES_SEEDS: postgres
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: opendx
+      KEYCLOAK_ADMIN: opendx_admin
+      KEYCLOAK_ADMIN_PASSWORD: opendx_admin_password
+      KEYCLOAK_PRESERVE_DEVELOPMENT_IDENTITIES: "true"
+      CONSOLE_ORIGIN: http://localhost:3000
+      AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
+      AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+    volumes:
+      - ../keycloak/reconcile-production-realm.sh:/opt/opendx/reconcile-production-realm.sh:ro
+    entrypoint: ["/bin/sh", "/opt/opendx/reconcile-production-realm.sh"]
     depends_on:
-      - postgres
-    ports:
-      - "7233:7233"
+      keycloak:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: opendx_minio
@@ -48,7 +255,203 @@ services:
       - "9001:9001"
     volumes:
       - opendx_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio-bootstrap:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 opendx_minio opendx_minio_password;
+        mc mb --ignore-existing local/product-media;
+        mc mb --ignore-existing local/support-attachments
+
+  clamav:
+    image: clamav/clamav:1.5.3-debian13-slim@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
+    volumes:
+      - opendx_clamav_signatures:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec \"exec 3<>/dev/tcp/127.0.0.1/3310 && printf 'zPING\\0' >&3 && head -c 20 <&3 | grep -q PONG\""]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 2m
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:migrate:all"]
+    depends_on:
+      postgres-role-init:
+        condition: service_completed_successfully
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    command: ["pnpm", "--filter", "@opendx/api", "db:seed:all"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      network: host
+    environment: *api-environment
+    ports:
+      - "4000:4000"
+    volumes:
+      - ../../apps/api/src:/workspace/apps/api/src
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      keycloak-reconcile:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+      ai-runtime:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  ai-runtime:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      target: production
+      network: host
+    environment: *ai-environment
+    expose:
+      - "8000"
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      keycloak-reconcile:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; raise SystemExit(0 if httpx.get('http://localhost:8000/ready').is_success else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  ai-worker:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      target: production
+      network: host
+    command: ["python", "-m", "app.agentic.worker"]
+    environment:
+      <<: *ai-environment
+      ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED: ${ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED:-false}
+      DEPARTMENT_TOOL_API_BASE_URL: http://api:4000/v1/internal/agentic
+      AGENT_AI_CEO_CLIENT_ID: agent-ai-ceo
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
+      AGENT_CATALOG_CLIENT_ID: agent-catalog
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_ID: agent-inventory
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_ID: agent-order
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_ID: agent-finance
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_ID: agent-crm
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_ID: agent-support
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      ai-runtime:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  console:
+    build:
+      context: ../..
+      dockerfile: apps/console/Dockerfile
+      network: host
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+      VITE_OIDC_AUTHORITY: http://localhost:${KEYCLOAK_PORT:-8080}/realms/opendx
+      VITE_OIDC_CLIENT_ID: opendx-console
+      VITE_OIDC_REDIRECT_URI: http://localhost:3000/auth/callback
+      VITE_OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/sign-in
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../apps/console/src:/workspace/apps/console/src
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  storefront:
+    build:
+      context: ../..
+      dockerfile: apps/storefront/Dockerfile
+      network: host
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+      VITE_STOREFRONT_ORIGIN: http://localhost:3100
+      VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "3100:3100"
+    volumes:
+      - ../../apps/storefront/src:/workspace/apps/storefront/src
+      - ../../apps/storefront/public:/workspace/apps/storefront/public:ro
+      - ../../packages/config/src:/workspace/packages/config/src
+      - ../../packages/domain/src:/workspace/packages/domain/src
+      - ../../packages/ui/src:/workspace/packages/ui/src
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+
+  ai-check:
+    build:
+      context: ../..
+      dockerfile: services/ai-runtime/Dockerfile
+      network: host
+    profiles: ["checks"]
 
 volumes:
   opendx_postgres:
   opendx_minio:
+  opendx_clamav_signatures:

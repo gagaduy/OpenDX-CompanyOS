@@ -557,7 +557,7 @@ NovaCommerce seed data, Lead-to-Cash, Complaint-to-Resolution, Hire-to-Onboard, 
 
 ## Phase 7: Hardening
 
-Security tests, tenant isolation tests, agent permission tests, workflow recovery tests, GraphRAG leakage tests, observability, documentation, seed/reset scripts, and clean installation.
+Security tests, actor and department permission tests, agent permission tests, workflow recovery tests, GraphRAG leakage tests, observability, documentation, seed/reset scripts, and clean installation.
 ```
 
 - [ ] **Step 3: Update changelog**

@@ -7,9 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Intent
 
-OpenDX CompanyOS frontend surfaces should feel dense, technical, product-focused, and quietly luxurious. The UI should prioritize operational product panels over marketing decoration.
+OpenDX CompanyOS frontend surfaces should feel technical, product-focused, and
+quietly luxurious. Console surfaces prioritize dense operational panels. The
+NovaCommerce Storefront uses the same restrained system in a more editorial,
+image-led composition that keeps products as the primary visual material.
 
-## Color Tokens
+## Theme Tokens
+
+The Console retains the dark operational canvas. The Storefront supports both
+dark and light themes through semantic CSS tokens and one shared component
+implementation. A customer choice must persist without a visible theme flash.
+
+### Dark
 
 - Canvas: `#010102`.
 - Primary: `#5e6ad2`.
@@ -27,6 +36,20 @@ OpenDX CompanyOS frontend surfaces should feel dense, technical, product-focused
 - Hairline strong: `#34343a`.
 - Hairline tertiary: `#3e3e44`.
 
+### Light Storefront
+
+- Canvas: `#ffffff`.
+- Primary: `#5e6ad2`.
+- Primary hover: `#4f5bc4`.
+- Ink: `#111214`.
+- Ink muted: `#4e535c`.
+- Ink subtle: `#747a84`.
+- Surface 1: `#f5f6f6`.
+- Surface 2: `#ffffff`.
+- Surface 3: `#eceef0`.
+- Hairline: `#e2e4e8`.
+- Hairline strong: `#c8cbd1`.
+
 ## Usage Rules
 
 - Use lavender only for brand mark, primary CTA, focus ring, and link emphasis.
@@ -35,6 +58,11 @@ OpenDX CompanyOS frontend surfaces should feel dense, technical, product-focused
 - Use product UI panels, screenshots, and operational states as the primary visual material.
 - Use 8px radius for controls, 12px for most cards, and 16px for product screenshot panels.
 - Do not rely on negative letter spacing in coded UI.
+- Do not duplicate components for light and dark Storefront themes or hard-code
+  theme colors inside feature components.
+- Use full-bleed product imagery for Storefront discovery and authentication,
+  while preserving compact operational layouts for catalog filters, cart, and
+  account management.
 
 ## Product Areas
 

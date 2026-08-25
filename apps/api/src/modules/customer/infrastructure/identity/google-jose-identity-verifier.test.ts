@@ -1,0 +1,50 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+import { SignJWT, generateKeyPair } from "jose";
+import { beforeAll, describe, expect, it } from "vitest";
+import { GoogleJoseIdentityVerifier } from "./google-jose-identity-verifier";
+describe("GoogleJoseIdentityVerifier", () => {
+  let privateKey: CryptoKey, publicKey: CryptoKey;
+  beforeAll(async () => {
+    ({ privateKey, publicKey } = await generateKeyPair("RS256"));
+  });
+  async function token(overrides: Record<string, unknown> = {}) {
+    return new SignJWT({
+      email: "customer@example.com",
+      email_verified: true,
+      ...overrides,
+    })
+      .setProtectedHeader({ alg: "RS256" })
+      .setIssuer("https://accounts.google.com")
+      .setAudience("client-id")
+      .setSubject("subject-1")
+      .setExpirationTime("10m")
+      .sign(privateKey);
+  }
+  it("returns only a verified identity projection", async () => {
+    const verifier = new GoogleJoseIdentityVerifier(
+      "client-id",
+      async () => publicKey,
+    );
+    await expect(verifier.verify(await token())).resolves.toMatchObject({
+      provider: "google",
+      subject: "subject-1",
+      email: "customer@example.com",
+      emailVerified: true,
+    });
+  });
+  it("rejects audience and unverified email", async () => {
+    const wrong = new GoogleJoseIdentityVerifier(
+      "other-client",
+      async () => publicKey,
+    );
+    await expect(wrong.verify(await token())).rejects.toThrow();
+    const verifier = new GoogleJoseIdentityVerifier(
+      "client-id",
+      async () => publicKey,
+    );
+    await expect(
+      verifier.verify(await token({ email_verified: false })),
+    ).rejects.toThrow();
+  });
+});

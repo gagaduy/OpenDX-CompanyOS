@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!infra/deploy/.env.production.example
 *.pem
 *.key
 *.p12
@@ -14,7 +15,6 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
-apps/console/next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -32,6 +32,7 @@ venv/
 
 # Docker and local data
 .docker/
+.worktrees/
 data/
 tmp/
 

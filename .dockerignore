@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+# SPDX-License-Identifier: Apache-2.0
+
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/dist
+**/coverage
+.env
+infra/backups/*.dump

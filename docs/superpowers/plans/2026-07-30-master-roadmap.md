@@ -5,6 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Master Roadmap Implementation Plan
 
+> **Historical:** Superseded on 2026-08-04 by the NovaCommerce Commerce
+> Platform master design and its successor implementation plan. Retained for
+> decision history; do not execute its remaining generic CompanyOS phases.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Operate the OpenDX CompanyOS project from current foundation state to a complete MVP demo through phase-gated sub-specs, sub-plans, implementation units, and verification gates.
@@ -17,7 +21,11 @@ SPDX-License-Identifier: Apache-2.0
 
 - Roadmap target is the MVP demo, not public 1.0 release.
 - Product center is `Company`, not chatbot or agent persona.
-- Every phase must preserve Company-first modeling, backend-enforced authorization, tenant isolation, agent service-account separation, Tool Registry mediation, human approval for risky actions, workflow versioning, GraphRAG permission filtering before LLM context construction, and audit/provenance for important operations.
+- Every phase must preserve the single-company, Company-first model,
+  backend-enforced actor/department/resource authorization, agent
+  service-account separation, Tool Registry mediation, human approval for risky
+  actions, workflow versioning, GraphRAG permission filtering before LLM context
+  construction, and audit/provenance for important operations.
 - Every runtime architecture, data model, permission behavior, workflow behavior, agent behavior, GraphRAG behavior, or user-facing product surface requires an approved sub-spec before implementation.
 - Every sub-spec must be followed by a committed sub-plan before implementation.
 - Every repository-changing unit updates `CHANGELOG.md` under `[Unreleased]`.
@@ -405,7 +413,7 @@ Phase 6 exit checks:
 - Mission Control and Audit Explorer show the relevant process state.
 ```
 
-- [ ] **Step 6: Phase 7 Hardening**
+- [x] **Step 6: Phase 7 Hardening**
 
 Create and execute sub-specs and sub-plans for:
 
