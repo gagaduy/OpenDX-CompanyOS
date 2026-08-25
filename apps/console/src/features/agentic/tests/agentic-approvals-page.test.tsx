@@ -22,6 +22,7 @@ describe("AgenticApprovalsPage", () => {
     expect(screen.getByText("Workflow payload digest")).toBeVisible();
     expect(screen.getByText("High risk")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Request revision" }));
+    expect(screen.getByLabelText("Decision reason")).toHaveAttribute("maxlength", "1000");
     await user.type(screen.getByLabelText("Decision reason"), "Clarify the inventory window.");
     await user.click(screen.getByRole("button", { name: "Confirm request revision" }));
     await waitFor(() => expect(api.decideApproval).toHaveBeenCalledWith(approvalId, {

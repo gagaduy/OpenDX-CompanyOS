@@ -13,6 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Complete Phase G with deterministic Digital Workforce browser and composed
+  exit gates covering all approved routes at 390x844, 768x1024, and 1440x900,
+  five role profiles, replay-safe task/file scenarios, partial reports,
+  workflow-replay provenance, one approval decision, Phase F worker restart,
+  isolated PostgreSQL integration, production Console build, repository audit,
+  forward-compatible Phase B/C/D historical gates, and redacted temporary
+  evidence; allow full-source checks to select the pinned Python interpreter
+  without changing PATH for Node runner fixtures.
+
 - Add the role-scoped Agentic Audit explorer with strict URL-backed actor,
   action, outcome, resource, and time filters, backend pagination, stable event
   ordering, and a purpose-specific safe metadata view.

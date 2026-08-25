@@ -85,6 +85,12 @@ test("rejects later Console scope and production payment activation", () => {
     ["agenticSources", "\nSEPAY_PRODUCTION_API_URL", /production SePay/i],
   ]) {
     const snapshot = clone(collectAgenticPhaseCSnapshot());
+    if (field === "consoleSources") {
+      snapshot.sources.packageJson = snapshot.sources.packageJson.replace(
+        '"check:agentic-phase-g-exit"',
+        '"removed:agentic-phase-g-exit"',
+      );
+    }
     snapshot.sources[field] += addition;
     assert.throws(() => validateAgenticPhaseC(snapshot), expected);
   }

@@ -142,7 +142,8 @@ export function validateAgenticPhaseB({ sources, agenticFiles: files }) {
     [sources.roadmap, /Phase C[\s\S]{0,500}(?:complete|gates pass)/i, "Roadmap must preserve Phase C closure"],
   ]) requireMatch(value, pattern, message);
 
-  rejectMatch(sources.consoleSources, /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i, "Console Agentic page is outside Phase B");
+  const phaseGDeclared = /"check:agentic-phase-g-exit"/.test(sources.packageJson);
+  if (!phaseGDeclared) rejectMatch(sources.consoleSources, /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i, "Console Agentic page is outside Phase B");
   rejectMatch(sources.agenticSources, /SEPAY_PRODUCTION/i, "Production SePay activation is outside Phase B");
   const phaseCDeclared = /"check:agentic-phase-c-exit"/.test(sources.packageJson);
   const phaseFDeclared = /"check:agentic-phase-f-orchestration"/.test(sources.packageJson)

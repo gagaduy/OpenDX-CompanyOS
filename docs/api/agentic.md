@@ -28,6 +28,37 @@ All staff success responses use `{ "success": true, "message": "...", "data":
 ... }`. Errors use `{ "success": false, "message": "...", "errorCode":
 "CODE", "errors": [] }`.
 
+## Console Digital Workforce staff routes
+
+Every route below requires `Authorization: Bearer <staff-token>`. Direct task
+intake and file approval also require an actor-bound `Idempotency-Key` header.
+Exact replay returns the original resource; changed-payload reuse returns
+`409 IDEMPOTENCY_CONFLICT`. Request bodies and query strings are strict, so
+unknown fields return `400 VALIDATION_ERROR`.
+
+| Method and path | Roles | Safe contract |
+| --- | --- | --- |
+| `POST /v1/admin/agentic/tasks/intake` | administrator, operator | Creates or replays one AI CEO bootstrap task from bounded guided/advanced input. |
+| `GET /v1/admin/agentic/tasks/overview` | administrator, operator, approver, governance admin | Role-scoped state counts, pending approvals, settled cost, and `refreshedAt`. |
+| `GET /v1/admin/agentic/tasks` | same task readers | Page with `page`, `pageSize`, optional state/creator/time filters, stable ordering, total, and freshness. |
+| `GET /v1/admin/agentic/tasks/:taskId/operations` | same task readers | One authorized projection of task/workflow state, timeline, six branches/dependencies, approved tool names/data classes, costs, approvals, provenance references, and a digest-validated settled report. No prompt, provider body, file key, or private result payload is returned. |
+| `POST /v1/admin/agentic/tasks/:taskId/cancel` | administrator, operator | Versioned task cancellation. |
+| `POST /v1/admin/agentic/workflow-runs/:runId/cancel` | administrator, operator | Versioned durable cancellation with server-owned reason code. |
+| `GET /v1/admin/agentic/approvals` | administrator, operator, approver, governance admin | Page of approval requests limited to requester/task ownership, approver scope, or oversight scope. |
+| `GET /v1/admin/agentic/approvals/:approvalId/detail` | same approval readers | Bounded request identity, exact digests/versions/expiry, server-derived risk/effect, stored signal digest when it exists, and safe source references. |
+| `POST /v1/admin/agentic/approvals/:approvalId/decision` | administrator, approver | Requires `expectedVersion`, approve/reject/revision decision, and a 1–1,000 character reason; replay is exact and stale conflicts return `STALE_VERSION`. |
+| `GET /v1/admin/agentic/employees` | all five Agentic staff roles | Exactly AI CEO plus six Department summaries; no execution credential identifier. |
+| `GET /v1/admin/agentic/employees/:agentKind` | all five Agentic staff roles | Read-only active configuration/revocation, models/fallbacks, tools/data scopes, budgets, at most five terminal runs, and evidence-based health with freshness. Health is not a worker heartbeat. |
+| `GET /v1/admin/agentic/audit` | administrator, governance admin, auditor | Backend-filtered page using `page`, `pageSize`, optional `actorId`, `action`, `outcome`, `resourceType`, `occurredFrom`, and `occurredTo`; ordering is `(occurred_at DESC,id DESC)`. The DTO omits client credentials and all request/result bodies. |
+
+Task detail polls every five seconds while active, pauses while hidden or
+offline, retries safe failures at fifteen seconds, aborts obsolete requests,
+and stops at terminal state. Cancellation and approval decisions always
+refetch authoritative state; the browser never proves completion or payment.
+Stable Console errors include `FORBIDDEN`, `*_NOT_FOUND`, `STALE_VERSION`,
+`IDEMPOTENCY_CONFLICT`, `APPROVAL_DECISION_CONFLICT`, and
+`WORKFLOW_SIGNAL_CONFLICT`, in addition to the common errors below.
+
 ## Configuration Activation
 
 An `agentic_governance_admin` (or `administrator`) creates, edits, and directly
@@ -334,11 +365,11 @@ remains a retryable internal delivery failure; unknown server failures return
 ## Governance Scope
 
 Phase A task, employee, configuration, revocation, audit, and approval list/read
-routes remain available as previously documented. Phase D adds an internal
+routes remain available through the bounded Console projections above. Phase D adds an internal
 `execute_model_analysis_v1` Temporal activity. It accepts only an authorized
 Agent command, reserves and settles model runs through the API, and returns only
 `status`, `outputDigest`, and `qualityReasonCodes`; prompt and response bodies
 never leave the activity result. Phase F Slice 1 adds the governed AI CEO and
-six-Department descriptor path described above; it does not add schedules,
-Company Memory, GraphRAG, generic SQL, Agentic Console UI, Commerce mutation,
-or production SePay activation.
+six-Department descriptor path described above. Phase G adds the governed
+Console UI without schedules, Company Memory, GraphRAG, generic SQL, chat,
+Commerce mutation, or production SePay activation.

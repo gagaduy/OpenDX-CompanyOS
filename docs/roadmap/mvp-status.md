@@ -32,9 +32,10 @@ A governance and Phase B durable Store Health workflow are complete. Phase C
 implementation, exit gates, independent review, and atomic closure commit are
 complete on `feat/agentic-department-read-tools`. Phases D-E are complete on
 `develop`; Phase F Slice 1 is complete on `feat/ai-ceo-coordination` and has
-been integrated directly into `feat/console-digital-workforce`. The Phase G
-focused design and implementation plan are approved, and implementation is in
-progress on that branch. Phase H remains unstarted:
+been integrated directly into `feat/console-digital-workforce`. Phase G is
+complete on that branch after its focused API, PostgreSQL, Console, replay,
+responsive browser, authorization, audit, and source gates. Phase H remains
+unstarted:
 `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md`
 and
 `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md`.
@@ -51,7 +52,7 @@ and
 | Phase 6: Checkout, Order, and SePay | Complete; merged into `develop` | `docs/superpowers/specs/2026-08-06-checkout-order-sepay-design.md` | `docs/superpowers/plans/2026-08-06-checkout-order-sepay.md` | Complete after deterministic gates, independent review, and real sandbox acceptance |
 | Phase 7: Operational CRM, Support, and Dashboard | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-crm-support-dashboard-design.md` | `docs/superpowers/plans/2026-08-10-crm-support-dashboard.md` | Complete after focused API, PostgreSQL/MinIO/ClamAV, browser, lifecycle, full-source, Compose, and documentation exit evidence |
 | Phase 8: Production Hardening and Hosting Readiness | Complete on `phuong` | `docs/superpowers/specs/2026-08-10-commerce-hardening-hosting-design.md` | `docs/superpowers/plans/2026-08-10-commerce-hardening-hosting.md` | Complete after `pnpm check:phase8-exit`, root `pnpm check`, local commerce acceptance, and recorded production SePay decision |
-| Post-Commerce: Agentic Workforce | Phases A-F Slice 1 complete; Phase G implementation in progress | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase F Slice 1 complete after descriptor orchestration, identity isolation, old/new replay, deterministic restart, and zero-Commerce-mutation gates; Phase G uses the directly integrated Phase F base; schedules, Company Memory, GraphRAG, and Phase H remain deferred |
+| Post-Commerce: Agentic Workforce | Phases A-G complete on their recorded delivery branches | `docs/superpowers/specs/2026-08-14-post-commerce-agentic-workforce-design.md` | `docs/superpowers/plans/2026-08-14-post-commerce-agentic-workforce.md` | Phase G completes the governed Digital Workforce Console over the directly integrated Phase F base; schedules, Company Memory, GraphRAG, and Phase H remain deferred |
 
 Focused Agentic delivery status:
 
@@ -63,17 +64,29 @@ Focused Agentic delivery status:
 | Phase D: OpenRouter Agent Runtime | Complete on `develop` | `docs/superpowers/specs/2026-08-19-openrouter-agent-runtime-design.md` | `docs/superpowers/plans/2026-08-19-openrouter-agent-runtime.md` | Complete after credential-owned Catalog live acceptance |
 | Phase E: File Intake and Bulk Preview | Complete on `develop` | `docs/superpowers/specs/2026-08-22-agentic-file-intake-design.md` | `docs/superpowers/plans/2026-08-22-agentic-file-intake.md` | Complete after controlled ClamAV infected/outage, authenticated CSV/TXT intake, exactly-once approval, and source gates |
 | Phase F: AI CEO Coordination | Slice 1 complete on `feat/ai-ceo-coordination` | `docs/superpowers/specs/2026-08-22-ai-ceo-coordination-memory-design.md` | `docs/superpowers/plans/2026-08-22-ai-ceo-orchestration.md` | Slice 1 complete after six-Department descriptor DAG, private API settlement, isolated execution identities, cancellation/replay/restart evidence, and zero Commerce mutation; schedules and Company Memory remain deferred |
-| Phase G: Console Digital Workforce | Design and plan approved; implementation in progress on `feat/console-digital-workforce` | `docs/superpowers/specs/2026-08-25-console-digital-workforce-design.md` | `docs/superpowers/plans/2026-08-25-console-digital-workforce.md` | Implement the governed task, approval, employee, audit, and provenance Console without Company Memory, schedules, GraphRAG, chat, or Commerce mutation |
+| Phase G: Console Digital Workforce | Complete on `feat/console-digital-workforce` | `docs/superpowers/specs/2026-08-25-console-digital-workforce-design.md` | `docs/superpowers/plans/2026-08-25-console-digital-workforce.md` | Complete after actor-bound intake replay, task/approval/employee/audit surfaces, 358 focused API tests, 61 PostgreSQL integration tests, 135 Console tests, Phase F restart/replay acceptance, 390/768/1440 browser acceptance, role denial, repository audit, and zero Company Memory, chat, schedules, GraphRAG, or Commerce mutation |
 
 Phase F Slice 1 is complete: governed AI CEO planning, six descriptor-bound
 Department analyses, mediated collaboration, provenance-only synthesis,
 replay-safe Temporal dispatch, and isolated execution identities pass their
 deterministic gates. It is integrated directly into the Phase G feature branch
-while remaining unmerged in `develop`. Phase G implementation is now in
-progress; schedules, Company Memory, GraphRAG, and Phase H remain explicitly
+while remaining unmerged in `develop`. Phase G is complete on its feature
+branch; schedules, Company Memory, GraphRAG, and Phase H remain explicitly
 deferred.
 
 ## Latest Validation Evidence
+
+- Phase G closure evidence on 2026-08-25: `pnpm
+  check:agentic-phase-g-exit` passed 358 focused Agentic API tests, 61 isolated
+  PostgreSQL integration tests, 135 Console tests, the Console production
+  build, Phase F static orchestration and hard-stopped-worker restart/replay
+  acceptance, repository audit, and `git diff --check`. Headless Chrome passed
+  every approved Digital Workforce route at 390x844, 768x1024, and 1440x900,
+  including six Department branches, an honest partial report, task/file
+  replay, one approval decision, workflow-replay provenance, keyboard focus,
+  responsive overflow checks, and a Commerce-only role denied before any
+  Agentic API call. Redacted evidence contains route, role, dimension, heading,
+  and boolean results only.
 
 - Phase F Slice 1 closure evidence on 2026-08-25: all five unchanged Phase B
   histories and a new descriptor history replay; planning, dispatch,

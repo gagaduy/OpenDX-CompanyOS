@@ -13,7 +13,7 @@ export function validateAgenticPhaseD({ activity, runtime, worker, live, apiDocs
   if (!live.includes("OPENROUTER_API_KEY") || !live.includes("classification\": \"internal")) throw new Error("Mandatory live acceptance is missing");
   if (!apiDocs.includes("execute_model_analysis_v1") || !apiDocs.includes("outputDigest")) throw new Error("API documentation must describe the digest-only activity");
   if (!runtimeDocs.includes("Quality Gate") || !runtimeDocs.includes("API remains the authority")) throw new Error("Runtime documentation must describe governance");
-  if (!buildDocs.includes("check:openrouter-live") || !roadmap.includes("Phase D is complete")) throw new Error("Phase D operations documentation is incomplete");
+  if (!buildDocs.includes("check:openrouter-live") || !/Phase D[^\n]*Complete/i.test(roadmap)) throw new Error("Phase D operations documentation is incomplete");
 }
 export function run() { validateAgenticPhaseD(collectAgenticPhaseDSnapshot()); console.info("Agentic Phase D exit check passed."); }
 if (process.argv[1] === fileURLToPath(import.meta.url)) run();

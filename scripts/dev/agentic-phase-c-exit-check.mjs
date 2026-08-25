@@ -81,6 +81,7 @@ export function collectAgenticPhaseCSnapshot() {
       caddy: source("infra/deploy/Caddyfile"),
       localRealm: source("infra/keycloak/realm-export.json"),
       productionRealm: source("infra/keycloak/realm-production.json"),
+      packageJson: source("package.json"),
       runtimeSources: sourcesUnder("services/ai-runtime/app", [".py"]),
       consoleSources: sourcesUnder("apps/console/src", [".ts", ".tsx"]),
     },
@@ -196,11 +197,13 @@ export function validateAgenticPhaseC({ sources }) {
     requireMatch(sources.localRealm, new RegExp(`"clientId": "${client}"`), `Missing local ${client} identity`);
     requireMatch(sources.productionRealm, new RegExp(`"clientId": "${client}"`), `Missing production ${client} identity`);
   }
-  rejectMatch(
-    sources.consoleSources,
-    /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i,
-    "Agentic Console UI is outside Phase C",
-  );
+  if (!/"check:agentic-phase-g-exit"/.test(sources.packageJson)) {
+    rejectMatch(
+      sources.consoleSources,
+      /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i,
+      "Agentic Console UI is outside Phase C",
+    );
+  }
   rejectMatch(
     sources.agenticSources,
     /SEPAY_PRODUCTION|sepay.*production|production.*sepay/i,

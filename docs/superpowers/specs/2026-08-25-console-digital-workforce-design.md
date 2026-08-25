@@ -7,14 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-Approved focused design for Phase G on 2026-08-25. The conversational sections
-and written spec are approved. The focused implementation plan is prepared;
-frontend implementation remains subject to the Phase F integration gate.
+Delivered focused design for Phase G on 2026-08-25. The implementation and
+deterministic exit evidence are complete on `feat/console-digital-workforce`.
 
-Phase G implementation depends on Phase F Slice 1 being integrated into
-`develop`. This design and its later implementation plan may be prepared on
-`feat/console-digital-workforce`, but implementation must not begin against an
-unmerged Phase F contract.
+Phase F Slice 1 was integrated directly into the Phase G feature branch before
+implementation. The branch remains unmerged into `develop` pending the user's
+later pull-request workflow.
 
 ## Purpose and Outcome
 

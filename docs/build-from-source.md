@@ -124,6 +124,54 @@ pnpm check:agentic-production-compose
 pnpm test:py
 ```
 
+Set `PYTHON_BIN` to an explicit Python 3.13 executable when the host default is
+not the repository-supported interpreter. This override applies only to the
+Python suite and does not replace `python3` for Node-based runner fixtures.
+
+Phase G adds static and browser acceptance for the Digital Workforce Console:
+
+```bash
+pnpm test:agentic-console-browser
+pnpm test:agentic-phase-g-exit
+
+export TEST_DATABASE_URL=postgresql://opendx_local:opendx_local_password@localhost:55432/opendx_test
+export AGENTIC_PHASE_G_CONSOLE_URL=http://localhost:3000
+export AGENTIC_PHASE_G_OIDC_AUTHORITY=http://localhost:8080/realms/opendx
+export AGENTIC_PHASE_G_OPERATOR_TOKEN='<development operator bearer token>'
+export AGENTIC_PHASE_G_GOVERNANCE_TOKEN='<development governance bearer token>'
+export AGENTIC_PHASE_G_APPROVER_TOKEN='<development approver bearer token>'
+export AGENTIC_PHASE_G_AUDITOR_TOKEN='<development auditor bearer token>'
+export AGENTIC_PHASE_G_UNAUTHORIZED_TOKEN='<development Commerce-only bearer token>'
+pnpm check:agentic-console-browser
+pnpm check:agentic-phase-g-exit
+```
+
+The browser gate injects the five bounded role sessions into an isolated
+headless-Chrome profile; local Keycloak development tokens may be used, but the
+gate never sends them to the fixture-backed Agentic API. Never write token
+values to shell history, evidence, screenshots, or repository files. The gate
+fails closed unless the Console is reachable, PostgreSQL targets the isolated
+`opendx_test` database, and all role token variables are present. Keep
+`AGENTIC_PHASE_G_OIDC_AUTHORITY` identical to the authority used to build the
+running Console so its OIDC storage key matches.
+
+For acceptance against the production artifact, build with the same non-secret
+Console environment and serve `apps/console/dist` with `vite preview` (or the
+normal Console container) before running the gate. The composed gate supplies
+safe local defaults for the `VITE_*` build variables from the Console URL and
+OIDC authority. Its Phase F restart/replay check uses the local
+`opendx-ai-runtime-checks:latest` Python 3.13 image and the Temporal SDK test
+server at `/tmp/temporal-test-server-sdk-python-1.30.0`; override these with
+`AGENTIC_PHASE_G_PYTHON_GATE_IMAGE` and
+`AGENTIC_PHASE_G_TEMPORAL_TEST_SERVER` when required.
+
+The gate writes only route names, role names, viewport dimensions, headings,
+and boolean scenario results beneath `/tmp/opendx-agentic-phase-g-*`. The
+composed exit gate runs
+focused API and Console tests, the Agentic migration/repository/API integration
+suite, the Phase F restart/replay acceptance, the browser gate, repository
+audit, and `git diff --check`.
+
 The gate verifies one AI CEO plus six distinct Department service identities,
 worker-only execution credentials, the private Department Tool API boundary,
 reference-only Temporal history, old/new replay, cancellation draining, six
