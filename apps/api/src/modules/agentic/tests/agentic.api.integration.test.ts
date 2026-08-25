@@ -108,6 +108,35 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(JSON.stringify(inventory.body.data)).not.toMatch(/keycloak|secret|credential|clientSecret|prompt/i);
   });
 
+  it("paginates and role-scopes Agentic audit with stable time and id ordering", async () => {
+    const occurredAt = "2026-08-14T10:00:00.000Z";
+    await pool.query(`INSERT INTO agentic_audit_events
+      (id,actor_id,actor_type,action,resource_type,resource_id,outcome,correlation_id,occurred_at) VALUES
+      ('00000000-0000-4000-8000-000000000001','actor-a','staff','commerce.read','commerce_order','order-1','allowed','corr-1',$1),
+      ('00000000-0000-4000-8000-000000000002','actor-a','staff','task.read','agentic_task','task-1','denied','corr-2',$1),
+      ('00000000-0000-4000-8000-000000000003','actor-a','staff','configuration.activate','configuration_revision','revision-1','failed','corr-3',$1)`, [occurredAt]);
+
+    const governance = await request(app).get(`/v1/admin/agentic/audit?page=1&pageSize=25&occurredFrom=${encodeURIComponent(occurredAt)}&occurredTo=${encodeURIComponent(occurredAt)}`)
+      .set("authorization", "Bearer agentic_governance_admin:governance-a").expect(200);
+    expect(governance.body.data).toMatchObject({ totalItems: 1, items: [{ resourceType: "configuration_revision" }] });
+    const auditorFirst = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=1&actorId=actor-a")
+      .set("authorization", "Bearer agentic_auditor:auditor-a").expect(200);
+    const auditorSecond = await request(app).get("/v1/admin/agentic/audit?page=2&pageSize=1&actorId=actor-a")
+      .set("authorization", "Bearer agentic_auditor:auditor-a").expect(200);
+    expect(auditorFirst.body.data).toMatchObject({ totalItems: 2, items: [{ id: "00000000-0000-4000-8000-000000000003" }] });
+    expect(auditorSecond.body.data).toMatchObject({ totalItems: 2, items: [{ id: "00000000-0000-4000-8000-000000000002" }] });
+    const administrator = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=25")
+      .set("authorization", "Bearer administrator:admin-a").expect(200);
+    expect(administrator.body.data.totalItems).toBe(3);
+    const outsideGovernanceScope = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=25&resourceType=commerce_order")
+      .set("authorization", "Bearer agentic_governance_admin:governance-a").expect(200);
+    expect(outsideGovernanceScope.body.data).toMatchObject({ totalItems: 0, items: [] });
+    await request(app).get("/v1/admin/agentic/audit?limit=25").set("authorization", "Bearer administrator:admin-a").expect(400);
+    await request(app).get(`/v1/admin/agentic/audit?occurredFrom=${encodeURIComponent("2026-08-15T00:00:00.000Z")}&occurredTo=${encodeURIComponent("2026-08-14T00:00:00.000Z")}`).set("authorization", "Bearer administrator:admin-a").expect(400);
+    await request(app).get("/v1/admin/agentic/audit").set("authorization", "Bearer agentic_operator:operator-a").expect(403);
+    await request(app).get("/v1/admin/agentic/audit").set("authorization", "Bearer agentic_approver:approver-a").expect(403);
+  });
+
   it("creates and exactly replays guided staff task intake with role-scoped reads", async () => {
     const operator = { authorization: "Bearer agentic_operator:operator-a", "idempotency-key": "console:task:1" };
     const body = { mode: "store_health_review", goal: "Review Store Health", instructions: "Use approved aggregate evidence only.", reviewWindow: { start: "2026-08-08", end: "2026-08-14" } };

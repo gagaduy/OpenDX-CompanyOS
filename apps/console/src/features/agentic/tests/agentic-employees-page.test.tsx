@@ -37,7 +37,7 @@ function fakeApi(): AgenticApi {
   const kinds = ["ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"] as const;
   return {
     overview: vi.fn(), listTasks: vi.fn(), createTask: vi.fn(), uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(), loadOperations: vi.fn(), cancelWorkflow: vi.fn(), listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(),
-    listEmployees: vi.fn(async () => kinds.map((kind) => ({ kind, department: department(kind), active: true }))),
+    listEmployees: vi.fn(async () => kinds.map((kind) => ({ kind, department: department(kind), active: true }))), listAudit: vi.fn(),
     loadEmployee: vi.fn(async (kind) => ({ kind, department: department(kind), governance: { active: true, revoked: false, configurationVersion: 3 }, models: { primary: `openai/${kind}-primary`, fallbacks: [`openai/${kind}-fallback`] }, tools: [], budgets: { taskCostMicros: 10_000, dailyCostMicros: 100_000, monthlyCostMicros: 1_000_000 }, executionHealth: { state: "available" as const, basis: "recent_runs", freshness: "2026-08-25T00:00:00.000Z" }, recentRuns: [{ taskId: "00000000-0000-4000-8000-000000000001", state: "completed", settledCostMicros: 125, completedAt: "2026-08-25T00:00:00.000Z" }] })),
   };
 }

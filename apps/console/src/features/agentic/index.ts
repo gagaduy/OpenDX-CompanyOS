@@ -8,3 +8,4 @@ export { AgenticApprovalsPage } from "./pages/agentic-approvals-page";
 export { AgenticEmployeesPage } from "./pages/agentic-employees-page";
 export { AgenticEmployeeDetailPage } from "./pages/agentic-employee-detail-page";
 export type { AgentKind } from "./types/agentic.types";
+export { AgenticAuditPage } from "./pages/agentic-audit-page";

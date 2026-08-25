@@ -212,6 +212,18 @@ export interface AuditFilter {
   readonly resourceTypes?: readonly string[];
 }
 
+export interface AgenticAuditRepositoryFilter {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly actorId?: string;
+  readonly action?: string;
+  readonly outcome?: AuditEventRecord["outcome"];
+  readonly resourceType?: string;
+  readonly occurredFrom?: string;
+  readonly occurredTo?: string;
+  readonly resourceTypes?: readonly string[];
+}
+
 export interface ApprovalListFilter {
   readonly requesterId?: string;
   readonly readerId?: string;
@@ -600,6 +612,7 @@ export interface AgenticRepository {
     excludingIdempotencyKey: string,
   ): Promise<number>;
   listAudit(session: DatabaseSession, filter: AuditFilter): Promise<readonly AuditEventRecord[]>;
+  listConsoleAudit(session: DatabaseSession, filter: AgenticAuditRepositoryFilter): Promise<{ readonly items: readonly AuditEventRecord[]; readonly totalItems: number }>;
   appendProvenance(session: DatabaseSession, record: ProvenanceRecord): Promise<void>;
   listProvenance(session: DatabaseSession, taskId: string): Promise<readonly ProvenanceRecord[]>;
   createWorkflowRun(session: DatabaseSession, run: WorkflowRun): Promise<WorkflowRunCreateResult>;

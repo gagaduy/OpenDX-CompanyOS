@@ -118,11 +118,15 @@ const revocation = z.object({
   idempotencyKey: z.string().trim().min(1).max(255), approvalId: uuid.optional(),
 }).strict();
 const auditQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(50),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(25),
   actorId: z.string().trim().min(1).max(255).optional(),
   action: z.string().trim().min(1).max(255).optional(),
   outcome: z.enum(["allowed", "denied", "failed"]).optional(),
-}).strict();
+  resourceType: z.string().trim().min(1).max(255).optional(),
+  occurredFrom: z.iso.datetime({ offset: true }).optional(),
+  occurredTo: z.iso.datetime({ offset: true }).optional(),
+}).strict().refine((value) => value.occurredFrom === undefined || value.occurredTo === undefined || Date.parse(value.occurredFrom) <= Date.parse(value.occurredTo), { path: ["occurredTo"], message: "Audit time window is invalid" });
 const reasonCode = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/);
 const invocationKey = z.string().trim().min(1).max(1_000);
 const activityKind = z.enum([

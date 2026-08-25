@@ -85,3 +85,18 @@ export interface AgenticEmployeeDetailDto {
   readonly executionHealth: { readonly state: "available" | "revoked" | "degraded" | "unknown"; readonly basis: string; readonly freshness: string };
   readonly recentRuns: readonly { readonly taskId: string; readonly state: string; readonly settledCostMicros: number; readonly completedAt?: string }[];
 }
+
+export interface AgenticAuditEventDto {
+  readonly id: string; readonly actorId: string; readonly actorType: "staff" | "agent" | "system";
+  readonly taskId?: string; readonly action: string; readonly resourceType: string; readonly resourceId: string;
+  readonly outcome: "allowed" | "denied" | "failed"; readonly policyVersion?: number;
+  readonly modelVersion?: number; readonly toolVersion?: number; readonly correlationId: string;
+  readonly causationId?: string; readonly parametersDigest?: string; readonly attempt?: number;
+  readonly durationMs?: number; readonly resultDigest?: string; readonly errorCode?: string; readonly occurredAt: string;
+}
+
+export interface AgenticAuditPageDto {
+  readonly items: readonly AgenticAuditEventDto[];
+  readonly totalItems: number;
+  readonly refreshedAt: string;
+}

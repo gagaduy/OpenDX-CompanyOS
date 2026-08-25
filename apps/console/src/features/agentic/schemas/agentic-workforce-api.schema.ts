@@ -16,3 +16,8 @@ export const agenticEmployeeDetailEnvelopeSchema = envelope(z.object({
   executionHealth: z.object({ state: z.enum(["available", "revoked", "degraded", "unknown"]), basis: z.string(), freshness: z.iso.datetime({ offset: true }) }).strict(),
   recentRuns: z.array(z.object({ taskId: z.uuid(), state: z.string(), settledCostMicros: z.number().int().nonnegative(), completedAt: z.iso.datetime({ offset: true }).optional() }).strict()).max(5),
 }).strict());
+const digest = z.string().regex(/^[a-f0-9]{64}$/);
+export const agenticAuditPageEnvelopeSchema = envelope(z.object({
+  items: z.array(z.object({ id: z.uuid(), actorId: z.string(), actorType: z.enum(["staff", "agent", "system"]), taskId: z.uuid().optional(), action: z.string(), resourceType: z.string(), resourceId: z.string(), outcome: z.enum(["allowed", "denied", "failed"]), policyVersion: z.number().int().positive().optional(), modelVersion: z.number().int().positive().optional(), toolVersion: z.number().int().positive().optional(), correlationId: z.string(), causationId: z.string().optional(), parametersDigest: digest.optional(), attempt: z.number().int().nonnegative().optional(), durationMs: z.number().int().nonnegative().optional(), resultDigest: digest.optional(), errorCode: z.string().optional(), occurredAt: z.iso.datetime({ offset: true }) }).strict()),
+  totalItems: z.number().int().nonnegative(), refreshedAt: z.iso.datetime({ offset: true }),
+}).strict());

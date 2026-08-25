@@ -81,6 +81,6 @@ function fakeApi(): AgenticApi {
     approveFile: vi.fn(async (): Promise<AgenticTaskDetail> => ({ task: { id: "00000000-0000-4000-8000-000000000020", state: "draft", createdBy: "governance-a", goal: "Review file", version: 1, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }, subtasks: [], dependencies: [] })),
     rejectFile: vi.fn(async () => ({ ...file, status: "rejected" as const, version: 2 })),
     loadOperations: vi.fn(), cancelWorkflow: vi.fn(),
-    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(),
+    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(), listAudit: vi.fn(),
   };
 }

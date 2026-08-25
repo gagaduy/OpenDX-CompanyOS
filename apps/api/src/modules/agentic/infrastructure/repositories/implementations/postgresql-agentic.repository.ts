@@ -28,6 +28,7 @@ import type {
   AgenticConsoleTaskOperationsRecord,
   AgenticConsoleTaskRecord,
   AgenticConsoleTaskRepositoryFilter,
+  AgenticAuditRepositoryFilter,
   AgenticConsoleTaskScope,
   ModelQualityEvidenceAppendResult,
   ModelConfigurationRecord,
@@ -1854,6 +1855,30 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       values,
     );
     return result.rows.map(mapAudit);
+  }
+
+  async listConsoleAudit(
+    session: DatabaseSession,
+    filter: AgenticAuditRepositoryFilter,
+  ): Promise<{ readonly items: readonly AuditEventRecord[]; readonly totalItems: number }> {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    const add = (column: string, operator: string, value: unknown, cast = ""): void => {
+      values.push(value); conditions.push(`${column}${operator}$${values.length}${cast}`);
+    };
+    if (filter.actorId !== undefined) add("actor_id", "=", filter.actorId);
+    if (filter.action !== undefined) add("action", "=", filter.action);
+    if (filter.outcome !== undefined) add("outcome", "=", filter.outcome);
+    if (filter.resourceType !== undefined) add("resource_type", "=", filter.resourceType);
+    if (filter.occurredFrom !== undefined) add("occurred_at", ">=", filter.occurredFrom);
+    if (filter.occurredTo !== undefined) add("occurred_at", "<=", filter.occurredTo);
+    if (filter.resourceTypes !== undefined) add("resource_type", "=ANY(", filter.resourceTypes, "::text[])");
+    const where = conditions.length === 0 ? "" : ` WHERE ${conditions.join(" AND ")}`;
+    const count = await session.query<{ total: string }>(`SELECT count(*)::text total FROM agentic_audit_events${where}`, values);
+    values.push(filter.pageSize, (filter.page - 1) * filter.pageSize);
+    const result = await session.query<Row>(`SELECT * FROM agentic_audit_events${where}
+      ORDER BY occurred_at DESC,id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`, values);
+    return { items: result.rows.map(mapAudit), totalItems: Number(count.rows[0]?.total ?? 0) };
   }
 
   async countToolInvocations(

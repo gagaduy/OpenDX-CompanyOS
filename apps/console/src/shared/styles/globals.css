@@ -2128,6 +2128,11 @@ ul {
 .agenticEmployeeDetail > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .agenticEmployeeDetail > header h2, .agenticEmployeeDetail h3, .agenticEmployeeDetail p { margin: 0; }
 .agenticEmployeeDetail > p, .agenticEmployeeDetail li { color: var(--ink-subtle); font-size: 11px; }
+.agenticAuditFilters { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)); gap: 10px; align-items: end; }
+.agenticAuditFilters label { display: grid; gap: 5px; color: var(--ink-subtle); font-size: 10px; }
+.agenticAuditGrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); gap: 20px; align-items: start; }
+.agenticAuditDetail { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
+.agenticAuditDetail h2 { margin: 0; }
 
 @media (max-width: 700px) {
   .agenticMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2139,6 +2144,13 @@ ul {
   .agenticEmployeeTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
   .agenticEmployeeTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; height: auto; padding: 5px 0; border: 0; }
   .agenticEmployeeTable td::before { content: attr(data-label); color: var(--ink-subtle); font-size: 9px; text-transform: uppercase; }
+  .agenticAuditFilters { grid-template-columns: 1fr; }
+  .agenticAuditGrid { grid-template-columns: 1fr; }
+  .agenticAuditTable thead { display: none; }
+  .agenticAuditTable, .agenticAuditTable tbody, .agenticAuditTable tr, .agenticAuditTable td { display: block; width: 100%; }
+  .agenticAuditTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+  .agenticAuditTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; height: auto; padding: 5px 0; border: 0; }
+  .agenticAuditTable td::before { content: attr(data-label); color: var(--ink-subtle); font-size: 9px; text-transform: uppercase; }
   .agenticReviewWindow { grid-template-columns: 1fr; }
 }
 

@@ -37,6 +37,6 @@ function fakeApi(): AgenticApi {
     createTask: vi.fn(),
     uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(),
     loadOperations: vi.fn(), cancelWorkflow: vi.fn(),
-    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(),
+    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(), listAudit: vi.fn(),
   };
 }

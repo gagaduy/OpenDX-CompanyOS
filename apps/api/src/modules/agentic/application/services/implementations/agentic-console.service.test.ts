@@ -193,6 +193,22 @@ describe("AgenticConsoleServiceImpl", () => {
     });
     expect(JSON.stringify(employee)).not.toMatch(/secret|credential|clientSecret|prompt/i);
   });
+
+  it.each([
+    ["governance", governance, ["configuration_revision", "approval_request", "agent", "tool_grant", "model"]],
+    ["auditor", auditor, ["configuration_revision", "approval_request", "agent", "tool_grant", "model", "agentic_task", "tool"]],
+    ["administrator", { subject: "admin-a", displayName: "Admin", roles: ["administrator"] } as StaffPrincipal, undefined],
+  ])("applies %s audit scope and pagination before repository access", async (_name, principal, resourceTypes) => {
+    const { service, repository } = harness();
+    await expect(service.listAudit({ page: 2, pageSize: 25, actorId: "actor-a", outcome: "denied" }, principal)).resolves.toMatchObject({ totalItems: 1, refreshedAt: "2026-08-25T00:00:00.000Z" });
+    expect(repository.listConsoleAudit).toHaveBeenCalledWith(session, { page: 2, pageSize: 25, actorId: "actor-a", outcome: "denied", ...(resourceTypes === undefined ? {} : { resourceTypes }) });
+  });
+
+  it.each([operator, { subject: "approver-a", displayName: "Approver", roles: ["agentic_approver"] } as StaffPrincipal])("returns no audit data to unauthorized workforce readers", async (principal) => {
+    const { service, repository } = harness();
+    await expect(service.listAudit({ page: 1, pageSize: 25 }, principal)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(repository.listConsoleAudit).not.toHaveBeenCalled();
+  });
 });
 
 function harness() {
@@ -278,6 +294,7 @@ function harness() {
       revoked: false,
       recentRuns: [{ taskId: "00000000-0000-4000-8000-000000000001", state: "completed", settledCostMicros: 125, completedAt: "2026-08-25T00:00:00.000Z" }],
     })),
+    listConsoleAudit: vi.fn(async () => ({ items: [{ id: "00000000-0000-4000-8000-000000000095", actorId: "actor-a", actorType: "staff" as const, action: "configuration.activate", resourceType: "configuration_revision", resourceId: "00000000-0000-4000-8000-000000000099", outcome: "denied" as const, correlationId: "corr-1", parametersDigest: "a".repeat(64), occurredAt: "2026-08-25T00:00:00.000Z" }], totalItems: 1 })),
   };
   let id = 0;
   return {

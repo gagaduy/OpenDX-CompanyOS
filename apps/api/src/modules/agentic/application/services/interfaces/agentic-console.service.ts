@@ -3,7 +3,7 @@
 
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { ApprovalRequest } from "../../../domain/entities/approval-request";
-import type { AgenticApprovalDetailDto, AgenticEmployeeDetailDto, AgenticEmployeeSummaryDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticApprovalDetailDto, AgenticAuditPageDto, AgenticEmployeeDetailDto, AgenticEmployeeSummaryDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
 import type { AgentKind } from "../../../domain/entities/agent-profile";
 
 export type AgenticConsoleTaskState = "draft" | "ready" | "received" | "planning"
@@ -30,6 +30,12 @@ export interface CreateTaskIntakeInput {
   readonly idempotencyKey: string;
 }
 
+export interface AgenticAuditFilter {
+  readonly page: number; readonly pageSize: number; readonly actorId?: string; readonly action?: string;
+  readonly outcome?: "allowed" | "denied" | "failed"; readonly resourceType?: string;
+  readonly occurredFrom?: string; readonly occurredTo?: string;
+}
+
 export interface AgenticConsoleService {
   createTaskIntake(input: CreateTaskIntakeInput, principal: StaffPrincipal): Promise<AgenticTaskIntakeResultDto>;
   listTasks(filter: AgenticTaskFilter, principal: StaffPrincipal): Promise<AgenticTaskPageDto>;
@@ -39,4 +45,5 @@ export interface AgenticConsoleService {
   getApprovalDetail(approval: ApprovalRequest): Promise<AgenticApprovalDetailDto>;
   listEmployees(principal: StaffPrincipal): Promise<readonly AgenticEmployeeSummaryDto[]>;
   getEmployee(agentKind: AgentKind, principal: StaffPrincipal): Promise<AgenticEmployeeDetailDto>;
+  listAudit(filter: AgenticAuditFilter, principal: StaffPrincipal): Promise<AgenticAuditPageDto>;
 }

@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the role-scoped Agentic Audit explorer with strict URL-backed actor,
+  action, outcome, resource, and time filters, backend pagination, stable event
+  ordering, and a purpose-specific safe metadata view.
+
 - Add read-only Digital Employee list and deep-link detail views for the AI CEO
   and six Departments, with active governance, model/tool/data-scope/budget
   projections and evidence-based recent-run health that is not a heartbeat.

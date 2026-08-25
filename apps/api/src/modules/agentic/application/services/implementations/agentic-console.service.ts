@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
-import type { AgenticConsoleTaskOperationsRecord, AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
+import type { AgenticConsoleEmployeeRecord, AgenticConsoleTaskOperationsRecord, AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { ApprovalRequest } from "../../../domain/entities/approval-request";
 import type { AgentKind } from "../../../domain/entities/agent-profile";
@@ -13,7 +13,7 @@ import { parseAiCeoExecutiveReport } from "../../orchestration/ai-ceo-execution-
 import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import { AgenticApplicationError } from "../agentic-application.error";
 import type { AgenticApprovalDetailDto, AgenticEmployeeDetailDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
-import type { AgenticConsoleService, AgenticTaskFilter, CreateTaskIntakeInput } from "../interfaces/agentic-console.service";
+import type { AgenticAuditFilter, AgenticConsoleService, AgenticTaskFilter, CreateTaskIntakeInput } from "../interfaces/agentic-console.service";
 
 type ConsoleRepository = Pick<AgenticRepository,
   | "bindStaffIntake" | "findStaffIntakeBinding" | "createTask" | "findTaskById"
@@ -21,7 +21,10 @@ type ConsoleRepository = Pick<AgenticRepository,
   | "listConsoleTasks" | "getConsoleTaskOverview" | "findActiveRevision" | "getRevisionChildren"
   | "hasConsoleTaskAccess" | "getConsoleTaskOperations"
   | "findWorkflowSignalReceiptForApproval" | "listProvenance"
-  | "listAgents" | "getConsoleEmployee">;
+  | "listAgents" | "getConsoleEmployee" | "listConsoleAudit">;
+
+const GOVERNANCE_AUDIT_RESOURCE_TYPES = ["configuration_revision", "approval_request", "agent", "tool_grant", "model"] as const;
+const AUDITOR_RESOURCE_TYPES = [...GOVERNANCE_AUDIT_RESOURCE_TYPES, "agentic_task", "tool"] as const;
 
 export class AgenticConsoleServiceImpl implements AgenticConsoleService {
   constructor(
@@ -206,6 +209,14 @@ export class AgenticConsoleServiceImpl implements AgenticConsoleService {
     });
   }
 
+  async listAudit(filter: AgenticAuditFilter, principal: StaffPrincipal) {
+    const resourceTypes = auditScope(principal);
+    return this.transactions.runReadOnly(async (session) => {
+      const result = await this.repository.listConsoleAudit(session, { ...filter, ...(resourceTypes === undefined ? {} : { resourceTypes }) });
+      return { items: result.items.map(safeAuditEvent), totalItems: result.totalItems, refreshedAt: this.now() };
+    });
+  }
+
   private async loadDetail(session: DatabaseSession, taskId: string) {
     const task = await this.repository.findTaskById(session, taskId);
     if (task === undefined) fail("TASK_NOT_FOUND", "Task intake replay could not be loaded");
@@ -241,11 +252,26 @@ function requireOperator(principal: StaffPrincipal): void { if (!principal.roles
 function requireGovernance(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_governance_admin")) fail("FORBIDDEN", "Governance administrator role is required"); }
 function requireWorkforceReader(principal: StaffPrincipal): void { if (!principal.roles.some((role) => ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"].includes(role))) fail("FORBIDDEN", "Digital Employee access is required"); }
 function department(kind: AgentKind): string { return kind === "ai_ceo" ? "Executive" : kind === "crm" ? "CRM" : `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`; }
-function employeeHealth(record: Awaited<ReturnType<ConsoleRepository["getConsoleEmployee"]>> & {}, latestRun: { readonly state: string; readonly completedAt?: string } | undefined): AgenticEmployeeDetailDto["executionHealth"] {
+function employeeHealth(record: AgenticConsoleEmployeeRecord, latestRun: { readonly state: string; readonly completedAt?: string } | undefined): AgenticEmployeeDetailDto["executionHealth"] {
   if (record.revocation !== undefined) return { state: "revoked", basis: "active_revocation", freshness: record.revocation.activatedAt };
   if (!record.agent.active || record.configuration === undefined) return { state: "unknown", basis: "no_active_configuration", freshness: record.agent.updatedAt };
   if (latestRun === undefined) return { state: "available", basis: "active_configuration", freshness: record.configuration.updatedAt };
   return { state: latestRun.state === "completed" ? "available" : "degraded", basis: "recent_runs", freshness: latestRun.completedAt ?? record.configuration.updatedAt };
+}
+function auditScope(principal: StaffPrincipal): readonly string[] | undefined {
+  if (principal.roles.includes("administrator")) return undefined;
+  if (principal.roles.includes("agentic_auditor")) return AUDITOR_RESOURCE_TYPES;
+  if (principal.roles.includes("agentic_governance_admin")) return GOVERNANCE_AUDIT_RESOURCE_TYPES;
+  fail("FORBIDDEN", "Audit access is not permitted");
+}
+function safeAuditEvent(event: Awaited<ReturnType<ConsoleRepository["listConsoleAudit"]>>["items"][number]) {
+  const { id, actorId, actorType, action, resourceType, resourceId, outcome, correlationId, occurredAt } = event;
+  return { id, actorId, actorType, action, resourceType, resourceId, outcome, correlationId, occurredAt,
+    ...(event.taskId === undefined ? {} : { taskId: event.taskId }), ...(event.policyVersion === undefined ? {} : { policyVersion: event.policyVersion }),
+    ...(event.modelVersion === undefined ? {} : { modelVersion: event.modelVersion }), ...(event.toolVersion === undefined ? {} : { toolVersion: event.toolVersion }),
+    ...(event.causationId === undefined ? {} : { causationId: event.causationId }), ...(event.parametersDigest === undefined ? {} : { parametersDigest: event.parametersDigest }),
+    ...(event.attempt === undefined ? {} : { attempt: event.attempt }), ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
+    ...(event.resultDigest === undefined ? {} : { resultDigest: event.resultDigest }), ...(event.errorCode === undefined ? {} : { errorCode: event.errorCode }) };
 }
 function approvalRule(scope: ApprovalRequest["approverScope"], action: string): { readonly risk: AgenticApprovalDetailDto["risk"]; readonly expectedEffect: string } {
   switch (scope) {

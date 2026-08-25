@@ -148,12 +148,13 @@ describe("ConsoleShell", () => {
     expect(await screen.findByRole("heading", { name: "Digital Workforce" })).toBeVisible();
   });
 
-  it("shows auditors only the read-only Digital Employee entry", async () => {
+  it("shows auditors only the read-only Digital Employee and Audit entries", async () => {
     const session: AuthSession = { accessToken: "token", subject: "auditor-a", displayName: "Auditor", roles: ["agentic_auditor"] };
     const client: AuthClient = { getSession: vi.fn(async () => session), signIn: vi.fn(), completeSignIn: vi.fn(), signOut: vi.fn() };
     render(<MemoryRouter initialEntries={["/company-overview"]}><AuthProvider client={client}><AppRouter /></AuthProvider></MemoryRouter>);
     const navigation = await screen.findByRole("navigation", { name: "Primary navigation" });
     expect(within(navigation).getByRole("link", { name: "Employees" })).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: "Audit" })).toBeVisible();
     expect(within(navigation).queryByRole("link", { name: "Tasks" })).not.toBeInTheDocument();
     expect(within(navigation).queryByRole("link", { name: "Approvals" })).not.toBeInTheDocument();
   });
