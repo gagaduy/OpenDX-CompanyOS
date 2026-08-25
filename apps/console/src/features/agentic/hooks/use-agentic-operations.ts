@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgenticApi } from "../api/agentic-api";
+import type { AgenticOperationsApi } from "../api/agentic-api";
 import type { AgenticTaskOperations } from "../types/agentic.types";
 
 const terminal = new Set(["partially_completed", "failed", "canceled", "completed"]);
 
-export function useAgenticOperations(api: AgenticApi, taskId: string) {
+export function useAgenticOperations(api: AgenticOperationsApi, taskId: string) {
   const [operations, setOperations] = useState<AgenticTaskOperations>();
   const [error, setError] = useState<string>();
   const [canceling, setCanceling] = useState(false);
+  const [readying, setReadying] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const transitioning = useRef<"ready" | "start" | undefined>(undefined);
   const controller = useRef<AbortController | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
@@ -66,5 +69,27 @@ export function useAgenticOperations(api: AgenticApi, taskId: string) {
     finally { setCanceling(false); await load(); }
   }, [api, canceling, load, operations?.workflow]);
 
-  return { operations, error, canceling, refresh: load, cancel };
+  const markReady = useCallback(async () => {
+    if (operations?.task.state !== "draft" || transitioning.current !== undefined) return;
+    transitioning.current = "ready";
+    setReadying(true);
+    setError(undefined);
+    let outcomeError: string | undefined;
+    try { await api.readyTask(taskId, operations.task.version); }
+    catch { outcomeError = "Task readiness outcome is uncertain; authoritative state was refreshed."; }
+    finally { transitioning.current = undefined; setReadying(false); await load(); if (outcomeError !== undefined) setError(outcomeError); }
+  }, [api, load, operations?.task.state, operations?.task.version, taskId]);
+
+  const start = useCallback(async () => {
+    if (operations?.task.state !== "ready" || transitioning.current !== undefined) return;
+    transitioning.current = "start";
+    setStarting(true);
+    setError(undefined);
+    let outcomeError: string | undefined;
+    try { await api.startTask(taskId, operations.task.version, 1); }
+    catch { outcomeError = "Task start outcome is uncertain; authoritative state was refreshed."; }
+    finally { transitioning.current = undefined; setStarting(false); await load(); if (outcomeError !== undefined) setError(outcomeError); }
+  }, [api, load, operations?.task.state, operations?.task.version, taskId]);
+
+  return { operations, error, canceling, readying, starting, refresh: load, cancel, markReady, start };
 }

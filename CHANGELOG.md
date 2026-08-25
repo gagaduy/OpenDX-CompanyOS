@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add role- and state-aware `Mark ready` and `Start task` controls to Digital
+  Workforce task detail, binding each command to the authoritative optimistic
+  version, suppressing duplicate submissions, validating workflow responses,
+  and refreshing the server-owned projection after every outcome.
+
 - Complete Phase G with deterministic Digital Workforce browser and composed
   exit gates covering all approved routes at 390x844, 768x1024, and 1440x900,
   five role profiles, replay-safe task/file scenarios, partial reports,

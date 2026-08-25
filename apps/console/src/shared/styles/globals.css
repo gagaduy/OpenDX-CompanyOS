@@ -2114,6 +2114,7 @@ ul {
 .agenticPreviewPanel pre { overflow-x: auto; white-space: pre-wrap; }
 .agenticExecutionSummary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 24px; padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
 .agenticExecutionSummary h2 { flex-basis: 100%; }
+.agenticTaskActions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .agenticOperationsGrid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 20px; }
 .agenticTimeline, .agenticDependencies { display: grid; gap: 10px; padding: 0; list-style: none; }
 .agenticTimeline button, .agenticDependencies li { width: 100%; display: grid; gap: 6px; padding: 14px; text-align: left; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-1); }

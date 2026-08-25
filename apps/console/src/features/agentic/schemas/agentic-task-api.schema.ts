@@ -12,6 +12,17 @@ const envelope = <T extends z.ZodType>(data: T) => z.object({ success: z.literal
 export const agenticOverviewEnvelopeSchema = envelope(overview);
 export const agenticTaskPageEnvelopeSchema = envelope(page);
 export const agenticTaskDetailEnvelopeSchema = envelope(detail);
+const workflowState = state.exclude(["draft", "ready"]);
+const workflowRun = z.object({
+  id: z.uuid(), taskId: z.uuid(), workflowName: z.literal("StoreHealthReviewWorkflowV1"),
+  workflowVersion: z.literal(1), planRevision: z.number().int().positive(), temporalWorkflowId: z.string(),
+  temporalRunId: z.string().optional(), state: workflowState, projectionSequence: z.number().int().nonnegative(),
+  resumeState: workflowState.exclude(["retrying"]).optional(),
+  outcomeCode: z.enum(["COMPLETED", "PARTIAL_ACTIVITY_FAILURE", "APPROVAL_REJECTED", "APPROVAL_EXPIRED", "CANCELED_BY_STAFF", "RETRY_EXHAUSTED", "ACTIVITY_REJECTED", "INVALID_FROZEN_PLAN"]).optional(),
+  version: z.number().int().positive(), createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }), completedAt: z.iso.datetime({ offset: true }).optional(),
+}).strict();
+export const agenticWorkflowRunEnvelopeSchema = envelope(workflowRun);
 export const agenticErrorEnvelopeSchema = z.object({ errorCode: z.string(), message: z.string() }).passthrough();
 const file = z.object({ id: z.uuid(), originalFilename: z.string(), format: z.enum(["csv", "txt"]), mediaType: z.enum(["text/csv", "text/plain"]), byteSize: z.number().int().nonnegative(), payloadDigest: z.string().regex(/^[a-f0-9]{64}$/), status: z.enum(["uploaded", "scanning", "clean", "previewed", "approved", "rejected", "deleted"]), createdBy: z.string(), version: z.number().int().positive(), scannedAt: z.iso.datetime({ offset: true }).optional(), approvedAt: z.iso.datetime({ offset: true }).optional(), rejectedAt: z.iso.datetime({ offset: true }).optional(), deletedAt: z.iso.datetime({ offset: true }).optional(), createdAt: z.iso.datetime({ offset: true }), updatedAt: z.iso.datetime({ offset: true }) }).strict();
 const governance = z.object({ coordinator: z.literal("ai_ceo"), eligibleDepartments: z.array(z.enum(["catalog", "inventory", "order", "finance", "crm", "support"])), allowedTools: z.array(z.string()), dataClasses: z.array(z.string()), riskSignals: z.array(z.string()), dependencyStatus: z.literal("planned_after_task_start"), configurationRevisionId: z.uuid(), configurationVersion: z.number().int().positive() }).strict();
