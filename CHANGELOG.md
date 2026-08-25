@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Govern AI CEO planning and synthesis with server-owned schemas, expiring
+  model/budget authority, worker-only private context resolution, exact
+  descriptor/result and Quality Gate bindings, idempotent plan acceptance,
+  and provenance-checked private report settlement.
+
 - Persist purpose-specific AI CEO planning and synthesis authority with bounded
   private context, immutable accepted-result/report payloads, canonical digest
   binding, and exact replay convergence.

@@ -5,6 +5,7 @@ import type { DatabaseSession } from "../../../../../shared/database/transaction
 import type {
   AcceptedOrchestrationResultAppendInput,
   AcceptedOrchestrationResultPayloadRecord,
+  AcceptedOrchestrationResultReferenceRecord,
   AgenticRepository,
   AgentSubtaskDependencyRecord,
   AgentSubtaskRecord,
@@ -26,6 +27,7 @@ import type {
   ModelRunReservationResult,
   ModelRunTerminalResult,
   OrchestrationDispatchPlanRecord,
+  OrchestrationSettlementFacts,
   OrchestrationPlanAppendInput,
   PolicyRecord,
   ProvenanceRecord,
@@ -289,6 +291,32 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     };
   }
 
+  async findOrchestrationSettlementFacts(
+    session: DatabaseSession, taskId: string,
+  ): Promise<OrchestrationSettlementFacts> {
+    const cost = await session.query<Row>(
+      `SELECT COALESCE(sum(cost_micros),0)::text AS cost_micros
+       FROM agentic_budget_entries WHERE task_id=$1 AND entry_type='settlement'`,
+      [taskId],
+    );
+    const approvals = await session.query<Row>(
+      `SELECT id,state,action,resource_type,resource_id,parameters_digest,
+              decided_by,decision_reason
+       FROM agentic_approval_requests WHERE task_id=$1 ORDER BY created_at,id`,
+      [taskId],
+    );
+    return {
+      costMicros: safeInteger(cost.rows[0]?.cost_micros ?? 0),
+      approvalHistory: approvals.rows.map((row) => ({
+        id: String(row.id), state: row.state as ApprovalState,
+        action: String(row.action), resourceType: String(row.resource_type),
+        resourceId: String(row.resource_id), parametersDigest: String(row.parameters_digest),
+        ...(row.decided_by === null ? {} : { decidedBy: String(row.decided_by) }),
+        ...(row.decision_reason === null ? {} : { decisionReason: String(row.decision_reason) }),
+      })),
+    };
+  }
+
   async orchestrationPlanExists(session: DatabaseSession, taskId: string, planVersion: number): Promise<boolean> {
     const result = await session.query("SELECT 1 FROM agentic_orchestration_plan_revisions WHERE task_id=$1 AND version=$2", [taskId, planVersion]);
     return result.rowCount === 1;
@@ -318,6 +346,17 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       && String(row.result_digest) === result.resultDigest && String(row.provenance_digest) === result.provenanceDigest
       && toIso(row.accepted_at) === new Date(result.acceptedAt).toISOString()
       ? "duplicate" : "conflict";
+  }
+
+  async findAcceptedOrchestrationResultId(
+    session: DatabaseSession, subtaskId: string, qualityEvidenceDigest: string,
+  ): Promise<string | undefined> {
+    const result = await session.query<Row>(
+      `SELECT id FROM agentic_accepted_orchestration_results
+       WHERE subtask_id=$1 AND quality_evidence_digest=$2`,
+      [subtaskId, qualityEvidenceDigest],
+    );
+    return result.rows[0] === undefined ? undefined : String(result.rows[0].id);
   }
 
   async appendAcceptedOrchestrationResultPayload(
@@ -362,6 +401,32 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     };
   }
 
+  async findAcceptedOrchestrationResultReference(
+    session: DatabaseSession,
+    resultId: string,
+  ): Promise<AcceptedOrchestrationResultReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT accepted.task_id,accepted.plan_version,accepted.subtask_id,
+              accepted.result_digest,accepted.quality_evidence_digest,accepted.provenance_digest,
+              private.payload,private.payload_digest
+       FROM agentic_accepted_orchestration_results accepted
+       JOIN agentic_accepted_orchestration_result_payloads private
+         ON private.result_id=accepted.id AND private.result_digest=accepted.result_digest
+       WHERE accepted.id=$1`,
+      [resultId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      taskId: String(row.task_id), planVersion: Number(row.plan_version),
+      subtaskId: String(row.subtask_id), resultDigest: String(row.result_digest),
+      qualityEvidenceDigest: String(row.quality_evidence_digest),
+      provenanceDigest: String(row.provenance_digest),
+      payload: row.payload as Readonly<Record<string, unknown>>,
+      payloadDigest: String(row.payload_digest),
+    };
+  }
+
   async appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<"created" | "duplicate" | "conflict"> {
     const inserted = await session.query(`INSERT INTO agentic_executive_reports
       (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,unavailable_branches_digest,cost_micros,approval_history_digest,created_at)
@@ -376,6 +441,16 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       && Number(row.cost_micros) === report.costMicros && String(row.approval_history_digest) === report.approvalHistoryDigest
       && toIso(row.created_at) === new Date(report.createdAt).toISOString()
       ? "duplicate" : "conflict";
+  }
+
+  async findExecutiveReportId(
+    session: DatabaseSession, taskId: string, planVersion: number,
+  ): Promise<string | undefined> {
+    const result = await session.query<Row>(
+      "SELECT id FROM agentic_executive_reports WHERE task_id=$1 AND plan_version=$2",
+      [taskId, planVersion],
+    );
+    return result.rows[0] === undefined ? undefined : String(result.rows[0].id);
   }
 
   async appendExecutiveReportPayload(
@@ -447,31 +522,87 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       ? "duplicate" : "conflict";
   }
 
-  async appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void> {
-    await session.query(
-      `INSERT INTO agentic_orchestration_plan_revisions
-       (id,task_id,version,plan_digest,task_brief_digest,policy_version,configuration_revision_id,created_by,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [plan.id, plan.taskId, plan.version, plan.digest, plan.taskBriefDigest,
-        plan.policyVersion, plan.configurationRevisionId, plan.createdBy, plan.createdAt],
+  async appendOrchestrationPlan(
+    session: DatabaseSession,
+    plan: OrchestrationPlanAppendInput,
+  ): Promise<"created" | "duplicate"> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.orchestration-plan:${plan.taskId}:${plan.version}`,
+    ]);
+    const existingPlan = await session.query<Row>(
+      "SELECT * FROM agentic_orchestration_plan_revisions WHERE task_id=$1 AND version=$2",
+      [plan.taskId, plan.version],
     );
-    for (const subtask of plan.subtasks) {
-      await session.query(
-        `INSERT INTO agentic_orchestration_plan_subtasks
-         (id,plan_id,agent_kind,expected_result_schema_digest,allowed_tools_digest,data_scope,
-          freshness_seconds,timeout_seconds,budget_micros,source_provenance_digest)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [subtask.id, plan.id, subtask.owner, subtask.expectedResultSchemaDigest,
-          subtask.allowedToolsDigest, subtask.dataScope, subtask.freshnessSeconds,
-          subtask.timeoutSeconds, subtask.budgetMicros, subtask.sourceProvenanceDigest],
+    if (existingPlan.rows[0] !== undefined) {
+      const subtasks = await session.query<Row>(
+        `SELECT subtask.*, COALESCE(array_agg(dependency.dependency_subtask_id::text
+           ORDER BY dependency.dependency_subtask_id)
+           FILTER (WHERE dependency.dependency_subtask_id IS NOT NULL),'{}') AS dependencies
+         FROM agentic_orchestration_plan_subtasks subtask
+         LEFT JOIN agentic_orchestration_plan_dependencies dependency
+           ON dependency.plan_id=subtask.plan_id AND dependency.subtask_id=subtask.id
+         WHERE subtask.plan_id=$1 GROUP BY subtask.id ORDER BY subtask.id`,
+        [existingPlan.rows[0].id],
       );
-      for (const dependencyId of subtask.dependencies) {
+      const row = existingPlan.rows[0];
+      const stored: OrchestrationPlanAppendInput = {
+        id: String(row.id), taskId: String(row.task_id), version: Number(row.version),
+        digest: String(row.plan_digest), taskBriefDigest: String(row.task_brief_digest),
+        policyVersion: Number(row.policy_version),
+        configurationRevisionId: String(row.configuration_revision_id),
+        createdBy: String(row.created_by), createdAt: toIso(row.created_at),
+        subtasks: subtasks.rows.map((subtask) => ({
+          id: String(subtask.id), owner: subtask.agent_kind as AgentKind,
+          expectedResultSchemaDigest: String(subtask.expected_result_schema_digest),
+          allowedToolsDigest: String(subtask.allowed_tools_digest),
+          dataScope: String(subtask.data_scope), freshnessSeconds: Number(subtask.freshness_seconds),
+          timeoutSeconds: Number(subtask.timeout_seconds), budgetMicros: Number(subtask.budget_micros),
+          sourceProvenanceDigest: String(subtask.source_provenance_digest),
+          dependencies: (subtask.dependencies as string[]).map(String),
+        })),
+      };
+      if (canonicalDigest(normalizeOrchestrationPlan(stored))
+        === canonicalDigest(normalizeOrchestrationPlan(plan))) return "duplicate";
+      throw new AgenticApplicationError(
+        "ORCHESTRATION_PLAN_CONFLICT",
+        "Task plan version is already bound to different immutable content",
+      );
+    }
+    try {
+      await session.query(
+        `INSERT INTO agentic_orchestration_plan_revisions
+         (id,task_id,version,plan_digest,task_brief_digest,policy_version,configuration_revision_id,created_by,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [plan.id, plan.taskId, plan.version, plan.digest, plan.taskBriefDigest,
+          plan.policyVersion, plan.configurationRevisionId, plan.createdBy, plan.createdAt],
+      );
+      for (const subtask of plan.subtasks) {
         await session.query(
-          `INSERT INTO agentic_orchestration_plan_dependencies(plan_id,subtask_id,dependency_subtask_id)
-           VALUES($1,$2,$3)`, [plan.id, subtask.id, dependencyId],
+          `INSERT INTO agentic_orchestration_plan_subtasks
+           (id,plan_id,agent_kind,expected_result_schema_digest,allowed_tools_digest,data_scope,
+            freshness_seconds,timeout_seconds,budget_micros,source_provenance_digest)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [subtask.id, plan.id, subtask.owner, subtask.expectedResultSchemaDigest,
+            subtask.allowedToolsDigest, subtask.dataScope, subtask.freshnessSeconds,
+            subtask.timeoutSeconds, subtask.budgetMicros, subtask.sourceProvenanceDigest],
+        );
+        for (const dependencyId of subtask.dependencies) {
+          await session.query(
+            `INSERT INTO agentic_orchestration_plan_dependencies(plan_id,subtask_id,dependency_subtask_id)
+             VALUES($1,$2,$3)`, [plan.id, subtask.id, dependencyId],
+          );
+        }
+      }
+    } catch (error) {
+      if (isPostgresUniqueViolation(error)) {
+        throw new AgenticApplicationError(
+          "ORCHESTRATION_PLAN_CONFLICT",
+          "Orchestration plan identity is already bound to immutable content",
         );
       }
+      throw error;
     }
+    return "created";
   }
 
   async claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]> {
@@ -1254,6 +1385,27 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapModelQualityEvidence(result.rows[0]);
   }
 
+  async findModelQualityEvidenceForResult(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    configurationRevisionId: string,
+    resultDigest: string,
+    evidenceDigest: string,
+  ): Promise<ModelQualityEvidence | undefined> {
+    const result = await session.query<Row>(
+      `SELECT evidence.* FROM agentic_model_quality_evidence evidence
+       JOIN agentic_model_runs run ON run.id=evidence.model_run_id
+         AND run.generation_round=evidence.generation_round
+       WHERE run.task_id=$1 AND run.agent_kind=$2 AND run.configuration_revision_id=$3
+         AND run.output_digest=$4 AND evidence.evidence_digest=$5
+         AND evidence.outcome IN ('accepted','partial')
+       ORDER BY evidence.recorded_at DESC,evidence.id DESC LIMIT 1`,
+      [taskId, agentKind, configurationRevisionId, resultDigest, evidenceDigest],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelQualityEvidence(result.rows[0]);
+  }
+
   async findModelRunBudgetReservation(
     session: DatabaseSession,
     modelRunId: string,
@@ -1674,6 +1826,23 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [invocationId],
     );
     return result.rows[0] === undefined ? undefined : mapToolInvocation(result.rows[0]);
+  }
+
+  async listCompletedToolInvocationsForSubtask(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    subtaskId: string,
+    notBefore: string,
+    notAfter: string,
+  ): Promise<readonly ToolInvocationRecord[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_tool_invocations
+       WHERE task_id=$1 AND agent_kind=$2 AND causation_id=$3 AND status='completed'
+         AND created_at >= $4 AND completed_at <= $5 ORDER BY created_at,id`,
+      [taskId, agentKind, subtaskId, notBefore, notAfter],
+    );
+    return result.rows.map(mapToolInvocation);
   }
 
   async reserveActivityInvocation(
@@ -2165,6 +2334,16 @@ function sameModelQualityEvidence(left: ModelQualityEvidence, right: ModelQualit
     && sameStrings(left.provenanceIds, right.provenanceIds);
 }
 
+function normalizeOrchestrationPlan(plan: OrchestrationPlanAppendInput): Readonly<Record<string, unknown>> {
+  return {
+    ...plan,
+    createdAt: new Date(plan.createdAt).toISOString(),
+    subtasks: [...plan.subtasks]
+      .map((subtask) => ({ ...subtask, dependencies: [...subtask.dependencies].sort() }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
 function isTerminalModelRun(run: ModelRun): boolean {
   return run.status === "completed" || run.status === "failed"
     || run.status === "partial" || run.status === "escalated";
@@ -2344,6 +2523,11 @@ function safeInteger(value: unknown): number {
   const parsed = Number(String(value));
   if (!Number.isSafeInteger(parsed)) throw new RangeError("Database integer exceeds safe range");
   return parsed;
+}
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error
+    && error.code === "23505";
 }
 
 function toIso(value: unknown): string {

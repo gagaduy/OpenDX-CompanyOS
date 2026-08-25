@@ -493,7 +493,20 @@ def _strict_object_schemas(value: object) -> bool:
                 "additionalProperties"
             ) is not False:
                 return False
-            pending.extend((item, depth + 1) for item in current.values())
+            for key, item in current.items():
+                if key in {
+                    "$defs", "definitions", "properties", "patternProperties",
+                    "dependentSchemas", "dependencies",
+                } and isinstance(item, Mapping):
+                    identity = id(item)
+                    if identity in seen or len(item) > _MAX_SCHEMA_NODES:
+                        return False
+                    seen.add(identity)
+                    if any(type(name) is not str for name in item):
+                        return False
+                    pending.extend((schema, depth + 2) for schema in item.values())
+                else:
+                    pending.append((item, depth + 1))
         elif type(current) in (list, tuple):
             identity = id(current)
             if len(current) > _MAX_SCHEMA_NODES:

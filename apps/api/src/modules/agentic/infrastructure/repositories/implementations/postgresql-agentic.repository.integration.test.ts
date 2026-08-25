@@ -83,9 +83,19 @@ suite("PostgresqlAgenticRepository", () => {
       }],
     };
 
-    await transactions.run((session) => repository.appendOrchestrationPlan(session, plan));
     await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, plan)))
-      .rejects.toMatchObject({ code: "23505" });
+      .resolves.toBe("created");
+    await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, plan)))
+      .resolves.toBe("duplicate");
+    await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, {
+      ...plan, digest: "9".repeat(64),
+    }))).rejects.toMatchObject({ code: "ORCHESTRATION_PLAN_CONFLICT" });
+    await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, {
+      ...plan, version: 2,
+    }))).rejects.toMatchObject({ code: "ORCHESTRATION_PLAN_CONFLICT" });
+    await expect(transactions.run((session) => repository.appendOrchestrationPlan(session, {
+      ...plan, id: randomUUID(), version: 2, digest: "8".repeat(64),
+    }))).rejects.toMatchObject({ code: "ORCHESTRATION_PLAN_CONFLICT" });
     await expect(pool.query(`SELECT plan_digest, task_brief_digest, policy_version
       FROM agentic_orchestration_plan_revisions WHERE task_id=$1`, [taskId]))
       .resolves.toMatchObject({ rows: [{ plan_digest: plan.digest, task_brief_digest: plan.taskBriefDigest, policy_version: 1 }] });

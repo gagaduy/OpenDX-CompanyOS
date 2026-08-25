@@ -141,6 +141,7 @@ const orchestrationSubtask = z.object({
 }).strict();
 const acceptOrchestrationPlan = z.object({
   id: uuid, taskId: uuid, version: positiveVersion, digest, taskBriefDigest: digest,
+  planningAuthorityId: uuid, planningAuthorityDigest: digest,
   policyVersion: positiveVersion, configurationRevisionId: uuid, createdBy: safeIdentifier,
   createdAt: z.iso.datetime({ offset: true }), subtasks: z.array(orchestrationSubtask).min(1).max(100),
 }).strict().superRefine((value, context) => {
@@ -151,8 +152,9 @@ const acceptOrchestrationPlan = z.object({
 const departmentAgentKind = z.enum(["catalog", "inventory", "order", "finance", "crm", "support"]);
 const acceptedOrchestrationResult = z.object({
   id: uuid, taskId: uuid, planVersion: positiveVersion, subtaskId: uuid,
+  descriptorId: uuid, descriptorDigest: digest,
   resultDigest: digest, qualityEvidenceDigest: digest, provenanceDigest: digest,
-  acceptedAt: z.iso.datetime({ offset: true }),
+  acceptedAt: z.iso.datetime({ offset: true }), result: z.record(z.string(), z.unknown()),
 }).strict();
 const collaborationRequest = z.object({
   id: uuid, taskId: uuid, planVersion: positiveVersion,
@@ -166,10 +168,20 @@ const collaborationRequest = z.object({
   { path: ["requested"], message: "Requested Department must differ from requester" });
 const executiveReport = z.object({
   id: uuid, taskId: uuid, planVersion: positiveVersion, reportDigest: digest,
+  authorityId: uuid, authorityDigest: digest,
   completionState: z.enum(["complete", "partial", "quality_escalated", "canceled"]),
   conclusionProvenanceDigest: digest, unavailableBranchesDigest: digest,
   costMicros: nonnegativeSafeInteger, approvalHistoryDigest: digest,
-  createdAt: z.iso.datetime({ offset: true }),
+  createdAt: z.iso.datetime({ offset: true }), report: z.record(z.string(), z.unknown()),
+}).strict();
+const synthesisContext = z.object({
+  taskId: uuid, planVersion: positiveVersion,
+  branches: z.array(z.discriminatedUnion("status", [
+    z.object({ subtaskId: uuid, status: z.enum(["usable", "partial"]),
+      resultId: uuid, resultDigest: digest, provenanceIds: z.array(uuid).max(24) }).strict(),
+    z.object({ subtaskId: uuid, status: z.literal("unavailable"),
+      resultDigest: digest, provenanceIds: z.array(uuid).max(24) }).strict(),
+  ])).max(6),
 }).strict();
 const modelRunProvenanceIds = z.array(uuid).min(1).max(128).refine(
   (values) => new Set(values).size === values.length,
@@ -254,6 +266,7 @@ export const parseAcceptOrchestrationPlan = (value: unknown) => parse(acceptOrch
 export const parseAcceptedOrchestrationResult = (value: unknown) => parse(acceptedOrchestrationResult, value);
 export const parseCollaborationRequest = (value: unknown) => parse(collaborationRequest, value);
 export const parseExecutiveReport = (value: unknown) => parse(executiveReport, value);
+export const parseSynthesisContext = (value: unknown) => parse(synthesisContext, value);
 export const parseFileAction = (value: unknown) => parse(fileAction, value);
 export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
 export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);

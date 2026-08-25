@@ -112,6 +112,8 @@ describe("Agentic validators", () => {
     const plan = {
       id: "00000000-0000-4000-8000-000000000001", taskId: "00000000-0000-4000-8000-000000000002",
       version: 1, digest: "a".repeat(64), taskBriefDigest: "b".repeat(64), policyVersion: 4,
+      planningAuthorityId: "00000000-0000-4000-8000-000000000005",
+      planningAuthorityDigest: "f".repeat(64),
       configurationRevisionId: "00000000-0000-4000-8000-000000000003", createdBy: "agent-ai-ceo",
       createdAt: "2026-08-22T00:00:00.000Z", subtasks: [{
         id: "00000000-0000-4000-8000-000000000004", owner: "catalog",
@@ -125,10 +127,12 @@ describe("Agentic validators", () => {
     expect(() => parseAcceptOrchestrationPlan({ ...plan, subtasks: [{ ...plan.subtasks[0], budgetMicros: 0 }] })).toThrow();
   });
 
-  it("accepts only strict digest-only orchestration settlements", () => {
+  it("accepts only strict authority-bound orchestration settlements", () => {
     const result = { id: "00000000-0000-4000-8000-000000000001",
       taskId: "00000000-0000-4000-8000-000000000002", planVersion: 1,
-      subtaskId: "00000000-0000-4000-8000-000000000003", resultDigest: "a".repeat(64),
+      subtaskId: "00000000-0000-4000-8000-000000000003",
+      descriptorId: "00000000-0000-4000-8000-000000000004", descriptorDigest: "d".repeat(64),
+      resultDigest: "a".repeat(64), result: { schemaVersion: 1 },
       qualityEvidenceDigest: "b".repeat(64), provenanceDigest: "c".repeat(64),
       acceptedAt: "2026-08-22T00:00:00.000Z" };
     expect(parseAcceptedOrchestrationResult(result)).toEqual(result);
@@ -141,9 +145,11 @@ describe("Agentic validators", () => {
     expect(parseCollaborationRequest(collaboration)).toEqual(collaboration);
     expect(() => parseCollaborationRequest({ ...collaboration, requested: "catalog" })).toThrow();
     const report = { id: result.id, taskId: result.taskId, planVersion: 1,
-      reportDigest: "a".repeat(64), completionState: "partial",
+      reportDigest: "a".repeat(64), authorityId: result.descriptorId,
+      authorityDigest: "e".repeat(64), completionState: "partial",
       conclusionProvenanceDigest: "b".repeat(64), unavailableBranchesDigest: "c".repeat(64),
-      costMicros: 0, approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt };
+      costMicros: 0, approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt,
+      report: { schemaVersion: 1 } };
     expect(parseExecutiveReport(report)).toEqual(report);
     expect(() => parseExecutiveReport({ ...report, conclusions: [] })).toThrow();
   });
@@ -300,6 +306,8 @@ describe("Agentic route authorization", () => {
     expect((await application.get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadTaskBrief");
     expect((await application.get("/orchestration/dispatch-plans/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadDispatchPlan");
     expect((await application.get("/orchestration/descriptors/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadExecutionDescriptor");
+    expect((await application.get("/orchestration/ai-ceo-authorities/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadAiCeoExecutionAuthority");
+    expect((await application.post("/orchestration/synthesis-contexts")).body.data.route).toBe("loadSynthesisContext");
     expect((await application.post("/orchestration/results")).body.data.route).toBe("acceptOrchestrationResult");
     expect((await application.post("/orchestration/collaborations")).body.data.route).toBe("mediateOrchestrationCollaboration");
     expect((await application.post("/orchestration/reports")).body.data.route).toBe("acceptExecutiveReport");
@@ -312,7 +320,10 @@ describe("Agentic route authorization", () => {
   it("marks private orchestration reads as non-cacheable", async () => {
     const app = express();
     app.use(express.json());
-    const orchestration = { loadTaskBrief: vi.fn().mockResolvedValue({ taskId: "task", digest: "a".repeat(64) }) };
+    const orchestration = {
+      loadTaskBrief: vi.fn().mockResolvedValue({ taskId: "task", digest: "a".repeat(64) }),
+      loadAiCeoExecutionAuthority: vi.fn().mockResolvedValue({ authority: { id: "authority" }, payload: {} }),
+    };
     const controller = new AgenticWorkloadController({} as never, {} as never, orchestration as never);
     const workerAuth: RequestHandler = (_request, response, next) => {
       response.locals.workloadPrincipal = { subject: "worker", clientId: "opendx-agentic-worker", workload: "agentic_worker" };
@@ -325,6 +336,10 @@ describe("Agentic route authorization", () => {
       .get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001").expect(200);
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(JSON.stringify(response.body)).not.toContain("authorization");
+    const authority = await request(app)
+      .get("/orchestration/ai-ceo-authorities/00000000-0000-4000-8000-000000000001")
+      .set("x-opendx-authority-digest", "a".repeat(64)).expect(200);
+    expect(authority.headers["cache-control"]).toBe("no-store");
   });
 });
 
@@ -442,6 +457,8 @@ function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean
     acceptOrchestrationPlan: handler("acceptOrchestrationPlan"),
     loadTaskBrief: handler("loadTaskBrief"), loadDispatchPlan: handler("loadDispatchPlan"),
     loadExecutionDescriptor: handler("loadExecutionDescriptor"),
+    loadAiCeoExecutionAuthority: handler("loadAiCeoExecutionAuthority"),
+    loadSynthesisContext: handler("loadSynthesisContext"),
     acceptOrchestrationResult: handler("acceptOrchestrationResult"),
     mediateOrchestrationCollaboration: handler("mediateOrchestrationCollaboration"),
     acceptExecutiveReport: handler("acceptExecutiveReport"),

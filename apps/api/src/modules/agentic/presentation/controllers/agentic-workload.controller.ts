@@ -24,6 +24,7 @@ import {
   parseCollaborationRequest,
   parseDigest,
   parseExecutiveReport,
+  parseSynthesisContext,
 } from "../validators/agentic.validator";
 
 export class AgenticWorkloadController {
@@ -120,6 +121,23 @@ export class AgenticWorkloadController {
       parseUuid(request.params.descriptorId),
       parseDigest(request.header("x-opendx-descriptor-digest")), principal(response.locals),
     )));
+  });
+
+  readonly loadAiCeoExecutionAuthority = handle(async (request, response) => {
+    noStore(response);
+    response.json(successResponse("AI CEO execution authority retrieved",
+      await this.orchestration.loadAiCeoExecutionAuthority(
+        parseUuid(request.params.authorityId),
+        parseDigest(request.header("x-opendx-authority-digest")), principal(response.locals),
+      )));
+  });
+
+  readonly loadSynthesisContext = handle(async (request, response) => {
+    noStore(response);
+    response.json(successResponse("AI CEO synthesis context resolved",
+      await this.orchestration.loadSynthesisContext(
+        parseSynthesisContext(request.body), principal(response.locals),
+      )));
   });
 
   readonly acceptOrchestrationResult = handle(async (request, response) => {

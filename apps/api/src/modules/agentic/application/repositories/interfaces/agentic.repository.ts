@@ -306,6 +306,14 @@ export interface AcceptedOrchestrationResultPayloadRecord {
   readonly payloadDigest: string;
 }
 
+export interface AcceptedOrchestrationResultReferenceRecord extends AcceptedOrchestrationResultPayloadRecord {
+  readonly taskId: string;
+  readonly planVersion: number;
+  readonly subtaskId: string;
+  readonly qualityEvidenceDigest: string;
+  readonly provenanceDigest: string;
+}
+
 export interface ExecutiveReportPayloadRecord {
   readonly reportDigest: string;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -322,6 +330,20 @@ export interface OrchestrationDispatchPlanRecord {
     readonly dependencies: readonly string[];
     readonly descriptorId: string;
     readonly descriptorDigest: string;
+  }[];
+}
+
+export interface OrchestrationSettlementFacts {
+  readonly costMicros: number;
+  readonly approvalHistory: readonly {
+    readonly id: string;
+    readonly state: ApprovalState;
+    readonly action: string;
+    readonly resourceType: string;
+    readonly resourceId: string;
+    readonly parametersDigest: string;
+    readonly decidedBy?: string;
+    readonly decisionReason?: string;
   }[];
 }
 
@@ -397,14 +419,18 @@ export interface AgenticRepository {
   findExecutionDescriptor(session: DatabaseSession, descriptorId: string): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined>;
   findExecutionDescriptorForSubtask(session: DatabaseSession, taskId: string, planVersion: number, subtaskId: string): Promise<ExecutionDescriptor | undefined>;
   findOrchestrationDispatchPlan(session: DatabaseSession, runId: string): Promise<OrchestrationDispatchPlanRecord | undefined>;
+  findOrchestrationSettlementFacts(session: DatabaseSession, taskId: string): Promise<OrchestrationSettlementFacts>;
   orchestrationPlanExists(session: DatabaseSession, taskId: string, planVersion: number): Promise<boolean>;
   orchestrationPlanHasAgent(session: DatabaseSession, taskId: string, planVersion: number, agentKind: AgentKind): Promise<boolean>;
-  appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void>;
+  appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<"created" | "duplicate">;
   appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<ImmutableAppendResult>;
   appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<ImmutableAppendResult>;
+  findAcceptedOrchestrationResultId(session: DatabaseSession, subtaskId: string, qualityEvidenceDigest: string): Promise<string | undefined>;
   appendAcceptedOrchestrationResultPayload(session: DatabaseSession, resultId: string, resultDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
   findAcceptedOrchestrationResultPayload(session: DatabaseSession, resultId: string): Promise<AcceptedOrchestrationResultPayloadRecord | undefined>;
+  findAcceptedOrchestrationResultReference(session: DatabaseSession, resultId: string): Promise<AcceptedOrchestrationResultReferenceRecord | undefined>;
   appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<ImmutableAppendResult>;
+  findExecutiveReportId(session: DatabaseSession, taskId: string, planVersion: number): Promise<string | undefined>;
   appendExecutiveReportPayload(session: DatabaseSession, reportId: string, reportDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
   findExecutiveReportPayload(session: DatabaseSession, reportId: string): Promise<ExecutiveReportPayloadRecord | undefined>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
@@ -458,6 +484,7 @@ export interface AgenticRepository {
   settleModelRunTerminal(session: DatabaseSession, run: ModelRun, expectedVersion: number): Promise<ModelRunTerminalResult>;
   appendModelQualityEvidence(session: DatabaseSession, evidence: ModelQualityEvidence): Promise<ModelQualityEvidenceAppendResult>;
   findModelQualityEvidenceByIdempotencyKey(session: DatabaseSession, idempotencyKey: string): Promise<ModelQualityEvidence | undefined>;
+  findModelQualityEvidenceForResult(session: DatabaseSession, taskId: string, agentKind: AgentKind, configurationRevisionId: string, resultDigest: string, evidenceDigest: string): Promise<ModelQualityEvidence | undefined>;
   findModelRunBudgetReservation(session: DatabaseSession, modelRunId: string): Promise<ModelRunBudgetReservationRecord | undefined>;
   findModelRunBudgetSettlementByIdempotencyKey(session: DatabaseSession, idempotencyKey: string): Promise<ModelRunBudgetSettlementRecord | undefined>;
   appendAudit(session: DatabaseSession, event: AuditEventRecord): Promise<void>;
@@ -491,4 +518,5 @@ export interface AgenticRepository {
   completeToolInvocation(session: DatabaseSession, input: ToolInvocationCompletionInput): Promise<boolean>;
   failToolInvocation(session: DatabaseSession, input: ToolInvocationFailureInput): Promise<boolean>;
   findToolInvocation(session: DatabaseSession, invocationId: string): Promise<ToolInvocationRecord | undefined>;
+  listCompletedToolInvocationsForSubtask(session: DatabaseSession, taskId: string, agentKind: AgentKind, subtaskId: string, notBefore: string, notAfter: string): Promise<readonly ToolInvocationRecord[]>;
 }
