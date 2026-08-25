@@ -80,5 +80,6 @@ function fakeApi(): AgenticApi {
     previewFile: vi.fn(async (): Promise<AgenticFilePreview> => ({ fileId: file.id, fileVersion: 4, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: file.payloadDigest, previewDigest: "b".repeat(64), format: "csv", rowCount: 24, columnCount: 2, invalidRows: 0, samples: ["sku,stock", "A,1"], sourceReferences: [{ fileId: file.id, line: 1 }], governance: { coordinator: "ai_ceo", eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"], allowedTools: ["catalog.product_completeness"], dataClasses: ["internal"], riskSignals: [], dependencyStatus: "planned_after_task_start", configurationRevisionId: "00000000-0000-4000-8000-000000000030", configurationVersion: 1 } })),
     approveFile: vi.fn(async (): Promise<AgenticTaskDetail> => ({ task: { id: "00000000-0000-4000-8000-000000000020", state: "draft", createdBy: "governance-a", goal: "Review file", version: 1, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }, subtasks: [], dependencies: [] })),
     rejectFile: vi.fn(async () => ({ ...file, status: "rejected" as const, version: 2 })),
+    loadOperations: vi.fn(), cancelWorkflow: vi.fn(),
   };
 }

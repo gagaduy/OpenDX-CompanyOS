@@ -2112,9 +2112,16 @@ ul {
 .agenticFileIntake > div { display: flex; gap: 10px; }
 .agenticPreviewPanel { max-width: none; background: var(--surface-2); }
 .agenticPreviewPanel pre { overflow-x: auto; white-space: pre-wrap; }
+.agenticExecutionSummary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 24px; padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
+.agenticExecutionSummary h2 { flex-basis: 100%; }
+.agenticOperationsGrid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 20px; }
+.agenticTimeline, .agenticDependencies { display: grid; gap: 10px; padding: 0; list-style: none; }
+.agenticTimeline button, .agenticDependencies li { width: 100%; display: grid; gap: 6px; padding: 14px; text-align: left; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-1); }
+.agenticTimeline button[aria-pressed="true"] { border-color: var(--accent); }
 
 @media (max-width: 700px) {
   .agenticMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agenticOperationsGrid { grid-template-columns: 1fr; }
   .agenticReviewWindow { grid-template-columns: 1fr; }
 }
 

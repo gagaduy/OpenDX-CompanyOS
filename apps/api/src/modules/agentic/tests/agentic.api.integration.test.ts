@@ -123,6 +123,12 @@ suite("Agentic PostgreSQL admin API", () => {
     expect(other.body.data).toMatchObject({ totalItems: 0 });
     const overview = await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_operator:operator-a").expect(200);
     expect(overview.body.data).toMatchObject({ counts: { waiting: 1 }, pendingApprovals: 0, settledCostMicros: 0 });
+    const operations = await request(app).get(`/v1/admin/agentic/tasks/${created.body.data.task.id}/operations`)
+      .set("authorization", "Bearer agentic_operator:operator-a").expect(200);
+    expect(operations.body.data).toMatchObject({ task: { id: created.body.data.task.id }, timeline: [{ kind: "agentic_task.intake", state: "allowed" }], branches: [], costs: { reservedMicros: 0, settledMicros: 0 } });
+    expect(operations.body.data.task).not.toHaveProperty("instructions");
+    await request(app).get(`/v1/admin/agentic/tasks/${created.body.data.task.id}/operations`)
+      .set("authorization", "Bearer agentic_operator:operator-b").expect(404);
 
     await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_approver").expect(200);
     await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_governance_admin").expect(200);

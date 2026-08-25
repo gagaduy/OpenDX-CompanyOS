@@ -4,17 +4,20 @@
 import { createHash } from "node:crypto";
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
-import type { AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
+import type { AgenticConsoleTaskOperationsRecord, AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import { canonicalDigest } from "../../../domain/entities/orchestration-execution-descriptor";
+import { parseAiCeoExecutiveReport } from "../../orchestration/ai-ceo-execution-catalog";
 import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import { AgenticApplicationError } from "../agentic-application.error";
-import type { AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
 import type { AgenticConsoleService, AgenticTaskFilter, CreateTaskIntakeInput } from "../interfaces/agentic-console.service";
 
 type ConsoleRepository = Pick<AgenticRepository,
   | "bindStaffIntake" | "findStaffIntakeBinding" | "createTask" | "findTaskById"
   | "replaceTaskGraph" | "listTaskGraph" | "appendProvenance" | "appendAudit"
-  | "listConsoleTasks" | "getConsoleTaskOverview" | "findActiveRevision" | "getRevisionChildren">;
+  | "listConsoleTasks" | "getConsoleTaskOverview" | "findActiveRevision" | "getRevisionChildren"
+  | "hasConsoleTaskAccess" | "getConsoleTaskOperations">;
 
 export class AgenticConsoleServiceImpl implements AgenticConsoleService {
   constructor(
@@ -118,6 +121,33 @@ export class AgenticConsoleServiceImpl implements AgenticConsoleService {
     });
   }
 
+  async getTaskOperations(taskId: string, principal: StaffPrincipal): Promise<AgenticTaskOperationsDto> {
+    if (principal.roles.includes("agentic_auditor")) fail("FORBIDDEN", "Task operations access is not permitted");
+    const scope = taskScope(principal);
+    return this.transactions.runReadOnly(async (session) => {
+      if (!await this.repository.hasConsoleTaskAccess(session, taskId, scope)) {
+        fail("TASK_NOT_FOUND", "Task operations were not found");
+      }
+      const record = await this.repository.getConsoleTaskOperations(session, taskId);
+      if (record === undefined) fail("TASK_NOT_FOUND", "Task operations were not found");
+      const report = safeReport(record.report, new Set(record.provenance.map(({ id }) => id)));
+      return {
+        task: { id: record.task.id, goal: record.task.goal, state: record.workflow?.state ?? record.task.state, version: record.task.version },
+        ...(record.workflow === undefined ? {} : { workflow: {
+          id: record.workflow.id, state: record.workflow.state, stage: record.workflow.resumeState ?? record.workflow.state,
+          version: record.workflow.version, updatedAt: record.workflow.updatedAt,
+        } }),
+        timeline: [...record.timeline].sort((left, right) => left.occurredAt.localeCompare(right.occurredAt) || left.id.localeCompare(right.id)),
+        branches: record.branches.map((branch) => ({ ...branch, dependencies: [...branch.dependencies], toolNames: [...branch.toolNames], dataClasses: [...branch.dataClasses] })),
+        costs: { reservedMicros: record.reservedMicros, settledMicros: record.settledMicros },
+        approvals: record.approvals.map(({ id, state, expiresAt, version }) => ({ id, state, expiresAt, version })),
+        provenance: record.provenance.map(({ id, sourceType, sourceId, classification }) => ({ id, sourceType, sourceId, classification })),
+        ...(report === undefined ? {} : { report }),
+        refreshedAt: this.now(),
+      };
+    });
+  }
+
   private async loadDetail(session: DatabaseSession, taskId: string) {
     const task = await this.repository.findTaskById(session, taskId);
     if (task === undefined) fail("TASK_NOT_FOUND", "Task intake replay could not be loaded");
@@ -151,4 +181,15 @@ function emptyOverview(refreshedAt: string): AgenticTaskOverviewDto { return { c
 function digest(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
 function requireOperator(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_operator")) fail("FORBIDDEN", "Operator role is required"); }
 function requireGovernance(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_governance_admin")) fail("FORBIDDEN", "Governance administrator role is required"); }
+function safeReport(record: AgenticConsoleTaskOperationsRecord["report"], provenance: ReadonlySet<string>) {
+  if (record === undefined || record.reportDigest !== record.payloadDigest || canonicalDigest(record.payload) !== record.reportDigest) return undefined;
+  try {
+    const report = parseAiCeoExecutiveReport(record.payload);
+    if (report.completionState !== record.completionState
+      || [...report.conclusions, ...report.risks, ...report.recommendedActions, ...report.conflicts]
+        .some(({ provenanceIds }) => provenanceIds.some((id) => !provenance.has(id)))) return undefined;
+    const { acceptedResultReferences: _references, schemaVersion: _schemaVersion, ...publicReport } = report;
+    return publicReport;
+  } catch { return undefined; }
+}
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }

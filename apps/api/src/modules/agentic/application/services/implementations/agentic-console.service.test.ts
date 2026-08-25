@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticRepository, StaffIntakeBinding } from "../../repositories/interfaces/agentic.repository";
+import { canonicalDigest } from "../../../domain/entities/orchestration-execution-descriptor";
 import { AgenticConsoleServiceImpl } from "./agentic-console.service";
 
 const session = {} as DatabaseSession;
@@ -109,12 +110,59 @@ describe("AgenticConsoleServiceImpl", () => {
       "00000000-0000-4000-8000-000000000099",
     );
   });
+
+  it("projects task operations without private execution payloads", async () => {
+    const { service } = harness();
+    const created = await service.createTaskIntake({
+      mode: "advanced", goal: "Review operations", instructions: "private prompt",
+      idempotencyKey: "console:operations:1",
+    }, operator);
+    const taskId = created.detail.task.id;
+
+    const operations = await (service as any).getTaskOperations(taskId, operator);
+
+    expect(operations).toMatchObject({
+      task: { id: taskId, goal: "Review operations", state: "partially_completed", version: 1 },
+      workflow: { state: "partially_completed", stage: "partially_completed", version: 4 },
+      branches: [{ owner: "catalog", state: "completed", dependencies: [], toolNames: ["catalog.product_completeness"], dataClasses: ["internal"] }],
+      costs: { reservedMicros: 200, settledMicros: 125 },
+      report: { completionState: "partial", summary: "One branch unavailable", unavailableBranches: [{ subtaskId: expect.any(String), reasonCode: "RETRY_EXHAUSTED" }] },
+    });
+    expect(operations.timeline.map(({ occurredAt, id }: any) => [occurredAt, id]))
+      .toEqual([...operations.timeline].sort((left: any, right: any) => left.occurredAt.localeCompare(right.occurredAt) || left.id.localeCompare(right.id)).map(({ occurredAt, id }: any) => [occurredAt, id]));
+    expect(JSON.stringify(operations)).not.toContain("private prompt");
+    expect(JSON.stringify(operations)).not.toContain("objectKey");
+  });
+
+  it("enforces task scope before loading operations and withholds an unbound report", async () => {
+    const { service, repository } = harness();
+    const created = await service.createTaskIntake({ mode: "advanced", goal: "Scoped", instructions: "private", idempotencyKey: "console:operations:scope" }, operator);
+    const other = { ...operator, subject: "operator-b" };
+    await expect(service.getTaskOperations(created.detail.task.id, other)).rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
+    expect(repository.getConsoleTaskOperations).not.toHaveBeenCalled();
+
+    const record = await repository.getConsoleTaskOperations(session, created.detail.task.id);
+    vi.mocked(repository.getConsoleTaskOperations).mockResolvedValueOnce({
+      ...record!, report: { ...record!.report!, payloadDigest: "0".repeat(64) },
+    });
+    await expect(service.getTaskOperations(created.detail.task.id, operator))
+      .resolves.not.toHaveProperty("report");
+  });
 });
 
 function harness() {
   const tasks = new Map<string, any>();
   const graphs = new Map<string, any>();
   const bindings = new Map<string, StaffIntakeBinding>();
+  const provenanceId = "00000000-0000-4000-8000-000000000090";
+  const branchId = "00000000-0000-4000-8000-000000000091";
+  const reportPayload = {
+    schemaVersion: 1 as const, completionState: "partial" as const, summary: "One branch unavailable",
+    conclusions: [{ code: "CATALOG_REVIEWED", statement: "Catalog evidence was reviewed", provenanceIds: [provenanceId] }],
+    risks: [], recommendedActions: [], conflicts: [], acceptedResultReferences: [],
+    unavailableBranches: [{ subtaskId: branchId, reasonCode: "RETRY_EXHAUSTED" }],
+  };
+  const reportDigest = canonicalDigest(reportPayload);
   const repository = {
     bindStaffIntake: vi.fn(async (_session: DatabaseSession, binding: StaffIntakeBinding) => {
       const key = `${binding.kind}:${binding.actorId}:${binding.idempotencyKey}`;
@@ -146,6 +194,27 @@ function harness() {
         maxInvocations: 1,
       }],
     })),
+    hasConsoleTaskAccess: vi.fn(async (_session: DatabaseSession, taskId: string, scope: { kind: string; actorId?: string }) => {
+      const task = tasks.get(taskId);
+      return task !== undefined && (scope.kind !== "owner" || scope.actorId === task.createdBy);
+    }),
+    getConsoleTaskOperations: vi.fn(async (_session: DatabaseSession, taskId: string) => {
+      const task = tasks.get(taskId);
+      if (task === undefined) return undefined;
+      return {
+        task,
+        workflow: { id: "00000000-0000-4000-8000-000000000092", taskId, workflowName: "StoreHealthReviewWorkflowV1" as const, workflowVersion: 1 as const, planRevision: 1, temporalWorkflowId: `store-health-${taskId}`, state: "partially_completed" as const, projectionSequence: 4, outcomeCode: "PARTIAL_ACTIVITY_FAILURE" as const, version: 4, createdAt: "2026-08-25T00:00:01.000Z", updatedAt: "2026-08-25T00:00:04.000Z", completedAt: "2026-08-25T00:00:04.000Z" },
+        timeline: [
+          { id: "z", kind: "workflow", state: "partially_completed", occurredAt: "2026-08-25T00:00:04.000Z", reasonCode: "PARTIAL_ACTIVITY_FAILURE" },
+          { id: "a", kind: "quality_review", state: "completed", occurredAt: "2026-08-25T00:00:03.000Z", branchId },
+        ],
+        branches: [{ id: branchId, owner: "catalog", state: "completed", dependencies: [], toolNames: ["catalog.product_completeness"], dataClasses: ["internal"] }],
+        reservedMicros: 200, settledMicros: 125,
+        approvals: [{ id: "00000000-0000-4000-8000-000000000093", state: "approved" as const, requesterId: "operator-a", approverScope: "workflow_execution" as const, action: "execute", resourceType: "agentic_workflow", resourceId: taskId, parametersDigest: "a".repeat(64), taskId, policyVersion: 1, configurationRevisionId: "00000000-0000-4000-8000-000000000099", expiresAt: "2026-08-26T00:00:00.000Z", decidedBy: "approver-a", decisionReason: "Approved", decidedAt: "2026-08-25T00:00:02.000Z", version: 2, createdAt: "2026-08-25T00:00:01.000Z" }],
+        provenance: [{ id: provenanceId, taskId, sourceType: "staff_task_intake", sourceId: "operator-a", sourceDigest: "b".repeat(64), classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-25T00:00:00.000Z" }],
+        report: { reportDigest, payloadDigest: reportDigest, completionState: "partial" as const, payload: reportPayload },
+      };
+    }),
   };
   let id = 0;
   return {

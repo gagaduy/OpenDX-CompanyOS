@@ -416,7 +416,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
   };
   const handler = (route: string): RequestHandler => (_request, response) => response.json({ success: true, data: { route } });
   const controller = {
-    createTaskIntake: handler("createTaskIntake"), getTaskOverview: handler("getTaskOverview"),
+    createTaskIntake: handler("createTaskIntake"), getTaskOverview: handler("getTaskOverview"), getTaskOperations: handler("getTaskOperations"),
     createTask: handler("createTask"), listTasks: handler("listTasks"), getTask: handler("getTask"), updateTask: handler("updateTask"), readyTask: handler("readyTask"), cancelTask: handler("cancelTask"),
     listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), decideApproval: handler("decideApproval"),
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),

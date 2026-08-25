@@ -24,6 +24,7 @@ import type {
   AgenticFileApprovalReplay,
   AgenticFileApprovalResult,
   AgenticConsoleTaskOverviewRecord,
+  AgenticConsoleTaskOperationsRecord,
   AgenticConsoleTaskRecord,
   AgenticConsoleTaskRepositoryFilter,
   AgenticConsoleTaskScope,
@@ -930,6 +931,104 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       pendingApprovals: Number(row.pending_approvals ?? 0),
       settledCostMicros: Number(row.settled_cost_micros ?? 0),
     };
+  }
+
+  async getConsoleTaskOperations(
+    session: DatabaseSession,
+    taskId: string,
+  ): Promise<AgenticConsoleTaskOperationsRecord | undefined> {
+    const taskResult = await session.query<Row>("SELECT * FROM agentic_tasks WHERE id=$1", [taskId]);
+    const taskRow = taskResult.rows[0];
+    if (taskRow === undefined) return undefined;
+    const workflowResult = await session.query<Row>("SELECT * FROM agentic_workflow_runs WHERE task_id=$1 ORDER BY created_at,id", [taskId]);
+    const activityResult = await session.query<Row>(`SELECT activity.* FROM agentic_activity_invocations activity
+        JOIN agentic_workflow_runs workflow ON workflow.id=activity.workflow_run_id
+        WHERE workflow.task_id=$1 ORDER BY activity.updated_at,activity.invocation_key`, [taskId]);
+    const auditResult = await session.query<Row>("SELECT * FROM agentic_audit_events WHERE task_id=$1 ORDER BY occurred_at,id", [taskId]);
+    const branchResult = await session.query<Row>(`WITH latest_plan AS (
+          SELECT id FROM agentic_orchestration_plan_revisions WHERE task_id=$1 ORDER BY version DESC,id LIMIT 1
+        )
+        SELECT subtask.id,subtask.agent_kind,
+          COALESCE((SELECT jsonb_agg(dependency.dependency_subtask_id ORDER BY dependency.dependency_subtask_id)
+            FROM agentic_orchestration_plan_dependencies dependency
+            WHERE dependency.plan_id=subtask.plan_id AND dependency.subtask_id=subtask.id),'[]'::jsonb) dependencies,
+          CASE WHEN accepted.id IS NOT NULL THEN 'completed'
+            ELSE COALESCE(activity.state,'pending') END state,
+          COALESCE(payload.payload->'toolGrants','[]'::jsonb) tool_grants
+        FROM agentic_orchestration_plan_subtasks subtask
+        JOIN latest_plan ON latest_plan.id=subtask.plan_id
+        LEFT JOIN agentic_accepted_orchestration_results accepted ON accepted.subtask_id=subtask.id
+        LEFT JOIN LATERAL (
+          SELECT invocation.state FROM agentic_activity_invocations invocation
+          JOIN agentic_workflow_runs workflow ON workflow.id=invocation.workflow_run_id
+          WHERE workflow.task_id=$1 AND invocation.branch_id=subtask.id
+          ORDER BY invocation.updated_at DESC,invocation.invocation_key DESC LIMIT 1
+        ) activity ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT descriptor.id FROM agentic_orchestration_execution_descriptors descriptor
+          WHERE descriptor.task_id=$1 AND descriptor.subtask_id=subtask.id
+          ORDER BY descriptor.version DESC,descriptor.id LIMIT 1
+        ) descriptor ON TRUE
+        LEFT JOIN agentic_orchestration_execution_payloads payload ON payload.descriptor_id=descriptor.id
+        ORDER BY subtask.agent_kind,subtask.id`, [taskId]);
+    const costResult = await session.query<Row>(`SELECT
+        COALESCE(sum(cost_micros) FILTER (WHERE entry_type='reservation'),0)::text reserved,
+        COALESCE(sum(cost_micros) FILTER (WHERE entry_type='settlement'),0)::text settled
+        FROM agentic_budget_entries WHERE task_id=$1`, [taskId]);
+    const approvalResult = await session.query<Row>("SELECT * FROM agentic_approval_requests WHERE task_id=$1 ORDER BY created_at,id", [taskId]);
+    const provenanceResult = await session.query<Row>("SELECT * FROM agentic_provenance_records WHERE task_id=$1 ORDER BY recorded_at,id", [taskId]);
+    const reportResult = await session.query<Row>(`SELECT report.report_digest,report.completion_state,payload.payload,payload.payload_digest
+        FROM agentic_executive_reports report
+        JOIN agentic_executive_report_payloads payload ON payload.report_id=report.id
+        WHERE report.task_id=$1 ORDER BY report.plan_version DESC,report.id LIMIT 1`, [taskId]);
+    const workflows = workflowResult.rows.map(mapWorkflowRun);
+    const activities = activityResult.rows.map(mapActivityInvocation);
+    const approvals = approvalResult.rows.map(mapApproval);
+    const timeline = [
+      ...workflows.map((run) => ({ id: `workflow:${run.id}:${run.version}`, kind: "workflow", state: run.state, occurredAt: run.updatedAt, ...(run.outcomeCode === undefined ? {} : { reasonCode: run.outcomeCode }) })),
+      ...activities.map((activity) => ({ id: `activity:${activity.invocationKey}`, kind: activity.activityKind, state: activity.state, occurredAt: activity.updatedAt, ...(activity.branchId === undefined ? {} : { branchId: activity.branchId }), ...(activity.outcomeCode === undefined ? {} : { reasonCode: activity.outcomeCode }) })),
+      ...auditResult.rows.map(mapAudit).map((audit) => ({ id: `audit:${audit.id}`, kind: audit.action, state: audit.outcome, occurredAt: audit.occurredAt, ...(audit.errorCode === undefined ? {} : { reasonCode: audit.errorCode }) })),
+      ...approvals.map((approval) => ({ id: `approval:${approval.id}:${approval.version}`, kind: "approval", state: approval.state, occurredAt: approval.decidedAt ?? approval.createdAt, reasonCode: approval.action })),
+    ];
+    const reportRow = reportResult.rows[0];
+    const costRow = costResult.rows[0] ?? {};
+    return {
+      task: mapTask(taskRow),
+      ...(workflows.at(-1) === undefined ? {} : { workflow: workflows.at(-1)! }),
+      timeline,
+      branches: branchResult.rows.map((row) => {
+        const grants = Array.isArray(row.tool_grants) ? row.tool_grants : [];
+        return {
+          id: String(row.id), owner: String(row.agent_kind), state: String(row.state),
+          dependencies: jsonStrings(row.dependencies),
+          toolNames: uniqueStrings(grants.map((grant) => recordString(grant, "name"))),
+          dataClasses: uniqueStrings(grants.map((grant) => recordString(grant, "dataClassification"))),
+        };
+      }),
+      reservedMicros: safeInteger(costRow.reserved ?? 0),
+      settledMicros: safeInteger(costRow.settled ?? 0),
+      approvals,
+      provenance: provenanceResult.rows.map(mapProvenance),
+      ...(reportRow === undefined ? {} : { report: {
+        reportDigest: String(reportRow.report_digest), payloadDigest: String(reportRow.payload_digest),
+        completionState: reportRow.completion_state as "complete" | "partial" | "quality_escalated" | "canceled",
+        payload: reportRow.payload as Readonly<Record<string, unknown>>,
+      } }),
+    };
+  }
+
+  async hasConsoleTaskAccess(
+    session: DatabaseSession,
+    taskId: string,
+    scope: AgenticConsoleTaskScope,
+  ): Promise<boolean> {
+    const values: unknown[] = [taskId];
+    const conditions = consoleTaskScopeConditions(scope, values);
+    const result = await session.query(
+      `SELECT 1 FROM agentic_tasks t WHERE t.id=$1 AND ${conditions.join(" AND ")}`,
+      values,
+    );
+    return result.rowCount === 1;
   }
 
   async listAllTasks(
@@ -2732,6 +2831,19 @@ function safeInteger(value: unknown): number {
   const parsed = Number(String(value));
   if (!Number.isSafeInteger(parsed)) throw new RangeError("Database integer exceeds safe range");
   return parsed;
+}
+
+function jsonStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function recordString(value: unknown, key: string): string {
+  return typeof value === "object" && value !== null && key in value && typeof value[key as keyof typeof value] === "string"
+    ? String(value[key as keyof typeof value]) : "";
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))].sort();
 }
 
 function isPostgresUniqueViolation(error: unknown): boolean {

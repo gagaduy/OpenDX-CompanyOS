@@ -399,6 +399,30 @@ export type AgenticConsoleTaskRecord = Omit<AgentTask, "state"> & {
   readonly state: AgentTask["state"] | WorkflowRunState;
 };
 
+export interface AgenticConsoleTaskOperationsRecord {
+  readonly task: AgentTask;
+  readonly workflow?: WorkflowRun;
+  readonly timeline: readonly {
+    readonly id: string; readonly kind: string; readonly state: string;
+    readonly occurredAt: string; readonly branchId?: string; readonly reasonCode?: string;
+  }[];
+  readonly branches: readonly {
+    readonly id: string; readonly owner: string; readonly state: string;
+    readonly dependencies: readonly string[]; readonly toolNames: readonly string[];
+    readonly dataClasses: readonly string[];
+  }[];
+  readonly reservedMicros: number;
+  readonly settledMicros: number;
+  readonly approvals: readonly ApprovalRequest[];
+  readonly provenance: readonly ProvenanceRecord[];
+  readonly report?: {
+    readonly reportDigest: string;
+    readonly payloadDigest: string;
+    readonly completionState: "complete" | "partial" | "quality_escalated" | "canceled";
+    readonly payload: Readonly<Record<string, unknown>>;
+  };
+}
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -489,6 +513,8 @@ export interface AgenticRepository {
   bindStaffIntake(session: DatabaseSession, binding: StaffIntakeBinding): Promise<"created" | "duplicate" | "conflict">;
   listConsoleTasks(session: DatabaseSession, filter: AgenticConsoleTaskRepositoryFilter): Promise<{ readonly items: readonly AgenticConsoleTaskRecord[]; readonly totalItems: number }>;
   getConsoleTaskOverview(session: DatabaseSession, scope: AgenticConsoleTaskScope): Promise<AgenticConsoleTaskOverviewRecord>;
+  hasConsoleTaskAccess(session: DatabaseSession, taskId: string, scope: AgenticConsoleTaskScope): Promise<boolean>;
+  getConsoleTaskOperations(session: DatabaseSession, taskId: string): Promise<AgenticConsoleTaskOperationsRecord | undefined>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;

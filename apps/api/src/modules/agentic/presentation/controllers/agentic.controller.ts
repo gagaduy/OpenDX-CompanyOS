@@ -44,6 +44,10 @@ export class AgenticController {
     parseEmptyQuery(request.query);
     response.json(successResponse("Agent task overview retrieved", await consoleTasks(this.consoleService).getOverview(principal(response.locals))));
   });
+  readonly getTaskOperations = handle(async (request, response) => {
+    response.json(successResponse("Agent task operations retrieved", await consoleTasks(this.consoleService)
+      .getTaskOperations(parseUuid(request.params.taskId), principal(response.locals))));
+  });
 
   readonly createTask = handle(async (request, response) => {
     response.status(201).json(successResponse("Agent task created", await this.tasks.create(parseCreateTask(request.body), principal(response.locals))));

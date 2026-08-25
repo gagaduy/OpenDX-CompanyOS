@@ -18,6 +18,7 @@ describe("AgenticTasksPage", () => {
     expect(api.listTasks).toHaveBeenCalledWith(expect.objectContaining({ state: "ready" }), expect.any(AbortSignal));
     expect(screen.getByText("Waiting approvals")).toBeVisible();
     expect(screen.getByRole("link", { name: "New task" })).toHaveAttribute("href", "/agentic/tasks/new");
+    expect(screen.getByRole("link", { name: "Review Store Health" })).toHaveAttribute("href", "/agentic/tasks/00000000-0000-4000-8000-000000000001");
   });
 
   it("shows a recoverable invalid-response state", async () => {
@@ -35,5 +36,6 @@ function fakeApi(): AgenticApi {
     listTasks: vi.fn(async () => ({ items: [{ id: "00000000-0000-4000-8000-000000000001", state: "ready" as const, createdBy: "operator-a", goal: "Review Store Health", version: 1, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }], totalItems: 1, refreshedAt: "2026-08-25T00:00:00.000Z" })),
     createTask: vi.fn(),
     uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(),
+    loadOperations: vi.fn(), cancelWorkflow: vi.fn(),
   };
 }

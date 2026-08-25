@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add timeline-first Digital Workforce task operations with owner/oversight
+  projections, Department dependency and tool summaries, safe cost and
+  provenance views, digest-bound executive reports, active polling, and
+  authoritative cancellation refresh.
+
 - Add the private Digital Workforce file-intake journey with actor-bound upload
   replay, bounded CSV/TXT preview, active-configuration governance projection,
   version-and-digest-bound approval, and safe task navigation.

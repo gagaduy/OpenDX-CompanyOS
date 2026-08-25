@@ -428,6 +428,18 @@ suite("PostgresqlAgenticRepository", () => {
       pendingApprovals: 0,
       settledCostMicros: 0,
     });
+    await expect(transactions.runReadOnly((session) => repository.hasConsoleTaskAccess(
+      session, firstId, { kind: "owner", actorId: "operator-a" },
+    ))).resolves.toBe(true);
+    await expect(transactions.runReadOnly((session) => repository.hasConsoleTaskAccess(
+      session, firstId, { kind: "owner", actorId: "operator-b" },
+    ))).resolves.toBe(false);
+    await expect(transactions.runReadOnly((session) => repository.getConsoleTaskOperations(
+      session, firstId,
+    ))).resolves.toMatchObject({
+      task: { id: firstId }, timeline: [], branches: [], reservedMicros: 0,
+      settledMicros: 0, approvals: [], provenance: [],
+    });
   });
 
   it("rejects reuse of an approval idempotency key with a changed preview payload", async () => {
