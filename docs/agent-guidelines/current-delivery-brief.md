@@ -10,10 +10,11 @@ agents; consult linked documents only when the change needs their detail.
 
 ## Current Focus
 
-Commerce Phases 1-8 are complete. Post-Commerce Agentic Workforce Phase D
-(governed OpenRouter runtime) is in progress; its credential-owned live
-acceptance remains outstanding. The canonical status, approved scope, and
-active branch information are in [`../roadmap/mvp-status.md`](../roadmap/mvp-status.md).
+Commerce Phases 1-8 are complete. Post-Commerce Agentic Workforce Phases A-E
+and Phase F Slice 1 are complete; Phase F schedules and Company Memory remain
+deferred with GraphRAG and later phases. The canonical status, approved scope,
+and active branch information are in
+[`../roadmap/mvp-status.md`](../roadmap/mvp-status.md).
 
 ## Non-Negotiable Boundaries
 

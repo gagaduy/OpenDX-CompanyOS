@@ -26,6 +26,7 @@ from app.agentic.domain.contracts import (
     ActivityReservationRequest,
     ApprovalRequirement,
     FrozenWorkflowPlan,
+    OrchestrationCollaborationInstruction,
     OrchestrationDispatchNode,
     OrchestrationDispatchPlan,
     PlanDependency,
@@ -115,6 +116,12 @@ class AgenticControlClient:
                     dependencies=tuple(node["dependencies"]),
                     descriptor_id=node["descriptorId"],
                     descriptor_digest=node["descriptorDigest"],
+                    collaborations=tuple(OrchestrationCollaborationInstruction(
+                        requester_subtask_id=item["requesterSubtaskId"],
+                        requester_agent_kind=item["requesterAgentKind"],
+                        purpose=item["purpose"],
+                        requested_data_classification=item["requestedDataClassification"],
+                    ) for item in node["collaborations"]),
                 ) for node in data["nodes"]),
             )
         except (KeyError, TypeError, ValueError) as error:

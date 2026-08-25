@@ -102,9 +102,14 @@ def test_workload_identity_values_are_required(name: str) -> None:
         RuntimeSettings.from_mapping(values)
 
 
-def test_ai_ceo_identity_is_required_and_redacted() -> None:
-    settings = RuntimeSettings.from_mapping(environment())
+def test_ai_ceo_identity_is_required_and_redacted_for_descriptor_execution() -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
+    }
+    settings = RuntimeSettings.from_mapping(values)
 
+    assert settings.keycloak.ai_ceo_identity is not None
     assert settings.keycloak.ai_ceo_identity.client_id == "agent-ai-ceo"
     assert settings.keycloak.ai_ceo_identity.client_secret == "local-ai-ceo-secret"
     assert "local-ai-ceo-secret" not in repr(settings)
@@ -112,7 +117,8 @@ def test_ai_ceo_identity_is_required_and_redacted() -> None:
 
 def test_descriptor_execution_requires_six_distinct_department_identities() -> None:
     values = environment() | _department_identities() | {
-        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true"
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
     }
 
     settings = RuntimeSettings.from_mapping(values)
@@ -121,16 +127,32 @@ def test_descriptor_execution_requires_six_distinct_department_identities() -> N
     assert tuple(settings.keycloak.department_identities) == (
         "catalog", "inventory", "order", "finance", "crm", "support"
     )
+    assert settings.department_tool_api_base_url == "http://api:4000/v1/internal/agentic"
     assert "catalog-secret" not in repr(settings)
 
 
 def test_descriptor_execution_fails_closed_when_one_department_secret_is_missing() -> None:
     values = environment() | _department_identities() | {
-        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true"
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
     }
     values.pop("AGENT_SUPPORT_CLIENT_SECRET")
 
     with pytest.raises(ConfigurationError, match="AGENT_SUPPORT_CLIENT_SECRET"):
+        RuntimeSettings.from_mapping(values)
+
+
+@pytest.mark.parametrize(
+    "name", ["AGENT_AI_CEO_CLIENT_ID", "AGENT_AI_CEO_CLIENT_SECRET", "DEPARTMENT_TOOL_API_BASE_URL"]
+)
+def test_descriptor_execution_requires_ai_ceo_and_private_tool_boundary(name: str) -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
+    }
+    values.pop(name)
+
+    with pytest.raises(ConfigurationError, match=name):
         RuntimeSettings.from_mapping(values)
 
 
@@ -146,6 +168,7 @@ def test_descriptor_execution_fails_closed_when_one_department_secret_is_missing
 def test_agent_and_worker_credentials_must_be_distinct(name: str, value: str) -> None:
     values = environment() | _department_identities() | {
         "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
         name: value,
     }
 

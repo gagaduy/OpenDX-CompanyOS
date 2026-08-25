@@ -53,7 +53,7 @@ class KeycloakSettings:
     worker_audience: str
     worker_client_id: str
     worker_client_secret: str = dataclass_field(repr=False)
-    ai_ceo_identity: DepartmentIdentitySettings
+    ai_ceo_identity: DepartmentIdentitySettings | None
     department_identities: Mapping[DepartmentAgentKind, DepartmentIdentitySettings]
 
 
@@ -82,6 +82,7 @@ class RuntimeSettings:
     bind_port: int
     keycloak: KeycloakSettings
     agentic_api_base_url: str
+    department_tool_api_base_url: str
     temporal: TemporalSettings
     activity: ActivitySettings
     openrouter: OpenRouterSettings
@@ -126,14 +127,15 @@ class RuntimeSettings:
         descriptor_execution_enabled = _boolean(
             values, "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED", False
         )
-        ai_ceo_identity = DepartmentIdentitySettings(
-            client_id=_required(values, "AGENT_AI_CEO_CLIENT_ID"),
-            client_secret=_required(values, "AGENT_AI_CEO_CLIENT_SECRET"),
-        )
+        ai_ceo_identity = None
         department_identities: dict[
             DepartmentAgentKind, DepartmentIdentitySettings
         ] = {}
         if descriptor_execution_enabled:
+            ai_ceo_identity = DepartmentIdentitySettings(
+                client_id=_required(values, "AGENT_AI_CEO_CLIENT_ID"),
+                client_secret=_required(values, "AGENT_AI_CEO_CLIENT_SECRET"),
+            )
             for agent_kind in DEPARTMENT_AGENT_KINDS:
                 prefix = f"AGENT_{agent_kind.upper()}"
                 department_identities[agent_kind] = DepartmentIdentitySettings(
@@ -142,10 +144,11 @@ class RuntimeSettings:
                 )
         worker_client_id = _required(values, "AGENTIC_WORKER_CLIENT_ID")
         worker_client_secret = _required(values, "AGENTIC_WORKER_CLIENT_SECRET")
-        _validate_distinct_agent_credentials(
-            worker_client_id, worker_client_secret, ai_ceo_identity,
-            tuple(department_identities.values()),
-        )
+        if ai_ceo_identity is not None:
+            _validate_distinct_agent_credentials(
+                worker_client_id, worker_client_secret, ai_ceo_identity,
+                tuple(department_identities.values()),
+            )
         keycloak = KeycloakSettings(
             issuer=_http_url(values, "KEYCLOAK_ISSUER", environment),
             jwks_url=_http_url(values, "KEYCLOAK_JWKS_URL", environment),
@@ -181,14 +184,22 @@ class RuntimeSettings:
                 "OPENROUTER_BASE_URL must use the official HTTPS OpenRouter API in production"
             )
 
+        agentic_api_base_url = _http_url(
+            values, "AGENTIC_API_BASE_URL", environment
+        ).rstrip("/")
+        department_tool_api_base_url = agentic_api_base_url
+        if descriptor_execution_enabled:
+            department_tool_api_base_url = _http_url(
+                values, "DEPARTMENT_TOOL_API_BASE_URL", environment
+            ).rstrip("/")
+
         return cls(
             environment=environment,
             bind_host=_value(values, "AI_RUNTIME_HOST", "0.0.0.0"),
             bind_port=_positive_integer(values, "AI_RUNTIME_PORT", 8000, maximum=65_535),
             keycloak=keycloak,
-            agentic_api_base_url=_http_url(
-                values, "AGENTIC_API_BASE_URL", environment
-            ).rstrip("/"),
+            agentic_api_base_url=agentic_api_base_url,
+            department_tool_api_base_url=department_tool_api_base_url,
             temporal=TemporalSettings(
                 address=_temporal_address(values),
                 namespace=_value(values, "TEMPORAL_NAMESPACE", "opendx"),

@@ -269,6 +269,56 @@ Approval signals carry `{ "idempotencyKey": "receipt-id", "approvalId":
 `payloadDigest`, and `reasonCode`. The `idempotency-key` header must equal the
 body value.
 
+## Phase F descriptor orchestration
+
+Phase F Slice 1 keeps the API authoritative while the Temporal worker carries
+only immutable IDs, digests, statuses, provenance IDs, and idempotency keys.
+Task briefs, accepted model content, authorized context, tool grants, and
+executive-report bodies stay private to the API/runtime process boundary and
+must never be written to Temporal history or logs.
+
+The AI CEO alone may submit `POST /v1/internal/agentic/orchestration/plans`.
+The worker uses the following private, workload-authenticated routes; each DTO
+is purpose-specific, bounded, and rejects unknown fields:
+
+| Method and path | Contract |
+| --- | --- |
+| `GET /orchestration/task-briefs/:taskId` | Private planning context plus an expiring planning-authority reference. |
+| `GET /orchestration/dispatch-plans/:runId` | Accepted plan version/digest and dependency nodes containing descriptor ID/digest references only. |
+| `GET /orchestration/descriptors/:descriptorId` | Private Department execution authority and payload; requires the matching descriptor-digest header. |
+| `GET /orchestration/ai-ceo-authorities/:authorityId` | Private planning or synthesis authority; requires the matching authority-digest header. |
+| `POST /orchestration/synthesis-contexts` | Resolves accepted Department result references into private synthesis context. |
+| `POST /orchestration/results` | Idempotently settles one descriptor-bound Department result digest and provenance set. |
+| `POST /orchestration/collaborations` | Mediates one bounded cross-Department summary through API policy. |
+| `POST /orchestration/reports` | Idempotently settles the provenance-bound executive report reference. |
+| `GET /orchestration/settlements/:kind/:id` | Recovers a prior plan, result, collaboration, or report settlement after a lost response. |
+
+Slice 1 exposes one server-owned collaboration route: Catalog may provide its
+accepted bounded result reference to Inventory for `compare_availability` at
+`internal` classification. The API emits this instruction only for the
+corresponding accepted-plan dependency and re-evaluates policy before storing
+the request; the worker cannot invent a route or forward raw Department context.
+
+The worker, AI CEO, Catalog, Inventory, Order, Finance, CRM, and Support use
+distinct confidential Keycloak service accounts. A Department token cannot
+submit an AI CEO plan or invoke another Department's Tool Registry grants.
+The API rechecks current task, configuration, policy, revocation, schema,
+budget, descriptor, provenance, and idempotency bindings before every effect.
+
+The named Temporal patch `phase-f-execution-descriptor-v1` preserves all five
+Phase B histories unchanged. New runs fan out dependency-ready descriptor
+references in stable ID order, mark failed or blocked branches unavailable,
+synthesize honest partial results, and drain planning, dispatch, Department,
+and synthesis activities on cancellation. Retries and worker restart reuse
+the same idempotency keys; browser redirects or Temporal completion alone do
+not establish accepted model, tool, or report truth.
+
+`ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED` is opt-in. Keep it disabled until
+the seven distinct execution identities, private Department Tool API URL,
+active governed model configuration, and OpenRouter execution are configured.
+Replan or create a new governed task when frozen descriptor bindings expire or
+are revoked; do not mutate an accepted plan in place.
+
 ## Error Codes
 
 Common transport codes are `VALIDATION_ERROR` (`400`), authentication errors
@@ -288,5 +338,7 @@ routes remain available as previously documented. Phase D adds an internal
 `execute_model_analysis_v1` Temporal activity. It accepts only an authorized
 Agent command, reserves and settles model runs through the API, and returns only
 `status`, `outputDigest`, and `qualityReasonCodes`; prompt and response bodies
-never leave the activity result. It does not add generic SQL, file intake,
-Agentic Console UI, AI CEO delegation, or production SePay activation.
+never leave the activity result. Phase F Slice 1 adds the governed AI CEO and
+six-Department descriptor path described above; it does not add schedules,
+Company Memory, GraphRAG, generic SQL, Agentic Console UI, Commerce mutation,
+or production SePay activation.

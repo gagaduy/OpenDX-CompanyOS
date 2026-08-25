@@ -24,12 +24,6 @@ x-api-environment: &api-environment
   KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/opendx/protocol/openid-connect/token
   AGENTIC_CONTROL_CLIENT_ID: opendx-agentic-control
   AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
-  AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
-  AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
-  AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
-  AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
-  AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
-  AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
   AGENTIC_CONTROL_AUDIENCE: opendx-ai-runtime
   AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
   AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-true}
@@ -203,6 +197,7 @@ services:
       KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8080}
       AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
       AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
       AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
       AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
       AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
@@ -230,6 +225,7 @@ services:
       CONSOLE_ORIGIN: http://localhost:3000
       AGENTIC_CONTROL_CLIENT_SECRET: ${AGENTIC_CONTROL_CLIENT_SECRET:-opendx_agentic_control_change_me}
       AGENTIC_WORKER_CLIENT_SECRET: ${AGENTIC_WORKER_CLIENT_SECRET:-opendx_agentic_worker_change_me}
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
       AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
       AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
       AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
@@ -368,7 +364,24 @@ services:
       target: production
       network: host
     command: ["python", "-m", "app.agentic.worker"]
-    environment: *ai-environment
+    environment:
+      <<: *ai-environment
+      ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED: ${ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED:-false}
+      DEPARTMENT_TOOL_API_BASE_URL: http://api:4000/v1/internal/agentic
+      AGENT_AI_CEO_CLIENT_ID: agent-ai-ceo
+      AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
+      AGENT_CATALOG_CLIENT_ID: agent-catalog
+      AGENT_CATALOG_CLIENT_SECRET: ${AGENT_CATALOG_CLIENT_SECRET:-opendx_agent_catalog_change_me}
+      AGENT_INVENTORY_CLIENT_ID: agent-inventory
+      AGENT_INVENTORY_CLIENT_SECRET: ${AGENT_INVENTORY_CLIENT_SECRET:-opendx_agent_inventory_change_me}
+      AGENT_ORDER_CLIENT_ID: agent-order
+      AGENT_ORDER_CLIENT_SECRET: ${AGENT_ORDER_CLIENT_SECRET:-opendx_agent_order_change_me}
+      AGENT_FINANCE_CLIENT_ID: agent-finance
+      AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
+      AGENT_CRM_CLIENT_ID: agent-crm
+      AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
+      AGENT_SUPPORT_CLIENT_ID: agent-support
+      AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
     depends_on:
       temporal-namespace:
         condition: service_completed_successfully

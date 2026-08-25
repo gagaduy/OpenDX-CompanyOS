@@ -16,7 +16,7 @@ import { createAiCeoExecutionAuthority, validateAiCeoExecutionAuthority } from "
 import type { ExecutionDescriptor } from "../../../domain/entities/orchestration-execution-descriptor";
 import { canonicalDigest, createExecutionDescriptor, validateExecutionDescriptor } from "../../../domain/entities/orchestration-execution-descriptor";
 import { validateOrchestrationPlan } from "../../../domain/services/ai-ceo-orchestration-rules";
-import { parseStoreHealthResult, resolveStoreHealthExecution, STORE_HEALTH_EXECUTION_CATALOG, validateStoreHealthResultBindings } from "../../orchestration/store-health-execution-catalog";
+import { parseStoreHealthResult, resolveStoreHealthCollaboration, resolveStoreHealthExecution, STORE_HEALTH_EXECUTION_CATALOG, validateStoreHealthResultBindings } from "../../orchestration/store-health-execution-catalog";
 import { AI_CEO_EXECUTION_CATALOG, parseAiCeoExecutiveReport, validateAiCeoExecutiveReportBindings } from "../../orchestration/ai-ceo-execution-catalog";
 import type { AiCeoExecutiveReport } from "../../orchestration/ai-ceo-execution-catalog";
 import { AgenticApplicationError } from "../agentic-application.error";
@@ -127,7 +127,19 @@ export class OrchestrationServiceImpl implements OrchestrationService {
         policyVersion: found.authority.policyVersion,
         authorizedContext: found.payload.authorizedContext,
       });
-      return Object.freeze({ ...plan, synthesisAuthority: authorityReference(authority) });
+      const bySubtask = new Map(plan.nodes.map((node) => [node.subtaskId, node]));
+      const nodes = plan.nodes.map((node) => Object.freeze({ ...node,
+        collaborations: Object.freeze(node.dependencies.flatMap((requesterSubtaskId) => {
+          const requester = bySubtask.get(requesterSubtaskId);
+          if (requester === undefined) return [];
+          const route = resolveStoreHealthCollaboration(requester.agentKind, node.agentKind);
+          return route === undefined ? [] : [Object.freeze({
+            requesterSubtaskId, requesterAgentKind: requester.agentKind, ...route,
+          })];
+        })),
+      }));
+      return Object.freeze({ ...plan, nodes: Object.freeze(nodes),
+        synthesisAuthority: authorityReference(authority) });
     });
   }
 

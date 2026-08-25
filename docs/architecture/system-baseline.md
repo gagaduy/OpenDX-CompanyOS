@@ -15,8 +15,9 @@ OpenDX CompanyOS has six functional layers:
 - Identity Plane.
 - Company Operating Core.
 - Audit and Governance.
-- Intelligence Layer: governed Agent control and durable workflow execution;
-  model-backed tools and GraphRAG remain later phases.
+- Intelligence Layer: governed Agent control, durable workflow execution,
+  model-backed Department tools, and AI CEO coordination; Company Memory and
+  GraphRAG remain later phases.
 
 ## MVP Deployment
 
@@ -35,9 +36,10 @@ OpenDX CompanyOS has six functional layers:
 Temporal 1.31.2 and the Python Temporal SDK 1.30.0 provide the isolated durable
 workflow runtime. Phase C adds 17 fixed, typed, read-only Department tools
 behind six service identities, public Commerce read ports, and three restricted
-Reporting views. pgvector, graph projection storage, model
-providers, and GraphRAG remain future directions and do not alter Commerce
-truth.
+Reporting views. Phase D-F Slice 1 add governed model execution, private file
+intake, and AI CEO descriptor orchestration. pgvector, graph projection
+storage, Company Memory, and GraphRAG remain future directions and do not alter
+Commerce truth.
 
 ## Single-Company Boundary
 
@@ -52,9 +54,10 @@ risk level.
 - Existing: PostgreSQL-backed Company Operating Core, Catalog, Inventory,
   Customer, Cart, Promotion, Checkout, Order, and Payment.
 - Commerce roadmap: CRM, Support, Reporting, and broader Audit surfaces.
-- Post-commerce: Agent governance, the first durable workflow, and bounded
-  Department Commerce reads are implemented; Skills, model execution, Graph, and broad
-  Integration remain later phases.
+- Post-commerce: Agent governance, durable workflow execution, bounded
+  Department Commerce reads, governed model execution, file intake, and AI CEO
+  coordination are implemented; Company Memory, Graph, and broad Integration
+  remain later phases.
 
 ## Core Entity Families
 
@@ -92,6 +95,14 @@ Adapters import owner contracts only through public module APIs. Analytics use
 an isolated pool whose role can select exactly three approved Reporting views.
 Commerce truth remains read-only and the Temporal workflow still has no model
 or real Department-analysis activity.
+
+Phase D adds governed OpenRouter model execution and Quality Gates. Phase E
+adds private scanned CSV/TXT intake and exactly-once preview approval. Phase F
+Slice 1 adds API-owned AI CEO planning/synthesis authority, immutable execution
+descriptors, six distinct Department identities, mediated collaboration,
+reference-only replay-safe Temporal DAG dispatch, and provenance-backed
+executive reports. Phase F remains opt-in; schedules, Company Memory, GraphRAG,
+and Commerce mutation are not included.
 
 Commerce payment, inventory, and order correctness remains independent and is
 enforced through PostgreSQL transactions, idempotency, state machines,

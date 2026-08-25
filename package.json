@@ -52,6 +52,8 @@
     "check:agentic-phase-d-exit": "pnpm test:agentic-phase-d-exit && node scripts/dev/agentic-phase-d-exit-check.mjs",
     "test:agentic-phase-e-exit": "node --test scripts/dev/agentic-phase-e-exit-check.test.mjs",
     "check:agentic-phase-e-exit": "pnpm test:agentic-phase-e-exit && node scripts/dev/agentic-phase-e-exit-check.mjs",
+    "test:agentic-phase-f-orchestration": "node --test scripts/dev/agentic-phase-f-orchestration-check.test.mjs && pnpm test:py -- tests/agentic/workflows/test_store_health_orchestration.py::test_phase_f_acceptance_restarts_worker_replays_history_without_duplicate_effects",
+    "check:agentic-phase-f-orchestration": "pnpm test:agentic-phase-f-orchestration && node scripts/dev/agentic-phase-f-orchestration-check.mjs",
     "check:phase8-accessibility": "node scripts/dev/phase8-accessibility-check.mjs",
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",

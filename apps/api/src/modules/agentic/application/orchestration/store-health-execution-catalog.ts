@@ -19,6 +19,11 @@ export interface StoreHealthExecutionCatalogEntry {
   readonly allowedToolsDigest: string;
 }
 
+export interface StoreHealthCollaborationRoute {
+  readonly purpose: "compare_availability";
+  readonly requestedDataClassification: "internal";
+}
+
 const DEPARTMENTS: readonly DepartmentAgentKind[] = [
   "catalog", "inventory", "order", "finance", "crm", "support",
 ];
@@ -68,6 +73,15 @@ export function resolveStoreHealthExecution(
     entry.agentKind === agentKind
     && entry.resultSchemaDigest === resultSchemaDigest
     && entry.allowedToolsDigest === allowedToolsDigest);
+}
+
+export function resolveStoreHealthCollaboration(
+  requester: DepartmentAgentKind,
+  requested: DepartmentAgentKind,
+): StoreHealthCollaborationRoute | undefined {
+  return requester === "catalog" && requested === "inventory"
+    ? Object.freeze({ purpose: "compare_availability", requestedDataClassification: "internal" })
+    : undefined;
 }
 
 export function parseStoreHealthResult(

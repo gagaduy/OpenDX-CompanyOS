@@ -108,7 +108,15 @@ export interface SynthesisContextView {
   readonly approvalHistoryDigest: string;
 }
 
-export interface OrchestrationDispatchPlanView extends OrchestrationDispatchPlanRecord {
+export interface OrchestrationDispatchPlanView extends Omit<OrchestrationDispatchPlanRecord, "nodes"> {
+  readonly nodes: readonly (OrchestrationDispatchPlanRecord["nodes"][number] & {
+    readonly collaborations: readonly {
+      readonly requesterSubtaskId: string;
+      readonly requesterAgentKind: DepartmentAgentKind;
+      readonly purpose: string;
+      readonly requestedDataClassification: "internal" | "confidential" | "restricted";
+    }[];
+  })[];
   readonly synthesisAuthority: AuthorityReference;
 }
 

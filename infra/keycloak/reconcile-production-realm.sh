@@ -8,6 +8,7 @@ set -eu
 : "${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
 : "${AGENTIC_CONTROL_CLIENT_SECRET:?AGENTIC_CONTROL_CLIENT_SECRET is required}"
 : "${AGENTIC_WORKER_CLIENT_SECRET:?AGENTIC_WORKER_CLIENT_SECRET is required}"
+: "${AGENT_AI_CEO_CLIENT_SECRET:?AGENT_AI_CEO_CLIENT_SECRET is required}"
 : "${AGENT_CATALOG_CLIENT_SECRET:?AGENT_CATALOG_CLIENT_SECRET is required}"
 : "${AGENT_INVENTORY_CLIENT_SECRET:?AGENT_INVENTORY_CLIENT_SECRET is required}"
 : "${AGENT_ORDER_CLIENT_SECRET:?AGENT_ORDER_CLIENT_SECRET is required}"
@@ -118,6 +119,8 @@ reconcile_client opendx-agentic-control "OpenDX Agentic Control" \
   "$AGENTIC_CONTROL_CLIENT_SECRET" opendx-ai-runtime opendx-ai-runtime-audience
 reconcile_client opendx-agentic-worker "OpenDX Agentic Worker" \
   "$AGENTIC_WORKER_CLIENT_SECRET" opendx-api opendx-api-audience
+reconcile_client agent-ai-ceo "OpenDX AI CEO Agent" \
+  "$AGENT_AI_CEO_CLIENT_SECRET" opendx-api opendx-api-audience
 reconcile_client agent-catalog "OpenDX Catalog Agent" \
   "$AGENT_CATALOG_CLIENT_SECRET" opendx-api opendx-api-audience
 reconcile_client agent-inventory "OpenDX Inventory Agent" \

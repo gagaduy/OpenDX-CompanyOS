@@ -161,9 +161,18 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
         if "/dispatch-plans/" in request.url.path:
             return httpx.Response(200, json={"success": True, "data": {
                 "taskId": identity, "planVersion": 1, "planDigest": "d" * 64,
-                "nodes": [{"subtaskId": identity, "agentKind": "catalog",
-                           "dependencies": [], "descriptorId": identity,
-                           "descriptorDigest": "e" * 64}],
+                "nodes": [
+                    {"subtaskId": identity, "agentKind": "catalog",
+                     "dependencies": [], "collaborations": [], "descriptorId": identity,
+                     "descriptorDigest": "e" * 64},
+                    {"subtaskId": "00000000-0000-4000-8000-000000000002",
+                     "agentKind": "inventory", "dependencies": [identity],
+                     "collaborations": [{"requesterSubtaskId": identity,
+                         "requesterAgentKind": "catalog", "purpose": "compare_availability",
+                         "requestedDataClassification": "internal"}],
+                     "descriptorId": "00000000-0000-4000-8000-000000000003",
+                     "descriptorDigest": "f" * 64},
+                ],
                 "synthesisAuthority": {"authorityId": identity,
                                        "authorityDigest": "f" * 64},
             }})
@@ -179,6 +188,7 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
     dispatch = asyncio.run(client.load_dispatch_plan(identity))
     assert dispatch.task_id == identity
     assert dispatch.nodes[0].descriptor_digest == "e" * 64
+    assert dispatch.nodes[1].collaborations[0].purpose == "compare_availability"
     assert asyncio.run(client.load_execution_descriptor(identity, "b" * 64)) == {"kind": "private"}
     assert asyncio.run(client.load_ai_ceo_execution_authority(
         identity, "c" * 64

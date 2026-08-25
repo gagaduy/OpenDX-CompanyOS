@@ -7,6 +7,7 @@ import { DEPARTMENT_TOOL_CATALOG } from "../tools/department-tool-catalog";
 import {
   STORE_HEALTH_EXECUTION_CATALOG,
   parseStoreHealthResult,
+  resolveStoreHealthCollaboration,
   resolveStoreHealthExecution,
   validateStoreHealthResultBindings,
 } from "./store-health-execution-catalog";
@@ -94,6 +95,14 @@ describe("Store Health execution catalog", () => {
     expect(resolveStoreHealthExecution(
       catalog.agentKind, "0".repeat(64), catalog.allowedToolsDigest,
     )).toBeUndefined();
+  });
+
+  it("owns the single Slice 1 cross-Department collaboration route", () => {
+    expect(resolveStoreHealthCollaboration("catalog", "inventory")).toEqual({
+      purpose: "compare_availability", requestedDataClassification: "internal",
+    });
+    expect(resolveStoreHealthCollaboration("inventory", "catalog")).toBeUndefined();
+    expect(resolveStoreHealthCollaboration("catalog", "support")).toBeUndefined();
   });
 });
 

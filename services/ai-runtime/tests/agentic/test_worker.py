@@ -138,7 +138,7 @@ def test_worker_activity_registry_adds_orchestration_only_when_enabled() -> None
     assert enabled.registered[-3:] == Orchestration.registered
 
 
-def test_builds_three_orchestration_activities_only_behind_feature_flag() -> None:
+def test_builds_orchestration_activities_only_behind_feature_flag() -> None:
     class Identity:
         client_id = "agent-ai-ceo"
 
@@ -148,6 +148,7 @@ def test_builds_three_orchestration_activities_only_behind_feature_flag() -> Non
     class Settings:
         orchestration_descriptor_execution_enabled = False
         agentic_api_base_url = "https://api.test/v1/internal/agentic"
+        department_tool_api_base_url = "https://api.test/v1/internal/agentic"
         keycloak = Keycloak()
 
     settings = Settings()

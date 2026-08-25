@@ -15,3 +15,12 @@ test("rejects an unsafe response or missing Agent", () => {
   snapshot.runtime = snapshot.runtime.replace('"support"', '"removed"');
   assert.throws(() => validateModelRuntime(snapshot), /seven Agents/i);
 });
+
+test("rejects an expanded correction bound", () => {
+  const snapshot = structuredClone(collectModelRuntimeSnapshot());
+  snapshot.executor = snapshot.executor.replace(
+    "maximum_correction_rounds: int = 2",
+    "maximum_correction_rounds: int = 20",
+  );
+  assert.throws(() => validateModelRuntime(snapshot), /bounded/i);
+});

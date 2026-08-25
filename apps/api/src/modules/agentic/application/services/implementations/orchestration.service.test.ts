@@ -334,9 +334,14 @@ describe("OrchestrationServiceImpl", () => {
 
   it("returns a digest-bound dispatch graph in stable repository order", async () => {
     const dispatch = { taskId: "00000000-0000-4000-8000-000000000031", planVersion: 1,
-      planDigest: "a".repeat(64), nodes: [{ subtaskId: "00000000-0000-4000-8000-000000000032",
-        agentKind: "catalog" as const, dependencies: [],
-        descriptorId: "00000000-0000-4000-8000-000000000033", descriptorDigest: "b".repeat(64) }] };
+      planDigest: "a".repeat(64), nodes: [
+        { subtaskId: "00000000-0000-4000-8000-000000000032",
+          agentKind: "catalog" as const, dependencies: [],
+          descriptorId: "00000000-0000-4000-8000-000000000033", descriptorDigest: "b".repeat(64) },
+        { subtaskId: "00000000-0000-4000-8000-000000000038",
+          agentKind: "inventory" as const, dependencies: ["00000000-0000-4000-8000-000000000032"],
+          descriptorId: "00000000-0000-4000-8000-000000000039", descriptorDigest: "c".repeat(64) },
+      ] };
     const authorityPayload = { resultSchema: AI_CEO_EXECUTION_CATALOG.synthesis.resultSchema,
       authorizedContext: { taskId: dispatch.taskId, planVersion: 1 } };
     const authority = createAiCeoExecutionAuthority({
@@ -363,7 +368,14 @@ describe("OrchestrationServiceImpl", () => {
       () => "00000000-0000-4000-8000-000000000037", () => "2026-08-22T00:05:00.000Z");
 
     await expect(service.loadDispatchPlan("00000000-0000-4000-8000-000000000034", worker))
-      .resolves.toEqual({ ...dispatch, synthesisAuthority: {
+      .resolves.toEqual({ ...dispatch, nodes: [
+        { ...dispatch.nodes[0], collaborations: [] },
+        { ...dispatch.nodes[1], collaborations: [{
+          requesterSubtaskId: dispatch.nodes[0]!.subtaskId,
+          requesterAgentKind: "catalog", purpose: "compare_availability",
+          requestedDataClassification: "internal",
+        }] },
+      ], synthesisAuthority: {
         authorityId: authority.id, authorityDigest: authority.authorityDigest,
       } });
   });

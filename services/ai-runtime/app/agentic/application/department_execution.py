@@ -97,10 +97,56 @@ class DepartmentExecutionService:
         except (TypeError, ValueError) as error:
             raise DepartmentExecutionError("DESCRIPTOR_BINDING_INVALID") from error
 
+        descriptor = view.descriptor
+        for position, collaboration in enumerate(command.collaborations):
+            payload = descriptor_json(collaboration)
+            evidence = {
+                "resultId": str(collaboration.result_id),
+                "resultDigest": collaboration.result_digest,
+                "provenanceIds": sorted(str(value) for value in collaboration.provenance_ids),
+            }
+            redacted_payload_digest = canonical_digest(payload)
+            idempotency_key = (
+                f"phase-f:{command.task_id}:{command.plan_version}:"
+                f"{collaboration.requester_subtask_id}:{command.subtask_id}"
+            )
+            try:
+                acknowledged = await self._controls.mediate_collaboration({
+                    "id": str(uuid5(NAMESPACE_URL, f"{idempotency_key}:collaboration")),
+                    "taskId": str(command.task_id), "planVersion": command.plan_version,
+                    "requester": collaboration.requester_agent_kind,
+                    "requested": command.agent_kind,
+                    "questionDigest": canonical_digest({
+                        "purpose": collaboration.purpose,
+                        "requesterSubtaskId": str(collaboration.requester_subtask_id),
+                        "requestedSubtaskId": str(command.subtask_id),
+                    }),
+                    "purpose": collaboration.purpose,
+                    "requestedDataClassification": collaboration.requested_data_classification,
+                    "evidenceDigest": canonical_digest(evidence),
+                    "redactedPayloadDigest": redacted_payload_digest,
+                    "policyVersion": descriptor.policy_version,
+                    "policyDecision": "ALLOW", "idempotencyKey": idempotency_key,
+                    "createdAt": _timestamp(descriptor.created_at),
+                })
+            except Exception as error:
+                code, retryable = _governed_failure(error, "COLLABORATION_FAILED")
+                if retryable:
+                    raise DepartmentExecutionError(code, retryable=True) from error
+                return DescriptorExecutionReference(
+                    status="unavailable",
+                    result_digest=canonical_digest({
+                        "status": "unavailable", "reasonCode": code,
+                        "collaborationPosition": position,
+                    }),
+                    provenance_ids=(),
+                )
+            if acknowledged != redacted_payload_digest:
+                raise DepartmentExecutionError("COLLABORATION_BINDING_INVALID")
+
         tool_results: list[dict[str, object]] = []
         tool_summaries: list[dict[str, object]] = []
         provenance_ids: list[str] = []
-        descriptor = view.descriptor
         for grant in view.payload.tool_grants:
             try:
                 result = await self._tools.invoke(descriptor.agent_kind, {

@@ -29,6 +29,16 @@ class DescriptorModel(BaseModel):
     )
 
 
+class DescriptorCollaborationReference(DescriptorModel):
+    requester_subtask_id: UUID
+    requester_agent_kind: DepartmentAgentKind
+    result_id: UUID
+    result_digest: Digest
+    provenance_ids: tuple[UUID, ...] = Field(min_length=1, max_length=24)
+    purpose: Annotated[str, StringConstraints(min_length=1, max_length=500)]
+    requested_data_classification: Literal["internal", "confidential", "restricted"]
+
+
 class DescriptorExecutionInput(DescriptorModel):
     descriptor_id: UUID
     descriptor_digest: Digest
@@ -37,6 +47,18 @@ class DescriptorExecutionInput(DescriptorModel):
     subtask_id: UUID
     agent_kind: DepartmentAgentKind
     idempotency_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    collaborations: tuple[DescriptorCollaborationReference, ...] = Field(
+        default=(), max_length=5
+    )
+
+    @model_validator(mode="after")
+    def validate_collaborations(self) -> DescriptorExecutionInput:
+        requesters = tuple(item.requester_subtask_id for item in self.collaborations)
+        if (len(set(requesters)) != len(requesters)
+            or any(item.requester_agent_kind == self.agent_kind
+                   for item in self.collaborations)):
+            raise ValueError("COLLABORATION_BINDING_INVALID")
+        return self
 
 
 class DescriptorExecutionReference(DescriptorModel):

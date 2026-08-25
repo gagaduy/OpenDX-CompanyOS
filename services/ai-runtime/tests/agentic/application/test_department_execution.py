@@ -15,6 +15,7 @@ from app.agentic.application.department_execution import (
 )
 from app.agentic.domain.ai_ceo_execution import AI_CEO_RESULT_SCHEMAS
 from app.agentic.domain.execution_descriptor import (
+    DescriptorCollaborationReference,
     DescriptorExecutionInput,
     PlanningExecutionInput,
     SynthesisBranchReference,
@@ -29,6 +30,7 @@ class Control:
     def __init__(self, descriptor: dict[str, object]) -> None:
         self.descriptor = descriptor
         self.results: list[dict[str, object]] = []
+        self.collaborations: list[dict[str, object]] = []
 
     async def load_orchestration_settlement(
         self, _kind: str, _settlement_id: str
@@ -41,6 +43,10 @@ class Control:
     async def accept_orchestration_result(self, body: dict[str, object]) -> str:
         self.results.append(body)
         return str(body["resultDigest"])
+
+    async def mediate_collaboration(self, body: dict[str, object]) -> str:
+        self.collaborations.append(body)
+        return str(body["redactedPayloadDigest"])
 
 
 class Tools:
@@ -152,6 +158,70 @@ def test_executes_only_descriptor_grants_then_settles_a_digest_reference() -> No
             "summaryDigest": canonical_digest({"riskLevel": "low"}),
         },
     )
+
+
+def test_mediates_bound_dependency_before_target_tools_and_is_retry_stable() -> None:
+    descriptor, schemas = fixture()
+    control, tools = Control(descriptor), Tools()
+    service = DepartmentExecutionService(
+        controls=control, tools=tools, models=Models(), result_schemas=schemas,
+        now=lambda: datetime(2026, 8, 22, 0, 1, tzinfo=UTC),
+    )
+    command = execution_input(descriptor).model_copy(update={
+        "collaborations": (DescriptorCollaborationReference(
+            requester_subtask_id=UUID("00000000-0000-4000-8000-000000000020"),
+            requester_agent_kind="inventory",
+            result_id=UUID("00000000-0000-4000-8000-000000000021"),
+            result_digest="a" * 64,
+            provenance_ids=(UUID("00000000-0000-4000-8000-000000000022"),),
+            purpose="compare_availability", requested_data_classification="internal",
+        ),),
+    })
+
+    asyncio.run(service.execute(command))
+    asyncio.run(service.execute(command))
+
+    assert len(control.collaborations) == 2
+    assert control.collaborations[0] == control.collaborations[1]
+    assert control.collaborations[0]["requester"] == "inventory"
+    assert control.collaborations[0]["requested"] == "catalog"
+    assert control.collaborations[0]["purpose"] == "compare_availability"
+    assert control.collaborations[0]["policyVersion"] == 4
+    assert len(tools.calls) == 2
+
+
+def test_denied_collaboration_stops_target_before_tools_and_model() -> None:
+    descriptor, schemas = fixture()
+    control, tools, models = Control(descriptor), Tools(), Models()
+
+    async def denied(_body: dict[str, object]) -> str:
+        error = RuntimeError("private policy detail")
+        error.code = "POLICY_DENIED"  # type: ignore[attr-defined]
+        error.retryable = False  # type: ignore[attr-defined]
+        raise error
+
+    control.mediate_collaboration = denied  # type: ignore[method-assign]
+    service = DepartmentExecutionService(
+        controls=control, tools=tools, models=models, result_schemas=schemas,
+        now=lambda: datetime(2026, 8, 22, 0, 1, tzinfo=UTC),
+    )
+    collaboration = DescriptorCollaborationReference(
+        requester_subtask_id=UUID("00000000-0000-4000-8000-000000000020"),
+        requester_agent_kind="inventory",
+        result_id=UUID("00000000-0000-4000-8000-000000000021"),
+        result_digest="a" * 64,
+        provenance_ids=(UUID("00000000-0000-4000-8000-000000000022"),),
+        purpose="compare_availability", requested_data_classification="internal",
+    )
+
+    result = asyncio.run(service.execute(execution_input(descriptor).model_copy(
+        update={"collaborations": (collaboration,)},
+    )))
+
+    assert result.status == "unavailable"
+    assert tools.calls == []
+    assert models.commands == []
+    assert control.results == []
 
 
 def test_materializes_only_the_api_owned_tool_parameter_template() -> None:

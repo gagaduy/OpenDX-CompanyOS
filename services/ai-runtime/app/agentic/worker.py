@@ -89,9 +89,11 @@ def build_orchestration_activities(
     phase_f_executor = executor or _build_orchestration_executor(settings, control, client)
     if phase_f_executor is None:
         raise ValueError("OpenRouter execution is required for descriptor execution")
+    if settings.keycloak.ai_ceo_identity is None:
+        raise ValueError("AI CEO execution identity is required")
     tokens = agent_tokens or build_agent_token_providers(settings.keycloak, client=client)
     tools = DepartmentToolClient(
-        base_url=settings.agentic_api_base_url, tokens=tokens.departments,
+        base_url=settings.department_tool_api_base_url, tokens=tokens.departments,
         client=client, timeout_seconds=10, maximum_response_bytes=16_384,
     )
     submissions = AgentSubmissionClient(

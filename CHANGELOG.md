@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Close Phase F Slice 1 with isolated AI CEO and six-Department worker
+  identities, opt-in local/production descriptor execution, a private Tool API
+  boundary, server-owned Catalog-to-Inventory collaboration, and a real
+  hard-stopped-worker replay/restart/no-Commerce-mutation acceptance.
+
 - Dispatch accepted Phase F descriptor plans through a replay-safe Temporal DAG
   path with stable dependency ordering, reference-only activity histories,
   honest unavailable-branch synthesis, cancellation draining, and unchanged

@@ -116,6 +116,9 @@ class KeycloakClientCredentialsProvider:
 def build_agent_token_providers(
     settings: KeycloakSettings, *, client: httpx.AsyncClient
 ) -> AgentTokenProviders:
+    if settings.ai_ceo_identity is None:
+        raise ValueError("Descriptor execution identities are not configured")
+
     def provider(client_id: str, client_secret: str) -> KeycloakClientCredentialsProvider:
         return KeycloakClientCredentialsProvider(
             token_url=settings.token_url, client_id=client_id,

@@ -172,30 +172,32 @@ test("requires the API analytics connection to use the isolated reader role", ()
   assert.throws(() => validate(config), /analytics.*reader role/i);
 });
 
-test("requires six distinct non-placeholder department Agent secrets", () => {
+test("requires seven isolated non-placeholder execution Agent secrets", () => {
   const duplicate = clone(render());
   const catalogSecret = duplicate.services["keycloak-reconcile"].environment.AGENT_CATALOG_CLIENT_SECRET;
-  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+  for (const service of ["ai-worker", "keycloak", "keycloak-reconcile"]) {
     duplicate.services[service].environment.AGENT_INVENTORY_CLIENT_SECRET = catalogSecret;
   }
-  assert.throws(() => validate(duplicate), /department Agent secrets.*distinct/i);
+  assert.throws(() => validate(duplicate), /AI CEO and Department secrets.*distinct/i);
 
   const workerReuse = clone(render());
   const workerSecret = workerReuse.services["ai-worker"].environment.AGENTIC_WORKER_CLIENT_SECRET;
-  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+  for (const service of ["ai-worker", "keycloak", "keycloak-reconcile"]) {
     workerReuse.services[service].environment.AGENT_ORDER_CLIENT_SECRET = workerSecret;
   }
-  assert.throws(() => validate(workerReuse), /department Agent secrets.*distinct/i);
+  assert.throws(() => validate(workerReuse), /AI CEO and Department secrets.*distinct/i);
 
   const placeholder = clone(render());
-  for (const service of ["api", "keycloak", "keycloak-reconcile"]) {
+  for (const service of ["ai-worker", "keycloak", "keycloak-reconcile"]) {
     placeholder.services[service].environment.AGENT_SUPPORT_CLIENT_SECRET = "support_change_me";
   }
   assert.throws(() => validate(placeholder), /placeholder secret/i);
 });
 
-test("reconciles all department clients as service-account-only", () => {
+test("reconciles the AI CEO and all department clients as service-account-only", () => {
   const source = readFileSync("infra/keycloak/reconcile-production-realm.sh", "utf8");
+  assert.match(source, /AGENT_AI_CEO_CLIENT_SECRET/);
+  assert.match(source, /reconcile_client agent-ai-ceo/);
   for (const kind of ["CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"]) {
     assert.match(source, new RegExp(`AGENT_${kind}_CLIENT_SECRET`));
     assert.match(source, new RegExp(`reconcile_client agent-${kind.toLowerCase()}`));
@@ -481,4 +483,16 @@ test("checks the exact Temporal worker poller in container health", () => {
     "app.agentic.worker_healthcheck",
   ]);
   assert.equal(worker.environment.WORKER_READINESS_PATH, "/tmp/opendx-worker-ready");
+});
+
+test("production realm declares each execution identity exactly once", () => {
+  const realm = JSON.parse(readFileSync("infra/keycloak/realm-production.json", "utf8"));
+  for (const clientId of [
+    "agent-ai-ceo", "agent-catalog", "agent-inventory", "agent-order",
+    "agent-finance", "agent-crm", "agent-support",
+  ]) {
+    assert.equal(realm.clients.filter((client) => client.clientId === clientId).length, 1);
+  }
+  realm.clients.push(clone(realm.clients.find((client) => client.clientId === "agent-ai-ceo")));
+  assert.throws(() => validate(render(), { keycloakRealm: realm }), /exactly one agent-ai-ceo/i);
 });

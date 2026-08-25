@@ -145,11 +145,15 @@ export function validateAgenticPhaseB({ sources, agenticFiles: files }) {
   rejectMatch(sources.consoleSources, /AgenticDashboard|features\/agentic|\/agentic(?:["'`/])/i, "Console Agentic page is outside Phase B");
   rejectMatch(sources.agenticSources, /SEPAY_PRODUCTION/i, "Production SePay activation is outside Phase B");
   const phaseCDeclared = /"check:agentic-phase-c-exit"/.test(sources.packageJson);
+  const phaseFDeclared = /"check:agentic-phase-f-orchestration"/.test(sources.packageJson)
+    && /phase-f-execution-descriptor-v1/.test(sources.workflow);
   const approvedPhaseCToolFile = /apps\/api\/src\/modules\/agentic\/(?:tests\/agentic-tool|application\/tools\/department-tool|infrastructure\/tools\/|presentation\/(?:controllers|routes|validators)\/agentic-tool|application\/services\/(?:implementations\/tool-sharing|interfaces\/department-tool)|infrastructure\/database\/migrations\/2026081600(?:19|20|21)_)/i;
+  const approvedPhaseFToolFile = /^services\/ai-runtime\/app\/agentic\/infrastructure\/department_tools\.py$/;
   const commerceToolChange = files.some((path) =>
     /(?:services\/ai-runtime\/app\/agentic|apps\/api\/src\/modules\/agentic)\/.*(?:tools?|commerce).*(?:\.py|\.ts)$/i.test(path)
     && !/tool-registry|tool_registry/i.test(path)
-    && !(phaseCDeclared && approvedPhaseCToolFile.test(path)));
+    && !(phaseCDeclared && approvedPhaseCToolFile.test(path))
+    && !(phaseFDeclared && approvedPhaseFToolFile.test(path)));
   const commerceEndpoint = /\/v1\/(?:admin\/)?(?:catalog|inventory|orders?|customers?|crm|support|payments?)(?:\/|["'`])/i
     .test(sources.agenticSources);
   const commerceImport = /modules\/(?:catalog|inventory|order|customer|crm|support|payment)\//i

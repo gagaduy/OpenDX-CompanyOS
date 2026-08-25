@@ -26,6 +26,7 @@ from app.agentic.domain.contracts import (
     WorkflowState,
 )
 from app.agentic.domain.execution_descriptor import (
+    DescriptorCollaborationReference,
     DescriptorExecutionInput,
     DescriptorExecutionReference,
     PlanningExecutionInput,
@@ -347,6 +348,7 @@ class StoreHealthReviewWorkflowV1:
     async def _run_descriptor_graph(
         self, run_id: str, plan: OrchestrationDispatchPlan
     ) -> dict[str, DescriptorExecutionReference]:
+        collaboration_enabled = workflow.patched("phase-f-mediated-collaboration-v1")
         nodes = {node.subtask_id: node for node in plan.nodes}
         remaining = set(nodes)
         references: dict[str, DescriptorExecutionReference] = {}
@@ -372,15 +374,35 @@ class StoreHealthReviewWorkflowV1:
             )
             for node_id in ready:
                 node = nodes[node_id]
+                collaborations = tuple(
+                    DescriptorCollaborationReference(
+                        requester_subtask_id=UUID(item.requester_subtask_id),
+                        requester_agent_kind=item.requester_agent_kind,
+                        result_id=references[item.requester_subtask_id].result_id,
+                        result_digest=references[item.requester_subtask_id].result_digest,
+                        provenance_ids=references[item.requester_subtask_id].provenance_ids,
+                        purpose=item.purpose,
+                        requested_data_classification=item.requested_data_classification,
+                    )
+                    for item in sorted(
+                        node.collaborations,
+                        key=lambda value: value.requester_subtask_id,
+                    )
+                ) if collaboration_enabled else ()
+                command = DescriptorExecutionInput(
+                    descriptor_id=UUID(node.descriptor_id),
+                    descriptor_digest=node.descriptor_digest,
+                    task_id=UUID(plan.task_id), plan_version=plan.plan_version,
+                    subtask_id=UUID(node.subtask_id), agent_kind=node.agent_kind,
+                    idempotency_key=f"{run_id}:department:{node.subtask_id}:v1",
+                    collaborations=collaborations,
+                )
                 handle = workflow.start_activity(
                     "execute_department_subtask_v1",
-                    descriptor_json(DescriptorExecutionInput(
-                        descriptor_id=UUID(node.descriptor_id),
-                        descriptor_digest=node.descriptor_digest,
-                        task_id=UUID(plan.task_id), plan_version=plan.plan_version,
-                        subtask_id=UUID(node.subtask_id), agent_kind=node.agent_kind,
-                        idempotency_key=f"{run_id}:department:{node.subtask_id}:v1",
-                    )),
+                    descriptor_json(
+                        command,
+                        exclude=None if collaboration_enabled else {"collaborations"},
+                    ),
                     start_to_close_timeout=self._start_to_close,
                     schedule_to_close_timeout=self._schedule_to_close,
                     heartbeat_timeout=timedelta(seconds=5),
