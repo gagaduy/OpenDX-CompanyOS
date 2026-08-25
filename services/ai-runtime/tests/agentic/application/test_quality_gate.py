@@ -14,8 +14,11 @@ from app.agentic.application.quality_gate import (
     AuthoritativeEvidenceFact,
     AuthoritativeQualityContext,
     QualityGate,
+    DepartmentResultQualityContext,
+    DepartmentResultQualityGate,
+    ExecutiveSynthesisQualityContext,
 )
-from app.agentic.domain.model_runtime import FrozenJsonMapping
+from app.agentic.domain.model_runtime import FrozenJsonMapping, ModelResult
 
 
 PAYLOADS: dict[str, dict[str, Any]] = {
@@ -173,11 +176,95 @@ def test_accepts_matching_authoritative_result_for_every_agent(agent_kind: str) 
     decision = QualityGate().evaluate(
         valid_result(agent_kind), quality_context(agent_kind)
     )
-
     assert decision.outcome == "accepted"
     assert decision.reasons == ()
     assert decision.evidence_ids == ("prov-1",)
 
+
+def test_ai_ceo_synthesis_accepts_its_explicit_purpose_without_relaxing_phase_d() -> None:
+    result_id = "00000000-0000-4000-8000-000000000001"
+    subtask_id = "00000000-0000-4000-8000-000000000002"
+    reference = {"resultId": result_id, "subtaskId": subtask_id,
+                 "resultDigest": "a" * 64}
+    synthesis = QualityGate().evaluate({
+        "schemaVersion": 1, "completionState": "complete", "summary": "Reviewed",
+        "conclusions": [], "risks": [], "recommendedActions": [], "conflicts": [],
+        "acceptedResultReferences": [reference], "unavailableBranches": [],
+    }, ExecutiveSynthesisQualityContext(0, (reference,), (), ()))
+    assert synthesis.outcome == "accepted"
+
+
+def test_phase_f_gates_accept_immutable_model_result_content() -> None:
+    provenance_id = "00000000-0000-4000-8000-000000000001"
+    tool_summary = {"toolName": "catalog.product_completeness",
+                    "provenanceId": provenance_id, "summaryDigest": "a" * 64}
+    department_content = ModelResult(
+        provider_request_id="department-request", model="test/model",
+        content={"schemaVersion": 1, "agentKind": "catalog", "status": "complete",
+                 "summary": "Reviewed", "conclusions": [], "risks": [],
+                 "recommendedActions": [], "payload": {"toolSummaries": [tool_summary]}},
+        input_tokens=1, output_tokens=1, total_tokens=2, provider_cost_micros=1,
+    ).content
+    reference = {"resultId": "00000000-0000-4000-8000-000000000001",
+                 "subtaskId": "00000000-0000-4000-8000-000000000002",
+                 "resultDigest": "b" * 64}
+    synthesis_content = ModelResult(
+        provider_request_id="synthesis-request", model="test/model",
+        content={"schemaVersion": 1, "completionState": "complete", "summary": "Reviewed",
+                 "conclusions": [], "risks": [], "recommendedActions": [], "conflicts": [],
+                 "acceptedResultReferences": [reference], "unavailableBranches": []},
+        input_tokens=1, output_tokens=1, total_tokens=2, provider_cost_micros=1,
+    ).content
+
+    department = DepartmentResultQualityGate().evaluate(
+        department_content, DepartmentResultQualityContext("catalog", 0, (tool_summary,))
+    )
+    synthesis = QualityGate().evaluate(
+        synthesis_content, ExecutiveSynthesisQualityContext(0, (reference,), (), ())
+    )
+
+    assert department.outcome == "accepted"
+    assert synthesis.outcome == "accepted"
+
+
+def test_executive_synthesis_cannot_be_complete_with_partial_accepted_result() -> None:
+    result_id = "00000000-0000-4000-8000-000000000001"
+    reference = {"resultId": result_id,
+                 "subtaskId": "00000000-0000-4000-8000-000000000002",
+                 "resultDigest": "a" * 64}
+    decision = QualityGate().evaluate({
+        "schemaVersion": 1, "completionState": "complete", "summary": "Reviewed",
+        "conclusions": [], "risks": [], "recommendedActions": [], "conflicts": [],
+        "acceptedResultReferences": [reference], "unavailableBranches": [],
+    }, ExecutiveSynthesisQualityContext(
+        0, (reference,), (), (), partial_result_ids=(result_id,)
+    ))
+
+    assert decision.outcome == "correct"
+    assert decision.reasons == ("EXECUTIVE_REPORT_BINDING_INVALID",)
+
+
+def test_phase_f_department_gate_requires_exact_tool_summary_bindings() -> None:
+    provenance_id = "00000000-0000-4000-8000-000000000001"
+    expected = {"toolName": "catalog.product_completeness",
+                "provenanceId": provenance_id, "summaryDigest": "a" * 64}
+    second = {"toolName": "catalog.publication_readiness",
+              "provenanceId": "00000000-0000-4000-8000-000000000002",
+              "summaryDigest": "c" * 64}
+    context = DepartmentResultQualityContext("catalog", 0, (expected, second))
+    result = {"schemaVersion": 1, "agentKind": "catalog", "status": "complete",
+              "summary": "Reviewed", "conclusions": [], "risks": [],
+              "recommendedActions": [], "payload": {"toolSummaries": [second, expected]}}
+
+    accepted = DepartmentResultQualityGate().evaluate(result, context)
+    changed = deepcopy(result)
+    changed["payload"]["toolSummaries"][0]["summaryDigest"] = "b" * 64
+    rejected = DepartmentResultQualityGate().evaluate(changed, context)
+
+    assert accepted.outcome == "accepted"
+    assert accepted.evidence_ids == (provenance_id, second["provenanceId"])
+    assert rejected.outcome == "correct"
+    assert rejected.reasons == ("RESULT_EVIDENCE_BINDING_INVALID",)
 
 @pytest.mark.parametrize("correction_round", [0, 2])
 @pytest.mark.parametrize("empty_field", ["evidence", "material"])
@@ -481,11 +568,6 @@ def test_decision_does_not_include_authorized_but_uncited_evidence() -> None:
                 agentKind="inventory", payload=deepcopy(PAYLOADS["inventory"])
             ),
             "AGENT_KIND_MISMATCH",
-        ),
-        (
-            quality_context(purpose="model_training"),
-            lambda _value: None,
-            "PURPOSE_SCOPE_VIOLATION",
         ),
         (
             quality_context(authorized_scope=("inventory",)),

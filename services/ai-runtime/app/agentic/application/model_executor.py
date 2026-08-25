@@ -7,7 +7,7 @@ import hashlib
 import json
 import time
 from collections.abc import Mapping as MappingCollection
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Literal, Mapping, Protocol
 
 from app.agentic.application.ports import (
@@ -70,6 +70,10 @@ class ModelExecutionOutcome:
     cost_micros: int = 0
     latency_ms: int = 0
     correction_round: int = 0
+    accepted_content: Mapping[str, object] | None = field(
+        default=None, repr=False, compare=False
+    )
+    quality_evidence_digest: str | None = field(default=None, repr=False)
 
 
 class QualityGatePort(Protocol):
@@ -159,7 +163,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
                         _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
-                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
+                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest)
                 if decision.outcome == "escalate":
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
@@ -168,7 +172,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
-                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
+                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, quality_evidence_digest=evidence_digest)
                 if (
                     decision.outcome == "partial"
                     or correction_round == command.maximum_correction_rounds
@@ -180,7 +184,7 @@ class ModelExecutor:
                         provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
-                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round)
+                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest)
                 await self._controls.fail_model_run(FailModelRunRequest(
                     reservation.run_id, state.version,
                     f"{command.idempotency_key}:round:{correction_round}:correct",

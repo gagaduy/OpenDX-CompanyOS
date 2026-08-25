@@ -135,6 +135,8 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     outcome = asyncio.run(executor(controls, gateway, quality).execute(command()))
 
     assert outcome.status == "completed"
+    assert dict(outcome.accepted_content or {}) == {"status": "complete"}
+    assert outcome.quality_evidence_digest == controls.completed[0].evidence_digest
     assert controls.events == ["reserve", "start", "complete"]
     assert [event for event, _request in gateway.requests] == ["preflight", "generate"]
     completed = controls.completed[0]
@@ -194,6 +196,7 @@ def test_correction_uses_distinct_reservations_then_escalates_without_fallback()
     outcome = asyncio.run(executor(controls, gateway, quality).execute(command()))
 
     assert outcome.status == "escalated"
+    assert outcome.accepted_content is None
     assert len(controls.reservations) == 3
     assert len({item.idempotency_key for item in controls.reservations}) == 3
     assert [request.model for event, request in gateway.requests if event == "generate"] == [
@@ -227,6 +230,7 @@ def test_zero_correction_limit_settles_partial_without_a_second_model_call() -> 
     ))
 
     assert outcome.status == "partial"
+    assert dict(outcome.accepted_content or {}) == {"status": "complete"}
     assert outcome.quality_reasons == ("SCHEMA_INVALID",)
     assert len(controls.reservations) == 1
     assert [event for event, _request in gateway.requests if event == "generate"] == ["generate"]
