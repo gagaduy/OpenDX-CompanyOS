@@ -79,13 +79,64 @@ revocation, model pair, budget, schema, context provenance, and idempotency
 before reserving or starting a run. This bridge adds no direct database access,
 no general credential broker, and no new public runtime endpoint.
 
+### AI CEO Model Authority and Private Result Bridge
+
+Planning and synthesis use separate append-only `AiCeoExecutionAuthority`
+records owned by the API. An authority has purpose `orchestration_planning` or
+`executive_synthesis` and binds its ID and version, task, optional accepted
+plan version, configuration and policy versions, approved primary and fallback
+models, strict result-schema name, body, and digest, authorized-context digest,
+budget, timeout, expiry, private-payload digest, and authority digest. It has no
+tool grant, Department credential, prompt, or raw attachment field.
+
+The API idempotently prepares a planning authority when the worker loads a
+Task Brief. Exact retries return the same unexpired authority; expiry,
+revocation, or an authority change requires a new version and policy
+evaluation. Plan acceptance transactionally prepares the synthesis authority
+for that immutable plan version. The private authority payload is available
+only to the worker identity with `Cache-Control: no-store` and never crosses a
+Temporal activity boundary.
+
+The planning schema accepts only a bounded proposal of unique policy-eligible
+Department owners and their dependency owners. The model cannot propose IDs,
+models, schemas, tools, scopes, budgets, policy versions, provenance, or
+timestamps. After the Phase-F planning Quality Gate accepts the proposal, the
+runtime deterministically enriches it from the Task Brief, and the API
+revalidates the resulting complete `OrchestrationPlan` before persistence.
+
+The governed model executor may return an accepted structured result only to
+its in-process application caller. Model-run settlements, Temporal activity
+results, logs, metrics, and exceptions remain digest-only. Department
+execution submits the accepted, strict, purpose-specific result envelope to
+the API together with its descriptor binding. The API revalidates the
+descriptor and schema, recomputes result and provenance digests, and stores the
+bounded shareable envelope in a separate immutable private-payload table. A
+terminal or escalated branch stores no fabricated payload.
+
+Before synthesis, the worker submits only Department result references from
+Temporal to a worker-only synthesis-context operation. The API resolves exact
+accepted result digests and returns only the validated shareable envelopes plus
+the synthesis authority; unavailable references remain explicit. The AI CEO
+therefore never receives raw Tool Registry responses or the union of
+Department contexts. The final accepted AI CEO result envelope is similarly
+schema-validated and stored as an immutable private executive-report payload,
+while Temporal receives only the report digest and completion reference.
+
+Planning uses the existing governed model-run lifecycle with a dedicated
+`PlanningQualityGate` that validates the strict proposal, eligible owners, and
+acyclic graph. Synthesis uses the existing `QualityGate` extended with the
+explicit `executive_synthesis` purpose and the already bounded AI CEO result
+schema. Phase D's no-delegation behavior remains unchanged for every command
+outside the `orchestration_planning` authority.
+
 ## Immutable Contracts
 
 `TaskBrief` contains task ID, goal, instructions, deadline, expected output,
 constraints, risk signals, approved file-source references, configuration and
 policy versions, and a digest. It is created from trusted task state and
 explicitly labeled untrusted task/file content; raw attachment content is not
-placed in logs or workflow history.
+placed in logs or workflow history. Its worker-only view references the exact
+planning authority without allowing the AI CEO to select that authority.
 
 `OrchestrationPlan` is a versioned immutable DAG. Every subtask has exactly one
 policy-eligible Department owner, an expected result schema, dependency IDs,
@@ -115,7 +166,8 @@ There is no direct Agent-to-Agent transport.
 evidence, provenance, cost, approval history, conflicts, unavailable data,
 failed branches, and an explicit completion state. Every conclusion references
 accepted provenance; it never fabricates a result for a failed or unavailable
-branch.
+branch. Its bounded payload is private API state; normal responses and Temporal
+history use only its digest and completion reference.
 
 ## Workflow and Failure Behavior
 
@@ -146,8 +198,9 @@ On the new path, each dependency-ready subtask follows this sequence:
    than raw bodies in workflow state.
 3. Submit minimized tool evidence to the existing governed model-run and
    Quality Gate lifecycle under the descriptor binding.
-4. Append one accepted result or an explicit unavailable/partial result, then
-   release newly dependency-ready subtasks.
+4. Append one schema-validated shareable result payload or return an explicit
+   unavailable/partial reference, then release newly dependency-ready
+   subtasks.
 5. Route any cross-Department need through a persisted, policy-re-evaluated
    `CollaborationRequest`; the target receives only the approved redacted
    payload, never the requester's complete context.
@@ -161,6 +214,13 @@ authentication or tool failure is reported as unavailable evidence; it never
 causes another Department identity to be substituted. Idempotency is enforced
 independently at descriptor creation, tool invocation, model run, accepted
 result, collaboration forwarding, and executive report persistence.
+
+Planning and synthesis authority preparation, private accepted-result payload
+persistence, synthesis-context resolution, and private report-payload
+persistence are independently idempotent. A retry with the same authority and
+digest converges; a changed payload conflicts. API validation and digest
+recomputation occur before either payload becomes eligible for synthesis or
+reporting.
 
 ## Security and Governance
 
@@ -203,6 +263,13 @@ bodies, raw tool/model data, and secrets. Retry/restart tests prove exactly-once
 descriptor, tool, model-charge, collaboration, result, and report effects.
 Replay tests cover both exported pre-bridge histories and new patched histories
 so deployment cannot invalidate in-flight Phase B runs.
+
+AI CEO authority tests additionally prove that model, schema, policy, budget,
+and expiry cannot be supplied by model output; planning proposals cannot add
+unknown owners or cycles; structured content remains process-local until the
+API validates it; synthesis resolves only exact accepted references; and raw
+Department tool bodies, rejected model results, private payloads, prompts, and
+authority bodies are absent from Temporal history and structured logs.
 
 ## Deferred Phase F Slices
 

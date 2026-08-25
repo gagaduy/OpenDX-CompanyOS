@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Refine the Phase F design with append-only API-owned AI CEO planning and
+  synthesis authority, process-local governed model results, immutable private
+  accepted-result/report payloads, and reference-only Temporal synthesis.
+
 - Validate descriptor-bound Department execution before side effects, lock the
   Python result-schema catalog to API digests, materialize only API-owned tool
   parameter templates, and expose a digest-reference Temporal activity.
