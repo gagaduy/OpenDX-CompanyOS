@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Persist purpose-specific AI CEO planning and synthesis authority with bounded
+  private context, immutable accepted-result/report payloads, canonical digest
+  binding, and exact replay convergence.
+
 - Expand the Phase F implementation plan with API-owned AI CEO authority,
   immutable private accepted-result/report payloads, purpose-specific Quality
   Gates, and digest-only synthesis and replay boundaries.

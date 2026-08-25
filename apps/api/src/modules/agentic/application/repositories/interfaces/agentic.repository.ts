@@ -10,6 +10,11 @@ import type { ConfigurationRevision } from "../../../domain/entities/configurati
 import type { PolicyEffect } from "../../../domain/entities/governance-records";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type {
+  AiCeoExecutionAuthority,
+  AiCeoExecutionPayload,
+  AiCeoExecutionPurpose,
+} from "../../../domain/entities/ai-ceo-execution-authority";
+import type {
   ExecutionDescriptor,
   ExecutionDescriptorPayload,
 } from "../../../domain/entities/orchestration-execution-descriptor";
@@ -295,6 +300,18 @@ export interface ExecutiveReportAppendInput {
   readonly costMicros: number; readonly approvalHistoryDigest: string; readonly createdAt: string;
 }
 
+export interface AcceptedOrchestrationResultPayloadRecord {
+  readonly resultDigest: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly payloadDigest: string;
+}
+
+export interface ExecutiveReportPayloadRecord {
+  readonly reportDigest: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly payloadDigest: string;
+}
+
 export interface OrchestrationDispatchPlanRecord {
   readonly taskId: string;
   readonly planVersion: number;
@@ -373,6 +390,9 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  appendAiCeoExecutionAuthority(session: DatabaseSession, authority: AiCeoExecutionAuthority, payload: AiCeoExecutionPayload): Promise<"created" | "duplicate">;
+  findAiCeoExecutionAuthority(session: DatabaseSession, authorityId: string): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined>;
+  lockAndFindLatestAiCeoExecutionAuthority(session: DatabaseSession, taskId: string, purpose: AiCeoExecutionPurpose, planVersion?: number): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined>;
   appendExecutionDescriptor(session: DatabaseSession, descriptor: ExecutionDescriptor, payload: ExecutionDescriptorPayload): Promise<"created" | "duplicate">;
   findExecutionDescriptor(session: DatabaseSession, descriptorId: string): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined>;
   findExecutionDescriptorForSubtask(session: DatabaseSession, taskId: string, planVersion: number, subtaskId: string): Promise<ExecutionDescriptor | undefined>;
@@ -382,7 +402,11 @@ export interface AgenticRepository {
   appendOrchestrationPlan(session: DatabaseSession, plan: OrchestrationPlanAppendInput): Promise<void>;
   appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<ImmutableAppendResult>;
   appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<ImmutableAppendResult>;
+  appendAcceptedOrchestrationResultPayload(session: DatabaseSession, resultId: string, resultDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
+  findAcceptedOrchestrationResultPayload(session: DatabaseSession, resultId: string): Promise<AcceptedOrchestrationResultPayloadRecord | undefined>;
   appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<ImmutableAppendResult>;
+  appendExecutiveReportPayload(session: DatabaseSession, reportId: string, reportDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
+  findExecutiveReportPayload(session: DatabaseSession, reportId: string): Promise<ExecutiveReportPayloadRecord | undefined>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;
