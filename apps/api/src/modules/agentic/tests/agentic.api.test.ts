@@ -175,6 +175,19 @@ function atomicModelSettlement(outputDigest: string) {
 }
 
 describe("Agentic route authorization", () => {
+  it("exposes task intake and overview before the generic task identifier route", async () => {
+    const denied = vi.fn(async () => undefined);
+    expect((await build("agentic_operator", denied).post("/tasks/intake")).body.data.route)
+      .toBe("createTaskIntake");
+    expect((await build("agentic_operator", denied).get("/tasks/overview")).body.data.route)
+      .toBe("getTaskOverview");
+    await build("agentic_approver", denied).post("/tasks/intake").expect(403);
+    await build("agentic_governance_admin", denied).post("/tasks/intake").expect(403);
+    await build("agentic_approver", denied).get("/tasks/overview").expect(200);
+    await build("agentic_governance_admin", denied).get("/tasks/overview").expect(200);
+    await build("agentic_auditor", denied).get("/tasks/overview").expect(403);
+  });
+
   it("exposes governed file intake with one bounded multipart file and no private storage metadata", async () => {
     const application = buildFiles("agentic_governance_admin");
     const uploaded = await application.post("/files")
@@ -390,6 +403,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
   };
   const handler = (route: string): RequestHandler => (_request, response) => response.json({ success: true, data: { route } });
   const controller = {
+    createTaskIntake: handler("createTaskIntake"), getTaskOverview: handler("getTaskOverview"),
     createTask: handler("createTask"), listTasks: handler("listTasks"), getTask: handler("getTask"), updateTask: handler("updateTask"), readyTask: handler("readyTask"), cancelTask: handler("cancelTask"),
     listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), decideApproval: handler("decideApproval"),
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),

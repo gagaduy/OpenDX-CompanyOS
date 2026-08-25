@@ -8,6 +8,7 @@ import type { StaffRole } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
 
 export interface AgenticControllerHandlers {
+  readonly createTaskIntake: RequestHandler; readonly getTaskOverview: RequestHandler;
   readonly createTask: RequestHandler; readonly listTasks: RequestHandler;
   readonly getTask: RequestHandler; readonly updateTask: RequestHandler;
   readonly readyTask: RequestHandler; readonly cancelTask: RequestHandler;
@@ -56,6 +57,8 @@ export function createAgenticRouter(
     });
   };
 
+  router.post("/tasks/intake", authenticate, guard("agentic.task.intake.denied", operator), controller.createTaskIntake);
+  router.get("/tasks/overview", authenticate, guard("agentic.task.overview.denied", taskReader), controller.getTaskOverview);
   router.post("/tasks", authenticate, guard("agentic.task.create.denied", operator), controller.createTask);
   router.get("/tasks", authenticate, guard("agentic.task.list.denied", taskReader), controller.listTasks);
   router.post("/tasks/:taskId/ready", authenticate, guard("agentic.task.ready.denied", operator), controller.readyTask);

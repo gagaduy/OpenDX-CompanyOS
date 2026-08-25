@@ -23,6 +23,10 @@ import type {
   AgenticFileApprovalInput,
   AgenticFileApprovalReplay,
   AgenticFileApprovalResult,
+  AgenticConsoleTaskOverviewRecord,
+  AgenticConsoleTaskRecord,
+  AgenticConsoleTaskRepositoryFilter,
+  AgenticConsoleTaskScope,
   ModelQualityEvidenceAppendResult,
   ModelConfigurationRecord,
   ModelRunReservationResult,
@@ -854,6 +858,78 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [ownerId, pageSize, (page - 1) * pageSize],
     );
     return { items: result.rows.map(mapTask), totalItems: Number(count.rows[0]?.total ?? 0) };
+  }
+
+  async listConsoleTasks(
+    session: DatabaseSession,
+    filter: AgenticConsoleTaskRepositoryFilter,
+  ): Promise<{ readonly items: readonly AgenticConsoleTaskRecord[]; readonly totalItems: number }> {
+    const values: unknown[] = [];
+    const conditions = consoleTaskScopeConditions(filter.scope, values);
+    if (filter.state !== undefined) {
+      values.push(filter.state);
+      conditions.push(`COALESCE(workflow.state,t.state)=$${values.length}`);
+    }
+    if (filter.createdBy !== undefined) {
+      values.push(filter.createdBy);
+      conditions.push(`t.created_by=$${values.length}`);
+    }
+    if (filter.createdFrom !== undefined) {
+      values.push(filter.createdFrom);
+      conditions.push(`t.created_at>=$${values.length}::timestamptz`);
+    }
+    if (filter.createdTo !== undefined) {
+      values.push(filter.createdTo);
+      conditions.push(`t.created_at<=$${values.length}::timestamptz`);
+    }
+    const from = `FROM agentic_tasks t LEFT JOIN LATERAL (
+      SELECT state FROM agentic_workflow_runs
+      WHERE task_id=t.id ORDER BY created_at DESC,id LIMIT 1
+    ) workflow ON TRUE WHERE ${conditions.join(" AND ")}`;
+    const count = await session.query<{ total: string }>(`SELECT count(*)::text total ${from}`, values);
+    const result = await session.query<Row>(
+      `SELECT t.*,COALESCE(workflow.state,t.state) effective_state ${from} ORDER BY t.created_at DESC,t.id
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, filter.pageSize, (filter.page - 1) * filter.pageSize],
+    );
+    return { items: result.rows.map(mapConsoleTask), totalItems: Number(count.rows[0]?.total ?? 0) };
+  }
+
+  async getConsoleTaskOverview(
+    session: DatabaseSession,
+    scope: AgenticConsoleTaskScope,
+  ): Promise<AgenticConsoleTaskOverviewRecord> {
+    const values: unknown[] = [];
+    const conditions = consoleTaskScopeConditions(scope, values);
+    const result = await session.query<Row>(`
+      WITH scoped AS (
+        SELECT t.id,COALESCE(workflow.state,t.state) state
+        FROM agentic_tasks t
+        LEFT JOIN LATERAL (
+          SELECT state FROM agentic_workflow_runs
+          WHERE task_id=t.id ORDER BY created_at DESC,id LIMIT 1
+        ) workflow ON TRUE
+        WHERE ${conditions.join(" AND ")}
+      )
+      SELECT
+        count(*) FILTER (WHERE state IN ('received','planning','dispatching','department_analysis','quality_review','collaboration','executive_synthesis','retrying'))::text running,
+        count(*) FILTER (WHERE state IN ('draft','ready','awaiting_plan_approval','awaiting_human_approval'))::text waiting,
+        count(*) FILTER (WHERE state IN ('failed','partially_completed'))::text failed,
+        count(*) FILTER (WHERE state='completed')::text completed,
+        count(*) FILTER (WHERE state='canceled')::text canceled,
+        (SELECT count(*)::text FROM agentic_approval_requests approval JOIN scoped ON scoped.id=approval.task_id WHERE approval.state='pending') pending_approvals,
+        (SELECT COALESCE(sum(entry.cost_micros),0)::text FROM agentic_budget_entries entry JOIN scoped ON scoped.id=entry.task_id WHERE entry.entry_type='settlement') settled_cost_micros
+      FROM scoped`, values);
+    const row = result.rows[0] ?? {};
+    return {
+      counts: {
+        running: Number(row.running ?? 0), waiting: Number(row.waiting ?? 0),
+        failed: Number(row.failed ?? 0), completed: Number(row.completed ?? 0),
+        canceled: Number(row.canceled ?? 0),
+      },
+      pendingApprovals: Number(row.pending_approvals ?? 0),
+      settledCostMicros: Number(row.settled_cost_micros ?? 0),
+    };
   }
 
   async listAllTasks(
@@ -2182,6 +2258,21 @@ function mapTask(row: Row): AgentTask {
       : { configurationRevisionId: String(row.configuration_revision_id) }),
   };
   return task;
+}
+
+function mapConsoleTask(row: Row): AgenticConsoleTaskRecord {
+  return { ...mapTask(row), state: String(row.effective_state) as AgenticConsoleTaskRecord["state"] };
+}
+
+function consoleTaskScopeConditions(scope: AgenticConsoleTaskScope, values: unknown[]): string[] {
+  if (scope.kind === "owner") {
+    values.push(scope.actorId);
+    return [`t.created_by=$${values.length}`];
+  }
+  if (scope.kind === "approval") {
+    return ["EXISTS (SELECT 1 FROM agentic_approval_requests approval WHERE approval.task_id=t.id AND approval.state='pending')"];
+  }
+  return ["TRUE"];
 }
 
 function mapIntakeFile(row: Row): AgenticIntakeFile {

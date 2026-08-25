@@ -8,6 +8,7 @@ import { ApplicationError } from "../../../../shared/http/application-error";
 import type { AgentTaskService } from "../../application/services/interfaces/agent-task.service";
 import type { AgenticQueryService } from "../../application/services/interfaces/agentic-query.service";
 import type { AgenticFileService } from "../../application/services/interfaces/agentic-file.service";
+import type { AgenticConsoleService } from "../../application/services/interfaces/agentic-console.service";
 import type { AgenticIntakeFile } from "../../domain/entities/agentic-file";
 import type { ApprovalService } from "../../application/services/interfaces/approval.service";
 import type { ConfigurationService } from "../../application/services/interfaces/configuration.service";
@@ -17,6 +18,7 @@ import {
   parseExpectedVersion, parsePage, parseRevocation, parseUpdateRevision,
   parseUpdateTask, parseUuid,
   parseFileAction, parseFileApproval, parseIdempotencyKey,
+  parseConsoleTaskFilter, parseEmptyQuery, parseTaskIntake,
 } from "../validators/agentic.validator";
 
 export class AgenticController {
@@ -27,13 +29,30 @@ export class AgenticController {
     private readonly revocations: EmergencyRevocationService,
     private readonly queries: AgenticQueryService,
     private readonly files?: AgenticFileService,
+    private readonly consoleService?: AgenticConsoleService,
   ) {}
+
+  readonly createTaskIntake = handle(async (request, response) => {
+    const result = await consoleTasks(this.consoleService).createTaskIntake({
+      ...parseTaskIntake(request.body),
+      idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]),
+    }, principal(response.locals));
+    response.status(result.disposition === "created" ? 201 : 200)
+      .json(successResponse("Agent task intake accepted", result.detail));
+  });
+  readonly getTaskOverview = handle(async (request, response) => {
+    parseEmptyQuery(request.query);
+    response.json(successResponse("Agent task overview retrieved", await consoleTasks(this.consoleService).getOverview(principal(response.locals))));
+  });
 
   readonly createTask = handle(async (request, response) => {
     response.status(201).json(successResponse("Agent task created", await this.tasks.create(parseCreateTask(request.body), principal(response.locals))));
   });
   readonly listTasks = handle(async (request, response) => {
-    response.json(successResponse("Agent tasks retrieved", await this.tasks.list(parsePage(request.query), principal(response.locals))));
+    const data = this.consoleService === undefined
+      ? await this.tasks.list(parsePage(request.query), principal(response.locals))
+      : await this.consoleService.listTasks(parseConsoleTaskFilter(request.query), principal(response.locals));
+    response.json(successResponse("Agent tasks retrieved", data));
   });
   readonly getTask = handle(async (request, response) => {
     response.json(successResponse("Agent task retrieved", await this.tasks.get(parseUuid(request.params.taskId), principal(response.locals))));
@@ -125,6 +144,11 @@ function handle(operation: (request: Request, response: Response) => Promise<voi
 
 function files(service: AgenticFileService | undefined): AgenticFileService {
   if (service === undefined) throw new ApplicationError(503, "FILE_INTAKE_UNAVAILABLE", "Agentic file intake is unavailable");
+  return service;
+}
+
+function consoleTasks(service: AgenticConsoleService | undefined): AgenticConsoleService {
+  if (service === undefined) throw new ApplicationError(503, "AGENTIC_CONSOLE_UNAVAILABLE", "Agentic Console is unavailable");
   return service;
 }
 

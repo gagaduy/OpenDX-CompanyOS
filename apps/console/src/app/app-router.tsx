@@ -24,6 +24,7 @@ import { createPaymentOperationsApi } from "../features/payments/api/payment-ope
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
+import { AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi } from "../features/agentic";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -49,6 +50,8 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/support/:ticketId" element={<SupportRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/dashboard" element={<DashboardRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
+          <Route path="/agentic/tasks" element={<AgenticRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/agentic/tasks/new" element={<AgenticRoute apiBaseUrl={apiBaseUrl} intake />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/products" replace />} />
@@ -71,8 +74,18 @@ function HomeRedirect() {
           ? "/customers"
           : roles.includes("support_operator")
             ? "/support"
-            : "/inventory";
+            : roles.some((role) => role === "agentic_operator" || role === "agentic_approver" || role === "agentic_governance_admin")
+              ? "/agentic/tasks"
+              : "/inventory";
   return <Navigate to={target} replace />;
+}
+
+function AgenticRoute({ apiBaseUrl, intake = false }: { readonly apiBaseUrl: string; readonly intake?: boolean }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
+  if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator"]}><AgenticTaskIntakePage api={api} /></StaffRoleRoute>;
+  return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
 }
 
 function InventoryRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {

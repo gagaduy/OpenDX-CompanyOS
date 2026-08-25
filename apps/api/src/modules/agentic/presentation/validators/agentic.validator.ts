@@ -16,6 +16,39 @@ const page = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
 }).strict();
+const consoleTaskState = z.enum([
+  "draft", "ready", "received", "planning", "awaiting_plan_approval",
+  "dispatching", "department_analysis", "quality_review", "collaboration",
+  "executive_synthesis", "awaiting_human_approval", "retrying",
+  "partially_completed", "failed", "canceled", "completed",
+]);
+const consoleTaskFilter = page.extend({
+  state: consoleTaskState.optional(),
+  createdBy: z.string().trim().min(1).max(255).optional(),
+  createdFrom: z.iso.datetime({ offset: true }).optional(),
+  createdTo: z.iso.datetime({ offset: true }).optional(),
+}).strict().refine(
+  (value) => value.createdFrom === undefined || value.createdTo === undefined
+    || Date.parse(value.createdFrom) <= Date.parse(value.createdTo),
+  { path: ["createdTo"], message: "Created-to must not precede created-from" },
+);
+const taskIntake = z.object({
+  mode: z.enum(["store_health_review", "advanced"]),
+  goal: z.string().trim().min(1).max(500),
+  instructions: z.string().trim().min(1).max(8_000),
+  deadline: z.iso.datetime({ offset: true }).optional(),
+  reviewWindow: z.object({
+    start: z.iso.date(), end: z.iso.date(),
+  }).strict().optional(),
+}).strict().superRefine((value, context) => {
+  if (value.mode === "store_health_review" && value.reviewWindow === undefined) {
+    context.addIssue({ code: "custom", path: ["reviewWindow"], message: "Review window is required" });
+  }
+  if (value.reviewWindow !== undefined && value.reviewWindow.start > value.reviewWindow.end) {
+    context.addIssue({ code: "custom", path: ["reviewWindow", "end"], message: "Review window is invalid" });
+  }
+});
+const emptyQuery = z.object({}).strict();
 const subtask = z.object({ id: uuid.optional(), agentKind, title: z.string().trim().min(1).max(500) }).strict();
 const dependency = z.object({ from: uuid, to: uuid }).strict();
 const intakeProvenance = z.object({
@@ -261,6 +294,9 @@ const idempotencyKey = z.string().trim().min(1).max(255);
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);
 export const parsePage = (value: unknown) => parse(page, value);
+export const parseConsoleTaskFilter = (value: unknown) => parse(consoleTaskFilter, value);
+export const parseTaskIntake = (value: unknown) => parse(taskIntake, value);
+export const parseEmptyQuery = (value: unknown) => parse(emptyQuery, value);
 export const parseAuditQuery = (value: unknown) => parse(auditQuery, value);
 export const parseCreateTask = (value: unknown) => parse(task, value);
 export const parseUpdateTask = (value: unknown) => parse(taskUpdate, value);

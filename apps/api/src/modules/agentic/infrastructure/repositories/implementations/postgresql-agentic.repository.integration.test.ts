@@ -397,6 +397,39 @@ suite("PostgresqlAgenticRepository", () => {
     ))).resolves.toEqual(binding);
   });
 
+  it("projects filtered task pages and overview counts inside the requested staff scope", async () => {
+    const firstId = "00000000-0000-4000-8000-000000000101";
+    const secondId = "00000000-0000-4000-8000-000000000102";
+    const otherId = "00000000-0000-4000-8000-000000000103";
+    const at = "2026-08-25T00:00:00.000Z";
+    await transactions.run(async (session) => {
+      for (const task of [
+        { id: firstId, state: "draft" as const, createdBy: "operator-a", goal: "First", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+        { id: secondId, state: "draft" as const, createdBy: "operator-a", goal: "Second", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+        { id: otherId, state: "draft" as const, createdBy: "operator-b", goal: "Other", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+      ]) await repository.createTask(session, task);
+    });
+
+    await expect(transactions.runReadOnly((session) => repository.listConsoleTasks(session, {
+      page: 1, pageSize: 25, state: "draft",
+      createdFrom: "2026-08-24T00:00:00.000Z", createdTo: "2026-08-26T00:00:00.000Z",
+      scope: { kind: "owner", actorId: "operator-a" },
+    }))).resolves.toMatchObject({
+      totalItems: 2,
+      items: [{ id: firstId }, { id: secondId }],
+    });
+    await expect(transactions.runReadOnly((session) => repository.listConsoleTasks(session, {
+      page: 1, pageSize: 25, scope: { kind: "oversight" },
+    }))).resolves.toMatchObject({ totalItems: 3 });
+    await expect(transactions.runReadOnly((session) => repository.getConsoleTaskOverview(
+      session, { kind: "owner", actorId: "operator-a" },
+    ))).resolves.toMatchObject({
+      counts: { running: 0, waiting: 2, failed: 0, completed: 0, canceled: 0 },
+      pendingApprovals: 0,
+      settledCostMicros: 0,
+    });
+  });
+
   it("rejects reuse of an approval idempotency key with a changed preview payload", async () => {
     const at = "2026-08-22T00:00:00.000Z"; const fileId = randomUUID(); const key = `file-approval:${fileId}`;
     await pool.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at,scanned_at)

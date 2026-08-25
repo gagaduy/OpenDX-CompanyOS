@@ -21,6 +21,7 @@ import type {
 import type {
   ActivityInvocation,
   WorkflowRun,
+  WorkflowRunState,
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
 import type {
@@ -373,6 +374,31 @@ export interface StaffIntakeBinding {
   readonly createdAt: string;
 }
 
+export type AgenticConsoleTaskScope =
+  | { readonly kind: "owner"; readonly actorId: string }
+  | { readonly kind: "approval"; readonly actorId: string }
+  | { readonly kind: "oversight" }
+  | { readonly kind: "all" };
+
+export interface AgenticConsoleTaskRepositoryFilter {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly scope: AgenticConsoleTaskScope;
+  readonly state?: string;
+  readonly createdBy?: string;
+  readonly createdFrom?: string;
+  readonly createdTo?: string;
+}
+
+export interface AgenticConsoleTaskOverviewRecord {
+  readonly counts: Readonly<Record<"running" | "waiting" | "failed" | "completed" | "canceled", number>>;
+  readonly pendingApprovals: number;
+  readonly settledCostMicros: number;
+}
+export type AgenticConsoleTaskRecord = Omit<AgentTask, "state"> & {
+  readonly state: AgentTask["state"] | WorkflowRunState;
+};
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -461,6 +487,8 @@ export interface AgenticRepository {
   findExecutiveReportReference(session: DatabaseSession, reportId: string): Promise<ExecutiveReportReferenceRecord | undefined>;
   findStaffIntakeBinding(session: DatabaseSession, kind: StaffIntakeBinding["kind"], actorId: string, idempotencyKey: string): Promise<StaffIntakeBinding | undefined>;
   bindStaffIntake(session: DatabaseSession, binding: StaffIntakeBinding): Promise<"created" | "duplicate" | "conflict">;
+  listConsoleTasks(session: DatabaseSession, filter: AgenticConsoleTaskRepositoryFilter): Promise<{ readonly items: readonly AgenticConsoleTaskRecord[]; readonly totalItems: number }>;
+  getConsoleTaskOverview(session: DatabaseSession, scope: AgenticConsoleTaskScope): Promise<AgenticConsoleTaskOverviewRecord>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;

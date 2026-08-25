@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the governed Digital Workforce task workspace with role-scoped overview
+  projections, URL-backed task filtering, guided Store Health intake, and
+  backend-owned AI CEO bootstrap provenance.
+
 - Make staff file intake replay-safe with immutable actor-scoped idempotency
   bindings, exact upload replay, and changed-payload conflict enforcement.
 
