@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Expand the Phase F implementation plan with API-owned AI CEO authority,
+  immutable private accepted-result/report payloads, purpose-specific Quality
+  Gates, and digest-only synthesis and replay boundaries.
+
 - Refine the Phase F design with append-only API-owned AI CEO planning and
   synthesis authority, process-local governed model results, immutable private
   accepted-result/report payloads, and reference-only Temporal synthesis.

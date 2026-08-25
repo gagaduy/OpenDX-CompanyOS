@@ -10,6 +10,20 @@
 
 **Tech Stack:** TypeScript, Express, Zod, PostgreSQL 18, Python 3.13, Pydantic 2, httpx, Temporal 1.30, Keycloak client credentials, Vitest, pytest.
 
+**Spec:** `docs/superpowers/specs/2026-08-22-ai-ceo-coordination-memory-design.md`
+
+## Global Constraints
+
+- Company remains the center; AI CEO is a governed orchestration role.
+- API owns model, schema, tool, policy, budget, authority, result, report,
+  audit, and provenance truth.
+- Worker, AI CEO, and all six Department identities remain distinct.
+- Raw authority/context/tool/model/report payloads and credentials never enter
+  Temporal history or normal logs.
+- Phase B histories replay unchanged behind the named patch.
+- No schedule, Company Memory, GraphRAG, Console UI, public runtime command,
+  Commerce mutation, or new third-party dependency is included.
+
 ---
 
 ## Completed foundation
@@ -23,6 +37,12 @@ The following approved units are already implemented and verified on
 - `e9255f0`: strict internal plan-intake endpoint.
 - `c420b9a`: frozen Python planning and synthesis contracts.
 - `59841cf`: approved descriptor and Department-identity design amendment.
+- `4baa309`: append-only execution-descriptor persistence.
+- `86ed939`: server-owned Store Health execution catalog.
+- `5edad75`: governed descriptor preparation, reads, and settlements.
+- `ee0068b`: distinct AI CEO and Department identities and safe transports.
+- `bd9f5c6`: strict descriptor-bound runtime execution foundation.
+- `de5ae91`: approved AI CEO model-authority and private-result amendment.
 
 ## Remaining file map
 
@@ -39,6 +59,10 @@ The following approved units are already implemented and verified on
 - `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.ts`
   owns the bounded server-side result schemas and Department tool sets used to
   resolve plan digests; the AI CEO cannot supply models or arbitrary tools.
+- `apps/api/src/modules/agentic/domain/entities/ai-ceo-execution-authority.ts`
+  owns purpose-specific planning/synthesis authority and payload validation.
+- Migration `202608220007` owns append-only AI CEO authority and private
+  accepted-result/report payload storage.
 - `services/ai-runtime/app/agentic/domain/execution_descriptor.py` owns strict
   purpose-specific runtime DTOs.
 - `services/ai-runtime/app/agentic/infrastructure/department_tools.py` owns the
@@ -327,21 +351,283 @@ git add services/ai-runtime CHANGELOG.md
 git commit -m "feat(ai-runtime): isolate department identities"
 ```
 
-### Task 8: Execute descriptor-bound Department work
+### Task 8: Persist AI CEO authorities and private accepted payloads
 
 **Files:**
-- Create: `services/ai-runtime/app/agentic/domain/execution_descriptor.py`
-- Create: `services/ai-runtime/app/agentic/application/department_execution.py`
-- Create: `services/ai-runtime/app/agentic/activities/orchestration_activities.py`
+- Create: `apps/api/src/modules/agentic/domain/entities/ai-ceo-execution-authority.ts`
+- Create: `apps/api/src/modules/agentic/domain/entities/ai-ceo-execution-authority.test.ts`
+- Create: `apps/api/src/modules/agentic/infrastructure/database/migrations/202608220007_create_ai_ceo_execution_authorities.ts`
+- Modify: `apps/api/src/modules/agentic/application/repositories/interfaces/agentic.repository.ts`
+- Modify: `apps/api/src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.ts`
+- Modify: `apps/api/src/modules/agentic/infrastructure/repositories/implementations/postgresql-agentic.repository.integration.test.ts`
+- Modify: `apps/api/src/modules/agentic/infrastructure/database/agentic-migration.integration.test.ts`
+- Modify: `CHANGELOG.md`
+
+**Interfaces:**
+- Consumes: immutable task/configuration/plan records and `canonicalDigest`.
+- Produces: `AiCeoExecutionAuthority`, `AiCeoExecutionPayload`, append/read
+  repository methods, immutable accepted-result payloads, and immutable
+  executive-report payloads.
+
+- [ ] **Step 1: Write failing authority and persistence tests**
+
+Prove purpose-specific authority validation, exact replay convergence,
+conflicting payload rejection, secret-field rejection, UPDATE/DELETE
+prevention, and one private payload for each accepted result/report digest.
+
+```ts
+it("rejects replay with a changed planning model", async () => {
+  await repository.appendAiCeoExecutionAuthority(session, authority, payload);
+  await expect(repository.appendAiCeoExecutionAuthority(session,
+    { ...authority, primaryModel: "unapproved/model" }, payload))
+    .rejects.toMatchObject({ code: "AI_CEO_AUTHORITY_CONFLICT" });
+});
+```
+
+- [ ] **Step 2: Run the tests and observe the missing contracts**
+
+```bash
+pnpm --filter @opendx/api test -- ai-ceo-execution-authority
+TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test pnpm --filter @opendx/api test:integration -- postgresql-agentic.repository.integration.test.ts agentic-migration.integration.test.ts
+```
+
+Expected: FAIL because authority and private-payload persistence are absent.
+
+- [ ] **Step 3: Add the strict authority contract**
+
+```ts
+export interface AiCeoExecutionAuthority {
+  readonly id: string; readonly version: number;
+  readonly purpose: "orchestration_planning" | "executive_synthesis";
+  readonly taskId: string; readonly planVersion?: number;
+  readonly configurationRevisionId: string; readonly policyVersion: number;
+  readonly primaryModel: string; readonly fallbackModel: string;
+  readonly resultSchemaName: string; readonly resultSchemaDigest: string;
+  readonly authorizedContextDigest: string;
+  readonly budgetAuthorizationMicros: number; readonly timeoutSeconds: number;
+  readonly expiresAt: string; readonly payloadDigest: string;
+  readonly authorityDigest: string; readonly createdAt: string;
+}
+
+export interface AiCeoExecutionPayload {
+  readonly resultSchema: Readonly<Record<string, unknown>>;
+  readonly authorizedContext: Readonly<Record<string, unknown>>;
+}
+```
+
+Require `planVersion` only for synthesis. Bind every field into the canonical
+authority digest and reject nested credential-like keys.
+
+- [ ] **Step 4: Add append-only PostgreSQL storage**
+
+Migration `202608220007` creates authority, authority-payload,
+accepted-result-payload, and executive-report-payload tables. Protect all four
+with `agentic_prevent_mutation()`. Repository append methods recompute payload
+digests, converge exact retries, and return conflict for changed content.
+
+- [ ] **Step 5: Re-run focused tests, update changelog, and commit**
+
+Run both commands from Step 2. Expected: PASS.
+
+```bash
+git add apps/api/src/modules/agentic CHANGELOG.md
+git commit -m "feat(agentic): persist ai ceo execution authority"
+```
+
+### Task 9: Govern AI CEO authority and private synthesis context
+
+**Files:**
+- Create: `apps/api/src/modules/agentic/application/orchestration/ai-ceo-execution-catalog.ts`
+- Create: `apps/api/src/modules/agentic/application/orchestration/ai-ceo-execution-catalog.test.ts`
+- Modify: `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.ts`
+- Modify: `apps/api/src/modules/agentic/application/orchestration/store-health-execution-catalog.test.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/interfaces/orchestration.service.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.ts`
+- Modify: `apps/api/src/modules/agentic/application/services/implementations/orchestration.service.test.ts`
+- Modify: `apps/api/src/modules/agentic/presentation/validators/agentic.validator.ts`
+- Modify: `apps/api/src/modules/agentic/presentation/controllers/agentic-workload.controller.ts`
+- Modify: `apps/api/src/modules/agentic/presentation/routes/agentic-workload.routes.ts`
+- Modify: `apps/api/src/modules/agentic/tests/agentic.api.test.ts`
+- Modify: `apps/api/src/modules/agentic/tests/agentic.api.integration.test.ts`
+- Modify: `CHANGELOG.md`
+
+**Interfaces:**
+- Consumes: Task 8 authority/private-payload repositories and the active AI CEO
+  model/budget configuration.
+- Produces: planning-authority references in Task Briefs, synthesis-authority
+  references in dispatch plans, authority reads, exact private result
+  settlement, synthesis-context resolution, and private report settlement.
+
+- [ ] **Step 1: Write failing service and HTTP tests**
+
+Cover server-owned model/schema/budget selection, current policy/revocation,
+unexpired replay, expired new-version preparation, worker-only authority reads,
+digest headers, no-store responses, result schema/digest recomputation,
+share-policy evaluation, exact synthesis references, and report provenance.
+
+```ts
+it("rejects a shareable result whose body does not match its digest", async () => {
+  await expect(service.acceptResult({ ...result, resultDigest: "0".repeat(64) }, worker))
+    .rejects.toMatchObject({ code: "RESULT_DIGEST_INVALID" });
+  expect(repository.appendAcceptedOrchestrationResultPayload).not.toHaveBeenCalled();
+});
+```
+
+- [ ] **Step 2: Run focused tests and observe failure**
+
+```bash
+pnpm --filter @opendx/api test -- ai-ceo-execution-catalog orchestration.service agentic.api.test.ts
+TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@localhost:55432/opendx_test pnpm --filter @opendx/api test:integration -- agentic.api.integration.test.ts
+```
+
+Expected: FAIL because authority preparation and private synthesis context are
+absent.
+
+- [ ] **Step 3: Add server-owned schemas and safe Department payloads**
+
+The planning proposal schema permits only `subtasks[]` containing one unique
+eligible `owner` and unique `dependencies` by owner. Revise the Phase F
+Department result schema payload to contain only exact tool summary references:
+
+```ts
+interface StoreHealthToolSummaryReference {
+  readonly toolName: DepartmentToolName;
+  readonly provenanceId: string;
+  readonly summaryDigest: string;
+}
+```
+
+This removes LLM-owned calculations from the result payload. Conclusions,
+risks, and recommendations retain provenance IDs; raw tool summaries and
+evidence rows are never shareable payload fields. The AI CEO synthesis schema
+uses the existing bounded AI CEO envelope.
+
+- [ ] **Step 4: Prepare and expose private authority**
+
+`loadTaskBrief` idempotently prepares an unexpired planning authority from the
+exact active AI CEO model configuration and budget, returning only
+`{authorityId, authorityDigest}`. `acceptPlan` prepares the synthesis authority
+in the plan transaction. Add worker-only routes:
+
+```text
+GET  /orchestration/ai-ceo-authorities/:authorityId
+POST /orchestration/synthesis-contexts
+```
+
+Authority reads require `x-opendx-authority-digest`. Synthesis-context input is
+only task ID, plan version, and bounded `DescriptorExecutionReference` values;
+the response contains exact accepted shareable payloads and unavailable
+references, never Department descriptor/tool bodies.
+
+- [ ] **Step 5: Harden result and report settlements**
+
+Extend result settlement with descriptor ID/digest and the strict shareable
+result. Extend report settlement with authority ID/digest and the strict AI CEO
+report. Revalidate current authority, parse the server-owned schema, recompute
+all digests/provenance, and append metadata plus private payload atomically.
+
+- [ ] **Step 6: Re-run tests, update changelog, and commit**
+
+Run Step 2. Expected: PASS.
+
+```bash
+git add apps/api/src/modules/agentic CHANGELOG.md
+git commit -m "feat(agentic): govern ai ceo execution authority"
+```
+
+### Task 10: Return governed structured model results in process
+
+**Files:**
+- Modify: `services/ai-runtime/app/agentic/application/model_executor.py`
+- Modify: `services/ai-runtime/app/agentic/application/quality_gate.py`
+- Create: `services/ai-runtime/app/agentic/application/planning_quality_gate.py`
+- Create: `services/ai-runtime/app/agentic/application/phase_f_context.py`
+- Create: `services/ai-runtime/app/agentic/domain/ai_ceo_execution.py`
+- Modify: `services/ai-runtime/app/agentic/domain/store_health_result_schemas.py`
+- Modify: `services/ai-runtime/tests/agentic/application/test_model_executor.py`
+- Modify: `services/ai-runtime/tests/agentic/application/test_quality_gate.py`
+- Create: `services/ai-runtime/tests/agentic/application/test_planning_quality_gate.py`
+- Create: `services/ai-runtime/tests/agentic/application/test_phase_f_context.py`
+- Create: `services/ai-runtime/tests/agentic/domain/test_ai_ceo_execution.py`
+- Modify: `services/ai-runtime/tests/agentic/domain/test_store_health_result_schemas.py`
+- Modify: `CHANGELOG.md`
+
+**Interfaces:**
+- Consumes: API-owned authority and result-schema shapes from Task 9.
+- Produces: `ModelExecutionOutcome.accepted_content`, strict AI CEO authority
+  DTOs, Phase F contexts/prompts, `PlanningQualityGate`, and schema digests that
+  exactly match the API catalog.
+
+- [ ] **Step 1: Write failing model-content and Quality Gate tests**
+
+Prove accepted/partial outcomes expose an immutable in-process content mapping,
+escalated/correct/failed outcomes expose none, existing Temporal model activity
+responses stay digest-only, planning rejects unknown owners/cycles/authority
+fields, synthesis accepts purpose `executive_synthesis`, and Phase D continues
+to block planning semantics.
+
+```python
+def test_completed_model_result_is_available_only_to_the_application_caller() -> None:
+    outcome = asyncio.run(executor.execute(command()))
+    assert dict(outcome.accepted_content or {}) == {"status": "complete"}
+    assert "acceptedContent" not in asyncio.run(activity.execute_model_analysis_v1(command()))
+```
+
+- [ ] **Step 2: Run tests and observe failure**
+
+```bash
+pnpm test:py -- tests/agentic/application/test_model_executor.py tests/agentic/application/test_quality_gate.py tests/agentic/application/test_planning_quality_gate.py tests/agentic/application/test_phase_f_context.py tests/agentic/domain/test_ai_ceo_execution.py tests/agentic/domain/test_store_health_result_schemas.py
+```
+
+Expected: FAIL because process-local content and Phase F gates are absent.
+
+- [ ] **Step 3: Add process-local accepted content**
+
+Add `accepted_content: Mapping[str, object] | None = field(default=None,
+repr=False, compare=False)` to `ModelExecutionOutcome`. Populate it only after
+an `accepted` or terminal `partial` Quality Gate decision. Keep model-run
+settlements and `ModelExecutionActivities` output unchanged and digest-only.
+
+- [ ] **Step 4: Add strict Phase F authority, context, and gates**
+
+Parse authority/payload with frozen Pydantic models and verify authority,
+payload, schema, and authorized-context digests before model execution.
+`PlanningQualityGate` parses only owner/dependency proposals and delegates DAG
+validation to `OrchestrationPlanner`. The Phase F Department gate verifies
+evidence/provenance plus exact `{toolName, provenanceId, summaryDigest}` values.
+Extend the existing `QualityGate` purpose literal with
+`executive_synthesis`; do not relax its Phase D `department_analysis` rules.
+
+- [ ] **Step 5: Re-run tests, update changelog, and commit**
+
+Run Step 2. Expected: PASS.
+
+```bash
+git add services/ai-runtime CHANGELOG.md
+git commit -m "feat(ai-runtime): expose governed structured results"
+```
+
+### Task 11: Execute descriptor-bound Department and AI CEO work
+
+**Files:**
+- Modify: `services/ai-runtime/app/agentic/domain/execution_descriptor.py`
+- Modify: `services/ai-runtime/app/agentic/application/department_execution.py`
+- Modify: `services/ai-runtime/app/agentic/activities/orchestration_activities.py`
 - Modify: `services/ai-runtime/app/agentic/worker.py`
-- Create: `services/ai-runtime/tests/agentic/application/test_department_execution.py`
-- Create: `services/ai-runtime/tests/agentic/activities/test_orchestration_activities.py`
+- Modify: `services/ai-runtime/tests/agentic/application/test_department_execution.py`
+- Modify: `services/ai-runtime/tests/agentic/activities/test_orchestration_activities.py`
 - Modify: `services/ai-runtime/tests/agentic/test_worker.py`
 - Modify: `CHANGELOG.md`
 
+**Interfaces:**
+- Consumes: Task 10 process-local accepted content, authority DTOs, and gates;
+  Task 7 worker/AI CEO/Department transports.
+- Produces: planning, Department execution, and synthesis services plus exactly
+  three Phase F Temporal activities behind the descriptor-execution flag.
+
 - [ ] **Step 1: Write failing application/activity tests**
 
-Cover Task Brief loading, governed AI CEO planning and plan submission, binding
+Cover Task Brief loading, authority-bound AI CEO planning and plan submission, binding
 mismatch, expiry, tool limits, Department token selection, safe context,
 existing model executor/Quality Gate use, accepted/partial outcomes, mediated
 collaboration, and exact settlement. An unavailable Department must never cause
@@ -362,7 +648,8 @@ async def test_descriptor_mismatch_stops_before_tools_or_model() -> None:
 pnpm test:py -- tests/agentic/application/test_department_execution.py tests/agentic/activities/test_orchestration_activities.py tests/agentic/test_worker.py
 ```
 
-Expected: FAIL because execution contracts and activities are absent.
+Expected: FAIL because governed planning, synthesis, private payload
+settlement, and feature-flagged worker composition are incomplete.
 
 - [ ] **Step 3: Add strict frozen runtime contracts**
 
@@ -386,16 +673,25 @@ class DescriptorExecutionReference(BaseModel):
 
 - [ ] **Step 4: Implement service and activity adapter**
 
-Implement `plan_orchestration_v1` to load the bounded Task Brief with the worker
-identity, run the AI CEO through the existing governed model/Quality Gate path,
-validate the structured plan with `OrchestrationPlanner`, and submit it using
-only the AI CEO identity. Then load descriptors with the worker token; verify
-every binding and expiry; invoke only typed
+Implement `plan_orchestration_v1` to load the bounded Task Brief and referenced
+planning authority with the worker identity, run the AI CEO through the
+governed model-run and `PlanningQualityGate` path, deterministically enrich the
+accepted owner/dependency proposal from eligible assignment records, validate
+it with `OrchestrationPlanner`, and submit it using only the AI CEO identity.
+Then load descriptors with the worker token; verify every binding and expiry;
+invoke only typed
 grants using the assigned Department token; build minimized labeled context;
 construct the existing `ModelExecutionCommand` from API-authorized model,
-schema, context, and Quality Gate data; append one accepted result. Structured
-collaboration requests are persisted and policy-checked before target execution.
-Only `DescriptorExecutionInput` and `DescriptorExecutionReference` cross Temporal.
+schema, context, and Quality Gate data; append one accepted private shareable
+result. Terminal Department or escalated Quality Gate outcomes return
+`unavailable` without settlement; partial outcomes remain explicit.
+
+`synthesize_executive_report_v1` resolves only exact result references through
+the worker synthesis-context operation, loads the synthesis authority, runs the
+AI CEO through the existing synthesis Quality Gate, and settles one private
+report. Structured collaboration requests are persisted and policy-checked
+before target execution. Only bounded IDs, digests, statuses, provenance IDs,
+and idempotency keys cross Temporal.
 
 - [ ] **Step 5: Register and test activities**
 
@@ -411,7 +707,7 @@ git add services/ai-runtime CHANGELOG.md
 git commit -m "feat(ai-runtime): execute governed department work"
 ```
 
-### Task 9: Add the replay-safe Temporal descriptor path
+### Task 12: Add the replay-safe Temporal descriptor path
 
 **Files:**
 - Modify: `services/ai-runtime/app/agentic/domain/contracts.py`
@@ -477,7 +773,7 @@ git add services/ai-runtime CHANGELOG.md
 git commit -m "feat(ai-runtime): dispatch descriptor plan graph"
 ```
 
-### Task 10: Wire deployment identities and Slice 1 acceptance
+### Task 13: Wire deployment identities and Slice 1 acceptance
 
 **Files:**
 - Modify: `.env.example`
@@ -562,16 +858,19 @@ git commit -m "test(agentic): verify ai ceo orchestration"
 
 ## Plan self-review
 
-- Spec coverage: Tasks 5–6 own descriptors, trusted preparation,
-  policy/revocation/expiry, collaboration, results, reports, audit, and
-  provenance. Tasks 7–8 own distinct identities, safe context, typed tools,
-  governed models, Quality Gate, AI CEO plan submission, and secret-safe
-  transports. Task 9 owns DAG,
-  cancellation, recovery, and old/new replay. Task 10 owns Compose, docs,
-  deterministic acceptance, and closure evidence.
+- Spec coverage: Tasks 5–7 own Department descriptors and distinct identities.
+  Tasks 8–9 own append-only AI CEO authority, private accepted-result/report
+  payloads, synthesis-context resolution, and API revalidation. Tasks 10–11
+  own process-local structured results, purpose-specific Quality Gates,
+  governed planning/Department/synthesis execution, and worker composition.
+  Task 12 owns DAG cancellation, recovery, and old/new replay. Task 13 owns
+  Compose, docs, deterministic acceptance, and closure evidence.
 - Type consistency: `ExecutionDescriptor` is the API persistence contract;
   `ExecutionDescriptorView` is the internal DTO; `DescriptorExecutionInput`
-  and `DescriptorExecutionReference` are the only new Temporal payloads.
+  and `DescriptorExecutionReference` are the Department Temporal payloads.
+  Planning and synthesis carry only bounded task/plan IDs, authority/result
+  references, statuses, provenance IDs, and idempotency keys; private payloads
+  remain API/runtime-local.
   Department kinds are exactly Catalog, Inventory, Order, Finance, CRM, and
   Support; AI CEO and worker remain separate identities across TypeScript,
   Python, Keycloak, and Compose.
