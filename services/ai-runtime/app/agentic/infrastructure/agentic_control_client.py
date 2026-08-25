@@ -26,6 +26,8 @@ from app.agentic.domain.contracts import (
     ActivityReservationRequest,
     ApprovalRequirement,
     FrozenWorkflowPlan,
+    OrchestrationDispatchNode,
+    OrchestrationDispatchPlan,
     PlanDependency,
     PlanNode,
     StateProjection,
@@ -100,10 +102,23 @@ class AgenticControlClient:
             "GET", f"/orchestration/settlements/{kind}/{quote(settlement_id, safe='')}"
         )
 
-    async def load_dispatch_plan(self, run_id: str) -> dict[str, Any]:
-        return await self._request(
+    async def load_dispatch_plan(self, run_id: str) -> OrchestrationDispatchPlan:
+        data = await self._request(
             "GET", f"/orchestration/dispatch-plans/{quote(run_id, safe='')}"
         )
+        try:
+            return OrchestrationDispatchPlan(
+                task_id=data["taskId"], plan_version=data["planVersion"],
+                plan_digest=data["planDigest"],
+                nodes=tuple(OrchestrationDispatchNode(
+                    subtask_id=node["subtaskId"], agent_kind=node["agentKind"],
+                    dependencies=tuple(node["dependencies"]),
+                    descriptor_id=node["descriptorId"],
+                    descriptor_digest=node["descriptorDigest"],
+                ) for node in data["nodes"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
 
     async def load_execution_descriptor(
         self, descriptor_id: str, descriptor_digest: str

@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Dispatch accepted Phase F descriptor plans through a replay-safe Temporal DAG
+  path with stable dependency ordering, reference-only activity histories,
+  honest unavailable-branch synthesis, cancellation draining, and unchanged
+  replay support for all five Phase B histories.
+
 - Execute authority-bound AI CEO planning, descriptor-scoped Department work,
   and provenance-bound executive synthesis through three feature-flagged
   Temporal activities with distinct Agent identities, private API settlement,

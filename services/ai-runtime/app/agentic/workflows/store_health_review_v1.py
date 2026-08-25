@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -19,8 +21,20 @@ from app.agentic.domain.contracts import (
     ApprovalSignal,
     CancellationSignal,
     FrozenWorkflowPlan,
+    OrchestrationDispatchPlan,
     StoreHealthReviewInput,
     WorkflowState,
+)
+from app.agentic.domain.execution_descriptor import (
+    DescriptorExecutionInput,
+    DescriptorExecutionReference,
+    PlanningExecutionInput,
+    PlanningExecutionReference,
+    SynthesisBranchReference,
+    SynthesisExecutionInput,
+    SynthesisExecutionReference,
+    canonical_digest,
+    descriptor_json,
 )
 
 
@@ -89,6 +103,13 @@ class StoreHealthReviewWorkflowV1:
         self._start_to_close = timedelta(seconds=value.activity_start_to_close_seconds)
         self._schedule_to_close = timedelta(seconds=value.activity_schedule_to_close_seconds)
         run_id = self._run_id()
+        if workflow.patched("phase-f-execution-descriptor-v1") and self._uuid(value.task_id):
+            return await self._run_descriptor_orchestration(run_id, value)
+        return await self._run_phase_b_path(run_id, value)
+
+    async def _run_phase_b_path(
+        self, run_id: str, value: StoreHealthReviewInput
+    ) -> StoreHealthReviewResult:
         await self._project(run_id, WorkflowState.PLANNING)
         canceled = await self._canceled_if_requested(run_id, (), ())
         if canceled is not None:
@@ -230,6 +251,198 @@ class StoreHealthReviewWorkflowV1:
         if self._cancellation is not None:
             return
         self._cancellation = value
+
+    async def _run_descriptor_orchestration(
+        self, run_id: str, value: StoreHealthReviewInput
+    ) -> StoreHealthReviewResult:
+        await self._project(run_id, WorkflowState.PLANNING)
+        canceled = await self._canceled_if_requested(run_id, (), ())
+        if canceled is not None:
+            return canceled
+        try:
+            planned_raw = await self._descriptor_control_activity(
+                "plan_orchestration_v1",
+                descriptor_json(PlanningExecutionInput(
+                    task_id=UUID(value.task_id), idempotency_key=f"{run_id}:plan:v1",
+                )),
+            )
+            if planned_raw is None:
+                return await self._canceled(run_id, (), ())
+            planned = PlanningExecutionReference.model_validate_json(
+                json.dumps(planned_raw)
+            )
+            plan = await self._descriptor_control_activity(
+                "load_orchestration_dispatch_plan", run_id,
+                OrchestrationDispatchPlan,
+            )
+            if plan is None:
+                return await self._canceled(run_id, (), ())
+        except (ActivityError, ValueError):
+            return await self._finish(
+                run_id, WorkflowState.FAILED, "INVALID_FROZEN_PLAN", (), (),
+            )
+        if (
+            plan.task_id != value.task_id
+            or planned.task_id != UUID(value.task_id)
+            or plan.plan_version != planned.plan_version
+            or plan.plan_digest != planned.plan_digest
+            or not self._valid_dispatch_plan(plan)
+        ):
+            return await self._finish(
+                run_id, WorkflowState.FAILED, "INVALID_FROZEN_PLAN", (), (),
+            )
+        await self._project(run_id, WorkflowState.DISPATCHING)
+        await self._project(run_id, WorkflowState.DEPARTMENT_ANALYSIS)
+        references = await self._run_descriptor_graph(run_id, plan)
+        successful = tuple(sorted(
+            branch_id for branch_id, reference in references.items()
+            if reference.status in {"usable", "partial"}
+        ))
+        failed = tuple(sorted(
+            branch_id for branch_id, reference in references.items()
+            if reference.status == "unavailable"
+        ))
+        canceled = await self._canceled_if_requested(run_id, successful, failed)
+        if canceled is not None:
+            return canceled
+        await self._project(run_id, WorkflowState.EXECUTIVE_SYNTHESIS)
+        branches = tuple(
+            SynthesisBranchReference(
+                subtask_id=UUID(branch_id), status=reference.status,
+                result_id=reference.result_id, result_digest=reference.result_digest,
+                provenance_ids=reference.provenance_ids,
+            )
+            for branch_id, reference in sorted(references.items())
+        )
+        try:
+            report_raw = await self._descriptor_control_activity(
+                "synthesize_executive_report_v1",
+                descriptor_json(SynthesisExecutionInput(
+                    task_id=UUID(value.task_id), plan_version=plan.plan_version,
+                    branches=branches, idempotency_key=f"{run_id}:synthesis:v1",
+                )),
+            )
+            if report_raw is None:
+                return await self._canceled(run_id, successful, failed)
+            report = SynthesisExecutionReference.model_validate_json(
+                json.dumps(report_raw)
+            )
+        except (ActivityError, ValueError):
+            return await self._finish(
+                run_id, WorkflowState.FAILED, "RETRY_EXHAUSTED", successful, failed,
+            )
+        canceled = await self._canceled_if_requested(run_id, successful, failed)
+        if canceled is not None or report.completion_state == "canceled":
+            return canceled or await self._canceled(run_id, successful, failed)
+        if failed or any(reference.status == "partial" for reference in references.values()) \
+                or report.completion_state != "complete":
+            return await self._finish(
+                run_id, WorkflowState.PARTIALLY_COMPLETED,
+                "PARTIAL_ACTIVITY_FAILURE", successful, failed,
+            )
+        return await self._finish(
+            run_id, WorkflowState.COMPLETED, "COMPLETED", successful, failed,
+        )
+
+    async def _run_descriptor_graph(
+        self, run_id: str, plan: OrchestrationDispatchPlan
+    ) -> dict[str, DescriptorExecutionReference]:
+        nodes = {node.subtask_id: node for node in plan.nodes}
+        remaining = set(nodes)
+        references: dict[str, DescriptorExecutionReference] = {}
+        active: dict[Any, str] = {}
+        cancellation_waiter = asyncio.create_task(
+            workflow.wait_condition(lambda: self._cancellation is not None)
+        )
+        while remaining and self._cancellation is None:
+            blocked = sorted(
+                node_id for node_id in remaining
+                if any(references.get(dependency) is not None
+                       and references[dependency].status == "unavailable"
+                       for dependency in nodes[node_id].dependencies)
+            )
+            for node_id in blocked:
+                references[node_id] = self._unavailable_reference(
+                    "DEPENDENCY_UNAVAILABLE"
+                )
+                remaining.remove(node_id)
+            ready = sorted(
+                node_id for node_id in remaining if node_id not in active.values()
+                and all(dependency in references for dependency in nodes[node_id].dependencies)
+            )
+            for node_id in ready:
+                node = nodes[node_id]
+                handle = workflow.start_activity(
+                    "execute_department_subtask_v1",
+                    descriptor_json(DescriptorExecutionInput(
+                        descriptor_id=UUID(node.descriptor_id),
+                        descriptor_digest=node.descriptor_digest,
+                        task_id=UUID(plan.task_id), plan_version=plan.plan_version,
+                        subtask_id=UUID(node.subtask_id), agent_kind=node.agent_kind,
+                        idempotency_key=f"{run_id}:department:{node.subtask_id}:v1",
+                    )),
+                    start_to_close_timeout=self._start_to_close,
+                    schedule_to_close_timeout=self._schedule_to_close,
+                    heartbeat_timeout=timedelta(seconds=5),
+                    retry_policy=CONTROL_RETRY_POLICY,
+                    cancellation_type=ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
+                )
+                active[handle] = node_id
+            self._outstanding = tuple(active)
+            if not active:
+                for node_id in remaining:
+                    references[node_id] = self._unavailable_reference("INVALID_PLAN")
+                break
+            done, _ = await workflow.wait(
+                (*active, cancellation_waiter), return_when="FIRST_COMPLETED",
+            )
+            if cancellation_waiter in done:
+                break
+            for handle in sorted(done, key=lambda item: active[item]):
+                node_id = active.pop(handle)
+                remaining.remove(node_id)
+                try:
+                    raw_reference = await handle
+                    references[node_id] = DescriptorExecutionReference.model_validate_json(
+                        json.dumps(raw_reference)
+                    )
+                except (ActivityError, ValueError) as error:
+                    if isinstance(error, ValueError):
+                        references[node_id] = self._unavailable_reference(
+                            "SCHEMA_INVALID"
+                        )
+                        continue
+                    application = self._application_error(error)
+                    references[node_id] = self._unavailable_reference(
+                        application.type if application is not None else "RETRY_EXHAUSTED"
+                    )
+        if self._cancellation is not None:
+            await self._drain_canceled(active)
+        else:
+            cancellation_waiter.cancel()
+            await self._ignore_cancellation(cancellation_waiter)
+        return references
+
+    @staticmethod
+    def _unavailable_reference(reason_code: str) -> DescriptorExecutionReference:
+        return DescriptorExecutionReference(
+            status="unavailable", result_digest=canonical_digest({
+                "status": "unavailable", "reasonCode": reason_code,
+            }), provenance_ids=(),
+        )
+
+    @staticmethod
+    def _valid_dispatch_plan(plan: OrchestrationDispatchPlan) -> bool:
+        remaining = {node.subtask_id for node in plan.nodes}
+        resolved: set[str] = set()
+        dependencies = {node.subtask_id: set(node.dependencies) for node in plan.nodes}
+        while remaining:
+            ready = {node for node in remaining if dependencies[node] <= resolved}
+            if not ready:
+                return False
+            resolved.update(ready)
+            remaining.difference_update(ready)
+        return True
 
     async def _run_graph(
         self, plan: FrozenWorkflowPlan
@@ -484,6 +697,37 @@ class StoreHealthReviewWorkflowV1:
             result_type=result_type,
         )
 
+    async def _descriptor_control_activity(
+        self, name: str, value: object, result_type: type | None = None
+    ) -> Any | None:
+        handle = workflow.start_activity(
+            name,
+            value,
+            start_to_close_timeout=self._start_to_close,
+            schedule_to_close_timeout=self._schedule_to_close,
+            heartbeat_timeout=timedelta(seconds=5),
+            retry_policy=CONTROL_RETRY_POLICY,
+            cancellation_type=ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
+            result_type=result_type,
+        )
+        self._outstanding = (handle,)
+        cancellation_waiter = asyncio.create_task(
+            workflow.wait_condition(lambda: self._cancellation is not None)
+        )
+        done, _ = await workflow.wait(
+            (handle, cancellation_waiter), return_when="FIRST_COMPLETED"
+        )
+        if cancellation_waiter in done:
+            if handle not in done:
+                handle.cancel()
+            await self._ignore_cancellation(handle)
+            self._outstanding = ()
+            return None
+        cancellation_waiter.cancel()
+        await self._ignore_cancellation(cancellation_waiter)
+        self._outstanding = ()
+        return await handle
+
     async def _load_plan(self, run_id: str) -> FrozenWorkflowPlan | None:
         handle = workflow.start_activity(
             "load_frozen_plan",
@@ -648,3 +892,11 @@ class StoreHealthReviewWorkflowV1:
         workflow_id = workflow.info().workflow_id
         prefix = "store-health-v1:"
         return workflow_id[len(prefix):] if workflow_id.startswith(prefix) else workflow_id
+
+    @staticmethod
+    def _uuid(value: str) -> bool:
+        try:
+            UUID(value)
+            return True
+        except ValueError:
+            return False

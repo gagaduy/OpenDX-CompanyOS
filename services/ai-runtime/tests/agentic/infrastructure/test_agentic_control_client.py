@@ -154,20 +154,31 @@ def test_maps_digest_only_model_run_control_requests() -> None:
 
 def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
     requests: list[httpx.Request] = []
+    identity = "00000000-0000-4000-8000-000000000001"
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
+        if "/dispatch-plans/" in request.url.path:
+            return httpx.Response(200, json={"success": True, "data": {
+                "taskId": identity, "planVersion": 1, "planDigest": "d" * 64,
+                "nodes": [{"subtaskId": identity, "agentKind": "catalog",
+                           "dependencies": [], "descriptorId": identity,
+                           "descriptorDigest": "e" * 64}],
+                "synthesisAuthority": {"authorityId": identity,
+                                       "authorityDigest": "f" * 64},
+            }})
         if request.method == "GET" or request.url.path.endswith("/synthesis-contexts"):
             return httpx.Response(200, json={"success": True, "data": {"kind": "private"}})
         return httpx.Response(202, json={"success": True, "data": {"digest": "a" * 64}})
 
     client = _client(handler)
-    identity = "00000000-0000-4000-8000-000000000001"
     assert asyncio.run(client.load_task_brief(identity)) == {"kind": "private"}
     assert asyncio.run(client.load_orchestration_settlement("plan", identity)) == {
         "kind": "private"
     }
-    assert asyncio.run(client.load_dispatch_plan(identity)) == {"kind": "private"}
+    dispatch = asyncio.run(client.load_dispatch_plan(identity))
+    assert dispatch.task_id == identity
+    assert dispatch.nodes[0].descriptor_digest == "e" * 64
     assert asyncio.run(client.load_execution_descriptor(identity, "b" * 64)) == {"kind": "private"}
     assert asyncio.run(client.load_ai_ceo_execution_authority(
         identity, "c" * 64
@@ -196,6 +207,39 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
     assert requests[3].headers["x-opendx-descriptor-digest"] == "b" * 64
     assert requests[4].headers["x-opendx-authority-digest"] == "c" * 64
     assert all(request.headers["authorization"] == "Bearer worker-token" for request in requests)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("taskId", "not-a-uuid"),
+        ("subtaskId", "not-a-uuid"),
+        ("descriptorId", "not-a-uuid"),
+        ("agentKind", "unknown"),
+    ],
+)
+def test_rejects_dispatch_values_incompatible_with_descriptor_execution(
+    field: str, value: str,
+) -> None:
+    identity = "00000000-0000-4000-8000-000000000001"
+    payload = {
+        "taskId": identity, "planVersion": 1, "planDigest": "d" * 64,
+        "nodes": [{
+            "subtaskId": identity, "agentKind": "catalog", "dependencies": [],
+            "descriptorId": identity, "descriptorDigest": "e" * 64,
+        }],
+    }
+    target = payload if field == "taskId" else payload["nodes"][0]
+    target[field] = value
+    client = _client(lambda _request: httpx.Response(
+        200, json={"success": True, "data": payload},
+    ))
+
+    with pytest.raises(AgenticControlError) as captured:
+        asyncio.run(client.load_dispatch_plan(identity))
+
+    assert captured.value.code == "AGENTIC_RESPONSE_INVALID"
+    assert captured.value.retryable is False
 
 
 @pytest.mark.parametrize("status,retryable", [(503, True), (400, False)])

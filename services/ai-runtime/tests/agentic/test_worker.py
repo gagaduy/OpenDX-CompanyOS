@@ -165,7 +165,7 @@ def test_builds_three_orchestration_activities_only_behind_feature_flag() -> Non
     assert {
         item.__temporal_activity_definition.name for item in activities.registered
     } == {
-        "plan_orchestration_v1", "execute_department_subtask_v1",
+        "load_orchestration_dispatch_plan", "plan_orchestration_v1", "execute_department_subtask_v1",
         "synthesize_executive_report_v1",
     }
 

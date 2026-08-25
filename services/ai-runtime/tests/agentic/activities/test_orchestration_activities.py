@@ -5,14 +5,19 @@ import asyncio
 from uuid import UUID
 
 import pytest
+from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from app.agentic.activities.orchestration_activities import OrchestrationActivities
+from app.agentic.activities.orchestration_activities import (
+    OrchestrationActivities,
+    _with_heartbeat,
+)
 from app.agentic.application.department_execution import DepartmentExecutionError
 from app.agentic.domain.execution_descriptor import (
     DescriptorExecutionInput,
     DescriptorExecutionReference,
     PlanningExecutionInput,
+    descriptor_json,
 )
 
 
@@ -40,8 +45,10 @@ def test_returns_only_the_bounded_descriptor_reference() -> None:
             return expected
 
     activities = OrchestrationActivities(Execution())
-    assert asyncio.run(activities.execute_department_subtask_v1(command())) == expected
-    assert activities.registered[0].__temporal_activity_definition.name == "execute_department_subtask_v1"
+    assert asyncio.run(activities.execute_department_subtask_v1(
+        descriptor_json(command())
+    )) == descriptor_json(expected)
+    assert activities.registered[1].__temporal_activity_definition.name == "execute_department_subtask_v1"
 
 
 def test_maps_binding_failures_to_non_retryable_temporal_errors() -> None:
@@ -50,7 +57,9 @@ def test_maps_binding_failures_to_non_retryable_temporal_errors() -> None:
             raise DepartmentExecutionError("DESCRIPTOR_BINDING_INVALID")
 
     with pytest.raises(ApplicationError) as captured:
-        asyncio.run(OrchestrationActivities(Execution()).execute_department_subtask_v1(command()))
+        asyncio.run(OrchestrationActivities(Execution()).execute_department_subtask_v1(
+            descriptor_json(command())
+        ))
     assert captured.value.type == "DESCRIPTOR_BINDING_INVALID"
     assert captured.value.non_retryable is True
 
@@ -74,13 +83,13 @@ def test_preserves_governed_dependency_error_code_and_retryability(retryable: bo
     )
 
     with pytest.raises(ApplicationError) as captured:
-        asyncio.run(activities.plan_orchestration_v1(planning))
+        asyncio.run(activities.plan_orchestration_v1(descriptor_json(planning)))
 
     assert captured.value.type == "AGENTIC_CONTROL_UNAVAILABLE"
     assert captured.value.non_retryable is not retryable
 
 
-def test_registers_all_three_phase_f_activity_names() -> None:
+def test_registers_all_phase_f_activity_names() -> None:
     class Planning:
         async def plan(self, _value: object) -> None:
             return None
@@ -89,15 +98,32 @@ def test_registers_all_three_phase_f_activity_names() -> None:
         async def synthesize(self, _value: object) -> None:
             return None
 
+    class Controls:
+        async def load_dispatch_plan(self, _run_id: str) -> None:
+            return None
+
     names = {
         item.__temporal_activity_definition.name
         for item in OrchestrationActivities(
-            object(), planning=Planning(), synthesis=Synthesis()
+            object(), planning=Planning(), synthesis=Synthesis(), controls=Controls()
         ).registered
     }
 
     assert names == {
+        "load_orchestration_dispatch_plan",
         "plan_orchestration_v1",
         "execute_department_subtask_v1",
         "synthesize_executive_report_v1",
     }
+
+
+def test_long_running_phase_f_activity_heartbeats(monkeypatch: pytest.MonkeyPatch) -> None:
+    heartbeats: list[None] = []
+    monkeypatch.setattr(activity, "heartbeat", lambda: heartbeats.append(None))
+
+    async def slow_result() -> str:
+        await asyncio.sleep(1.05)
+        return "done"
+
+    assert asyncio.run(_with_heartbeat(slow_result())) == "done"
+    assert heartbeats

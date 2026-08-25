@@ -108,7 +108,7 @@ def build_orchestration_activities(
     )
     synthesis = AiCeoSynthesisService(controls=control, models=phase_f_executor)
     return OrchestrationActivities(
-        department, planning=planning, synthesis=synthesis,
+        department, planning=planning, synthesis=synthesis, controls=control,
     )
 
 

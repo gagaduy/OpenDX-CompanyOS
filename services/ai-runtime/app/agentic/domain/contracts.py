@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
@@ -173,6 +174,52 @@ class FrozenWorkflowPlan:
 
 
 @dataclass(frozen=True)
+class OrchestrationDispatchNode:
+    subtask_id: str
+    agent_kind: str
+    dependencies: tuple[str, ...]
+    descriptor_id: str
+    descriptor_digest: str
+
+    def __post_init__(self) -> None:
+        _canonical_uuid(self.subtask_id, "subtask id")
+        _canonical_uuid(self.descriptor_id, "descriptor id")
+        if self.agent_kind not in {
+            "catalog", "inventory", "order", "finance", "crm", "support",
+        }:
+            raise ValueError("Invalid dispatch agent kind")
+        _digest(self.descriptor_digest)
+        if (
+            len(self.dependencies) > 100
+            or len(set(self.dependencies)) != len(self.dependencies)
+            or self.subtask_id in self.dependencies
+        ):
+            raise ValueError("Dispatch dependencies exceed their bounds")
+        for dependency in self.dependencies:
+            _canonical_uuid(dependency, "dependency id")
+
+
+@dataclass(frozen=True)
+class OrchestrationDispatchPlan:
+    task_id: str
+    plan_version: int
+    plan_digest: str
+    nodes: tuple[OrchestrationDispatchNode, ...]
+
+    def __post_init__(self) -> None:
+        _canonical_uuid(self.task_id, "task id")
+        _digest(self.plan_digest)
+        if self.plan_version < 1 or not self.nodes or len(self.nodes) > 6:
+            raise ValueError("Dispatch plan bounds are invalid")
+        node_ids = {node.subtask_id for node in self.nodes}
+        if len(node_ids) != len(self.nodes) or any(
+            dependency not in node_ids
+            for node in self.nodes for dependency in node.dependencies
+        ):
+            raise ValueError("Dispatch graph bindings are invalid")
+
+
+@dataclass(frozen=True)
 class StateProjection:
     projection_sequence: int
     state: WorkflowState
@@ -215,6 +262,16 @@ class ActivityOutcome:
 def _bounded(value: str, name: str, maximum: int) -> None:
     if not value or len(value) > maximum:
         raise ValueError(f"{name} is outside its bounds")
+
+
+def _canonical_uuid(value: str, name: str) -> None:
+    _bounded(value, name, 36)
+    try:
+        parsed = UUID(value)
+    except ValueError as error:
+        raise ValueError(f"Invalid {name}") from error
+    if str(parsed) != value:
+        raise ValueError(f"Invalid {name}")
 
 
 def _digest(value: str) -> None:
