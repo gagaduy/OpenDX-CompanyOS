@@ -22,12 +22,18 @@ from app.agentic.domain.execution_descriptor import (
     canonical_digest,
 )
 from app.agentic.domain.store_health_result_schemas import STORE_HEALTH_RESULT_SCHEMAS
+from app.agentic.application.ports import CompleteModelRunRequest
 
 
 class Control:
     def __init__(self, descriptor: dict[str, object]) -> None:
         self.descriptor = descriptor
         self.results: list[dict[str, object]] = []
+
+    async def load_orchestration_settlement(
+        self, _kind: str, _settlement_id: str
+    ) -> dict[str, object]:
+        return {"settled": False}
 
     async def load_execution_descriptor(self, _id: str, _digest: str) -> dict[str, object]:
         return self.descriptor
@@ -81,6 +87,7 @@ class Models:
             "status": "completed", "output_digest": canonical_digest(result),
             "quality_reasons": (), "accepted_content": result,
             "quality_evidence_digest": "f" * 64,
+            "terminal_settlement": terminal_settlement(canonical_digest(result), "f" * 64),
         })()
 
 
@@ -191,6 +198,33 @@ def test_department_domain_settlement_is_stable_across_activity_retry() -> None:
     assert first == second
     assert control.results[0] == control.results[1]
     assert control.results[0]["acceptedAt"] == "2026-08-22T00:00:00.000Z"
+
+
+def test_department_retry_recovers_committed_result_before_tools_or_model() -> None:
+    descriptor, schemas = fixture()
+    control, tools, models = Control(descriptor), Tools(), Models()
+    command = execution_input(descriptor)
+
+    async def recovered(_kind: str, settlement_id: str) -> dict[str, object]:
+        return {"settled": True, "taskId": str(command.task_id),
+                "planVersion": command.plan_version, "subtaskId": str(command.subtask_id),
+                "agentKind": command.agent_kind,
+                "descriptorId": str(command.descriptor_id),
+                "descriptorDigest": command.descriptor_digest,
+                "status": "usable", "resultId": settlement_id,
+                "resultDigest": "a" * 64,
+                "provenanceIds": ["00000000-0000-4000-8000-000000000011"]}
+
+    control.load_orchestration_settlement = recovered  # type: ignore[method-assign]
+    service = DepartmentExecutionService(
+        controls=control, tools=tools, models=models, result_schemas=schemas,
+    )
+
+    result = asyncio.run(service.execute(command))
+
+    assert result.status == "usable"
+    assert tools.calls == []
+    assert models.commands == []
 
 
 def test_terminal_department_failure_returns_unavailable_without_model_or_settlement() -> None:
@@ -310,6 +344,27 @@ def test_ai_ceo_planning_uses_authority_and_submits_deterministically_enriched_p
     assert "goal" not in reference.model_dump(mode="json")
 
 
+def test_planning_retry_returns_committed_plan_before_loading_private_authority() -> None:
+    task_id = UUID("00000000-0000-4000-8000-000000000001")
+    controls = OrchestrationControl(authority={}, settlement={
+        "settled": True, "taskId": str(task_id), "planVersion": 1,
+        "planDigest": "a" * 64,
+    })
+    models, submissions = AiCeoModels({}), Submissions()
+    service = AiCeoPlanningService(
+        controls=controls, models=models, submissions=submissions,
+        ai_ceo_client_id="agent-ai-ceo",
+    )
+
+    reference = asyncio.run(service.plan(PlanningExecutionInput(
+        task_id=task_id, idempotency_key="planning:1",
+    )))
+
+    assert reference.plan_digest == "a" * 64
+    assert models.commands == []
+    assert submissions.plans == []
+
+
 def test_ai_ceo_synthesis_resolves_private_results_and_settles_private_report() -> None:
     task_id = "00000000-0000-4000-8000-000000000001"
     subtask_id = "00000000-0000-4000-8000-000000000002"
@@ -360,9 +415,58 @@ def test_ai_ceo_synthesis_resolves_private_results_and_settles_private_report() 
 
     assert reference.completion_state == "complete"
     assert controls.reports[0]["report"] == report
-    assert controls.reports[0]["costMicros"] == 123
+    assert "costMicros" not in controls.reports[0]
     assert controls.reports[0]["approvalHistoryDigest"] == "d" * 64
     assert "report" not in reference.model_dump(mode="json")
+
+
+def test_synthesis_retry_returns_committed_report_before_private_context_resolution() -> None:
+    task_id = UUID("00000000-0000-4000-8000-000000000001")
+    subtask_id = "00000000-0000-4000-8000-000000000002"
+    branches_digest = canonical_digest([{
+        "subtaskId": subtask_id, "status": "unavailable",
+        "resultDigest": "a" * 64, "provenanceIds": [],
+    }])
+    controls = OrchestrationControl(authority={}, settlement={
+        "settled": True, "taskId": str(task_id), "planVersion": 1,
+        "completionState": "partial", "reportDigest": "b" * 64,
+        "synthesisBranchesDigest": branches_digest,
+    })
+    models = AiCeoModels({})
+    service = AiCeoSynthesisService(controls=controls, models=models)
+    branch = SynthesisBranchReference(
+        subtask_id=UUID(subtask_id),
+        status="unavailable", result_digest="a" * 64, provenance_ids=(),
+    )
+
+    reference = asyncio.run(service.synthesize(SynthesisExecutionInput(
+        task_id=task_id, plan_version=1, branches=(branch,),
+        idempotency_key="synthesis:1",
+    )))
+
+    assert reference.completion_state == "partial"
+    assert models.commands == []
+    assert controls.reports == []
+
+
+def test_synthesis_retry_rejects_changed_branch_input() -> None:
+    task_id = UUID("00000000-0000-4000-8000-000000000001")
+    controls = OrchestrationControl(authority={}, settlement={
+        "settled": True, "taskId": str(task_id), "planVersion": 1,
+        "completionState": "partial", "reportDigest": "b" * 64,
+        "synthesisBranchesDigest": "c" * 64,
+    })
+    service = AiCeoSynthesisService(controls=controls, models=AiCeoModels({}))
+    branch = SynthesisBranchReference(
+        subtask_id=UUID("00000000-0000-4000-8000-000000000002"),
+        status="unavailable", result_digest="a" * 64, provenance_ids=(),
+    )
+
+    with pytest.raises(DepartmentExecutionError, match="SETTLEMENT_RECOVERY_INVALID"):
+        asyncio.run(service.synthesize(SynthesisExecutionInput(
+            task_id=task_id, plan_version=1, branches=(branch,),
+            idempotency_key="synthesis:1",
+        )))
 
 
 def fixture() -> tuple[dict[str, object], dict[str, dict[str, object]]]:
@@ -404,11 +508,18 @@ def execution_input(value: dict[str, object]) -> DescriptorExecutionInput:
 class OrchestrationControl:
     def __init__(self, *, authority: dict[str, object],
                  brief: dict[str, object] | None = None,
-                 synthesis: dict[str, object] | None = None) -> None:
+                 synthesis: dict[str, object] | None = None,
+                 settlement: dict[str, object] | None = None) -> None:
         self.authority = authority
         self.brief = brief
         self.synthesis = synthesis
+        self.settlement = settlement or {"settled": False}
         self.reports: list[dict[str, object]] = []
+
+    async def load_orchestration_settlement(
+        self, _kind: str, _settlement_id: str
+    ) -> dict[str, object]:
+        return self.settlement
 
     async def load_task_brief(self, _task_id: str) -> dict[str, object]:
         assert self.brief is not None
@@ -449,7 +560,17 @@ class AiCeoModels:
             "status": "completed", "output_digest": canonical_digest(self.content),
             "quality_reasons": (), "accepted_content": self.content,
             "quality_evidence_digest": "e" * 64, "cost_micros": 10,
+            "terminal_settlement": terminal_settlement(canonical_digest(self.content), "e" * 64),
         })()
+
+
+def terminal_settlement(output_digest: str, evidence_digest: str) -> CompleteModelRunRequest:
+    return CompleteModelRunRequest(
+        "00000000-0000-4000-8000-000000000030", 2, "model:complete",
+        "completed", output_digest, 10, 20, "a" * 64, 25,
+        "MODEL_COMPLETED", "accepted", (),
+        ("00000000-0000-4000-8000-000000000011",), evidence_digest,
+    )
 
 
 def task_brief() -> dict[str, object]:

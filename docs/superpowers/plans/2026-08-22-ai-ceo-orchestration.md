@@ -693,6 +693,16 @@ report. Structured collaboration requests are persisted and policy-checked
 before target execution. Only bounded IDs, digests, statuses, provenance IDs,
 and idempotency keys cross Temporal.
 
+Accepted model completion and its plan/result/report settlement must share one
+API transaction. Each activity checks its deterministic settlement ID before
+model execution so a lost post-commit response recovers the existing bounded
+reference without a second provider call.
+The atomic completion must match the stored model run to the exact task,
+Agent, configuration revision, policy version, result schema, and authorized
+input digest. Executive-report recovery additionally compares a persisted
+digest of the bounded synthesis branch references; an all-unavailable report
+may carry no model provenance only when it has no accepted branch.
+
 - [ ] **Step 5: Register and test activities**
 
 Register `plan_orchestration_v1`, `execute_department_subtask_v1`, and

@@ -44,6 +44,8 @@ class ReserveModelRunRequest:
     generation_round: int
     idempotency_key: str
     input_digest: str
+    result_schema_name: str
+    result_schema_digest: str
     primary_model: str
     fallback_model: str
 
@@ -129,6 +131,9 @@ class AgenticControlPort(Protocol):
     async def complete_activity(self, invocation_key: str, outcome: ActivityOutcome) -> object: ...
     async def fail_activity(self, invocation_key: str, outcome: ActivityOutcome) -> object: ...
     async def load_task_brief(self, task_id: str) -> dict[str, object]: ...
+    async def load_orchestration_settlement(
+        self, kind: str, settlement_id: str
+    ) -> dict[str, object]: ...
     async def load_dispatch_plan(self, run_id: str) -> dict[str, object]: ...
     async def load_execution_descriptor(
         self, descriptor_id: str, descriptor_digest: str

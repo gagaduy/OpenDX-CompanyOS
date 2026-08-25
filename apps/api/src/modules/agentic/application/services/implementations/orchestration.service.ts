@@ -30,6 +30,7 @@ import type {
   TaskBriefView,
 } from "../interfaces/orchestration.service";
 import type { PolicyEvaluator } from "../interfaces/policy-evaluator";
+import type { ModelRunService } from "../interfaces/model-run.service";
 
 type Repository = Pick<AgenticRepository,
   "findAgentByClientId" | "appendOrchestrationPlan" | "appendAudit" | "appendProvenance"
@@ -45,12 +46,57 @@ type Repository = Pick<AgenticRepository,
   | "appendCollaborationRequest" | "appendExecutiveReport" | "appendExecutiveReportPayload"
   | "appendAiCeoExecutionAuthority" | "findAiCeoExecutionAuthority"
   | "lockAndFindLatestAiCeoExecutionAuthority" | "findAcceptedOrchestrationResultPayload"
-  | "findAcceptedOrchestrationResultReference">;
+  | "findAcceptedOrchestrationResultReference" | "findOrchestrationPlanReference"
+  | "findExecutiveReportReference">;
+// Recovery reads are reference-only and never expose private accepted payloads.
+const TASK_BRIEF_SOURCE_TYPES = new Set([
+  "staff_intake", "agentic_task", "agentic_intake_file", "agentic_file_preview",
+]);
 
 export class OrchestrationServiceImpl implements OrchestrationService {
   constructor(private readonly repository: Repository, private readonly transactions: TransactionRunner,
     private readonly policy: PolicyEvaluator, private readonly generateId: () => string,
-    private readonly now: () => string = () => new Date().toISOString()) {}
+    private readonly now: () => string = () => new Date().toISOString(),
+    private readonly modelRuns?: Pick<ModelRunService, "completeInSession">) {}
+
+  async loadSettlementReference(
+    kind: "plan" | "result" | "report", id: string, principal: WorkloadPrincipal,
+  ): Promise<Readonly<Record<string, unknown>>> {
+    requireWorker(principal);
+    return this.transactions.runReadOnly(async (session) => {
+      if (kind === "plan") {
+        const found = await this.repository.findOrchestrationPlanReference(session, id);
+        return found === undefined ? Object.freeze({ settled: false })
+          : Object.freeze({ settled: true, kind, ...found });
+      }
+      if (kind === "result") {
+        const found = await this.repository.findAcceptedOrchestrationResultReference(session, id);
+        if (found === undefined) return Object.freeze({ settled: false });
+        const descriptor = await this.repository.findExecutionDescriptorForSubtask(
+          session, found.taskId, found.planVersion, found.subtaskId,
+        );
+        if (descriptor === undefined) {
+          fail("SETTLEMENT_RECOVERY_INVALID", "Accepted result descriptor is unavailable");
+        }
+        const result = parseStoreHealthResult(descriptor.agentKind, found.payload);
+        validateStoreHealthResultBindings(descriptor.agentKind, result);
+        const provenanceIds = extractDepartmentProvenanceIds(result);
+        return Object.freeze({ settled: true, kind, taskId: found.taskId,
+          planVersion: found.planVersion, subtaskId: found.subtaskId,
+          agentKind: descriptor.agentKind, descriptorId: descriptor.id,
+          descriptorDigest: descriptor.descriptorDigest,
+          status: result.status === "complete" ? "usable" : "partial",
+          resultId: id, resultDigest: found.resultDigest,
+          provenanceIds: Object.freeze(provenanceIds) });
+      }
+      const found = await this.repository.findExecutiveReportReference(session, id);
+      if (found !== undefined && found.synthesisBranchesDigest === undefined) {
+        fail("SETTLEMENT_RECOVERY_INVALID", "Legacy report lacks an exact synthesis input binding");
+      }
+      return found === undefined ? Object.freeze({ settled: false })
+        : Object.freeze({ settled: true, kind, ...found });
+    });
+  }
 
   async loadTaskBrief(taskId: string, principal: WorkloadPrincipal): Promise<TaskBriefView> {
     requireWorker(principal);
@@ -191,6 +237,10 @@ export class OrchestrationServiceImpl implements OrchestrationService {
   async acceptResult(input: AcceptedOrchestrationResultSubmission, principal: WorkloadPrincipal) {
     requireWorker(principal);
     return this.transactions.run(async (session) => {
+      if (input.modelSettlement.outputDigest !== input.resultDigest
+        || input.modelSettlement.evidenceDigest !== input.qualityEvidenceDigest) {
+        fail("MODEL_RESULT_BINDING_INVALID", "Result does not match its atomic model settlement");
+      }
       const resultDigest = canonicalDigest(input.result);
       if (resultDigest !== input.resultDigest) {
         fail("RESULT_DIGEST_INVALID", "Shareable result body does not match its digest");
@@ -209,9 +259,35 @@ export class OrchestrationServiceImpl implements OrchestrationService {
       await this.requireCurrentAuthority(session, found.descriptor);
       const result = parseStoreHealthResult(descriptor.agentKind, input.result);
       validateStoreHealthResultBindings(descriptor.agentKind, result);
+      const expectedModelStatus = result.status === "complete" ? "completed" : "partial";
+      const expectedModelQuality = result.status === "complete" ? "accepted" : "partial";
+      if (input.modelSettlement.status !== expectedModelStatus
+        || input.modelSettlement.qualityOutcome !== expectedModelQuality) {
+        fail("MODEL_RESULT_BINDING_INVALID", "Result status does not match its model settlement");
+      }
       const toolInvocations = await this.repository.listCompletedToolInvocationsForSubtask(
         session, input.taskId, descriptor.agentKind, descriptor.subtaskId,
         descriptor.createdAt, descriptor.expiresAt,
+      );
+      const invocationByTool = new Map<string, ToolInvocationRecord>(toolInvocations.map((invocation) => [
+        invocation.toolName, invocation,
+      ]));
+      if (invocationByTool.size !== toolInvocations.length
+        || invocationByTool.size !== found.payload.toolGrants.length
+        || found.payload.toolGrants.some(({ name }) => invocationByTool.get(name)?.safeResult === undefined)) {
+        fail("MODEL_RESULT_BINDING_INVALID", "Model input lacks exact completed tool results");
+      }
+      const modelInputDigest = canonicalDigest(found.payload.toolGrants.map(({ name }) => ({
+        toolName: name, output: invocationByTool.get(name)!.safeResult,
+      })));
+      await this.completeOrchestrationModelRun(
+        session, input.modelSettlement, principal, {
+          taskId: input.taskId, agentKind: descriptor.agentKind,
+          configurationRevisionId: descriptor.configurationRevisionId,
+          policyVersion: descriptor.policyVersion, inputDigest: modelInputDigest,
+          resultSchemaName: descriptor.resultSchemaName,
+          resultSchemaDigest: descriptor.resultSchemaDigest,
+        },
       );
       requireExactToolSummaryReferences(result, toolInvocations);
       const provenanceIds = extractDepartmentProvenanceIds(result);
@@ -235,7 +311,7 @@ export class OrchestrationServiceImpl implements OrchestrationService {
       });
       if (shareDecision.effect !== "ALLOW") fail("POLICY_DENIED", "Policy denied Department result sharing");
       const { descriptorId: _descriptorId, descriptorDigest: _descriptorDigest,
-        result: _result, ...metadata } = input;
+        result: _result, modelSettlement: _modelSettlement, ...metadata } = input;
       const status = await this.repository.appendAcceptedOrchestrationResult(session, metadata);
       if (status === "conflict") fail("SETTLEMENT_CONFLICT", "Result settlement conflicts with an accepted result");
       const resultId = status === "created" ? input.id
@@ -292,6 +368,11 @@ export class OrchestrationServiceImpl implements OrchestrationService {
   async acceptExecutiveReport(input: ExecutiveReportSubmission, principal: WorkloadPrincipal) {
     requireWorker(principal);
     return this.transactions.run(async (session) => {
+      if (input.modelSettlement.outputDigest !== input.reportDigest
+        || input.modelSettlement.status !== "completed"
+        || input.modelSettlement.qualityOutcome !== "accepted") {
+        fail("MODEL_RESULT_BINDING_INVALID", "Report does not match its atomic model settlement");
+      }
       if (!await this.repository.orchestrationPlanExists(session, input.taskId, input.planVersion)) {
         fail("PLAN_BINDING_INVALID", "Executive report is not bound to an accepted plan");
       }
@@ -304,6 +385,57 @@ export class OrchestrationServiceImpl implements OrchestrationService {
       this.requireUnexpired(found.authority, "AI_CEO_AUTHORITY_EXPIRED");
       validateAiCeoExecutionAuthority(found.authority, found.payload);
       await this.requireCurrentAiCeoAuthority(session, found.authority);
+      if (canonicalDigest(input.synthesisBranches) !== input.synthesisBranchesDigest) {
+        fail("SYNTHESIS_CONTEXT_INVALID", "Synthesis branches do not match their recovery digest");
+      }
+      const synthesisBranchIds = new Set<string>();
+      const resolvedAccepted = [];
+      const resolvedUnavailable = [];
+      for (const branch of input.synthesisBranches) {
+        if (synthesisBranchIds.has(branch.subtaskId)) {
+          fail("SYNTHESIS_CONTEXT_INVALID", "Synthesis branches must be unique");
+        }
+        synthesisBranchIds.add(branch.subtaskId);
+        const descriptor = await this.repository.findExecutionDescriptorForSubtask(
+          session, input.taskId, input.planVersion, branch.subtaskId,
+        );
+        if (descriptor === undefined) {
+          fail("SYNTHESIS_CONTEXT_INVALID", "Synthesis branch is not plan-bound");
+        }
+        if (branch.status === "unavailable") {
+          resolvedUnavailable.push(Object.freeze({
+            subtaskId: branch.subtaskId, resultDigest: branch.resultDigest,
+            provenanceIds: Object.freeze([...branch.provenanceIds]),
+            reasonCode: "DEPARTMENT_UNAVAILABLE",
+          }));
+          continue;
+        }
+        const accepted = await this.repository.findAcceptedOrchestrationResultReference(
+          session, branch.resultId,
+        );
+        if (accepted === undefined || accepted.taskId !== input.taskId
+          || accepted.planVersion !== input.planVersion || accepted.subtaskId !== branch.subtaskId
+          || accepted.resultDigest !== branch.resultDigest || accepted.payloadDigest !== branch.resultDigest
+          || accepted.provenanceDigest !== canonicalDigest([...branch.provenanceIds].sort())
+          || canonicalDigest(accepted.payload) !== branch.resultDigest) {
+          fail("SYNTHESIS_CONTEXT_INVALID", "Accepted synthesis branch is not exact");
+        }
+        const acceptedResult = parseStoreHealthResult(descriptor.agentKind, accepted.payload);
+        validateStoreHealthResultBindings(descriptor.agentKind, acceptedResult);
+        const expectedStatus = acceptedResult.status === "complete" ? "usable" : "partial";
+        if (branch.status !== expectedStatus) {
+          fail("SYNTHESIS_CONTEXT_INVALID", "Synthesis branch status does not match accepted evidence");
+        }
+        resolvedAccepted.push(Object.freeze({
+          subtaskId: branch.subtaskId, status: branch.status, resultId: branch.resultId,
+          resultDigest: branch.resultDigest, provenanceIds: Object.freeze([...branch.provenanceIds]),
+          result: acceptedResult,
+        }));
+      }
+      const expectedModelInputDigest = canonicalDigest({
+        ...found.payload.authorizedContext,
+        branches: [...resolvedAccepted, ...resolvedUnavailable],
+      });
       const report = parseAiCeoExecutiveReport(input.report);
       validateAiCeoExecutiveReportBindings(report);
       const reportDigest = canonicalDigest(report);
@@ -324,7 +456,9 @@ export class OrchestrationServiceImpl implements OrchestrationService {
         ...report.unavailableBranches.map(({ subtaskId }) => subtaskId),
       ]);
       const authorityBranches = found.payload.authorizedContext.branches;
-      if (!Array.isArray(authorityBranches) || authorityBranches.length !== reportBranchIds.size
+      if (reportBranchIds.size !== synthesisBranchIds.size
+        || [...synthesisBranchIds].some((id) => !reportBranchIds.has(id))
+        || !Array.isArray(authorityBranches) || authorityBranches.length !== reportBranchIds.size
         || authorityBranches.some((branch) => branch === null || typeof branch !== "object"
           || !("subtaskId" in branch) || !reportBranchIds.has(String(branch.subtaskId)))) {
         fail("REPORT_PROVENANCE_INVALID", "Executive report must resolve every authority-bound branch");
@@ -359,6 +493,19 @@ export class OrchestrationServiceImpl implements OrchestrationService {
       if (conclusionProvenance.some((id) => !acceptedProvenance.has(id))) {
         fail("REPORT_PROVENANCE_INVALID", "Executive report conclusion lacks accepted provenance");
       }
+      if (input.modelSettlement.provenanceIds.some((id) => !acceptedProvenance.has(id))) {
+        fail("MODEL_PROVENANCE_INVALID", "Executive model evidence is not synthesis-authorized");
+      }
+      await this.completeOrchestrationModelRun(
+        session, input.modelSettlement, principal, {
+          taskId: input.taskId, agentKind: "ai_ceo",
+          configurationRevisionId: found.authority.configurationRevisionId,
+          policyVersion: found.authority.policyVersion, inputDigest: expectedModelInputDigest,
+          resultSchemaName: found.authority.resultSchemaName,
+          resultSchemaDigest: found.authority.resultSchemaDigest,
+          allowEmptyProvenance: resolvedAccepted.length === 0,
+        },
+      );
       if (report.completionState === "complete" && hasPartialAcceptedResult) {
         fail("REPORT_PROVENANCE_INVALID", "A complete report cannot rely on partial Department evidence");
       }
@@ -370,13 +517,15 @@ export class OrchestrationServiceImpl implements OrchestrationService {
       });
       if (decision.effect !== "ALLOW") fail("POLICY_DENIED", "Policy denied executive report sharing");
       const settlementFacts = await this.repository.findOrchestrationSettlementFacts(session, input.taskId);
-      if (input.costMicros !== settlementFacts.costMicros
-        || input.approvalHistoryDigest !== canonicalDigest(settlementFacts.approvalHistory)) {
-        fail("REPORT_SETTLEMENT_INVALID", "Executive report cost or approval history is not server-derived");
+      if (input.approvalHistoryDigest !== canonicalDigest(settlementFacts.approvalHistory)) {
+        fail("REPORT_SETTLEMENT_INVALID", "Executive report approval history is not server-derived");
       }
       const { authorityId: _authorityId, authorityDigest: _authorityDigest,
-        report: _report, ...metadata } = input;
-      const status = await this.repository.appendExecutiveReport(session, metadata);
+        report: _report, synthesisBranches: _synthesisBranches,
+        modelSettlement: _modelSettlement, ...metadata } = input;
+      const status = await this.repository.appendExecutiveReport(session, {
+        ...metadata, costMicros: settlementFacts.costMicros,
+      });
       if (status === "conflict") fail("SETTLEMENT_CONFLICT", "Executive report conflicts with the accepted report");
       const reportId = status === "created" ? input.id
         : await this.repository.findExecutiveReportId(session, input.taskId, input.planVersion);
@@ -395,7 +544,20 @@ export class OrchestrationServiceImpl implements OrchestrationService {
 
   async acceptPlan(submission: OrchestrationPlanSubmission, principal: AgentServicePrincipal): Promise<void> {
     await this.transactions.run(async (session) => {
-      const { planningAuthorityId, planningAuthorityDigest, ...plan } = submission;
+      const { planningAuthorityId, planningAuthorityDigest,
+        modelSettlement: _modelSettlement, ...plan } = submission;
+      const ownerBySubtask = new Map(plan.subtasks.map(({ id, owner }) => [id, owner]));
+      const planningProposal = { schemaVersion: 1, subtasks: plan.subtasks.map((subtask) => ({
+        owner: subtask.owner,
+        dependencies: subtask.dependencies.map((dependency) => ownerBySubtask.get(dependency)),
+      })) };
+      if (planningProposal.subtasks.some(({ dependencies }) =>
+        dependencies.some((dependency) => dependency === undefined))
+        || canonicalDigest(planningProposal) !== submission.modelSettlement.outputDigest
+        || submission.modelSettlement.status !== "completed"
+        || submission.modelSettlement.qualityOutcome !== "accepted") {
+        fail("MODEL_RESULT_BINDING_INVALID", "Plan does not match its atomic planning result");
+      }
       const agent = await this.repository.findAgentByClientId(session, principal.clientId);
       if (principal.agentKind !== "ai_ceo" || agent?.kind !== "ai_ceo" || !agent.active
         || plan.createdBy !== principal.clientId) fail("FORBIDDEN", "AI CEO workload identity is required");
@@ -427,6 +589,16 @@ export class OrchestrationServiceImpl implements OrchestrationService {
         fail("AI_CEO_AUTHORITY_BINDING_INVALID", "Plan is not bound to its planning authority");
       }
       validateAiCeoExecutionAuthority(planningAuthority.authority, planningAuthority.payload);
+      await this.completeOrchestrationModelRun(
+        session, submission.modelSettlement, principal, {
+          taskId: plan.taskId, agentKind: "ai_ceo",
+          configurationRevisionId: planningAuthority.authority.configurationRevisionId,
+          policyVersion: planningAuthority.authority.policyVersion,
+          inputDigest: planningAuthority.authority.authorizedContextDigest,
+          resultSchemaName: planningAuthority.authority.resultSchemaName,
+          resultSchemaDigest: planningAuthority.authority.resultSchemaDigest,
+        },
+      );
       const acceptedAt = this.now();
       const planStatus = await this.repository.appendOrchestrationPlan(session, plan);
       const synthesisAuthorityInput = {
@@ -534,6 +706,29 @@ export class OrchestrationServiceImpl implements OrchestrationService {
         clientId: principal.clientId, actorType: "agent", taskId: plan.taskId, action: "agentic.orchestration.plan.accept",
         resourceType: "agentic_orchestration_plan", resourceId: plan.id, outcome: "allowed",
         policyVersion: plan.policyVersion, correlationId: plan.taskId, resultDigest: plan.digest, occurredAt: acceptedAt });
+    });
+  }
+
+  private async completeOrchestrationModelRun(
+    session: DatabaseSession,
+    settlement: OrchestrationPlanSubmission["modelSettlement"],
+    principal: { readonly subject: string; readonly clientId: string },
+    binding: {
+      readonly taskId: string;
+      readonly agentKind: "ai_ceo" | ExecutionDescriptor["agentKind"];
+      readonly configurationRevisionId: string;
+      readonly policyVersion: number;
+      readonly inputDigest: string;
+      readonly resultSchemaName: string;
+      readonly resultSchemaDigest: string;
+      readonly allowEmptyProvenance?: boolean;
+    },
+  ): Promise<void> {
+    if (this.modelRuns === undefined) {
+      fail("MODEL_SETTLEMENT_UNAVAILABLE", "Atomic model settlement is unavailable");
+    }
+    await this.modelRuns.completeInSession(settlement, principal, session, {
+      ...binding, resultSchemaVersion: 1,
     });
   }
 
@@ -755,7 +950,8 @@ export class OrchestrationServiceImpl implements OrchestrationService {
     }
     if (eligibleAssignments.length === 0) fail("POLICY_DENIED", "No Department assignment is eligible");
     const provenance = (await this.repository.listProvenance(session, task.id))
-      .filter(({ classification }) => classification === "internal")
+      .filter(({ classification, sourceType }) =>
+        classification === "internal" && TASK_BRIEF_SOURCE_TYPES.has(sourceType))
       .map((record) => Object.freeze({ id: record.id, sourceType: record.sourceType,
         sourceDigest: record.sourceDigest, classification: record.classification }));
     const content = { taskId: task.id, goal: task.goal, instructions: task.instructions,

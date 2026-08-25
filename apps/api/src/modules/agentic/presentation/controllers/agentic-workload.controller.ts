@@ -10,6 +10,7 @@ import type { ModelRunService } from "../../application/services/interfaces/mode
 import type { OrchestrationService } from "../../application/services/interfaces/orchestration.service";
 import {
   parseCompleteModelRun,
+  parseOrchestrationSettlementKind,
   parseCompleteActivity,
   parseFailActivity,
   parseFailModelRun,
@@ -121,6 +122,15 @@ export class AgenticWorkloadController {
       parseUuid(request.params.descriptorId),
       parseDigest(request.header("x-opendx-descriptor-digest")), principal(response.locals),
     )));
+  });
+
+  readonly loadOrchestrationSettlement = handle(async (request, response) => {
+    noStore(response);
+    response.json(successResponse("Orchestration settlement reference retrieved",
+      await this.orchestration.loadSettlementReference(
+        parseOrchestrationSettlementKind(request.params.kind),
+        parseUuid(request.params.id), principal(response.locals),
+      )));
   });
 
   readonly loadAiCeoExecutionAuthority = handle(async (request, response) => {

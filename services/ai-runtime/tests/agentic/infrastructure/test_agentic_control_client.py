@@ -128,6 +128,7 @@ def test_maps_digest_only_model_run_control_requests() -> None:
     reservation = asyncio.run(client.reserve_model_run(ReserveModelRunRequest(
         task_id="00000000-0000-4000-8000-000000000002", agent_kind="catalog",
         generation_round=0, idempotency_key="model:catalog:0", input_digest="a" * 64,
+        result_schema_name="store_health_catalog_v1", result_schema_digest="f" * 64,
         primary_model="google/gemma-4-26b-a4b-it:free", fallback_model="liquid/lfm-2.5-2.6b:free",
     )))
     asyncio.run(client.start_model_run(StartModelRunRequest(run_id, 1, reservation.primary_model, 0)))
@@ -146,6 +147,8 @@ def test_maps_digest_only_model_run_control_requests() -> None:
         f"/v1/internal/agentic/model-runs/{run_id}/complete",
         f"/v1/internal/agentic/model-runs/{run_id}/fail",
     ]
+    assert json.loads(requests[0].content)["resultSchemaName"] == "store_health_catalog_v1"
+    assert json.loads(requests[0].content)["resultSchemaDigest"] == "f" * 64
     assert all(b"content" not in request.content for request in requests)
 
 
@@ -161,6 +164,9 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
     client = _client(handler)
     identity = "00000000-0000-4000-8000-000000000001"
     assert asyncio.run(client.load_task_brief(identity)) == {"kind": "private"}
+    assert asyncio.run(client.load_orchestration_settlement("plan", identity)) == {
+        "kind": "private"
+    }
     assert asyncio.run(client.load_dispatch_plan(identity)) == {"kind": "private"}
     assert asyncio.run(client.load_execution_descriptor(identity, "b" * 64)) == {"kind": "private"}
     assert asyncio.run(client.load_ai_ceo_execution_authority(
@@ -178,6 +184,7 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
 
     assert [request.url.path for request in requests] == [
         f"/v1/internal/agentic/orchestration/task-briefs/{identity}",
+        f"/v1/internal/agentic/orchestration/settlements/plan/{identity}",
         f"/v1/internal/agentic/orchestration/dispatch-plans/{identity}",
         f"/v1/internal/agentic/orchestration/descriptors/{identity}",
         f"/v1/internal/agentic/orchestration/ai-ceo-authorities/{identity}",
@@ -186,8 +193,8 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
         "/v1/internal/agentic/orchestration/collaborations",
         "/v1/internal/agentic/orchestration/reports",
     ]
-    assert requests[2].headers["x-opendx-descriptor-digest"] == "b" * 64
-    assert requests[3].headers["x-opendx-authority-digest"] == "c" * 64
+    assert requests[3].headers["x-opendx-descriptor-digest"] == "b" * 64
+    assert requests[4].headers["x-opendx-authority-digest"] == "c" * 64
     assert all(request.headers["authorization"] == "Bearer worker-token" for request in requests)
 
 
@@ -254,7 +261,8 @@ def test_rejects_malformed_model_run_receipts() -> None:
     with pytest.raises(AgenticControlError) as captured:
         asyncio.run(client.reserve_model_run(ReserveModelRunRequest(
             task_id="00000000-0000-4000-8000-000000000002", agent_kind="catalog",
-            generation_round=0, idempotency_key="model:catalog:0", input_digest="a" * 64,
+                generation_round=0, idempotency_key="model:catalog:0", input_digest="a" * 64,
+                result_schema_name="store_health_catalog_v1", result_schema_digest="f" * 64,
             primary_model="google/gemma-4-26b-a4b-it:free", fallback_model="liquid/lfm-2.5-2.6b:free",
         )))
 

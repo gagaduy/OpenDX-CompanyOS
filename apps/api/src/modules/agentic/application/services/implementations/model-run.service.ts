@@ -29,7 +29,8 @@ const workerClientId = "opendx-agentic-worker";
 const schemaVersion = 1 as const;
 const reservationVersion = 1 as const;
 type ModelRunRepository = Pick<AgenticRepository,
-  | "findTaskForAgent" | "findRevision" | "findAgentByKind" | "findModelConfiguration"
+  | "findTaskForAgent" | "findTaskById" | "hasActiveOrchestrationModelAuthority"
+  | "findRevision" | "findAgentByKind" | "findModelConfiguration"
   | "findActiveRevocation" | "reserveModelRun" | "findModelRun" | "markModelRunRunning"
   | "settleModelRunTerminal" | "reserveBudget" | "settleBudget"
   | "findModelRunBudgetReservation" | "findModelRunBudgetSettlementByIdempotencyKey"
@@ -102,6 +103,8 @@ export class ModelRunServiceImpl implements ModelRunService {
         policyVersion: authorization.policyVersion,
         configurationVersion: authorization.revisionVersion,
         resultSchemaVersion: schemaVersion,
+        resultSchemaName: input.resultSchemaName,
+        resultSchemaDigest: input.resultSchemaDigest,
         inputDigest: input.inputDigest,
         inputCostMicrosPerMillion: authorization.configuration.inputCostMicrosPerMillion,
         outputCostMicrosPerMillion: authorization.configuration.outputCostMicrosPerMillion,
@@ -260,8 +263,56 @@ export class ModelRunServiceImpl implements ModelRunService {
     input: TerminalCommand,
     principal: WorkloadPrincipal,
   ): Promise<ModelRunStateReceipt> {
-    return this.transactions.run(async (session) => {
+    return this.transactions.run((session) => this.settleInSession(input, principal, session));
+  }
+
+  async completeInSession(
+    input: CompleteModelRunCommand,
+    principal: { readonly subject: string; readonly clientId: string },
+    session: DatabaseSession,
+    binding: {
+      readonly taskId: string;
+      readonly agentKind: ModelRun["agentKind"];
+      readonly configurationRevisionId: string;
+      readonly policyVersion: number;
+      readonly resultSchemaVersion: number;
+      readonly resultSchemaName: string;
+      readonly resultSchemaDigest: string;
+      readonly inputDigest: string;
+      readonly allowEmptyProvenance?: boolean;
+    },
+  ): Promise<ModelRunStateReceipt> {
+    assertQualityOutcome(input);
+    return this.settleInSession(input, principal, session, binding);
+  }
+
+  private async settleInSession(
+    input: TerminalCommand,
+    principal: { readonly subject: string; readonly clientId: string },
+    session: DatabaseSession,
+    binding?: {
+      readonly taskId: string;
+      readonly agentKind: ModelRun["agentKind"];
+      readonly configurationRevisionId: string;
+      readonly policyVersion: number;
+      readonly resultSchemaVersion: number;
+      readonly resultSchemaName: string;
+      readonly resultSchemaDigest: string;
+      readonly inputDigest: string;
+      readonly allowEmptyProvenance?: boolean;
+    },
+  ): Promise<ModelRunStateReceipt> {
       const current = await this.requireRun(session, input.runId);
+      if (binding !== undefined && (current.taskId !== binding.taskId
+        || current.agentKind !== binding.agentKind
+        || current.configurationRevisionId !== binding.configurationRevisionId
+        || current.policyVersion !== binding.policyVersion
+        || current.resultSchemaVersion !== binding.resultSchemaVersion
+        || current.resultSchemaName !== binding.resultSchemaName
+        || current.resultSchemaDigest !== binding.resultSchemaDigest
+        || current.inputDigest !== binding.inputDigest)) {
+        fail("MODEL_RUN_BINDING_INVALID", "Model run is not bound to the orchestration settlement");
+      }
       const status = "status" in input ? input.status : "failed";
       const configuration = await this.requireStoredConfiguration(session, current);
       if (
@@ -277,7 +328,9 @@ export class ModelRunServiceImpl implements ModelRunService {
       if (actualCost > current.maxReservedCostMicros) {
         fail("MODEL_RUN_COST_EXCEEDED", "Model settlement exceeds its reservation");
       }
-      await this.requireProvenance(session, current.taskId, input.provenanceIds);
+      await this.requireProvenance(
+        session, current.taskId, input.provenanceIds, binding?.allowEmptyProvenance === true,
+      );
       if (isTerminal(current)) {
         await this.requireExactReplay(session, current, current, input, status, actualCost);
         return stateReceipt(current);
@@ -371,7 +424,6 @@ export class ModelRunServiceImpl implements ModelRunService {
         occurredAt: at,
       });
       return stateReceipt(next);
-    });
   }
 
   private async withFailureAudit<T>(
@@ -417,7 +469,18 @@ export class ModelRunServiceImpl implements ModelRunService {
     session: DatabaseSession,
     input: ReserveModelRunCommand,
   ): Promise<AuthorizedReservation> {
-    const task = await this.repository.findTaskForAgent(session, input.taskId, input.agentKind);
+    let task = await this.repository.findTaskForAgent(session, input.taskId, input.agentKind);
+    if (task === undefined) {
+      const orchestrationTask = await this.repository.findTaskById(session, input.taskId);
+      if (orchestrationTask?.state === "ready"
+        && orchestrationTask.configurationRevisionId !== undefined
+        && await this.repository.hasActiveOrchestrationModelAuthority(
+          session, input.taskId, input.agentKind,
+          orchestrationTask.configurationRevisionId, this.now(),
+        )) {
+        task = orchestrationTask;
+      }
+    }
     if (task?.configurationRevisionId === undefined) {
       fail("TASK_AGENT_MISMATCH", "Task is not ready for this Agent");
     }
@@ -505,9 +568,11 @@ export class ModelRunServiceImpl implements ModelRunService {
     session: DatabaseSession,
     taskId: string,
     provenanceIds: readonly string[],
+    allowEmpty = false,
   ): Promise<void> {
     const available = new Set((await this.repository.listProvenance(session, taskId)).map(({ id }) => id));
-    if (provenanceIds.length === 0 || provenanceIds.some((id) => !available.has(id))) {
+    if ((!allowEmpty && provenanceIds.length === 0)
+      || provenanceIds.some((id) => !available.has(id))) {
       fail("MODEL_PROVENANCE_INVALID", "Model result provenance is invalid");
     }
   }
@@ -631,6 +696,8 @@ function sameConcurrentStart(
     && stored.policyVersion === predecessor.policyVersion
     && stored.configurationVersion === predecessor.configurationVersion
     && stored.resultSchemaVersion === predecessor.resultSchemaVersion
+    && stored.resultSchemaName === predecessor.resultSchemaName
+    && stored.resultSchemaDigest === predecessor.resultSchemaDigest
     && stored.inputDigest === predecessor.inputDigest
     && stored.inputCostMicrosPerMillion === predecessor.inputCostMicrosPerMillion
     && stored.outputCostMicrosPerMillion === predecessor.outputCostMicrosPerMillion
@@ -657,6 +724,8 @@ function sameReplayRun(stored: ModelRun, expected: ModelRun): boolean {
     && stored.policyVersion === expected.policyVersion
     && stored.configurationVersion === expected.configurationVersion
     && stored.resultSchemaVersion === expected.resultSchemaVersion
+    && stored.resultSchemaName === expected.resultSchemaName
+    && stored.resultSchemaDigest === expected.resultSchemaDigest
     && stored.inputDigest === expected.inputDigest
     && stored.inputCostMicrosPerMillion === expected.inputCostMicrosPerMillion
     && stored.outputCostMicrosPerMillion === expected.outputCostMicrosPerMillion

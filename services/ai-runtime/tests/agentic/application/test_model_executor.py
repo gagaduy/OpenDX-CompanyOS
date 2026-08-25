@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -143,12 +143,29 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     assert completed.output_digest != result().content
     assert completed.evidence_digest != result().content
     assert "content" not in vars(completed)
-    assert controls.reservations[0].input_digest != "a" * 64
+    assert controls.reservations[0].input_digest == "a" * 64
+    assert controls.reservations[0].result_schema_name == "catalog_analysis_v1"
+    assert len(controls.reservations[0].result_schema_digest) == 64
     generated_request = next(
         request for event, request in gateway.requests if event == "generate"
     )
     assert generated_request.input_cost_micros_per_million == 123
     assert generated_request.output_cost_micros_per_million == 456
+
+
+def test_deferred_completion_returns_private_settlement_without_committing_it() -> None:
+    controls = Controls()
+    deferred = replace(command(), defer_terminal_settlement=True)
+
+    outcome = asyncio.run(executor(
+        controls, Gateway([result()]), Quality([QualityDecision("accepted", (), ("prov-1",))])
+    ).execute(deferred))
+
+    assert outcome.status == "completed"
+    assert outcome.terminal_settlement is not None
+    assert outcome.terminal_settlement.output_digest == outcome.output_digest
+    assert controls.completed == []
+    assert controls.events == ["reserve", "start"]
 
 
 def test_uses_authorized_phase_f_provenance_when_report_has_no_material_claims() -> None:

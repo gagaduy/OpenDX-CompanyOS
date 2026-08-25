@@ -18,6 +18,7 @@ import type {
   CollaborationRequestAppendInput,
   ExecutiveReportAppendInput,
   ExecutiveReportPayloadRecord,
+  ExecutiveReportReferenceRecord,
   ActivityReservationResult,
   AgenticFileApprovalInput,
   AgenticFileApprovalReplay,
@@ -27,6 +28,7 @@ import type {
   ModelRunReservationResult,
   ModelRunTerminalResult,
   OrchestrationDispatchPlanRecord,
+  OrchestrationPlanReferenceRecord,
   OrchestrationSettlementFacts,
   OrchestrationPlanAppendInput,
   PolicyRecord,
@@ -291,6 +293,21 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     };
   }
 
+  async findOrchestrationPlanReference(
+    session: DatabaseSession, planId: string,
+  ): Promise<OrchestrationPlanReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT task_id,version,plan_digest
+       FROM agentic_orchestration_plan_revisions WHERE id=$1`,
+      [planId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      taskId: String(row.task_id), planVersion: Number(row.version),
+      planDigest: String(row.plan_digest),
+    };
+  }
+
   async findOrchestrationSettlementFacts(
     session: DatabaseSession, taskId: string,
   ): Promise<OrchestrationSettlementFacts> {
@@ -429,8 +446,12 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
 
   async appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<"created" | "duplicate" | "conflict"> {
     const inserted = await session.query(`INSERT INTO agentic_executive_reports
-      (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,unavailable_branches_digest,cost_micros,approval_history_digest,created_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING RETURNING id`, [report.id,report.taskId,report.planVersion,report.reportDigest,report.completionState,report.conclusionProvenanceDigest,report.unavailableBranchesDigest,report.costMicros,report.approvalHistoryDigest,report.createdAt]);
+      (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,
+       unavailable_branches_digest,synthesis_branches_digest,cost_micros,approval_history_digest,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id`,
+    [report.id, report.taskId, report.planVersion, report.reportDigest, report.completionState,
+      report.conclusionProvenanceDigest, report.unavailableBranchesDigest,
+      report.synthesisBranchesDigest, report.costMicros, report.approvalHistoryDigest, report.createdAt]);
     if (inserted.rowCount === 1) return "created";
     const existing = await session.query<Row>("SELECT * FROM agentic_executive_reports WHERE task_id=$1 AND plan_version=$2", [report.taskId,report.planVersion]);
     const row = existing.rows[0];
@@ -438,6 +459,7 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       && String(row.completion_state) === report.completionState
       && String(row.conclusion_provenance_digest) === report.conclusionProvenanceDigest
       && String(row.unavailable_branches_digest) === report.unavailableBranchesDigest
+      && String(row.synthesis_branches_digest) === report.synthesisBranchesDigest
       && Number(row.cost_micros) === report.costMicros && String(row.approval_history_digest) === report.approvalHistoryDigest
       && toIso(row.created_at) === new Date(report.createdAt).toISOString()
       ? "duplicate" : "conflict";
@@ -492,6 +514,24 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       reportDigest: String(row.report_digest),
       payload: row.payload as Readonly<Record<string, unknown>>,
       payloadDigest: String(row.payload_digest),
+    };
+  }
+
+  async findExecutiveReportReference(
+    session: DatabaseSession, reportId: string,
+  ): Promise<ExecutiveReportReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT task_id,plan_version,report_digest,completion_state,synthesis_branches_digest
+       FROM agentic_executive_reports WHERE id=$1`,
+      [reportId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      taskId: String(row.task_id), planVersion: Number(row.plan_version),
+      reportDigest: String(row.report_digest),
+      ...(row.synthesis_branches_digest === null ? {}
+        : { synthesisBranchesDigest: String(row.synthesis_branches_digest) }),
+      completionState: row.completion_state as ExecutiveReportReferenceRecord["completionState"],
     };
   }
 
@@ -724,6 +764,28 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [taskId, agentKind],
     );
     return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
+  }
+
+  async hasActiveOrchestrationModelAuthority(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    configurationRevisionId: string,
+    at: string,
+  ): Promise<boolean> {
+    const result = agentKind === "ai_ceo"
+      ? await session.query(
+        `SELECT 1 FROM agentic_ai_ceo_execution_authorities
+         WHERE task_id=$1 AND configuration_revision_id=$2 AND expires_at>$3 LIMIT 1`,
+        [taskId, configurationRevisionId, at],
+      )
+      : await session.query(
+        `SELECT 1 FROM agentic_orchestration_execution_descriptors
+         WHERE task_id=$1 AND agent_kind=$2 AND configuration_revision_id=$3
+           AND expires_at>$4 LIMIT 1`,
+        [taskId, agentKind, configurationRevisionId, at],
+      );
+    return result.rowCount === 1;
   }
 
   async listTasks(
@@ -1264,14 +1326,15 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       `INSERT INTO agentic_model_runs
        (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
         idempotency_key,requested_model,policy_version,configuration_version,
-        result_schema_version,input_digest,input_cost_micros_per_million,
+        result_schema_version,result_schema_name,result_schema_digest,input_digest,input_cost_micros_per_million,
         output_cost_micros_per_million,max_reserved_cost_micros,status,
         quality_reason_codes,provenance_ids,version,created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'reserved',$16,$17,$18,$19,$20)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'reserved',$18,$19,$20,$21,$22)
        ON CONFLICT(idempotency_key) DO NOTHING`,
       [run.id, run.taskId, run.agentKind, run.configurationRevisionId, run.schemaVersion,
         run.generationRound, run.idempotencyKey, run.requestedModel, run.policyVersion,
-        run.configurationVersion, run.resultSchemaVersion, run.inputDigest,
+        run.configurationVersion, run.resultSchemaVersion, run.resultSchemaName,
+        run.resultSchemaDigest, run.inputDigest,
         run.inputCostMicrosPerMillion, run.outputCostMicrosPerMillion,
         run.maxReservedCostMicros, [...run.qualityReasonCodes], [...run.provenanceIds],
         run.version, run.createdAt, run.updatedAt],
@@ -2247,7 +2310,10 @@ function mapModelRun(row: Row): ModelRun {
     generationRound: Number(row.generation_round) as ModelRun["generationRound"],
     idempotencyKey: String(row.idempotency_key), requestedModel: String(row.requested_model),
     policyVersion: Number(row.policy_version), configurationVersion: Number(row.configuration_version),
-    resultSchemaVersion: Number(row.result_schema_version), inputDigest: String(row.input_digest),
+    resultSchemaVersion: Number(row.result_schema_version),
+    ...(row.result_schema_name === null ? {} : { resultSchemaName: String(row.result_schema_name) }),
+    ...(row.result_schema_digest === null ? {} : { resultSchemaDigest: String(row.result_schema_digest) }),
+    inputDigest: String(row.input_digest),
     inputCostMicrosPerMillion: safeInteger(row.input_cost_micros_per_million),
     outputCostMicrosPerMillion: safeInteger(row.output_cost_micros_per_million),
     maxReservedCostMicros: safeInteger(row.max_reserved_cost_micros),
@@ -2300,6 +2366,8 @@ function sameModelRunReservation(left: ModelRun, right: ModelRun): boolean {
     && left.requestedModel === right.requestedModel && left.policyVersion === right.policyVersion
     && left.configurationVersion === right.configurationVersion
     && left.resultSchemaVersion === right.resultSchemaVersion && left.inputDigest === right.inputDigest
+    && left.resultSchemaName === right.resultSchemaName
+    && left.resultSchemaDigest === right.resultSchemaDigest
     && left.inputCostMicrosPerMillion === right.inputCostMicrosPerMillion
     && left.outputCostMicrosPerMillion === right.outputCostMicrosPerMillion
     && left.maxReservedCostMicros === right.maxReservedCostMicros;

@@ -94,6 +94,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   );
   const orchestration = new OrchestrationServiceImpl(
     repository, dependencies.transactions, policy, dependencies.generateId, dependencies.now,
+    modelRuns,
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined

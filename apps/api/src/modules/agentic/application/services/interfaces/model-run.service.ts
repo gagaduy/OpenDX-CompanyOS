@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { WorkloadPrincipal } from "../../../../../shared/auth/workload-principal";
+import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type { AgentKind } from "../../../domain/entities/agent-profile";
 import type {
   ModelFallbackPosition,
@@ -14,6 +15,8 @@ export interface ReserveModelRunCommand {
   readonly generationRound: ModelGenerationRound;
   readonly idempotencyKey: string;
   readonly inputDigest: string;
+  readonly resultSchemaName: string;
+  readonly resultSchemaDigest: string;
   readonly primaryModel: string;
   readonly fallbackModel: string;
 }
@@ -85,4 +88,20 @@ export interface ModelRunService {
   start(input: StartModelRunCommand, principal: WorkloadPrincipal): Promise<ModelRunStateReceipt>;
   complete(input: CompleteModelRunCommand, principal: WorkloadPrincipal): Promise<ModelRunStateReceipt>;
   fail(input: FailModelRunCommand, principal: WorkloadPrincipal): Promise<ModelRunStateReceipt>;
+  completeInSession(
+    input: CompleteModelRunCommand,
+    principal: { readonly subject: string; readonly clientId: string },
+    session: DatabaseSession,
+    binding: {
+      readonly taskId: string;
+      readonly agentKind: AgentKind;
+      readonly configurationRevisionId: string;
+      readonly policyVersion: number;
+      readonly resultSchemaVersion: number;
+      readonly resultSchemaName: string;
+      readonly resultSchemaDigest: string;
+      readonly inputDigest: string;
+      readonly allowEmptyProvenance?: boolean;
+    },
+  ): Promise<ModelRunStateReceipt>;
 }

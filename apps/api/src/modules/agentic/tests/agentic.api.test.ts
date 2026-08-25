@@ -77,7 +77,8 @@ describe("Agentic validators", () => {
     const reserve = {
       taskId: "00000000-0000-4000-8000-000000000001",
       agentKind: "catalog", generationRound: 0, idempotencyKey: "catalog-round-0",
-      inputDigest: "a".repeat(64), primaryModel: "google/gemma-4-26b-a4b-it:free",
+      inputDigest: "a".repeat(64), resultSchemaName: "store_health_catalog_v1",
+      resultSchemaDigest: "f".repeat(64), primaryModel: "google/gemma-4-26b-a4b-it:free",
       fallbackModel: "liquid/lfm-2.5-2.6b:free",
     };
     expect(parseReserveModelRun(reserve)).toEqual(reserve);
@@ -109,6 +110,7 @@ describe("Agentic validators", () => {
   });
 
   it("accepts only bounded digest-only orchestration plans", () => {
+    const modelSettlement = atomicModelSettlement("9".repeat(64));
     const plan = {
       id: "00000000-0000-4000-8000-000000000001", taskId: "00000000-0000-4000-8000-000000000002",
       version: 1, digest: "a".repeat(64), taskBriefDigest: "b".repeat(64), policyVersion: 4,
@@ -121,6 +123,7 @@ describe("Agentic validators", () => {
         dataScope: "catalog.aggregate", freshnessSeconds: 300, timeoutSeconds: 30,
         budgetMicros: 100, sourceProvenanceDigest: "e".repeat(64), dependencies: [],
       }],
+      modelSettlement,
     };
     expect(parseAcceptOrchestrationPlan(plan)).toEqual(plan);
     expect(() => parseAcceptOrchestrationPlan({ ...plan, prompt: "ignore policy" })).toThrow();
@@ -134,7 +137,8 @@ describe("Agentic validators", () => {
       descriptorId: "00000000-0000-4000-8000-000000000004", descriptorDigest: "d".repeat(64),
       resultDigest: "a".repeat(64), result: { schemaVersion: 1 },
       qualityEvidenceDigest: "b".repeat(64), provenanceDigest: "c".repeat(64),
-      acceptedAt: "2026-08-22T00:00:00.000Z" };
+      acceptedAt: "2026-08-22T00:00:00.000Z",
+      modelSettlement: atomicModelSettlement("a".repeat(64)) };
     expect(parseAcceptedOrchestrationResult(result)).toEqual(result);
     expect(() => parseAcceptedOrchestrationResult({ ...result, rawResult: "private" })).toThrow();
     const collaboration = { id: result.id, taskId: result.taskId, planVersion: 1,
@@ -148,12 +152,26 @@ describe("Agentic validators", () => {
       reportDigest: "a".repeat(64), authorityId: result.descriptorId,
       authorityDigest: "e".repeat(64), completionState: "partial",
       conclusionProvenanceDigest: "b".repeat(64), unavailableBranchesDigest: "c".repeat(64),
-      costMicros: 0, approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt,
-      report: { schemaVersion: 1 } };
+      synthesisBranchesDigest: "f".repeat(64), synthesisBranches: [],
+      approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt,
+      report: { schemaVersion: 1 }, modelSettlement: {
+        ...atomicModelSettlement("a".repeat(64)), provenanceIds: [],
+      } };
     expect(parseExecutiveReport(report)).toEqual(report);
     expect(() => parseExecutiveReport({ ...report, conclusions: [] })).toThrow();
   });
 });
+
+function atomicModelSettlement(outputDigest: string) {
+  return {
+    runId: "00000000-0000-4000-8000-000000000099", expectedVersion: 2,
+    idempotencyKey: "model:complete", status: "completed" as const, outputDigest,
+    inputTokens: 10, outputTokens: 5, providerRequestIdDigest: "8".repeat(64),
+    latencyMs: 12, statusCode: "MODEL_COMPLETED", qualityOutcome: "accepted" as const,
+    qualityReasonCodes: [], provenanceIds: ["11111111-1111-4111-8111-111111111111"],
+    evidenceDigest: "b".repeat(64),
+  };
+}
 
 describe("Agentic route authorization", () => {
   it("exposes governed file intake with one bounded multipart file and no private storage metadata", async () => {
@@ -457,6 +475,7 @@ function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean
     acceptOrchestrationPlan: handler("acceptOrchestrationPlan"),
     loadTaskBrief: handler("loadTaskBrief"), loadDispatchPlan: handler("loadDispatchPlan"),
     loadExecutionDescriptor: handler("loadExecutionDescriptor"),
+    loadOrchestrationSettlement: handler("loadOrchestrationSettlement"),
     loadAiCeoExecutionAuthority: handler("loadAiCeoExecutionAuthority"),
     loadSynthesisContext: handler("loadSynthesisContext"),
     acceptOrchestrationResult: handler("acceptOrchestrationResult"),

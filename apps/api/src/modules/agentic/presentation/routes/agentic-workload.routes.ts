@@ -17,6 +17,7 @@ export interface AgenticWorkloadControllerHandlers {
   readonly loadTaskBrief: RequestHandler;
   readonly loadDispatchPlan: RequestHandler;
   readonly loadExecutionDescriptor: RequestHandler;
+  readonly loadOrchestrationSettlement: RequestHandler;
   readonly loadAiCeoExecutionAuthority: RequestHandler;
   readonly loadSynthesisContext: RequestHandler;
   readonly acceptOrchestrationResult: RequestHandler;
@@ -43,6 +44,7 @@ export function createAgenticWorkloadRouter(
   router.get("/orchestration/task-briefs/:taskId", authenticateWorker, controller.loadTaskBrief);
   router.get("/orchestration/dispatch-plans/:runId", authenticateWorker, controller.loadDispatchPlan);
   router.get("/orchestration/descriptors/:descriptorId", authenticateWorker, controller.loadExecutionDescriptor);
+  router.get("/orchestration/settlements/:kind/:id", authenticateWorker, controller.loadOrchestrationSettlement);
   router.get("/orchestration/ai-ceo-authorities/:authorityId", authenticateWorker, controller.loadAiCeoExecutionAuthority);
   router.post("/orchestration/synthesis-contexts", authenticateWorker, controller.loadSynthesisContext);
   router.post("/orchestration/results", authenticateWorker, controller.acceptOrchestrationResult);

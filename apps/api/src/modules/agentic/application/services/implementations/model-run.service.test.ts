@@ -32,6 +32,8 @@ const reserveCommand = {
   generationRound: 0 as const,
   idempotencyKey: "catalog-round-0",
   inputDigest: digest,
+  resultSchemaName: "store_health_catalog_v1",
+  resultSchemaDigest: "7".repeat(64),
   primaryModel,
   fallbackModel,
 };
@@ -316,6 +318,45 @@ describe("ModelRunServiceImpl", () => {
     expect(harness.transactionRuns()).toBe(1);
   });
 
+  it("rejects atomic orchestration settlements with any inexact execution binding", async () => {
+    const binding = { taskId: reserveCommand.taskId, agentKind: "catalog" as const,
+      configurationRevisionId: "33333333-3333-4333-8333-333333333333",
+      policyVersion: 4, resultSchemaVersion: 1, inputDigest: digest,
+      resultSchemaName: reserveCommand.resultSchemaName,
+      resultSchemaDigest: reserveCommand.resultSchemaDigest };
+    const conflicts = [
+      { ...binding, taskId: "99999999-9999-4999-8999-999999999999" },
+      { ...binding, agentKind: "inventory" as const },
+      { ...binding, configurationRevisionId: "99999999-9999-4999-8999-999999999999" },
+      { ...binding, policyVersion: 5 },
+      { ...binding, resultSchemaVersion: 2 },
+      { ...binding, resultSchemaName: "other_schema_v1" },
+      { ...binding, resultSchemaDigest: "8".repeat(64) },
+      { ...binding, inputDigest: "9".repeat(64) },
+    ];
+    for (const conflict of conflicts) {
+      const harness = createHarness({ runState: "running" });
+      await expect(harness.service.completeInSession(
+        terminalCommand("completed", "accepted"), principal, session, conflict,
+      )).rejects.toMatchObject({ code: "MODEL_RUN_BINDING_INVALID" });
+      expect(harness.repository.settleModelRunTerminal).not.toHaveBeenCalled();
+    }
+  });
+
+  it("allows empty atomic provenance only when the orchestration binding authorizes it", async () => {
+    const harness = createHarness({ runState: "running", provenanceExists: false });
+    const command = { ...terminalCommand("completed", "accepted"), provenanceIds: [] };
+    const binding = { taskId: reserveCommand.taskId, agentKind: "catalog" as const,
+      configurationRevisionId: "33333333-3333-4333-8333-333333333333",
+      policyVersion: 4, resultSchemaVersion: 1, inputDigest: digest,
+      resultSchemaName: reserveCommand.resultSchemaName,
+      resultSchemaDigest: reserveCommand.resultSchemaDigest };
+
+    await expect(harness.service.completeInSession(
+      command, principal, session, { ...binding, allowEmptyProvenance: true },
+    )).resolves.toMatchObject({ status: "completed" });
+  });
+
   it("settles failed and zero-cost runs without requiring provider bodies", async () => {
     const failed = createHarness({ runState: "running" });
     await expect(failed.service.fail(failureCommand(), principal))
@@ -519,6 +560,8 @@ function createHarness(options: {
     policyVersion: 4,
     configurationVersion: 4,
     resultSchemaVersion: 1,
+    resultSchemaName: reserveCommand.resultSchemaName,
+    resultSchemaDigest: reserveCommand.resultSchemaDigest,
     inputDigest: digest,
     inputCostMicrosPerMillion: inputPrice,
     outputCostMicrosPerMillion: outputPrice,
@@ -577,6 +620,8 @@ function createHarness(options: {
       id: reserveCommand.taskId, state: "ready", createdBy: "operator", goal: "g", instructions: "secret prompt",
       configurationRevisionId: baseRun.configurationRevisionId, version: 2, createdAt: now, updatedAt: now,
     })),
+    findTaskById: vi.fn().mockResolvedValue(undefined),
+    hasActiveOrchestrationModelAuthority: vi.fn().mockResolvedValue(false),
     findRevision: vi.fn(async () => ({
       id: baseRun.configurationRevisionId, state: options.revisionState ?? "active", createdBy: "admin",
       payloadDigest: digest, version: 4, createdAt: now, updatedAt: now,

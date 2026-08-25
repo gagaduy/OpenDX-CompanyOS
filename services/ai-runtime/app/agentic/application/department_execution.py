@@ -68,6 +68,24 @@ class DepartmentExecutionService:
         self._quality_context = quality_context
 
     async def execute(self, command: DescriptorExecutionInput) -> DescriptorExecutionReference:
+        result_id = (
+            self._generate_id() if self._generate_id is not None
+            else str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:result"))
+        )
+        recovered = await self._controls.load_orchestration_settlement("result", result_id)
+        if recovered.get("settled") is True:
+            if (recovered.get("taskId") != str(command.task_id)
+                or recovered.get("planVersion") != command.plan_version
+                or recovered.get("subtaskId") != str(command.subtask_id)
+                or recovered.get("agentKind") != command.agent_kind
+                or recovered.get("descriptorId") != str(command.descriptor_id)
+                or recovered.get("descriptorDigest") != command.descriptor_digest):
+                raise DepartmentExecutionError("SETTLEMENT_RECOVERY_INVALID")
+            return DescriptorExecutionReference.model_validate_json(json.dumps({
+                "status": recovered.get("status"), "resultId": recovered.get("resultId"),
+                "resultDigest": recovered.get("resultDigest"),
+                "provenanceIds": recovered.get("provenanceIds"),
+            }))
         raw = await self._controls.load_execution_descriptor(
             str(command.descriptor_id), command.descriptor_digest
         )
@@ -137,8 +155,9 @@ class DepartmentExecutionService:
                 configuration_revision_id=str(descriptor.configuration_revision_id),
                 primary_model=descriptor.primary_model, fallback_model=descriptor.fallback_model,
                 input_digest=canonical_digest(tool_results), idempotency_key=command.idempotency_key,
-                result_schema_name=descriptor.result_schema_name,
-                result_schema=view.payload.result_schema, context=context,
+            result_schema_name=descriptor.result_schema_name,
+            result_schema=view.payload.result_schema, context=context,
+            defer_terminal_settlement=True,
                 quality_context=(
                     self._quality_context(descriptor, tuple(tool_results))
                     if self._quality_context is not None
@@ -172,10 +191,6 @@ class DepartmentExecutionService:
         if not isinstance(accepted_result, dict) or canonical_digest(accepted_result) != outcome.output_digest:
             raise DepartmentExecutionError("MODEL_RESULT_BINDING_INVALID")
         accepted_at = _timestamp(descriptor.created_at)
-        result_id = (
-            self._generate_id() if self._generate_id is not None
-            else str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:result"))
-        )
         await self._controls.accept_orchestration_result({
             "id": result_id, "taskId": str(descriptor.task_id),
             "planVersion": descriptor.plan_version, "subtaskId": str(descriptor.subtask_id),
@@ -186,6 +201,7 @@ class DepartmentExecutionService:
             "provenanceDigest": canonical_digest(sorted(set(provenance_ids))),
             "acceptedAt": accepted_at,
             "result": accepted_result,
+            "modelSettlement": _model_settlement_json(outcome),
         })
         return DescriptorExecutionReference.model_validate({
             "status": status, "resultId": UUID(result_id),
@@ -241,6 +257,16 @@ class AiCeoPlanningService:
         self._now = now
 
     async def plan(self, command: PlanningExecutionInput) -> PlanningExecutionReference:
+        plan_id = str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:plan"))
+        recovered = await self._controls.load_orchestration_settlement("plan", plan_id)
+        if recovered.get("settled") is True:
+            if (recovered.get("taskId") != str(command.task_id)
+                or recovered.get("planVersion") != 1):
+                raise DepartmentExecutionError("SETTLEMENT_RECOVERY_INVALID")
+            return PlanningExecutionReference.model_validate_json(json.dumps({
+                "taskId": str(command.task_id), "planVersion": recovered.get("planVersion"),
+                "planDigest": recovered.get("planDigest"),
+            }))
         brief = await self._controls.load_task_brief(str(command.task_id))
         authority_reference = brief.get("planningAuthority")
         if not isinstance(authority_reference, Mapping):
@@ -289,6 +315,7 @@ class AiCeoPlanningService:
             idempotency_key=command.idempotency_key,
             result_schema_name=authority.result_schema_name,
             result_schema=view.payload.result_schema, context=context,
+            defer_terminal_settlement=True,
             quality_context=PlanningQualityContext(
                 frozenset(eligible), provenance_ids,
             ),
@@ -337,7 +364,7 @@ class AiCeoPlanningService:
         if not decision.dispatchable:
             raise DepartmentExecutionError(decision.code)
         submission: dict[str, object] = {
-            "id": str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:plan")),
+            "id": plan_id,
             "taskId": str(command.task_id), "version": 1,
             "taskBriefDigest": brief.get("digest"),
             "planningAuthorityId": str(authority.id),
@@ -349,6 +376,7 @@ class AiCeoPlanningService:
             "subtasks": [_planned_subtask_json(item) for item in planned],
         }
         submission["digest"] = canonical_digest(submission)
+        submission["modelSettlement"] = _model_settlement_json(outcome)
         await self._submissions.accept_plan(submission)
         return PlanningExecutionReference(
             task_id=command.task_id, plan_version=1,
@@ -368,9 +396,21 @@ class AiCeoSynthesisService:
     async def synthesize(
         self, command: SynthesisExecutionInput
     ) -> SynthesisExecutionReference:
+        report_id = str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:report"))
         branches = [descriptor_json(branch, exclude={"result_id"}) | (
             {} if branch.result_id is None else {"resultId": str(branch.result_id)}
         ) for branch in command.branches]
+        synthesis_branches_digest = canonical_digest(branches)
+        recovered = await self._controls.load_orchestration_settlement("report", report_id)
+        if recovered.get("settled") is True:
+            if (recovered.get("taskId") != str(command.task_id)
+                or recovered.get("planVersion") != command.plan_version
+                or recovered.get("synthesisBranchesDigest") != synthesis_branches_digest):
+                raise DepartmentExecutionError("SETTLEMENT_RECOVERY_INVALID")
+            return SynthesisExecutionReference.model_validate_json(json.dumps({
+                "completionState": recovered.get("completionState"),
+                "reportDigest": recovered.get("reportDigest"),
+            }))
         resolved = await self._controls.load_synthesis_context({
             "taskId": str(command.task_id), "planVersion": command.plan_version,
             "branches": branches,
@@ -441,14 +481,18 @@ class AiCeoSynthesisService:
         model_context = PhaseFContext("executive_synthesis", {
             **base_context, "branches": [*accepted, *unavailable_context],
         })
+        synthesis_input_digest = canonical_digest(
+            _mutable_json(model_context.authorized_context)
+        )
         outcome = await self._models.execute(ModelExecutionCommand(
             task_id=str(command.task_id), agent_kind="ai_ceo",
             configuration_revision_id=str(authority.configuration_revision_id),
             primary_model=authority.primary_model, fallback_model=authority.fallback_model,
-            input_digest=canonical_digest(_mutable_json(model_context.authorized_context)),
+            input_digest=synthesis_input_digest,
             idempotency_key=command.idempotency_key,
             result_schema_name=authority.result_schema_name,
             result_schema=view.payload.result_schema, context=model_context,
+            defer_terminal_settlement=True,
             quality_context=ExecutiveSynthesisQualityContext(
                 0, accepted_references, unavailable_references, provenance,
                 partial_result_ids=partial_ids,
@@ -469,7 +513,6 @@ class AiCeoSynthesisService:
         unavailable_report = report.get("unavailableBranches")
         if type(unavailable_report) is not list:
             raise DepartmentExecutionError("EXECUTIVE_REPORT_BINDING_INVALID")
-        report_id = str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:report"))
         settlement = await self._controls.load_synthesis_context({
             "taskId": str(command.task_id), "planVersion": command.plan_version,
             "branches": branches,
@@ -485,9 +528,11 @@ class AiCeoSynthesisService:
             "unavailableBranchesDigest": canonical_digest(sorted(
                 unavailable_report, key=lambda item: str(item["subtaskId"])
             )),
-            "costMicros": settlement.get("costMicros"),
+            "synthesisBranchesDigest": synthesis_branches_digest,
+            "synthesisBranches": branches,
             "approvalHistoryDigest": settlement.get("approvalHistoryDigest"),
             "createdAt": _timestamp(authority.created_at), "report": report,
+            "modelSettlement": _model_settlement_json(outcome),
         }
         await self._controls.accept_executive_report(body)
         return SynthesisExecutionReference(
@@ -543,6 +588,28 @@ def _governed_failure(error: Exception, fallback_code: str) -> tuple[str, bool]:
     if type(code) is str and type(retryable) is bool:
         return code, retryable
     return fallback_code, False
+
+
+def _model_settlement_json(outcome: object) -> dict[str, object]:
+    settlement = getattr(outcome, "terminal_settlement", None)
+    if settlement is None:
+        raise DepartmentExecutionError("MODEL_RESULT_BINDING_INVALID")
+    return {
+        "runId": settlement.run_id,
+        "expectedVersion": settlement.expected_version,
+        "idempotencyKey": settlement.idempotency_key,
+        "status": settlement.status,
+        "outputDigest": settlement.output_digest,
+        "inputTokens": settlement.input_tokens,
+        "outputTokens": settlement.output_tokens,
+        "providerRequestIdDigest": settlement.provider_request_id_digest,
+        "latencyMs": settlement.latency_ms,
+        "statusCode": settlement.status_code,
+        "qualityOutcome": settlement.quality_outcome,
+        "qualityReasonCodes": list(settlement.quality_reason_codes),
+        "provenanceIds": list(settlement.provenance_ids),
+        "evidenceDigest": settlement.evidence_digest,
+    }
 
 
 def _timestamp(value: datetime) -> str:

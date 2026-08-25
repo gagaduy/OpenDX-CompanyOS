@@ -298,7 +298,7 @@ suite("PostgresqlAgenticRepository", () => {
       await repository.appendAcceptedOrchestrationResult(session, { id: resultId, taskId, planVersion: 1, subtaskId, resultDigest, qualityEvidenceDigest: "2".repeat(64), provenanceDigest: "3".repeat(64), acceptedAt: at });
       await expect(repository.appendAcceptedOrchestrationResultPayload(session, resultId, resultDigest, resultPayload)).resolves.toBe("created");
       await expect(repository.appendAcceptedOrchestrationResultPayload(session, resultId, resultDigest, resultPayload)).resolves.toBe("duplicate");
-      await repository.appendExecutiveReport(session, { id: reportId, taskId, planVersion: 1, reportDigest, completionState: "partial", conclusionProvenanceDigest: "5".repeat(64), unavailableBranchesDigest: "6".repeat(64), costMicros: 100, approvalHistoryDigest: "7".repeat(64), createdAt: at });
+      await repository.appendExecutiveReport(session, { id: reportId, taskId, planVersion: 1, reportDigest, completionState: "partial", conclusionProvenanceDigest: "5".repeat(64), unavailableBranchesDigest: "6".repeat(64), synthesisBranchesDigest: "8".repeat(64), costMicros: 100, approvalHistoryDigest: "7".repeat(64), createdAt: at });
       await expect(repository.appendExecutiveReportPayload(session, reportId, reportDigest, reportPayload)).resolves.toBe("created");
       await expect(repository.appendExecutiveReportPayload(session, reportId, reportDigest, reportPayload)).resolves.toBe("duplicate");
     });

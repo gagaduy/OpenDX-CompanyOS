@@ -91,6 +91,15 @@ class AgenticControlClient:
             "GET", f"/orchestration/task-briefs/{quote(task_id, safe='')}"
         )
 
+    async def load_orchestration_settlement(
+        self, kind: str, settlement_id: str
+    ) -> dict[str, Any]:
+        if kind not in {"plan", "result", "report"}:
+            raise AgenticControlError("SETTLEMENT_RECOVERY_INVALID", retryable=False)
+        return await self._request(
+            "GET", f"/orchestration/settlements/{kind}/{quote(settlement_id, safe='')}"
+        )
+
     async def load_dispatch_plan(self, run_id: str) -> dict[str, Any]:
         return await self._request(
             "GET", f"/orchestration/dispatch-plans/{quote(run_id, safe='')}"
@@ -174,6 +183,8 @@ class AgenticControlClient:
             "generationRound": request.generation_round,
             "idempotencyKey": request.idempotency_key,
             "inputDigest": request.input_digest,
+            "resultSchemaName": request.result_schema_name,
+            "resultSchemaDigest": request.result_schema_digest,
             "primaryModel": request.primary_model,
             "fallbackModel": request.fallback_model,
         }, idempotency_key=request.idempotency_key)

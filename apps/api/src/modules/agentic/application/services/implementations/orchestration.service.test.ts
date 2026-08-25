@@ -16,6 +16,17 @@ const session = {} as DatabaseSession;
 const transactions: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
 const principal = { subject: "service-account-agent-ai-ceo", clientId: "agent-ai-ceo", agentKind: "ai_ceo" } as const;
 const worker = { subject: "service-account-opendx-agentic-worker", clientId: "opendx-agentic-worker", workload: "agentic_worker" } as const;
+const atomicModelRuns = { completeInSession: vi.fn().mockResolvedValue({
+  runId: "00000000-0000-4000-8000-000000000099", status: "completed", version: 3,
+}) };
+const modelSettlement = (outputDigest: string, evidenceDigest = "b".repeat(64)) => ({
+  runId: "00000000-0000-4000-8000-000000000099", expectedVersion: 2,
+  idempotencyKey: "model:complete", status: "completed" as const, outputDigest,
+  inputTokens: 10, outputTokens: 20, providerRequestIdDigest: "8".repeat(64),
+  latencyMs: 25, statusCode: "MODEL_COMPLETED", qualityOutcome: "accepted" as const,
+  qualityReasonCodes: [], provenanceIds: ["00000000-0000-4000-8000-000000000046"],
+  evidenceDigest,
+});
 const plan: OrchestrationPlanSubmission = {
   id: "plan-1", taskId: "task-1", version: 1, digest: "a".repeat(64), taskBriefDigest: "b".repeat(64),
   planningAuthorityId: "00000000-0000-4000-8000-000000000090",
@@ -25,6 +36,9 @@ const plan: OrchestrationPlanSubmission = {
     expectedResultSchemaDigest: "c".repeat(64), allowedToolsDigest: "d".repeat(64),
     dataScope: "catalog.aggregate", freshnessSeconds: 300, timeoutSeconds: 30,
     budgetMicros: 100, sourceProvenanceDigest: "e".repeat(64), dependencies: [] }],
+  modelSettlement: modelSettlement(canonicalDigest({
+    schemaVersion: 1, subtasks: [{ owner: "catalog", dependencies: [] }],
+  })),
 };
 
 describe("OrchestrationServiceImpl", () => {
@@ -41,7 +55,10 @@ describe("OrchestrationServiceImpl", () => {
       listProvenance: vi.fn().mockResolvedValue([{ id: "00000000-0000-4000-8000-000000000003",
         taskId: "00000000-0000-4000-8000-000000000001", sourceType: "agentic_task",
         sourceId: "00000000-0000-4000-8000-000000000001", sourceDigest: "f".repeat(64),
-        classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-22T00:00:00.000Z" }]),
+        classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-22T00:00:00.000Z" },
+      { id: "00000000-0000-4000-8000-000000000099", taskId: "00000000-0000-4000-8000-000000000001",
+        sourceType: "model_result", sourceId: "run-1", sourceDigest: "9".repeat(64),
+        classification: "internal", recordedBy: "worker", recordedAt: "2026-08-22T00:03:00.000Z" }]),
       findModelConfiguration: vi.fn().mockResolvedValue({
         primaryModel: "provider/ai-ceo", fallbackModels: ["provider/ai-ceo-fallback"], timeoutMs: 30_000,
       }),
@@ -104,11 +121,36 @@ describe("OrchestrationServiceImpl", () => {
       appendOrchestrationPlan: vi.fn(), appendAudit: vi.fn(), appendProvenance: vi.fn(),
     } as unknown as AgenticRepository;
     const policy = { evaluateInSession: vi.fn().mockResolvedValue({ effect: "DENY", policyVersion: 4, reasonCode: "DENIED", matchedRuleIds: [], evaluatedAt: plan.createdAt }) } as unknown as PolicyEvaluator;
-    const service = new OrchestrationServiceImpl(repository, transactions, policy, () => "event-1");
+    const service = new OrchestrationServiceImpl(repository, transactions, policy,
+      () => "event-1", undefined, atomicModelRuns);
 
     await expect(service.acceptPlan(plan, principal)).rejects.toMatchObject({ code: "POLICY_DENIED" });
     expect(policy.evaluateInSession).toHaveBeenCalledOnce();
     expect(repository.appendOrchestrationPlan).not.toHaveBeenCalled();
+  });
+
+  it("returns only bounded committed settlement references for activity recovery", async () => {
+    const repository = {
+      findOrchestrationPlanReference: vi.fn().mockResolvedValue({
+        taskId: "00000000-0000-4000-8000-000000000001", planVersion: 1,
+        planDigest: "a".repeat(64),
+      }),
+      findAcceptedOrchestrationResultReference: vi.fn().mockResolvedValue(undefined),
+      findExecutiveReportReference: vi.fn().mockResolvedValue(undefined),
+    } as unknown as AgenticRepository;
+    const service = new OrchestrationServiceImpl(
+      repository, transactions, {} as PolicyEvaluator, () => "event-1",
+    );
+
+    await expect(service.loadSettlementReference(
+      "plan", "00000000-0000-4000-8000-000000000002", worker,
+    )).resolves.toEqual({
+      settled: true, kind: "plan", taskId: "00000000-0000-4000-8000-000000000001",
+      planVersion: 1, planDigest: "a".repeat(64),
+    });
+    await expect(service.loadSettlementReference(
+      "result", "00000000-0000-4000-8000-000000000003", worker,
+    )).resolves.toEqual({ settled: false });
   });
 
   it("derives and persists one descriptor from API-owned authority", async () => {
@@ -153,6 +195,9 @@ describe("OrchestrationServiceImpl", () => {
         allowedToolsDigest: catalog.allowedToolsDigest, dataScope: "catalog:health:read",
         freshnessSeconds: 300, timeoutSeconds: 30, budgetMicros: 10_000,
         sourceProvenanceDigest: canonicalDigest(authorizedContext), dependencies: [] }],
+      modelSettlement: modelSettlement(canonicalDigest({
+        schemaVersion: 1, subtasks: [{ owner: "catalog", dependencies: [] }],
+      })),
     };
     const repository = {
       findAgentByClientId: vi.fn().mockResolvedValue({ kind: "ai_ceo", active: true }),
@@ -186,7 +231,7 @@ describe("OrchestrationServiceImpl", () => {
     let id = 100;
     const service = new OrchestrationServiceImpl(repository, transactions, policy,
       () => `00000000-0000-4000-8000-${(++id).toString().padStart(12, "0")}`,
-      () => "2026-08-22T00:02:00.000Z");
+      () => "2026-08-22T00:02:00.000Z", atomicModelRuns);
 
     await service.acceptPlan(acceptedPlan, principal);
 
@@ -324,15 +369,21 @@ describe("OrchestrationServiceImpl", () => {
   });
 
   it("accepts an exact result replay but rejects a conflicting settlement", async () => {
+    atomicModelRuns.completeInSession.mockClear();
     const taskId = "00000000-0000-4000-8000-000000000042";
     const subtaskId = "00000000-0000-4000-8000-000000000043";
-    const provenanceId = "00000000-0000-4000-8000-000000000046";
     const catalog = STORE_HEALTH_EXECUTION_CATALOG[0]!;
-    const toolSummary = { totalProducts: 2 };
+    const toolEvidence = catalog.toolGrants.map((grant, index) => ({
+      toolName: grant.name,
+      provenanceId: `00000000-0000-4000-8000-${String(46 + index).padStart(12, "0")}`,
+      summary: { sequence: index + 1 },
+    }));
+    const provenanceIds = toolEvidence.map(({ provenanceId }) => provenanceId);
     const result = { schemaVersion: 1, agentKind: "catalog", status: "complete",
       summary: "Catalog reviewed", conclusions: [], risks: [], recommendedActions: [],
-      payload: { toolSummaries: [{ toolName: "catalog.product_completeness", provenanceId,
-        summaryDigest: canonicalDigest(toolSummary) }] } } as const;
+      payload: { toolSummaries: toolEvidence.map(({ toolName, provenanceId, summary }) => ({
+        toolName, provenanceId, summaryDigest: canonicalDigest(summary),
+      })) } } as const;
     const descriptorPayload = { taskBrief: { taskId }, resultSchema: catalog.resultSchema,
       authorizedContext: [], toolGrants: catalog.toolGrants };
     const descriptor = createExecutionDescriptor({
@@ -347,14 +398,18 @@ describe("OrchestrationServiceImpl", () => {
     const input = { id: "00000000-0000-4000-8000-000000000041", taskId, planVersion: 1,
       subtaskId, descriptorId: descriptor.id, descriptorDigest: descriptor.descriptorDigest,
       resultDigest: canonicalDigest(result), qualityEvidenceDigest: "b".repeat(64),
-      provenanceDigest: canonicalDigest([provenanceId]), acceptedAt: "2026-08-22T00:04:00.000Z", result };
+      provenanceDigest: canonicalDigest(provenanceIds), acceptedAt: "2026-08-22T00:04:00.000Z", result,
+      modelSettlement: modelSettlement(canonicalDigest(result)) };
     const repository = { findExecutionDescriptorForSubtask: vi.fn().mockResolvedValue(descriptor),
       findExecutionDescriptor: vi.fn().mockResolvedValue({ descriptor, payload: descriptorPayload }),
-      listCompletedToolInvocationsForSubtask: vi.fn().mockResolvedValue([{
-        toolName: "catalog.product_completeness", safeResult: { provenanceId, summary: toolSummary },
-      }]),
+      // Repository order may differ when completed timestamps tie; descriptor grant order is authoritative.
+      listCompletedToolInvocationsForSubtask: vi.fn().mockResolvedValue(toolEvidence.map(
+        ({ toolName, provenanceId, summary }) => ({
+          toolName, safeResult: { provenanceId, summary },
+        }),
+      ).reverse()),
       findModelQualityEvidenceForResult: vi.fn().mockResolvedValue({
-        outcome: "accepted", provenanceIds: [provenanceId],
+        outcome: "accepted", provenanceIds,
       }),
       findRevision: vi.fn().mockResolvedValue({ state: "active", version: 4 }),
       findAgentByKind: vi.fn().mockResolvedValue({ active: true }),
@@ -374,9 +429,20 @@ describe("OrchestrationServiceImpl", () => {
       appendAudit: vi.fn() } as unknown as AgenticRepository;
     const policy = { evaluateInSession: vi.fn().mockResolvedValue({ effect: "ALLOW", policyVersion: 4 }) } as unknown as PolicyEvaluator;
     const service = new OrchestrationServiceImpl(repository, transactions, policy,
-      () => "00000000-0000-4000-8000-000000000045", () => "2026-08-22T00:04:30.000Z");
+      () => "00000000-0000-4000-8000-000000000045", () => "2026-08-22T00:04:30.000Z",
+      atomicModelRuns);
 
     await expect(service.acceptResult(input, worker)).resolves.toEqual({ digest: input.resultDigest });
+    expect(atomicModelRuns.completeInSession).toHaveBeenCalledWith(
+      input.modelSettlement, worker, session,
+      { taskId, agentKind: "catalog", configurationRevisionId: descriptor.configurationRevisionId,
+        policyVersion: descriptor.policyVersion, resultSchemaVersion: 1,
+        resultSchemaName: descriptor.resultSchemaName,
+        resultSchemaDigest: descriptor.resultSchemaDigest,
+        inputDigest: canonicalDigest(toolEvidence.map(({ toolName, provenanceId, summary }) => ({
+          toolName, output: { provenanceId, summary },
+        }))) },
+    );
     await expect(service.acceptResult(input, worker)).rejects.toMatchObject({ code: "SETTLEMENT_CONFLICT" });
     vi.mocked(repository.findModelQualityEvidenceForResult).mockResolvedValue(undefined);
     await expect(service.acceptResult(input, worker))
@@ -393,6 +459,7 @@ describe("OrchestrationServiceImpl", () => {
       qualityEvidenceDigest: "b".repeat(64), provenanceDigest: "c".repeat(64),
       acceptedAt: "2026-08-22T00:04:00.000Z",
       result: { schemaVersion: 1, agentKind: "catalog", status: "complete" },
+      modelSettlement: modelSettlement("0".repeat(64)),
     } as const;
     const repository = {
       findExecutionDescriptorForSubtask: vi.fn().mockResolvedValue({
@@ -404,7 +471,7 @@ describe("OrchestrationServiceImpl", () => {
       appendAcceptedOrchestrationResultPayload: vi.fn(),
     } as unknown as AgenticRepository;
     const service = new OrchestrationServiceImpl(repository, transactions, {} as PolicyEvaluator,
-      () => "event-1", () => "2026-08-22T00:04:30.000Z");
+      () => "event-1", () => "2026-08-22T00:04:30.000Z", atomicModelRuns);
 
     await expect(service.acceptResult(input, worker))
       .rejects.toMatchObject({ code: "RESULT_DIGEST_INVALID" });

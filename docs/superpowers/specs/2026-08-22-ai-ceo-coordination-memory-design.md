@@ -113,6 +113,18 @@ descriptor and schema, recomputes result and provenance digests, and stores the
 bounded shareable envelope in a separate immutable private-payload table. A
 terminal or escalated branch stores no fabricated payload.
 
+For accepted Phase F outputs, model-run completion and the corresponding
+plan, Department result, or executive-report settlement commit in one API
+transaction. Before invoking a model, an activity checks the deterministic
+domain settlement ID and returns its bounded reference when a prior commit's
+response was lost. This closes the model-settled/domain-unsettled crash window
+without persisting model bodies in Temporal or a runtime-local recovery cache.
+The API binds atomic completion to the stored run's task, Agent, configuration,
+policy, schema, and authorized input digest. Executive reports persist a digest
+of their bounded synthesis branch references for exact recovery; an
+all-unavailable partial report may use empty model provenance, while any
+provided provenance must still be accepted synthesis evidence.
+
 Before synthesis, the worker submits only Department result references from
 Temporal to a worker-only synthesis-context operation. The API resolves exact
 accepted result digests and returns only the validated shareable envelopes plus

@@ -17,6 +17,7 @@ import type {
   AiCeoExecutionAuthority,
   AiCeoExecutionPayload,
 } from "../../../domain/entities/ai-ceo-execution-authority";
+import type { CompleteModelRunCommand } from "./model-run.service";
 
 export interface TaskBriefView {
   readonly taskId: string;
@@ -53,18 +54,22 @@ export interface AuthorityReference {
 export interface OrchestrationPlanSubmission extends OrchestrationPlanAppendInput {
   readonly planningAuthorityId: string;
   readonly planningAuthorityDigest: string;
+  readonly modelSettlement: CompleteModelRunCommand;
 }
 
 export interface AcceptedOrchestrationResultSubmission extends AcceptedOrchestrationResultAppendInput {
   readonly descriptorId: string;
   readonly descriptorDigest: string;
   readonly result: Readonly<Record<string, unknown>>;
+  readonly modelSettlement: CompleteModelRunCommand;
 }
 
-export interface ExecutiveReportSubmission extends ExecutiveReportAppendInput {
+export interface ExecutiveReportSubmission extends Omit<ExecutiveReportAppendInput, "costMicros"> {
   readonly authorityId: string;
   readonly authorityDigest: string;
   readonly report: Readonly<Record<string, unknown>>;
+  readonly synthesisBranches: SynthesisContextRequest["branches"];
+  readonly modelSettlement: CompleteModelRunCommand;
 }
 
 export interface SynthesisContextRequest {
@@ -108,6 +113,9 @@ export interface OrchestrationDispatchPlanView extends OrchestrationDispatchPlan
 }
 
 export interface OrchestrationService {
+  loadSettlementReference(
+    kind: "plan" | "result" | "report", id: string, principal: WorkloadPrincipal,
+  ): Promise<Readonly<Record<string, unknown>>>;
   acceptPlan(plan: OrchestrationPlanSubmission, principal: AgentServicePrincipal): Promise<void>;
   loadTaskBrief(taskId: string, principal: WorkloadPrincipal): Promise<TaskBriefView>;
   loadDispatchPlan(runId: string, principal: WorkloadPrincipal): Promise<OrchestrationDispatchPlanView>;

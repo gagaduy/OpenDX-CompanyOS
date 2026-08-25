@@ -297,6 +297,7 @@ export interface ExecutiveReportAppendInput {
   readonly reportDigest: string;
   readonly completionState: "complete" | "partial" | "quality_escalated" | "canceled";
   readonly conclusionProvenanceDigest: string; readonly unavailableBranchesDigest: string;
+  readonly synthesisBranchesDigest: string;
   readonly costMicros: number; readonly approvalHistoryDigest: string; readonly createdAt: string;
 }
 
@@ -318,6 +319,20 @@ export interface ExecutiveReportPayloadRecord {
   readonly reportDigest: string;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly payloadDigest: string;
+}
+
+export interface OrchestrationPlanReferenceRecord {
+  readonly taskId: string;
+  readonly planVersion: number;
+  readonly planDigest: string;
+}
+
+export interface ExecutiveReportReferenceRecord {
+  readonly taskId: string;
+  readonly planVersion: number;
+  readonly reportDigest: string;
+  readonly synthesisBranchesDigest?: string;
+  readonly completionState: ExecutiveReportAppendInput["completionState"];
 }
 
 export interface OrchestrationDispatchPlanRecord {
@@ -419,6 +434,7 @@ export interface AgenticRepository {
   findExecutionDescriptor(session: DatabaseSession, descriptorId: string): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined>;
   findExecutionDescriptorForSubtask(session: DatabaseSession, taskId: string, planVersion: number, subtaskId: string): Promise<ExecutionDescriptor | undefined>;
   findOrchestrationDispatchPlan(session: DatabaseSession, runId: string): Promise<OrchestrationDispatchPlanRecord | undefined>;
+  findOrchestrationPlanReference(session: DatabaseSession, planId: string): Promise<OrchestrationPlanReferenceRecord | undefined>;
   findOrchestrationSettlementFacts(session: DatabaseSession, taskId: string): Promise<OrchestrationSettlementFacts>;
   orchestrationPlanExists(session: DatabaseSession, taskId: string, planVersion: number): Promise<boolean>;
   orchestrationPlanHasAgent(session: DatabaseSession, taskId: string, planVersion: number, agentKind: AgentKind): Promise<boolean>;
@@ -433,6 +449,7 @@ export interface AgenticRepository {
   findExecutiveReportId(session: DatabaseSession, taskId: string, planVersion: number): Promise<string | undefined>;
   appendExecutiveReportPayload(session: DatabaseSession, reportId: string, reportDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
   findExecutiveReportPayload(session: DatabaseSession, reportId: string): Promise<ExecutiveReportPayloadRecord | undefined>;
+  findExecutiveReportReference(session: DatabaseSession, reportId: string): Promise<ExecutiveReportReferenceRecord | undefined>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;
@@ -451,6 +468,10 @@ export interface AgenticRepository {
   findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;
   findTaskForApproval(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;
   findTaskForAgent(session: DatabaseSession, taskId: string, agentKind: AgentKind): Promise<AgentTask | undefined>;
+  hasActiveOrchestrationModelAuthority(
+    session: DatabaseSession, taskId: string, agentKind: AgentKind,
+    configurationRevisionId: string, at: string,
+  ): Promise<boolean>;
   listTasks(session: DatabaseSession, ownerId: string, page: number, pageSize: number): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }>;
   listAllTasks(session: DatabaseSession, page: number, pageSize: number): Promise<{ readonly items: readonly AgentTask[]; readonly totalItems: number }>;
   updateTask(session: DatabaseSession, task: AgentTask, expectedVersion: number): Promise<boolean>;
