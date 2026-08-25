@@ -364,6 +364,15 @@ export interface OrchestrationSettlementFacts {
 
 export type ImmutableAppendResult = "created" | "duplicate" | "conflict";
 
+export interface StaffIntakeBinding {
+  readonly kind: "task_intake" | "file_upload";
+  readonly actorId: string;
+  readonly idempotencyKey: string;
+  readonly requestDigest: string;
+  readonly resourceId: string;
+  readonly createdAt: string;
+}
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -450,6 +459,8 @@ export interface AgenticRepository {
   appendExecutiveReportPayload(session: DatabaseSession, reportId: string, reportDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
   findExecutiveReportPayload(session: DatabaseSession, reportId: string): Promise<ExecutiveReportPayloadRecord | undefined>;
   findExecutiveReportReference(session: DatabaseSession, reportId: string): Promise<ExecutiveReportReferenceRecord | undefined>;
+  findStaffIntakeBinding(session: DatabaseSession, kind: StaffIntakeBinding["kind"], actorId: string, idempotencyKey: string): Promise<StaffIntakeBinding | undefined>;
+  bindStaffIntake(session: DatabaseSession, binding: StaffIntakeBinding): Promise<"created" | "duplicate" | "conflict">;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;

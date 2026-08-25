@@ -12,17 +12,39 @@ import type { AgentTask } from "../../../domain/entities/agent-task";
 import type { AgenticFilePreview, AgenticIntakeFile } from "../../../domain/entities/agentic-file";
 import { AGENTIC_FILE_LIMITS, transitionAgenticIntakeFile, validateAgenticFileUpload } from "../../../domain/services/agentic-file-rules";
 import { AgenticApplicationError } from "../agentic-application.error";
-import type { AgenticFilePreviewDto, AgenticFileService, AgenticFileUploadRequest, ApproveAgenticFilePreviewRequest } from "../interfaces/agentic-file.service";
+import type { AgenticFilePreviewDto, AgenticFileService, AgenticFileUploadRequest, AgenticFileUploadResult, ApproveAgenticFilePreviewRequest } from "../interfaces/agentic-file.service";
 
-type FileRepository = Pick<AgenticRepository, "createIntakeFile" | "findIntakeFile" | "transitionIntakeFile" | "appendFilePreview" | "findFilePreview" | "findFileApprovalByIdempotency" | "approveFilePreview" | "findTaskById" | "appendAudit" | "appendProvenance" | "claimIntakeFilesForProcessing">;
+type FileRepository = Pick<AgenticRepository, "findStaffIntakeBinding" | "bindStaffIntake" | "createIntakeFile" | "findIntakeFile" | "transitionIntakeFile" | "appendFilePreview" | "findFilePreview" | "findFileApprovalByIdempotency" | "approveFilePreview" | "findTaskById" | "appendAudit" | "appendProvenance" | "claimIntakeFilesForProcessing">;
 
 export class AgenticFileServiceImpl implements AgenticFileService {
   constructor(private readonly repository: FileRepository, private readonly storage: AgenticFileStorage, private readonly scanner: AgenticFileScanner, private readonly parser: AgenticFileParser, private readonly transactions: TransactionRunner, private readonly generateId: () => string, private readonly now: () => string) {}
-  async upload(input: AgenticFileUploadRequest, principal: StaffPrincipal): Promise<{ readonly file: AgenticIntakeFile }> {
+  async upload(input: AgenticFileUploadRequest, principal: StaffPrincipal): Promise<AgenticFileUploadResult> {
     admin(principal); const format = validateUpload(input); const at = this.now(); const id = this.generateId();
     const file: AgenticIntakeFile = { id, objectKey: `agentic-intake/${id}`, originalFilename: input.originalFilename.trim(), format, mediaType: input.mediaType, byteSize: input.content.byteLength, payloadDigest: sha(input.content), status: "uploaded", createdBy: principal.subject, version: 1, createdAt: at, updatedAt: at };
-    try { await this.transactions.run(async (s) => { await this.repository.createIntakeFile(s, file); await this.audit(s, principal, file.id, "agentic_file.upload", at); }); await this.storage.put(file.objectKey, input.content, file.mediaType); } catch { await this.storage.delete(file.objectKey).catch(() => undefined); fail("FILE_UPLOAD_FAILED", "File upload could not be recorded safely"); }
-    return { file };
+    const requestDigest = sha(JSON.stringify({ originalFilename: file.originalFilename, mediaType: file.mediaType, byteSize: file.byteSize, payloadDigest: file.payloadDigest }));
+    try {
+      const reserved = await this.transactions.run(async (s): Promise<AgenticFileUploadResult> => {
+        const binding = { kind: "file_upload" as const, actorId: principal.subject, idempotencyKey: input.idempotencyKey, requestDigest, resourceId: file.id, createdAt: at };
+        const disposition = await this.repository.bindStaffIntake(s, binding);
+        if (disposition !== "created") {
+          const existing = await this.repository.findStaffIntakeBinding(s, binding.kind, binding.actorId, binding.idempotencyKey);
+          if (existing === undefined || existing.requestDigest !== requestDigest) fail("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound to another upload request");
+          const replayed = await this.repository.findIntakeFile(s, existing.resourceId);
+          if (replayed === undefined || replayed.createdBy !== principal.subject) fail("IDEMPOTENCY_CONFLICT", "Idempotency binding does not resolve to its original upload");
+          return { disposition: "replayed", file: replayed };
+        }
+        await this.repository.createIntakeFile(s, file);
+        await this.audit(s, principal, file.id, "agentic_file.upload", at);
+        return { disposition: "created", file };
+      });
+      if (reserved.disposition === "replayed") return reserved;
+      await this.storage.put(file.objectKey, input.content, file.mediaType);
+      return reserved;
+    } catch (error) {
+      await this.storage.delete(file.objectKey).catch(() => undefined);
+      if (error instanceof AgenticApplicationError) throw error;
+      fail("FILE_UPLOAD_FAILED", "File upload could not be recorded safely");
+    }
   }
   async get(fileId: string, principal: StaffPrincipal): Promise<AgenticIntakeFile> {
     admin(principal);

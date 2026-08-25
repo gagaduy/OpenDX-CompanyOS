@@ -91,8 +91,8 @@ export class AgenticController {
   readonly uploadFile = handle(async (request, response) => {
     if (request.file === undefined) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
     if (Object.keys(request.body).length !== 0) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
-    const result = await files(this.files).upload({ originalFilename: request.file.originalname, mediaType: request.file.mimetype as "text/csv" | "text/plain", content: request.file.buffer }, principal(response.locals));
-    response.status(201).json(successResponse("Agentic file uploaded", fileResponse(result.file)));
+    const result = await files(this.files).upload({ idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]), originalFilename: request.file.originalname, mediaType: request.file.mimetype as "text/csv" | "text/plain", content: request.file.buffer }, principal(response.locals));
+    response.status(result.disposition === "created" ? 201 : 200).json(successResponse("Agentic file uploaded", fileResponse(result.file)));
   });
   readonly getFile = handle(async (request, response) => {
     response.json(successResponse("Agentic file retrieved", fileResponse(await files(this.files).get(parseUuid(request.params.fileId), principal(response.locals)))));

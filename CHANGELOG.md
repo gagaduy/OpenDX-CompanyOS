@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Make staff file intake replay-safe with immutable actor-scoped idempotency
+  bindings, exact upload replay, and changed-payload conflict enforcement.
+
 - Approve the focused Phase G Console Digital Workforce design and add its TDD
   implementation plan for governed task intake, execution timelines,
   approvals, employee visibility, audit, and provenance-backed reports.

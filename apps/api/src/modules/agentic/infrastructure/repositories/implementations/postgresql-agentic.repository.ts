@@ -35,6 +35,7 @@ import type {
   ProvenanceRecord,
   RevisionChildren,
   RevocationRecord,
+  StaffIntakeBinding,
   ToolGrantRecord,
   ToolInvocationCompletionInput,
   ToolInvocationFailureInput,
@@ -642,6 +643,55 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       }
       throw error;
     }
+    return "created";
+  }
+
+  async findStaffIntakeBinding(
+    session: DatabaseSession,
+    kind: StaffIntakeBinding["kind"],
+    actorId: string,
+    idempotencyKey: string,
+  ): Promise<StaffIntakeBinding | undefined> {
+    const result = await session.query<Row>(
+      `SELECT kind,actor_id,idempotency_key,request_digest,resource_id,created_at
+       FROM agentic_staff_intake_idempotency
+       WHERE kind=$1 AND actor_id=$2 AND idempotency_key=$3`,
+      [kind, actorId, idempotencyKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      kind: String(row.kind) as StaffIntakeBinding["kind"],
+      actorId: String(row.actor_id),
+      idempotencyKey: String(row.idempotency_key),
+      requestDigest: String(row.request_digest),
+      resourceId: String(row.resource_id),
+      createdAt: toIso(row.created_at),
+    };
+  }
+
+  async bindStaffIntake(
+    session: DatabaseSession,
+    binding: StaffIntakeBinding,
+  ): Promise<"created" | "duplicate" | "conflict"> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.staff.intake:${binding.kind}:${binding.actorId}:${binding.idempotencyKey}`,
+    ]);
+    const existing = await this.findStaffIntakeBinding(
+      session, binding.kind, binding.actorId, binding.idempotencyKey,
+    );
+    if (existing !== undefined) {
+      return existing.requestDigest === binding.requestDigest
+        && existing.resourceId === binding.resourceId
+        ? "duplicate"
+        : "conflict";
+    }
+    await session.query(
+      `INSERT INTO agentic_staff_intake_idempotency
+       (kind,actor_id,idempotency_key,request_digest,resource_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [binding.kind, binding.actorId, binding.idempotencyKey,
+        binding.requestDigest, binding.resourceId, binding.createdAt],
+    );
     return "created";
   }
 

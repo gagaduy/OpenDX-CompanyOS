@@ -33,7 +33,8 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_executive_report_payloads,
+    await pool.query(`TRUNCATE agentic_staff_intake_idempotency,
+      agentic_executive_report_payloads,
       agentic_accepted_orchestration_result_payloads,
       agentic_ai_ceo_execution_payloads, agentic_ai_ceo_execution_authorities,
       agentic_orchestration_execution_payloads,
@@ -345,6 +346,55 @@ suite("PostgresqlAgenticRepository", () => {
     expect(first).toEqual({ status: "created", taskId: task.id });
     expect(replay).toEqual({ status: "duplicate", taskId: task.id });
     expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
+  });
+
+  it("binds staff intake by kind, actor, key, digest, and resource without mutation", async () => {
+    const staffIntakeRepository = repository as unknown as {
+      bindStaffIntake: (
+        session: Parameters<Parameters<typeof transactions.run>[0]>[0],
+        binding: {
+          readonly kind: "task_intake" | "file_upload";
+          readonly actorId: string;
+          readonly idempotencyKey: string;
+          readonly requestDigest: string;
+          readonly resourceId: string;
+          readonly createdAt: string;
+        },
+      ) => Promise<"created" | "duplicate" | "conflict">;
+      findStaffIntakeBinding: (
+        session: Parameters<Parameters<typeof transactions.run>[0]>[0],
+        kind: "task_intake" | "file_upload",
+        actorId: string,
+        idempotencyKey: string,
+      ) => Promise<unknown>;
+    };
+    const resourceId = randomUUID();
+    const binding = {
+      kind: "file_upload" as const,
+      actorId: "governance-a",
+      idempotencyKey: "console:file:1",
+      requestDigest: "a".repeat(64),
+      resourceId,
+      createdAt: "2026-08-25T00:00:00.000Z",
+    };
+
+    await expect(transactions.run((session) =>
+      staffIntakeRepository.bindStaffIntake(session, binding))).resolves.toBe("created");
+    await expect(transactions.run((session) =>
+      staffIntakeRepository.bindStaffIntake(session, binding))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => staffIntakeRepository.bindStaffIntake(session, {
+      ...binding,
+      requestDigest: "b".repeat(64),
+      resourceId: randomUUID(),
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => staffIntakeRepository.bindStaffIntake(session, {
+      ...binding,
+      actorId: "governance-b",
+      resourceId: randomUUID(),
+    }))).resolves.toBe("created");
+    await expect(transactions.runReadOnly((session) => staffIntakeRepository.findStaffIntakeBinding(
+      session, binding.kind, binding.actorId, binding.idempotencyKey,
+    ))).resolves.toEqual(binding);
   });
 
   it("rejects reuse of an approval idempotency key with a changed preview payload", async () => {

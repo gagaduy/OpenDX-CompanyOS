@@ -48,6 +48,7 @@ const tables = [
   "agentic_ai_ceo_execution_payloads",
   "agentic_accepted_orchestration_result_payloads",
   "agentic_executive_report_payloads",
+  "agentic_staff_intake_idempotency",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -69,20 +70,41 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("16");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("17");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
     expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: null });
     expect((await pool.query("SELECT to_regclass('public.agentic_ai_ceo_execution_authorities') AS name")).rows[0]).toEqual({ name: null });
+    expect((await pool.query("SELECT to_regclass('public.agentic_staff_intake_idempotency') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
     expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: "agentic_orchestration_execution_descriptors" });
     expect((await pool.query("SELECT to_regclass('public.agentic_ai_ceo_execution_authorities') AS name")).rows[0]).toEqual({ name: "agentic_ai_ceo_execution_authorities" });
+    expect((await pool.query("SELECT to_regclass('public.agentic_staff_intake_idempotency') AS name")).rows[0]).toEqual({ name: "agentic_staff_intake_idempotency" });
+  });
+
+  it("keeps staff intake idempotency bindings immutable", async () => {
+    const resourceId = randomUUID();
+    await pool.query(
+      `INSERT INTO agentic_staff_intake_idempotency
+       (kind,actor_id,idempotency_key,request_digest,resource_id,created_at)
+       VALUES('file_upload','governance-a','console:file:1',$1,$2,$3)`,
+      ["a".repeat(64), resourceId, "2026-08-25T00:00:00.000Z"],
+    );
+
+    await expect(pool.query(
+      "UPDATE agentic_staff_intake_idempotency SET request_digest=$1 WHERE resource_id=$2",
+      ["b".repeat(64), resourceId],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
+      "DELETE FROM agentic_staff_intake_idempotency WHERE resource_id=$1",
+      [resourceId],
+    )).rejects.toMatchObject({ code: "P0001" });
   });
 
   it("upgrades populated executive reports without inventing a legacy synthesis binding", async () => {
-    await runAgenticMigrations(databaseUrl!, "down", 1);
+    await runAgenticMigrations(databaseUrl!, "down", 2);
     const revisionId = randomUUID(); const taskId = randomUUID();
     const planId = randomUUID(); const reportId = randomUUID();
     const at = "2026-08-24T00:00:00.000Z";
@@ -339,7 +361,7 @@ suite("Agent governance migration", () => {
       [taskId, runId],
     )).rejects.toMatchObject({ code: "23514" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 9);
+    await runAgenticMigrations(databaseUrl!, "down", 10);
     expect((await pool.query("SELECT to_regclass('public.agentic_model_runs') AS name")).rows[0])
       .toEqual({ name: null });
     const pricingColumns = await pool.query(
@@ -858,7 +880,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 14);
+    await runAgenticMigrations(databaseUrl!, "down", 15);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");

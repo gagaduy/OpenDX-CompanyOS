@@ -5,6 +5,7 @@ import express, { type RequestHandler } from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "../../../shared/auth/staff-principal";
+import type { AgenticIntakeFile } from "../domain/entities/agentic-file";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { AgenticApplicationError } from "../application/services/agentic-application.error";
 import { AgenticController } from "../presentation/controllers/agentic.controller";
@@ -183,11 +184,29 @@ describe("Agentic route authorization", () => {
     expect(uploaded.body.errorCode).toBe("VALIDATION_ERROR");
 
     const accepted = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
       .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
       .expect(201);
     expect(accepted.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "uploaded" }));
     expect(accepted.body.data).not.toHaveProperty("objectKey");
     expect(accepted.body.data).not.toHaveProperty("content");
+
+    const replayed = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(200);
+    expect(replayed.body.data).toEqual(accepted.body.data);
+
+    const changed = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
+      .attach("file", Buffer.from("name\nGrace\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(409);
+    expect(changed.body.errorCode).toBe("IDEMPOTENCY_CONFLICT");
+
+    const missingKey = await application.post("/files")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(400);
+    expect(missingKey.body.errorCode).toBe("VALIDATION_ERROR");
 
     await application.post("/files")
       .attach("file", Buffer.from("first"), { filename: "first.txt", contentType: "text/plain" })
@@ -396,13 +415,23 @@ function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavai
     response.locals.correlationId = "corr";
     next();
   };
+  const uploads = new Map<string, { readonly digest: string; readonly file: AgenticIntakeFile }>();
   const files = {
-    upload: vi.fn(async (input: { originalFilename: string; mediaType: string }) => {
+    upload: vi.fn(async (input: { idempotencyKey: string; originalFilename: string; mediaType: string; content: Buffer }, uploadPrincipal: { subject: string }) => {
       const extension = input.originalFilename.slice(input.originalFilename.lastIndexOf(".") + 1);
       if ((extension === "csv" && input.mediaType !== "text/csv") || (extension === "txt" && input.mediaType !== "text/plain") || !["csv", "txt"].includes(extension)) {
         throw new AgenticApplicationError("FILE_TYPE_NOT_ALLOWED", "Only CSV and plain-text file intake is allowed");
       }
-      return { file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } };
+      const key = `${uploadPrincipal.subject}:${input.idempotencyKey}`;
+      const digest = `${input.originalFilename}:${input.mediaType}:${input.content.toString("base64")}`;
+      const existing = uploads.get(key);
+      if (existing !== undefined) {
+        if (existing.digest !== digest) throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound");
+        return { disposition: "replayed" as const, file: existing.file };
+      }
+      const file = { ...fileMetadata(), status: "uploaded" as const, version: 1 };
+      uploads.set(key, { digest, file });
+      return { disposition: "created" as const, file };
     }),
     get: vi.fn(async (_fileId: string, principal: { subject: string }) => {
       if (principal.subject !== "governance-admin") throw new AgenticApplicationError("FORBIDDEN", "Agentic file access is limited to its governance owner");
