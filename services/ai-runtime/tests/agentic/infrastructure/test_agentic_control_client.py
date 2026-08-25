@@ -154,7 +154,7 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.method == "GET":
+        if request.method == "GET" or request.url.path.endswith("/synthesis-contexts"):
             return httpx.Response(200, json={"success": True, "data": {"kind": "private"}})
         return httpx.Response(202, json={"success": True, "data": {"digest": "a" * 64}})
 
@@ -163,6 +163,12 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
     assert asyncio.run(client.load_task_brief(identity)) == {"kind": "private"}
     assert asyncio.run(client.load_dispatch_plan(identity)) == {"kind": "private"}
     assert asyncio.run(client.load_execution_descriptor(identity, "b" * 64)) == {"kind": "private"}
+    assert asyncio.run(client.load_ai_ceo_execution_authority(
+        identity, "c" * 64
+    )) == {"kind": "private"}
+    assert asyncio.run(client.load_synthesis_context({
+        "taskId": identity, "planVersion": 1, "branches": [],
+    })) == {"kind": "private"}
     for operation in (
         client.accept_orchestration_result,
         client.mediate_collaboration,
@@ -174,11 +180,14 @@ def test_maps_descriptor_control_and_digest_only_settlement_requests() -> None:
         f"/v1/internal/agentic/orchestration/task-briefs/{identity}",
         f"/v1/internal/agentic/orchestration/dispatch-plans/{identity}",
         f"/v1/internal/agentic/orchestration/descriptors/{identity}",
+        f"/v1/internal/agentic/orchestration/ai-ceo-authorities/{identity}",
+        "/v1/internal/agentic/orchestration/synthesis-contexts",
         "/v1/internal/agentic/orchestration/results",
         "/v1/internal/agentic/orchestration/collaborations",
         "/v1/internal/agentic/orchestration/reports",
     ]
     assert requests[2].headers["x-opendx-descriptor-digest"] == "b" * 64
+    assert requests[3].headers["x-opendx-authority-digest"] == "c" * 64
     assert all(request.headers["authorization"] == "Bearer worker-token" for request in requests)
 
 

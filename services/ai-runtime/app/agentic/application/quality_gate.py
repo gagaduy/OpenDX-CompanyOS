@@ -216,12 +216,44 @@ class DepartmentResultQualityGate:
         if any(
             sensitive_text_kind(value) is not None
             or any(pattern.search(value) for pattern in (*_PROMPT_INJECTION, *_PHASE_F_SEMANTICS))
-            for value in _model_strings(raw_result)
+            for value in _phase_f_narrative_strings(raw_result)
         ):
             return QualityDecision("escalate", ("SENSITIVE_OR_UNSAFE_RESULT",), evidence_ids)
         if status == "partial":
             return QualityDecision("partial", ("RESULT_STATUS_PARTIAL",), evidence_ids)
         return QualityDecision("accepted", (), evidence_ids)
+
+
+@dataclass(frozen=True)
+class PlanningQualityContext:
+    eligible_departments: frozenset[AgentKind]
+    authorized_provenance_ids: tuple[str, ...]
+    correction_round: int = 0
+
+    def __post_init__(self) -> None:
+        if (
+            not self.eligible_departments
+            or "ai_ceo" in self.eligible_departments
+            or not self.authorized_provenance_ids
+            or len(set(self.authorized_provenance_ids)) != len(self.authorized_provenance_ids)
+            or not 0 <= self.correction_round <= 2
+        ):
+            _invalid_context()
+
+
+class OrchestrationQualityGate:
+    def evaluate(self, raw_result: object, context: object) -> QualityDecision:
+        if isinstance(context, DepartmentResultQualityContext):
+            return DepartmentResultQualityGate().evaluate(raw_result, context)
+        if isinstance(context, PlanningQualityContext):
+            from app.agentic.application.planning_quality_gate import PlanningQualityGate
+
+            return PlanningQualityGate(
+                context.eligible_departments  # type: ignore[arg-type]
+            ).evaluate(raw_result, context)
+        if isinstance(context, (AuthoritativeQualityContext, ExecutiveSynthesisQualityContext)):
+            return QualityGate().evaluate(raw_result, context)
+        return QualityDecision("escalate", ("QUALITY_CONTEXT_INVALID",), ())
 
 
 @dataclass(frozen=True)
@@ -436,7 +468,7 @@ def _evaluate_executive_synthesis(
     if any(
         sensitive_text_kind(value) is not None
         or any(pattern.search(value) for pattern in (*_PROMPT_INJECTION, *_PHASE_F_SEMANTICS))
-        for value in _model_strings(raw_result)
+        for value in _phase_f_narrative_strings(raw_result)
     ):
         return QualityDecision("escalate", ("SENSITIVE_OR_UNSAFE_RESULT",), evidence_ids)
     if completion in {"quality_escalated", "canceled"}:
@@ -520,6 +552,19 @@ def _model_strings(value: object) -> Iterable[str]:
             stack.extend(item.values())
         elif type(item) in (tuple, list):
             stack.extend(item)
+
+
+def _phase_f_narrative_strings(value: object) -> Iterable[str]:
+    if not isinstance(value, Mapping):
+        return ()
+    narrative = tuple(
+        value[field]
+        for field in (
+            "summary", "conclusions", "risks", "recommendedActions", "conflicts",
+        )
+        if field in value
+    )
+    return _model_strings(narrative)
 
 
 def _payload_as_mapping(payload: object) -> dict[str, object]:

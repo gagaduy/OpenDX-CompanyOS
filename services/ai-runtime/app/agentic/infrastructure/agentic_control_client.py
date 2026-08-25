@@ -36,6 +36,9 @@ AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({
     "DESCRIPTOR_BINDING_INVALID",
     "DESCRIPTOR_EXPIRED",
     "DESCRIPTOR_REVOKED",
+    "AI_CEO_AUTHORITY_BINDING_INVALID",
+    "AI_CEO_AUTHORITY_EXPIRED",
+    "SYNTHESIS_CONTEXT_INVALID",
 })
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
 _MODEL_RUN_STATUSES = frozenset({"running", "completed", "failed", "partial", "escalated"})
@@ -101,6 +104,23 @@ class AgenticControlClient:
         return await self._request(
             "GET", f"/orchestration/descriptors/{quote(descriptor_id, safe='')}",
             headers={"x-opendx-descriptor-digest": descriptor_digest},
+        )
+
+    async def load_ai_ceo_execution_authority(
+        self, authority_id: str, authority_digest: str
+    ) -> dict[str, Any]:
+        if _DIGEST.fullmatch(authority_digest) is None:
+            raise AgenticControlError("AI_CEO_AUTHORITY_BINDING_INVALID", retryable=False)
+        return await self._request(
+            "GET", f"/orchestration/ai-ceo-authorities/{quote(authority_id, safe='')}",
+            headers={"x-opendx-authority-digest": authority_digest},
+        )
+
+    async def load_synthesis_context(
+        self, body: Mapping[str, object]
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST", "/orchestration/synthesis-contexts", json=dict(body)
         )
 
     async def accept_orchestration_result(self, body: Mapping[str, object]) -> str:

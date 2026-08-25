@@ -466,6 +466,8 @@ suite("Agentic PostgreSQL admin API", () => {
           resultDigest: "8".repeat(64), provenanceIds: [] },
       ] }).expect("cache-control", "no-store").expect(200);
     expect(synthesis.body.data.acceptedResults[0].result).toEqual(resultBody);
+    expect(synthesis.body.data.costMicros).toBe(0);
+    expect(synthesis.body.data.approvalHistoryDigest).toBe(canonicalDigest([]));
     const reportBody = { schemaVersion: 1, completionState: "partial",
       summary: "Catalog reviewed; inventory unavailable", conclusions: [], risks: [],
       recommendedActions: [], conflicts: [], acceptedResultReferences: [{
@@ -477,8 +479,10 @@ suite("Agentic PostgreSQL admin API", () => {
       authorityDigest: synthesis.body.data.authority.authorityDigest,
       reportDigest: canonicalDigest(reportBody), completionState: "partial",
       conclusionProvenanceDigest: canonicalDigest([]),
-      unavailableBranchesDigest: canonicalDigest(reportBody.unavailableBranches), costMicros: 0,
-      approvalHistoryDigest: canonicalDigest([]), createdAt: at, report: reportBody };
+      unavailableBranchesDigest: canonicalDigest(reportBody.unavailableBranches),
+      costMicros: synthesis.body.data.costMicros,
+      approvalHistoryDigest: synthesis.body.data.approvalHistoryDigest,
+      createdAt: at, report: reportBody };
     await request(app).post("/v1/internal/agentic/orchestration/reports").set(worker).send(report).expect(202);
     await request(app).post("/v1/internal/agentic/orchestration/reports")
       .set(worker).send({ ...report, id: randomUUID() }).expect(202);

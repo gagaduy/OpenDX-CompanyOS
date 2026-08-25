@@ -151,6 +151,20 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     assert generated_request.output_cost_micros_per_million == 456
 
 
+def test_uses_authorized_phase_f_provenance_when_report_has_no_material_claims() -> None:
+    controls = Controls()
+    phase_f = ModelExecutionCommand(**{
+        **command().__dict__,
+        "quality_context": SimpleNamespace(authorized_provenance_ids=("prov-1",)),
+    })
+
+    asyncio.run(executor(
+        controls, Gateway([result()]), Quality([QualityDecision("accepted", (), ())])
+    ).execute(phase_f))
+
+    assert controls.completed[0].provenance_ids == ("prov-1",)
+
+
 def test_uses_shared_fallback_once_only_for_retryable_gateway_failure() -> None:
     controls = Controls()
     gateway = Gateway([

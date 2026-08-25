@@ -17,6 +17,8 @@ from app.agentic.application.quality_gate import (
     DepartmentResultQualityContext,
     DepartmentResultQualityGate,
     ExecutiveSynthesisQualityContext,
+    OrchestrationQualityGate,
+    PlanningQualityContext,
 )
 from app.agentic.domain.model_runtime import FrozenJsonMapping, ModelResult
 
@@ -242,6 +244,33 @@ def test_executive_synthesis_cannot_be_complete_with_partial_accepted_result() -
 
     assert decision.outcome == "correct"
     assert decision.reasons == ("EXECUTIVE_REPORT_BINDING_INVALID",)
+
+
+def test_phase_f_safety_scan_does_not_treat_reference_ids_as_narrative() -> None:
+    reference = {
+        "resultId": "00000000-0000-4000-8000-000000000002",
+        "subtaskId": "00000000-0000-4000-8000-000000000003",
+        "resultDigest": "a" * 64,
+    }
+    decision = QualityGate().evaluate({
+        "schemaVersion": 1, "completionState": "complete", "summary": "Reviewed",
+        "conclusions": [], "risks": [], "recommendedActions": [], "conflicts": [],
+        "acceptedResultReferences": [reference], "unavailableBranches": [],
+    }, ExecutiveSynthesisQualityContext(0, (reference,), (), ()))
+
+    assert decision.outcome == "accepted"
+
+
+def test_orchestration_gate_routes_dynamic_planning_authority() -> None:
+    decision = OrchestrationQualityGate().evaluate({
+        "schemaVersion": 1,
+        "subtasks": [{"owner": "catalog", "dependencies": []}],
+    }, PlanningQualityContext(
+        frozenset({"catalog"}),
+        ("00000000-0000-4000-8000-000000000001",),
+    ))
+
+    assert decision.outcome == "accepted"
 
 
 def test_phase_f_department_gate_requires_exact_tool_summary_bindings() -> None:

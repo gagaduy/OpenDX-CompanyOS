@@ -27,7 +27,9 @@ def command() -> DescriptorExecutionInput:
 
 def test_returns_only_the_bounded_descriptor_reference() -> None:
     expected = DescriptorExecutionReference(
-        status="usable", result_digest="b" * 64,
+        status="usable",
+        result_id=UUID("00000000-0000-4000-8000-000000000005"),
+        result_digest="b" * 64,
         provenance_ids=(UUID("00000000-0000-4000-8000-000000000004"),),
     )
 
@@ -50,3 +52,26 @@ def test_maps_binding_failures_to_non_retryable_temporal_errors() -> None:
         asyncio.run(OrchestrationActivities(Execution()).execute_department_subtask_v1(command()))
     assert captured.value.type == "DESCRIPTOR_BINDING_INVALID"
     assert captured.value.non_retryable is True
+
+
+def test_registers_all_three_phase_f_activity_names() -> None:
+    class Planning:
+        async def plan(self, _value: object) -> None:
+            return None
+
+    class Synthesis:
+        async def synthesize(self, _value: object) -> None:
+            return None
+
+    names = {
+        item.__temporal_activity_definition.name
+        for item in OrchestrationActivities(
+            object(), planning=Planning(), synthesis=Synthesis()
+        ).registered
+    }
+
+    assert names == {
+        "plan_orchestration_v1",
+        "execute_department_subtask_v1",
+        "synthesize_executive_report_v1",
+    }

@@ -163,9 +163,14 @@ export class OrchestrationServiceImpl implements OrchestrationService {
         || authorizedBranches.some((branch) => !seen.has(String(branch.subtaskId)))) {
         fail("SYNTHESIS_CONTEXT_INVALID", "Every authority-bound plan branch must be resolved explicitly");
       }
+      const settlementFacts = await this.repository.findOrchestrationSettlementFacts(
+        session, input.taskId,
+      );
       return Object.freeze({ authority: authorityReference(currentAuthority),
         acceptedResults: Object.freeze(acceptedResults),
-        unavailableBranches: Object.freeze(unavailableBranches) });
+        unavailableBranches: Object.freeze(unavailableBranches),
+        costMicros: settlementFacts.costMicros,
+        approvalHistoryDigest: canonicalDigest(settlementFacts.approvalHistory) });
     });
   }
 

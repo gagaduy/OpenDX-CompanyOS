@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.agentic.domain.orchestration_schemas import DepartmentAgentKind
 
@@ -41,8 +41,58 @@ class DescriptorExecutionInput(DescriptorModel):
 
 class DescriptorExecutionReference(DescriptorModel):
     status: Literal["usable", "partial", "unavailable"]
+    result_id: UUID | None = None
     result_digest: Digest
     provenance_ids: tuple[UUID, ...] = Field(max_length=24)
+
+    @model_validator(mode="after")
+    def validate_result_identity(self) -> DescriptorExecutionReference:
+        if (self.status == "unavailable") == (self.result_id is not None):
+            raise ValueError("DESCRIPTOR_RESULT_REFERENCE_INVALID")
+        return self
+
+
+class PlanningExecutionInput(DescriptorModel):
+    task_id: UUID
+    idempotency_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+
+
+class PlanningExecutionReference(DescriptorModel):
+    task_id: UUID
+    plan_version: int = Field(gt=0)
+    plan_digest: Digest
+
+
+class SynthesisBranchReference(DescriptorModel):
+    subtask_id: UUID
+    status: Literal["usable", "partial", "unavailable"]
+    result_id: UUID | None = None
+    result_digest: Digest
+    provenance_ids: tuple[UUID, ...] = Field(max_length=24)
+
+    @model_validator(mode="after")
+    def validate_result_identity(self) -> SynthesisBranchReference:
+        if (self.status == "unavailable") == (self.result_id is not None):
+            raise ValueError("SYNTHESIS_BRANCH_REFERENCE_INVALID")
+        return self
+
+
+class SynthesisExecutionInput(DescriptorModel):
+    task_id: UUID
+    plan_version: int = Field(gt=0)
+    branches: tuple[SynthesisBranchReference, ...] = Field(min_length=1, max_length=6)
+    idempotency_key: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+
+    @model_validator(mode="after")
+    def validate_unique_branches(self) -> SynthesisExecutionInput:
+        if len({branch.subtask_id for branch in self.branches}) != len(self.branches):
+            raise ValueError("SYNTHESIS_BRANCH_REFERENCE_INVALID")
+        return self
+
+
+class SynthesisExecutionReference(DescriptorModel):
+    completion_state: Literal["complete", "partial", "quality_escalated", "canceled"]
+    report_digest: Digest
 
 
 class ExecutionToolGrant(DescriptorModel):

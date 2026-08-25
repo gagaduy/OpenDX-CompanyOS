@@ -95,6 +95,8 @@ export interface SynthesisContextView {
     readonly resultDigest: string;
     readonly provenanceIds: readonly string[];
   }[];
+  readonly costMicros: number;
+  readonly approvalHistoryDigest: string;
 }
 
 export interface OrchestrationDispatchPlanView extends OrchestrationDispatchPlanRecord {

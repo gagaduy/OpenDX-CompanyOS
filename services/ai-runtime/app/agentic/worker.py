@@ -16,14 +16,32 @@ from typing import Any
 import httpx
 from temporalio.worker import Worker
 
+from app.agentic.activities.orchestration_activities import OrchestrationActivities
 from app.agentic.activities.store_health_activities import StoreHealthActivities
 from app.agentic.activities.model_execution_activities import ModelExecutionActivities
+from app.agentic.application.department_execution import (
+    AiCeoPlanningService,
+    AiCeoSynthesisService,
+    DepartmentExecutionService,
+)
 from app.agentic.application.context_boundary import enforce_context_boundary
 from app.agentic.application.model_executor import ModelExecutor
+from app.agentic.application.phase_f_context import (
+    PhaseFContext,
+    build_phase_f_prompt,
+)
 from app.agentic.application.prompt_builder import build_model_prompt
-from app.agentic.application.quality_gate import QualityGate
+from app.agentic.application.quality_gate import OrchestrationQualityGate, QualityGate
+from app.agentic.domain.store_health_result_schemas import STORE_HEALTH_RESULT_SCHEMAS
+from app.agentic.domain.model_runtime import AgentKind
+from app.agentic.infrastructure.agent_submission_client import AgentSubmissionClient
 from app.agentic.infrastructure.agentic_control_client import AgenticControlClient
-from app.agentic.infrastructure.keycloak import KeycloakClientCredentialsProvider
+from app.agentic.infrastructure.department_tools import DepartmentToolClient
+from app.agentic.infrastructure.keycloak import (
+    AgentTokenProviders,
+    KeycloakClientCredentialsProvider,
+    build_agent_token_providers,
+)
 from app.agentic.infrastructure.openrouter import OpenRouterModelGateway
 from app.agentic.infrastructure.temporal_client import connect_temporal
 from app.agentic.observability import BoundedMetrics, StructuredEventLogger
@@ -33,15 +51,20 @@ from app.shared.config import RuntimeSettings
 
 
 class WorkerActivities:
-    def __init__(self, store_health: StoreHealthActivities, model_execution: ModelExecutionActivities | None = None) -> None:
+    def __init__(self, store_health: StoreHealthActivities,
+                 model_execution: ModelExecutionActivities | None = None,
+                 orchestration: Any | None = None) -> None:
         self._store_health = store_health
         self._model_execution = model_execution
+        self._orchestration = orchestration
 
     @property
     def registered(self) -> list[object]:
-        registered = self._store_health.registered
+        registered = list(self._store_health.registered)
         if self._model_execution is not None:
             registered.extend(self._model_execution.registered)
+        if self._orchestration is not None:
+            registered.extend(self._orchestration.registered)
         return registered
 
 
@@ -53,6 +76,62 @@ def build_model_executor(settings: RuntimeSettings, control: object, client: htt
         controls=control, gateway=gateway, quality_gate=QualityGate(),
         context_filter=lambda agent_kind, value: enforce_context_boundary(agent_kind, value),
         prompt_builder=build_model_prompt,
+    )
+
+
+def build_orchestration_activities(
+    settings: RuntimeSettings, control: object, client: httpx.AsyncClient,
+    *, executor: ModelExecutor | None = None,
+    agent_tokens: AgentTokenProviders | None = None,
+) -> OrchestrationActivities | None:
+    if not settings.orchestration_descriptor_execution_enabled:
+        return None
+    phase_f_executor = executor or _build_orchestration_executor(settings, control, client)
+    if phase_f_executor is None:
+        raise ValueError("OpenRouter execution is required for descriptor execution")
+    tokens = agent_tokens or build_agent_token_providers(settings.keycloak, client=client)
+    tools = DepartmentToolClient(
+        base_url=settings.agentic_api_base_url, tokens=tokens.departments,
+        client=client, timeout_seconds=10, maximum_response_bytes=16_384,
+    )
+    submissions = AgentSubmissionClient(
+        base_url=settings.agentic_api_base_url, tokens=tokens.ai_ceo,
+        client=client, timeout_seconds=10, maximum_response_bytes=16_384,
+    )
+    department = DepartmentExecutionService(
+        controls=control, tools=tools, models=phase_f_executor,
+        result_schemas=STORE_HEALTH_RESULT_SCHEMAS,
+    )
+    planning = AiCeoPlanningService(
+        controls=control, models=phase_f_executor, submissions=submissions,
+        ai_ceo_client_id=settings.keycloak.ai_ceo_identity.client_id,
+    )
+    synthesis = AiCeoSynthesisService(controls=control, models=phase_f_executor)
+    return OrchestrationActivities(
+        department, planning=planning, synthesis=synthesis,
+    )
+
+
+def _build_orchestration_executor(
+    settings: RuntimeSettings, control: object, client: httpx.AsyncClient,
+) -> ModelExecutor | None:
+    if not settings.openrouter.execution_enabled:
+        return None
+    gateway = OpenRouterModelGateway(settings=settings.openrouter, client=client)
+
+    def filter_context(agent_kind: AgentKind, context: object) -> object:
+        if isinstance(context, PhaseFContext):
+            return context
+        return enforce_context_boundary(agent_kind, context)
+
+    def prompt(agent_kind: AgentKind, context: object) -> object:
+        if isinstance(context, PhaseFContext):
+            return build_phase_f_prompt(context)
+        return build_model_prompt(agent_kind, context)
+
+    return ModelExecutor(
+        controls=control, gateway=gateway, quality_gate=OrchestrationQualityGate(),
+        context_filter=filter_context, prompt_builder=prompt,
     )
 
 
@@ -188,9 +267,10 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
     )
     executor = build_model_executor(settings, control, http)
     model_execution = None if executor is None else ModelExecutionActivities(executor, metrics, logger)
+    orchestration = build_orchestration_activities(settings, control, http)
     await run_supervised_worker(
         temporal_client=temporal.raw_client,
-        activities=WorkerActivities(store_health, model_execution),
+        activities=WorkerActivities(store_health, model_execution, orchestration),
         task_queue=settings.temporal.task_queue,
         shutdown_grace_seconds=settings.worker_shutdown_grace_seconds,
         stop=stop,

@@ -308,6 +308,13 @@ def _settlement_provenance_ids(
 ) -> tuple[str, ...]:
     if decision.evidence_ids:
         return decision.evidence_ids
+    authorized_ids = getattr(command.quality_context, "authorized_provenance_ids", ())
+    if (
+        type(authorized_ids) in (tuple, list)
+        and authorized_ids
+        and all(type(identifier) is str for identifier in authorized_ids)
+    ):
+        return tuple(authorized_ids)
     return tuple(
         item.provenance_id
         for item in getattr(command.quality_context, "authorized_evidence", ())

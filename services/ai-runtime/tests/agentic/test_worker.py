@@ -10,6 +10,7 @@ from typing import Any
 from app.agentic.activities.store_health_activities import StoreHealthActivities
 from app.agentic.worker import (
     WorkerActivities,
+    build_orchestration_activities,
     build_model_executor,
     configure_logging,
     run_supervised_worker,
@@ -121,6 +122,52 @@ def test_worker_activity_registry_adds_model_execution_without_changing_workflow
     assert len(activities.registered) == 7
     assert activities.registered[-1] is ModelActivities.registered[0]
     assert StoreHealthReviewWorkflowV1.__name__ == "StoreHealthReviewWorkflowV1"
+
+
+def test_worker_activity_registry_adds_orchestration_only_when_enabled() -> None:
+    class Orchestration:
+        registered = [object(), object(), object()]
+
+    disabled = WorkerActivities(StoreHealthActivities(None))  # type: ignore[arg-type]
+    enabled = WorkerActivities(
+        StoreHealthActivities(None), orchestration=Orchestration(),  # type: ignore[arg-type]
+    )
+
+    assert len(disabled.registered) == 6
+    assert len(enabled.registered) == 9
+    assert enabled.registered[-3:] == Orchestration.registered
+
+
+def test_builds_three_orchestration_activities_only_behind_feature_flag() -> None:
+    class Identity:
+        client_id = "agent-ai-ceo"
+
+    class Keycloak:
+        ai_ceo_identity = Identity()
+
+    class Settings:
+        orchestration_descriptor_execution_enabled = False
+        agentic_api_base_url = "https://api.test/v1/internal/agentic"
+        keycloak = Keycloak()
+
+    settings = Settings()
+    assert build_orchestration_activities(
+        settings, object(), object(), executor=object(), agent_tokens=object(),  # type: ignore[arg-type]
+    ) is None
+
+    settings.orchestration_descriptor_execution_enabled = True
+    tokens = type("Tokens", (), {"ai_ceo": object(), "departments": {}})()
+    activities = build_orchestration_activities(
+        settings, object(), object(), executor=object(), agent_tokens=tokens,  # type: ignore[arg-type]
+    )
+
+    assert activities is not None
+    assert {
+        item.__temporal_activity_definition.name for item in activities.registered
+    } == {
+        "plan_orchestration_v1", "execute_department_subtask_v1",
+        "synthesize_executive_report_v1",
+    }
 
 
 def test_shutdown_timeout_still_closes_resources() -> None:
