@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-Review-ready focused design for Phase G on 2026-08-25. The conversational
-design sections are approved; written-spec review remains required before the
-implementation plan or frontend code begins.
+Approved focused design for Phase G on 2026-08-25. The conversational sections
+and written spec are approved. The focused implementation plan is prepared;
+frontend implementation remains subject to the Phase F integration gate.
 
 Phase G implementation depends on Phase F Slice 1 being integrated into
 `develop`. This design and its later implementation plan may be prepared on

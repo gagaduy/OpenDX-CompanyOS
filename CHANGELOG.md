@@ -13,9 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Draft the focused Phase G Console Digital Workforce design for governed task
-  intake, execution timelines, approvals, employee visibility, audit, and
-  provenance-backed reports.
+- Approve the focused Phase G Console Digital Workforce design and add its TDD
+  implementation plan for governed task intake, execution timelines,
+  approvals, employee visibility, audit, and provenance-backed reports.
 
 - Define the focused Phase F AI CEO orchestration design for governed direct
   Store Health Review coordination.
