@@ -52,3 +52,18 @@ export interface AgenticTaskOperationsDto {
   };
   readonly refreshedAt: string;
 }
+
+export interface AgenticApprovalDetailDto {
+  readonly approval: {
+    readonly id: string; readonly state: "pending" | "approved" | "rejected" | "revision_requested";
+    readonly requesterId: string; readonly approverScope: "tool_invocation" | "emergency_revocation" | "governance_configuration" | "workflow_execution";
+    readonly action: string; readonly resourceType: string; readonly resourceId: string;
+    readonly parametersDigest: string; readonly policyVersion: number; readonly workflowVersion?: number;
+    readonly configurationRevisionId: string; readonly expiresAt: string; readonly version: number; readonly createdAt: string;
+  };
+  readonly payloadDigest?: string;
+  readonly risk: { readonly level: "low" | "medium" | "high"; readonly basis: string };
+  readonly expectedEffect: string;
+  readonly sources: readonly { readonly sourceType: string; readonly sourceId: string; readonly sourceDigest: string }[];
+  readonly refreshedAt: string;
+}

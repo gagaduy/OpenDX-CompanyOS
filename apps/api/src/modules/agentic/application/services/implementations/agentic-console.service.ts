@@ -6,18 +6,20 @@ import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal"
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticConsoleTaskOperationsRecord, AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import type { ApprovalRequest } from "../../../domain/entities/approval-request";
 import { canonicalDigest } from "../../../domain/entities/orchestration-execution-descriptor";
 import { parseAiCeoExecutiveReport } from "../../orchestration/ai-ceo-execution-catalog";
 import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import { AgenticApplicationError } from "../agentic-application.error";
-import type { AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticApprovalDetailDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
 import type { AgenticConsoleService, AgenticTaskFilter, CreateTaskIntakeInput } from "../interfaces/agentic-console.service";
 
 type ConsoleRepository = Pick<AgenticRepository,
   | "bindStaffIntake" | "findStaffIntakeBinding" | "createTask" | "findTaskById"
   | "replaceTaskGraph" | "listTaskGraph" | "appendProvenance" | "appendAudit"
   | "listConsoleTasks" | "getConsoleTaskOverview" | "findActiveRevision" | "getRevisionChildren"
-  | "hasConsoleTaskAccess" | "getConsoleTaskOperations">;
+  | "hasConsoleTaskAccess" | "getConsoleTaskOperations"
+  | "findWorkflowSignalReceiptForApproval" | "listProvenance">;
 
 export class AgenticConsoleServiceImpl implements AgenticConsoleService {
   constructor(
@@ -148,6 +150,30 @@ export class AgenticConsoleServiceImpl implements AgenticConsoleService {
     });
   }
 
+  async getApprovalDetail(approval: ApprovalRequest): Promise<AgenticApprovalDetailDto> {
+    return this.transactions.runReadOnly(async (session) => {
+      const receipt = await this.repository.findWorkflowSignalReceiptForApproval(session, approval.id);
+      const provenance = approval.taskId === undefined ? [] : await this.repository.listProvenance(session, approval.taskId);
+      const rule = approvalRule(approval.approverScope, approval.action);
+      return {
+        approval: {
+          id: approval.id, state: approval.state, requesterId: approval.requesterId,
+          approverScope: approval.approverScope, action: approval.action,
+          resourceType: approval.resourceType, resourceId: approval.resourceId,
+          parametersDigest: approval.parametersDigest, policyVersion: approval.policyVersion,
+          ...(approval.workflowVersion === undefined ? {} : { workflowVersion: approval.workflowVersion }),
+          configurationRevisionId: approval.configurationRevisionId,
+          expiresAt: approval.expiresAt, version: approval.version, createdAt: approval.createdAt,
+        },
+        ...(receipt === undefined ? {} : { payloadDigest: receipt.payloadDigest }),
+        risk: rule.risk,
+        expectedEffect: rule.expectedEffect,
+        sources: provenance.map(({ sourceType, sourceId, sourceDigest }) => ({ sourceType, sourceId, sourceDigest })),
+        refreshedAt: this.now(),
+      };
+    });
+  }
+
   private async loadDetail(session: DatabaseSession, taskId: string) {
     const task = await this.repository.findTaskById(session, taskId);
     if (task === undefined) fail("TASK_NOT_FOUND", "Task intake replay could not be loaded");
@@ -181,6 +207,14 @@ function emptyOverview(refreshedAt: string): AgenticTaskOverviewDto { return { c
 function digest(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
 function requireOperator(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_operator")) fail("FORBIDDEN", "Operator role is required"); }
 function requireGovernance(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_governance_admin")) fail("FORBIDDEN", "Governance administrator role is required"); }
+function approvalRule(scope: ApprovalRequest["approverScope"], action: string): { readonly risk: AgenticApprovalDetailDto["risk"]; readonly expectedEffect: string } {
+  switch (scope) {
+    case "workflow_execution": return { risk: { level: "high", basis: `The ${action} decision changes a durable workflow outcome.` }, expectedEffect: "Resume the workflow with the recorded human decision." };
+    case "emergency_revocation": return { risk: { level: "high", basis: `The ${action} decision changes active execution authority.` }, expectedEffect: "Apply or deny the requested emergency authority revocation." };
+    case "governance_configuration": return { risk: { level: "high", basis: `The ${action} decision changes the governed runtime configuration.` }, expectedEffect: "Apply or deny the exact digest-bound configuration revision." };
+    case "tool_invocation": return { risk: { level: "medium", basis: `The ${action} decision controls a bounded external tool effect.` }, expectedEffect: "Allow or deny the exact policy-bound tool invocation." };
+  }
+}
 function safeReport(record: AgenticConsoleTaskOperationsRecord["report"], provenance: ReadonlySet<string>) {
   if (record === undefined || record.reportDigest !== record.payloadDigest || canonicalDigest(record.payload) !== record.reportDigest) return undefined;
   try {

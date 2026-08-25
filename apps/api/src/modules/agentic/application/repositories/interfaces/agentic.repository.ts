@@ -214,6 +214,7 @@ export interface AuditFilter {
 
 export interface ApprovalListFilter {
   readonly requesterId?: string;
+  readonly readerId?: string;
   readonly approverScopes?: readonly ApproverScope[];
 }
 
@@ -597,6 +598,7 @@ export interface AgenticRepository {
   finishActivityInvocation(session: DatabaseSession, invocation: ActivityInvocation, expectedVersion: number): Promise<boolean>;
   createWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<WorkflowSignalReceiptCreateResult>;
   findWorkflowSignalReceipt(session: DatabaseSession, idempotencyKey: string): Promise<WorkflowSignalReceipt | undefined>;
+  findWorkflowSignalReceiptForApproval(session: DatabaseSession, approvalId: string): Promise<WorkflowSignalReceipt | undefined>;
   findWorkflowApproval(session: DatabaseSession, runId: string): Promise<ApprovalRequest | undefined>;
   updateWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<boolean>;
   listPendingWorkflowSignals(session: DatabaseSession, limit: number): Promise<readonly WorkflowSignalReceipt[]>;

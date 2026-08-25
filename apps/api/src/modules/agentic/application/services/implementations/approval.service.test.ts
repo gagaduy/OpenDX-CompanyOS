@@ -126,6 +126,31 @@ describe("ApprovalServiceImpl", () => {
       code: "APPROVAL_DECISION_CONFLICT",
     });
   });
+
+  it("allows task owners and governance oversight to read without granting decision authority", async () => {
+    const owner: StaffPrincipal = { subject: "operator-a", displayName: "Operator A", roles: ["agentic_operator"] };
+    const other: StaffPrincipal = { subject: "operator-b", displayName: "Operator B", roles: ["agentic_operator"] };
+    const governance: StaffPrincipal = { subject: "governance-a", displayName: "Governance A", roles: ["agentic_governance_admin"] };
+    const owned = harness(workflowPending);
+
+    await expect(owned.service.get(workflowPending.id, owner)).resolves.toEqual(workflowPending);
+    await expect(owned.service.get(workflowPending.id, other)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(owned.service.get(workflowPending.id, governance)).resolves.toEqual(workflowPending);
+    await owned.service.list({ page: 1, pageSize: 25 }, owner);
+    expect(owned.repository.listApprovals).toHaveBeenLastCalledWith(session, 1, 25, { readerId: "operator-a" });
+    await owned.service.list({ page: 1, pageSize: 25 }, governance);
+    expect(owned.repository.listApprovals).toHaveBeenLastCalledWith(session, 1, 25, undefined);
+    await expect(owned.service.decide({ approvalId: workflowPending.id, expectedVersion: 1, decision: "approved", reason: "Reviewed" }, governance))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("exactly replays a revision request", async () => {
+    const decided = { ...pending, state: "revision_requested" as const, decidedBy: "approver", decisionReason: "Clarify evidence", decidedAt: "2026-08-14T12:00:00.000Z", version: 2 };
+    const replay = harness(decided);
+    await expect(replay.service.decide({ approvalId: decided.id, expectedVersion: 1, decision: "revision_requested", reason: "Clarify evidence" }, principal("approver")))
+      .resolves.toEqual(decided);
+    expect(replay.repository.decideApproval).not.toHaveBeenCalled();
+  });
 });
 
 function harness(value: ApprovalRequest, decisionResult = true) {

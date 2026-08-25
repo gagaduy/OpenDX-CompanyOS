@@ -2118,10 +2118,16 @@ ul {
 .agenticTimeline, .agenticDependencies { display: grid; gap: 10px; padding: 0; list-style: none; }
 .agenticTimeline button, .agenticDependencies li { width: 100%; display: grid; gap: 6px; padding: 14px; text-align: left; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-1); }
 .agenticTimeline button[aria-pressed="true"] { border-color: var(--accent); }
+.agenticApprovalGrid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.5fr); gap: 20px; }
+.agenticApprovalList { display: grid; gap: 10px; padding: 0; list-style: none; }
+.agenticApprovalList button { display: grid; width: 100%; gap: 5px; padding: 14px; text-align: left; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-1); }
+.agenticApprovalList button[aria-pressed="true"] { border-color: var(--accent); }
+.agenticApprovalDetail { padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
 
 @media (max-width: 700px) {
   .agenticMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .agenticOperationsGrid { grid-template-columns: 1fr; }
+  .agenticApprovalGrid { grid-template-columns: 1fr; }
   .agenticReviewWindow { grid-template-columns: 1fr; }
 }
 

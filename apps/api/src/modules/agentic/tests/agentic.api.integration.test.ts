@@ -266,6 +266,16 @@ suite("Agentic PostgreSQL admin API", () => {
     const approvals = await request(app).get("/v1/admin/agentic/approvals")
       .set("authorization", "Bearer agentic_approver:approver").expect(200);
     const approvalId = approvals.body.data.items[0].id as string;
+    const detailBeforeDecision = await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_approver:approver").expect(200);
+    expect(detailBeforeDecision.body.data).toMatchObject({ approval: { id: approvalId }, risk: { level: "high" } });
+    expect(detailBeforeDecision.body.data).not.toHaveProperty("payloadDigest");
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set(operator).expect(200);
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_governance_admin:reviewer").expect(200);
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_auditor:auditor").expect(403);
     const approvalDecision = {
       expectedVersion: 1,
       decision: "approved",
@@ -274,6 +284,10 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).post(`/v1/admin/agentic/approvals/${approvalId}/decision`)
       .set("authorization", "Bearer agentic_approver:approver")
       .send(approvalDecision).expect(202);
+    const detailAfterDecision = await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_approver:approver").expect(200);
+    expect(detailAfterDecision.body.data.payloadDigest).toBe(detailAfterDecision.body.data.approval.parametersDigest);
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_workflow_signal_receipts WHERE approval_id=$1", [approvalId])).rows[0]?.count).toBe("1");
     await request(app).post(`/v1/admin/agentic/approvals/${approvalId}/decision`)
       .set("authorization", "Bearer agentic_approver:approver")
       .send(approvalDecision).expect(200);

@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the Digital Workforce Approval Inbox with role-scoped master/detail
+  views, bounded risk and effect summaries, stored workflow-signal evidence,
+  reason-bound decisions, stale-state recovery, and read-only oversight access.
+
 - Add timeline-first Digital Workforce task operations with owner/oversight
   projections, Department dependency and tool summaries, safe cost and
   provenance views, digest-bound executive reports, active polling, and

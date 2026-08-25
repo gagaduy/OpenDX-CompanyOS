@@ -76,6 +76,11 @@ export class AgenticController {
   readonly getApproval = handle(async (request, response) => {
     response.json(successResponse("Agent approval retrieved", await this.approvals.get(parseUuid(request.params.approvalId), principal(response.locals))));
   });
+  readonly getApprovalDetail = handle(async (request, response) => {
+    const staff = principal(response.locals);
+    const approval = await this.approvals.get(parseUuid(request.params.approvalId), staff);
+    response.json(successResponse("Agent approval detail retrieved", await consoleTasks(this.consoleService).getApprovalDetail(approval)));
+  });
   readonly decideApproval = handle(async (request, response) => {
     const result = await this.approvals.decideCommand({ approvalId: parseUuid(request.params.approvalId), ...parseDecision(request.body) }, principal(response.locals));
     response.status(result.workflowSignal && result.disposition === "accepted" ? 202 : 200)

@@ -418,7 +418,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
   const controller = {
     createTaskIntake: handler("createTaskIntake"), getTaskOverview: handler("getTaskOverview"), getTaskOperations: handler("getTaskOperations"),
     createTask: handler("createTask"), listTasks: handler("listTasks"), getTask: handler("getTask"), updateTask: handler("updateTask"), readyTask: handler("readyTask"), cancelTask: handler("cancelTask"),
-    listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), decideApproval: handler("decideApproval"),
+    listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), getApprovalDetail: handler("getApprovalDetail"), decideApproval: handler("decideApproval"),
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),
     createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), activateRevision: handler("activateRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
     createRevocation: handler("createRevocation"), listAudit: handler("listAudit"),

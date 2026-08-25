@@ -24,7 +24,7 @@ import { createPaymentOperationsApi } from "../features/payments/api/payment-ope
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
-import { AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi } from "../features/agentic";
+import { AgenticApprovalsPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi } from "../features/agentic";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -53,11 +53,19 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/agentic/tasks" element={<AgenticRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/agentic/tasks/new" element={<AgenticRoute apiBaseUrl={apiBaseUrl} intake />} />
           <Route path="/agentic/tasks/:taskId" element={<AgenticRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/agentic/approvals" element={<AgenticApprovalRoute apiBaseUrl={apiBaseUrl} />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/products" replace />} />
     </Routes>
   );
+}
+
+function AgenticApprovalRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
+  const { session } = useAuth();
+  const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
+  return <StaffRoleRoute allowed={readers}><AgenticApprovalsPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
 }
 
 function HomeRedirect() {

@@ -6,6 +6,7 @@ import {
   Boxes,
   Building2,
   Bot,
+  ClipboardCheck,
   CreditCard,
   FolderTree,
   Headphones,
@@ -33,6 +34,7 @@ function readInitialConsoleTheme(): ConsoleTheme {
 }
 
 const routeTitles = [
+  ["/agentic/approvals", "Approval Inbox"],
   ["/agentic/tasks", "Digital Workforce"],
   ["/company-overview", "Company Overview"],
   ["/categories", "Categories"],
@@ -109,6 +111,7 @@ export function ConsoleShell() {
       label: "Digital Workforce",
       items: [
         { to: "/agentic/tasks", label: "Tasks", icon: Bot, visible: canReadAgenticTasks },
+        { to: "/agentic/approvals", label: "Approvals", icon: ClipboardCheck, visible: canReadAgenticTasks },
       ],
     },
   ];

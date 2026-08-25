@@ -1378,6 +1378,12 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       values.push(filter.requesterId);
       conditions.push(`requester_id=$${values.length}`);
     }
+    if (filter?.readerId !== undefined) {
+      values.push(filter.readerId);
+      conditions.push(`(requester_id=$${values.length} OR EXISTS (
+        SELECT 1 FROM agentic_tasks task WHERE task.id=agentic_approval_requests.task_id AND task.created_by=$${values.length}
+      ))`);
+    }
     if (filter?.approverScopes !== undefined) {
       values.push(filter.approverScopes);
       conditions.push(`approver_scope=ANY($${values.length}::text[])`);
@@ -2238,6 +2244,17 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined
       ? undefined
       : mapWorkflowSignalReceipt(result.rows[0]);
+  }
+
+  async findWorkflowSignalReceiptForApproval(
+    session: DatabaseSession,
+    approvalId: string,
+  ): Promise<WorkflowSignalReceipt | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_workflow_signal_receipts WHERE approval_id=$1 ORDER BY created_at,id LIMIT 1",
+      [approvalId],
+    );
+    return result.rows[0] === undefined ? undefined : mapWorkflowSignalReceipt(result.rows[0]);
   }
 
   async findWorkflowApproval(

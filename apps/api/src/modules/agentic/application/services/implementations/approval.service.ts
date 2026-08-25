@@ -33,11 +33,11 @@ export class ApprovalServiceImpl implements ApprovalService {
     if (!canApprove(principal) && !principal.roles.includes("agentic_operator") && !principal.roles.includes("agentic_governance_admin")) {
       fail("FORBIDDEN", "Approval access is not permitted");
     }
-    const filter = principal.roles.includes("administrator")
+    const filter = principal.roles.includes("administrator") || principal.roles.includes("agentic_governance_admin")
       ? undefined
       : canApprove(principal)
         ? { approverScopes: assignedScopes(principal) }
-        : { requesterId: principal.subject };
+        : { readerId: principal.subject };
     return this.transactions.runReadOnly((session) =>
       this.repository.listApprovals(session, query.page, query.pageSize, filter));
   }
@@ -48,7 +48,11 @@ export class ApprovalServiceImpl implements ApprovalService {
     }
     return this.transactions.runReadOnly(async (session) => {
       const approval = await this.requireApproval(session, id);
-      if (!canApprove(principal) && approval.requesterId !== principal.subject) fail("FORBIDDEN", "Approval is outside the caller scope");
+      if (principal.roles.includes("agentic_governance_admin")) return approval;
+      if (!canApprove(principal) && approval.requesterId !== principal.subject) {
+        const task = approval.taskId === undefined ? undefined : await this.repository.findTaskById(session, approval.taskId);
+        if (task?.createdBy !== principal.subject) fail("FORBIDDEN", "Approval is outside the caller scope");
+      }
       if (canApprove(principal) && !isWithinScope(approval, principal)) fail("FORBIDDEN", "Approval is outside the caller scope");
       return approval;
     });
@@ -67,7 +71,7 @@ export class ApprovalServiceImpl implements ApprovalService {
       const current = await this.requireApproval(session, input.approvalId);
       if (!isWithinScope(current, principal)) fail("FORBIDDEN", "Approval is outside the caller scope");
       if (current.version !== input.expectedVersion) {
-        const requestedState = input.decision === "approved" ? "approved" : "rejected";
+        const requestedState = input.decision;
         if (
           current.version === input.expectedVersion + 1
           && current.state === requestedState
@@ -80,7 +84,7 @@ export class ApprovalServiceImpl implements ApprovalService {
             disposition: "replayed" as const,
           };
         }
-        if (current.state === "approved" || current.state === "rejected") {
+        if (current.state === "approved" || current.state === "rejected" || current.state === "revision_requested") {
           fail("APPROVAL_DECISION_CONFLICT", "Approval already has a different decision");
         }
         fail("STALE_VERSION", "Approval version is stale");

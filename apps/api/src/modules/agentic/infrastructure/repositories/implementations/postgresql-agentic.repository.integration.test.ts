@@ -1291,6 +1291,8 @@ suite("PostgresqlAgenticRepository", () => {
 
     await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(session, receipt)))
       .resolves.toEqual({ status: "created", receipt });
+    await expect(transactions.runReadOnly((session) => repository.findWorkflowSignalReceiptForApproval(session, approvalId)))
+      .resolves.toEqual(receipt);
     await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(
       session, { ...receipt, id: randomUUID() },
     ))).resolves.toEqual({ status: "duplicate", receipt });

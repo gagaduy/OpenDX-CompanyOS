@@ -12,7 +12,7 @@ export interface AgenticControllerHandlers {
   readonly createTask: RequestHandler; readonly listTasks: RequestHandler;
   readonly getTask: RequestHandler; readonly updateTask: RequestHandler;
   readonly readyTask: RequestHandler; readonly cancelTask: RequestHandler;
-  readonly listApprovals: RequestHandler; readonly getApproval: RequestHandler;
+  readonly listApprovals: RequestHandler; readonly getApproval: RequestHandler; readonly getApprovalDetail: RequestHandler;
   readonly decideApproval: RequestHandler; readonly listEmployees: RequestHandler;
   readonly getEmployee: RequestHandler; readonly createRevision: RequestHandler;
   readonly updateRevision: RequestHandler; readonly submitRevision: RequestHandler;
@@ -70,6 +70,7 @@ export function createAgenticRouter(
 
   router.get("/approvals", authenticate, guard("agentic.approval.list.denied", approvalReader), controller.listApprovals);
   router.post("/approvals/:approvalId/decision", authenticate, guard("agentic.approval.decide.denied", approver), controller.decideApproval);
+  router.get("/approvals/:approvalId/detail", authenticate, guard("agentic.approval.detail.denied", approvalReader), controller.getApprovalDetail);
   router.get("/approvals/:approvalId", authenticate, guard("agentic.approval.read.denied", approvalReader), controller.getApproval);
 
   router.post("/workflow-runs/:runId/cancel", authenticate, guard("agentic.workflow.cancel.denied", operator), workflows.cancelWorkflow);

@@ -6,6 +6,7 @@ import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal"
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticRepository, StaffIntakeBinding } from "../../repositories/interfaces/agentic.repository";
 import { canonicalDigest } from "../../../domain/entities/orchestration-execution-descriptor";
+import type { WorkflowSignalReceipt } from "../../../domain/entities/workflow-run";
 import { AgenticConsoleServiceImpl } from "./agentic-console.service";
 
 const session = {} as DatabaseSession;
@@ -148,6 +149,28 @@ describe("AgenticConsoleServiceImpl", () => {
     await expect(service.getTaskOperations(created.detail.task.id, operator))
       .resolves.not.toHaveProperty("report");
   });
+
+  it("projects purpose-specific approval evidence without fabricating signal payloads", async () => {
+    const { service, repository } = harness();
+    const approval = (await repository.getConsoleTaskOperations(session, "missing"))?.approvals[0] ?? {
+      id: "00000000-0000-4000-8000-000000000093", state: "pending" as const,
+      requesterId: "system:workflow", approverScope: "workflow_execution" as const,
+      action: "agentic.workflow.complete", resourceType: "workflow_run",
+      resourceId: "00000000-0000-4000-8000-000000000092", parametersDigest: "a".repeat(64),
+      taskId: "00000000-0000-4000-8000-000000000001", policyVersion: 1, workflowVersion: 1,
+      configurationRevisionId: "00000000-0000-4000-8000-000000000099",
+      expiresAt: "2026-08-26T00:00:00.000Z", version: 1, createdAt: "2026-08-25T00:00:00.000Z",
+    };
+
+    await expect((service as any).getApprovalDetail(approval, operator)).resolves.toMatchObject({
+      approval: { id: approval.id, approverScope: "workflow_execution" },
+      payloadDigest: "a".repeat(64),
+      risk: { level: "high", basis: expect.stringContaining("workflow") },
+      expectedEffect: expect.stringContaining("workflow"),
+    });
+    vi.mocked(repository.findWorkflowSignalReceiptForApproval).mockResolvedValueOnce(undefined);
+    await expect((service as any).getApprovalDetail(approval, operator)).resolves.not.toHaveProperty("payloadDigest");
+  });
 });
 
 function harness() {
@@ -215,6 +238,14 @@ function harness() {
         report: { reportDigest, payloadDigest: reportDigest, completionState: "partial" as const, payload: reportPayload },
       };
     }),
+    findWorkflowSignalReceiptForApproval: vi.fn(async (): Promise<WorkflowSignalReceipt | undefined> => ({
+      id: "00000000-0000-4000-8000-000000000094", workflowRunId: "00000000-0000-4000-8000-000000000092",
+      signalKind: "approval" as const, idempotencyKey: "approval-signal-1",
+      approvalId: "00000000-0000-4000-8000-000000000093", payloadDigest: "a".repeat(64),
+      decision: "approved" as const, applicationDecisionVersion: 2, deliveryState: "pending" as const,
+      createdAt: "2026-08-25T00:00:02.000Z",
+    })),
+    listProvenance: vi.fn(async () => [{ id: provenanceId, taskId: "00000000-0000-4000-8000-000000000001", sourceType: "staff_task_intake", sourceId: "operator-a", sourceDigest: "b".repeat(64), classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-25T00:00:00.000Z" }]),
   };
   let id = 0;
   return {
