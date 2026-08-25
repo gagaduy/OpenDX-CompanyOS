@@ -79,6 +79,8 @@ describe("OrchestrationServiceImpl", () => {
     expect(brief.eligibleAssignments[0]).toEqual(expect.objectContaining({
       resultSchemaDigest: STORE_HEALTH_EXECUTION_CATALOG[0]!.resultSchemaDigest,
       allowedToolsDigest: STORE_HEALTH_EXECUTION_CATALOG[0]!.allowedToolsDigest,
+      dataScope: "catalog:health:read", freshnessSeconds: 300,
+      timeoutSeconds: 30, budgetMicros: 10_000,
     }));
     expect(brief.provenance).toEqual([{ id: "00000000-0000-4000-8000-000000000003",
       sourceType: "agentic_task", sourceDigest: "f".repeat(64), classification: "internal" }]);
@@ -122,6 +124,8 @@ describe("OrchestrationServiceImpl", () => {
     const eligibleAssignments = STORE_HEALTH_EXECUTION_CATALOG.map((entry) => ({
       agentKind: entry.agentKind, resultSchemaName: entry.resultSchemaName,
       resultSchemaDigest: entry.resultSchemaDigest, allowedToolsDigest: entry.allowedToolsDigest,
+      dataScope: `${entry.agentKind}:health:read`, freshnessSeconds: 300,
+      timeoutSeconds: 30, budgetMicros: 10_000,
     }));
     const taskBrief = { taskId, goal: "Review Store Health", instructions: "Use aggregate evidence",
       configurationRevisionId: revisionId, policyVersion: 4,

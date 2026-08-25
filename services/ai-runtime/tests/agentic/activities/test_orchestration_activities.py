@@ -12,6 +12,7 @@ from app.agentic.application.department_execution import DepartmentExecutionErro
 from app.agentic.domain.execution_descriptor import (
     DescriptorExecutionInput,
     DescriptorExecutionReference,
+    PlanningExecutionInput,
 )
 
 
@@ -52,6 +53,31 @@ def test_maps_binding_failures_to_non_retryable_temporal_errors() -> None:
         asyncio.run(OrchestrationActivities(Execution()).execute_department_subtask_v1(command()))
     assert captured.value.type == "DESCRIPTOR_BINDING_INVALID"
     assert captured.value.non_retryable is True
+
+
+@pytest.mark.parametrize("retryable", [False, True])
+def test_preserves_governed_dependency_error_code_and_retryability(retryable: bool) -> None:
+    class GovernedFailure(RuntimeError):
+        def __init__(self) -> None:
+            super().__init__("private dependency body")
+            self.code = "AGENTIC_CONTROL_UNAVAILABLE"
+            self.retryable = retryable
+
+    class Planning:
+        async def plan(self, _value: object) -> None:
+            raise GovernedFailure()
+
+    activities = OrchestrationActivities(object(), planning=Planning())
+    planning = PlanningExecutionInput(
+        task_id=UUID("00000000-0000-4000-8000-000000000002"),
+        idempotency_key="planning:1",
+    )
+
+    with pytest.raises(ApplicationError) as captured:
+        asyncio.run(activities.plan_orchestration_v1(planning))
+
+    assert captured.value.type == "AGENTIC_CONTROL_UNAVAILABLE"
+    assert captured.value.non_retryable is not retryable
 
 
 def test_registers_all_three_phase_f_activity_names() -> None:

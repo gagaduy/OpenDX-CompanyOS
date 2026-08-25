@@ -36,6 +36,10 @@ export interface TaskBriefView {
     readonly resultSchemaName: string;
     readonly resultSchemaDigest: string;
     readonly allowedToolsDigest: string;
+    readonly dataScope: string;
+    readonly freshnessSeconds: number;
+    readonly timeoutSeconds: number;
+    readonly budgetMicros: number;
   }[];
   readonly digest: string;
   readonly planningAuthority: AuthorityReference;

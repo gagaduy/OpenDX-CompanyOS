@@ -174,6 +174,25 @@ def test_materializes_only_the_api_owned_tool_parameter_template() -> None:
     }
 
 
+def test_department_domain_settlement_is_stable_across_activity_retry() -> None:
+    descriptor, schemas = fixture()
+    control = Control(descriptor)
+    current = [datetime(2026, 8, 22, 0, 1, tzinfo=UTC)]
+    service = DepartmentExecutionService(
+        controls=control, tools=Tools(), models=Models(), result_schemas=schemas,
+        now=lambda: current[0],
+    )
+    command = execution_input(descriptor)
+
+    first = asyncio.run(service.execute(command))
+    current[0] = datetime(2026, 8, 22, 0, 2, tzinfo=UTC)
+    second = asyncio.run(service.execute(command))
+
+    assert first == second
+    assert control.results[0] == control.results[1]
+    assert control.results[0]["acceptedAt"] == "2026-08-22T00:00:00.000Z"
+
+
 def test_terminal_department_failure_returns_unavailable_without_model_or_settlement() -> None:
     descriptor, schemas = fixture()
     control, models = Control(descriptor), Models()
@@ -187,6 +206,31 @@ def test_terminal_department_failure_returns_unavailable_without_model_or_settle
     assert result.status == "unavailable"
     assert result.provenance_ids == ()
     assert models.commands == []
+    assert control.results == []
+
+
+def test_terminal_department_model_failure_returns_unavailable_without_settlement() -> None:
+    descriptor, schemas = fixture()
+    control, models = Control(descriptor), Models()
+
+    async def failed(_command: object) -> object:
+        error = RuntimeError("private provider body")
+        error.code = "MODEL_SCHEMA_REJECTED"  # type: ignore[attr-defined]
+        error.retryable = False  # type: ignore[attr-defined]
+        raise error
+
+    models.execute = failed  # type: ignore[method-assign]
+    service = DepartmentExecutionService(
+        controls=control, tools=Tools(), models=models, result_schemas=schemas,
+        now=lambda: datetime(2026, 8, 22, 0, 1, tzinfo=UTC),
+    )
+
+    result = asyncio.run(service.execute(execution_input(descriptor)))
+
+    assert result.status == "unavailable"
+    assert result.result_digest == canonical_digest({
+        "status": "unavailable", "reasonCode": "MODEL_SCHEMA_REJECTED",
+    })
     assert control.results == []
 
 
@@ -258,6 +302,11 @@ def test_ai_ceo_planning_uses_authority_and_submits_deterministically_enriched_p
     assert submissions.plans[0]["subtasks"][1]["dependencies"] == [
         submissions.plans[0]["subtasks"][0]["id"],
     ]
+    assert submissions.plans[0]["subtasks"][0] == {
+        **submissions.plans[0]["subtasks"][0],
+        "dataScope": "catalog:health:read", "freshnessSeconds": 240,
+        "timeoutSeconds": 12, "budgetMicros": 321,
+    }
     assert "goal" not in reference.model_dump(mode="json")
 
 
@@ -416,9 +465,13 @@ def task_brief() -> dict[str, object]:
         }],
         "eligibleAssignments": [
             {"agentKind": "catalog", "resultSchemaName": "store_health_catalog_v1",
-             "resultSchemaDigest": "2" * 64, "allowedToolsDigest": "3" * 64},
+             "resultSchemaDigest": "2" * 64, "allowedToolsDigest": "3" * 64,
+             "dataScope": "catalog:health:read", "freshnessSeconds": 240,
+             "timeoutSeconds": 12, "budgetMicros": 321},
             {"agentKind": "inventory", "resultSchemaName": "store_health_inventory_v1",
-             "resultSchemaDigest": "4" * 64, "allowedToolsDigest": "5" * 64},
+             "resultSchemaDigest": "4" * 64, "allowedToolsDigest": "5" * 64,
+             "dataScope": "inventory:health:read", "freshnessSeconds": 180,
+             "timeoutSeconds": 9, "budgetMicros": 123},
         ],
     }
     content["digest"] = canonical_digest(content)

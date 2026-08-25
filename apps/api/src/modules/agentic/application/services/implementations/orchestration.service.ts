@@ -733,15 +733,24 @@ export class OrchestrationServiceImpl implements OrchestrationService {
     if (revision?.state !== "active") fail("CONFIGURATION_INACTIVE", "Task configuration is not active");
     const eligibleAssignments = [];
     for (const entry of STORE_HEALTH_EXECUTION_CATALOG) {
-      const decision = await this.policy.evaluateInSession(session, {
-        revisionId: revision.id, policyVersion: revision.version,
-        actorType: "agent", agentKind: "ai_ceo", department: entry.agentKind,
-        resource: "agentic_orchestration_plan", action: "assign",
-        purpose: "store_health_review", dataClassification: "internal",
-      });
-      if (decision.effect === "ALLOW") eligibleAssignments.push(Object.freeze({
+      const [decision, model, budget] = await Promise.all([
+        this.policy.evaluateInSession(session, {
+          revisionId: revision.id, policyVersion: revision.version,
+          actorType: "agent", agentKind: "ai_ceo", department: entry.agentKind,
+          resource: "agentic_orchestration_plan", action: "assign",
+          purpose: "store_health_review", dataClassification: "internal",
+        }),
+        this.repository.findModelConfiguration(session, revision.id, entry.agentKind),
+        this.repository.findBudgetLimit(session, revision.id, entry.agentKind),
+      ]);
+      const timeoutSeconds = Math.min(30, Math.floor((model?.timeoutMs ?? 0) / 1_000));
+      const budgetMicros = Math.min(10_000, budget?.taskCostMicros ?? 0);
+      if (decision.effect === "ALLOW" && model?.fallbackModels[0] !== undefined
+        && timeoutSeconds > 0 && budgetMicros > 0) eligibleAssignments.push(Object.freeze({
         agentKind: entry.agentKind, resultSchemaName: entry.resultSchemaName,
         resultSchemaDigest: entry.resultSchemaDigest, allowedToolsDigest: entry.allowedToolsDigest,
+        dataScope: `${entry.agentKind}:health:read`, freshnessSeconds: 300,
+        timeoutSeconds, budgetMicros,
       }));
     }
     if (eligibleAssignments.length === 0) fail("POLICY_DENIED", "No Department assignment is eligible");

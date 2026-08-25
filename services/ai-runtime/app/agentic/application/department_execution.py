@@ -131,21 +131,35 @@ class DepartmentExecutionService:
             classification="internal",
             fields={"summary": "Governed Department evidence", "evidence": tool_results},
         )
-        outcome = await self._models.execute(ModelExecutionCommand(
-            task_id=str(descriptor.task_id), agent_kind=descriptor.agent_kind,
-            configuration_revision_id=str(descriptor.configuration_revision_id),
-            primary_model=descriptor.primary_model, fallback_model=descriptor.fallback_model,
-            input_digest=canonical_digest(tool_results), idempotency_key=command.idempotency_key,
-            result_schema_name=descriptor.result_schema_name,
-            result_schema=view.payload.result_schema, context=context,
-            quality_context=(
-                self._quality_context(descriptor, tuple(tool_results))
-                if self._quality_context is not None
-                else DepartmentResultQualityContext(
-                    descriptor.agent_kind, 0, tuple(tool_summaries)
-                )
-            ),
-        ))
+        try:
+            outcome = await self._models.execute(ModelExecutionCommand(
+                task_id=str(descriptor.task_id), agent_kind=descriptor.agent_kind,
+                configuration_revision_id=str(descriptor.configuration_revision_id),
+                primary_model=descriptor.primary_model, fallback_model=descriptor.fallback_model,
+                input_digest=canonical_digest(tool_results), idempotency_key=command.idempotency_key,
+                result_schema_name=descriptor.result_schema_name,
+                result_schema=view.payload.result_schema, context=context,
+                quality_context=(
+                    self._quality_context(descriptor, tuple(tool_results))
+                    if self._quality_context is not None
+                    else DepartmentResultQualityContext(
+                        descriptor.agent_kind, 0, tuple(tool_summaries)
+                    )
+                ),
+            ))
+        except Exception as error:
+            code, retryable = _governed_failure(error, "DEPARTMENT_MODEL_FAILED")
+            if retryable:
+                raise DepartmentExecutionError(code, retryable=True) from error
+            return DescriptorExecutionReference(
+                status="unavailable",
+                result_digest=canonical_digest({
+                    "status": "unavailable", "reasonCode": code,
+                }),
+                provenance_ids=tuple(
+                    UUID(value) for value in sorted(set(provenance_ids))
+                ),
+            )
         if outcome.status == "escalated":
             return DescriptorExecutionReference(
                 status="unavailable", result_digest=outcome.output_digest,
@@ -157,9 +171,7 @@ class DepartmentExecutionService:
         accepted_result = _mutable_json(outcome.accepted_content)
         if not isinstance(accepted_result, dict) or canonical_digest(accepted_result) != outcome.output_digest:
             raise DepartmentExecutionError("MODEL_RESULT_BINDING_INVALID")
-        accepted_at = self._now().astimezone(UTC).isoformat(
-            timespec="milliseconds"
-        ).replace("+00:00", "Z")
+        accepted_at = _timestamp(descriptor.created_at)
         result_id = (
             self._generate_id() if self._generate_id is not None
             else str(uuid5(NAMESPACE_URL, f"{command.idempotency_key}:result"))
@@ -309,8 +321,10 @@ class AiCeoPlanningService:
                     dependencies=tuple(owner_ids[str(value)] for value in dependencies),
                     expected_result_schema_digest=assignment["resultSchemaDigest"],
                     allowed_tools_digest=assignment["allowedToolsDigest"],
-                    data_scope=f"{owner}:health:read", freshness_seconds=300,
-                    timeout_seconds=30, budget_micros=10_000,
+                    data_scope=assignment["dataScope"],
+                    freshness_seconds=assignment["freshnessSeconds"],
+                    timeout_seconds=assignment["timeoutSeconds"],
+                    budget_micros=assignment["budgetMicros"],
                     source_provenance_digest=source_digest,
                 ))
             except (KeyError, TypeError, ValueError) as error:
@@ -521,6 +535,14 @@ def _accepted_result(outcome: object, unavailable_code: str) -> dict[str, object
     if not isinstance(content, dict) or canonical_digest(content) != digest:
         raise DepartmentExecutionError("MODEL_RESULT_BINDING_INVALID")
     return content
+
+
+def _governed_failure(error: Exception, fallback_code: str) -> tuple[str, bool]:
+    code = getattr(error, "code", None)
+    retryable = getattr(error, "retryable", None)
+    if type(code) is str and type(retryable) is bool:
+        return code, retryable
+    return fallback_code, False
 
 
 def _timestamp(value: datetime) -> str:

@@ -357,8 +357,9 @@ suite("Agentic PostgreSQL admin API", () => {
     const subtaskIds = [randomUUID(), randomUUID()];
     const subtasks = entries.map((entry, index) => ({ id: subtaskIds[index], owner: entry.agentKind,
       expectedResultSchemaDigest: entry.resultSchemaDigest, allowedToolsDigest: entry.allowedToolsDigest,
-      dataScope: `${entry.agentKind}:health:read`, freshnessSeconds: 300, timeoutSeconds: 30,
-      budgetMicros: 10_000, sourceProvenanceDigest: canonicalDigest(brief.provenance),
+      dataScope: entry.dataScope, freshnessSeconds: entry.freshnessSeconds,
+      timeoutSeconds: entry.timeoutSeconds, budgetMicros: entry.budgetMicros,
+      sourceProvenanceDigest: canonicalDigest(brief.provenance),
       dependencies: index === 0 ? [] : [subtaskIds[0]] }));
     const plan = { id: randomUUID(), taskId, version: 1, digest: "5".repeat(64),
       taskBriefDigest: brief.digest, policyVersion: 4, configurationRevisionId: revisionId,

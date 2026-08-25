@@ -16,7 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Execute authority-bound AI CEO planning, descriptor-scoped Department work,
   and provenance-bound executive synthesis through three feature-flagged
   Temporal activities with distinct Agent identities, private API settlement,
-  and replay-stable IDs, timestamps, and digest-only workflow references.
+  replay-stable IDs and timestamps, API-owned Department execution limits,
+  governed retry semantics, and digest-only workflow references.
 
 - Expose accepted structured model content only inside the AI runtime process,
   with strict AI CEO authority DTOs, purpose-scoped Phase F prompts, planning

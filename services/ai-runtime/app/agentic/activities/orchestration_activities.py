@@ -8,7 +8,6 @@ from typing import Any
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from app.agentic.application.department_execution import DepartmentExecutionError
 from app.agentic.domain.execution_descriptor import (
     DescriptorExecutionInput,
     DescriptorExecutionReference,
@@ -37,10 +36,8 @@ class OrchestrationActivities:
             )
         try:
             return await self._planning.plan(value)
-        except DepartmentExecutionError as error:
-            raise ApplicationError(
-                error.code, type=error.code, non_retryable=not error.retryable
-            ) from error
+        except Exception as error:
+            raise _temporal_error(error) from error
 
     @activity.defn(name="execute_department_subtask_v1")
     async def execute_department_subtask_v1(
@@ -48,10 +45,8 @@ class OrchestrationActivities:
     ) -> DescriptorExecutionReference:
         try:
             return await self._department_execution.execute(command)
-        except DepartmentExecutionError as error:
-            raise ApplicationError(
-                error.code, type=error.code, non_retryable=not error.retryable
-            ) from error
+        except Exception as error:
+            raise _temporal_error(error) from error
 
     @activity.defn(name="synthesize_executive_report_v1")
     async def synthesize_executive_report_v1(
@@ -64,10 +59,8 @@ class OrchestrationActivities:
             )
         try:
             return await self._synthesis.synthesize(value)
-        except DepartmentExecutionError as error:
-            raise ApplicationError(
-                error.code, type=error.code, non_retryable=not error.retryable
-            ) from error
+        except Exception as error:
+            raise _temporal_error(error) from error
 
     @property
     def registered(self) -> list[object]:
@@ -76,3 +69,11 @@ class OrchestrationActivities:
             self.plan_orchestration_v1,
             self.synthesize_executive_report_v1,
         ]
+
+
+def _temporal_error(error: Exception) -> ApplicationError:
+    code = getattr(error, "code", None)
+    retryable = getattr(error, "retryable", None)
+    if type(code) is not str or type(retryable) is not bool:
+        code, retryable = "ORCHESTRATION_EXECUTION_FAILED", False
+    return ApplicationError(code, type=code, non_retryable=not retryable)
