@@ -34,6 +34,7 @@ function readInitialConsoleTheme(): ConsoleTheme {
 }
 
 const routeTitles = [
+  ["/agentic/employees", "Digital Employees"],
   ["/agentic/approvals", "Approval Inbox"],
   ["/agentic/tasks", "Digital Workforce"],
   ["/company-overview", "Company Overview"],
@@ -61,6 +62,7 @@ export function ConsoleShell() {
   const canOperateSupport = session?.roles.some((role) => role === "administrator" || role === "support_operator" || role === "crm_operator") === true;
   const canReadDashboard = session?.roles.some((role) => role === "administrator" || role === "executive_viewer") === true;
   const canReadAgenticTasks = session?.roles.some((role) => role === "administrator" || role === "agentic_operator" || role === "agentic_approver" || role === "agentic_governance_admin") === true;
+  const canReadAgenticEmployees = canReadAgenticTasks || session?.roles.includes("agentic_auditor") === true;
   useEffect(() => {
     window.localStorage.setItem(consoleThemeStorageKey, theme);
   }, [theme]);
@@ -112,6 +114,7 @@ export function ConsoleShell() {
       items: [
         { to: "/agentic/tasks", label: "Tasks", icon: Bot, visible: canReadAgenticTasks },
         { to: "/agentic/approvals", label: "Approvals", icon: ClipboardCheck, visible: canReadAgenticTasks },
+        { to: "/agentic/employees", label: "Employees", icon: Users, visible: canReadAgenticEmployees },
       ],
     },
   ];

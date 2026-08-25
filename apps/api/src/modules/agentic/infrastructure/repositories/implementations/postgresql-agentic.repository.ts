@@ -24,6 +24,7 @@ import type {
   AgenticFileApprovalReplay,
   AgenticFileApprovalResult,
   AgenticConsoleTaskOverviewRecord,
+  AgenticConsoleEmployeeRecord,
   AgenticConsoleTaskOperationsRecord,
   AgenticConsoleTaskRecord,
   AgenticConsoleTaskRepositoryFilter,
@@ -766,6 +767,59 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]> {
     const result = await session.query<Row>("SELECT * FROM agentic_agents ORDER BY kind");
     return result.rows.map(mapAgent);
+  }
+
+  async getConsoleEmployee(
+    session: DatabaseSession,
+    agentKind: AgentKind,
+    recentLimit: number,
+  ): Promise<AgenticConsoleEmployeeRecord | undefined> {
+    const agent = await this.findAgentByKind(session, agentKind);
+    if (agent === undefined) return undefined;
+    const revision = await session.query<Row>(
+      "SELECT id,version,updated_at FROM agentic_configuration_revisions WHERE state='active' ORDER BY decided_at DESC,id DESC LIMIT 1",
+    );
+    const configuration = revision.rows[0] === undefined ? undefined : {
+      id: String(revision.rows[0].id), version: Number(revision.rows[0].version),
+      updatedAt: toIso(revision.rows[0].updated_at),
+    };
+    if (configuration === undefined) return { agent, tools: [], recentRuns: [] };
+    const models = await session.query<Row>(`SELECT c.*,COALESCE(array_agg(f.model ORDER BY f.position)
+        FILTER (WHERE f.model IS NOT NULL),'{}') fallback_models
+        FROM agentic_model_configs c LEFT JOIN agentic_model_fallbacks f
+          ON f.revision_id=c.revision_id AND f.agent_kind=c.agent_kind
+        WHERE c.revision_id=$1 AND c.agent_kind=$2 GROUP BY c.revision_id,c.agent_kind`,
+    [configuration.id, agentKind]);
+    const grants = await session.query<Row>(
+      "SELECT * FROM agentic_tool_grants WHERE revision_id=$1 AND agent_kind=$2 ORDER BY tool_name,tool_version,data_scope,id",
+      [configuration.id, agentKind],
+    );
+    const budgets = await session.query<Row>(
+      "SELECT * FROM agentic_budget_limits WHERE revision_id=$1 AND agent_kind=$2",
+      [configuration.id, agentKind],
+    );
+    const revocations = await session.query<Row>(
+      "SELECT * FROM agentic_revocations WHERE target_type='agent' AND target_id=$1 ORDER BY activated_at DESC,id DESC LIMIT 1",
+      [agentKind],
+    );
+    const runs = await session.query<Row>(`SELECT task_id,status,settled_cost_micros,completed_at
+      FROM agentic_model_runs WHERE agent_kind=$1
+        AND status IN ('completed','failed','partial','escalated')
+      ORDER BY completed_at DESC,id DESC LIMIT $2`, [agentKind, recentLimit]);
+    const model = models.rows[0] === undefined ? undefined : mapModelConfiguration(models.rows[0]);
+    const budget = budgets.rows[0] === undefined ? undefined : mapBudgetLimit(budgets.rows[0]);
+    return {
+      agent, configuration,
+      ...(model === undefined ? {} : { model: { primaryModel: model.primaryModel, fallbackModels: model.fallbackModels } }),
+      tools: grants.rows.map(mapToolGrant).map(({ toolName, toolVersion, dataScope }) => ({ toolName, toolVersion, dataScope })),
+      ...(budget === undefined ? {} : { budget: { taskCostMicros: budget.taskCostMicros, dailyCostMicros: budget.dailyCostMicros, monthlyCostMicros: budget.monthlyCostMicros } }),
+      ...(revocations.rows[0] === undefined ? {} : { revocation: mapRevocation(revocations.rows[0]) }),
+      recentRuns: runs.rows.map((row) => ({
+        taskId: String(row.task_id), state: String(row.status),
+        settledCostMicros: safeInteger(row.settled_cost_micros),
+        ...(row.completed_at === null ? {} : { completedAt: toIso(row.completed_at) }),
+      })),
+    };
   }
 
   async createTask(session: DatabaseSession, task: AgentTask): Promise<void> {

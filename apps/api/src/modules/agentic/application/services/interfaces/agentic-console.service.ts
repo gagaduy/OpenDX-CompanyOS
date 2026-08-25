@@ -3,7 +3,8 @@
 
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { ApprovalRequest } from "../../../domain/entities/approval-request";
-import type { AgenticApprovalDetailDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticApprovalDetailDto, AgenticEmployeeDetailDto, AgenticEmployeeSummaryDto, AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOperationsDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgentKind } from "../../../domain/entities/agent-profile";
 
 export type AgenticConsoleTaskState = "draft" | "ready" | "received" | "planning"
   | "awaiting_plan_approval" | "dispatching" | "department_analysis"
@@ -36,4 +37,6 @@ export interface AgenticConsoleService {
   getFileGovernancePreview(principal: StaffPrincipal): Promise<AgenticFileGovernancePreviewDto>;
   getTaskOperations(taskId: string, principal: StaffPrincipal): Promise<AgenticTaskOperationsDto>;
   getApprovalDetail(approval: ApprovalRequest): Promise<AgenticApprovalDetailDto>;
+  listEmployees(principal: StaffPrincipal): Promise<readonly AgenticEmployeeSummaryDto[]>;
+  getEmployee(agentKind: AgentKind, principal: StaffPrincipal): Promise<AgenticEmployeeDetailDto>;
 }

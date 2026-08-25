@@ -2123,11 +2123,22 @@ ul {
 .agenticApprovalList button { display: grid; width: 100%; gap: 5px; padding: 14px; text-align: left; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-1); }
 .agenticApprovalList button[aria-pressed="true"] { border-color: var(--accent); }
 .agenticApprovalDetail { padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
+.agenticEmployeeGrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .8fr); gap: 20px; align-items: start; }
+.agenticEmployeeDetail { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
+.agenticEmployeeDetail > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.agenticEmployeeDetail > header h2, .agenticEmployeeDetail h3, .agenticEmployeeDetail p { margin: 0; }
+.agenticEmployeeDetail > p, .agenticEmployeeDetail li { color: var(--ink-subtle); font-size: 11px; }
 
 @media (max-width: 700px) {
   .agenticMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .agenticOperationsGrid { grid-template-columns: 1fr; }
   .agenticApprovalGrid { grid-template-columns: 1fr; }
+  .agenticEmployeeGrid { grid-template-columns: 1fr; }
+  .agenticEmployeeTable thead { display: none; }
+  .agenticEmployeeTable, .agenticEmployeeTable tbody, .agenticEmployeeTable tr, .agenticEmployeeTable td { display: block; width: 100%; }
+  .agenticEmployeeTable tr { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+  .agenticEmployeeTable td { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 14px; height: auto; padding: 5px 0; border: 0; }
+  .agenticEmployeeTable td::before { content: attr(data-label); color: var(--ink-subtle); font-size: 9px; text-transform: uppercase; }
   .agenticReviewWindow { grid-template-columns: 1fr; }
 }
 

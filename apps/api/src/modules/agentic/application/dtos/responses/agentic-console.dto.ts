@@ -3,6 +3,7 @@
 
 import type { AgenticConsoleTaskRecord } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTaskDetail } from "../../services/interfaces/agent-task.service";
+import type { AgentKind } from "../../../domain/entities/agent-profile";
 
 export interface AgenticTaskOverviewDto {
   readonly counts: Readonly<Record<"running" | "waiting" | "failed" | "completed" | "canceled", number>>;
@@ -66,4 +67,21 @@ export interface AgenticApprovalDetailDto {
   readonly expectedEffect: string;
   readonly sources: readonly { readonly sourceType: string; readonly sourceId: string; readonly sourceDigest: string }[];
   readonly refreshedAt: string;
+}
+
+export interface AgenticEmployeeSummaryDto {
+  readonly kind: AgentKind;
+  readonly department: string;
+  readonly active: boolean;
+}
+
+export interface AgenticEmployeeDetailDto {
+  readonly kind: AgentKind;
+  readonly department: string;
+  readonly governance: { readonly active: boolean; readonly revoked: boolean; readonly configurationVersion: number };
+  readonly models: { readonly primary: string; readonly fallbacks: readonly string[] };
+  readonly tools: readonly { readonly name: string; readonly version: number; readonly dataScope: string }[];
+  readonly budgets: { readonly taskCostMicros: number; readonly dailyCostMicros: number; readonly monthlyCostMicros: number };
+  readonly executionHealth: { readonly state: "available" | "revoked" | "degraded" | "unknown"; readonly basis: string; readonly freshness: string };
+  readonly recentRuns: readonly { readonly taskId: string; readonly state: string; readonly settledCostMicros: number; readonly completedAt?: string }[];
 }

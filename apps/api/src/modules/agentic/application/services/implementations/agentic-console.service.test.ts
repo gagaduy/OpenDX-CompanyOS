@@ -20,6 +20,9 @@ const operator: StaffPrincipal = {
 const governance: StaffPrincipal = {
   subject: "governance-a", displayName: "Governance A", roles: ["agentic_governance_admin"],
 };
+const auditor: StaffPrincipal = {
+  subject: "auditor-a", displayName: "Auditor A", roles: ["agentic_auditor"],
+};
 
 describe("AgenticConsoleServiceImpl", () => {
   it("creates one AI CEO bootstrap task and exactly replays it", async () => {
@@ -171,6 +174,25 @@ describe("AgenticConsoleServiceImpl", () => {
     vi.mocked(repository.findWorkflowSignalReceiptForApproval).mockResolvedValueOnce(undefined);
     await expect((service as any).getApprovalDetail(approval, operator)).resolves.not.toHaveProperty("payloadDigest");
   });
+
+  it("projects seven read-only Digital Employees and evidence-backed governance detail", async () => {
+    const { service } = harness();
+
+    await expect(service.listEmployees(auditor)).resolves.toHaveLength(7);
+    const employee = await service.getEmployee("inventory", auditor);
+
+    expect(employee).toMatchObject({
+      kind: "inventory",
+      department: "Inventory",
+      governance: { active: true, revoked: false, configurationVersion: 3 },
+      models: { primary: "openai/inventory-primary", fallbacks: ["openai/inventory-fallback"] },
+      tools: [{ name: "inventory.stock_health", version: 1, dataScope: "inventory:health:read" }],
+      budgets: { taskCostMicros: 10_000, dailyCostMicros: 100_000, monthlyCostMicros: 1_000_000 },
+      executionHealth: { state: "available", basis: "recent_runs", freshness: "2026-08-25T00:00:00.000Z" },
+      recentRuns: [{ taskId: expect.any(String), state: "completed", settledCostMicros: 125 }],
+    });
+    expect(JSON.stringify(employee)).not.toMatch(/secret|credential|clientSecret|prompt/i);
+  });
 });
 
 function harness() {
@@ -246,6 +268,16 @@ function harness() {
       createdAt: "2026-08-25T00:00:02.000Z",
     })),
     listProvenance: vi.fn(async () => [{ id: provenanceId, taskId: "00000000-0000-4000-8000-000000000001", sourceType: "staff_task_intake", sourceId: "operator-a", sourceDigest: "b".repeat(64), classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-25T00:00:00.000Z" }]),
+    listAgents: vi.fn(async () => ["ai_ceo", "catalog", "crm", "finance", "inventory", "order", "support"].map((kind) => ({ kind, active: true, version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }))),
+    getConsoleEmployee: vi.fn(async (_session: DatabaseSession, kind: string) => ({
+      agent: { kind, active: true, version: 1, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" },
+      configuration: { id: "00000000-0000-4000-8000-000000000099", version: 3, updatedAt: "2026-08-25T00:00:00.000Z" },
+      model: { primaryModel: `openai/${kind}-primary`, fallbackModels: [`openai/${kind}-fallback`] },
+      tools: kind === "inventory" ? [{ toolName: "inventory.stock_health", toolVersion: 1, dataScope: "inventory:health:read" }] : [],
+      budget: { taskCostMicros: 10_000, dailyCostMicros: 100_000, monthlyCostMicros: 1_000_000 },
+      revoked: false,
+      recentRuns: [{ taskId: "00000000-0000-4000-8000-000000000001", state: "completed", settledCostMicros: 125, completedAt: "2026-08-25T00:00:00.000Z" }],
+    })),
   };
   let id = 0;
   return {

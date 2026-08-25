@@ -87,10 +87,17 @@ export class AgenticController {
       .json(successResponse("Agent approval decided", result.approval));
   });
   readonly listEmployees = handle(async (_request, response) => {
-    response.json(successResponse("Digital Employees retrieved", await this.queries.listEmployees()));
+    const data = this.consoleService === undefined
+      ? await this.queries.listEmployees()
+      : await this.consoleService.listEmployees(principal(response.locals));
+    response.json(successResponse("Digital Employees retrieved", data));
   });
   readonly getEmployee = handle(async (request, response) => {
-    response.json(successResponse("Digital Employee retrieved", await this.queries.getEmployee(parseAgentKind(request.params.agentKind))));
+    const kind = parseAgentKind(request.params.agentKind);
+    const data = this.consoleService === undefined
+      ? await this.queries.getEmployee(kind)
+      : await this.consoleService.getEmployee(kind, principal(response.locals));
+    response.json(successResponse("Digital Employee retrieved", data));
   });
   readonly createRevision = handle(async (request, response) => {
     response.status(201).json(successResponse("Configuration draft created", await this.configurations.createDraft(parseCreateRevision(request.body), principal(response.locals))));

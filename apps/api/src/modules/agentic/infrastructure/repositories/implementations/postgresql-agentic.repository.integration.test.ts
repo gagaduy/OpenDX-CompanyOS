@@ -521,6 +521,29 @@ suite("PostgresqlAgenticRepository", () => {
       });
   });
 
+  it("projects bounded Digital Employee configuration, revocation, and recent terminal runs", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    await pool.query("INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model) VALUES($1,'catalog',1,'openai/catalog-fallback')", [revisionId]);
+    await pool.query("INSERT INTO agentic_budget_limits(revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros) VALUES($1,'catalog',10000,100000,1000000)", [revisionId]);
+    await pool.query(`INSERT INTO agentic_tool_grants(id,revision_id,agent_kind,tool_name,tool_version,purpose,data_scope,max_invocations)
+      VALUES($1,$2,'catalog','catalog.product_completeness',1,'store_health_review','catalog:health:read',10)`, [randomUUID(), revisionId]);
+    await pool.query("UPDATE agentic_configuration_revisions SET state='active',decided_by='admin-a',decided_at='2026-08-19T00:00:00.000Z',updated_at='2026-08-19T00:00:00.000Z' WHERE id=$1", [revisionId]);
+    const reserved = modelRun(taskId, revisionId);
+    await transactions.run((session) => repository.reserveModelRun(session, reserved));
+    const running = runningModelRun(reserved);
+    await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+    await transactions.run((session) => repository.settleModelRunTerminal(session, completedModelRun(running), 2));
+
+    const employee = await transactions.runReadOnly((session) => repository.getConsoleEmployee(session, "catalog", 5));
+    expect(employee).toMatchObject({
+      agent: { kind: "catalog" }, configuration: { id: revisionId },
+      model: { primaryModel: "google/gemma-4-26b-a4b-it:free", fallbackModels: ["openai/catalog-fallback"] },
+      tools: [{ toolName: "catalog.product_completeness", toolVersion: 1, dataScope: "catalog:health:read" }],
+      budget: { taskCostMicros: 10000, dailyCostMicros: 100000, monthlyCostMicros: 1000000 },
+      recentRuns: [{ taskId, state: "completed", settledCostMicros: 0, completedAt: "2026-08-19T01:02:00.000Z" }],
+    });
+  });
+
   it.each([
     ["quality reasons", { qualityReasonCodes: ["MODEL_RESULT_ACCEPTED"] }],
     ["provenance", { provenanceIds: ["evidence-1"] }],

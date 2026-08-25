@@ -103,6 +103,9 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).get("/v1/admin/agentic/tasks").set("authorization", "Bearer agentic_auditor").expect(403);
     const employees = await request(app).get("/v1/admin/agentic/employees").set("authorization", "Bearer agentic_auditor").expect(200);
     expect(employees.body.data).toHaveLength(7);
+    const inventory = await request(app).get("/v1/admin/agentic/employees/inventory").set("authorization", "Bearer agentic_auditor").expect(200);
+    expect(inventory.body.data).toMatchObject({ kind: "inventory", department: "Inventory", governance: { active: false, revoked: false, configurationVersion: 0 }, executionHealth: { state: "unknown", basis: "no_active_configuration" } });
+    expect(JSON.stringify(inventory.body.data)).not.toMatch(/keycloak|secret|credential|clientSecret|prompt/i);
   });
 
   it("creates and exactly replays guided staff task intake with role-scoped reads", async () => {

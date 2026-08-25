@@ -175,6 +175,11 @@ function atomicModelSettlement(outputDigest: string) {
 }
 
 describe("Agentic route authorization", () => {
+  it.each(["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"] as const)("allows %s to read Digital Employees", async (role) => {
+    await build(role, vi.fn(async () => undefined)).get("/employees").expect(200);
+    await build(role, vi.fn(async () => undefined)).get("/employees/inventory").expect(200);
+  });
+
   it("exposes task intake and overview before the generic task identifier route", async () => {
     const denied = vi.fn(async () => undefined);
     expect((await build("agentic_operator", denied).post("/tasks/intake")).body.data.route)

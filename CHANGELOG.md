@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add read-only Digital Employee list and deep-link detail views for the AI CEO
+  and six Departments, with active governance, model/tool/data-scope/budget
+  projections and evidence-based recent-run health that is not a heartbeat.
+
 - Add the Digital Workforce Approval Inbox with role-scoped master/detail
   views, bounded risk and effect summaries, stored workflow-signal evidence,
   reason-bound decisions, stale-state recovery, and read-only oversight access.

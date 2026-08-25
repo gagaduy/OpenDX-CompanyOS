@@ -424,6 +424,21 @@ export interface AgenticConsoleTaskOperationsRecord {
   };
 }
 
+export interface AgenticConsoleEmployeeRecord {
+  readonly agent: AgentProfile;
+  readonly configuration?: { readonly id: string; readonly version: number; readonly updatedAt: string };
+  readonly model?: Pick<ModelConfigurationRecord, "primaryModel" | "fallbackModels">;
+  readonly tools: readonly Pick<ToolGrantRecord, "toolName" | "toolVersion" | "dataScope">[];
+  readonly budget?: Omit<BudgetLimitRecord, "revisionId" | "agentKind">;
+  readonly revocation?: RevocationRecord;
+  readonly recentRuns: readonly {
+    readonly taskId: string;
+    readonly state: string;
+    readonly settledCostMicros: number;
+    readonly completedAt?: string;
+  }[];
+}
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -529,6 +544,7 @@ export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;
   listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]>;
+  getConsoleEmployee(session: DatabaseSession, agentKind: AgentKind, recentLimit: number): Promise<AgenticConsoleEmployeeRecord | undefined>;
   createTask(session: DatabaseSession, task: AgentTask): Promise<void>;
   findTask(session: DatabaseSession, taskId: string, ownerId: string): Promise<AgentTask | undefined>;
   findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;

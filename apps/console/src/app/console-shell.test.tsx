@@ -135,7 +135,7 @@ describe("ConsoleShell", () => {
       .toHaveTextContent("Products");
   });
 
-  it("shows implemented Digital Workforce task and approval navigation", async () => {
+  it("shows implemented Digital Workforce task, approval, and employee navigation", async () => {
     const session: AuthSession = { accessToken: "token", subject: "operator-a", displayName: "Operator", roles: ["agentic_operator"] };
     const client: AuthClient = { getSession: vi.fn(async () => session), signIn: vi.fn(), completeSignIn: vi.fn(), signOut: vi.fn() };
     render(<MemoryRouter initialEntries={["/agentic/tasks"]}><AuthProvider client={client}><AppRouter /></AuthProvider></MemoryRouter>);
@@ -143,8 +143,19 @@ describe("ConsoleShell", () => {
     expect(within(navigation).getByText("Digital Workforce")).toBeVisible();
     expect(within(navigation).getByRole("link", { name: "Tasks" })).toBeVisible();
     expect(within(navigation).getByRole("link", { name: "Approvals" })).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: "Employees" })).toBeVisible();
     expect(within(navigation).queryByText("Memory")).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Digital Workforce" })).toBeVisible();
+  });
+
+  it("shows auditors only the read-only Digital Employee entry", async () => {
+    const session: AuthSession = { accessToken: "token", subject: "auditor-a", displayName: "Auditor", roles: ["agentic_auditor"] };
+    const client: AuthClient = { getSession: vi.fn(async () => session), signIn: vi.fn(), completeSignIn: vi.fn(), signOut: vi.fn() };
+    render(<MemoryRouter initialEntries={["/company-overview"]}><AuthProvider client={client}><AppRouter /></AuthProvider></MemoryRouter>);
+    const navigation = await screen.findByRole("navigation", { name: "Primary navigation" });
+    expect(within(navigation).getByRole("link", { name: "Employees" })).toBeVisible();
+    expect(within(navigation).queryByRole("link", { name: "Tasks" })).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole("link", { name: "Approvals" })).not.toBeInTheDocument();
   });
 
   it("closes mobile navigation with Escape and restores trigger focus", async () => {

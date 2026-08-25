@@ -24,7 +24,7 @@ import { createPaymentOperationsApi } from "../features/payments/api/payment-ope
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
-import { AgenticApprovalsPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi } from "../features/agentic";
+import { AgenticApprovalsPage, AgenticEmployeeDetailPage, AgenticEmployeesPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi, type AgentKind } from "../features/agentic";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -54,6 +54,8 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/agentic/tasks/new" element={<AgenticRoute apiBaseUrl={apiBaseUrl} intake />} />
           <Route path="/agentic/tasks/:taskId" element={<AgenticRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/agentic/approvals" element={<AgenticApprovalRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/agentic/employees" element={<AgenticEmployeeRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/agentic/employees/:agentKind" element={<AgenticEmployeeRoute apiBaseUrl={apiBaseUrl} detail />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/products" replace />} />
@@ -66,6 +68,17 @@ function AgenticApprovalRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
   const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
   return <StaffRoleRoute allowed={readers}><AgenticApprovalsPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
+}
+
+function AgenticEmployeeRoute({ apiBaseUrl, detail = false }: { readonly apiBaseUrl: string; readonly detail?: boolean }) {
+  const { session } = useAuth(); const { agentKind } = useParams();
+  const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"] as const;
+  const kinds = ["ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"];
+  const content = detail
+    ? kinds.includes(agentKind ?? "") ? <AgenticEmployeeDetailPage api={api} agentKind={agentKind as AgentKind} /> : <Navigate to="/agentic/employees" replace />
+    : <AgenticEmployeesPage api={api} />;
+  return <StaffRoleRoute allowed={readers}>{content}</StaffRoleRoute>;
 }
 
 function HomeRedirect() {
