@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json as json_module
 import re
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import quote
 from uuid import UUID
 
@@ -26,15 +26,27 @@ from app.agentic.domain.contracts import (
     ActivityReservationRequest,
     ApprovalRequirement,
     FrozenWorkflowPlan,
+    OrchestrationCollaborationInstruction,
+    OrchestrationDispatchNode,
+    OrchestrationDispatchPlan,
     PlanDependency,
     PlanNode,
     StateProjection,
 )
 
-AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({"INVALID_FROZEN_PLAN"})
+AUTHORITATIVE_CONTROL_ERROR_CODES = frozenset({
+    "INVALID_FROZEN_PLAN",
+    "DESCRIPTOR_BINDING_INVALID",
+    "DESCRIPTOR_EXPIRED",
+    "DESCRIPTOR_REVOKED",
+    "AI_CEO_AUTHORITY_BINDING_INVALID",
+    "AI_CEO_AUTHORITY_EXPIRED",
+    "SYNTHESIS_CONTEXT_INVALID",
+})
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")
 _MODEL_RUN_STATUSES = frozenset({"running", "completed", "failed", "partial", "escalated"})
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
+_DIGEST = re.compile(r"^[a-f0-9]{64}$")
 
 
 class AgenticControlError(AgenticControlFailure):
@@ -77,6 +89,82 @@ class AgenticControlClient:
         except (KeyError, TypeError, ValueError) as error:
             raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
 
+    async def load_task_brief(self, task_id: str) -> dict[str, Any]:
+        return await self._request(
+            "GET", f"/orchestration/task-briefs/{quote(task_id, safe='')}"
+        )
+
+    async def load_orchestration_settlement(
+        self, kind: str, settlement_id: str
+    ) -> dict[str, Any]:
+        if kind not in {"plan", "result", "report"}:
+            raise AgenticControlError("SETTLEMENT_RECOVERY_INVALID", retryable=False)
+        return await self._request(
+            "GET", f"/orchestration/settlements/{kind}/{quote(settlement_id, safe='')}"
+        )
+
+    async def load_dispatch_plan(self, run_id: str) -> OrchestrationDispatchPlan:
+        data = await self._request(
+            "GET", f"/orchestration/dispatch-plans/{quote(run_id, safe='')}"
+        )
+        try:
+            return OrchestrationDispatchPlan(
+                task_id=data["taskId"], plan_version=data["planVersion"],
+                plan_digest=data["planDigest"],
+                nodes=tuple(OrchestrationDispatchNode(
+                    subtask_id=node["subtaskId"], agent_kind=node["agentKind"],
+                    dependencies=tuple(node["dependencies"]),
+                    descriptor_id=node["descriptorId"],
+                    descriptor_digest=node["descriptorDigest"],
+                    collaborations=tuple(OrchestrationCollaborationInstruction(
+                        requester_subtask_id=item["requesterSubtaskId"],
+                        requester_agent_kind=item["requesterAgentKind"],
+                        purpose=item["purpose"],
+                        requested_data_classification=item["requestedDataClassification"],
+                    ) for item in node["collaborations"]),
+                ) for node in data["nodes"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+    async def load_execution_descriptor(
+        self, descriptor_id: str, descriptor_digest: str
+    ) -> dict[str, Any]:
+        if _DIGEST.fullmatch(descriptor_digest) is None:
+            raise AgenticControlError("DESCRIPTOR_BINDING_INVALID", retryable=False)
+        return await self._request(
+            "GET", f"/orchestration/descriptors/{quote(descriptor_id, safe='')}",
+            headers={"x-opendx-descriptor-digest": descriptor_digest},
+        )
+
+    async def load_ai_ceo_execution_authority(
+        self, authority_id: str, authority_digest: str
+    ) -> dict[str, Any]:
+        if _DIGEST.fullmatch(authority_digest) is None:
+            raise AgenticControlError("AI_CEO_AUTHORITY_BINDING_INVALID", retryable=False)
+        return await self._request(
+            "GET", f"/orchestration/ai-ceo-authorities/{quote(authority_id, safe='')}",
+            headers={"x-opendx-authority-digest": authority_digest},
+        )
+
+    async def load_synthesis_context(
+        self, body: Mapping[str, object]
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST", "/orchestration/synthesis-contexts", json=dict(body)
+        )
+
+    async def accept_orchestration_result(self, body: Mapping[str, object]) -> str:
+        return _digest_ack(await self._request("POST", "/orchestration/results", json=dict(body)))
+
+    async def mediate_collaboration(self, body: Mapping[str, object]) -> str:
+        return _digest_ack(await self._request(
+            "POST", "/orchestration/collaborations", json=dict(body)
+        ))
+
+    async def accept_executive_report(self, body: Mapping[str, object]) -> str:
+        return _digest_ack(await self._request("POST", "/orchestration/reports", json=dict(body)))
+
     async def project_state(self, run_id: str, projection: StateProjection) -> dict[str, Any]:
         body: dict[str, Any] = {
             "projectionSequence": projection.projection_sequence,
@@ -117,6 +205,8 @@ class AgenticControlClient:
             "generationRound": request.generation_round,
             "idempotencyKey": request.idempotency_key,
             "inputDigest": request.input_digest,
+            "resultSchemaName": request.result_schema_name,
+            "resultSchemaDigest": request.result_schema_digest,
             "primaryModel": request.primary_model,
             "fallbackModel": request.fallback_model,
         }, idempotency_key=request.idempotency_key)
@@ -183,14 +273,17 @@ class AgenticControlClient:
         )
 
     async def _request(self, method: str, path: str, *, json: object | None = None,
-                       idempotency_key: str | None = None) -> dict[str, Any]:
+                       idempotency_key: str | None = None,
+                       headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         token = await self._tokens.get_token()
-        headers = {"authorization": f"Bearer {token}"}
+        request_headers = {"authorization": f"Bearer {token}"}
+        if headers is not None:
+            request_headers.update(headers)
         if idempotency_key is not None:
-            headers["idempotency-key"] = idempotency_key
+            request_headers["idempotency-key"] = idempotency_key
         try:
             async with self._client.stream(
-                method, self._base_url + path, json=json, headers=headers,
+                method, self._base_url + path, json=json, headers=request_headers,
                 timeout=self._timeout,
             ) as response:
                 status_code = response.status_code
@@ -244,6 +337,13 @@ def _model_run_state(data: dict[str, Any]) -> ModelRunState:
         )
     except (KeyError, TypeError, ValueError) as error:
         raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False) from error
+
+
+def _digest_ack(data: dict[str, Any]) -> str:
+    value = data.get("digest")
+    if type(value) is not str or _DIGEST.fullmatch(value) is None:
+        raise AgenticControlError("AGENTIC_RESPONSE_INVALID", retryable=False)
+    return value
 
 
 def _model_run_reservation(data: dict[str, Any]) -> ModelRunReservation:

@@ -3,6 +3,9 @@
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 import type {
+  AcceptedOrchestrationResultAppendInput,
+  AcceptedOrchestrationResultPayloadRecord,
+  AcceptedOrchestrationResultReferenceRecord,
   AgenticRepository,
   AgentSubtaskDependencyRecord,
   AgentSubtaskRecord,
@@ -12,6 +15,10 @@ import type {
   BudgetLimitRecord,
   BudgetReservationInput,
   BudgetSettlementInput,
+  CollaborationRequestAppendInput,
+  ExecutiveReportAppendInput,
+  ExecutiveReportPayloadRecord,
+  ExecutiveReportReferenceRecord,
   ActivityReservationResult,
   AgenticFileApprovalInput,
   AgenticFileApprovalReplay,
@@ -20,6 +27,10 @@ import type {
   ModelConfigurationRecord,
   ModelRunReservationResult,
   ModelRunTerminalResult,
+  OrchestrationDispatchPlanRecord,
+  OrchestrationPlanReferenceRecord,
+  OrchestrationSettlementFacts,
+  OrchestrationPlanAppendInput,
   PolicyRecord,
   ProvenanceRecord,
   RevisionChildren,
@@ -42,6 +53,17 @@ import type { ApprovalRequest, ApprovalState } from "../../../domain/entities/ap
 import type { ConfigurationRevision } from "../../../domain/entities/configuration-revision";
 import type { ModelQualityEvidence, ModelRun } from "../../../domain/entities/model-run";
 import type {
+  AiCeoExecutionAuthority,
+  AiCeoExecutionPayload,
+  AiCeoExecutionPurpose,
+} from "../../../domain/entities/ai-ceo-execution-authority";
+import { validateAiCeoExecutionAuthority } from "../../../domain/entities/ai-ceo-execution-authority";
+import type {
+  ExecutionDescriptor,
+  ExecutionDescriptorPayload,
+} from "../../../domain/entities/orchestration-execution-descriptor";
+import { canonicalDigest, validateExecutionDescriptor } from "../../../domain/entities/orchestration-execution-descriptor";
+import type {
   ActivityInvocation,
   WorkflowRun,
   WorkflowSignalReceipt,
@@ -51,6 +73,578 @@ import { validateModelQualityEvidence, validateModelRun } from "../../../domain/
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async appendAiCeoExecutionAuthority(
+    session: DatabaseSession,
+    authority: AiCeoExecutionAuthority,
+    payload: AiCeoExecutionPayload,
+  ): Promise<"created" | "duplicate"> {
+    validateAiCeoExecutionAuthority(authority, payload);
+    await this.lockAiCeoExecutionAuthorityScope(
+      session, authority.taskId, authority.purpose, authority.planVersion,
+    );
+    const existing = await this.findAiCeoExecutionAuthorityByScope(
+      session, authority.taskId, authority.purpose, authority.planVersion, authority.version,
+    );
+    if (existing !== undefined) {
+      if (
+        existing.authority.authorityDigest === authority.authorityDigest
+        && existing.authority.payloadDigest === authority.payloadDigest
+      ) return "duplicate";
+      throw new AgenticApplicationError(
+        "AI_CEO_AUTHORITY_CONFLICT",
+        "AI CEO authority identity is already bound to different authority",
+      );
+    }
+    await session.query(
+      `INSERT INTO agentic_ai_ceo_execution_authorities
+       (id,version,purpose,task_id,plan_version,configuration_revision_id,
+        policy_version,primary_model,fallback_model,result_schema_name,
+        result_schema_digest,authorized_context_digest,budget_authorization_micros,
+        timeout_seconds,expires_at,payload_digest,authority_digest,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [authority.id, authority.version, authority.purpose, authority.taskId,
+        authority.planVersion ?? null, authority.configurationRevisionId,
+        authority.policyVersion, authority.primaryModel, authority.fallbackModel,
+        authority.resultSchemaName, authority.resultSchemaDigest,
+        authority.authorizedContextDigest, authority.budgetAuthorizationMicros,
+        authority.timeoutSeconds, authority.expiresAt, authority.payloadDigest,
+        authority.authorityDigest, authority.createdAt],
+    );
+    await session.query(
+      `INSERT INTO agentic_ai_ceo_execution_payloads
+       (authority_id,payload,payload_digest) VALUES($1,$2,$3)`,
+      [authority.id, payload, authority.payloadDigest],
+    );
+    return "created";
+  }
+
+  async findAiCeoExecutionAuthority(
+    session: DatabaseSession,
+    authorityId: string,
+  ): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT authority.*, authority_payload.payload
+       FROM agentic_ai_ceo_execution_authorities authority
+       JOIN agentic_ai_ceo_execution_payloads authority_payload
+         ON authority_payload.authority_id=authority.id
+        AND authority_payload.payload_digest=authority.payload_digest
+       WHERE authority.id=$1`,
+      [authorityId],
+    );
+    if (result.rows[0] === undefined) return undefined;
+    const value = mapAiCeoExecutionAuthority(result.rows[0]);
+    validateAiCeoExecutionAuthority(value.authority, value.payload);
+    return value;
+  }
+
+  async lockAndFindLatestAiCeoExecutionAuthority(
+    session: DatabaseSession,
+    taskId: string,
+    purpose: AiCeoExecutionPurpose,
+    planVersion?: number,
+  ): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined> {
+    await this.lockAiCeoExecutionAuthorityScope(session, taskId, purpose, planVersion);
+    return this.findAiCeoExecutionAuthorityByScope(session, taskId, purpose, planVersion);
+  }
+
+  private async lockAiCeoExecutionAuthorityScope(
+    session: DatabaseSession,
+    taskId: string,
+    purpose: AiCeoExecutionPurpose,
+    planVersion?: number,
+  ): Promise<void> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.ai-ceo-authority:${taskId}:${purpose}:${planVersion ?? "none"}`,
+    ]);
+  }
+
+  private async findAiCeoExecutionAuthorityByScope(
+    session: DatabaseSession,
+    taskId: string,
+    purpose: AiCeoExecutionPurpose,
+    planVersion?: number,
+    version?: number,
+  ): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT authority.*, authority_payload.payload
+       FROM agentic_ai_ceo_execution_authorities authority
+       JOIN agentic_ai_ceo_execution_payloads authority_payload
+         ON authority_payload.authority_id=authority.id
+        AND authority_payload.payload_digest=authority.payload_digest
+       WHERE authority.task_id=$1 AND authority.purpose=$2
+         AND authority.plan_version IS NOT DISTINCT FROM $3::integer
+         AND ($4::integer IS NULL OR authority.version=$4)
+       ORDER BY authority.version DESC LIMIT 1`,
+      [taskId, purpose, planVersion ?? null, version ?? null],
+    );
+    if (result.rows[0] === undefined) return undefined;
+    const value = mapAiCeoExecutionAuthority(result.rows[0]);
+    validateAiCeoExecutionAuthority(value.authority, value.payload);
+    return value;
+  }
+
+  async appendExecutionDescriptor(
+    session: DatabaseSession,
+    descriptor: ExecutionDescriptor,
+    payload: ExecutionDescriptorPayload,
+  ): Promise<"created" | "duplicate"> {
+    validateExecutionDescriptor(descriptor, payload);
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.execution-descriptor:${descriptor.id}`,
+    ]);
+    const existing = await this.findExecutionDescriptor(session, descriptor.id);
+    if (existing !== undefined) {
+      if (
+        existing.descriptor.descriptorDigest === descriptor.descriptorDigest
+        && existing.descriptor.payloadDigest === descriptor.payloadDigest
+      ) return "duplicate";
+      throw new AgenticApplicationError(
+        "EXECUTION_DESCRIPTOR_CONFLICT",
+        "Execution descriptor identity is already bound to different authority",
+      );
+    }
+    await session.query(
+      `INSERT INTO agentic_orchestration_execution_descriptors
+       (id,version,task_id,plan_version,subtask_id,agent_kind,configuration_revision_id,
+        policy_version,primary_model,fallback_model,result_schema_name,result_schema_digest,
+        authorized_context_digest,allowed_tools_digest,budget_authorization_micros,
+        timeout_seconds,freshness_seconds,expires_at,payload_digest,descriptor_digest,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [descriptor.id, descriptor.version, descriptor.taskId, descriptor.planVersion,
+        descriptor.subtaskId, descriptor.agentKind, descriptor.configurationRevisionId,
+        descriptor.policyVersion, descriptor.primaryModel, descriptor.fallbackModel,
+        descriptor.resultSchemaName, descriptor.resultSchemaDigest,
+        descriptor.authorizedContextDigest, descriptor.allowedToolsDigest,
+        descriptor.budgetAuthorizationMicros, descriptor.timeoutSeconds,
+        descriptor.freshnessSeconds, descriptor.expiresAt, descriptor.payloadDigest,
+        descriptor.descriptorDigest, descriptor.createdAt],
+    );
+    await session.query(
+      `INSERT INTO agentic_orchestration_execution_payloads
+       (descriptor_id,payload,payload_digest) VALUES($1,$2,$3)`,
+      [descriptor.id, payload, descriptor.payloadDigest],
+    );
+    return "created";
+  }
+
+  async findExecutionDescriptor(
+    session: DatabaseSession,
+    descriptorId: string,
+  ): Promise<{ readonly descriptor: ExecutionDescriptor; readonly payload: ExecutionDescriptorPayload } | undefined> {
+    const result = await session.query<Row>(
+      `SELECT descriptor.*, execution_payload.payload
+       FROM agentic_orchestration_execution_descriptors descriptor
+       JOIN agentic_orchestration_execution_payloads execution_payload
+         ON execution_payload.descriptor_id=descriptor.id
+        AND execution_payload.payload_digest=descriptor.payload_digest
+       WHERE descriptor.id=$1`,
+      [descriptorId],
+    );
+    if (result.rows[0] === undefined) return undefined;
+    const value = mapExecutionDescriptor(result.rows[0]);
+    validateExecutionDescriptor(value.descriptor, value.payload);
+    return value;
+  }
+
+  async findExecutionDescriptorForSubtask(
+    session: DatabaseSession, taskId: string, planVersion: number, subtaskId: string,
+  ): Promise<ExecutionDescriptor | undefined> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_orchestration_execution_descriptors
+       WHERE task_id=$1 AND plan_version=$2 AND subtask_id=$3 AND version=1`,
+      [taskId, planVersion, subtaskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapExecutionDescriptorRow(result.rows[0]);
+  }
+
+  async findOrchestrationDispatchPlan(
+    session: DatabaseSession, runId: string,
+  ): Promise<OrchestrationDispatchPlanRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT plan.task_id,plan.version AS plan_version,plan.plan_digest,
+              subtask.id AS subtask_id,subtask.agent_kind,descriptor.id AS descriptor_id,
+              descriptor.descriptor_digest,
+              COALESCE(array_agg(dependency.dependency_subtask_id::text ORDER BY dependency.dependency_subtask_id)
+                FILTER (WHERE dependency.dependency_subtask_id IS NOT NULL),'{}') AS dependencies
+       FROM agentic_workflow_runs run
+       JOIN agentic_orchestration_plan_revisions plan
+         ON plan.task_id=run.task_id AND plan.version=run.plan_revision
+       JOIN agentic_orchestration_plan_subtasks subtask ON subtask.plan_id=plan.id
+       JOIN agentic_orchestration_execution_descriptors descriptor
+         ON descriptor.task_id=plan.task_id AND descriptor.plan_version=plan.version
+        AND descriptor.subtask_id=subtask.id AND descriptor.version=1
+       LEFT JOIN agentic_orchestration_plan_dependencies dependency
+         ON dependency.plan_id=plan.id AND dependency.subtask_id=subtask.id
+       WHERE run.id=$1
+       GROUP BY plan.task_id,plan.version,plan.plan_digest,subtask.id,subtask.agent_kind,
+                descriptor.id,descriptor.descriptor_digest
+       ORDER BY subtask.id`,
+      [runId],
+    );
+    const first = result.rows[0];
+    if (first === undefined) return undefined;
+    return {
+      taskId: String(first.task_id), planVersion: Number(first.plan_version),
+      planDigest: String(first.plan_digest),
+      nodes: result.rows.map((row) => ({ subtaskId: String(row.subtask_id),
+        agentKind: String(row.agent_kind) as OrchestrationDispatchPlanRecord["nodes"][number]["agentKind"],
+        dependencies: (row.dependencies as string[]).map(String), descriptorId: String(row.descriptor_id),
+        descriptorDigest: String(row.descriptor_digest) })),
+    };
+  }
+
+  async findOrchestrationPlanReference(
+    session: DatabaseSession, planId: string,
+  ): Promise<OrchestrationPlanReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT task_id,version,plan_digest
+       FROM agentic_orchestration_plan_revisions WHERE id=$1`,
+      [planId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      taskId: String(row.task_id), planVersion: Number(row.version),
+      planDigest: String(row.plan_digest),
+    };
+  }
+
+  async findOrchestrationSettlementFacts(
+    session: DatabaseSession, taskId: string,
+  ): Promise<OrchestrationSettlementFacts> {
+    const cost = await session.query<Row>(
+      `SELECT COALESCE(sum(cost_micros),0)::text AS cost_micros
+       FROM agentic_budget_entries WHERE task_id=$1 AND entry_type='settlement'`,
+      [taskId],
+    );
+    const approvals = await session.query<Row>(
+      `SELECT id,state,action,resource_type,resource_id,parameters_digest,
+              decided_by,decision_reason
+       FROM agentic_approval_requests WHERE task_id=$1 ORDER BY created_at,id`,
+      [taskId],
+    );
+    return {
+      costMicros: safeInteger(cost.rows[0]?.cost_micros ?? 0),
+      approvalHistory: approvals.rows.map((row) => ({
+        id: String(row.id), state: row.state as ApprovalState,
+        action: String(row.action), resourceType: String(row.resource_type),
+        resourceId: String(row.resource_id), parametersDigest: String(row.parameters_digest),
+        ...(row.decided_by === null ? {} : { decidedBy: String(row.decided_by) }),
+        ...(row.decision_reason === null ? {} : { decisionReason: String(row.decision_reason) }),
+      })),
+    };
+  }
+
+  async orchestrationPlanExists(session: DatabaseSession, taskId: string, planVersion: number): Promise<boolean> {
+    const result = await session.query("SELECT 1 FROM agentic_orchestration_plan_revisions WHERE task_id=$1 AND version=$2", [taskId, planVersion]);
+    return result.rowCount === 1;
+  }
+
+  async orchestrationPlanHasAgent(
+    session: DatabaseSession, taskId: string, planVersion: number, agentKind: AgentKind,
+  ): Promise<boolean> {
+    const result = await session.query(
+      `SELECT 1 FROM agentic_orchestration_plan_revisions plan
+       JOIN agentic_orchestration_plan_subtasks subtask ON subtask.plan_id=plan.id
+       WHERE plan.task_id=$1 AND plan.version=$2 AND subtask.agent_kind=$3`,
+      [taskId, planVersion, agentKind],
+    );
+    return result.rowCount === 1;
+  }
+
+  async appendAcceptedOrchestrationResult(session: DatabaseSession, result: AcceptedOrchestrationResultAppendInput): Promise<"created" | "duplicate" | "conflict"> {
+    const inserted = await session.query(`INSERT INTO agentic_accepted_orchestration_results
+      (id,task_id,plan_version,subtask_id,result_digest,quality_evidence_digest,provenance_digest,accepted_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING id`, [result.id,result.taskId,result.planVersion,result.subtaskId,result.resultDigest,result.qualityEvidenceDigest,result.provenanceDigest,result.acceptedAt]);
+    if (inserted.rowCount === 1) return "created";
+    const existing = await session.query<Row>(`SELECT * FROM agentic_accepted_orchestration_results
+      WHERE subtask_id=$1 AND quality_evidence_digest=$2`, [result.subtaskId,result.qualityEvidenceDigest]);
+    const row = existing.rows[0];
+    return row !== undefined && String(row.task_id) === result.taskId && Number(row.plan_version) === result.planVersion
+      && String(row.result_digest) === result.resultDigest && String(row.provenance_digest) === result.provenanceDigest
+      && toIso(row.accepted_at) === new Date(result.acceptedAt).toISOString()
+      ? "duplicate" : "conflict";
+  }
+
+  async findAcceptedOrchestrationResultId(
+    session: DatabaseSession, subtaskId: string, qualityEvidenceDigest: string,
+  ): Promise<string | undefined> {
+    const result = await session.query<Row>(
+      `SELECT id FROM agentic_accepted_orchestration_results
+       WHERE subtask_id=$1 AND quality_evidence_digest=$2`,
+      [subtaskId, qualityEvidenceDigest],
+    );
+    return result.rows[0] === undefined ? undefined : String(result.rows[0].id);
+  }
+
+  async appendAcceptedOrchestrationResultPayload(
+    session: DatabaseSession,
+    resultId: string,
+    resultDigest: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<"created" | "duplicate" | "conflict"> {
+    const payloadDigest = canonicalDigest(payload);
+    if (payloadDigest !== resultDigest) return "conflict";
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.accepted-result-payload:${resultId}`,
+    ]);
+    const existing = await this.findAcceptedOrchestrationResultPayload(session, resultId);
+    if (existing !== undefined) {
+      if (existing.resultDigest === resultDigest && existing.payloadDigest === payloadDigest) return "duplicate";
+      return "conflict";
+    }
+    await session.query(
+      `INSERT INTO agentic_accepted_orchestration_result_payloads
+       (result_id,result_digest,payload,payload_digest) VALUES($1,$2,$3::jsonb,$4)`,
+      [resultId, resultDigest, JSON.stringify(payload), payloadDigest],
+    );
+    return "created";
+  }
+
+  async findAcceptedOrchestrationResultPayload(
+    session: DatabaseSession,
+    resultId: string,
+  ): Promise<AcceptedOrchestrationResultPayloadRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT result_digest,payload,payload_digest
+       FROM agentic_accepted_orchestration_result_payloads WHERE result_id=$1`,
+      [resultId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      resultDigest: String(row.result_digest),
+      payload: row.payload as Readonly<Record<string, unknown>>,
+      payloadDigest: String(row.payload_digest),
+    };
+  }
+
+  async findAcceptedOrchestrationResultReference(
+    session: DatabaseSession,
+    resultId: string,
+  ): Promise<AcceptedOrchestrationResultReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT accepted.task_id,accepted.plan_version,accepted.subtask_id,
+              accepted.result_digest,accepted.quality_evidence_digest,accepted.provenance_digest,
+              private.payload,private.payload_digest
+       FROM agentic_accepted_orchestration_results accepted
+       JOIN agentic_accepted_orchestration_result_payloads private
+         ON private.result_id=accepted.id AND private.result_digest=accepted.result_digest
+       WHERE accepted.id=$1`,
+      [resultId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      taskId: String(row.task_id), planVersion: Number(row.plan_version),
+      subtaskId: String(row.subtask_id), resultDigest: String(row.result_digest),
+      qualityEvidenceDigest: String(row.quality_evidence_digest),
+      provenanceDigest: String(row.provenance_digest),
+      payload: row.payload as Readonly<Record<string, unknown>>,
+      payloadDigest: String(row.payload_digest),
+    };
+  }
+
+  async appendExecutiveReport(session: DatabaseSession, report: ExecutiveReportAppendInput): Promise<"created" | "duplicate" | "conflict"> {
+    const inserted = await session.query(`INSERT INTO agentic_executive_reports
+      (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,
+       unavailable_branches_digest,synthesis_branches_digest,cost_micros,approval_history_digest,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id`,
+    [report.id, report.taskId, report.planVersion, report.reportDigest, report.completionState,
+      report.conclusionProvenanceDigest, report.unavailableBranchesDigest,
+      report.synthesisBranchesDigest, report.costMicros, report.approvalHistoryDigest, report.createdAt]);
+    if (inserted.rowCount === 1) return "created";
+    const existing = await session.query<Row>("SELECT * FROM agentic_executive_reports WHERE task_id=$1 AND plan_version=$2", [report.taskId,report.planVersion]);
+    const row = existing.rows[0];
+    return row !== undefined && String(row.report_digest) === report.reportDigest
+      && String(row.completion_state) === report.completionState
+      && String(row.conclusion_provenance_digest) === report.conclusionProvenanceDigest
+      && String(row.unavailable_branches_digest) === report.unavailableBranchesDigest
+      && String(row.synthesis_branches_digest) === report.synthesisBranchesDigest
+      && Number(row.cost_micros) === report.costMicros && String(row.approval_history_digest) === report.approvalHistoryDigest
+      && toIso(row.created_at) === new Date(report.createdAt).toISOString()
+      ? "duplicate" : "conflict";
+  }
+
+  async findExecutiveReportId(
+    session: DatabaseSession, taskId: string, planVersion: number,
+  ): Promise<string | undefined> {
+    const result = await session.query<Row>(
+      "SELECT id FROM agentic_executive_reports WHERE task_id=$1 AND plan_version=$2",
+      [taskId, planVersion],
+    );
+    return result.rows[0] === undefined ? undefined : String(result.rows[0].id);
+  }
+
+  async appendExecutiveReportPayload(
+    session: DatabaseSession,
+    reportId: string,
+    reportDigest: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<"created" | "duplicate" | "conflict"> {
+    const payloadDigest = canonicalDigest(payload);
+    if (payloadDigest !== reportDigest) return "conflict";
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.executive-report-payload:${reportId}`,
+    ]);
+    const existing = await this.findExecutiveReportPayload(session, reportId);
+    if (existing !== undefined) {
+      if (existing.reportDigest === reportDigest && existing.payloadDigest === payloadDigest) return "duplicate";
+      return "conflict";
+    }
+    await session.query(
+      `INSERT INTO agentic_executive_report_payloads
+       (report_id,report_digest,payload,payload_digest) VALUES($1,$2,$3::jsonb,$4)`,
+      [reportId, reportDigest, JSON.stringify(payload), payloadDigest],
+    );
+    return "created";
+  }
+
+  async findExecutiveReportPayload(
+    session: DatabaseSession,
+    reportId: string,
+  ): Promise<ExecutiveReportPayloadRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT report_digest,payload,payload_digest
+       FROM agentic_executive_report_payloads WHERE report_id=$1`,
+      [reportId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return {
+      reportDigest: String(row.report_digest),
+      payload: row.payload as Readonly<Record<string, unknown>>,
+      payloadDigest: String(row.payload_digest),
+    };
+  }
+
+  async findExecutiveReportReference(
+    session: DatabaseSession, reportId: string,
+  ): Promise<ExecutiveReportReferenceRecord | undefined> {
+    const result = await session.query<Row>(
+      `SELECT task_id,plan_version,report_digest,completion_state,synthesis_branches_digest
+       FROM agentic_executive_reports WHERE id=$1`,
+      [reportId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      taskId: String(row.task_id), planVersion: Number(row.plan_version),
+      reportDigest: String(row.report_digest),
+      ...(row.synthesis_branches_digest === null ? {}
+        : { synthesisBranchesDigest: String(row.synthesis_branches_digest) }),
+      completionState: row.completion_state as ExecutiveReportReferenceRecord["completionState"],
+    };
+  }
+
+  async appendCollaborationRequest(session: DatabaseSession, request: CollaborationRequestAppendInput): Promise<"created" | "duplicate" | "conflict"> {
+    const inserted = await session.query(
+      `INSERT INTO agentic_collaboration_requests
+       (id,task_id,plan_version,requester_agent_kind,requested_agent_kind,question_digest,purpose,
+        requested_data_classification,evidence_digest,redacted_payload_digest,policy_version,
+        policy_decision,idempotency_key,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT DO NOTHING RETURNING id`,
+      [request.id, request.taskId, request.planVersion, request.requester, request.requested,
+        request.questionDigest, request.purpose, request.requestedDataClassification,
+        request.evidenceDigest, request.redactedPayloadDigest, request.policyVersion,
+        request.policyDecision, request.idempotencyKey, request.createdAt],
+    );
+    if (inserted.rowCount === 1) return "created";
+    const existing = await session.query<Row>("SELECT * FROM agentic_collaboration_requests WHERE idempotency_key=$1", [request.idempotencyKey]);
+    const row = existing.rows[0];
+    return row !== undefined && String(row.task_id) === request.taskId && Number(row.plan_version) === request.planVersion
+      && String(row.requester_agent_kind) === request.requester && String(row.requested_agent_kind) === request.requested
+      && String(row.question_digest) === request.questionDigest && String(row.evidence_digest) === request.evidenceDigest
+      && String(row.redacted_payload_digest) === request.redactedPayloadDigest && String(row.policy_decision) === request.policyDecision
+      && String(row.purpose) === request.purpose
+      && String(row.requested_data_classification) === request.requestedDataClassification
+      && Number(row.policy_version) === request.policyVersion
+      && toIso(row.created_at) === new Date(request.createdAt).toISOString()
+      ? "duplicate" : "conflict";
+  }
+
+  async appendOrchestrationPlan(
+    session: DatabaseSession,
+    plan: OrchestrationPlanAppendInput,
+  ): Promise<"created" | "duplicate"> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.orchestration-plan:${plan.taskId}:${plan.version}`,
+    ]);
+    const existingPlan = await session.query<Row>(
+      "SELECT * FROM agentic_orchestration_plan_revisions WHERE task_id=$1 AND version=$2",
+      [plan.taskId, plan.version],
+    );
+    if (existingPlan.rows[0] !== undefined) {
+      const subtasks = await session.query<Row>(
+        `SELECT subtask.*, COALESCE(array_agg(dependency.dependency_subtask_id::text
+           ORDER BY dependency.dependency_subtask_id)
+           FILTER (WHERE dependency.dependency_subtask_id IS NOT NULL),'{}') AS dependencies
+         FROM agentic_orchestration_plan_subtasks subtask
+         LEFT JOIN agentic_orchestration_plan_dependencies dependency
+           ON dependency.plan_id=subtask.plan_id AND dependency.subtask_id=subtask.id
+         WHERE subtask.plan_id=$1 GROUP BY subtask.id ORDER BY subtask.id`,
+        [existingPlan.rows[0].id],
+      );
+      const row = existingPlan.rows[0];
+      const stored: OrchestrationPlanAppendInput = {
+        id: String(row.id), taskId: String(row.task_id), version: Number(row.version),
+        digest: String(row.plan_digest), taskBriefDigest: String(row.task_brief_digest),
+        policyVersion: Number(row.policy_version),
+        configurationRevisionId: String(row.configuration_revision_id),
+        createdBy: String(row.created_by), createdAt: toIso(row.created_at),
+        subtasks: subtasks.rows.map((subtask) => ({
+          id: String(subtask.id), owner: subtask.agent_kind as AgentKind,
+          expectedResultSchemaDigest: String(subtask.expected_result_schema_digest),
+          allowedToolsDigest: String(subtask.allowed_tools_digest),
+          dataScope: String(subtask.data_scope), freshnessSeconds: Number(subtask.freshness_seconds),
+          timeoutSeconds: Number(subtask.timeout_seconds), budgetMicros: Number(subtask.budget_micros),
+          sourceProvenanceDigest: String(subtask.source_provenance_digest),
+          dependencies: (subtask.dependencies as string[]).map(String),
+        })),
+      };
+      if (canonicalDigest(normalizeOrchestrationPlan(stored))
+        === canonicalDigest(normalizeOrchestrationPlan(plan))) return "duplicate";
+      throw new AgenticApplicationError(
+        "ORCHESTRATION_PLAN_CONFLICT",
+        "Task plan version is already bound to different immutable content",
+      );
+    }
+    try {
+      await session.query(
+        `INSERT INTO agentic_orchestration_plan_revisions
+         (id,task_id,version,plan_digest,task_brief_digest,policy_version,configuration_revision_id,created_by,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [plan.id, plan.taskId, plan.version, plan.digest, plan.taskBriefDigest,
+          plan.policyVersion, plan.configurationRevisionId, plan.createdBy, plan.createdAt],
+      );
+      for (const subtask of plan.subtasks) {
+        await session.query(
+          `INSERT INTO agentic_orchestration_plan_subtasks
+           (id,plan_id,agent_kind,expected_result_schema_digest,allowed_tools_digest,data_scope,
+            freshness_seconds,timeout_seconds,budget_micros,source_provenance_digest)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [subtask.id, plan.id, subtask.owner, subtask.expectedResultSchemaDigest,
+            subtask.allowedToolsDigest, subtask.dataScope, subtask.freshnessSeconds,
+            subtask.timeoutSeconds, subtask.budgetMicros, subtask.sourceProvenanceDigest],
+        );
+        for (const dependencyId of subtask.dependencies) {
+          await session.query(
+            `INSERT INTO agentic_orchestration_plan_dependencies(plan_id,subtask_id,dependency_subtask_id)
+             VALUES($1,$2,$3)`, [plan.id, subtask.id, dependencyId],
+          );
+        }
+      }
+    } catch (error) {
+      if (isPostgresUniqueViolation(error)) {
+        throw new AgenticApplicationError(
+          "ORCHESTRATION_PLAN_CONFLICT",
+          "Orchestration plan identity is already bound to immutable content",
+        );
+      }
+      throw error;
+    }
+    return "created";
+  }
+
   async claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]> {
     const result = await session.query<Row>(`WITH claimed AS (SELECT id FROM agentic_intake_files WHERE status='uploaded' OR (status='scanning' AND (processing_claimed_at IS NULL OR processing_claimed_at < $1::timestamptz - interval '10 minutes')) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE agentic_intake_files f SET status='scanning',processing_claimed_at=$1::timestamptz,version=version+1,updated_at=$1::timestamptz FROM claimed WHERE f.id=claimed.id RETURNING f.id`, [now, limit]); return result.rows.map((row) => String(row.id));
   }
@@ -170,6 +764,28 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       [taskId, agentKind],
     );
     return result.rows[0] === undefined ? undefined : mapTask(result.rows[0]);
+  }
+
+  async hasActiveOrchestrationModelAuthority(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    configurationRevisionId: string,
+    at: string,
+  ): Promise<boolean> {
+    const result = agentKind === "ai_ceo"
+      ? await session.query(
+        `SELECT 1 FROM agentic_ai_ceo_execution_authorities
+         WHERE task_id=$1 AND configuration_revision_id=$2 AND expires_at>$3 LIMIT 1`,
+        [taskId, configurationRevisionId, at],
+      )
+      : await session.query(
+        `SELECT 1 FROM agentic_orchestration_execution_descriptors
+         WHERE task_id=$1 AND agent_kind=$2 AND configuration_revision_id=$3
+           AND expires_at>$4 LIMIT 1`,
+        [taskId, agentKind, configurationRevisionId, at],
+      );
+    return result.rowCount === 1;
   }
 
   async listTasks(
@@ -710,14 +1326,15 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       `INSERT INTO agentic_model_runs
        (id,task_id,agent_kind,configuration_revision_id,schema_version,generation_round,
         idempotency_key,requested_model,policy_version,configuration_version,
-        result_schema_version,input_digest,input_cost_micros_per_million,
+        result_schema_version,result_schema_name,result_schema_digest,input_digest,input_cost_micros_per_million,
         output_cost_micros_per_million,max_reserved_cost_micros,status,
         quality_reason_codes,provenance_ids,version,created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'reserved',$16,$17,$18,$19,$20)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'reserved',$18,$19,$20,$21,$22)
        ON CONFLICT(idempotency_key) DO NOTHING`,
       [run.id, run.taskId, run.agentKind, run.configurationRevisionId, run.schemaVersion,
         run.generationRound, run.idempotencyKey, run.requestedModel, run.policyVersion,
-        run.configurationVersion, run.resultSchemaVersion, run.inputDigest,
+        run.configurationVersion, run.resultSchemaVersion, run.resultSchemaName,
+        run.resultSchemaDigest, run.inputDigest,
         run.inputCostMicrosPerMillion, run.outputCostMicrosPerMillion,
         run.maxReservedCostMicros, [...run.qualityReasonCodes], [...run.provenanceIds],
         run.version, run.createdAt, run.updatedAt],
@@ -827,6 +1444,27 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     const result = await session.query<Row>(
       "SELECT * FROM agentic_model_quality_evidence WHERE idempotency_key=$1",
       [idempotencyKey],
+    );
+    return result.rows[0] === undefined ? undefined : mapModelQualityEvidence(result.rows[0]);
+  }
+
+  async findModelQualityEvidenceForResult(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    configurationRevisionId: string,
+    resultDigest: string,
+    evidenceDigest: string,
+  ): Promise<ModelQualityEvidence | undefined> {
+    const result = await session.query<Row>(
+      `SELECT evidence.* FROM agentic_model_quality_evidence evidence
+       JOIN agentic_model_runs run ON run.id=evidence.model_run_id
+         AND run.generation_round=evidence.generation_round
+       WHERE run.task_id=$1 AND run.agent_kind=$2 AND run.configuration_revision_id=$3
+         AND run.output_digest=$4 AND evidence.evidence_digest=$5
+         AND evidence.outcome IN ('accepted','partial')
+       ORDER BY evidence.recorded_at DESC,evidence.id DESC LIMIT 1`,
+      [taskId, agentKind, configurationRevisionId, resultDigest, evidenceDigest],
     );
     return result.rows[0] === undefined ? undefined : mapModelQualityEvidence(result.rows[0]);
   }
@@ -1253,6 +1891,23 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows[0] === undefined ? undefined : mapToolInvocation(result.rows[0]);
   }
 
+  async listCompletedToolInvocationsForSubtask(
+    session: DatabaseSession,
+    taskId: string,
+    agentKind: AgentKind,
+    subtaskId: string,
+    notBefore: string,
+    notAfter: string,
+  ): Promise<readonly ToolInvocationRecord[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_tool_invocations
+       WHERE task_id=$1 AND agent_kind=$2 AND causation_id=$3 AND status='completed'
+         AND created_at >= $4 AND completed_at <= $5 ORDER BY created_at,id`,
+      [taskId, agentKind, subtaskId, notBefore, notAfter],
+    );
+    return result.rows.map(mapToolInvocation);
+  }
+
   async reserveActivityInvocation(
     session: DatabaseSession,
     invocation: ActivityInvocation,
@@ -1594,6 +2249,59 @@ function mapModelConfiguration(row: Row): ModelConfigurationRecord {
   };
 }
 
+function mapExecutionDescriptor(row: Row): {
+  readonly descriptor: ExecutionDescriptor;
+  readonly payload: ExecutionDescriptorPayload;
+} {
+  return {
+    descriptor: mapExecutionDescriptorRow(row),
+    payload: row.payload as ExecutionDescriptorPayload,
+  };
+}
+
+function mapAiCeoExecutionAuthority(row: Row): {
+  readonly authority: AiCeoExecutionAuthority;
+  readonly payload: AiCeoExecutionPayload;
+} {
+  return {
+    authority: {
+      id: String(row.id), version: Number(row.version),
+      purpose: row.purpose as AiCeoExecutionAuthority["purpose"],
+      taskId: String(row.task_id),
+      ...(row.plan_version === null ? {} : { planVersion: Number(row.plan_version) }),
+      configurationRevisionId: String(row.configuration_revision_id),
+      policyVersion: Number(row.policy_version), primaryModel: String(row.primary_model),
+      fallbackModel: String(row.fallback_model),
+      resultSchemaName: String(row.result_schema_name),
+      resultSchemaDigest: String(row.result_schema_digest),
+      authorizedContextDigest: String(row.authorized_context_digest),
+      budgetAuthorizationMicros: safeInteger(row.budget_authorization_micros),
+      timeoutSeconds: Number(row.timeout_seconds), expiresAt: toIso(row.expires_at),
+      payloadDigest: String(row.payload_digest), authorityDigest: String(row.authority_digest),
+      createdAt: toIso(row.created_at),
+    },
+    payload: row.payload as AiCeoExecutionPayload,
+  };
+}
+
+function mapExecutionDescriptorRow(row: Row): ExecutionDescriptor {
+  return {
+    id: String(row.id), version: Number(row.version), taskId: String(row.task_id),
+    planVersion: Number(row.plan_version), subtaskId: String(row.subtask_id),
+    agentKind: row.agent_kind as ExecutionDescriptor["agentKind"],
+    configurationRevisionId: String(row.configuration_revision_id),
+    policyVersion: Number(row.policy_version), primaryModel: String(row.primary_model),
+    fallbackModel: String(row.fallback_model), resultSchemaName: String(row.result_schema_name),
+    resultSchemaDigest: String(row.result_schema_digest),
+    authorizedContextDigest: String(row.authorized_context_digest),
+    allowedToolsDigest: String(row.allowed_tools_digest),
+    budgetAuthorizationMicros: safeInteger(row.budget_authorization_micros),
+    timeoutSeconds: Number(row.timeout_seconds), freshnessSeconds: Number(row.freshness_seconds),
+    expiresAt: toIso(row.expires_at), payloadDigest: String(row.payload_digest),
+    descriptorDigest: String(row.descriptor_digest), createdAt: toIso(row.created_at),
+  };
+}
+
 function mapModelRun(row: Row): ModelRun {
   return {
     id: String(row.id), taskId: String(row.task_id), agentKind: row.agent_kind as ModelRun["agentKind"],
@@ -1602,7 +2310,10 @@ function mapModelRun(row: Row): ModelRun {
     generationRound: Number(row.generation_round) as ModelRun["generationRound"],
     idempotencyKey: String(row.idempotency_key), requestedModel: String(row.requested_model),
     policyVersion: Number(row.policy_version), configurationVersion: Number(row.configuration_version),
-    resultSchemaVersion: Number(row.result_schema_version), inputDigest: String(row.input_digest),
+    resultSchemaVersion: Number(row.result_schema_version),
+    ...(row.result_schema_name === null ? {} : { resultSchemaName: String(row.result_schema_name) }),
+    ...(row.result_schema_digest === null ? {} : { resultSchemaDigest: String(row.result_schema_digest) }),
+    inputDigest: String(row.input_digest),
     inputCostMicrosPerMillion: safeInteger(row.input_cost_micros_per_million),
     outputCostMicrosPerMillion: safeInteger(row.output_cost_micros_per_million),
     maxReservedCostMicros: safeInteger(row.max_reserved_cost_micros),
@@ -1655,6 +2366,8 @@ function sameModelRunReservation(left: ModelRun, right: ModelRun): boolean {
     && left.requestedModel === right.requestedModel && left.policyVersion === right.policyVersion
     && left.configurationVersion === right.configurationVersion
     && left.resultSchemaVersion === right.resultSchemaVersion && left.inputDigest === right.inputDigest
+    && left.resultSchemaName === right.resultSchemaName
+    && left.resultSchemaDigest === right.resultSchemaDigest
     && left.inputCostMicrosPerMillion === right.inputCostMicrosPerMillion
     && left.outputCostMicrosPerMillion === right.outputCostMicrosPerMillion
     && left.maxReservedCostMicros === right.maxReservedCostMicros;
@@ -1687,6 +2400,16 @@ function sameModelQualityEvidence(left: ModelQualityEvidence, right: ModelQualit
     && left.outcome === right.outcome && left.evidenceDigest === right.evidenceDigest
     && sameInstant(left.recordedAt, right.recordedAt) && sameStrings(left.reasonCodes, right.reasonCodes)
     && sameStrings(left.provenanceIds, right.provenanceIds);
+}
+
+function normalizeOrchestrationPlan(plan: OrchestrationPlanAppendInput): Readonly<Record<string, unknown>> {
+  return {
+    ...plan,
+    createdAt: new Date(plan.createdAt).toISOString(),
+    subtasks: [...plan.subtasks]
+      .map((subtask) => ({ ...subtask, dependencies: [...subtask.dependencies].sort() }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
 }
 
 function isTerminalModelRun(run: ModelRun): boolean {
@@ -1868,6 +2591,11 @@ function safeInteger(value: unknown): number {
   const parsed = Number(String(value));
   if (!Number.isSafeInteger(parsed)) throw new RangeError("Database integer exceeds safe range");
   return parsed;
+}
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error
+    && error.code === "23505";
 }
 
 function toIso(value: unknown): string {

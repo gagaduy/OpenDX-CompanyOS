@@ -15,7 +15,9 @@ class Executor:
 
     async def execute(self, command: ModelExecutionCommand) -> ModelExecutionOutcome:
         self.commands.append(command)
-        return ModelExecutionOutcome("completed", "run-1", "b" * 64, ())
+        return ModelExecutionOutcome(
+            "completed", "run-1", "b" * 64, (), accepted_content={"private": "body"}
+        )
 
 
 def test_executes_one_authorized_command_without_routing_or_response_body() -> None:
@@ -35,4 +37,5 @@ def test_executes_one_authorized_command_without_routing_or_response_body() -> N
     assert executor.commands == [command]
     assert result == {"status": "completed", "outputDigest": "b" * 64, "qualityReasonCodes": []}
     assert "task" not in result and "agent" not in result and "content" not in result
+    assert "acceptedContent" not in result and "private" not in result
     assert activity.registered[0].__temporal_activity_definition.name == "execute_model_analysis_v1"

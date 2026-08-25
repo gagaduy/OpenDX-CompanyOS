@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
@@ -173,6 +174,86 @@ class FrozenWorkflowPlan:
 
 
 @dataclass(frozen=True)
+class OrchestrationCollaborationInstruction:
+    requester_subtask_id: str
+    requester_agent_kind: str
+    purpose: str
+    requested_data_classification: str
+
+    def __post_init__(self) -> None:
+        _canonical_uuid(self.requester_subtask_id, "collaboration requester subtask id")
+        if self.requester_agent_kind not in {
+            "catalog", "inventory", "order", "finance", "crm", "support",
+        }:
+            raise ValueError("Invalid collaboration requester kind")
+        _bounded(self.purpose, "collaboration purpose", 500)
+        if self.requested_data_classification not in {
+            "internal", "confidential", "restricted",
+        }:
+            raise ValueError("Invalid collaboration data classification")
+
+
+@dataclass(frozen=True)
+class OrchestrationDispatchNode:
+    subtask_id: str
+    agent_kind: str
+    dependencies: tuple[str, ...]
+    descriptor_id: str
+    descriptor_digest: str
+    collaborations: tuple[OrchestrationCollaborationInstruction, ...] = ()
+
+    def __post_init__(self) -> None:
+        _canonical_uuid(self.subtask_id, "subtask id")
+        _canonical_uuid(self.descriptor_id, "descriptor id")
+        if self.agent_kind not in {
+            "catalog", "inventory", "order", "finance", "crm", "support",
+        }:
+            raise ValueError("Invalid dispatch agent kind")
+        _digest(self.descriptor_digest)
+        if (
+            len(self.dependencies) > 100
+            or len(set(self.dependencies)) != len(self.dependencies)
+            or self.subtask_id in self.dependencies
+        ):
+            raise ValueError("Dispatch dependencies exceed their bounds")
+        for dependency in self.dependencies:
+            _canonical_uuid(dependency, "dependency id")
+        requester_ids = tuple(item.requester_subtask_id for item in self.collaborations)
+        if (len(self.collaborations) > 5
+            or len(set(requester_ids)) != len(requester_ids)
+            or any(item.requester_subtask_id not in self.dependencies
+                   or item.requester_agent_kind == self.agent_kind
+                   for item in self.collaborations)):
+            raise ValueError("Dispatch collaboration bindings are invalid")
+
+
+@dataclass(frozen=True)
+class OrchestrationDispatchPlan:
+    task_id: str
+    plan_version: int
+    plan_digest: str
+    nodes: tuple[OrchestrationDispatchNode, ...]
+
+    def __post_init__(self) -> None:
+        _canonical_uuid(self.task_id, "task id")
+        _digest(self.plan_digest)
+        if self.plan_version < 1 or not self.nodes or len(self.nodes) > 6:
+            raise ValueError("Dispatch plan bounds are invalid")
+        node_ids = {node.subtask_id for node in self.nodes}
+        nodes = {node.subtask_id: node for node in self.nodes}
+        if len(node_ids) != len(self.nodes) or any(
+            dependency not in node_ids
+            for node in self.nodes for dependency in node.dependencies
+        ):
+            raise ValueError("Dispatch graph bindings are invalid")
+        if any(
+            nodes[item.requester_subtask_id].agent_kind != item.requester_agent_kind
+            for node in self.nodes for item in node.collaborations
+        ):
+            raise ValueError("Dispatch collaboration bindings are invalid")
+
+
+@dataclass(frozen=True)
 class StateProjection:
     projection_sequence: int
     state: WorkflowState
@@ -215,6 +296,16 @@ class ActivityOutcome:
 def _bounded(value: str, name: str, maximum: int) -> None:
     if not value or len(value) > maximum:
         raise ValueError(f"{name} is outside its bounds")
+
+
+def _canonical_uuid(value: str, name: str) -> None:
+    _bounded(value, name, 36)
+    try:
+        parsed = UUID(value)
+    except ValueError as error:
+        raise ValueError(f"Invalid {name}") from error
+    if str(parsed) != value:
+        raise ValueError(f"Invalid {name}")
 
 
 def _digest(value: str) -> None:

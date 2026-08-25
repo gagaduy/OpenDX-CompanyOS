@@ -132,6 +132,75 @@ const failActivity = z.object({
 const safeIdentifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,219}$/);
 const modelId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$/);
 const nonnegativeSafeInteger = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const orchestrationSubtask = z.object({
+  id: uuid, owner: agentKind, expectedResultSchemaDigest: digest, allowedToolsDigest: digest,
+  dataScope: z.string().trim().min(1).max(255), freshnessSeconds: safePositive,
+  timeoutSeconds: safePositive, budgetMicros: safePositive, sourceProvenanceDigest: digest,
+  dependencies: z.array(uuid).max(100).refine((values) => new Set(values).size === values.length,
+    "Dependencies must be unique"),
+}).strict();
+const orchestrationModelSettlement = z.object({
+  runId: uuid, expectedVersion: positiveVersion, idempotencyKey: safeIdentifier,
+  status: z.enum(["completed", "partial"]), outputDigest: digest,
+  inputTokens: nonnegativeSafeInteger, outputTokens: nonnegativeSafeInteger,
+  providerRequestIdDigest: digest, latencyMs: nonnegativeSafeInteger,
+  statusCode: reasonCode, qualityOutcome: z.enum(["accepted", "partial"]),
+  qualityReasonCodes: z.array(reasonCode).max(32),
+  provenanceIds: z.array(uuid).min(1).max(128), evidenceDigest: digest,
+}).strict();
+const acceptOrchestrationPlan = z.object({
+  id: uuid, taskId: uuid, version: positiveVersion, digest, taskBriefDigest: digest,
+  planningAuthorityId: uuid, planningAuthorityDigest: digest,
+  policyVersion: positiveVersion, configurationRevisionId: uuid, createdBy: safeIdentifier,
+  createdAt: z.iso.datetime({ offset: true }), subtasks: z.array(orchestrationSubtask).min(1).max(100),
+  modelSettlement: orchestrationModelSettlement,
+}).strict().superRefine((value, context) => {
+  if (new Set(value.subtasks.map(({ id }) => id)).size !== value.subtasks.length) {
+    context.addIssue({ code: "custom", path: ["subtasks"], message: "Subtask identifiers must be unique" });
+  }
+});
+const departmentAgentKind = z.enum(["catalog", "inventory", "order", "finance", "crm", "support"]);
+const acceptedOrchestrationResult = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion, subtaskId: uuid,
+  descriptorId: uuid, descriptorDigest: digest,
+  resultDigest: digest, qualityEvidenceDigest: digest, provenanceDigest: digest,
+  acceptedAt: z.iso.datetime({ offset: true }), result: z.record(z.string(), z.unknown()),
+  modelSettlement: orchestrationModelSettlement,
+}).strict();
+const collaborationRequest = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion,
+  requester: departmentAgentKind, requested: departmentAgentKind,
+  questionDigest: digest, purpose: z.string().trim().min(1).max(500),
+  requestedDataClassification: z.enum(["internal", "confidential", "restricted"]),
+  evidenceDigest: digest, redactedPayloadDigest: digest, policyVersion: positiveVersion,
+  policyDecision: z.literal("ALLOW"), idempotencyKey: safeIdentifier,
+  createdAt: z.iso.datetime({ offset: true }),
+}).strict().refine((value) => value.requester !== value.requested,
+  { path: ["requested"], message: "Requested Department must differ from requester" });
+const synthesisBranch = z.discriminatedUnion("status", [
+  z.object({ subtaskId: uuid, status: z.enum(["usable", "partial"]),
+    resultId: uuid, resultDigest: digest, provenanceIds: z.array(uuid).max(24) }).strict(),
+  z.object({ subtaskId: uuid, status: z.literal("unavailable"),
+    resultDigest: digest, provenanceIds: z.array(uuid).max(24) }).strict(),
+]);
+const synthesisModelSettlement = orchestrationModelSettlement.extend({
+  provenanceIds: z.array(uuid).max(128),
+}).strict();
+const executiveReport = z.object({
+  id: uuid, taskId: uuid, planVersion: positiveVersion, reportDigest: digest,
+  authorityId: uuid, authorityDigest: digest,
+  completionState: z.enum(["complete", "partial", "quality_escalated", "canceled"]),
+  conclusionProvenanceDigest: digest, unavailableBranchesDigest: digest,
+  synthesisBranchesDigest: digest,
+  approvalHistoryDigest: digest,
+  createdAt: z.iso.datetime({ offset: true }), report: z.record(z.string(), z.unknown()),
+  synthesisBranches: z.array(synthesisBranch).max(6),
+  modelSettlement: synthesisModelSettlement,
+}).strict();
+const synthesisContext = z.object({
+  taskId: uuid, planVersion: positiveVersion,
+  branches: z.array(synthesisBranch).max(6),
+}).strict();
 const modelRunProvenanceIds = z.array(uuid).min(1).max(128).refine(
   (values) => new Set(values).size === values.length,
   "Provenance identifiers must be unique",
@@ -155,6 +224,8 @@ const reserveModelRun = z.object({
   generationRound: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   idempotencyKey: safeIdentifier,
   inputDigest: digest,
+  resultSchemaName: safeIdentifier,
+  resultSchemaDigest: digest,
   primaryModel: modelId,
   fallbackModel: modelId,
 }).strict();
@@ -211,9 +282,16 @@ export const parseReserveModelRun = (value: unknown) => parse(reserveModelRun, v
 export const parseStartModelRun = (value: unknown) => parse(startModelRun, value);
 export const parseCompleteModelRun = (value: unknown) => parse(completeModelRun, value);
 export const parseFailModelRun = (value: unknown) => parse(failModelRun, value);
+export const parseAcceptOrchestrationPlan = (value: unknown) => parse(acceptOrchestrationPlan, value);
+export const parseAcceptedOrchestrationResult = (value: unknown) => parse(acceptedOrchestrationResult, value);
+export const parseCollaborationRequest = (value: unknown) => parse(collaborationRequest, value);
+export const parseExecutiveReport = (value: unknown) => parse(executiveReport, value);
+export const parseSynthesisContext = (value: unknown) => parse(synthesisContext, value);
 export const parseFileAction = (value: unknown) => parse(fileAction, value);
 export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
 export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);
+export const parseOrchestrationSettlementKind = (value: unknown) =>
+  parse(z.enum(["plan", "result", "report"]), value);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   try { return schema.parse(value); }

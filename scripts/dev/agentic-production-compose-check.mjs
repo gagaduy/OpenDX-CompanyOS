@@ -43,6 +43,7 @@ export function productionFixtureEnvironment(base = process.env) {
     SEPAY_IPN_SECRET: "test-only-ipn-c56a218d",
     AGENTIC_CONTROL_CLIENT_SECRET: "test-only-control-51e30db8",
     AGENTIC_WORKER_CLIENT_SECRET: "test-only-worker-2c06b537",
+    AGENT_AI_CEO_CLIENT_SECRET: "test-only-agent-ai-ceo-10b84f6d",
     AGENT_CATALOG_CLIENT_SECRET: "test-only-agent-catalog-5fc08e31",
     AGENT_INVENTORY_CLIENT_SECRET: "test-only-agent-inventory-8b962ad4",
     AGENT_ORDER_CLIENT_SECRET: "test-only-agent-order-a71c409e",
@@ -94,19 +95,27 @@ export function validateAgenticProductionConfig({
         === analyticsDatabase.password,
     "Production analytics database must use the isolated analytics reader role and secret",
   );
-  const departmentSecretFields = [
-    "AGENT_CATALOG_CLIENT_SECRET", "AGENT_INVENTORY_CLIENT_SECRET",
-    "AGENT_ORDER_CLIENT_SECRET", "AGENT_FINANCE_CLIENT_SECRET",
-    "AGENT_CRM_CLIENT_SECRET", "AGENT_SUPPORT_CLIENT_SECRET",
+  const executionIdentities = [
+    ["AGENT_AI_CEO_CLIENT_ID", "AGENT_AI_CEO_CLIENT_SECRET", "agent-ai-ceo"],
+    ["AGENT_CATALOG_CLIENT_ID", "AGENT_CATALOG_CLIENT_SECRET", "agent-catalog"],
+    ["AGENT_INVENTORY_CLIENT_ID", "AGENT_INVENTORY_CLIENT_SECRET", "agent-inventory"],
+    ["AGENT_ORDER_CLIENT_ID", "AGENT_ORDER_CLIENT_SECRET", "agent-order"],
+    ["AGENT_FINANCE_CLIENT_ID", "AGENT_FINANCE_CLIENT_SECRET", "agent-finance"],
+    ["AGENT_CRM_CLIENT_ID", "AGENT_CRM_CLIENT_SECRET", "agent-crm"],
+    ["AGENT_SUPPORT_CLIENT_ID", "AGENT_SUPPORT_CLIENT_SECRET", "agent-support"],
   ];
   const reconciler = services["keycloak-reconcile"].environment ?? {};
-  const departmentSecrets = departmentSecretFields.map((field) => {
-    const secret = reconciler[field];
+  const workerEnvironment = services["ai-worker"].environment ?? {};
+  const executionSecrets = executionIdentities.map(([idField, secretField, clientId]) => {
+    const secret = reconciler[secretField];
     invariant(
       typeof secret === "string" && secret.length > 0
-        && services.api.environment?.[field] === secret
-        && services.keycloak.environment?.[field] === secret,
-      `Production ${field} must be required and consistent across API and Keycloak`,
+        && services.keycloak.environment?.[secretField] === secret
+        && workerEnvironment[secretField] === secret
+        && workerEnvironment[idField] === clientId
+        && services.api.environment?.[secretField] === undefined
+        && services["ai-runtime"].environment?.[secretField] === undefined,
+      `Production ${secretField} must be isolated to Keycloak and the worker`,
     );
     return secret;
   });
@@ -121,9 +130,14 @@ export function validateAgenticProductionConfig({
     applicationDatabase.password,
   ].filter(Boolean));
   invariant(
-    new Set(departmentSecrets).size === departmentSecrets.length
-      && departmentSecrets.every((secret) => !forbiddenSharedSecrets.has(secret)),
-    "Production department Agent secrets must be distinct from every Agent and service credential",
+    new Set(executionSecrets).size === executionSecrets.length
+      && executionSecrets.every((secret) => !forbiddenSharedSecrets.has(secret)),
+    "Production AI CEO and Department secrets must be distinct from every Agent and service credential",
+  );
+  invariant(
+    workerEnvironment.ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED !== undefined
+      && workerEnvironment.DEPARTMENT_TOOL_API_BASE_URL === "http://api:4000/v1/internal/agentic",
+    "Production descriptor execution must be explicit and use the private Department Tool API",
   );
 
   const realmMount = services.keycloak.volumes?.find(
@@ -144,10 +158,14 @@ export function validateAgenticProductionConfig({
     "The production Keycloak realm must not contain the lifecycle client",
   );
   for (const clientId of [
-    "agent-catalog", "agent-inventory", "agent-order",
+    "agent-ai-ceo", "agent-catalog", "agent-inventory", "agent-order",
     "agent-finance", "agent-crm", "agent-support",
   ]) {
-    const client = keycloakRealm.clients.find((candidate) => candidate.clientId === clientId);
+    const matches = keycloakRealm.clients.filter(
+      (candidate) => candidate.clientId === clientId,
+    );
+    invariant(matches.length === 1, `Production realm must define exactly one ${clientId}`);
+    const [client] = matches;
     invariant(
       client?.publicClient === false
         && client.serviceAccountsEnabled === true

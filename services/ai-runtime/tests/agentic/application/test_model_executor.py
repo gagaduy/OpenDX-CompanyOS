@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -135,18 +135,51 @@ def test_filters_context_then_reserves_generates_and_completes_with_digests_only
     outcome = asyncio.run(executor(controls, gateway, quality).execute(command()))
 
     assert outcome.status == "completed"
+    assert dict(outcome.accepted_content or {}) == {"status": "complete"}
+    assert outcome.quality_evidence_digest == controls.completed[0].evidence_digest
     assert controls.events == ["reserve", "start", "complete"]
     assert [event for event, _request in gateway.requests] == ["preflight", "generate"]
     completed = controls.completed[0]
     assert completed.output_digest != result().content
     assert completed.evidence_digest != result().content
     assert "content" not in vars(completed)
-    assert controls.reservations[0].input_digest != "a" * 64
+    assert controls.reservations[0].input_digest == "a" * 64
+    assert controls.reservations[0].result_schema_name == "catalog_analysis_v1"
+    assert len(controls.reservations[0].result_schema_digest) == 64
     generated_request = next(
         request for event, request in gateway.requests if event == "generate"
     )
     assert generated_request.input_cost_micros_per_million == 123
     assert generated_request.output_cost_micros_per_million == 456
+
+
+def test_deferred_completion_returns_private_settlement_without_committing_it() -> None:
+    controls = Controls()
+    deferred = replace(command(), defer_terminal_settlement=True)
+
+    outcome = asyncio.run(executor(
+        controls, Gateway([result()]), Quality([QualityDecision("accepted", (), ("prov-1",))])
+    ).execute(deferred))
+
+    assert outcome.status == "completed"
+    assert outcome.terminal_settlement is not None
+    assert outcome.terminal_settlement.output_digest == outcome.output_digest
+    assert controls.completed == []
+    assert controls.events == ["reserve", "start"]
+
+
+def test_uses_authorized_phase_f_provenance_when_report_has_no_material_claims() -> None:
+    controls = Controls()
+    phase_f = ModelExecutionCommand(**{
+        **command().__dict__,
+        "quality_context": SimpleNamespace(authorized_provenance_ids=("prov-1",)),
+    })
+
+    asyncio.run(executor(
+        controls, Gateway([result()]), Quality([QualityDecision("accepted", (), ())])
+    ).execute(phase_f))
+
+    assert controls.completed[0].provenance_ids == ("prov-1",)
 
 
 def test_uses_shared_fallback_once_only_for_retryable_gateway_failure() -> None:
@@ -194,6 +227,7 @@ def test_correction_uses_distinct_reservations_then_escalates_without_fallback()
     outcome = asyncio.run(executor(controls, gateway, quality).execute(command()))
 
     assert outcome.status == "escalated"
+    assert outcome.accepted_content is None
     assert len(controls.reservations) == 3
     assert len({item.idempotency_key for item in controls.reservations}) == 3
     assert [request.model for event, request in gateway.requests if event == "generate"] == [
@@ -227,6 +261,7 @@ def test_zero_correction_limit_settles_partial_without_a_second_model_call() -> 
     ))
 
     assert outcome.status == "partial"
+    assert dict(outcome.accepted_content or {}) == {"status": "complete"}
     assert outcome.quality_reasons == ("SCHEMA_INVALID",)
     assert len(controls.reservations) == 1
     assert [event for event, _request in gateway.requests if event == "generate"] == ["generate"]

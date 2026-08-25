@@ -940,6 +940,8 @@ def test_object_keywords_accept_exact_false_additional_properties(
 
     assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
 
+    assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
+
 
 @pytest.mark.parametrize(
     "schema",
@@ -1007,6 +1009,25 @@ def test_nested_array_object_schema_with_strict_union_is_accepted() -> None:
 
     _generate(handler, request=_unsafe_request(result_schema=schema))
 
+
+def test_property_names_that_match_schema_keywords_are_not_treated_as_schemas() -> None:
+    schema = {
+        "type": "object", "additionalProperties": False,
+        "required": ["dependencies"],
+        "properties": {
+            "dependencies": {
+                "type": "array", "items": {"type": "string"},
+            },
+        },
+    }
+
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return _catalog_response() if request.url.path.endswith("models") else _chat_response()
+
+    _generate(handler, request=_unsafe_request(result_schema=schema))
     assert paths == ["/api/v1/models", "/api/v1/chat/completions"]
 
 

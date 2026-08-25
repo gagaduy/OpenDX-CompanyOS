@@ -19,5 +19,11 @@ describe("AI CEO orchestration rules", () => {
   it("rejects an owner outside the policy-eligible assignments", () => {
     expectCode(() => validateOrchestrationPlan(plan(), new Set(["inventory"])), "POLICY_DENIED");
   });
+  it("rejects duplicate Department ownership", () => {
+    expectCode(() => validateOrchestrationPlan(plan({ subtasks: [
+      { id: "catalog-a", owner: "catalog", dependencies: [], budgetMicros: 100, timeoutSeconds: 30 },
+      { id: "catalog-b", owner: "catalog", dependencies: [], budgetMicros: 100, timeoutSeconds: 30 },
+    ] }), new Set(["catalog"])), "INVALID_PLAN");
+  });
 });
 function expectCode(operation: () => unknown, code: string): void { try { operation(); throw new Error("Expected AgenticDomainError"); } catch (error) { expect(error).toBeInstanceOf(AgenticDomainError); expect((error as AgenticDomainError).code).toBe(code); } }

@@ -70,6 +70,7 @@ Current major dependencies:
 | `httpx` | `services/ai-runtime` | FastAPI test client dependency |
 | `temporalio` `1.30.0` | `services/ai-runtime` | MIT-licensed Temporal workflow, activity, client, worker, replay, and time-skipping SDK |
 | `PyJWT[crypto]` `2.13.0` | `services/ai-runtime` | MIT-licensed JWT validation for internal workload identities; the `crypto` extra uses the reviewed `cryptography` dependency |
+| `pydantic` `2.13.4` | `services/ai-runtime` | MIT-licensed strict validation for Agentic transport and orchestration contracts |
 | `pytest` | `services/ai-runtime` | Python tests |
 
 ## Local Infrastructure Images

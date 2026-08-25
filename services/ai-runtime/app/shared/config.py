@@ -5,11 +5,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field as dataclass_field
+from types import MappingProxyType
 from typing import Literal, Mapping, cast
 from urllib.parse import ParseResult, urlparse
 
 
 Environment = Literal["development", "test", "production"]
+DepartmentAgentKind = Literal["catalog", "inventory", "order", "finance", "crm", "support"]
+DEPARTMENT_AGENT_KINDS: tuple[DepartmentAgentKind, ...] = (
+    "catalog", "inventory", "order", "finance", "crm", "support"
+)
 
 
 class ConfigurationError(ValueError):
@@ -33,6 +38,12 @@ class TemporalSettings:
 
 
 @dataclass(frozen=True)
+class DepartmentIdentitySettings:
+    client_id: str
+    client_secret: str = dataclass_field(repr=False)
+
+
+@dataclass(frozen=True)
 class KeycloakSettings:
     issuer: str
     jwks_url: str
@@ -41,7 +52,9 @@ class KeycloakSettings:
     control_client_id: str
     worker_audience: str
     worker_client_id: str
-    worker_client_secret: str
+    worker_client_secret: str = dataclass_field(repr=False)
+    ai_ceo_identity: DepartmentIdentitySettings | None
+    department_identities: Mapping[DepartmentAgentKind, DepartmentIdentitySettings]
 
 
 @dataclass(frozen=True)
@@ -69,11 +82,13 @@ class RuntimeSettings:
     bind_port: int
     keycloak: KeycloakSettings
     agentic_api_base_url: str
+    department_tool_api_base_url: str
     temporal: TemporalSettings
     activity: ActivitySettings
     openrouter: OpenRouterSettings
     worker_shutdown_grace_seconds: int
     command_retry_interval_seconds: int
+    orchestration_descriptor_execution_enabled: bool
 
     @classmethod
     def from_environment(cls) -> RuntimeSettings:
@@ -109,6 +124,31 @@ class RuntimeSettings:
                 server_name=_required(values, "TEMPORAL_TLS_SERVER_NAME"),
             )
 
+        descriptor_execution_enabled = _boolean(
+            values, "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED", False
+        )
+        ai_ceo_identity = None
+        department_identities: dict[
+            DepartmentAgentKind, DepartmentIdentitySettings
+        ] = {}
+        if descriptor_execution_enabled:
+            ai_ceo_identity = DepartmentIdentitySettings(
+                client_id=_required(values, "AGENT_AI_CEO_CLIENT_ID"),
+                client_secret=_required(values, "AGENT_AI_CEO_CLIENT_SECRET"),
+            )
+            for agent_kind in DEPARTMENT_AGENT_KINDS:
+                prefix = f"AGENT_{agent_kind.upper()}"
+                department_identities[agent_kind] = DepartmentIdentitySettings(
+                    client_id=_required(values, f"{prefix}_CLIENT_ID"),
+                    client_secret=_required(values, f"{prefix}_CLIENT_SECRET"),
+                )
+        worker_client_id = _required(values, "AGENTIC_WORKER_CLIENT_ID")
+        worker_client_secret = _required(values, "AGENTIC_WORKER_CLIENT_SECRET")
+        if ai_ceo_identity is not None:
+            _validate_distinct_agent_credentials(
+                worker_client_id, worker_client_secret, ai_ceo_identity,
+                tuple(department_identities.values()),
+            )
         keycloak = KeycloakSettings(
             issuer=_http_url(values, "KEYCLOAK_ISSUER", environment),
             jwks_url=_http_url(values, "KEYCLOAK_JWKS_URL", environment),
@@ -116,10 +156,10 @@ class RuntimeSettings:
             control_audience=_required(values, "AGENTIC_CONTROL_AUDIENCE"),
             control_client_id=_required(values, "AGENTIC_CONTROL_CLIENT_ID"),
             worker_audience=_required(values, "AGENTIC_WORKER_AUDIENCE"),
-            worker_client_id=_required(values, "AGENTIC_WORKER_CLIENT_ID"),
-            worker_client_secret=_required(
-                values, "AGENTIC_WORKER_CLIENT_SECRET"
-            ),
+            worker_client_id=worker_client_id,
+            worker_client_secret=worker_client_secret,
+            ai_ceo_identity=ai_ceo_identity,
+            department_identities=MappingProxyType(department_identities),
         )
 
         openrouter_execution_enabled = _boolean(
@@ -144,14 +184,22 @@ class RuntimeSettings:
                 "OPENROUTER_BASE_URL must use the official HTTPS OpenRouter API in production"
             )
 
+        agentic_api_base_url = _http_url(
+            values, "AGENTIC_API_BASE_URL", environment
+        ).rstrip("/")
+        department_tool_api_base_url = agentic_api_base_url
+        if descriptor_execution_enabled:
+            department_tool_api_base_url = _http_url(
+                values, "DEPARTMENT_TOOL_API_BASE_URL", environment
+            ).rstrip("/")
+
         return cls(
             environment=environment,
             bind_host=_value(values, "AI_RUNTIME_HOST", "0.0.0.0"),
             bind_port=_positive_integer(values, "AI_RUNTIME_PORT", 8000, maximum=65_535),
             keycloak=keycloak,
-            agentic_api_base_url=_http_url(
-                values, "AGENTIC_API_BASE_URL", environment
-            ).rstrip("/"),
+            agentic_api_base_url=agentic_api_base_url,
+            department_tool_api_base_url=department_tool_api_base_url,
             temporal=TemporalSettings(
                 address=_temporal_address(values),
                 namespace=_value(values, "TEMPORAL_NAMESPACE", "opendx"),
@@ -194,6 +242,22 @@ class RuntimeSettings:
             command_retry_interval_seconds=_positive_integer(
                 values, "COMMAND_RETRY_INTERVAL_SECONDS", 5, maximum=86_400
             ),
+            orchestration_descriptor_execution_enabled=descriptor_execution_enabled,
+        )
+
+
+def _validate_distinct_agent_credentials(
+    worker_client_id: str,
+    worker_client_secret: str,
+    ai_ceo: DepartmentIdentitySettings,
+    departments: tuple[DepartmentIdentitySettings, ...],
+) -> None:
+    identities = (ai_ceo, *departments)
+    client_ids = (worker_client_id, *(identity.client_id for identity in identities))
+    secrets = (worker_client_secret, *(identity.client_secret for identity in identities))
+    if len(set(client_ids)) != len(client_ids) or len(set(secrets)) != len(secrets):
+        raise ConfigurationError(
+            "Worker, AI CEO, and Department client IDs and secrets must be distinct"
         )
 
 

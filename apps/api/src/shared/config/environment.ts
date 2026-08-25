@@ -66,12 +66,6 @@ const apiEnvironmentSchema = z.object({
   KEYCLOAK_TOKEN_URL: z.url(),
   AGENTIC_CONTROL_CLIENT_ID: z.string().trim().min(1),
   AGENTIC_CONTROL_CLIENT_SECRET: z.string().min(1),
-  AGENT_CATALOG_CLIENT_SECRET: z.string().min(1),
-  AGENT_INVENTORY_CLIENT_SECRET: z.string().min(1),
-  AGENT_ORDER_CLIENT_SECRET: z.string().min(1),
-  AGENT_FINANCE_CLIENT_SECRET: z.string().min(1),
-  AGENT_CRM_CLIENT_SECRET: z.string().min(1),
-  AGENT_SUPPORT_CLIENT_SECRET: z.string().min(1),
   AGENTIC_CONTROL_AUDIENCE: z.string().trim().min(1),
   AI_RUNTIME_INTERNAL_URL: z.url(),
   AGENTIC_EXECUTION_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
@@ -130,26 +124,6 @@ const apiEnvironmentSchema = z.object({
   PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: positiveInteger.default(10_000),
   PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: optionalProductionConfirmation,
 }).superRefine((value, context) => {
-  const departmentSecrets = [
-    ["AGENT_CATALOG_CLIENT_SECRET", value.AGENT_CATALOG_CLIENT_SECRET],
-    ["AGENT_INVENTORY_CLIENT_SECRET", value.AGENT_INVENTORY_CLIENT_SECRET],
-    ["AGENT_ORDER_CLIENT_SECRET", value.AGENT_ORDER_CLIENT_SECRET],
-    ["AGENT_FINANCE_CLIENT_SECRET", value.AGENT_FINANCE_CLIENT_SECRET],
-    ["AGENT_CRM_CLIENT_SECRET", value.AGENT_CRM_CLIENT_SECRET],
-    ["AGENT_SUPPORT_CLIENT_SECRET", value.AGENT_SUPPORT_CLIENT_SECRET],
-  ] as const;
-  const seenSecrets = new Map<string, string>([
-    [value.AGENTIC_CONTROL_CLIENT_SECRET, "AGENTIC_CONTROL_CLIENT_SECRET"],
-  ]);
-  for (const [field, secret] of departmentSecrets) {
-    if (seenSecrets.has(secret)) {
-      context.addIssue({ code: "custom", path: [field], message: "must be distinct from every Agentic client secret" });
-    }
-    seenSecrets.set(secret, field);
-    if (value.OPENDX_ENV === "production" && placeholderSecret.test(secret)) {
-      context.addIssue({ code: "custom", path: [field], message: "must not be a placeholder secret" });
-    }
-  }
   const credentialFields = [
     ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
     ["SEPAY_SECRET_KEY", value.SEPAY_SECRET_KEY],
@@ -280,14 +254,6 @@ export interface ApiEnvironment {
     readonly dispatcherBatchSize: number;
     readonly fileLifecycleIntervalMs: number;
     readonly fileLifecycleBatchSize: number;
-    readonly departmentClientSecrets: {
-      readonly catalog: string;
-      readonly inventory: string;
-      readonly order: string;
-      readonly finance: string;
-      readonly crm: string;
-      readonly support: string;
-    };
   };
   readonly minioEndpoint: string;
   readonly minioAccessKey: string;
@@ -380,14 +346,6 @@ export function parseApiEnvironment(
       dispatcherBatchSize: value.WORKFLOW_DISPATCHER_BATCH_SIZE,
       fileLifecycleIntervalMs: value.AGENTIC_FILE_LIFECYCLE_INTERVAL_MS,
       fileLifecycleBatchSize: value.AGENTIC_FILE_LIFECYCLE_BATCH_SIZE,
-      departmentClientSecrets: {
-        catalog: value.AGENT_CATALOG_CLIENT_SECRET,
-        inventory: value.AGENT_INVENTORY_CLIENT_SECRET,
-        order: value.AGENT_ORDER_CLIENT_SECRET,
-        finance: value.AGENT_FINANCE_CLIENT_SECRET,
-        crm: value.AGENT_CRM_CLIENT_SECRET,
-        support: value.AGENT_SUPPORT_CLIENT_SECRET,
-      },
     },
     minioEndpoint: value.MINIO_ENDPOINT,
     minioAccessKey: value.MINIO_ACCESS_KEY,

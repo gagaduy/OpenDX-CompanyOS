@@ -29,6 +29,8 @@ export interface ModelRun {
   readonly policyVersion: number;
   readonly configurationVersion: number;
   readonly resultSchemaVersion: number;
+  readonly resultSchemaName?: string;
+  readonly resultSchemaDigest?: string;
   readonly inputDigest: string;
   readonly outputDigest?: string;
   readonly inputTokens?: number;

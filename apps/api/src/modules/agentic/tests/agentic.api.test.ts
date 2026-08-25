@@ -8,6 +8,7 @@ import type { StaffRole } from "../../../shared/auth/staff-principal";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { AgenticApplicationError } from "../application/services/agentic-application.error";
 import { AgenticController } from "../presentation/controllers/agentic.controller";
+import { AgenticWorkloadController } from "../presentation/controllers/agentic-workload.controller";
 import { agenticErrorMiddleware } from "../presentation/middleware/agentic-error.middleware";
 import { createAgenticRouter } from "../presentation/routes/agentic.routes";
 import { createAgenticWorkloadRouter } from "../presentation/routes/agentic-workload.routes";
@@ -16,6 +17,8 @@ import {
   parseFailActivity, parsePage, parseProjectWorkflowState, parseReserveActivity,
   parseStartWorkflow, parseReserveModelRun, parseStartModelRun,
   parseCompleteModelRun, parseFailModelRun,
+  parseAcceptOrchestrationPlan,
+  parseAcceptedOrchestrationResult, parseCollaborationRequest, parseExecutiveReport,
 } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
@@ -74,7 +77,8 @@ describe("Agentic validators", () => {
     const reserve = {
       taskId: "00000000-0000-4000-8000-000000000001",
       agentKind: "catalog", generationRound: 0, idempotencyKey: "catalog-round-0",
-      inputDigest: "a".repeat(64), primaryModel: "google/gemma-4-26b-a4b-it:free",
+      inputDigest: "a".repeat(64), resultSchemaName: "store_health_catalog_v1",
+      resultSchemaDigest: "f".repeat(64), primaryModel: "google/gemma-4-26b-a4b-it:free",
       fallbackModel: "liquid/lfm-2.5-2.6b:free",
     };
     expect(parseReserveModelRun(reserve)).toEqual(reserve);
@@ -104,7 +108,70 @@ describe("Agentic validators", () => {
       evidenceDigest: "d".repeat(64),
     })).toMatchObject({ errorCode: "PROVIDER_TIMEOUT" });
   });
+
+  it("accepts only bounded digest-only orchestration plans", () => {
+    const modelSettlement = atomicModelSettlement("9".repeat(64));
+    const plan = {
+      id: "00000000-0000-4000-8000-000000000001", taskId: "00000000-0000-4000-8000-000000000002",
+      version: 1, digest: "a".repeat(64), taskBriefDigest: "b".repeat(64), policyVersion: 4,
+      planningAuthorityId: "00000000-0000-4000-8000-000000000005",
+      planningAuthorityDigest: "f".repeat(64),
+      configurationRevisionId: "00000000-0000-4000-8000-000000000003", createdBy: "agent-ai-ceo",
+      createdAt: "2026-08-22T00:00:00.000Z", subtasks: [{
+        id: "00000000-0000-4000-8000-000000000004", owner: "catalog",
+        expectedResultSchemaDigest: "c".repeat(64), allowedToolsDigest: "d".repeat(64),
+        dataScope: "catalog.aggregate", freshnessSeconds: 300, timeoutSeconds: 30,
+        budgetMicros: 100, sourceProvenanceDigest: "e".repeat(64), dependencies: [],
+      }],
+      modelSettlement,
+    };
+    expect(parseAcceptOrchestrationPlan(plan)).toEqual(plan);
+    expect(() => parseAcceptOrchestrationPlan({ ...plan, prompt: "ignore policy" })).toThrow();
+    expect(() => parseAcceptOrchestrationPlan({ ...plan, subtasks: [{ ...plan.subtasks[0], budgetMicros: 0 }] })).toThrow();
+  });
+
+  it("accepts only strict authority-bound orchestration settlements", () => {
+    const result = { id: "00000000-0000-4000-8000-000000000001",
+      taskId: "00000000-0000-4000-8000-000000000002", planVersion: 1,
+      subtaskId: "00000000-0000-4000-8000-000000000003",
+      descriptorId: "00000000-0000-4000-8000-000000000004", descriptorDigest: "d".repeat(64),
+      resultDigest: "a".repeat(64), result: { schemaVersion: 1 },
+      qualityEvidenceDigest: "b".repeat(64), provenanceDigest: "c".repeat(64),
+      acceptedAt: "2026-08-22T00:00:00.000Z",
+      modelSettlement: atomicModelSettlement("a".repeat(64)) };
+    expect(parseAcceptedOrchestrationResult(result)).toEqual(result);
+    expect(() => parseAcceptedOrchestrationResult({ ...result, rawResult: "private" })).toThrow();
+    const collaboration = { id: result.id, taskId: result.taskId, planVersion: 1,
+      requester: "catalog", requested: "inventory", questionDigest: "a".repeat(64),
+      purpose: "store_health_review", requestedDataClassification: "internal",
+      evidenceDigest: "b".repeat(64), redactedPayloadDigest: "c".repeat(64), policyVersion: 4,
+      policyDecision: "ALLOW", idempotencyKey: "collaboration:1", createdAt: result.acceptedAt };
+    expect(parseCollaborationRequest(collaboration)).toEqual(collaboration);
+    expect(() => parseCollaborationRequest({ ...collaboration, requested: "catalog" })).toThrow();
+    const report = { id: result.id, taskId: result.taskId, planVersion: 1,
+      reportDigest: "a".repeat(64), authorityId: result.descriptorId,
+      authorityDigest: "e".repeat(64), completionState: "partial",
+      conclusionProvenanceDigest: "b".repeat(64), unavailableBranchesDigest: "c".repeat(64),
+      synthesisBranchesDigest: "f".repeat(64), synthesisBranches: [],
+      approvalHistoryDigest: "d".repeat(64), createdAt: result.acceptedAt,
+      report: { schemaVersion: 1 }, modelSettlement: {
+        ...atomicModelSettlement("a".repeat(64)), provenanceIds: [],
+      } };
+    expect(parseExecutiveReport(report)).toEqual(report);
+    expect(() => parseExecutiveReport({ ...report, conclusions: [] })).toThrow();
+  });
 });
+
+function atomicModelSettlement(outputDigest: string) {
+  return {
+    runId: "00000000-0000-4000-8000-000000000099", expectedVersion: 2,
+    idempotencyKey: "model:complete", status: "completed" as const, outputDigest,
+    inputTokens: 10, outputTokens: 5, providerRequestIdDigest: "8".repeat(64),
+    latencyMs: 12, statusCode: "MODEL_COMPLETED", qualityOutcome: "accepted" as const,
+    qualityReasonCodes: [], provenanceIds: ["11111111-1111-4111-8111-111111111111"],
+    evidenceDigest: "b".repeat(64),
+  };
+}
 
 describe("Agentic route authorization", () => {
   it("exposes governed file intake with one bounded multipart file and no private storage metadata", async () => {
@@ -238,11 +305,12 @@ describe("Agentic route authorization", () => {
       .post("/workflow-runs/00000000-0000-4000-8000-000000000002/cancel")).status).toBe(200);
   });
 
-  it("mounts every workload route behind the workload authenticator", async () => {
-    const unauthenticated = buildWorkload(false);
+  it("separates worker orchestration routes from AI CEO plan submission", async () => {
+    const unauthenticated = buildWorkload(false, false);
     await unauthenticated.get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan").expect(401);
+    await unauthenticated.post("/orchestration/plans").expect(401);
 
-    const application = buildWorkload(true);
+    const application = buildWorkload(true, true);
     expect((await application.get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan")).body.data.route).toBe("loadPlan");
     expect((await application.post("/workflow-runs/00000000-0000-4000-8000-000000000001/state")).body.data.route).toBe("projectState");
     expect((await application.post("/activity-invocations/reserve")).body.data.route).toBe("reserveActivity");
@@ -252,6 +320,44 @@ describe("Agentic route authorization", () => {
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/start")).body.data.route).toBe("startModelRun");
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/complete")).body.data.route).toBe("completeModelRun");
     expect((await application.post("/model-runs/00000000-0000-4000-8000-000000000001/fail")).body.data.route).toBe("failModelRun");
+    expect((await application.post("/orchestration/plans")).body.data.route).toBe("acceptOrchestrationPlan");
+    expect((await application.get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadTaskBrief");
+    expect((await application.get("/orchestration/dispatch-plans/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadDispatchPlan");
+    expect((await application.get("/orchestration/descriptors/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadExecutionDescriptor");
+    expect((await application.get("/orchestration/ai-ceo-authorities/00000000-0000-4000-8000-000000000001")).body.data.route).toBe("loadAiCeoExecutionAuthority");
+    expect((await application.post("/orchestration/synthesis-contexts")).body.data.route).toBe("loadSynthesisContext");
+    expect((await application.post("/orchestration/results")).body.data.route).toBe("acceptOrchestrationResult");
+    expect((await application.post("/orchestration/collaborations")).body.data.route).toBe("mediateOrchestrationCollaboration");
+    expect((await application.post("/orchestration/reports")).body.data.route).toBe("acceptExecutiveReport");
+
+    await buildWorkload(true, false).post("/orchestration/plans").expect(401);
+    await buildWorkload(false, true)
+      .get("/workflow-runs/00000000-0000-4000-8000-000000000001/plan").expect(401);
+  });
+
+  it("marks private orchestration reads as non-cacheable", async () => {
+    const app = express();
+    app.use(express.json());
+    const orchestration = {
+      loadTaskBrief: vi.fn().mockResolvedValue({ taskId: "task", digest: "a".repeat(64) }),
+      loadAiCeoExecutionAuthority: vi.fn().mockResolvedValue({ authority: { id: "authority" }, payload: {} }),
+    };
+    const controller = new AgenticWorkloadController({} as never, {} as never, orchestration as never);
+    const workerAuth: RequestHandler = (_request, response, next) => {
+      response.locals.workloadPrincipal = { subject: "worker", clientId: "opendx-agentic-worker", workload: "agentic_worker" };
+      next();
+    };
+    app.use(createAgenticWorkloadRouter(controller, workerAuth, workerAuth));
+    app.use(agenticErrorMiddleware, createErrorHandler());
+
+    const response = await request(app)
+      .get("/orchestration/task-briefs/00000000-0000-4000-8000-000000000001").expect(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(JSON.stringify(response.body)).not.toContain("authorization");
+    const authority = await request(app)
+      .get("/orchestration/ai-ceo-authorities/00000000-0000-4000-8000-000000000001")
+      .set("x-opendx-authority-digest", "a".repeat(64)).expect(200);
+    expect(authority.headers["cache-control"]).toBe("no-store");
   });
 });
 
@@ -332,11 +438,11 @@ function preview() {
   return { fileId: FILE_ID, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
 }
 
-function buildWorkload(authenticated: boolean) {
+function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean) {
   const app = express();
   app.use(express.json());
   const authenticate: RequestHandler = (_request, response, next) => {
-    if (!authenticated) {
+    if (!workerAuthenticated) {
       response.status(401).json({ errorCode: "UNAUTHORIZED" });
       return;
     }
@@ -347,6 +453,18 @@ function buildWorkload(authenticated: boolean) {
     };
     next();
   };
+  const authenticateAgent: RequestHandler = (_request, response, next) => {
+    if (!agentAuthenticated) {
+      response.status(401).json({ errorCode: "UNAUTHORIZED" });
+      return;
+    }
+    response.locals.agentServicePrincipal = {
+      subject: "service-account-agent-ai-ceo",
+      clientId: "agent-ai-ceo",
+      agentKind: "ai_ceo",
+    };
+    next();
+  };
   const handler = (route: string): RequestHandler => (_request, response) => response.json({ success: true, data: { route } });
   app.use(createAgenticWorkloadRouter({
     loadPlan: handler("loadPlan"), projectState: handler("projectState"),
@@ -354,7 +472,16 @@ function buildWorkload(authenticated: boolean) {
     failActivity: handler("failActivity"),
     reserveModelRun: handler("reserveModelRun"), startModelRun: handler("startModelRun"),
     completeModelRun: handler("completeModelRun"), failModelRun: handler("failModelRun"),
-  }, authenticate));
+    acceptOrchestrationPlan: handler("acceptOrchestrationPlan"),
+    loadTaskBrief: handler("loadTaskBrief"), loadDispatchPlan: handler("loadDispatchPlan"),
+    loadExecutionDescriptor: handler("loadExecutionDescriptor"),
+    loadOrchestrationSettlement: handler("loadOrchestrationSettlement"),
+    loadAiCeoExecutionAuthority: handler("loadAiCeoExecutionAuthority"),
+    loadSynthesisContext: handler("loadSynthesisContext"),
+    acceptOrchestrationResult: handler("acceptOrchestrationResult"),
+    mediateOrchestrationCollaboration: handler("mediateOrchestrationCollaboration"),
+    acceptExecutiveReport: handler("acceptExecutiveReport"),
+  }, authenticate, authenticateAgent));
   app.use(createErrorHandler());
   return request(app);
 }

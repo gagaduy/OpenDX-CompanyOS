@@ -99,7 +99,7 @@ class AuthoritativeQualityContext:
     authorized_evidence: tuple[AuthoritativeEvidenceFact, ...]
     expected_payload: Mapping[str, object]
     unresolved_conflict_codes: tuple[str, ...]
-    purpose: str
+    purpose: Literal["department_analysis"]
     authorized_agent_scope: tuple[AgentKind, ...]
     data_classification: DataClassification
 
@@ -131,7 +131,7 @@ class AuthoritativeQualityContext:
                 _invalid_context()
             if any(agent_kind not in _AGENT_KINDS for agent_kind in scope):
                 _invalid_context()
-            if type(self.purpose) is not str or not 1 <= len(self.purpose) <= 100:
+            if self.purpose != "department_analysis":
                 _invalid_context()
             if self.data_classification not in _CLASSIFICATIONS:
                 _invalid_context()
@@ -150,10 +150,149 @@ class AuthoritativeQualityContext:
         )
 
 
+@dataclass(frozen=True)
+class DepartmentResultQualityContext:
+    expected_agent_kind: AgentKind
+    correction_round: int
+    authorized_tool_summaries: tuple[Mapping[str, object], ...]
+
+    def __post_init__(self) -> None:
+        if self.expected_agent_kind == "ai_ceo" or not 0 <= self.correction_round <= 2:
+            _invalid_context()
+        frozen = tuple(FrozenJsonMapping(item) for item in self.authorized_tool_summaries)
+        if (
+            not frozen
+            or any(set(item) != {"toolName", "provenanceId", "summaryDigest"} for item in frozen)
+            or len({item["toolName"] for item in frozen}) != len(frozen)
+            or len({item["provenanceId"] for item in frozen}) != len(frozen)
+        ):
+            _invalid_context()
+        object.__setattr__(self, "authorized_tool_summaries", frozen)
+
+
+class DepartmentResultQualityGate:
+    def evaluate(
+        self, raw_result: object, context: DepartmentResultQualityContext
+    ) -> QualityDecision:
+        try:
+            if not isinstance(raw_result, Mapping) or set(raw_result) != {
+                "schemaVersion", "agentKind", "status", "summary", "conclusions",
+                "risks", "recommendedActions", "payload",
+            }:
+                raise ValueError
+            if raw_result["schemaVersion"] != 1 or raw_result["agentKind"] != context.expected_agent_kind:
+                raise ValueError
+            status = raw_result["status"]
+            payload = raw_result["payload"]
+            if (
+                status not in {"complete", "partial"}
+                or not isinstance(payload, Mapping)
+                or set(payload) != {"toolSummaries"}
+            ):
+                raise ValueError
+            summaries = payload["toolSummaries"]
+            if type(summaries) not in (list, tuple):
+                raise ValueError
+            actual = tuple(FrozenJsonMapping(item) for item in summaries if isinstance(item, Mapping))
+            normalize = lambda values: sorted(
+                (dict(item) for item in values), key=lambda item: str(item["toolName"])
+            )
+            if len(actual) != len(summaries) or normalize(actual) != normalize(
+                context.authorized_tool_summaries
+            ):
+                raise ValueError
+            provenance = {str(item["provenanceId"]) for item in actual}
+            material = (*raw_result["conclusions"], *raw_result["risks"],
+                        *raw_result["recommendedActions"])
+            if any(not isinstance(item, Mapping)
+                   or any(identifier not in provenance for identifier in item.get("provenanceIds", ()))
+                   for item in material):
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            return _quality_failure_decision(
+                context.correction_round, ("RESULT_EVIDENCE_BINDING_INVALID",), ()
+            )
+        evidence_ids = tuple(sorted(provenance))
+        if any(
+            sensitive_text_kind(value) is not None
+            or any(pattern.search(value) for pattern in (*_PROMPT_INJECTION, *_PHASE_F_SEMANTICS))
+            for value in _phase_f_narrative_strings(raw_result)
+        ):
+            return QualityDecision("escalate", ("SENSITIVE_OR_UNSAFE_RESULT",), evidence_ids)
+        if status == "partial":
+            return QualityDecision("partial", ("RESULT_STATUS_PARTIAL",), evidence_ids)
+        return QualityDecision("accepted", (), evidence_ids)
+
+
+@dataclass(frozen=True)
+class PlanningQualityContext:
+    eligible_departments: frozenset[AgentKind]
+    authorized_provenance_ids: tuple[str, ...]
+    correction_round: int = 0
+
+    def __post_init__(self) -> None:
+        if (
+            not self.eligible_departments
+            or "ai_ceo" in self.eligible_departments
+            or not self.authorized_provenance_ids
+            or len(set(self.authorized_provenance_ids)) != len(self.authorized_provenance_ids)
+            or not 0 <= self.correction_round <= 2
+        ):
+            _invalid_context()
+
+
+class OrchestrationQualityGate:
+    def evaluate(self, raw_result: object, context: object) -> QualityDecision:
+        if isinstance(context, DepartmentResultQualityContext):
+            return DepartmentResultQualityGate().evaluate(raw_result, context)
+        if isinstance(context, PlanningQualityContext):
+            from app.agentic.application.planning_quality_gate import PlanningQualityGate
+
+            return PlanningQualityGate(
+                context.eligible_departments  # type: ignore[arg-type]
+            ).evaluate(raw_result, context)
+        if isinstance(context, (AuthoritativeQualityContext, ExecutiveSynthesisQualityContext)):
+            return QualityGate().evaluate(raw_result, context)
+        return QualityDecision("escalate", ("QUALITY_CONTEXT_INVALID",), ())
+
+
+@dataclass(frozen=True)
+class ExecutiveSynthesisQualityContext:
+    correction_round: int
+    authorized_result_references: tuple[Mapping[str, object], ...]
+    unavailable_branches: tuple[Mapping[str, object], ...]
+    authorized_provenance_ids: tuple[str, ...]
+    partial_result_ids: tuple[str, ...] = ()
+    purpose: Literal["executive_synthesis"] = "executive_synthesis"
+
+    def __post_init__(self) -> None:
+        accepted = tuple(FrozenJsonMapping(item) for item in self.authorized_result_references)
+        unavailable = tuple(FrozenJsonMapping(item) for item in self.unavailable_branches)
+        provenance = tuple(self.authorized_provenance_ids)
+        partial = tuple(self.partial_result_ids)
+        accepted_result_ids = {item.get("resultId") for item in accepted}
+        if (
+            not 0 <= self.correction_round <= 2
+            or self.purpose != "executive_synthesis"
+            or len(set(provenance)) != len(provenance)
+            or any(type(identifier) is not str for identifier in partial)
+            or len(set(partial)) != len(partial)
+            or not set(partial).issubset(accepted_result_ids)
+        ):
+            _invalid_context()
+        object.__setattr__(self, "authorized_result_references", accepted)
+        object.__setattr__(self, "unavailable_branches", unavailable)
+        object.__setattr__(self, "authorized_provenance_ids", provenance)
+        object.__setattr__(self, "partial_result_ids", partial)
+
+
 class QualityGate:
     def evaluate(
-        self, raw_result: object, context: AuthoritativeQualityContext
+        self, raw_result: object,
+        context: AuthoritativeQualityContext | ExecutiveSynthesisQualityContext,
     ) -> QualityDecision:
+        if isinstance(context, ExecutiveSynthesisQualityContext):
+            return _evaluate_executive_synthesis(raw_result, context)
         try:
             inspection = inspect_model_result(_mutable_json(raw_result))
         except (TypeError, ValueError, RecursionError, OverflowError) as error:
@@ -279,6 +418,66 @@ class QualityGate:
         return QualityDecision("accepted", (), safe_ids)
 
 
+def _evaluate_executive_synthesis(
+    raw_result: object, context: ExecutiveSynthesisQualityContext
+) -> QualityDecision:
+    try:
+        if not isinstance(raw_result, Mapping) or set(raw_result) != {
+            "schemaVersion", "completionState", "summary", "conclusions", "risks",
+            "recommendedActions", "conflicts", "acceptedResultReferences",
+            "unavailableBranches",
+        } or raw_result["schemaVersion"] != 1:
+            raise ValueError
+        completion = raw_result["completionState"]
+        accepted = raw_result["acceptedResultReferences"]
+        unavailable = raw_result["unavailableBranches"]
+        if (
+            completion not in {"complete", "partial", "quality_escalated", "canceled"}
+            or type(accepted) not in (list, tuple)
+            or type(unavailable) not in (list, tuple)
+        ):
+            raise ValueError
+        normalize = lambda values, key: sorted(
+            (dict(item) for item in values if isinstance(item, Mapping)),
+            key=lambda item: str(item[key]),
+        )
+        if (
+            len(accepted) != len(normalize(accepted, "subtaskId"))
+            or len(unavailable) != len(normalize(unavailable, "subtaskId"))
+            or normalize(accepted, "subtaskId")
+               != normalize(context.authorized_result_references, "subtaskId")
+            or normalize(unavailable, "subtaskId")
+               != normalize(context.unavailable_branches, "subtaskId")
+            or (completion == "complete" and (unavailable or context.partial_result_ids))
+        ):
+            raise ValueError
+        material = (*raw_result["conclusions"], *raw_result["risks"],
+                    *raw_result["recommendedActions"], *raw_result["conflicts"])
+        authorized = set(context.authorized_provenance_ids)
+        if any(not isinstance(item, Mapping)
+               or any(identifier not in authorized for identifier in item.get("provenanceIds", ()))
+               for item in material):
+            raise ValueError
+    except (KeyError, TypeError, ValueError):
+        return _quality_failure_decision(
+            context.correction_round, ("EXECUTIVE_REPORT_BINDING_INVALID",), ()
+        )
+    evidence_ids = tuple(sorted({
+        identifier for item in material for identifier in item.get("provenanceIds", ())
+    }))
+    if any(
+        sensitive_text_kind(value) is not None
+        or any(pattern.search(value) for pattern in (*_PROMPT_INJECTION, *_PHASE_F_SEMANTICS))
+        for value in _phase_f_narrative_strings(raw_result)
+    ):
+        return QualityDecision("escalate", ("SENSITIVE_OR_UNSAFE_RESULT",), evidence_ids)
+    if completion in {"quality_escalated", "canceled"}:
+        return QualityDecision("escalate", (completion.upper(),), evidence_ids)
+    if completion == "partial":
+        return QualityDecision("partial", ("RESULT_STATUS_PARTIAL",), evidence_ids)
+    return QualityDecision("accepted", (), evidence_ids)
+
+
 def _quality_failure_decision(
     correction_round: int, reasons: tuple[str, ...], evidence_ids: tuple[str, ...]
 ) -> QualityDecision:
@@ -353,6 +552,19 @@ def _model_strings(value: object) -> Iterable[str]:
             stack.extend(item.values())
         elif type(item) in (tuple, list):
             stack.extend(item)
+
+
+def _phase_f_narrative_strings(value: object) -> Iterable[str]:
+    if not isinstance(value, Mapping):
+        return ()
+    narrative = tuple(
+        value[field]
+        for field in (
+            "summary", "conclusions", "risks", "recommendedActions", "conflicts",
+        )
+        if field in value
+    )
+    return _model_strings(narrative)
 
 
 def _payload_as_mapping(payload: object) -> dict[str, object]:

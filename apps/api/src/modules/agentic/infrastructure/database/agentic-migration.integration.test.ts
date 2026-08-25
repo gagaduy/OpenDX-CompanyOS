@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Pool } from "pg";
+import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { assertIntegrationEnvironment } from "../../../../shared/testing/assert-integration-environment";
 import { runAgenticMigrations } from "./run-agentic-migrations";
@@ -35,6 +36,18 @@ const tables = [
   "agentic_intake_files",
   "agentic_file_previews",
   "agentic_file_approvals",
+  "agentic_orchestration_plan_revisions",
+  "agentic_orchestration_plan_subtasks",
+  "agentic_orchestration_plan_dependencies",
+  "agentic_collaboration_requests",
+  "agentic_accepted_orchestration_results",
+  "agentic_executive_reports",
+  "agentic_orchestration_execution_descriptors",
+  "agentic_orchestration_execution_payloads",
+  "agentic_ai_ceo_execution_authorities",
+  "agentic_ai_ceo_execution_payloads",
+  "agentic_accepted_orchestration_result_payloads",
+  "agentic_executive_report_payloads",
 ] as const;
 
 suite("Agent governance migration", () => {
@@ -56,12 +69,46 @@ suite("Agent governance migration", () => {
     expect(actual.rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     expect((await pool.query("SELECT kind, keycloak_client_id FROM agentic_agents ORDER BY kind")).rowCount).toBe(7);
     expect((await pool.query<{ count: string }>("SELECT count(DISTINCT keycloak_client_id) AS count FROM agentic_agents")).rows[0]?.count).toBe("7");
-    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("10");
+    expect((await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM agentic_migrations")).rows[0]?.count).toBe("16");
 
     await runAgenticMigrations(databaseUrl!, "down", 999_999);
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: null });
+    expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: null });
+    expect((await pool.query("SELECT to_regclass('public.agentic_ai_ceo_execution_authorities') AS name")).rows[0]).toEqual({ name: null });
     await runAgenticMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.agentic_tasks') AS name")).rows[0]).toEqual({ name: "agentic_tasks" });
+    expect((await pool.query("SELECT to_regclass('public.agentic_orchestration_execution_descriptors') AS name")).rows[0]).toEqual({ name: "agentic_orchestration_execution_descriptors" });
+    expect((await pool.query("SELECT to_regclass('public.agentic_ai_ceo_execution_authorities') AS name")).rows[0]).toEqual({ name: "agentic_ai_ceo_execution_authorities" });
+  });
+
+  it("upgrades populated executive reports without inventing a legacy synthesis binding", async () => {
+    await runAgenticMigrations(databaseUrl!, "down", 1);
+    const revisionId = randomUUID(); const taskId = randomUUID();
+    const planId = randomUUID(); const reportId = randomUUID();
+    const at = "2026-08-24T00:00:00.000Z";
+    await pool.query(`INSERT INTO agentic_configuration_revisions
+      (id,state,created_by,payload_digest,version,created_at,updated_at)
+      VALUES($1,'draft','migration-test',$2,1,$3,$3)`, [revisionId, "1".repeat(64), at]);
+    await pool.query(`INSERT INTO agentic_tasks
+      (id,state,created_by,goal,instructions,configuration_revision_id,version,created_at,updated_at)
+      VALUES($1,'draft','migration-test','Legacy report','legacy',$2,1,$3,$3)`,
+    [taskId, revisionId, at]);
+    await pool.query(`INSERT INTO agentic_orchestration_plan_revisions
+      (id,task_id,version,plan_digest,task_brief_digest,policy_version,
+       configuration_revision_id,created_by,created_at)
+      VALUES($1,$2,1,$3,$4,1,$5,'agent-ai-ceo',$6)`,
+    [planId, taskId, "2".repeat(64), "3".repeat(64), revisionId, at]);
+    await pool.query(`INSERT INTO agentic_executive_reports
+      (id,task_id,plan_version,report_digest,completion_state,conclusion_provenance_digest,
+       unavailable_branches_digest,cost_micros,approval_history_digest,created_at)
+      VALUES($1,$2,1,$3,'partial',$4,$5,0,$6,$7)`,
+    [reportId, taskId, "4".repeat(64), "5".repeat(64), "6".repeat(64), "7".repeat(64), at]);
+
+    await runAgenticMigrations(databaseUrl!, "up");
+
+    expect((await pool.query(
+      "SELECT synthesis_branches_digest FROM agentic_executive_reports WHERE id=$1", [reportId],
+    )).rows[0]).toEqual({ synthesis_branches_digest: null });
   });
 
   it("keeps file metadata immutable and binds one approved preview to one draft task", async () => {
@@ -188,6 +235,11 @@ suite("Agent governance migration", () => {
       [runId],
     )).rejects.toMatchObject({ code: "P0001" });
     await expect(pool.query(
+      `UPDATE agentic_model_runs SET result_schema_name='changed_schema_v1',
+       result_schema_digest=$2 WHERE id=$1`,
+      [runId, "9".repeat(64)],
+    )).rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query(
       `UPDATE agentic_model_runs SET status='running',returned_model=requested_model,
        fallback_position=0,started_at=now(),quality_reason_codes=ARRAY['MODEL_RESULT_ACCEPTED'],
        provenance_ids=ARRAY['evidence-1'],version=2,updated_at=now() WHERE id=$1`,
@@ -287,7 +339,7 @@ suite("Agent governance migration", () => {
       [taskId, runId],
     )).rejects.toMatchObject({ code: "23514" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 3);
+    await runAgenticMigrations(databaseUrl!, "down", 9);
     expect((await pool.query("SELECT to_regclass('public.agentic_model_runs') AS name")).rows[0])
       .toEqual({ name: null });
     const pricingColumns = await pool.query(
@@ -806,7 +858,7 @@ suite("Agent governance migration", () => {
       [runId, "8".repeat(64)],
     )).rejects.toMatchObject({ code: "23505" });
 
-    await runAgenticMigrations(databaseUrl!, "down", 8);
+    await runAgenticMigrations(databaseUrl!, "down", 14);
     expect((await pool.query(
       "SELECT count(*)::text AS count FROM agentic_approval_requests WHERE approver_scope='workflow_execution'",
     )).rows[0]?.count).toBe("0");

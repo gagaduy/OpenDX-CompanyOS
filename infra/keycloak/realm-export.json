@@ -121,6 +121,7 @@
     {
       "clientId": "agent-ai-ceo",
       "name": "OpenDX AI CEO",
+      "secret": "${AGENT_AI_CEO_CLIENT_SECRET}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,

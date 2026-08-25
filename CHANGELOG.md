@@ -17,6 +17,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   implementation plan for governed task intake, execution timelines,
   approvals, employee visibility, audit, and provenance-backed reports.
 
+- Close Phase F Slice 1 with isolated AI CEO and six-Department worker
+  identities, opt-in local/production descriptor execution, a private Tool API
+  boundary, server-owned Catalog-to-Inventory collaboration, and a real
+  hard-stopped-worker replay/restart/no-Commerce-mutation acceptance.
+
+- Dispatch accepted Phase F descriptor plans through a replay-safe Temporal DAG
+  path with stable dependency ordering, reference-only activity histories,
+  honest unavailable-branch synthesis, cancellation draining, and unchanged
+  replay support for all five Phase B histories.
+
+- Execute authority-bound AI CEO planning, descriptor-scoped Department work,
+  and provenance-bound executive synthesis through three feature-flagged
+  Temporal activities with distinct Agent identities, private API settlement,
+  replay-stable IDs and timestamps, API-owned Department execution limits,
+  governed retry semantics, atomic model/domain settlement with pre-model
+  recovery reads, exact configuration/input bindings, synthesis replay digests,
+  all-unavailable report support, and digest-only workflow references.
+
+- Expose accepted structured model content only inside the AI runtime process,
+  with strict AI CEO authority DTOs, purpose-scoped Phase F prompts, planning
+  and Department Quality Gates, and API-identical Department result schemas.
+
+- Govern AI CEO planning and synthesis with server-owned schemas, expiring
+  model/budget authority, worker-only private context resolution, exact
+  descriptor/result and Quality Gate bindings, idempotent plan acceptance,
+  and provenance-checked private report settlement.
+
+- Persist purpose-specific AI CEO planning and synthesis authority with bounded
+  private context, immutable accepted-result/report payloads, canonical digest
+  binding, and exact replay convergence.
+
+- Expand the Phase F implementation plan with API-owned AI CEO authority,
+  immutable private accepted-result/report payloads, purpose-specific Quality
+  Gates, and digest-only synthesis and replay boundaries.
+
+- Refine the Phase F design with append-only API-owned AI CEO planning and
+  synthesis authority, process-local governed model results, immutable private
+  accepted-result/report payloads, and reference-only Temporal synthesis.
+
+- Validate descriptor-bound Department execution before side effects, lock the
+  Python result-schema catalog to API digests, materialize only API-owned tool
+  parameter templates, and expose a digest-reference Temporal activity.
+
+- Isolate AI runtime worker, AI CEO, and six Department client credentials,
+  and add bounded redacting transports for worker orchestration control,
+  AI CEO plan submission, and explicit Department Tool Registry invocation.
+
+- Govern Phase F Task Brief, dispatch-plan, execution-descriptor, Department
+  result, mediated collaboration, and executive-report internal contracts with
+  distinct AI CEO submission identity, worker-only private reads, current
+  authority checks, no-store responses, and exact replay settlement.
+
+- Add a frozen server-owned Store Health execution catalog that binds each of
+  the six Department Agents to its strict result schema and exact governed
+  Tool Registry grant digest.
+
+- Persist canonical, append-only Phase F execution descriptors and bounded
+  private payloads with exact replay convergence, plan-subtask authority
+  binding, mutation prevention, and nested secret-field rejection.
+
+- Refine the remaining Phase F implementation plan around API-owned execution
+  descriptors, isolated AI CEO and Department identities, and replay-safe
+  Temporal dispatch before continuing orchestration implementation.
+
+- Define the API-owned immutable execution-descriptor bridge for Phase F,
+  keeping authority and sensitive context out of Temporal while enforcing six
+  distinct Department identities for governed tool dispatch.
+
+- Add strict frozen AI CEO orchestration schemas, policy-eligible DAG
+  validation, and provenance-only executive synthesis with explicit partial
+  disclosure for unavailable Department branches.
+
+- Add the AI CEO orchestration application boundary that verifies the AI CEO
+  workload identity, re-evaluates assignment policy, validates the plan DAG,
+  and persists accepted plan audit and provenance atomically.
+
+- Expose a workload-authenticated, strict digest-only orchestration-plan
+  acceptance contract without echoing task, model, or source content.
+
+- Persist immutable AI CEO orchestration plan revisions, scoped subtasks,
+  dependency edges, digest-only mediated collaboration requests, accepted
+  Department evidence, and provenance-bound executive report summaries with
+  PostgreSQL identity, policy, configuration, and idempotency bindings.
+
 - Define the focused Phase F AI CEO orchestration design for governed direct
   Store Health Review coordination.
 

@@ -9,6 +9,7 @@ dependencies = [
   "fastapi==0.141.1",
   "httpx==0.28.1",
   "PyJWT[crypto]==2.13.0",
+  "pydantic==2.13.4",
   "temporalio==1.30.0",
   "uvicorn==0.52.0",
 ]

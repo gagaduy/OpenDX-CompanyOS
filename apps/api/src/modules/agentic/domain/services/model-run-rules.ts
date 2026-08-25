@@ -137,6 +137,7 @@ export function validateModelRun(run: ModelRun): void {
   ];
   const digests = [
     run.inputDigest,
+    ...(run.resultSchemaDigest === undefined ? [] : [run.resultSchemaDigest]),
     ...(run.outputDigest === undefined ? [] : [run.outputDigest]),
     ...(run.providerRequestIdDigest === undefined ? [] : [run.providerRequestIdDigest]),
   ];
@@ -152,6 +153,8 @@ export function validateModelRun(run: ModelRun): void {
     || !includesLiteral(AGENT_KINDS, run.agentKind)
     || !statusValid
     || !validModel(run.requestedModel)
+    || (run.resultSchemaName === undefined) !== (run.resultSchemaDigest === undefined)
+    || (run.resultSchemaName !== undefined && !SAFE_IDENTIFIER.test(run.resultSchemaName))
     || (run.returnedModel !== undefined && !validModel(run.returnedModel))
     || ![0, 1, 2].includes(run.generationRound)
     || (run.fallbackPosition !== undefined && ![0, 1].includes(run.fallbackPosition))

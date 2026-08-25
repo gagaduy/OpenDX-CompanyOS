@@ -115,6 +115,32 @@ named `file`, held in process memory only while the private object-storage
 adapter records it. The transport hard limit is exactly 2 MiB; no public URL or
 content-download route is exposed.
 
+Phase F Slice 1 adds a deterministic orchestration and topology gate:
+
+```bash
+pnpm test:agentic-phase-f-orchestration
+pnpm check:agentic-phase-f-orchestration
+pnpm check:agentic-production-compose
+pnpm test:py
+```
+
+The gate verifies one AI CEO plus six distinct Department service identities,
+worker-only execution credentials, the private Department Tool API boundary,
+reference-only Temporal history, old/new replay, cancellation draining, six
+fake Department branches, one mediated collaboration, idempotent restart
+convergence after a deliberately hard-stopped test worker process, history
+replay, and zero Commerce mutation. It uses no provider credential.
+
+Descriptor execution remains opt-in. Set
+`ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED=true` only for the worker after
+configuring distinct `AGENT_AI_CEO_*` and six `AGENT_<DEPARTMENT>_*` client
+pairs, `DEPARTMENT_TOOL_API_BASE_URL`, an active governed configuration, and
+the separately documented OpenRouter execution variables. Keep all secrets in
+the ignored `.env` or deployment secret store; never pass the seven execution
+credentials to the API or AI Runtime gateway. With the flag disabled, the
+Phase B workflow/replay path and normal local stack remain available without
+activating Phase F model or Tool Registry effects.
+
 For mandatory external acceptance, set `OPENROUTER_API_KEY=<operator-owned-key>`
 only in ignored root `.env`, export it with `set -a; . ./.env; set +a`, and set
 `OPENROUTER_CONFIGURATION_EXPORT` to the absolute path of a JSON export from

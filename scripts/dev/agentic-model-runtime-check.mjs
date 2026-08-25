@@ -14,7 +14,12 @@ export function validateModelRuntime({ runtime, activity, executor, gateway }) {
     if (!runtime.includes(`"${agent}"`)) throw new Error("Model runtime must retain seven Agents");
   }
   if (!activity.includes('"outputDigest": outcome.output_digest') || /"content"\s*:/.test(activity)) throw new Error("Activity result must remain digest-only");
-  if (!executor.includes("for correction_round in range(3)") || !executor.includes("fallback_position")) throw new Error("Model attempts must remain bounded");
+  if (!/^\s*maximum_correction_rounds: int = 2\s*$/m.test(executor)
+    || !executor.includes("not 0 <= command.maximum_correction_rounds <= 2")
+    || !executor.includes("for correction_round in range(command.maximum_correction_rounds + 1)")
+    || !executor.includes('fallback_position: Literal[0, 1]')) {
+    throw new Error("Model attempts must remain bounded");
+  }
   if (/PRIMARY_MODELS|EMERGENCY_FALLBACK|_APPROVED_MODELS/.test(gateway)) throw new Error("OpenRouter preflight must not retain a hard-coded Agent model map");
   if (!gateway.includes("await self._ensure_catalog(") || !gateway.includes("request.input_cost_micros_per_million") || !gateway.includes("request.output_cost_micros_per_million") || !gateway.includes("Decimal(approved_price).scaleb(-12)") || !gateway.includes("except DecimalException")) throw new Error("OpenRouter preflight must validate configured reservation prices with exact, fail-closed Decimal comparison");
 }

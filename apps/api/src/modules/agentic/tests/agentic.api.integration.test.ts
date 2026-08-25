@@ -12,6 +12,8 @@ import { PostgresTransactionRunner } from "../../../shared/database/transaction"
 import { assertIntegrationEnvironment } from "../../../shared/testing/assert-integration-environment";
 import { createAgenticModule } from "../agentic.module";
 import { runAgenticMigrations } from "../infrastructure/database/run-agentic-migrations";
+import { STORE_HEALTH_EXECUTION_CATALOG } from "../application/orchestration/store-health-execution-catalog";
+import { canonicalDigest } from "../domain/entities/orchestration-execution-descriptor";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const suite = databaseUrl === undefined ? describe.skip : describe;
@@ -22,6 +24,9 @@ suite("Agentic PostgreSQL admin API", () => {
   const transactions = new PostgresTransactionRunner(pool);
   const verifier = {
     async verify(token: string) {
+      if (token === "ai-ceo-token") {
+        return { sub: "service-account-agent-ai-ceo", azp: "agent-ai-ceo", realm_access: { roles: [] } };
+      }
       const [role, subject = role] = token.split(":");
       return { sub: `staff-${subject}`, name: subject, realm_access: { roles: [role] } };
     },
@@ -256,6 +261,346 @@ suite("Agentic PostgreSQL admin API", () => {
     )).rows[0]?.count).toBe("1");
   });
 
+  it("prepares, reads, and settles descriptor-bound orchestration without echoing private bodies", async () => {
+    const at = "2026-08-14T12:00:00.000Z";
+    const revisionId = randomUUID();
+    const taskId = randomUUID();
+    await pool.query(`INSERT INTO agentic_configuration_revisions
+      (id,state,created_by,payload_digest,version,created_at,updated_at)
+      VALUES($1,'draft','governance-admin',$2,4,$3,$3)`, [revisionId, "1".repeat(64), at]);
+    const entries = STORE_HEALTH_EXECUTION_CATALOG.filter(({ agentKind }) =>
+      agentKind === "catalog" || agentKind === "inventory");
+    let ruleOrder = 1;
+    await pool.query(`INSERT INTO agentic_model_configs
+      (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,max_retries,
+       input_cost_micros_per_million,output_cost_micros_per_million)
+      VALUES($1,'ai_ceo','ai-ceo/primary',1000,500,30000,1,1,1)`, [revisionId]);
+    await pool.query(`INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+      VALUES($1,'ai_ceo',1,'ai-ceo/fallback')`, [revisionId]);
+    await pool.query(`INSERT INTO agentic_budget_limits
+      (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+      VALUES($1,'ai_ceo',20000,200000,2000000)`, [revisionId]);
+    for (const entry of entries) {
+      await pool.query(`INSERT INTO agentic_model_configs
+        (revision_id,agent_kind,primary_model,max_input_tokens,max_output_tokens,timeout_ms,max_retries,
+         input_cost_micros_per_million,output_cost_micros_per_million)
+        VALUES($1,$2,$3,1000,500,30000,1,1,1)`, [revisionId, entry.agentKind, `${entry.agentKind}/primary`]);
+      await pool.query(`INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model)
+        VALUES($1,$2,1,$3)`, [revisionId, entry.agentKind, `${entry.agentKind}/fallback`]);
+      await pool.query(`INSERT INTO agentic_budget_limits
+        (revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros)
+        VALUES($1,$2,10000,100000,1000000)`, [revisionId, entry.agentKind]);
+      await pool.query(`INSERT INTO agentic_policies
+        (id,revision_id,rule_order,effect,actor_type,agent_kind,department,resource,action,purpose,
+         data_classification,reason_code)
+        VALUES($1,$2,$3,'ALLOW','agent','ai_ceo',$4,'agentic_orchestration_plan','assign',
+          'store_health_review','internal','ASSIGNMENT_ALLOWED')`,
+      [randomUUID(), revisionId, ruleOrder++, entry.agentKind]);
+      for (const grant of entry.toolGrants) {
+        await pool.query(`INSERT INTO agentic_tools
+          (name,version,input_schema_digest,output_schema_digest,active,execution_cost_micros,maximum_attempts)
+          VALUES($1,1,$2,$3,true,1,2) ON CONFLICT(name,version) DO NOTHING`,
+        [grant.name, "2".repeat(64), "3".repeat(64)]);
+        await pool.query(`INSERT INTO agentic_tool_grants
+          (id,revision_id,agent_kind,tool_name,tool_version,purpose,data_scope,max_invocations)
+          VALUES($1,$2,$3,$4,1,$5,$6,$7)`,
+        [randomUUID(), revisionId, entry.agentKind, grant.name, grant.purpose,
+          grant.dataScope, grant.maximumInvocations]);
+        await pool.query(`INSERT INTO agentic_policies
+          (id,revision_id,rule_order,effect,actor_type,agent_kind,department,resource,action,purpose,
+           data_classification,reason_code)
+          VALUES($1,$2,$3,'ALLOW','agent',$4,$4,$5,'invoke',$6,$7,'TOOL_ALLOWED')`,
+        [randomUUID(), revisionId, ruleOrder++, entry.agentKind, grant.name,
+          grant.purpose, grant.dataClassification]);
+      }
+    }
+    await pool.query(`INSERT INTO agentic_policies
+      (id,revision_id,rule_order,effect,actor_type,agent_kind,department,resource,action,purpose,
+       data_classification,reason_code)
+      VALUES($1,$2,$3,'ALLOW','agent','catalog','inventory','agentic_collaboration','request',
+        'compare_availability','internal','COLLABORATION_ALLOWED')`, [randomUUID(), revisionId, ruleOrder]);
+    ruleOrder += 1;
+    for (const agentKind of ["catalog", "inventory"] as const) {
+      await pool.query(`INSERT INTO agentic_policies
+        (id,revision_id,rule_order,effect,actor_type,agent_kind,department,resource,action,purpose,
+         data_classification,reason_code)
+        VALUES($1,$2,$3,'ALLOW','agent',$4,'ai_ceo','agentic_orchestration_result','share',
+          'executive_synthesis','internal','RESULT_SHARE_ALLOWED')`,
+      [randomUUID(), revisionId, ruleOrder++, agentKind]);
+    }
+    await pool.query(`INSERT INTO agentic_policies
+      (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+       data_classification,reason_code)
+      VALUES($1,$2,$3,'ALLOW','agent','ai_ceo','agentic_executive_report','share',
+        'store_health_review','internal','REPORT_SHARE_ALLOWED')`, [randomUUID(), revisionId, ruleOrder++]);
+    for (const agentKind of ["ai_ceo", "catalog", "inventory"] as const) {
+      await pool.query(`INSERT INTO agentic_policies
+        (id,revision_id,rule_order,effect,actor_type,agent_kind,resource,action,purpose,
+         data_classification,reason_code)
+        VALUES($1,$2,$3,'ALLOW','agent',$4,'model','execute','department_analysis',
+          'internal','MODEL_EXECUTION_ALLOWED')`, [randomUUID(), revisionId, ruleOrder++, agentKind]);
+    }
+    await pool.query(`UPDATE agentic_configuration_revisions SET state='active',decided_by='governance-admin',decided_at=$2
+      WHERE id=$1`, [revisionId, at]);
+    await pool.query(`INSERT INTO agentic_tasks
+      (id,state,created_by,goal,instructions,configuration_revision_id,version,created_at,updated_at)
+      VALUES($1,'ready','operator','Review Store Health','private task instructions',$2,2,$3,$3)`,
+    [taskId, revisionId, at]);
+    await pool.query(`INSERT INTO agentic_provenance_records
+      (id,task_id,source_type,source_id,source_digest,classification,recorded_by,recorded_at)
+      VALUES($1,$2,'staff_intake','operator',$3,'internal','operator',$4)`,
+    [randomUUID(), taskId, "4".repeat(64), at]);
+
+    const worker = { authorization: "Bearer worker-token" };
+    const prepareAtomicSettlement = async (
+      agentKind: "ai_ceo" | "catalog", status: "completed" | "partial",
+      outputDigest: string, evidenceDigest: string, provenanceIds: string[], key: string,
+      inputDigest: string, resultSchemaName: string, resultSchemaDigest: string,
+    ) => {
+      const reservation = await request(app).post("/v1/internal/agentic/model-runs/reserve")
+        .set(worker).send({ taskId, agentKind, generationRound: 0,
+          idempotencyKey: key, inputDigest,
+          resultSchemaName, resultSchemaDigest,
+          primaryModel: agentKind === "ai_ceo" ? "ai-ceo/primary" : `${agentKind}/primary`,
+          fallbackModel: agentKind === "ai_ceo" ? "ai-ceo/fallback" : `${agentKind}/fallback` });
+      if (reservation.status !== 200) {
+        throw new Error(`Atomic model reservation failed: ${JSON.stringify(reservation.body)}`);
+      }
+      await request(app).post(`/v1/internal/agentic/model-runs/${reservation.body.data.runId}/start`)
+        .set(worker).send({ expectedVersion: 1,
+          returnedModel: agentKind === "ai_ceo" ? "ai-ceo/primary" : `${agentKind}/primary`,
+          fallbackPosition: 0 }).expect(200);
+      return { runId: reservation.body.data.runId, expectedVersion: 2,
+        idempotencyKey: `${key}:complete`, status, outputDigest,
+        inputTokens: 10, outputTokens: 10, providerRequestIdDigest: "5".repeat(64),
+        latencyMs: 1, statusCode: status === "completed" ? "MODEL_COMPLETED" : "MODEL_PARTIAL",
+        qualityOutcome: status === "completed" ? "accepted" : "partial",
+        qualityReasonCodes: status === "completed" ? [] : ["PARTIAL_EVIDENCE"],
+        provenanceIds, evidenceDigest };
+    };
+    const briefResponse = await request(app).get(`/v1/internal/agentic/orchestration/task-briefs/${taskId}`)
+      .set(worker).expect("cache-control", "no-store").expect(200);
+    const brief = briefResponse.body.data;
+    expect(brief.eligibleAssignments.map((value: { agentKind: string }) => value.agentKind))
+      .toEqual(["catalog", "inventory"]);
+    const planningAuthorityResponse = await request(app)
+      .get(`/v1/internal/agentic/orchestration/ai-ceo-authorities/${brief.planningAuthority.authorityId}`)
+      .set(worker).set("x-opendx-authority-digest", brief.planningAuthority.authorityDigest)
+      .expect("cache-control", "no-store").expect(200);
+    const subtaskIds = [randomUUID(), randomUUID()];
+    const subtasks = entries.map((entry, index) => {
+      const assignment = brief.eligibleAssignments.find(
+        (value: { agentKind: string }) => value.agentKind === entry.agentKind,
+      );
+      return { id: subtaskIds[index], owner: entry.agentKind,
+      expectedResultSchemaDigest: entry.resultSchemaDigest, allowedToolsDigest: entry.allowedToolsDigest,
+      dataScope: assignment.dataScope, freshnessSeconds: assignment.freshnessSeconds,
+      timeoutSeconds: assignment.timeoutSeconds, budgetMicros: assignment.budgetMicros,
+      sourceProvenanceDigest: canonicalDigest(brief.provenance),
+      dependencies: index === 0 ? [] : [subtaskIds[0]] };
+    });
+    const planModelSettlement = await prepareAtomicSettlement(
+      "ai_ceo", "completed", canonicalDigest({ schemaVersion: 1,
+        subtasks: [{ owner: "catalog", dependencies: [] },
+          { owner: "inventory", dependencies: ["catalog"] }] }), "a".repeat(64),
+      brief.provenance.map((value: { id: string }) => value.id), `planning:${taskId}`,
+      planningAuthorityResponse.body.data.authority.authorizedContextDigest,
+      planningAuthorityResponse.body.data.authority.resultSchemaName,
+      planningAuthorityResponse.body.data.authority.resultSchemaDigest,
+    );
+    const plan = { id: randomUUID(), taskId, version: 1, digest: "5".repeat(64),
+      taskBriefDigest: brief.digest, policyVersion: 4, configurationRevisionId: revisionId,
+      planningAuthorityId: brief.planningAuthority.authorityId,
+      planningAuthorityDigest: brief.planningAuthority.authorityDigest,
+      createdBy: "agent-ai-ceo", createdAt: at, subtasks,
+      modelSettlement: planModelSettlement };
+    await request(app).post("/v1/internal/agentic/orchestration/plans")
+      .set("authorization", "Bearer worker-token").send(plan).expect(401);
+    await request(app).post("/v1/internal/agentic/orchestration/plans")
+      .set("authorization", "Bearer ai-ceo-token").send(plan).expect(202);
+    await request(app).post("/v1/internal/agentic/orchestration/plans")
+      .set("authorization", "Bearer ai-ceo-token").send(plan).expect(202);
+    const runId = randomUUID();
+    await pool.query(`INSERT INTO agentic_workflow_runs
+      (id,task_id,workflow_name,workflow_version,plan_revision,temporal_workflow_id,state,created_at,updated_at)
+      VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,1,$3,'dispatching',$4,$4)`,
+    [runId, taskId, `agentic-task-${taskId}-v1`, at]);
+    const dispatch = await request(app).get(`/v1/internal/agentic/orchestration/dispatch-plans/${runId}`)
+      .set(worker).expect("cache-control", "no-store").expect(200);
+    expect(dispatch.body.data.nodes).toHaveLength(2);
+    const descriptorReference = dispatch.body.data.nodes.find(
+      (node: { agentKind: string }) => node.agentKind === "catalog",
+    ) as { descriptorId: string; descriptorDigest: string; subtaskId: string };
+    const descriptor = await request(app)
+      .get(`/v1/internal/agentic/orchestration/descriptors/${descriptorReference.descriptorId}`)
+      .set(worker).set("x-opendx-descriptor-digest", descriptorReference.descriptorDigest)
+      .expect("cache-control", "no-store").expect(200);
+    expect(descriptor.body.data.descriptor).toMatchObject({ taskId, subtaskId: descriptorReference.subtaskId, agentKind: "catalog" });
+    expect(JSON.stringify(descriptor.body)).not.toContain("client_secret");
+
+    const resultId = randomUUID();
+    const catalogToolEvidence = descriptor.body.data.payload.toolGrants.map(
+      (grant: { name: string }, index: number) => {
+        const provenanceId = randomUUID();
+        const summary = { sequence: index + 1 };
+        return { toolName: grant.name, provenanceId, summary,
+          output: { source: grant.name, sourceVersion: 1,
+            retrievedAt: at, window: null,
+            freshness: { asOf: at, maxAgeSeconds: 60, status: "fresh" },
+            classification: "internal", shareability: "executive_summary",
+            provenanceId, summary } };
+      },
+    );
+    const resultProvenanceIds = catalogToolEvidence
+      .map(({ provenanceId }: { provenanceId: string }) => provenanceId).sort();
+    for (const evidence of catalogToolEvidence) {
+      await pool.query(`INSERT INTO agentic_tool_invocations
+        (id,task_id,agent_kind,tool_name,tool_version,idempotency_key,parameters_digest,status,
+         attempt,safe_result,result_digest,correlation_id,causation_id,version,
+         created_at,updated_at,completed_at)
+        VALUES($1,$2,'catalog',$3,1,$4,$5,'completed',1,$6::jsonb,$7,$10,$8,2,$9,$9,$9)`,
+      [randomUUID(), taskId, evidence.toolName, `result-test:${taskId}:${evidence.toolName}`,
+        "2".repeat(64), JSON.stringify(evidence.output), canonicalDigest(evidence.output),
+        descriptorReference.subtaskId, at, taskId]);
+    }
+    const resultBody = { schemaVersion: 1, agentKind: "catalog", status: "partial",
+      summary: "Catalog reviewed", conclusions: [], risks: [], recommendedActions: [],
+      payload: { toolSummaries: catalogToolEvidence.map(
+        ({ toolName, provenanceId, summary }: { toolName: string; provenanceId: string; summary: unknown }) =>
+          ({ toolName, provenanceId, summaryDigest: canonicalDigest(summary) }),
+      ) } };
+    const qualityEvidenceDigest = "7".repeat(64);
+    for (const evidence of catalogToolEvidence) {
+      await pool.query(`INSERT INTO agentic_provenance_records
+        (id,task_id,source_type,source_id,source_digest,classification,recorded_by,recorded_at)
+        VALUES($1,$2,'tool_result',$3,$4,'internal','agent-catalog',$5)`,
+      [evidence.provenanceId, taskId, evidence.toolName, canonicalDigest(evidence.output), at]);
+    }
+    const resultModelSettlement = await prepareAtomicSettlement(
+      "catalog", "partial", canonicalDigest(resultBody), qualityEvidenceDigest,
+      resultProvenanceIds, `descriptor-result:${descriptorReference.subtaskId}`,
+      canonicalDigest(catalogToolEvidence.map(
+        ({ toolName, output }: { toolName: string; output: unknown }) => ({ toolName, output }),
+      )),
+      descriptor.body.data.descriptor.resultSchemaName,
+      descriptor.body.data.descriptor.resultSchemaDigest,
+    );
+    const result = { id: resultId, taskId, planVersion: 1, subtaskId: descriptorReference.subtaskId,
+      descriptorId: descriptorReference.descriptorId,
+      descriptorDigest: descriptorReference.descriptorDigest,
+      resultDigest: canonicalDigest(resultBody), qualityEvidenceDigest,
+      provenanceDigest: canonicalDigest(resultProvenanceIds), acceptedAt: at, result: resultBody,
+      modelSettlement: resultModelSettlement };
+    await request(app).post("/v1/internal/agentic/orchestration/results").set(worker).send(result).expect(202);
+    await request(app).post("/v1/internal/agentic/orchestration/results").set(worker)
+      .send({ ...result, id: randomUUID() }).expect(202);
+    await request(app).post("/v1/internal/agentic/orchestration/results").set(worker)
+      .send({ ...result, id: randomUUID(), resultDigest: "9".repeat(64) }).expect(400);
+    const collaboration = { id: randomUUID(), taskId, planVersion: 1, requester: "catalog",
+      requested: "inventory", questionDigest: "a".repeat(64), purpose: "compare_availability",
+      requestedDataClassification: "internal", evidenceDigest: "b".repeat(64),
+      redactedPayloadDigest: "c".repeat(64), policyVersion: 4, policyDecision: "ALLOW",
+      idempotencyKey: `collaboration:${taskId}:1`, createdAt: at };
+    await request(app).post("/v1/internal/agentic/orchestration/collaborations")
+      .set(worker).send(collaboration).expect(202);
+    await request(app).post("/v1/internal/agentic/orchestration/collaborations")
+      .set(worker).send({ ...collaboration, id: randomUUID() }).expect(202);
+    const inventoryReference = dispatch.body.data.nodes.find(
+      (node: { agentKind: string }) => node.agentKind === "inventory",
+    ) as { subtaskId: string };
+    await request(app).post("/v1/internal/agentic/orchestration/synthesis-contexts")
+      .set(worker).send({ taskId, planVersion: 1, branches: [
+        { subtaskId: descriptorReference.subtaskId, status: "usable", resultId,
+          resultDigest: result.resultDigest, provenanceIds: resultProvenanceIds },
+        { subtaskId: inventoryReference.subtaskId, status: "unavailable",
+          resultDigest: "8".repeat(64), provenanceIds: [] },
+      ] }).expect(400);
+    const synthesis = await request(app).post("/v1/internal/agentic/orchestration/synthesis-contexts")
+      .set(worker).send({ taskId, planVersion: 1, branches: [
+        { subtaskId: descriptorReference.subtaskId, status: "partial", resultId,
+          resultDigest: result.resultDigest, provenanceIds: resultProvenanceIds },
+        { subtaskId: inventoryReference.subtaskId, status: "unavailable",
+          resultDigest: "8".repeat(64), provenanceIds: [] },
+      ] }).expect("cache-control", "no-store").expect(200);
+    expect(synthesis.body.data.acceptedResults[0].result).toEqual(resultBody);
+    expect(synthesis.body.data.costMicros).toBe(4);
+    expect(synthesis.body.data.approvalHistoryDigest).toBe(canonicalDigest([]));
+    const reportBody = { schemaVersion: 1, completionState: "partial",
+      summary: "Catalog reviewed; inventory unavailable", conclusions: [], risks: [],
+      recommendedActions: [], conflicts: [], acceptedResultReferences: [{
+        resultId, subtaskId: descriptorReference.subtaskId, resultDigest: result.resultDigest,
+      }], unavailableBranches: [{ subtaskId: inventoryReference.subtaskId,
+        reasonCode: "DEPARTMENT_UNAVAILABLE" }] };
+    const synthesisBranches = [
+      { subtaskId: descriptorReference.subtaskId, status: "partial" as const, resultId,
+        resultDigest: result.resultDigest, provenanceIds: resultProvenanceIds },
+      { subtaskId: inventoryReference.subtaskId, status: "unavailable" as const,
+        resultDigest: "8".repeat(64), provenanceIds: [] },
+    ];
+    const synthesisAuthorityResponse = await request(app)
+      .get(`/v1/internal/agentic/orchestration/ai-ceo-authorities/${synthesis.body.data.authority.authorityId}`)
+      .set(worker).set("x-opendx-authority-digest", synthesis.body.data.authority.authorityDigest)
+      .expect(200);
+    const synthesisInputDigest = canonicalDigest({
+      ...synthesisAuthorityResponse.body.data.payload.authorizedContext,
+      branches: [
+        ...synthesis.body.data.acceptedResults,
+        ...synthesis.body.data.unavailableBranches.map((branch: Record<string, unknown>) => ({
+          ...branch, reasonCode: "DEPARTMENT_UNAVAILABLE",
+        })),
+      ],
+    });
+    const reportModelSettlement = await prepareAtomicSettlement(
+      "ai_ceo", "completed", canonicalDigest(reportBody), "e".repeat(64),
+      resultProvenanceIds, `synthesis:${taskId}`,
+      synthesisInputDigest,
+      synthesisAuthorityResponse.body.data.authority.resultSchemaName,
+      synthesisAuthorityResponse.body.data.authority.resultSchemaDigest,
+    );
+    const report = { id: randomUUID(), taskId, planVersion: 1,
+      authorityId: synthesis.body.data.authority.authorityId,
+      authorityDigest: synthesis.body.data.authority.authorityDigest,
+      reportDigest: canonicalDigest(reportBody), completionState: "partial",
+      conclusionProvenanceDigest: canonicalDigest([]),
+      unavailableBranchesDigest: canonicalDigest(reportBody.unavailableBranches),
+      synthesisBranchesDigest: canonicalDigest(synthesisBranches), synthesisBranches,
+      approvalHistoryDigest: synthesis.body.data.approvalHistoryDigest,
+      createdAt: at, report: reportBody, modelSettlement: reportModelSettlement };
+    await request(app).post("/v1/internal/agentic/orchestration/reports").set(worker)
+      .send({ ...report, approvalHistoryDigest: "0".repeat(64) }).expect(400);
+    expect((await pool.query(
+      "SELECT status FROM agentic_model_runs WHERE id=$1", [reportModelSettlement.runId],
+    )).rows[0]).toEqual({ status: "running" });
+    expect((await pool.query(
+      "SELECT count(*)::int AS count FROM agentic_executive_reports WHERE task_id=$1", [taskId],
+    )).rows[0]).toEqual({ count: 0 });
+    await request(app).post("/v1/internal/agentic/orchestration/reports").set(worker).send(report).expect(202);
+    const recoveredReport = await request(app)
+      .get(`/v1/internal/agentic/orchestration/settlements/report/${report.id}`)
+      .set(worker).expect("cache-control", "no-store").expect(200);
+    expect(recoveredReport.body.data).toMatchObject({
+      settled: true, taskId, planVersion: 1,
+      synthesisBranchesDigest: report.synthesisBranchesDigest,
+      reportDigest: report.reportDigest,
+    });
+    await request(app).post("/v1/internal/agentic/orchestration/reports")
+      .set(worker).send({ ...report, id: randomUUID() }).expect(202);
+    await request(app).post("/v1/internal/agentic/orchestration/reports")
+      .set(worker).send({ ...report, id: randomUUID(), costMicros: 1 }).expect(400);
+    await request(app).post("/v1/internal/agentic/orchestration/reports")
+      .set(worker).send({ ...report, id: randomUUID(), reportDigest: "1".repeat(64) }).expect(400);
+    const counts = await pool.query(`SELECT
+      (SELECT count(*)::int FROM agentic_accepted_orchestration_results WHERE task_id=$1) AS results,
+      (SELECT count(*)::int FROM agentic_collaboration_requests WHERE task_id=$1) AS collaborations,
+      (SELECT count(*)::int FROM agentic_executive_reports WHERE task_id=$1) AS reports`, [taskId]);
+    expect(counts.rows[0]).toEqual({ results: 1, collaborations: 1, reports: 1 });
+    const audit = JSON.stringify((await pool.query(
+      "SELECT action,result_digest FROM agentic_audit_events WHERE task_id=$1 ORDER BY action", [taskId],
+    )).rows);
+    expect(audit).not.toContain("private task instructions");
+    expect(audit).not.toContain("Bearer");
+  });
+
   it("authorizes and atomically settles digest-only internal model runs", async () => {
     const worker = { authorization: "Bearer worker-token" };
     const revisionId = randomUUID();
@@ -330,6 +675,8 @@ suite("Agentic PostgreSQL admin API", () => {
       generationRound: 0,
       idempotencyKey: "catalog-round-0",
       inputDigest: "a".repeat(64),
+      resultSchemaName: "store_health_catalog_v1",
+      resultSchemaDigest: "f".repeat(64),
       primaryModel,
       fallbackModel,
     };
@@ -540,6 +887,8 @@ suite("Agentic PostgreSQL admin API", () => {
       generationRound: 0,
       idempotencyKey,
       inputDigest: "a".repeat(64),
+      resultSchemaName: `store_health_${agentKind}_v1`,
+      resultSchemaDigest: "f".repeat(64),
       primaryModel: primaryModels[agentKind],
       fallbackModel,
     });
