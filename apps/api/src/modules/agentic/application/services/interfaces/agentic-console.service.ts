@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
-import type { AgenticTaskIntakeResultDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOverviewDto, AgenticTaskPageDto } from "../../dtos/responses/agentic-console.dto";
 
 export type AgenticConsoleTaskState = "draft" | "ready" | "received" | "planning"
   | "awaiting_plan_approval" | "dispatching" | "department_analysis"
@@ -32,4 +32,5 @@ export interface AgenticConsoleService {
   createTaskIntake(input: CreateTaskIntakeInput, principal: StaffPrincipal): Promise<AgenticTaskIntakeResultDto>;
   listTasks(filter: AgenticTaskFilter, principal: StaffPrincipal): Promise<AgenticTaskPageDto>;
   getOverview(principal: StaffPrincipal): Promise<AgenticTaskOverviewDto>;
+  getFileGovernancePreview(principal: StaffPrincipal): Promise<AgenticFileGovernancePreviewDto>;
 }

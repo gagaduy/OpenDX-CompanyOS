@@ -117,12 +117,15 @@ export class AgenticController {
     response.json(successResponse("Agentic file retrieved", fileResponse(await files(this.files).get(parseUuid(request.params.fileId), principal(response.locals)))));
   });
   readonly previewFile = handle(async (request, response) => {
-    response.json(successResponse("Agentic file preview retrieved", await files(this.files).scanAndPreview(parseUuid(request.params.fileId), principal(response.locals))));
+    const staff = principal(response.locals);
+    const governance = await consoleTasks(this.consoleService).getFileGovernancePreview(staff);
+    const preview = await files(this.files).scanAndPreview(parseUuid(request.params.fileId), staff);
+    response.json(successResponse("Agentic file preview retrieved", { ...preview, governance }));
   });
   readonly approveFile = handle(async (request, response) => {
     const input = parseFileApproval(request.body);
     const task = await files(this.files).approvePreview({ fileId: parseUuid(request.params.fileId), ...input, idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]) }, principal(response.locals));
-    response.status(201).json(successResponse("Agentic file preview approved", task));
+    response.status(201).json(successResponse("Agentic file preview approved", { task, subtasks: [], dependencies: [] }));
   });
   readonly rejectFile = handle(async (request, response) => {
     const result = await files(this.files).reject(parseUuid(request.params.fileId), parseFileAction(request.body).expectedFileVersion, principal(response.locals));

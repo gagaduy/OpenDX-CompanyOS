@@ -15,6 +15,9 @@ const transactions: TransactionRunner = {
 const operator: StaffPrincipal = {
   subject: "operator-a", displayName: "Operator A", roles: ["agentic_operator"],
 };
+const governance: StaffPrincipal = {
+  subject: "governance-a", displayName: "Governance A", roles: ["agentic_governance_admin"],
+};
 
 describe("AgenticConsoleServiceImpl", () => {
   it("creates one AI CEO bootstrap task and exactly replays it", async () => {
@@ -87,6 +90,25 @@ describe("AgenticConsoleServiceImpl", () => {
     expect(repository.listConsoleTasks).not.toHaveBeenCalled();
     expect(repository.getConsoleTaskOverview).not.toHaveBeenCalled();
   });
+
+  it("projects file governance from the active revision and approved execution catalog", async () => {
+    const { service, repository } = harness();
+
+    await expect(service.getFileGovernancePreview(governance)).resolves.toEqual({
+      coordinator: "ai_ceo",
+      eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"],
+      allowedTools: ["catalog.product_completeness"],
+      dataClasses: ["internal"],
+      riskSignals: [],
+      dependencyStatus: "planned_after_task_start",
+      configurationRevisionId: "00000000-0000-4000-8000-000000000099",
+      configurationVersion: 3,
+    });
+    expect(repository.getRevisionChildren).toHaveBeenCalledWith(
+      session,
+      "00000000-0000-4000-8000-000000000099",
+    );
+  });
 });
 
 function harness() {
@@ -110,6 +132,20 @@ function harness() {
     appendAudit: vi.fn(async () => undefined),
     listConsoleTasks: vi.fn(async () => ({ items: [], totalItems: 0 })),
     getConsoleTaskOverview: vi.fn(async () => ({ counts: { running: 0, waiting: 0, failed: 0, completed: 0, canceled: 0 }, pendingApprovals: 0, settledCostMicros: 0 })),
+    findActiveRevision: vi.fn(async () => ({
+      id: "00000000-0000-4000-8000-000000000099", state: "active" as const,
+      createdBy: "governance-b", payloadDigest: "a".repeat(64), version: 3,
+      createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z",
+    })),
+    getRevisionChildren: vi.fn(async () => ({
+      policies: [], modelConfigurations: [], budgetLimits: [],
+      toolGrants: [{
+        id: "grant-1", revisionId: "00000000-0000-4000-8000-000000000099",
+        agentKind: "catalog" as const, toolName: "catalog.product_completeness",
+        toolVersion: 1, purpose: "Review product completeness", dataScope: "aggregate",
+        maxInvocations: 1,
+      }],
+    })),
   };
   let id = 0;
   return {

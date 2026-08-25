@@ -255,8 +255,21 @@ describe("Agentic route authorization", () => {
     expect(metadata.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "previewed" }));
     expect(metadata.body.data).not.toHaveProperty("objectKey");
     const preview = await application.get(`/files/${FILE_ID}/preview`).expect(200);
-    expect(preview.body.data).toEqual(expect.objectContaining({ fileId: FILE_ID, samples: ["name", "Ada"] }));
+    expect(preview.body.data).toEqual(expect.objectContaining({
+      fileId: FILE_ID,
+      fileVersion: 2,
+      samples: ["name", "Ada"],
+      governance: expect.objectContaining({
+        coordinator: "ai_ceo",
+        eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"],
+        allowedTools: ["catalog.product_completeness"],
+        dataClasses: ["internal"],
+        dependencyStatus: "planned_after_task_start",
+      }),
+    }));
     expect(preview.body.data).not.toHaveProperty("content");
+    expect(preview.body.data).not.toHaveProperty("objectKey");
+    expect(preview.body.data.governance).not.toHaveProperty("modelConfigurations");
   });
 
   it("does not leak a private file to another governance administrator", async () => {
@@ -462,7 +475,16 @@ function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavai
     reject: vi.fn(async () => ({ ...fileMetadata(), status: "rejected" as const, version: 3 })),
     delete: vi.fn(async () => ({ ...fileMetadata(), status: "deleted" as const, version: 4 })),
   };
-  const controller = new AgenticController({} as never, {} as never, {} as never, {} as never, {} as never, files);
+  const consoleService = {
+    getFileGovernancePreview: vi.fn(async () => ({
+      coordinator: "ai_ceo" as const,
+      eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"] as const,
+      allowedTools: ["catalog.product_completeness"], dataClasses: ["internal"], riskSignals: [],
+      dependencyStatus: "planned_after_task_start" as const,
+      configurationRevisionId: "00000000-0000-4000-8000-000000000099", configurationVersion: 3,
+    })),
+  };
+  const controller = new AgenticController({} as never, {} as never, {} as never, {} as never, {} as never, files, consoleService as never);
   const workflow = {
     startWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
     getWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
@@ -478,7 +500,7 @@ function fileMetadata() {
 }
 
 function preview() {
-  return { fileId: FILE_ID, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
+  return { fileId: FILE_ID, fileVersion: 2, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, invalidRows: 0, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
 }
 
 function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean) {

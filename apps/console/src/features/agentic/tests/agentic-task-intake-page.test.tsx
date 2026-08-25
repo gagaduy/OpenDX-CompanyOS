@@ -31,5 +31,8 @@ describe("AgenticTaskIntakePage", () => {
 });
 
 function fakeApi(): AgenticApi {
-  return { overview: vi.fn(), listTasks: vi.fn(), createTask: vi.fn() };
+  return {
+    overview: vi.fn(), listTasks: vi.fn(), createTask: vi.fn(),
+    uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(),
+  };
 }

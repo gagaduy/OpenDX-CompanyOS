@@ -21,3 +21,14 @@ export interface AgenticTaskIntakeResultDto {
   readonly disposition: "created" | "replayed";
   readonly detail: AgentTaskDetail;
 }
+
+export interface AgenticFileGovernancePreviewDto {
+  readonly coordinator: "ai_ceo";
+  readonly eligibleDepartments: readonly ("catalog" | "inventory" | "order" | "finance" | "crm" | "support")[];
+  readonly allowedTools: readonly string[];
+  readonly dataClasses: readonly string[];
+  readonly riskSignals: readonly string[];
+  readonly dependencyStatus: "planned_after_task_start";
+  readonly configurationRevisionId: string;
+  readonly configurationVersion: number;
+}

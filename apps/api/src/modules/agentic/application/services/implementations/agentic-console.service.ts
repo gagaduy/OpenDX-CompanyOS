@@ -6,14 +6,15 @@ import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal"
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import { AgenticApplicationError } from "../agentic-application.error";
-import type { AgenticTaskIntakeResultDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
+import type { AgenticFileGovernancePreviewDto, AgenticTaskIntakeResultDto, AgenticTaskOverviewDto } from "../../dtos/responses/agentic-console.dto";
 import type { AgenticConsoleService, AgenticTaskFilter, CreateTaskIntakeInput } from "../interfaces/agentic-console.service";
 
 type ConsoleRepository = Pick<AgenticRepository,
   | "bindStaffIntake" | "findStaffIntakeBinding" | "createTask" | "findTaskById"
   | "replaceTaskGraph" | "listTaskGraph" | "appendProvenance" | "appendAudit"
-  | "listConsoleTasks" | "getConsoleTaskOverview">;
+  | "listConsoleTasks" | "getConsoleTaskOverview" | "findActiveRevision" | "getRevisionChildren">;
 
 export class AgenticConsoleServiceImpl implements AgenticConsoleService {
   constructor(
@@ -94,6 +95,29 @@ export class AgenticConsoleServiceImpl implements AgenticConsoleService {
     }));
   }
 
+  async getFileGovernancePreview(principal: StaffPrincipal): Promise<AgenticFileGovernancePreviewDto> {
+    requireGovernance(principal);
+    return this.transactions.runReadOnly(async (session) => {
+      const revision = await this.repository.findActiveRevision(session);
+      if (revision === undefined) fail("NO_ACTIVE_CONFIGURATION", "An active Agentic configuration is required");
+      const children = await this.repository.getRevisionChildren(session, revision.id);
+      const configured = new Set(children.toolGrants.map(({ agentKind, toolName, toolVersion }) =>
+        `${agentKind}:${toolName}:${toolVersion}`));
+      const grants = STORE_HEALTH_EXECUTION_CATALOG.flatMap((entry) => entry.toolGrants
+        .filter(({ name, version }) => configured.has(`${entry.agentKind}:${name}:${version}`)));
+      return {
+        coordinator: "ai_ceo",
+        eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"],
+        allowedTools: [...new Set(grants.map(({ name }) => name))].sort(),
+        dataClasses: [...new Set(grants.map(({ dataClassification }) => dataClassification))].sort(),
+        riskSignals: [],
+        dependencyStatus: "planned_after_task_start",
+        configurationRevisionId: revision.id,
+        configurationVersion: revision.version,
+      };
+    });
+  }
+
   private async loadDetail(session: DatabaseSession, taskId: string) {
     const task = await this.repository.findTaskById(session, taskId);
     if (task === undefined) fail("TASK_NOT_FOUND", "Task intake replay could not be loaded");
@@ -126,4 +150,5 @@ function taskScope(principal: StaffPrincipal): AgenticConsoleTaskScope {
 function emptyOverview(refreshedAt: string): AgenticTaskOverviewDto { return { counts: { running: 0, waiting: 0, failed: 0, completed: 0, canceled: 0 }, pendingApprovals: 0, settledCostMicros: 0, refreshedAt }; }
 function digest(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
 function requireOperator(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_operator")) fail("FORBIDDEN", "Operator role is required"); }
+function requireGovernance(principal: StaffPrincipal): void { if (!principal.roles.includes("administrator") && !principal.roles.includes("agentic_governance_admin")) fail("FORBIDDEN", "Governance administrator role is required"); }
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }

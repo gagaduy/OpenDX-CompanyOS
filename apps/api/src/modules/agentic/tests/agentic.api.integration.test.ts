@@ -3,6 +3,7 @@
 
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -42,12 +43,25 @@ suite("Agentic PostgreSQL admin API", () => {
     async signalApproval() {}, async signalCancellation() {},
     async describe() { return { status: "running" as const }; },
   };
+  const privateFiles = new Map<string, Buffer>();
   const agentic = createAgenticModule({
     toolAdapters: { resolve: () => { throw new Error("Tool adapters are unavailable in this fixture"); } },
     transactions, staffTokenVerifier: verifier, workloadTokenVerifier: workloadVerifier,
     workflowGateway, generateId: randomUUID, now: () => "2026-08-14T12:00:00.000Z",
     workflowApprovalTtlMs: 3_600_000, dispatcherIntervalMs: 5_000,
     dispatcherBatchSize: 20,
+    agenticFileStorage: {
+      async put(key, content) { privateFiles.set(key, Buffer.from(content)); },
+      async open(key) { return Readable.from(privateFiles.get(key) ?? Buffer.alloc(0)); },
+      async delete(key) { privateFiles.delete(key); },
+    },
+    agenticFileScanner: { async scan() { return { status: "clean" as const }; } },
+    agenticFileParser: {
+      parse(_format, bytes) {
+        const rows = Buffer.from(bytes).toString("utf8").trim().split(/\r?\n/);
+        return { rowCount: rows.length, columnCount: Math.max(...rows.map((row) => row.split(",").length)), samples: rows.slice(0, 10) };
+      },
+    },
   });
   const app = express();
   app.use(correlationIdMiddleware, express.json());
@@ -57,7 +71,9 @@ suite("Agentic PostgreSQL admin API", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
+    privateFiles.clear();
     await pool.query(`TRUNCATE agentic_staff_intake_idempotency,
+      agentic_file_approvals,agentic_file_previews,agentic_intake_files,
       agentic_provenance_records,agentic_audit_events,agentic_revocations,
       agentic_approval_requests,agentic_budget_entries,agentic_budget_limits,agentic_model_fallbacks,
       agentic_model_configs,agentic_tool_grants,agentic_tools,agentic_policies,
@@ -115,6 +131,21 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).get("/v1/admin/agentic/tasks/overview?extra=true").set("authorization", "Bearer agentic_operator").expect(400);
     await request(app).post("/v1/admin/agentic/tasks/intake").set("authorization", "Bearer agentic_operator").send(body).expect(400);
     await request(app).post("/v1/admin/agentic/tasks/intake").set(operator).send({ ...body, departmentDag: [] }).expect(400);
+  });
+
+  it("exactly replays a staff file upload with one record and one audit event", async () => {
+    const authorization = "Bearer agentic_governance_admin:governance-a";
+    const upload = () => request(app).post("/v1/admin/agentic/files")
+      .set("authorization", authorization)
+      .set("idempotency-key", "console:file:integration-1")
+      .attach("file", Buffer.from("sku,stock\nA,1\n"), { filename: "health.csv", contentType: "text/csv" });
+
+    const created = await upload().expect(201);
+    const replayed = await upload().expect(200);
+
+    expect(replayed.body.data.id).toBe(created.body.data.id);
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_intake_files")).rows[0]?.count).toBe("1");
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_audit_events WHERE action='agentic_file.upload'")).rows[0]?.count).toBe("1");
   });
 
   it("records denied access without exposing task instructions", async () => {

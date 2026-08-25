@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the private Digital Workforce file-intake journey with actor-bound upload
+  replay, bounded CSV/TXT preview, active-configuration governance projection,
+  version-and-digest-bound approval, and safe task navigation.
+
 - Add the governed Digital Workforce task workspace with role-scoped overview
   projections, URL-backed task filtering, guided Store Health intake, and
   backend-owned AI CEO bootstrap provenance.

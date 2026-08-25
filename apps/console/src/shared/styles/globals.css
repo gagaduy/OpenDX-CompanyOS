@@ -2108,6 +2108,10 @@ ul {
 .agenticIntakeForm input:not([type="radio"]), .agenticIntakeForm textarea { width: 100%; }
 .agenticIntakeForm textarea { min-height: 140px; resize: vertical; }
 .agenticReviewWindow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.agenticFileIntake, .agenticPreviewPanel { display: grid; gap: 14px; max-width: 760px; padding: 20px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
+.agenticFileIntake > div { display: flex; gap: 10px; }
+.agenticPreviewPanel { max-width: none; background: var(--surface-2); }
+.agenticPreviewPanel pre { overflow-x: auto; white-space: pre-wrap; }
 
 @media (max-width: 700px) {
   .agenticMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }

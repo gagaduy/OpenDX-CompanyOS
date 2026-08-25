@@ -84,7 +84,7 @@ function AgenticRoute({ apiBaseUrl, intake = false }: { readonly apiBaseUrl: str
   const { session } = useAuth();
   const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
-  if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator"]}><AgenticTaskIntakePage api={api} /></StaffRoleRoute>;
+  if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator", "agentic_governance_admin"]}><AgenticTaskIntakePage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
   return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
 }
 

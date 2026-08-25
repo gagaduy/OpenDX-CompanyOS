@@ -34,5 +34,6 @@ function fakeApi(): AgenticApi {
     overview: vi.fn(async () => ({ counts: { running: 1, waiting: 2, failed: 0, completed: 4, canceled: 0 }, pendingApprovals: 1, settledCostMicros: 25, refreshedAt: "2026-08-25T00:00:00.000Z" })),
     listTasks: vi.fn(async () => ({ items: [{ id: "00000000-0000-4000-8000-000000000001", state: "ready" as const, createdBy: "operator-a", goal: "Review Store Health", version: 1, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }], totalItems: 1, refreshedAt: "2026-08-25T00:00:00.000Z" })),
     createTask: vi.fn(),
+    uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(),
   };
 }
