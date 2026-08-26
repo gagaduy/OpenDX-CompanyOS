@@ -115,7 +115,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - [ ] **Step 1: Write failing start and Task Brief tests.**
 
-  For an `advanced_live` task, assert start emits an audit tagged `advanced_live`, the internal Task Brief contains the profile, and the planning authority only accepts the six configured Department kinds. Assert disabled/live-unavailable configuration returns `LIVE_EXECUTION_UNAVAILABLE` before a Temporal start command is dispatched. Assert legacy Store Health tasks retain their versioned historical workflow behavior.
+  For an `advanced_live` task, assert start emits an audit tagged `advanced_live`, the immutable Temporal input and internal Task Brief contain the profile, and the planning authority only accepts the six configured Department kinds. Assert legacy Store Health tasks retain their versioned historical workflow behavior.
 
 - [ ] **Step 2: Run focused tests and confirm failure.**
 
@@ -123,11 +123,11 @@ SPDX-License-Identifier: Apache-2.0
 
 - [ ] **Step 3: Implement profile-aware start and private brief binding.**
 
-  Add a small injected `LiveExecutionAvailability` port to `WorkflowRunServiceImpl`; its concrete composition-root adapter reads only validated runtime capability, never browser claims. Reject `advanced_live` before run creation when unavailable. Extend the private Task Brief with `executionProfile`, and validate it in the AI CEO plan acceptance path. Do not expose raw instructions, prompts, credentials, or provider payloads.
+  Extend the immutable Temporal input and private Task Brief with `executionProfile`, and validate it in the AI CEO plan acceptance path. The API starts a valid ready task normally; the worker is the sole authority that verifies live OpenRouter/identity capability and projects `LIVE_EXECUTION_UNAVAILABLE` when it cannot provide descriptor execution. Do not expose raw instructions, prompts, credentials, or provider payloads.
 
 - [ ] **Step 4: Re-run focused tests.**
 
-  Expected: Advanced either produces a descriptor-bound run or a bounded error; it cannot enter a fake success path.
+  Expected: Advanced starts as a descriptor-bound run; the worker later projects a bounded live-capability failure rather than entering a fake success path.
 
 - [ ] **Step 5: Commit workflow binding.**
 
