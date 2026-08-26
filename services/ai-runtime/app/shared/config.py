@@ -165,6 +165,10 @@ class RuntimeSettings:
         openrouter_execution_enabled = _boolean(
             values, "OPENROUTER_EXECUTION_ENABLED", False
         )
+        if descriptor_execution_enabled and not openrouter_execution_enabled:
+            raise ConfigurationError(
+                "OPENROUTER_EXECUTION_ENABLED must be true when descriptor execution is enabled"
+            )
         openrouter_api_key = _optional(values, "OPENROUTER_API_KEY")
         if openrouter_execution_enabled and openrouter_api_key is None:
             raise ConfigurationError(
