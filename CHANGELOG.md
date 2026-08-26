@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Propose the focused Live Agentic Workforce design for real OpenRouter-backed
+  Advanced task execution, CEO delegation, bounded Department work, truthful
+  runtime failures, and human-approved owning-module mutation proposals.
+
 - Add role- and state-aware `Mark ready` and `Start task` controls to Digital
   Workforce task detail, binding each command to the authoritative optimistic
   version, suppressing duplicate submissions, validating workflow responses,
