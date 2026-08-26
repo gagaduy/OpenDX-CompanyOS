@@ -59,6 +59,20 @@ suite("PostgresqlAgenticRepository", () => {
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
   });
 
+  it("round-trips an Advanced live execution profile", async () => {
+    const at = "2026-08-26T00:00:00.000Z";
+    const taskId = randomUUID();
+
+    await transactions.run((session) => repository.createTask(session, {
+      id: taskId, state: "draft", createdBy: "operator-a",
+      goal: "Coordinate an advanced review", instructions: "Use governed evidence.",
+      executionProfile: "advanced_live", version: 1, createdAt: at, updatedAt: at,
+    }));
+
+    await expect(transactions.runReadOnly((session) => repository.findTask(session, taskId, "operator-a")))
+      .resolves.toMatchObject({ executionProfile: "advanced_live" });
+  });
+
   it("persists one immutable orchestration plan revision per task", async () => {
     const at = "2026-08-22T00:00:00.000Z";
     const taskId = randomUUID();

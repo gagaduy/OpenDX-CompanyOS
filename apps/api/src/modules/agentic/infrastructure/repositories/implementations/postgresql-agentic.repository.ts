@@ -826,11 +826,12 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   async createTask(session: DatabaseSession, task: AgentTask): Promise<void> {
     await session.query(
       `INSERT INTO agentic_tasks
-       (id,state,created_by,goal,instructions,deadline,configuration_revision_id,version,created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       (id,state,created_by,goal,instructions,execution_profile,deadline,configuration_revision_id,version,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [task.id, task.state, task.createdBy, task.goal, task.instructions,
-        task.deadline ?? null, task.configurationRevisionId ?? null, task.version,
-        task.createdAt, task.updatedAt],
+        task.executionProfile ?? "store_health_review", task.deadline ?? null,
+        task.configurationRevisionId ?? null, task.version, task.createdAt,
+        task.updatedAt],
     );
   }
 
@@ -1106,10 +1107,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<boolean> {
     const result = await session.query(
       `UPDATE agentic_tasks
-       SET state=$2,goal=$3,instructions=$4,deadline=$5,
-           configuration_revision_id=$6,version=$7,updated_at=$8
-       WHERE id=$1 AND created_by=$9 AND version=$10`,
-      [task.id, task.state, task.goal, task.instructions, task.deadline ?? null,
+       SET state=$2,goal=$3,instructions=$4,execution_profile=$5,deadline=$6,
+           configuration_revision_id=$7,version=$8,updated_at=$9
+       WHERE id=$1 AND created_by=$10 AND version=$11`,
+      [task.id, task.state, task.goal, task.instructions,
+        task.executionProfile ?? "store_health_review", task.deadline ?? null,
         task.configurationRevisionId ?? null, task.version, task.updatedAt,
         task.createdBy, expectedVersion],
     );
@@ -2444,6 +2446,7 @@ function mapTask(row: Row): AgentTask {
     createdBy: String(row.created_by),
     goal: String(row.goal),
     instructions: String(row.instructions),
+    executionProfile: String(row.execution_profile ?? "store_health_review") as AgentTask["executionProfile"],
     version: Number(row.version),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
