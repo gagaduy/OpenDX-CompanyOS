@@ -59,6 +59,8 @@ export function AgenticCommandCenter({
   const [activeOperations, setActiveOperations] = useState<AgenticTaskOperations | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Initialize with latest active or completed task
   useEffect(() => {
     if (!activeTaskId && latestTask?.id) {
@@ -86,7 +88,7 @@ export function AgenticCommandCenter({
     };
 
     fetchOps();
-    const interval = setInterval(fetchOps, 2500);
+    const interval = setInterval(fetchOps, 2000);
 
     return () => {
       isMounted = false;
@@ -121,6 +123,7 @@ export function AgenticCommandCenter({
 
     try {
       setIsSubmitting(true);
+      setErrorMessage(null);
       const idempotencyKey = crypto.randomUUID();
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -148,6 +151,7 @@ export function AgenticCommandCenter({
       if (onTaskCreated) onTaskCreated();
     } catch (error) {
       console.error("Failed to execute strategic task:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Không thể gửi tác vụ đến hệ thống.");
     } finally {
       setIsSubmitting(false);
     }
@@ -247,28 +251,38 @@ export function AgenticCommandCenter({
       <div className="ccStrategicCard">
         <h1 className="ccStrategicTitle">Giao việc chiến lược</h1>
 
-        <div className="ccInputWrapper">
+        {errorMessage && (
+          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        <form
+          className="ccInputWrapper"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSendStrategicTask();
+          }}
+        >
           <Sparkles className="ccSparkleIcon" size={20} />
           <input
             type="text"
             className="ccMainPromptInput"
             placeholder="Hãy giao việc chiến lược cho AI CEO (ví dụ: Rà soát rủi ro kinh doanh đợt này)..."
             value={prompt}
+            disabled={isSubmitting}
             onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSendStrategicTask();
-            }}
           />
           <button
-            type="button"
+            type="submit"
             className="ccSendButton"
             disabled={isSubmitting || !prompt.trim()}
-            onClick={() => handleSendStrategicTask()}
           >
             <Play size={14} fill="currentColor" />
             <span>{isSubmitting ? "Đang gửi..." : "Gửi"}</span>
           </button>
-        </div>
+        </form>
 
         {/* Quick Action Pills */}
         <div className="ccQuickActionRow">
