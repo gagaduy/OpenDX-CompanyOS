@@ -591,3 +591,295 @@
 .ccAgentSendBtn:hover {
   color: #f59e0b;
 }
+
+/* 6. Executive Report Dashboard Styles */
+.executiveReportCard {
+  background: #11151e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  margin-top: 2rem;
+  color: #f1f5f9;
+}
+
+.executiveReportCard.empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.erHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.erTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.erTitle h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.erBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.erBadge.green {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.erBadge.amber {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.erSummaryBox {
+  background: #161c28;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.erSectionLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.erSummaryText {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #e2e8f0;
+  margin: 0;
+  font-weight: 500;
+}
+
+.erFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.erFilterTab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.erFilterTab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+.erFilterTab.active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.erGridContainer {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .erGridContainer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.erSectionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.erGroupTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.erGroupTitle.conclusions {
+  color: #34d399;
+}
+
+.erGroupTitle.risks {
+  color: #f87171;
+}
+
+.erGroupTitle.actions {
+  color: #38bdf8;
+}
+
+.erCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.erItemCard {
+  background: #141a26;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.95rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.erItemCard:hover {
+  background: #182030;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.erItemCard.risk.high {
+  border-left: 3px solid #ef4444;
+}
+
+.erItemCard.risk.medium {
+  border-left: 3px solid #f59e0b;
+}
+
+.erItemCard.risk.low {
+  border-left: 3px solid #38bdf8;
+}
+
+.erItemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.erItemCode {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: monospace;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.erItemTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #34d399;
+}
+
+.erSeverityBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.erSeverityBadge.high {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.erSeverityBadge.medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.erSeverityBadge.low {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.erApprovalBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.erItemStatement {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.erUnavailableBox {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
+  padding: 0.85rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.erUnavailableTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.erUnavailableList {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.erUnavailableTag {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+}

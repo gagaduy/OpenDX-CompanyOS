@@ -57,21 +57,22 @@ def build_phase_f_prompt(context: PhaseFContext) -> ModelPrompt:
         )
     else:
         instruction = (
-            "You are the AI CEO synthesizing the Executive Report from the supplied resolved branches. "
+            "You are the AI CEO synthesizing the comprehensive Executive Report from the supplied resolved branches. "
             "Return valid JSON adhering strictly to this schema: "
-            '{"schemaVersion": 1, "completionState": "complete", "summary": "Brief executive summary in one short sentence.", '
+            '{"schemaVersion": 1, "completionState": "complete", '
+            '"summary": "Comprehensive, insightful executive summary directly addressing the task objective with specific findings and concrete metrics.", '
             '"acceptedResultReferences": [{"resultId": "...", "subtaskId": "...", "resultDigest": "..."}], '
             '"unavailableBranches": [], '
-            '"conclusions": [{"code": "CODE", "statement": "Short single-sentence conclusion.", "provenanceIds": ["..."]}], '
-            '"risks": [{"code": "CODE", "severity": "low", "statement": "Short single-sentence risk.", "provenanceIds": ["..."]}], '
-            '"recommendedActions": [{"code": "CODE", "statement": "Short single-sentence action.", "provenanceIds": ["..."], "requiresHumanApproval": false}], '
+            '"conclusions": [{"code": "CODE", "statement": "Clear conclusion with specific facts/SKU/metrics from department analyses.", "provenanceIds": ["..."]}], '
+            '"risks": [{"code": "CODE", "severity": "high", "statement": "Specific operational, stock, or order risk with exact details.", "provenanceIds": ["..."]}], '
+            '"recommendedActions": [{"code": "CODE", "statement": "Actionable next step with target owners and items.", "provenanceIds": ["..."], "requiresHumanApproval": false}], '
             '"conflicts": []}. '
             "Rules: "
-            "1. Be extremely concise: exactly 1-2 conclusions, 1-2 risks, and 1-2 recommended actions across departments. Keep every statement to a single short sentence. "
+            "1. Deliver high-value, actionable insights: Directly answer the user's objective using concrete facts, SKU codes, numbers, and evidence from the branch analyses. "
             "2. In acceptedResultReferences, copy every usable branch from the input branches with its exact resultId, subtaskId, and resultDigest verbatim. "
             "3. In unavailableBranches, include an entry for each unavailable branch with its exact subtaskId and reasonCode (leave as [] if none). "
             "4. Set completionState to 'complete' if all branches are usable and there are no unavailable branches or partial branches; otherwise 'partial'. "
-            "5. In conclusions, risks, recommendedActions, and conflicts, provide an uppercase alphanumeric code, a clear statement, and populate provenanceIds selecting only valid provenance IDs from the input branch provenanceIds."
+            "5. In conclusions, risks, recommendedActions, and conflicts, provide an uppercase alphanumeric code (e.g. INV-01, ORD-01), a detailed clear statement, and populate provenanceIds selecting only valid provenance IDs from the input branch provenanceIds."
         )
     serialized = json.dumps(
         _thaw(context.authorized_context), ensure_ascii=False, allow_nan=False,
