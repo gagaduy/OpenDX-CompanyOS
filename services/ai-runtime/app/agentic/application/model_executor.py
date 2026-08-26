@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from collections.abc import Mapping as MappingCollection
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Literal, Mapping, Protocol
+from uuid import UUID
 
 from app.agentic.application.ports import (
     CompleteModelRunRequest,
@@ -112,7 +114,11 @@ class ModelExecutor:
             raise ModelExecutionError("MODEL_FALLBACK_POLICY_INVALID")
         try:
             context = self._context_filter(command.agent_kind, command.context)
-            prompt = self._prompt_builder(command.agent_kind, context)
+            tool_summaries = getattr(command.quality_context, "authorized_tool_summaries", None)
+            try:
+                prompt = self._prompt_builder(command.agent_kind, context, tool_summaries=tool_summaries)
+            except TypeError:
+                prompt = self._prompt_builder(command.agent_kind, context)
         except Exception as error:
             raise ModelExecutionError("MODEL_CONTEXT_INVALID") from error
 
@@ -158,6 +164,7 @@ class ModelExecutor:
                 decision = self._quality_gate.evaluate(
                     result.content, _with_correction_round(command.quality_context, correction_round)
                 )
+                logging.getLogger("opendx.agentic").info("Model result for %s round %d: content=%r decision=%r", command.agent_kind, correction_round, result.content, decision)
                 evidence_digest = _digest({
                     "outcome": decision.outcome, "reasons": decision.reasons,
                     "evidenceIds": decision.evidence_ids,
@@ -314,19 +321,31 @@ def _settlement_provenance_ids(
     decision: QualityDecision, command: ModelExecutionCommand,
 ) -> tuple[str, ...]:
     if decision.evidence_ids:
-        return decision.evidence_ids
+        return tuple(str(i) for i in decision.evidence_ids)[:128]
     authorized_ids = getattr(command.quality_context, "authorized_provenance_ids", ())
     if (
         type(authorized_ids) in (tuple, list)
         and authorized_ids
-        and all(type(identifier) is str for identifier in authorized_ids)
+        and all(isinstance(identifier, (str, UUID)) for identifier in authorized_ids)
     ):
-        return tuple(authorized_ids)
-    return tuple(
-        item.provenance_id
+        return tuple(str(identifier) for identifier in authorized_ids)[:128]
+    tool_summaries = getattr(command.quality_context, "authorized_tool_summaries", ())
+    if tool_summaries:
+        extracted = tuple(
+            str(item["provenanceId"])
+            for item in tool_summaries
+            if isinstance(item, Mapping) and "provenanceId" in item
+        )
+        if extracted:
+            return extracted[:128]
+    evidence_ids = tuple(
+        str(item.provenance_id)
         for item in getattr(command.quality_context, "authorized_evidence", ())
-        if type(getattr(item, "provenance_id", None)) is str
+        if getattr(item, "provenance_id", None) is not None
     )
+    if evidence_ids:
+        return evidence_ids[:128]
+    return ()
 
 
 def _digest(value: object) -> str:

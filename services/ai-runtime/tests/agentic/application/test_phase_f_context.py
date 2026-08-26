@@ -20,6 +20,8 @@ def test_builds_purpose_scoped_planning_context_and_prompt() -> None:
 
     assert context.purpose == "orchestration_planning"
     assert "owner/dependency" in prompt.trusted_messages[1].content
+    assert "independent" in prompt.trusted_messages[1].content
+    assert "empty dependencies" in prompt.trusted_messages[1].content
     assert prompt.untrusted_message.content.startswith("UNTRUSTED_PHASE_F_CONTEXT\n")
     assert "primaryModel" not in prompt.untrusted_message.content
 

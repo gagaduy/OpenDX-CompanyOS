@@ -380,9 +380,11 @@ export class OrchestrationServiceImpl implements OrchestrationService {
   async acceptExecutiveReport(input: ExecutiveReportSubmission, principal: WorkloadPrincipal) {
     requireWorker(principal);
     return this.transactions.run(async (session) => {
+      const expectedModelStatus = input.completionState === "complete" ? "completed" : "partial";
+      const expectedModelQuality = input.completionState === "complete" ? "accepted" : "partial";
       if (input.modelSettlement.outputDigest !== input.reportDigest
-        || input.modelSettlement.status !== "completed"
-        || input.modelSettlement.qualityOutcome !== "accepted") {
+        || input.modelSettlement.status !== expectedModelStatus
+        || input.modelSettlement.qualityOutcome !== expectedModelQuality) {
         fail("MODEL_RESULT_BINDING_INVALID", "Report does not match its atomic model settlement");
       }
       if (!await this.repository.orchestrationPlanExists(session, input.taskId, input.planVersion)) {

@@ -181,7 +181,7 @@ AI_CEO_RESULT_SCHEMAS: Mapping[str, Mapping[str, object]] = {
         "subtasks": {"type": "array", "minItems": 1, "maxItems": 6,
                      "items": _strict({
                          "owner": {"type": "string", "enum": _DEPARTMENTS},
-                         "dependencies": {"type": "array", "maxItems": 5,
+                         "dependencies": {"type": "array", "maxItems": 0,
                                           "items": {"type": "string", "enum": _DEPARTMENTS}},
                      })},
     }),

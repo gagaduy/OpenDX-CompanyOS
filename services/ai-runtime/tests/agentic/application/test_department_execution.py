@@ -414,6 +414,40 @@ def test_ai_ceo_planning_uses_authority_and_submits_deterministically_enriched_p
     assert "goal" not in reference.model_dump(mode="json")
 
 
+def test_ai_ceo_planning_settles_exhausted_deferred_result_before_rejecting_it() -> None:
+    brief = task_brief()
+    controls = OrchestrationControl(
+        brief=brief,
+        authority=ai_ceo_authority(
+            "orchestration_planning",
+            {"taskBrief": {key: value for key, value in brief.items()
+                            if key != "planningAuthority"}},
+        ),
+    )
+    models = AiCeoModels({})
+    settlement = terminal_settlement("a" * 64, "e" * 64)
+
+    async def partial(_command: object) -> object:
+        return type("Outcome", (), {
+            "status": "partial", "output_digest": "a" * 64,
+            "accepted_content": {}, "terminal_settlement": settlement,
+        })()
+
+    models.execute = partial  # type: ignore[method-assign]
+    service = AiCeoPlanningService(
+        controls=controls, models=models, submissions=Submissions(),
+        ai_ceo_client_id="agent-ai-ceo",
+        now=lambda: datetime(2026, 8, 22, 0, 1, tzinfo=UTC),
+    )
+
+    with pytest.raises(DepartmentExecutionError, match="AI_CEO_PLANNING_UNAVAILABLE"):
+        asyncio.run(service.plan(PlanningExecutionInput(
+            task_id=UUID(str(brief["taskId"])), idempotency_key="planning:partial",
+        )))
+
+    assert controls.model_settlements == [settlement]
+
+
 def test_planning_retry_returns_committed_plan_before_loading_private_authority() -> None:
     task_id = UUID("00000000-0000-4000-8000-000000000001")
     controls = OrchestrationControl(authority={}, settlement={
@@ -585,6 +619,11 @@ class OrchestrationControl:
         self.synthesis = synthesis
         self.settlement = settlement or {"settled": False}
         self.reports: list[dict[str, object]] = []
+        self.model_settlements: list[CompleteModelRunRequest] = []
+
+    async def complete_model_run(self, request: CompleteModelRunRequest) -> object:
+        self.model_settlements.append(request)
+        return object()
 
     async def load_orchestration_settlement(
         self, _kind: str, _settlement_id: str

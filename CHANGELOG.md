@@ -29,6 +29,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   revision so a Ready task at version 2 can dispatch the AI CEO's version 1
   plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
 
+- Constrain live AI CEO planning to provider-enforced independent Department
+  branches, give the CEO explicit unique-owner guidance, and terminally settle
+  exhausted deferred planning or synthesis results instead of leaving model
+  runs stuck in `running`.
+
+- Recognize active orchestration execution descriptors as Department task
+  assignments during governed tool authorization so CEO-created live branches
+  can invoke their exact approved tools.
+
+- Add the `executive_synthesis` state transition from `department_analysis`
+  in workflow run rules so orchestration completes all stages through synthesis.
+
+- Sanitize department context boundary fields and forward tool summaries into
+  system instructions with explicit quality gate schemas.
+
+- Increase internal control client response buffer to load full multi-branch
+  department results for AI CEO executive synthesis.
+
+- Accept partial model settlements and completion states in executive synthesis
+  quality gates and API report acceptance, and provide adequate token budget for
+  AI CEO synthesis generation.
+
 ### Added
 
 - Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a

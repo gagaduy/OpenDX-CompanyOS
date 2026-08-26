@@ -94,11 +94,11 @@ def build_orchestration_activities(
     tokens = agent_tokens or build_agent_token_providers(settings.keycloak, client=client)
     tools = DepartmentToolClient(
         base_url=settings.department_tool_api_base_url, tokens=tokens.departments,
-        client=client, timeout_seconds=10, maximum_response_bytes=16_384,
+        client=client, timeout_seconds=10, maximum_response_bytes=262_144,
     )
     submissions = AgentSubmissionClient(
         base_url=settings.agentic_api_base_url, tokens=tokens.ai_ceo,
-        client=client, timeout_seconds=10, maximum_response_bytes=16_384,
+        client=client, timeout_seconds=10, maximum_response_bytes=262_144,
     )
     department = DepartmentExecutionService(
         controls=control, tools=tools, models=phase_f_executor,
@@ -126,10 +126,10 @@ def _build_orchestration_executor(
             return context
         return enforce_context_boundary(agent_kind, context)
 
-    def prompt(agent_kind: AgentKind, context: object) -> object:
+    def prompt(agent_kind: AgentKind, context: object, tool_summaries: object = None) -> object:
         if isinstance(context, PhaseFContext):
             return build_phase_f_prompt(context)
-        return build_model_prompt(agent_kind, context)
+        return build_model_prompt(agent_kind, context, tool_summaries=tool_summaries)
 
     return ModelExecutor(
         controls=control, gateway=gateway, quality_gate=OrchestrationQualityGate(),
@@ -250,7 +250,7 @@ async def run_from_settings(settings: RuntimeSettings) -> None:
         tokens=tokens,
         client=http,
         timeout_seconds=10,
-        maximum_response_bytes=16_384,
+        maximum_response_bytes=262_144,
     )
     worker_log = logging.getLogger("opendx.agentic.worker")
     metrics = BoundedMetrics(logging.getLogger("opendx.agentic.metrics").info)

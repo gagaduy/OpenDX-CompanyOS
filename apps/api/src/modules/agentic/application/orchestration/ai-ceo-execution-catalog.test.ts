@@ -24,6 +24,10 @@ describe("AI CEO execution catalog", () => {
       expect(hasOnlyStrictObjectSchemas(entry.resultSchema)).toBe(true);
       expect(hasTypedConstants(entry.resultSchema)).toBe(true);
     }
+    expect(AI_CEO_EXECUTION_CATALOG.planning.resultSchema)
+      .toMatchObject({ properties: { subtasks: { items: { properties: {
+        dependencies: { maxItems: 0 },
+      } } } } });
   });
 
   it("accepts only unique eligible owners and an acyclic dependency graph", () => {

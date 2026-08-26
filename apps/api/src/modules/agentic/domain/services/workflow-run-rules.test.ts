@@ -59,6 +59,16 @@ describe("Workflow run rules", () => {
     ).state).toBe("completed");
   });
 
+  it("supports descriptor orchestration skipping intermediate review states", () => {
+    const departmentAnalysis = transitionWorkflowRun(
+      workflowRun({ state: "dispatching" }),
+      { state: "department_analysis" },
+      at,
+    );
+    expect(transitionWorkflowRun(departmentAnalysis, { state: "executive_synthesis" }, at).state)
+      .toBe("executive_synthesis");
+  });
+
   it.each([
     "department_analysis",
     "quality_review",

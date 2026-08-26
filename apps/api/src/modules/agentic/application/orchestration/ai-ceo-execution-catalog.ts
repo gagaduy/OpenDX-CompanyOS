@@ -72,7 +72,7 @@ const planningResultSchema = strictObject({
     items: strictObject({
       owner: { type: "string", enum: DEPARTMENTS },
       dependencies: {
-        type: "array", maxItems: 5,
+        type: "array", maxItems: 0,
         items: { type: "string", enum: DEPARTMENTS },
       },
     }),
