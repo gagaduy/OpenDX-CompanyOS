@@ -233,6 +233,43 @@ function supportsLiveWorkforce(children: RevisionChildren): boolean {
       && grant.toolVersion === expected.version && grant.purpose === expected.purpose
       && grant.dataScope === expected.dataScope
       && grant.maxInvocations >= expected.maximumInvocations)));
-  return hasModelsAndBudgets && hasToolGrants;
+  const hasPolicies = requiredAgents.every((agentKind) => hasAllowPolicy(children, {
+    actorType: "agent", agentKind, resource: "model", action: "execute",
+    purpose: "department_analysis", dataClassification: "internal",
+  })) && STORE_HEALTH_EXECUTION_CATALOG.every((entry) =>
+    hasAllowPolicy(children, {
+      actorType: "agent", agentKind: "ai_ceo", department: entry.agentKind,
+      resource: "agentic_orchestration_plan", action: "assign",
+      purpose: "store_health_review", dataClassification: "internal",
+    }) && entry.toolGrants.every((tool) => hasAllowPolicy(children, {
+      actorType: "agent", agentKind: entry.agentKind, department: entry.agentKind,
+      resource: tool.name, action: "invoke", purpose: tool.purpose,
+      dataClassification: tool.dataClassification,
+    })) && hasAllowPolicy(children, {
+      actorType: "agent", agentKind: entry.agentKind, department: "ai_ceo",
+      resource: "agentic_orchestration_result", action: "share",
+      purpose: "executive_synthesis", dataClassification: "internal",
+    })) && hasAllowPolicy(children, {
+    actorType: "agent", agentKind: "ai_ceo", resource: "agentic_executive_report",
+    action: "share", purpose: "store_health_review", dataClassification: "internal",
+  }) && hasAllowPolicy(children, {
+    actorType: "staff", resource: "agentic.workflow", action: "complete",
+    purpose: "store_health_review", dataClassification: "internal",
+  });
+  return hasModelsAndBudgets && hasToolGrants && hasPolicies;
+}
+function hasAllowPolicy(
+  children: RevisionChildren,
+  expected: {
+    readonly actorType: string; readonly agentKind?: string; readonly department?: string;
+    readonly resource: string; readonly action: string; readonly purpose: string;
+    readonly dataClassification: string;
+  },
+): boolean {
+  return children.policies.some((policy) => policy.effect === "ALLOW"
+    && policy.actorType === expected.actorType && policy.agentKind === expected.agentKind
+    && policy.department === expected.department && policy.resource === expected.resource
+    && policy.action === expected.action && policy.purpose === expected.purpose
+    && policy.dataClassification === expected.dataClassification);
 }
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }
