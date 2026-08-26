@@ -77,7 +77,7 @@ def build_model_prompt(
         f'"risks": [{{"code": "REASON_CODE", "severity": "low|medium|high", "statement": "...", "provenanceIds": ["..."]}}], '
         f'"recommendedActions": [{{"code": "REASON_CODE", "statement": "...", "provenanceIds": ["..."], "requiresHumanApproval": false}}], '
         f'"payload": {{"toolSummaries": [{{"toolName": "...", "provenanceId": "...", "summaryDigest": "..."}}]}}}}. '
-        f"All summary and statement fields MUST be written in clear, professional Vietnamese (tiếng Việt). "
+        f"All summary and statement fields MUST be written in clear, professional Vietnamese (tiếng Việt), stating concrete numbers, SKU counts, and specific facts found in the evidence. "
         f"{evidence_desc}"
     )
     return ModelPrompt(

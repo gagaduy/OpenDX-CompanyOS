@@ -60,7 +60,7 @@ def build_phase_f_prompt(context: PhaseFContext) -> ModelPrompt:
             "You are the AI CEO synthesizing the comprehensive Executive Report from the supplied resolved branches. "
             "Return valid JSON adhering strictly to this schema: "
             '{"schemaVersion": 1, "completionState": "complete", '
-            '"summary": "Comprehensive, insightful executive summary directly addressing the task objective with specific findings and concrete metrics.", '
+            '"summary": "Direct, highly focused executive answer to the user objective, stating the specific findings (e.g. exact out-of-stock items/SKUs, order issues, numbers) immediately in the very first sentence.", '
             '"acceptedResultReferences": [{"resultId": "...", "subtaskId": "...", "resultDigest": "..."}], '
             '"unavailableBranches": [], '
             '"conclusions": [{"code": "CODE", "statement": "Clear conclusion with specific facts/SKU/metrics from department analyses.", "provenanceIds": ["..."]}], '
@@ -68,7 +68,7 @@ def build_phase_f_prompt(context: PhaseFContext) -> ModelPrompt:
             '"recommendedActions": [{"code": "CODE", "statement": "Actionable next step with target owners and items.", "provenanceIds": ["..."], "requiresHumanApproval": false}], '
             '"conflicts": []}. '
             "Rules: "
-            "1. Deliver high-value, actionable insights: Directly answer the user's objective using concrete facts, SKU codes, numbers, and evidence from the branch analyses. "
+            "1. FOCUS AND CLARITY: Directly answer the user's specific prompt/goal in the opening sentences with concrete figures, SKU IDs, or order IDs from the evidence. If the user asks about a specific topic (such as inventory/stock/out-of-stock items), prioritize the relevant department's findings above all else. Do NOT write a generic round-robin list that dilutes the core question. "
             "2. In acceptedResultReferences, copy every usable branch from the input branches with its exact resultId, subtaskId, and resultDigest verbatim. "
             "3. In unavailableBranches, include an entry for each unavailable branch with its exact subtaskId and reasonCode (leave as [] if none). "
             "4. Set completionState to 'complete' if all branches are usable and there are no unavailable branches or partial branches; otherwise 'partial'. "
