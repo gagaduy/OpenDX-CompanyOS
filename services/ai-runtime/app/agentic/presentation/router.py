@@ -43,6 +43,9 @@ class StartRequest(StrictModel):
     task_id: BoundedId = Field(alias="taskId")
     workflow_version: Literal[1] = Field(alias="workflowVersion")
     plan_revision: PositiveVersion = Field(alias="planRevision")
+    execution_profile: Literal["store_health_review", "advanced_live"] = Field(
+        alias="executionProfile"
+    )
 
 
 class StartResponse(StrictModel):
@@ -97,6 +100,7 @@ def create_agentic_router(
                 task_id=value.task_id,
                 workflow_version=value.workflow_version,
                 plan_revision=value.plan_revision,
+                execution_profile=value.execution_profile,
                 correlation_id=correlation_id,
             ))
             return StartResponse(

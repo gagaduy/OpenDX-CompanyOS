@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { TaskExecutionProfile } from "../../../domain/entities/task-execution-profile";
+
 export interface StartWorkflowCommand {
   readonly workflowRunId: string;
   readonly temporalWorkflowId: string;
   readonly taskId: string;
   readonly workflowVersion: 1;
   readonly planRevision: number;
+  readonly executionProfile: TaskExecutionProfile;
 }
 
 export interface WorkflowGatewayStartResult {

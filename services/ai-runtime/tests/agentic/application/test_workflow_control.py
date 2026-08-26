@@ -70,6 +70,7 @@ def test_starts_with_stable_id_and_converges_when_already_started() -> None:
         workflow_version=1,
         plan_revision=2,
         correlation_id="correlation-1",
+        execution_profile="advanced_live",
     )
 
     first = asyncio.run(control.start(command))
@@ -89,6 +90,7 @@ def test_starts_with_stable_id_and_converges_when_already_started() -> None:
         "task_id": "task-1",
         "workflow_version": 1,
         "plan_revision": 2,
+        "execution_profile": "advanced_live",
         "activity_start_to_close_seconds": 30,
         "activity_schedule_to_close_seconds": 180,
     }

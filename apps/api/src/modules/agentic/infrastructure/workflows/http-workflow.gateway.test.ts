@@ -35,7 +35,7 @@ describe("HttpWorkflowGateway", () => {
     await gateway.probe();
     await expect(gateway.start({
       workflowRunId: "run-1", temporalWorkflowId: "store-health-v1:run-1",
-      taskId: "task-1", workflowVersion: 1, planRevision: 2,
+      taskId: "task-1", workflowVersion: 1, planRevision: 2, executionProfile: "advanced_live",
     })).resolves.toEqual({ temporalRunId: "temporal-run-1", duplicate: false });
     await gateway.signalApproval({
       temporalWorkflowId: "store-health-v1:run-1", idempotencyKey: "receipt-1",
@@ -54,7 +54,7 @@ describe("HttpWorkflowGateway", () => {
       url: "/internal/agentic/workflow-runs/start",
       body: {
         workflowRunId: "run-1", temporalWorkflowId: "store-health-v1:run-1",
-        taskId: "task-1", workflowVersion: 1, planRevision: 2,
+        taskId: "task-1", workflowVersion: 1, planRevision: 2, executionProfile: "advanced_live",
       },
     });
     expect(received[1]?.headers.authorization).toBe("Bearer control-token");
@@ -88,7 +88,7 @@ describe("HttpWorkflowGateway", () => {
     const gateway = createGateway(baseUrl, 1_000, onError, 1_024);
     const error = await gateway.start({
       workflowRunId: "run-1", temporalWorkflowId: "store-health-v1:run-1",
-      taskId: "task-1", workflowVersion: 1, planRevision: 2,
+      taskId: "task-1", workflowVersion: 1, planRevision: 2, executionProfile: "advanced_live",
     }).catch((value: unknown) => value);
     expect(error).toMatchObject({ retryable: false });
     expect(String(error)).not.toContain("xxxx");

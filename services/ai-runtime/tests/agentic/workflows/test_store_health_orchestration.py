@@ -246,10 +246,10 @@ def _run_phase_f_acceptance_worker(
     asyncio.run(serve())
 
 
-def test_new_runs_fan_out_descriptor_roots_and_keep_history_reference_only() -> None:
+def test_advanced_live_runs_fan_out_descriptor_roots_and_keep_history_reference_only() -> None:
     async def scenario() -> None:
         activities = DescriptorActivities()
-        result, history = await _execute(activities)
+        result, history = await _execute(activities, execution_profile="advanced_live")
 
         assert result.state is WorkflowState.COMPLETED
         assert result.successful_branches == tuple(sorted((ROOT_A, DEPENDENT, ROOT_B)))
@@ -457,7 +457,9 @@ def test_phase_f_acceptance_restarts_worker_replays_history_without_duplicate_ef
     asyncio.run(scenario())
 
 
-async def _execute(activities: DescriptorActivities):
+async def _execute(
+    activities: DescriptorActivities, *, execution_profile: str = "store_health_review"
+):
     async with await WorkflowEnvironment.start_time_skipping() as environment:
         async with Worker(
             environment.client, task_queue="descriptor-orchestration-test",
@@ -465,7 +467,9 @@ async def _execute(activities: DescriptorActivities):
         ):
             handle = await environment.client.start_workflow(
                 StoreHealthReviewWorkflowV1.run,
-                StoreHealthReviewInput(TASK_ID, 1, 1),
+                StoreHealthReviewInput(
+                    TASK_ID, 1, 1, execution_profile=execution_profile
+                ),
                 id=f"store-health-v1:{RUN_ID}",
                 task_queue="descriptor-orchestration-test",
             )

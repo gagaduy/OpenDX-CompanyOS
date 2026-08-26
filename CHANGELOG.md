@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Carry a task's immutable execution profile from the API through Temporal so
+  Advanced tasks force the real descriptor-based CEO and Department workflow
+  instead of silently using legacy fake activities.
+
 - Propose the focused Live Agentic Workforce design for real OpenRouter-backed
   Advanced task execution, CEO delegation, bounded Department work, truthful
   runtime failures, and human-approved owning-module mutation proposals.

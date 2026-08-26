@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 
@@ -61,12 +61,15 @@ class StoreHealthReviewInput:
     task_id: str
     workflow_version: int
     plan_revision: int
+    execution_profile: Literal["store_health_review", "advanced_live"] = "store_health_review"
     activity_start_to_close_seconds: int = 30
     activity_schedule_to_close_seconds: int = 180
 
     def __post_init__(self) -> None:
         _bounded(self.task_id, "task_id", 255)
         if (
+            self.execution_profile not in {"store_health_review", "advanced_live"}
+            or
             self.workflow_version != 1
             or self.plan_revision < 1
             or self.activity_start_to_close_seconds < 1

@@ -45,6 +45,7 @@ describe("WorkflowRunServiceImpl", () => {
       taskId: "task-1",
       temporalWorkflowId: `store-health-v1:${run.id}`,
       planRevision: 2,
+      executionProfile: "advanced_live",
     }));
     expect(repository.audits.map(({ action }) => action))
       .toContain("agentic.workflow.start.accepted");
@@ -325,6 +326,7 @@ class WorkflowRepositoryFake {
     id: "task-1", state: "ready" as const, createdBy: "operator-a",
     goal: "Review store health", instructions: "Use the fixed plan",
     configurationRevisionId: "revision-1", version: 2,
+    executionProfile: "advanced_live",
     createdAt: "2026-08-14T10:00:00.000Z", updatedAt: "2026-08-14T11:00:00.000Z",
   };
   revision: ConfigurationRevision = {

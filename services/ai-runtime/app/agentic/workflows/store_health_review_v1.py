@@ -104,6 +104,8 @@ class StoreHealthReviewWorkflowV1:
         self._start_to_close = timedelta(seconds=value.activity_start_to_close_seconds)
         self._schedule_to_close = timedelta(seconds=value.activity_schedule_to_close_seconds)
         run_id = self._run_id()
+        if value.execution_profile == "advanced_live":
+            return await self._run_descriptor_orchestration(run_id, value)
         if workflow.patched("phase-f-execution-descriptor-v1") and self._uuid(value.task_id):
             return await self._run_descriptor_orchestration(run_id, value)
         return await self._run_phase_b_path(run_id, value)
