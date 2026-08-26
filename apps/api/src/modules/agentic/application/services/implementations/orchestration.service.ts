@@ -50,7 +50,7 @@ type Repository = Pick<AgenticRepository,
   | "findExecutiveReportReference">;
 // Recovery reads are reference-only and never expose private accepted payloads.
 const TASK_BRIEF_SOURCE_TYPES = new Set([
-  "staff_intake", "agentic_task", "agentic_intake_file", "agentic_file_preview",
+  "staff_intake", "staff_task_intake", "agentic_task", "agentic_intake_file", "agentic_file_preview",
 ]);
 
 export class OrchestrationServiceImpl implements OrchestrationService {
