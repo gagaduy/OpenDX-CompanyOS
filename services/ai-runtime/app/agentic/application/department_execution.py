@@ -532,7 +532,7 @@ class AiCeoSynthesisService:
             "subtaskId": str(item["subtaskId"]), "reasonCode": str(item.get("reasonCode", "DEPARTMENT_UNAVAILABLE")),
         } for item in unavailable if isinstance(item, Mapping))
         provenance = tuple(sorted({
-            str(value) for item in (*accepted, *unavailable) if isinstance(item, Mapping)
+            str(value) for item in accepted if isinstance(item, Mapping)
             for value in item.get("provenanceIds", ())
             if value is not None
         }))

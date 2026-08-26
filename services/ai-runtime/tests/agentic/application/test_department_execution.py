@@ -524,6 +524,60 @@ def test_ai_ceo_synthesis_resolves_private_results_and_settles_private_report() 
     assert "report" not in reference.model_dump(mode="json")
 
 
+def test_ai_ceo_synthesis_does_not_authorize_unavailable_branch_provenance() -> None:
+    task_id = "00000000-0000-4000-8000-000000000001"
+    subtask_id = "00000000-0000-4000-8000-000000000002"
+    provenance_id = "00000000-0000-4000-8000-000000000011"
+    branch = SynthesisBranchReference(
+        subtask_id=UUID(subtask_id), status="unavailable",
+        result_digest="a" * 64, provenance_ids=(UUID(provenance_id),),
+    )
+    authority_context = {
+        "taskId": task_id, "planVersion": 1, "planDigest": "b" * 64,
+        "branches": [{"subtaskId": subtask_id, "agentKind": "inventory",
+                      "resultSchemaDigest": "c" * 64}],
+    }
+    authority = ai_ceo_authority(
+        "executive_synthesis", authority_context, plan_version=1,
+    )
+    controls = OrchestrationControl(
+        authority=authority,
+        synthesis={
+            "authority": {"authorityId": authority["authority"]["id"],
+                          "authorityDigest": authority["authority"]["authorityDigest"]},
+            "acceptedResults": [],
+            "unavailableBranches": [{
+                "subtaskId": subtask_id, "status": "unavailable",
+                "resultDigest": "a" * 64, "provenanceIds": [provenance_id],
+            }],
+            "approvalHistoryDigest": "d" * 64,
+        },
+    )
+    report = {
+        "schemaVersion": 1, "completionState": "partial",
+        "summary": "Không có kết quả tồn kho khả dụng.",
+        "conclusions": [], "risks": [], "recommendedActions": [],
+        "conflicts": [], "acceptedResultReferences": [],
+        "unavailableBranches": [{
+            "subtaskId": subtask_id, "reasonCode": "DEPARTMENT_UNAVAILABLE",
+        }],
+    }
+    models = AiCeoModels(report)
+    service = AiCeoSynthesisService(
+        controls=controls, models=models,
+        now=lambda: datetime(2026, 8, 22, 0, 1, tzinfo=UTC),
+    )
+
+    reference = asyncio.run(service.synthesize(SynthesisExecutionInput(
+        task_id=UUID(task_id), plan_version=1, branches=(branch,),
+        idempotency_key="synthesis:unavailable",
+    )))
+
+    assert reference.completion_state == "partial"
+    quality_context = models.commands[0].quality_context
+    assert quality_context.authorized_provenance_ids == ()
+
+
 def test_synthesis_retry_returns_committed_report_before_private_context_resolution() -> None:
     task_id = UUID("00000000-0000-4000-8000-000000000001")
     subtask_id = "00000000-0000-4000-8000-000000000002"

@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Prevent executive synthesis from citing provenance attached only to an
+  unavailable Department branch, keeping runtime quality checks aligned with
+  the API's accepted-evidence boundary for partial reports.
+
 - Reject Advanced tasks before they enter the execution queue when the active
   configuration lacks the models, fallback authority, budgets, policies, or
   Department tool grants required by the live AI CEO workforce.

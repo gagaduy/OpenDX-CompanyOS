@@ -130,7 +130,7 @@ export function AgenticCommandCenter({
 
       const created = await api.createTask(
         {
-          mode: "store_health_review",
+          mode: "advanced",
           goal: goalText,
           instructions: customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
           reviewWindow: {
