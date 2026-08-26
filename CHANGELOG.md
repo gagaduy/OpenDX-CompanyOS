@@ -9,9 +9,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ### Fixed
+
+- Forward Department Agent client secrets to the API in development Docker
+  Compose environments so seed scripts and internal governance checks validate
+  environment configuration cleanly.
 
 - Prevent executive synthesis from citing provenance attached only to an
   unavailable Department branch, keeping runtime quality checks aligned with
