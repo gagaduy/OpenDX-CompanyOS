@@ -348,7 +348,7 @@ class OpenRouterModelGateway:
             provider_request_id=provider_request_id,
             model=returned_model,
             content=result_content,
-            input_tokens=min(input_tokens, request.max_input_tokens),
+            input_tokens=input_tokens,
             output_tokens=min(output_tokens, request.max_output_tokens),
             total_tokens=total_tokens,
             provider_cost_micros=provider_cost_micros,
