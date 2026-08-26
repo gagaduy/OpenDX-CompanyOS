@@ -182,10 +182,19 @@ export function AgenticCommandCenter({
   const getBranchState = (department: string): "idle" | "running" | "completed" | "failed" => {
     if (!activeOperations?.branches) return "idle";
     const branch = activeOperations.branches.find((b) => b.owner.toLowerCase().includes(department.toLowerCase()));
-    if (!branch) return isRunning ? "idle" : "idle";
+    if (!branch) return "idle";
+
+    // If overall workflow is canceled, reset all cards to idle
+    if (currentWorkflowState === "canceled") return "idle";
+
     if (branch.state === "completed") return "completed";
-    if (["running", "in_progress", "pending"].includes(branch.state)) return "running";
-    if (branch.state === "failed") return "failed";
+    if (branch.state === "failed" || branch.state === "retry_exhausted") return "failed";
+
+    // Only report running if the overall workflow is actively executing
+    if (isRunning && ["running", "in_progress", "pending"].includes(branch.state)) {
+      return "running";
+    }
+
     return "idle";
   };
 
