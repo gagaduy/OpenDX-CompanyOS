@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { TaskExecutionProfile } from "./task-execution-profile";
+
 export type AgenticTaskState = "draft" | "ready" | "canceled";
 
 export interface AgentTask {
@@ -9,6 +11,7 @@ export interface AgentTask {
   readonly createdBy: string;
   readonly goal: string;
   readonly instructions: string;
+  readonly executionProfile?: TaskExecutionProfile;
   readonly deadline?: string;
   readonly configurationRevisionId?: string;
   readonly version: number;

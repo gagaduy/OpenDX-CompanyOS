@@ -69,6 +69,19 @@ describe("AgenticConsoleServiceImpl", () => {
       .rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
   });
 
+  it("binds Advanced intake to the live execution profile", async () => {
+    const { service } = harness();
+
+    const created = await service.createTaskIntake({
+      mode: "advanced",
+      goal: "Review cross-department operational risks",
+      instructions: "Use governed evidence and return an executive report.",
+      idempotencyKey: "console:task:advanced-live",
+    }, operator);
+
+    expect(created.detail.task).toMatchObject({ executionProfile: "advanced_live" });
+  });
+
   it.each([
     ["operator", operator, { kind: "owner", actorId: "operator-a" }],
     ["approver", { subject: "approver-a", displayName: "Approver", roles: ["agentic_approver"] } as StaffPrincipal, { kind: "approval", actorId: "approver-a" }],

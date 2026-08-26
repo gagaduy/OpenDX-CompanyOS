@@ -6,6 +6,7 @@ import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal"
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticConsoleEmployeeRecord, AgenticConsoleTaskOperationsRecord, AgenticConsoleTaskScope, AgenticRepository } from "../../repositories/interfaces/agentic.repository";
 import type { AgentTask } from "../../../domain/entities/agent-task";
+import { taskExecutionProfile } from "../../../domain/entities/task-execution-profile";
 import type { ApprovalRequest } from "../../../domain/entities/approval-request";
 import type { AgentKind } from "../../../domain/entities/agent-profile";
 import { canonicalDigest } from "../../../domain/entities/orchestration-execution-descriptor";
@@ -42,6 +43,7 @@ export class AgenticConsoleServiceImpl implements AgenticConsoleService {
     const task: AgentTask = {
       id: this.generateId(), state: "draft", createdBy: principal.subject,
       goal: normalized.goal, instructions: normalized.instructions,
+      executionProfile: taskExecutionProfile(normalized.mode),
       ...(normalized.deadline === undefined ? {} : { deadline: normalized.deadline }),
       version: 1, createdAt: at, updatedAt: at,
     };
