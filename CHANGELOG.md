@@ -9,9 +9,119 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+### Fixed
+
+- Forward Department Agent client secrets to the API in development Docker
+  Compose environments so seed scripts and internal governance checks validate
+  environment configuration cleanly.
+
+- Prevent executive synthesis from citing provenance attached only to an
+  unavailable Department branch, keeping runtime quality checks aligned with
+  the API's accepted-evidence boundary for partial reports.
+
+- Reject Advanced tasks before they enter the execution queue when the active
+  configuration lacks the models, fallback authority, budgets, policies, or
+  Department tool grants required by the live AI CEO workforce.
+
+- Preserve Console task-intake provenance in the AI CEO Task Brief so live
+  planning receives its required governed evidence instead of failing before
+  model execution.
+
+- Emit OpenAI-compatible typed `const` JSON Schema nodes for AI CEO and
+  Department structured outputs, keep API/runtime schema digests aligned, and
+  retain planning provenance when a provider failure is settled.
+
+- Resolve the accepted orchestration plan independently from the frozen task
+  revision so a Ready task at version 2 can dispatch the AI CEO's version 1
+  plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
+
+- Constrain live AI CEO planning to provider-enforced independent Department
+  branches, give the CEO explicit unique-owner guidance, and terminally settle
+  exhausted deferred planning or synthesis results instead of leaving model
+  runs stuck in `running`.
+
+- Recognize active orchestration execution descriptors as Department task
+  assignments during governed tool authorization so CEO-created live branches
+  can invoke their exact approved tools.
+
+- Add the `executive_synthesis` state transition from `department_analysis`
+  in workflow run rules so orchestration completes all stages through synthesis.
+
+- Sanitize department context boundary fields and forward tool summaries into
+  system instructions with explicit quality gate schemas.
+
+- Increase internal control client response buffer to load full multi-branch
+  department results for AI CEO executive synthesis.
+
+- Accept partial model settlements and completion states in executive synthesis
+  quality gates and API report acceptance, and provide adequate token budget for
+  AI CEO synthesis generation.
 
 ### Added
+
+- Deliver the AI Operations Command Center interface in the Digital Workforce
+  Console featuring the CEO strategic command input hub, live orchestration
+  pipeline bar with real-time reasoning timers, 4-department workforce grid with
+  animated progress status, and direct departmental agent task delegation.
+
+- Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a
+  failed real-runtime start is never presented as an ambiguous workflow state.
+
+- Carry a task's immutable execution profile from the API through Temporal so
+  Advanced tasks force the real descriptor-based CEO and Department workflow
+  instead of silently using legacy fake activities.
+
+- Propose the focused Live Agentic Workforce design for real OpenRouter-backed
+  Advanced task execution, CEO delegation, bounded Department work, truthful
+  runtime failures, and human-approved owning-module mutation proposals.
+
+- Add the TDD implementation plan for the first live-runtime activation slice.
+
+- Add role- and state-aware `Mark ready` and `Start task` controls to Digital
+  Workforce task detail, binding each command to the authoritative optimistic
+  version, suppressing duplicate submissions, validating workflow responses,
+  and refreshing the server-owned projection after every outcome.
+
+- Complete Phase G with deterministic Digital Workforce browser and composed
+  exit gates covering all approved routes at 390x844, 768x1024, and 1440x900,
+  five role profiles, replay-safe task/file scenarios, partial reports,
+  workflow-replay provenance, one approval decision, Phase F worker restart,
+  isolated PostgreSQL integration, production Console build, repository audit,
+  forward-compatible Phase B/C/D historical gates, and redacted temporary
+  evidence; allow full-source checks to select the pinned Python interpreter
+  without changing PATH for Node runner fixtures.
+
+- Add the role-scoped Agentic Audit explorer with strict URL-backed actor,
+  action, outcome, resource, and time filters, backend pagination, stable event
+  ordering, and a purpose-specific safe metadata view.
+
+- Add read-only Digital Employee list and deep-link detail views for the AI CEO
+  and six Departments, with active governance, model/tool/data-scope/budget
+  projections and evidence-based recent-run health that is not a heartbeat.
+
+- Add the Digital Workforce Approval Inbox with role-scoped master/detail
+  views, bounded risk and effect summaries, stored workflow-signal evidence,
+  reason-bound decisions, stale-state recovery, and read-only oversight access.
+
+- Add timeline-first Digital Workforce task operations with owner/oversight
+  projections, Department dependency and tool summaries, safe cost and
+  provenance views, digest-bound executive reports, active polling, and
+  authoritative cancellation refresh.
+
+- Add the private Digital Workforce file-intake journey with actor-bound upload
+  replay, bounded CSV/TXT preview, active-configuration governance projection,
+  version-and-digest-bound approval, and safe task navigation.
+
+- Add the governed Digital Workforce task workspace with role-scoped overview
+  projections, URL-backed task filtering, guided Store Health intake, and
+  backend-owned AI CEO bootstrap provenance.
+
+- Make staff file intake replay-safe with immutable actor-scoped idempotency
+  bindings, exact upload replay, and changed-payload conflict enforcement.
+
+- Approve the focused Phase G Console Digital Workforce design and add its TDD
+  implementation plan for governed task intake, execution timelines,
+  approvals, employee visibility, audit, and provenance-backed reports.
 
 - Close Phase F Slice 1 with isolated AI CEO and six-Department worker
   identities, opt-in local/production descriptor execution, a private Tool API

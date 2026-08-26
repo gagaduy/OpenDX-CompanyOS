@@ -131,6 +131,17 @@ def test_descriptor_execution_requires_six_distinct_department_identities() -> N
     assert "catalog-secret" not in repr(settings)
 
 
+def test_descriptor_execution_requires_live_openrouter_execution() -> None:
+    values = environment() | _department_identities() | {
+        "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
+        "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
+        "OPENROUTER_EXECUTION_ENABLED": "false",
+    }
+
+    with pytest.raises(ConfigurationError, match="OPENROUTER_EXECUTION_ENABLED"):
+        RuntimeSettings.from_mapping(values)
+
+
 def test_descriptor_execution_fails_closed_when_one_department_secret_is_missing() -> None:
     values = environment() | _department_identities() | {
         "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
@@ -509,7 +520,10 @@ def _exception_chain_text(error: BaseException) -> str:
 
 
 def _department_identities() -> dict[str, str]:
-    values: dict[str, str] = {}
+    values: dict[str, str] = {
+        "OPENROUTER_EXECUTION_ENABLED": "true",
+        "OPENROUTER_API_KEY": "test-live-openrouter-key",
+    }
     for department in ("CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"):
         values[f"AGENT_{department}_CLIENT_ID"] = f"agent-{department.lower()}"
         values[f"AGENT_{department}_CLIENT_SECRET"] = f"{department.lower()}-secret"

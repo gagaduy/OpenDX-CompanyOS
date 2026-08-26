@@ -20,9 +20,60 @@ const otherAdmin: StaffPrincipal = { subject: "other-governance-admin", displayN
 const content = Buffer.from("sku,quantity\nSKU-1,4\n", "utf8");
 
 describe("AgenticFileServiceImpl", () => {
+  it("replays the same upload without another object write or audit event", async () => {
+    const { service, storage, repository } = harness();
+    const input = {
+      idempotencyKey: "console:file:1",
+      originalFilename: "stock.csv",
+      mediaType: "text/csv" as const,
+      content,
+    };
+
+    const created = await service.upload(input, admin);
+    const replayed = await service.upload(input, admin);
+
+    expect(created.disposition).toBe("created");
+    expect(replayed).toEqual({ disposition: "replayed", file: created.file });
+    expect(storage.put).toHaveBeenCalledOnce();
+    expect(repository.createIntakeFile).toHaveBeenCalledOnce();
+    expect(repository.appendAudit).toHaveBeenCalledOnce();
+  });
+
+  it("rejects changed upload content for an actor-bound idempotency key", async () => {
+    const { service } = harness();
+    const input = {
+      idempotencyKey: "console:file:1",
+      originalFilename: "stock.csv",
+      mediaType: "text/csv" as const,
+      content,
+    };
+    await service.upload(input, admin);
+
+    await expect(service.upload({ ...input, content: Buffer.from("sku,quantity\nSKU-1,5\n") }, admin))
+      .rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
+  it("isolates the same upload idempotency key by actor", async () => {
+    const { service, storage } = harness();
+    const input = {
+      idempotencyKey: "console:file:1",
+      originalFilename: "stock.csv",
+      mediaType: "text/csv" as const,
+      content,
+    };
+
+    const first = await service.upload(input, admin);
+    const second = await service.upload(input, otherAdmin);
+
+    expect(first.file.id).not.toBe(second.file.id);
+    expect(first.disposition).toBe("created");
+    expect(second.disposition).toBe("created");
+    expect(storage.put).toHaveBeenCalledTimes(2);
+  });
+
   it("compensates an orphaned private object when metadata reservation fails", async () => {
     const { service, storage } = harness({ createFails: true });
-    await expect(service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin))
+    await expect(service.upload({ idempotencyKey: "test:file:compensation", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin))
       .rejects.toMatchObject({ code: "FILE_UPLOAD_FAILED" });
     expect(storage.delete).toHaveBeenCalledWith(expect.stringMatching(/^agentic-intake\//));
   });
@@ -32,14 +83,14 @@ describe("AgenticFileServiceImpl", () => {
     ["a CSV filename declared as plain text", "stock.csv", "text/plain"],
   ])("rejects %s before private storage or metadata reservation", async (_case, originalFilename, mediaType) => {
     const { service, storage, repository } = harness();
-    await expect(service.upload({ originalFilename, mediaType: mediaType as "text/plain", content }, admin)).rejects.toMatchObject({ code: "FILE_TYPE_NOT_ALLOWED" });
+    await expect(service.upload({ idempotencyKey: "test:file:invalid", originalFilename, mediaType: mediaType as "text/plain", content }, admin)).rejects.toMatchObject({ code: "FILE_TYPE_NOT_ALLOWED" });
     expect(storage.put).not.toHaveBeenCalled();
     expect(repository.createIntakeFile).not.toHaveBeenCalled();
   });
 
   it("does not scan when another worker has already claimed the uploaded file", async () => {
     const { service, scanner } = harness({ transitionResults: [false] });
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:claim", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_PROCESSING" });
     expect(scanner.scan).not.toHaveBeenCalled();
   });
@@ -49,7 +100,7 @@ describe("AgenticFileServiceImpl", () => {
     ["malformed", { status: "clean" }],
   ] as const)("rejects %s content without producing a preview or deleting retained evidence", async (kind, result) => {
     const { service, storage, repository } = harness({ scanResult: result, enforceExpectedVersion: kind === "infected", content: kind === "malformed" ? Buffer.from('"unterminated') : content });
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: kind === "malformed" ? Buffer.from('"unterminated') : content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: `test:file:${kind}`, originalFilename: "stock.csv", mediaType: "text/csv", content: kind === "malformed" ? Buffer.from('"unterminated') : content }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
     expect(storage.delete).not.toHaveBeenCalled();
     expect(repository.appendFilePreview).not.toHaveBeenCalled();
@@ -61,7 +112,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("rejects a malformed file after clean transition using the clean record version", async () => {
     const { service, storage, repository } = harness({ content: Buffer.from('"unterminated'), enforceExpectedVersion: true });
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: Buffer.from('"unterminated') }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:malformed-version", originalFilename: "stock.csv", mediaType: "text/csv", content: Buffer.from('"unterminated') }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_CONTENT_INVALID" });
     expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 4 });
     expect(storage.delete).not.toHaveBeenCalled();
@@ -69,7 +120,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("rejects and audits a scanner outage once while preserving its dependency error", async () => {
     const { service, repository } = harness({ scanError: new AgenticApplicationError("FILE_SCAN_FAILED", "Scanner is unavailable") });
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:scanner-outage", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     await expect(service.scanAndPreview(uploaded.file.id, admin)).rejects.toMatchObject({ code: "FILE_SCAN_FAILED" });
     expect(await repository.findIntakeFile(session, uploaded.file.id)).toMatchObject({ status: "rejected", version: 3 });
     expect(repository.appendAudit).toHaveBeenCalledTimes(2);
@@ -77,7 +128,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("returns a stable digest over an aggregate-only bounded preview", async () => {
     const { service } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:preview-digest", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const preview = await service.scanAndPreview(uploaded.file.id, admin);
     expect(preview).toMatchObject({ payloadDigest: uploaded.file.payloadDigest, rowCount: 2, columnCount: 2 });
     expect(preview.sourceReferences[0]).toEqual({ fileId: uploaded.file.id, line: 1 });
@@ -87,7 +138,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("uses an injected application parser rather than infrastructure parsing", async () => {
     const { service, parser } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:parser", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     await service.scanAndPreview(uploaded.file.id, admin);
     expect(parser.parse).toHaveBeenCalledWith("csv", expect.any(Buffer));
   });
@@ -95,7 +146,7 @@ describe("AgenticFileServiceImpl", () => {
   it("caps retained aggregate preview content at 256 KiB", async () => {
     const longRows = Buffer.from(Array.from({ length: 50 }, (_, index) => `${index},${"x".repeat(6_000)}`).join("\n"));
     const { service } = harness({ content: longRows });
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content: longRows }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:bounded-preview", originalFilename: "stock.csv", mediaType: "text/csv", content: longRows }, admin);
     const preview = await service.scanAndPreview(uploaded.file.id, admin);
     expect(Buffer.byteLength(JSON.stringify(preview), "utf8")).toBeLessThanOrEqual(AGENTIC_FILE_LIMITS.maxPreviewBytes);
   });
@@ -109,7 +160,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("audits manual reject and tombstone deletion while retaining the private object", async () => {
     const { service, repository, storage } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:terminal", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const rejected = await service.reject(uploaded.file.id, 1, admin);
     const deleted = await service.delete(uploaded.file.id, rejected.version, admin);
     expect(deleted.status).toBe("deleted");
@@ -120,7 +171,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("denies every private file operation to a different governance administrator", async () => {
     const { service } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:owner", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     await expect(service.get(uploaded.file.id, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(service.scanAndPreview(uploaded.file.id, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(service.approvePreview({ fileId: uploaded.file.id, expectedFileVersion: 1, previewVersion: 1, previewPayloadDigest: "a".repeat(64), idempotencyKey: "other-admin" }, otherAdmin)).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -130,7 +181,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("replays an approval with the same task and creates neither subtasks nor runtime work", async () => {
     const { service, repository } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:approval-replay", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const preview = await service.scanAndPreview(uploaded.file.id, admin);
     const input = { fileId: uploaded.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: preview.payloadDigest, idempotencyKey: "approval-1" };
     const first = await service.approvePreview(input, admin);
@@ -144,12 +195,12 @@ describe("AgenticFileServiceImpl", () => {
 
   it("rejects changed preview payload and cross-file reuse on the approved replay fast path", async () => {
     const { service } = harness();
-    const first = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const first = await service.upload({ idempotencyKey: "test:file:first", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const firstPreview = await service.scanAndPreview(first.file.id, admin);
     const key = "approved-replay";
     await service.approvePreview({ fileId: first.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: firstPreview.payloadDigest, idempotencyKey: key }, admin);
     await expect(service.approvePreview({ fileId: first.file.id, expectedFileVersion: 5, previewVersion: 1, previewPayloadDigest: "c".repeat(64), idempotencyKey: key }, admin)).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
-    const second = await service.upload({ originalFilename: "second.csv", mediaType: "text/csv", content }, admin);
+    const second = await service.upload({ idempotencyKey: "test:file:second", originalFilename: "second.csv", mediaType: "text/csv", content }, admin);
     const secondPreview = await service.scanAndPreview(second.file.id, admin);
     await service.approvePreview({ fileId: second.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: secondPreview.payloadDigest, idempotencyKey: "second-key" }, admin);
     await expect(service.approvePreview({ fileId: second.file.id, expectedFileVersion: 5, previewVersion: 1, previewPayloadDigest: secondPreview.payloadDigest, idempotencyKey: key }, admin)).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
@@ -157,7 +208,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("returns one task when concurrent approvals race", async () => {
     const { service } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:approval-race", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const preview = await service.scanAndPreview(uploaded.file.id, admin);
     const input = { fileId: uploaded.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: preview.payloadDigest, idempotencyKey: "approval-race" };
     const tasks = await Promise.all([service.approvePreview(input, admin), service.approvePreview(input, admin)]);
@@ -166,7 +217,7 @@ describe("AgenticFileServiceImpl", () => {
 
   it("rejects stale file versions and changed preview digests before approval", async () => {
     const { service } = harness();
-    const uploaded = await service.upload({ originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
+    const uploaded = await service.upload({ idempotencyKey: "test:file:approval-validation", originalFilename: "stock.csv", mediaType: "text/csv", content }, admin);
     const preview = await service.scanAndPreview(uploaded.file.id, admin);
     await expect(service.approvePreview({ fileId: uploaded.file.id, expectedFileVersion: 3, previewVersion: 1, previewPayloadDigest: preview.payloadDigest, idempotencyKey: "stale" }, admin)).rejects.toMatchObject({ code: "STALE_VERSION" });
     await expect(service.approvePreview({ fileId: uploaded.file.id, expectedFileVersion: 4, previewVersion: 1, previewPayloadDigest: "b".repeat(64), idempotencyKey: "changed" }, admin)).rejects.toMatchObject({ code: "PREVIEW_DIGEST_MISMATCH" });
@@ -175,12 +226,21 @@ describe("AgenticFileServiceImpl", () => {
 
 function harness(options: { readonly createFails?: boolean; readonly transitionResults?: readonly boolean[]; readonly enforceExpectedVersion?: boolean; readonly scanResult?: { readonly status: "clean" } | { readonly status: "infected"; readonly signature: string }; readonly scanError?: Error; readonly content?: Buffer; readonly approvalResults?: readonly { readonly status: "created" | "duplicate"; readonly taskId: string }[] } = {}) {
   const files = new Map<string, any>(); const previews = new Map<string, any>();
+  const intakeBindings = new Map<string, any>();
   const storage: AgenticFileStorage = { put: vi.fn(async () => undefined), open: vi.fn(async () => Readable.from([options.content ?? content])), delete: vi.fn(async () => undefined) };
   const clean: AgenticFileScanResult = { status: "clean" };
   const scanner: AgenticFileScanner = { scan: vi.fn(async () => { if (options.scanError !== undefined) throw options.scanError; return options.scanResult ?? clean; }) };
   const parser: AgenticFileParser = { parse: vi.fn((_format, bytes) => { const text = Buffer.from(bytes).toString("utf8"); if (text === '"unterminated') throw new Error("invalid csv"); const samples = text.split("\n").filter((line) => line.length > 0); return { rowCount: samples.length, columnCount: samples[0]?.split(",").length ?? 1, samples }; }) };
   const transitions = [...(options.transitionResults ?? [])]; const approvals = [...(options.approvalResults ?? [])]; const approved = new Map<string, string>(); const approvalRecords = new Map<string, any>(); const approvedTasks = new Map<string, any>();
   const repository = {
+    findStaffIntakeBinding: vi.fn(async (_: DatabaseSession, kind: string, actorId: string, key: string) => intakeBindings.get(`${kind}:${actorId}:${key}`)),
+    bindStaffIntake: vi.fn(async (_: DatabaseSession, binding: any) => {
+      const key = `${binding.kind}:${binding.actorId}:${binding.idempotencyKey}`;
+      const existing = intakeBindings.get(key);
+      if (existing === undefined) { intakeBindings.set(key, binding); return "created" as const; }
+      return existing.requestDigest === binding.requestDigest && existing.resourceId === binding.resourceId
+        ? "duplicate" as const : "conflict" as const;
+    }),
     createIntakeFile: vi.fn(async (_: DatabaseSession, file: any) => { if (options.createFails) throw new Error("db unavailable"); files.set(file.id, file); }),
     findIntakeFile: vi.fn(async (_: DatabaseSession, id: string) => files.get(id)),
     transitionIntakeFile: vi.fn(async (_: DatabaseSession, file: any, expectedVersion: number) => { const result = transitions.shift() ?? true; if (result && (!options.enforceExpectedVersion || files.get(file.id)?.version === expectedVersion)) { files.set(file.id, file); return true; } return false; }),

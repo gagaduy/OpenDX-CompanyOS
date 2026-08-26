@@ -71,6 +71,7 @@ def test_exposes_the_four_authenticated_strict_routes() -> None:
         "taskId": "task-1",
         "workflowVersion": 1,
         "planRevision": 2,
+        "executionProfile": "advanced_live",
     })
     describe = client.get(
         "/internal/agentic/workflow-runs/store-health-v1%3Arun-1", headers=headers
@@ -102,6 +103,7 @@ def test_exposes_the_four_authenticated_strict_routes() -> None:
     assert approval.status_code == 204
     assert cancellation.status_code == 204
     assert len(control.starts) == len(control.approvals) == len(control.cancellations) == 1
+    assert control.starts[0].execution_profile == "advanced_live"  # type: ignore[attr-defined]
 
 
 def test_rejects_auth_extra_fields_and_receipt_mismatch_without_echoing_input() -> None:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields, is_dataclass
@@ -438,7 +439,7 @@ def _evaluate_executive_synthesis(
         ):
             raise ValueError
         normalize = lambda values, key: sorted(
-            (dict(item) for item in values if isinstance(item, Mapping)),
+            ({k: str(v) for k, v in item.items()} for item in values if isinstance(item, Mapping)),
             key=lambda item: str(item[key]),
         )
         if (
@@ -453,17 +454,18 @@ def _evaluate_executive_synthesis(
             raise ValueError
         material = (*raw_result["conclusions"], *raw_result["risks"],
                     *raw_result["recommendedActions"], *raw_result["conflicts"])
-        authorized = set(context.authorized_provenance_ids)
+        authorized = {str(id) for id in context.authorized_provenance_ids}
         if any(not isinstance(item, Mapping)
-               or any(identifier not in authorized for identifier in item.get("provenanceIds", ()))
+               or any(str(identifier) not in authorized for identifier in item.get("provenanceIds", ()))
                for item in material):
             raise ValueError
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError) as error:
+        logging.getLogger("opendx.agentic").warning("Executive synthesis quality gate failed: %r (result: %r)", error, raw_result)
         return _quality_failure_decision(
             context.correction_round, ("EXECUTIVE_REPORT_BINDING_INVALID",), ()
         )
     evidence_ids = tuple(sorted({
-        identifier for item in material for identifier in item.get("provenanceIds", ())
+        str(identifier) for item in material for identifier in item.get("provenanceIds", ())
     }))
     if any(
         sensitive_text_kind(value) is not None

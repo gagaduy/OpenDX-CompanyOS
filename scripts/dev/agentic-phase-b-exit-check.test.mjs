@@ -55,6 +55,12 @@ test("rejects unsafe Temporal exposure and later UI scope", () => {
     ["productionCompose", '\n    ports: ["7233:7233"]', /public Temporal port/i],
   ]) {
     const snapshot = clone(collectAgenticPhaseBSnapshot());
+    if (field === "consoleSources") {
+      snapshot.sources.packageJson = snapshot.sources.packageJson.replace(
+        '"check:agentic-phase-g-exit"',
+        '"removed:agentic-phase-g-exit"',
+      );
+    }
     snapshot.sources[field] += addition;
     assert.throws(() => validateAgenticPhaseB(snapshot), expected);
   }

@@ -13,9 +13,9 @@ NovaCommerce as a B2C single-store business.
 The repository, PostgreSQL-backed Company Operating Core, Catalog, Inventory,
 Storefront, Customer, Cart, Promotion, Checkout, immutable Order, SePay Payment,
 and staff commerce operations are implemented. Phase 6 real SePay sandbox
-acceptance passes. Agentic Phase B also provides the first governed durable
-Store Health workflow with Temporal, approval/cancellation, recovery, and
-replay; it intentionally uses fake activities and no model provider.
+acceptance passes. The Digital Workforce Console now exposes governed task
+intake and execution, approvals, read-only employee governance, and scoped
+audit evidence on top of the replay-safe Store Health workflow.
 
 ## What It Is
 
@@ -24,8 +24,9 @@ system. The commerce foundation is delivered before Digital Employees,
 workflow automation, and GraphRAG.
 
 AI agents are represented as governed Digital Employees inside the company.
-Phase B proves their durable orchestration boundary; model execution, Commerce
-tools, file intake, GraphRAG, and the Agentic Console remain later phases.
+The Digital Workforce Console presents their approved operational boundary;
+Company Memory, GraphRAG, schedules, chat, and Commerce mutation remain later
+phases.
 
 ## What It Is Not
 

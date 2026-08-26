@@ -19,7 +19,7 @@ const transitions: Readonly<Record<Exclude<WorkflowRunState, "retrying" | "parti
   planning: ["awaiting_plan_approval", "dispatching", "failed", "canceled"],
   awaiting_plan_approval: ["dispatching", "failed", "canceled"],
   dispatching: ["department_analysis", "failed", "canceled"],
-  department_analysis: ["retrying", "quality_review", "partially_completed", "failed", "canceled"],
+  department_analysis: ["retrying", "quality_review", "executive_synthesis", "partially_completed", "failed", "canceled"],
   quality_review: ["retrying", "collaboration", "executive_synthesis", "partially_completed", "failed", "canceled"],
   collaboration: ["retrying", "executive_synthesis", "partially_completed", "failed", "canceled"],
   executive_synthesis: ["retrying", "awaiting_human_approval", "completed", "partially_completed", "failed", "canceled"],
@@ -32,6 +32,7 @@ const failedOutcomes = new Set<WorkflowOutcomeCode>([
   "RETRY_EXHAUSTED",
   "ACTIVITY_REJECTED",
   "INVALID_FROZEN_PLAN",
+  "LIVE_EXECUTION_UNAVAILABLE",
 ]);
 
 export function transitionWorkflowRun(

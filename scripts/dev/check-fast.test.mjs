@@ -11,6 +11,7 @@ test("the fast gate excludes full-only acceptance checks", async () => {
 
   assert.equal(packageJson.scripts.check, "pnpm check:fast");
   assert.equal(packageJson.scripts["check:full"], "bash scripts/dev/check.sh");
+  assert.match(packageJson.scripts["test:py"], /PYTHON_BIN/);
   assert.match(script, /pnpm --workspace-concurrency=1 .* test/);
   assert.doesNotMatch(script, /agentic-phase-b-exit/);
   assert.doesNotMatch(script, /test:py/);

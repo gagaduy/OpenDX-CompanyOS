@@ -5,6 +5,7 @@ import express, { type RequestHandler } from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "../../../shared/auth/staff-principal";
+import type { AgenticIntakeFile } from "../domain/entities/agentic-file";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { AgenticApplicationError } from "../application/services/agentic-application.error";
 import { AgenticController } from "../presentation/controllers/agentic.controller";
@@ -174,6 +175,24 @@ function atomicModelSettlement(outputDigest: string) {
 }
 
 describe("Agentic route authorization", () => {
+  it.each(["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"] as const)("allows %s to read Digital Employees", async (role) => {
+    await build(role, vi.fn(async () => undefined)).get("/employees").expect(200);
+    await build(role, vi.fn(async () => undefined)).get("/employees/inventory").expect(200);
+  });
+
+  it("exposes task intake and overview before the generic task identifier route", async () => {
+    const denied = vi.fn(async () => undefined);
+    expect((await build("agentic_operator", denied).post("/tasks/intake")).body.data.route)
+      .toBe("createTaskIntake");
+    expect((await build("agentic_operator", denied).get("/tasks/overview")).body.data.route)
+      .toBe("getTaskOverview");
+    await build("agentic_approver", denied).post("/tasks/intake").expect(403);
+    await build("agentic_governance_admin", denied).post("/tasks/intake").expect(403);
+    await build("agentic_approver", denied).get("/tasks/overview").expect(200);
+    await build("agentic_governance_admin", denied).get("/tasks/overview").expect(200);
+    await build("agentic_auditor", denied).get("/tasks/overview").expect(403);
+  });
+
   it("exposes governed file intake with one bounded multipart file and no private storage metadata", async () => {
     const application = buildFiles("agentic_governance_admin");
     const uploaded = await application.post("/files")
@@ -183,11 +202,29 @@ describe("Agentic route authorization", () => {
     expect(uploaded.body.errorCode).toBe("VALIDATION_ERROR");
 
     const accepted = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
       .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
       .expect(201);
     expect(accepted.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "uploaded" }));
     expect(accepted.body.data).not.toHaveProperty("objectKey");
     expect(accepted.body.data).not.toHaveProperty("content");
+
+    const replayed = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(200);
+    expect(replayed.body.data).toEqual(accepted.body.data);
+
+    const changed = await application.post("/files")
+      .set("idempotency-key", "console:file:accepted")
+      .attach("file", Buffer.from("name\nGrace\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(409);
+    expect(changed.body.errorCode).toBe("IDEMPOTENCY_CONFLICT");
+
+    const missingKey = await application.post("/files")
+      .attach("file", Buffer.from("name\nAda\n"), { filename: "people.csv", contentType: "text/csv" })
+      .expect(400);
+    expect(missingKey.body.errorCode).toBe("VALIDATION_ERROR");
 
     await application.post("/files")
       .attach("file", Buffer.from("first"), { filename: "first.txt", contentType: "text/plain" })
@@ -223,8 +260,21 @@ describe("Agentic route authorization", () => {
     expect(metadata.body.data).toEqual(expect.objectContaining({ id: FILE_ID, status: "previewed" }));
     expect(metadata.body.data).not.toHaveProperty("objectKey");
     const preview = await application.get(`/files/${FILE_ID}/preview`).expect(200);
-    expect(preview.body.data).toEqual(expect.objectContaining({ fileId: FILE_ID, samples: ["name", "Ada"] }));
+    expect(preview.body.data).toEqual(expect.objectContaining({
+      fileId: FILE_ID,
+      fileVersion: 2,
+      samples: ["name", "Ada"],
+      governance: expect.objectContaining({
+        coordinator: "ai_ceo",
+        eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"],
+        allowedTools: ["catalog.product_completeness"],
+        dataClasses: ["internal"],
+        dependencyStatus: "planned_after_task_start",
+      }),
+    }));
     expect(preview.body.data).not.toHaveProperty("content");
+    expect(preview.body.data).not.toHaveProperty("objectKey");
+    expect(preview.body.data.governance).not.toHaveProperty("modelConfigurations");
   });
 
   it("does not leak a private file to another governance administrator", async () => {
@@ -371,8 +421,9 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
   };
   const handler = (route: string): RequestHandler => (_request, response) => response.json({ success: true, data: { route } });
   const controller = {
+    createTaskIntake: handler("createTaskIntake"), getTaskOverview: handler("getTaskOverview"), getTaskOperations: handler("getTaskOperations"),
     createTask: handler("createTask"), listTasks: handler("listTasks"), getTask: handler("getTask"), updateTask: handler("updateTask"), readyTask: handler("readyTask"), cancelTask: handler("cancelTask"),
-    listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), decideApproval: handler("decideApproval"),
+    listApprovals: handler("listApprovals"), getApproval: handler("getApproval"), getApprovalDetail: handler("getApprovalDetail"), decideApproval: handler("decideApproval"),
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),
     createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), activateRevision: handler("activateRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
     createRevocation: handler("createRevocation"), listAudit: handler("listAudit"),
@@ -396,13 +447,23 @@ function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavai
     response.locals.correlationId = "corr";
     next();
   };
+  const uploads = new Map<string, { readonly digest: string; readonly file: AgenticIntakeFile }>();
   const files = {
-    upload: vi.fn(async (input: { originalFilename: string; mediaType: string }) => {
+    upload: vi.fn(async (input: { idempotencyKey: string; originalFilename: string; mediaType: string; content: Buffer }, uploadPrincipal: { subject: string }) => {
       const extension = input.originalFilename.slice(input.originalFilename.lastIndexOf(".") + 1);
       if ((extension === "csv" && input.mediaType !== "text/csv") || (extension === "txt" && input.mediaType !== "text/plain") || !["csv", "txt"].includes(extension)) {
         throw new AgenticApplicationError("FILE_TYPE_NOT_ALLOWED", "Only CSV and plain-text file intake is allowed");
       }
-      return { file: { ...fileMetadata(), status: "uploaded" as const, version: 1 } };
+      const key = `${uploadPrincipal.subject}:${input.idempotencyKey}`;
+      const digest = `${input.originalFilename}:${input.mediaType}:${input.content.toString("base64")}`;
+      const existing = uploads.get(key);
+      if (existing !== undefined) {
+        if (existing.digest !== digest) throw new AgenticApplicationError("IDEMPOTENCY_CONFLICT", "Idempotency key is already bound");
+        return { disposition: "replayed" as const, file: existing.file };
+      }
+      const file = { ...fileMetadata(), status: "uploaded" as const, version: 1 };
+      uploads.set(key, { digest, file });
+      return { disposition: "created" as const, file };
     }),
     get: vi.fn(async (_fileId: string, principal: { subject: string }) => {
       if (principal.subject !== "governance-admin") throw new AgenticApplicationError("FORBIDDEN", "Agentic file access is limited to its governance owner");
@@ -419,7 +480,16 @@ function buildFiles(role: StaffRole, subject = "governance-admin", scannerUnavai
     reject: vi.fn(async () => ({ ...fileMetadata(), status: "rejected" as const, version: 3 })),
     delete: vi.fn(async () => ({ ...fileMetadata(), status: "deleted" as const, version: 4 })),
   };
-  const controller = new AgenticController({} as never, {} as never, {} as never, {} as never, {} as never, files);
+  const consoleService = {
+    getFileGovernancePreview: vi.fn(async () => ({
+      coordinator: "ai_ceo" as const,
+      eligibleDepartments: ["catalog", "inventory", "order", "finance", "crm", "support"] as const,
+      allowedTools: ["catalog.product_completeness"], dataClasses: ["internal"], riskSignals: [],
+      dependencyStatus: "planned_after_task_start" as const,
+      configurationRevisionId: "00000000-0000-4000-8000-000000000099", configurationVersion: 3,
+    })),
+  };
+  const controller = new AgenticController({} as never, {} as never, {} as never, {} as never, {} as never, files, consoleService as never);
   const workflow = {
     startWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
     getWorkflow: (_request: express.Request, response: express.Response) => response.json({ success: true }),
@@ -435,7 +505,7 @@ function fileMetadata() {
 }
 
 function preview() {
-  return { fileId: FILE_ID, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
+  return { fileId: FILE_ID, fileVersion: 2, previewVersion: 1, parserVersion: "bounded-csv-txt-v1", payloadDigest: "a".repeat(64), previewDigest: "b".repeat(64), format: "csv" as const, rowCount: 2, columnCount: 1, invalidRows: 0, samples: ["name", "Ada"], sourceReferences: [{ fileId: FILE_ID, line: 1 }] };
 }
 
 function buildWorkload(workerAuthenticated: boolean, agentAuthenticated: boolean) {

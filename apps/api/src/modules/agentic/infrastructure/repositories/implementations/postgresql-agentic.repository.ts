@@ -23,6 +23,13 @@ import type {
   AgenticFileApprovalInput,
   AgenticFileApprovalReplay,
   AgenticFileApprovalResult,
+  AgenticConsoleTaskOverviewRecord,
+  AgenticConsoleEmployeeRecord,
+  AgenticConsoleTaskOperationsRecord,
+  AgenticConsoleTaskRecord,
+  AgenticConsoleTaskRepositoryFilter,
+  AgenticAuditRepositoryFilter,
+  AgenticConsoleTaskScope,
   ModelQualityEvidenceAppendResult,
   ModelConfigurationRecord,
   ModelRunReservationResult,
@@ -35,6 +42,7 @@ import type {
   ProvenanceRecord,
   RevisionChildren,
   RevocationRecord,
+  StaffIntakeBinding,
   ToolGrantRecord,
   ToolInvocationCompletionInput,
   ToolInvocationFailureInput,
@@ -267,8 +275,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
               COALESCE(array_agg(dependency.dependency_subtask_id::text ORDER BY dependency.dependency_subtask_id)
                 FILTER (WHERE dependency.dependency_subtask_id IS NOT NULL),'{}') AS dependencies
        FROM agentic_workflow_runs run
-       JOIN agentic_orchestration_plan_revisions plan
-         ON plan.task_id=run.task_id AND plan.version=run.plan_revision
+       JOIN LATERAL (
+         SELECT candidate.* FROM agentic_orchestration_plan_revisions candidate
+         WHERE candidate.task_id=run.task_id
+         ORDER BY candidate.version DESC LIMIT 1
+       ) plan ON true
        JOIN agentic_orchestration_plan_subtasks subtask ON subtask.plan_id=plan.id
        JOIN agentic_orchestration_execution_descriptors descriptor
          ON descriptor.task_id=plan.task_id AND descriptor.plan_version=plan.version
@@ -645,6 +656,55 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return "created";
   }
 
+  async findStaffIntakeBinding(
+    session: DatabaseSession,
+    kind: StaffIntakeBinding["kind"],
+    actorId: string,
+    idempotencyKey: string,
+  ): Promise<StaffIntakeBinding | undefined> {
+    const result = await session.query<Row>(
+      `SELECT kind,actor_id,idempotency_key,request_digest,resource_id,created_at
+       FROM agentic_staff_intake_idempotency
+       WHERE kind=$1 AND actor_id=$2 AND idempotency_key=$3`,
+      [kind, actorId, idempotencyKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : {
+      kind: String(row.kind) as StaffIntakeBinding["kind"],
+      actorId: String(row.actor_id),
+      idempotencyKey: String(row.idempotency_key),
+      requestDigest: String(row.request_digest),
+      resourceId: String(row.resource_id),
+      createdAt: toIso(row.created_at),
+    };
+  }
+
+  async bindStaffIntake(
+    session: DatabaseSession,
+    binding: StaffIntakeBinding,
+  ): Promise<"created" | "duplicate" | "conflict"> {
+    await session.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `agentic.staff.intake:${binding.kind}:${binding.actorId}:${binding.idempotencyKey}`,
+    ]);
+    const existing = await this.findStaffIntakeBinding(
+      session, binding.kind, binding.actorId, binding.idempotencyKey,
+    );
+    if (existing !== undefined) {
+      return existing.requestDigest === binding.requestDigest
+        && existing.resourceId === binding.resourceId
+        ? "duplicate"
+        : "conflict";
+    }
+    await session.query(
+      `INSERT INTO agentic_staff_intake_idempotency
+       (kind,actor_id,idempotency_key,request_digest,resource_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [binding.kind, binding.actorId, binding.idempotencyKey,
+        binding.requestDigest, binding.resourceId, binding.createdAt],
+    );
+    return "created";
+  }
+
   async claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]> {
     const result = await session.query<Row>(`WITH claimed AS (SELECT id FROM agentic_intake_files WHERE status='uploaded' OR (status='scanning' AND (processing_claimed_at IS NULL OR processing_claimed_at < $1::timestamptz - interval '10 minutes')) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE agentic_intake_files f SET status='scanning',processing_claimed_at=$1::timestamptz,version=version+1,updated_at=$1::timestamptz FROM claimed WHERE f.id=claimed.id RETURNING f.id`, [now, limit]); return result.rows.map((row) => String(row.id));
   }
@@ -713,14 +773,68 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return result.rows.map(mapAgent);
   }
 
+  async getConsoleEmployee(
+    session: DatabaseSession,
+    agentKind: AgentKind,
+    recentLimit: number,
+  ): Promise<AgenticConsoleEmployeeRecord | undefined> {
+    const agent = await this.findAgentByKind(session, agentKind);
+    if (agent === undefined) return undefined;
+    const revision = await session.query<Row>(
+      "SELECT id,version,updated_at FROM agentic_configuration_revisions WHERE state='active' ORDER BY decided_at DESC,id DESC LIMIT 1",
+    );
+    const configuration = revision.rows[0] === undefined ? undefined : {
+      id: String(revision.rows[0].id), version: Number(revision.rows[0].version),
+      updatedAt: toIso(revision.rows[0].updated_at),
+    };
+    if (configuration === undefined) return { agent, tools: [], recentRuns: [] };
+    const models = await session.query<Row>(`SELECT c.*,COALESCE(array_agg(f.model ORDER BY f.position)
+        FILTER (WHERE f.model IS NOT NULL),'{}') fallback_models
+        FROM agentic_model_configs c LEFT JOIN agentic_model_fallbacks f
+          ON f.revision_id=c.revision_id AND f.agent_kind=c.agent_kind
+        WHERE c.revision_id=$1 AND c.agent_kind=$2 GROUP BY c.revision_id,c.agent_kind`,
+    [configuration.id, agentKind]);
+    const grants = await session.query<Row>(
+      "SELECT * FROM agentic_tool_grants WHERE revision_id=$1 AND agent_kind=$2 ORDER BY tool_name,tool_version,data_scope,id",
+      [configuration.id, agentKind],
+    );
+    const budgets = await session.query<Row>(
+      "SELECT * FROM agentic_budget_limits WHERE revision_id=$1 AND agent_kind=$2",
+      [configuration.id, agentKind],
+    );
+    const revocations = await session.query<Row>(
+      "SELECT * FROM agentic_revocations WHERE target_type='agent' AND target_id=$1 ORDER BY activated_at DESC,id DESC LIMIT 1",
+      [agentKind],
+    );
+    const runs = await session.query<Row>(`SELECT task_id,status,settled_cost_micros,completed_at
+      FROM agentic_model_runs WHERE agent_kind=$1
+        AND status IN ('completed','failed','partial','escalated')
+      ORDER BY completed_at DESC,id DESC LIMIT $2`, [agentKind, recentLimit]);
+    const model = models.rows[0] === undefined ? undefined : mapModelConfiguration(models.rows[0]);
+    const budget = budgets.rows[0] === undefined ? undefined : mapBudgetLimit(budgets.rows[0]);
+    return {
+      agent, configuration,
+      ...(model === undefined ? {} : { model: { primaryModel: model.primaryModel, fallbackModels: model.fallbackModels } }),
+      tools: grants.rows.map(mapToolGrant).map(({ toolName, toolVersion, dataScope }) => ({ toolName, toolVersion, dataScope })),
+      ...(budget === undefined ? {} : { budget: { taskCostMicros: budget.taskCostMicros, dailyCostMicros: budget.dailyCostMicros, monthlyCostMicros: budget.monthlyCostMicros } }),
+      ...(revocations.rows[0] === undefined ? {} : { revocation: mapRevocation(revocations.rows[0]) }),
+      recentRuns: runs.rows.map((row) => ({
+        taskId: String(row.task_id), state: String(row.status),
+        settledCostMicros: safeInteger(row.settled_cost_micros),
+        ...(row.completed_at === null ? {} : { completedAt: toIso(row.completed_at) }),
+      })),
+    };
+  }
+
   async createTask(session: DatabaseSession, task: AgentTask): Promise<void> {
     await session.query(
       `INSERT INTO agentic_tasks
-       (id,state,created_by,goal,instructions,deadline,configuration_revision_id,version,created_at,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       (id,state,created_by,goal,instructions,execution_profile,deadline,configuration_revision_id,version,created_at,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [task.id, task.state, task.createdBy, task.goal, task.instructions,
-        task.deadline ?? null, task.configurationRevisionId ?? null, task.version,
-        task.createdAt, task.updatedAt],
+        task.executionProfile ?? "store_health_review", task.deadline ?? null,
+        task.configurationRevisionId ?? null, task.version, task.createdAt,
+        task.updatedAt],
     );
   }
 
@@ -806,6 +920,176 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     return { items: result.rows.map(mapTask), totalItems: Number(count.rows[0]?.total ?? 0) };
   }
 
+  async listConsoleTasks(
+    session: DatabaseSession,
+    filter: AgenticConsoleTaskRepositoryFilter,
+  ): Promise<{ readonly items: readonly AgenticConsoleTaskRecord[]; readonly totalItems: number }> {
+    const values: unknown[] = [];
+    const conditions = consoleTaskScopeConditions(filter.scope, values);
+    if (filter.state !== undefined) {
+      values.push(filter.state);
+      conditions.push(`COALESCE(workflow.state,t.state)=$${values.length}`);
+    }
+    if (filter.createdBy !== undefined) {
+      values.push(filter.createdBy);
+      conditions.push(`t.created_by=$${values.length}`);
+    }
+    if (filter.createdFrom !== undefined) {
+      values.push(filter.createdFrom);
+      conditions.push(`t.created_at>=$${values.length}::timestamptz`);
+    }
+    if (filter.createdTo !== undefined) {
+      values.push(filter.createdTo);
+      conditions.push(`t.created_at<=$${values.length}::timestamptz`);
+    }
+    const from = `FROM agentic_tasks t LEFT JOIN LATERAL (
+      SELECT state FROM agentic_workflow_runs
+      WHERE task_id=t.id ORDER BY created_at DESC,id LIMIT 1
+    ) workflow ON TRUE WHERE ${conditions.join(" AND ")}`;
+    const count = await session.query<{ total: string }>(`SELECT count(*)::text total ${from}`, values);
+    const result = await session.query<Row>(
+      `SELECT t.*,COALESCE(workflow.state,t.state) effective_state ${from} ORDER BY t.created_at DESC,t.id
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, filter.pageSize, (filter.page - 1) * filter.pageSize],
+    );
+    return { items: result.rows.map(mapConsoleTask), totalItems: Number(count.rows[0]?.total ?? 0) };
+  }
+
+  async getConsoleTaskOverview(
+    session: DatabaseSession,
+    scope: AgenticConsoleTaskScope,
+  ): Promise<AgenticConsoleTaskOverviewRecord> {
+    const values: unknown[] = [];
+    const conditions = consoleTaskScopeConditions(scope, values);
+    const result = await session.query<Row>(`
+      WITH scoped AS (
+        SELECT t.id,COALESCE(workflow.state,t.state) state
+        FROM agentic_tasks t
+        LEFT JOIN LATERAL (
+          SELECT state FROM agentic_workflow_runs
+          WHERE task_id=t.id ORDER BY created_at DESC,id LIMIT 1
+        ) workflow ON TRUE
+        WHERE ${conditions.join(" AND ")}
+      )
+      SELECT
+        count(*) FILTER (WHERE state IN ('received','planning','dispatching','department_analysis','quality_review','collaboration','executive_synthesis','retrying'))::text running,
+        count(*) FILTER (WHERE state IN ('draft','ready','awaiting_plan_approval','awaiting_human_approval'))::text waiting,
+        count(*) FILTER (WHERE state IN ('failed','partially_completed'))::text failed,
+        count(*) FILTER (WHERE state='completed')::text completed,
+        count(*) FILTER (WHERE state='canceled')::text canceled,
+        (SELECT count(*)::text FROM agentic_approval_requests approval JOIN scoped ON scoped.id=approval.task_id WHERE approval.state='pending') pending_approvals,
+        (SELECT COALESCE(sum(entry.cost_micros),0)::text FROM agentic_budget_entries entry JOIN scoped ON scoped.id=entry.task_id WHERE entry.entry_type='settlement') settled_cost_micros
+      FROM scoped`, values);
+    const row = result.rows[0] ?? {};
+    return {
+      counts: {
+        running: Number(row.running ?? 0), waiting: Number(row.waiting ?? 0),
+        failed: Number(row.failed ?? 0), completed: Number(row.completed ?? 0),
+        canceled: Number(row.canceled ?? 0),
+      },
+      pendingApprovals: Number(row.pending_approvals ?? 0),
+      settledCostMicros: Number(row.settled_cost_micros ?? 0),
+    };
+  }
+
+  async getConsoleTaskOperations(
+    session: DatabaseSession,
+    taskId: string,
+  ): Promise<AgenticConsoleTaskOperationsRecord | undefined> {
+    const taskResult = await session.query<Row>("SELECT * FROM agentic_tasks WHERE id=$1", [taskId]);
+    const taskRow = taskResult.rows[0];
+    if (taskRow === undefined) return undefined;
+    const workflowResult = await session.query<Row>("SELECT * FROM agentic_workflow_runs WHERE task_id=$1 ORDER BY created_at,id", [taskId]);
+    const activityResult = await session.query<Row>(`SELECT activity.* FROM agentic_activity_invocations activity
+        JOIN agentic_workflow_runs workflow ON workflow.id=activity.workflow_run_id
+        WHERE workflow.task_id=$1 ORDER BY activity.updated_at,activity.invocation_key`, [taskId]);
+    const auditResult = await session.query<Row>("SELECT * FROM agentic_audit_events WHERE task_id=$1 ORDER BY occurred_at,id", [taskId]);
+    const branchResult = await session.query<Row>(`WITH latest_plan AS (
+          SELECT id FROM agentic_orchestration_plan_revisions WHERE task_id=$1 ORDER BY version DESC,id LIMIT 1
+        )
+        SELECT subtask.id,subtask.agent_kind,
+          COALESCE((SELECT jsonb_agg(dependency.dependency_subtask_id ORDER BY dependency.dependency_subtask_id)
+            FROM agentic_orchestration_plan_dependencies dependency
+            WHERE dependency.plan_id=subtask.plan_id AND dependency.subtask_id=subtask.id),'[]'::jsonb) dependencies,
+          CASE WHEN accepted.id IS NOT NULL THEN 'completed'
+            ELSE COALESCE(activity.state,'pending') END state,
+          COALESCE(payload.payload->'toolGrants','[]'::jsonb) tool_grants
+        FROM agentic_orchestration_plan_subtasks subtask
+        JOIN latest_plan ON latest_plan.id=subtask.plan_id
+        LEFT JOIN agentic_accepted_orchestration_results accepted ON accepted.subtask_id=subtask.id
+        LEFT JOIN LATERAL (
+          SELECT invocation.state FROM agentic_activity_invocations invocation
+          JOIN agentic_workflow_runs workflow ON workflow.id=invocation.workflow_run_id
+          WHERE workflow.task_id=$1 AND invocation.branch_id=subtask.id
+          ORDER BY invocation.updated_at DESC,invocation.invocation_key DESC LIMIT 1
+        ) activity ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT descriptor.id FROM agentic_orchestration_execution_descriptors descriptor
+          WHERE descriptor.task_id=$1 AND descriptor.subtask_id=subtask.id
+          ORDER BY descriptor.version DESC,descriptor.id LIMIT 1
+        ) descriptor ON TRUE
+        LEFT JOIN agentic_orchestration_execution_payloads payload ON payload.descriptor_id=descriptor.id
+        ORDER BY subtask.agent_kind,subtask.id`, [taskId]);
+    const costResult = await session.query<Row>(`SELECT
+        COALESCE(sum(cost_micros) FILTER (WHERE entry_type='reservation'),0)::text reserved,
+        COALESCE(sum(cost_micros) FILTER (WHERE entry_type='settlement'),0)::text settled
+        FROM agentic_budget_entries WHERE task_id=$1`, [taskId]);
+    const approvalResult = await session.query<Row>("SELECT * FROM agentic_approval_requests WHERE task_id=$1 ORDER BY created_at,id", [taskId]);
+    const provenanceResult = await session.query<Row>("SELECT * FROM agentic_provenance_records WHERE task_id=$1 ORDER BY recorded_at,id", [taskId]);
+    const reportResult = await session.query<Row>(`SELECT report.report_digest,report.completion_state,payload.payload,payload.payload_digest
+        FROM agentic_executive_reports report
+        JOIN agentic_executive_report_payloads payload ON payload.report_id=report.id
+        WHERE report.task_id=$1 ORDER BY report.plan_version DESC,report.id LIMIT 1`, [taskId]);
+    const workflows = workflowResult.rows.map(mapWorkflowRun);
+    const activities = activityResult.rows.map(mapActivityInvocation);
+    const approvals = approvalResult.rows.map(mapApproval);
+    const timeline = [
+      ...workflows.map((run) => ({ id: `workflow:${run.id}:${run.version}`, kind: "workflow", state: run.state, occurredAt: run.updatedAt, ...(run.outcomeCode === undefined ? {} : { reasonCode: run.outcomeCode }) })),
+      ...activities.map((activity) => ({ id: `activity:${activity.invocationKey}`, kind: activity.activityKind, state: activity.state, occurredAt: activity.updatedAt, ...(activity.branchId === undefined ? {} : { branchId: activity.branchId }), ...(activity.outcomeCode === undefined ? {} : { reasonCode: activity.outcomeCode }) })),
+      ...auditResult.rows.map(mapAudit).map((audit) => ({ id: `audit:${audit.id}`, kind: audit.action, state: audit.outcome, occurredAt: audit.occurredAt, ...(audit.errorCode === undefined ? {} : { reasonCode: audit.errorCode }) })),
+      ...approvals.map((approval) => ({ id: `approval:${approval.id}:${approval.version}`, kind: "approval", state: approval.state, occurredAt: approval.decidedAt ?? approval.createdAt, reasonCode: approval.action })),
+    ];
+    const reportRow = reportResult.rows[0];
+    const costRow = costResult.rows[0] ?? {};
+    return {
+      task: mapTask(taskRow),
+      ...(workflows.at(-1) === undefined ? {} : { workflow: workflows.at(-1)! }),
+      timeline,
+      branches: branchResult.rows.map((row) => {
+        const grants = Array.isArray(row.tool_grants) ? row.tool_grants : [];
+        return {
+          id: String(row.id), owner: String(row.agent_kind), state: String(row.state),
+          dependencies: jsonStrings(row.dependencies),
+          toolNames: uniqueStrings(grants.map((grant) => recordString(grant, "name"))),
+          dataClasses: uniqueStrings(grants.map((grant) => recordString(grant, "dataClassification"))),
+        };
+      }),
+      reservedMicros: safeInteger(costRow.reserved ?? 0),
+      settledMicros: safeInteger(costRow.settled ?? 0),
+      approvals,
+      provenance: provenanceResult.rows.map(mapProvenance),
+      ...(reportRow === undefined ? {} : { report: {
+        reportDigest: String(reportRow.report_digest), payloadDigest: String(reportRow.payload_digest),
+        completionState: reportRow.completion_state as "complete" | "partial" | "quality_escalated" | "canceled",
+        payload: reportRow.payload as Readonly<Record<string, unknown>>,
+      } }),
+    };
+  }
+
+  async hasConsoleTaskAccess(
+    session: DatabaseSession,
+    taskId: string,
+    scope: AgenticConsoleTaskScope,
+  ): Promise<boolean> {
+    const values: unknown[] = [taskId];
+    const conditions = consoleTaskScopeConditions(scope, values);
+    const result = await session.query(
+      `SELECT 1 FROM agentic_tasks t WHERE t.id=$1 AND ${conditions.join(" AND ")}`,
+      values,
+    );
+    return result.rowCount === 1;
+  }
+
   async listAllTasks(
     session: DatabaseSession,
     page: number,
@@ -826,10 +1110,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
   ): Promise<boolean> {
     const result = await session.query(
       `UPDATE agentic_tasks
-       SET state=$2,goal=$3,instructions=$4,deadline=$5,
-           configuration_revision_id=$6,version=$7,updated_at=$8
-       WHERE id=$1 AND created_by=$9 AND version=$10`,
-      [task.id, task.state, task.goal, task.instructions, task.deadline ?? null,
+       SET state=$2,goal=$3,instructions=$4,execution_profile=$5,deadline=$6,
+           configuration_revision_id=$7,version=$8,updated_at=$9
+       WHERE id=$1 AND created_by=$10 AND version=$11`,
+      [task.id, task.state, task.goal, task.instructions,
+        task.executionProfile ?? "store_health_review", task.deadline ?? null,
         task.configurationRevisionId ?? null, task.version, task.updatedAt,
         task.createdBy, expectedVersion],
     );
@@ -1152,6 +1437,12 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
     if (filter?.requesterId !== undefined) {
       values.push(filter.requesterId);
       conditions.push(`requester_id=$${values.length}`);
+    }
+    if (filter?.readerId !== undefined) {
+      values.push(filter.readerId);
+      conditions.push(`(requester_id=$${values.length} OR EXISTS (
+        SELECT 1 FROM agentic_tasks task WHERE task.id=agentic_approval_requests.task_id AND task.created_by=$${values.length}
+      ))`);
     }
     if (filter?.approverScopes !== undefined) {
       values.push(filter.approverScopes);
@@ -1569,6 +1860,30 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       values,
     );
     return result.rows.map(mapAudit);
+  }
+
+  async listConsoleAudit(
+    session: DatabaseSession,
+    filter: AgenticAuditRepositoryFilter,
+  ): Promise<{ readonly items: readonly AuditEventRecord[]; readonly totalItems: number }> {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    const add = (column: string, operator: string, value: unknown, cast = ""): void => {
+      values.push(value); conditions.push(`${column}${operator}$${values.length}${cast}`);
+    };
+    if (filter.actorId !== undefined) add("actor_id", "=", filter.actorId);
+    if (filter.action !== undefined) add("action", "=", filter.action);
+    if (filter.outcome !== undefined) add("outcome", "=", filter.outcome);
+    if (filter.resourceType !== undefined) add("resource_type", "=", filter.resourceType);
+    if (filter.occurredFrom !== undefined) add("occurred_at", ">=", filter.occurredFrom);
+    if (filter.occurredTo !== undefined) add("occurred_at", "<=", filter.occurredTo);
+    if (filter.resourceTypes !== undefined) add("resource_type", "=ANY(", filter.resourceTypes, "::text[])");
+    const where = conditions.length === 0 ? "" : ` WHERE ${conditions.join(" AND ")}`;
+    const count = await session.query<{ total: string }>(`SELECT count(*)::text total FROM agentic_audit_events${where}`, values);
+    values.push(filter.pageSize, (filter.page - 1) * filter.pageSize);
+    const result = await session.query<Row>(`SELECT * FROM agentic_audit_events${where}
+      ORDER BY occurred_at DESC,id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`, values);
+    return { items: result.rows.map(mapAudit), totalItems: Number(count.rows[0]?.total ?? 0) };
   }
 
   async countToolInvocations(
@@ -2015,6 +2330,17 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
       : mapWorkflowSignalReceipt(result.rows[0]);
   }
 
+  async findWorkflowSignalReceiptForApproval(
+    session: DatabaseSession,
+    approvalId: string,
+  ): Promise<WorkflowSignalReceipt | undefined> {
+    const result = await session.query<Row>(
+      "SELECT * FROM agentic_workflow_signal_receipts WHERE approval_id=$1 ORDER BY created_at,id LIMIT 1",
+      [approvalId],
+    );
+    return result.rows[0] === undefined ? undefined : mapWorkflowSignalReceipt(result.rows[0]);
+  }
+
   async findWorkflowApproval(
     session: DatabaseSession,
     runId: string,
@@ -2123,6 +2449,7 @@ function mapTask(row: Row): AgentTask {
     createdBy: String(row.created_by),
     goal: String(row.goal),
     instructions: String(row.instructions),
+    executionProfile: String(row.execution_profile ?? "store_health_review") as AgentTask["executionProfile"],
     version: Number(row.version),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
@@ -2132,6 +2459,21 @@ function mapTask(row: Row): AgentTask {
       : { configurationRevisionId: String(row.configuration_revision_id) }),
   };
   return task;
+}
+
+function mapConsoleTask(row: Row): AgenticConsoleTaskRecord {
+  return { ...mapTask(row), state: String(row.effective_state) as AgenticConsoleTaskRecord["state"] };
+}
+
+function consoleTaskScopeConditions(scope: AgenticConsoleTaskScope, values: unknown[]): string[] {
+  if (scope.kind === "owner") {
+    values.push(scope.actorId);
+    return [`t.created_by=$${values.length}`];
+  }
+  if (scope.kind === "approval") {
+    return ["EXISTS (SELECT 1 FROM agentic_approval_requests approval WHERE approval.task_id=t.id AND approval.state='pending')"];
+  }
+  return ["TRUE"];
 }
 
 function mapIntakeFile(row: Row): AgenticIntakeFile {
@@ -2591,6 +2933,19 @@ function safeInteger(value: unknown): number {
   const parsed = Number(String(value));
   if (!Number.isSafeInteger(parsed)) throw new RangeError("Database integer exceeds safe range");
   return parsed;
+}
+
+function jsonStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function recordString(value: unknown, key: string): string {
+  return typeof value === "object" && value !== null && key in value && typeof value[key as keyof typeof value] === "string"
+    ? String(value[key as keyof typeof value]) : "";
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))].sort();
 }
 
 function isPostgresUniqueViolation(error: unknown): boolean {

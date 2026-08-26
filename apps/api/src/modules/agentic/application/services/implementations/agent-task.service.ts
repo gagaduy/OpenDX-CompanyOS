@@ -4,8 +4,9 @@
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type {
-  AgenticRepository, AgentSubtaskDependencyRecord, AgentSubtaskRecord,
+  AgenticRepository, AgentSubtaskDependencyRecord, AgentSubtaskRecord, RevisionChildren,
 } from "../../repositories/interfaces/agentic.repository";
+import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import { assertAcyclicDependencies, transitionTask } from "../../../domain/services/agent-governance-rules";
 import { AgenticApplicationError } from "../agentic-application.error";
@@ -17,7 +18,7 @@ import type {
 type TaskRepository = Pick<AgenticRepository,
   | "createTask" | "findTask" | "findTaskById" | "findTaskForApproval" | "listTasks"
   | "listAllTasks" | "updateTask" | "replaceTaskGraph" | "listTaskGraph"
-  | "findActiveRevision" | "findActiveWorkflowRunForTask"
+  | "findActiveRevision" | "getRevisionChildren" | "findActiveWorkflowRunForTask"
   | "appendAudit" | "appendProvenance">;
 
 interface PreparedGraph {
@@ -93,6 +94,12 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       assertVersion(current, input.expectedVersion);
       const active = await this.repository.findActiveRevision(session);
       if (active === undefined) fail("NO_ACTIVE_CONFIGURATION", "No active configuration exists");
+      if (current.executionProfile === "advanced_live") {
+        const children = await this.repository.getRevisionChildren(session, active.id);
+        if (!supportsLiveWorkforce(children)) {
+          fail("LIVE_CONFIGURATION_INCOMPLETE", "Active configuration does not authorize the live workforce");
+        }
+      }
       const at = this.now();
       const next = transitionTask(current, { type: "ready", revisionId: active.id }, at);
       if (!await this.repository.updateTask(session, next, input.expectedVersion)) fail("STALE_VERSION", "Task version is stale");
@@ -212,5 +219,57 @@ function requireOperator(principal: StaffPrincipal): void {
 }
 function isOversight(principal: StaffPrincipal): boolean {
   return principal.roles.includes("administrator") || principal.roles.includes("agentic_governance_admin");
+}
+function supportsLiveWorkforce(children: RevisionChildren): boolean {
+  const requiredAgents = ["ai_ceo", ...STORE_HEALTH_EXECUTION_CATALOG.map(({ agentKind }) => agentKind)];
+  const hasModelsAndBudgets = requiredAgents.every((agentKind) =>
+    children.modelConfigurations.some((model) => model.agentKind === agentKind
+      && model.fallbackModels.length === 1)
+    && children.budgetLimits.some((budget) => budget.agentKind === agentKind
+      && budget.taskCostMicros > 0));
+  const hasToolGrants = STORE_HEALTH_EXECUTION_CATALOG.every((entry) =>
+    entry.toolGrants.every((expected) => children.toolGrants.some((grant) =>
+      grant.agentKind === entry.agentKind && grant.toolName === expected.name
+      && grant.toolVersion === expected.version && grant.purpose === expected.purpose
+      && grant.dataScope === expected.dataScope
+      && grant.maxInvocations >= expected.maximumInvocations)));
+  const hasPolicies = requiredAgents.every((agentKind) => hasAllowPolicy(children, {
+    actorType: "agent", agentKind, resource: "model", action: "execute",
+    purpose: "department_analysis", dataClassification: "internal",
+  })) && STORE_HEALTH_EXECUTION_CATALOG.every((entry) =>
+    hasAllowPolicy(children, {
+      actorType: "agent", agentKind: "ai_ceo", department: entry.agentKind,
+      resource: "agentic_orchestration_plan", action: "assign",
+      purpose: "store_health_review", dataClassification: "internal",
+    }) && entry.toolGrants.every((tool) => hasAllowPolicy(children, {
+      actorType: "agent", agentKind: entry.agentKind, department: entry.agentKind,
+      resource: tool.name, action: "invoke", purpose: tool.purpose,
+      dataClassification: tool.dataClassification,
+    })) && hasAllowPolicy(children, {
+      actorType: "agent", agentKind: entry.agentKind, department: "ai_ceo",
+      resource: "agentic_orchestration_result", action: "share",
+      purpose: "executive_synthesis", dataClassification: "internal",
+    })) && hasAllowPolicy(children, {
+    actorType: "agent", agentKind: "ai_ceo", resource: "agentic_executive_report",
+    action: "share", purpose: "store_health_review", dataClassification: "internal",
+  }) && hasAllowPolicy(children, {
+    actorType: "staff", resource: "agentic.workflow", action: "complete",
+    purpose: "store_health_review", dataClassification: "internal",
+  });
+  return hasModelsAndBudgets && hasToolGrants && hasPolicies;
+}
+function hasAllowPolicy(
+  children: RevisionChildren,
+  expected: {
+    readonly actorType: string; readonly agentKind?: string; readonly department?: string;
+    readonly resource: string; readonly action: string; readonly purpose: string;
+    readonly dataClassification: string;
+  },
+): boolean {
+  return children.policies.some((policy) => policy.effect === "ALLOW"
+    && policy.actorType === expected.actorType && policy.agentKind === expected.agentKind
+    && policy.department === expected.department && policy.resource === expected.resource
+    && policy.action === expected.action && policy.purpose === expected.purpose
+    && policy.dataClassification === expected.dataClassification);
 }
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }

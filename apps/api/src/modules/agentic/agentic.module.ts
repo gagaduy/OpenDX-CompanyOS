@@ -8,6 +8,7 @@ import { authenticateWorkload } from "../../shared/auth/workload-auth.middleware
 import type { TransactionRunner } from "../../shared/database/transaction";
 import { AgentTaskServiceImpl } from "./application/services/implementations/agent-task.service";
 import { AgenticFileServiceImpl } from "./application/services/implementations/agentic-file.service";
+import { AgenticConsoleServiceImpl } from "./application/services/implementations/agentic-console.service";
 import { AgenticFileRetentionService } from "./application/services/implementations/agentic-file-retention.service";
 import { AgenticFileLifecycleWorker } from "./infrastructure/workers/agentic-file-lifecycle.worker";
 import type { AgenticFileParser } from "./application/parsing/agentic-file-parser";
@@ -97,6 +98,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     modelRuns,
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const consoleService = new AgenticConsoleServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
     ? undefined
     : new AgenticFileServiceImpl(repository, dependencies.agenticFileStorage, dependencies.agenticFileScanner, dependencies.agenticFileParser, dependencies.transactions, dependencies.generateId, dependencies.now);
@@ -122,7 +124,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
           monotonicNow: dependencies.monotonicNow ?? performance.now.bind(performance),
         },
   );
-  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files);
+  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files, consoleService);
   const workflowController = new AgenticWorkflowController(workflows);
   const workloadController = new AgenticWorkloadController(workflows, modelRuns, orchestration);
   const toolController = new AgenticToolController(tools);
@@ -159,6 +161,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     toolRouter,
     dispatcher,
     tasks,
+    consoleService,
     ...(files === undefined ? {} : { files }),
     ...(fileLifecycleWorker === undefined ? {} : { fileLifecycleWorker }),
     approvals,

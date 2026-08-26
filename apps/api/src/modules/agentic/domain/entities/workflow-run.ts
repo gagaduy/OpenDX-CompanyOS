@@ -32,6 +32,7 @@ export const WORKFLOW_OUTCOME_CODES = [
   "RETRY_EXHAUSTED",
   "ACTIVITY_REJECTED",
   "INVALID_FROZEN_PLAN",
+  "LIVE_EXECUTION_UNAVAILABLE",
 ] as const;
 
 export type WorkflowOutcomeCode = (typeof WORKFLOW_OUTCOME_CODES)[number];

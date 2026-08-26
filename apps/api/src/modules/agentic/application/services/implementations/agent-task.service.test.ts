@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type { AgenticRepository } from "../../repositories/interfaces/agentic.repository";
+import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import { AgentTaskServiceImpl } from "./agent-task.service";
 
@@ -46,6 +47,37 @@ describe("AgentTaskServiceImpl", () => {
       .rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
   });
 
+  it("rejects Advanced live ready when models and tools exist without live policies", async () => {
+    const task = { ...draft, executionProfile: "advanced_live" as const };
+    const agentKinds = ["ai_ceo" as const, ...STORE_HEALTH_EXECUTION_CATALOG.map(({ agentKind }) => agentKind)];
+    const { service, repository } = harness({
+      task,
+      activeRevision: { id: "revision-empty" },
+      revisionChildren: {
+        policies: [],
+        toolGrants: STORE_HEALTH_EXECUTION_CATALOG.flatMap((entry) => entry.toolGrants.map((grant) => ({
+          id: `${entry.agentKind}-${grant.name}`, revisionId: "revision-empty",
+          agentKind: entry.agentKind, toolName: grant.name, toolVersion: grant.version,
+          purpose: grant.purpose, dataScope: grant.dataScope, maxInvocations: grant.maximumInvocations,
+        }))),
+        modelConfigurations: agentKinds.map((agentKind) => ({
+          revisionId: "revision-empty", agentKind, primaryModel: "provider/primary",
+          fallbackModels: ["provider/fallback"], maxInputTokens: 1_000, maxOutputTokens: 1_000,
+          timeoutMs: 30_000, maxRetries: 1,
+          inputCostMicrosPerMillion: 1, outputCostMicrosPerMillion: 1,
+        })),
+        budgetLimits: agentKinds.map((agentKind) => ({
+          revisionId: "revision-empty", agentKind, taskCostMicros: 1,
+          dailyCostMicros: 10, monthlyCostMicros: 100,
+        })),
+      },
+    });
+
+    await expect(service.ready({ taskId: task.id, expectedVersion: 1 }, operator()))
+      .rejects.toMatchObject({ code: "LIVE_CONFIGURATION_INCOMPLETE" });
+    expect(repository.updateTask).not.toHaveBeenCalled();
+  });
+
   it("cancels draft or ready tasks with optimistic version and keeps canceled tasks immutable", async () => {
     await expect(harness({ task: draft }).service.cancel({ taskId: "task-1", expectedVersion: 1 }, operator()))
       .resolves.toMatchObject({ task: { state: "canceled", version: 2 } });
@@ -74,7 +106,7 @@ describe("AgentTaskServiceImpl", () => {
   });
 });
 
-function harness(options: { readonly task?: typeof draft; readonly activeRevision?: Record<string, unknown>; readonly activeRun?: Record<string, unknown> } = {}) {
+function harness(options: { readonly task?: AgentTask; readonly activeRevision?: Record<string, unknown>; readonly activeRun?: Record<string, unknown>; readonly revisionChildren?: Record<string, unknown> } = {}) {
   const hasTaskOption = Object.prototype.hasOwnProperty.call(options, "task");
   const repository = {
     createTask: vi.fn(async () => undefined), replaceTaskGraph: vi.fn(async () => true),
@@ -82,6 +114,7 @@ function harness(options: { readonly task?: typeof draft; readonly activeRevisio
     findTaskById: vi.fn(async () => hasTaskOption ? options.task : draft),
     findTaskForApproval: vi.fn(async () => hasTaskOption ? options.task : draft),
     findActiveRevision: vi.fn(async () => options.activeRevision), updateTask: vi.fn(async () => true),
+    getRevisionChildren: vi.fn(async () => options.revisionChildren),
     listTaskGraph: vi.fn(async () => ({ subtasks: [], dependencies: [] })),
     listTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
     listAllTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),

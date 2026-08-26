@@ -8,7 +8,7 @@ import type { WorkflowRun, WorkflowSignalReceipt } from "../../../domain/entitie
 
 type DispatcherRepository = Pick<AgenticRepository,
   | "listPendingWorkflowStarts" | "listPendingWorkflowSignals"
-  | "findWorkflowRun" | "attachTemporalRunId" | "updateWorkflowSignalReceipt">;
+  | "findTaskById" | "findWorkflowRun" | "attachTemporalRunId" | "updateWorkflowSignalReceipt">;
 
 export class WorkflowCommandDispatcher {
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -65,12 +65,16 @@ export class WorkflowCommandDispatcher {
   }
 
   private async dispatchStart(run: WorkflowRun): Promise<void> {
+    const task = await this.transactions.runReadOnly((session) =>
+      this.repository.findTaskById(session, run.taskId));
+    if (task === undefined) throw new Error("Pending workflow start has no task");
     const result = await this.gateway.start({
       workflowRunId: run.id,
       temporalWorkflowId: run.temporalWorkflowId,
       taskId: run.taskId,
       workflowVersion: 1,
       planRevision: run.planRevision,
+      executionProfile: task.executionProfile ?? "store_health_review",
     });
     await this.transactions.run(async (session) => {
       const current = await this.repository.findWorkflowRun(session, run.id);

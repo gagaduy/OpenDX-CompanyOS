@@ -167,8 +167,7 @@ def _reason() -> dict[str, object]:
 
 
 def _provenance() -> dict[str, object]:
-    return {"type": "array", "minItems": 1, "maxItems": 8,
-            "uniqueItems": True, "items": _uuid()}
+    return {"type": "array", "minItems": 1, "maxItems": 8, "items": _uuid()}
 
 
 def _conclusion() -> dict[str, object]:
@@ -178,17 +177,16 @@ def _conclusion() -> dict[str, object]:
 
 AI_CEO_RESULT_SCHEMAS: Mapping[str, Mapping[str, object]] = {
     "orchestration_plan_proposal_v1": _strict({
-        "schemaVersion": {"const": 1},
+        "schemaVersion": {"type": "integer", "const": 1},
         "subtasks": {"type": "array", "minItems": 1, "maxItems": 6,
                      "items": _strict({
                          "owner": {"type": "string", "enum": _DEPARTMENTS},
-                         "dependencies": {"type": "array", "maxItems": 5,
-                                          "uniqueItems": True,
+                         "dependencies": {"type": "array", "maxItems": 0,
                                           "items": {"type": "string", "enum": _DEPARTMENTS}},
                      })},
     }),
     "store_health_ai_ceo_report_v1": _strict({
-        "schemaVersion": {"const": 1},
+        "schemaVersion": {"type": "integer", "const": 1},
         "completionState": {"type": "string", "enum": [
             "complete", "partial", "quality_escalated", "canceled",
         ]},
@@ -205,12 +203,12 @@ AI_CEO_RESULT_SCHEMAS: Mapping[str, Mapping[str, object]] = {
         })},
         "conflicts": {"type": "array", "maxItems": 12, "items": _conclusion()},
         "acceptedResultReferences": {"type": "array", "maxItems": 6,
-                                     "uniqueItems": True, "items": _strict({
+                                     "items": _strict({
                                          "resultId": _uuid(), "subtaskId": _uuid(),
                                          "resultDigest": _digest(),
                                      })},
         "unavailableBranches": {"type": "array", "maxItems": 6,
-                                "uniqueItems": True, "items": _strict({
+                                "items": _strict({
                                     "subtaskId": _uuid(), "reasonCode": _reason(),
                                 })},
     }),

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -47,7 +49,9 @@ class ModelPrompt:
 
 
 def build_model_prompt(
-    agent_kind: AgentKind, context: AuthorizedContext
+    agent_kind: AgentKind,
+    context: AuthorizedContext,
+    tool_summaries: tuple[Mapping[str, object], ...] | None = None,
 ) -> ModelPrompt:
     if type(context) is not AuthorizedContext:
         raise TypeError("authorized context is required")
@@ -55,11 +59,32 @@ def build_model_prompt(
     if role is None:
         raise ValueError("unsupported agent kind")
     serialized = serialize_authorized_context(context)
+    evidence_desc = ""
+    if tool_summaries:
+        serialized_summaries = json.dumps(
+            [dict(s) for s in tool_summaries], ensure_ascii=False, indent=2
+        )
+        evidence_desc = (
+            f"\n\nAvailable tool evidence toolSummaries:\n{serialized_summaries}\n"
+            f"In payload.toolSummaries, you MUST copy the exact toolSummaries array above verbatim. "
+            f"In conclusions, risks, and recommendedActions, all provenanceIds must reference valid provenanceId strings from the above toolSummaries."
+        )
+    instruction = (
+        f"You are the governed {role} department analysis runtime. "
+        f"Analyze the supplied tool evidence and return valid JSON conforming to this schema: "
+        f'{{"schemaVersion": 1, "agentKind": "{role}", "status": "complete", "summary": "...", '
+        f'"conclusions": [{{"code": "REASON_CODE", "statement": "...", "provenanceIds": ["..."]}}], '
+        f'"risks": [{{"code": "REASON_CODE", "severity": "low|medium|high", "statement": "...", "provenanceIds": ["..."]}}], '
+        f'"recommendedActions": [{{"code": "REASON_CODE", "statement": "...", "provenanceIds": ["..."], "requiresHumanApproval": false}}], '
+        f'"payload": {{"toolSummaries": [{{"toolName": "...", "provenanceId": "...", "summaryDigest": "..."}}]}}}}. '
+        f"All summary and statement fields MUST be written in clear, professional Vietnamese (tiếng Việt), stating concrete numbers, SKU counts, and specific facts found in the evidence. "
+        f"{evidence_desc}"
+    )
     return ModelPrompt(
         trusted_messages=(
             PromptMessage(
                 role="system",
-                content=f"You are the governed {role} analysis runtime.",
+                content=instruction,
             ),
             PromptMessage(role="system", content=_GOVERNANCE_INSTRUCTION),
         ),

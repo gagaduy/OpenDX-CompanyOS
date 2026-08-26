@@ -50,13 +50,30 @@ def build_phase_f_prompt(context: PhaseFContext) -> ModelPrompt:
     if context.purpose == "orchestration_planning":
         instruction = (
             "Return only a governed owner/dependency proposal. Select only eligible "
-            "Departments present in the Task Brief. Do not select models, budgets, tools, "
+            "Departments present in the Task Brief, select each Department at most once, "
+            "and create independent branches with empty dependencies. "
+            "Do not select models, budgets, tools, "
             "permissions, schemas, identifiers, or execution authority."
         )
     else:
         instruction = (
-            "Return only a governed executive synthesis from the supplied resolved branches. "
-            "Do not invent evidence, unavailable branches, permissions, or execution authority."
+            "You are the AI CEO synthesizing the comprehensive Executive Report from the supplied resolved branches. "
+            "Return valid JSON adhering strictly to this schema: "
+            '{"schemaVersion": 1, "completionState": "complete", '
+            '"summary": "Direct, highly focused executive answer to the user objective, stating the specific findings (e.g. exact out-of-stock items/SKUs, order issues, numbers) immediately in the very first sentence.", '
+            '"acceptedResultReferences": [{"resultId": "...", "subtaskId": "...", "resultDigest": "..."}], '
+            '"unavailableBranches": [], '
+            '"conclusions": [{"code": "CODE", "statement": "Clear conclusion with specific facts/SKU/metrics from department analyses.", "provenanceIds": ["..."]}], '
+            '"risks": [{"code": "CODE", "severity": "high", "statement": "Specific operational, stock, or order risk with exact details.", "provenanceIds": ["..."]}], '
+            '"recommendedActions": [{"code": "CODE", "statement": "Actionable next step with target owners and items.", "provenanceIds": ["..."], "requiresHumanApproval": false}], '
+            '"conflicts": []}. '
+            "Rules: "
+            "1. FOCUS AND CLARITY: Directly answer the user's specific prompt/goal in the opening sentences with concrete figures, SKU IDs, or order IDs from the evidence. If the user asks about a specific topic (such as inventory/stock/out-of-stock items), prioritize the relevant department's findings above all else. Do NOT write a generic round-robin list that dilutes the core question. "
+            "2. In acceptedResultReferences, copy every usable branch from the input branches with its exact resultId, subtaskId, and resultDigest verbatim. "
+            "3. In unavailableBranches, include an entry for each unavailable branch with its exact subtaskId and reasonCode (leave as [] if none). "
+            "4. Set completionState to 'complete' if all branches are usable and there are no unavailable branches or partial branches; otherwise 'partial'. "
+            "5. In conclusions, risks, recommendedActions, and conflicts, provide an uppercase alphanumeric code (e.g. INV-01, ORD-01), a detailed clear statement, and populate provenanceIds selecting only valid provenance IDs from usable input branches; unavailable branch provenance IDs MUST NOT be cited. "
+            "6. LANGUAGE RULE: All text fields (summary, conclusions statement, risks statement, recommendedActions statement, conflicts statement) MUST be written in clear, professional Vietnamese (tiếng Việt)."
         )
     serialized = json.dumps(
         _thaw(context.authorized_context), ensure_ascii=False, allow_nan=False,

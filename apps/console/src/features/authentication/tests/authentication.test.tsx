@@ -128,6 +128,20 @@ describe("console authentication routes", () => {
     });
   });
 
+  it("keeps approved Agentic staff roles and discards unknown realm roles", async () => {
+    oidc.getUser.mockResolvedValueOnce({
+      access_token: "agentic-token", expired: false,
+      profile: { sub: "agentic-user", realm_access: { roles: [
+        "agentic_operator", "agentic_approver", "agentic_governance_admin",
+        "agentic_auditor", "offline_access",
+      ] } },
+    });
+    const client = createOidcAuthClient({ apiBaseUrl: "http://localhost", oidcAuthority: "https://identity.example.test/realms/opendx", oidcClientId: "opendx-console", oidcRedirectUri: "http://localhost/auth/callback", oidcPostLogoutRedirectUri: "http://localhost/sign-in" });
+    await expect(client.getSession()).resolves.toMatchObject({ roles: [
+      "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor",
+    ] });
+  });
+
   it("redirects anonymous staff to sign in and starts OIDC login", async () => {
     const client = createClient(null);
     renderRoute("/products", client);

@@ -48,6 +48,7 @@ class StartWorkflowCommand:
     workflow_version: int
     plan_revision: int
     correlation_id: str
+    execution_profile: Literal["store_health_review", "advanced_live"] = "store_health_review"
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,7 @@ class WorkflowControl:
                 task_id=command.task_id,
                 workflow_version=command.workflow_version,
                 plan_revision=command.plan_revision,
+                execution_profile=command.execution_profile,
                 activity_start_to_close_seconds=self._start_to_close,
                 activity_schedule_to_close_seconds=self._schedule_to_close,
             )

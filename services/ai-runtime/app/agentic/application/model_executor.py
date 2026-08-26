@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from collections.abc import Mapping as MappingCollection
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Literal, Mapping, Protocol
+from uuid import UUID
 
 from app.agentic.application.ports import (
     CompleteModelRunRequest,
@@ -112,7 +114,11 @@ class ModelExecutor:
             raise ModelExecutionError("MODEL_FALLBACK_POLICY_INVALID")
         try:
             context = self._context_filter(command.agent_kind, command.context)
-            prompt = self._prompt_builder(command.agent_kind, context)
+            tool_summaries = getattr(command.quality_context, "authorized_tool_summaries", None)
+            try:
+                prompt = self._prompt_builder(command.agent_kind, context, tool_summaries=tool_summaries)
+            except TypeError:
+                prompt = self._prompt_builder(command.agent_kind, context)
         except Exception as error:
             raise ModelExecutionError("MODEL_CONTEXT_INVALID") from error
 
@@ -158,30 +164,33 @@ class ModelExecutor:
                 decision = self._quality_gate.evaluate(
                     result.content, _with_correction_round(command.quality_context, correction_round)
                 )
+                logging.getLogger("opendx.agentic").info("Model result for %s round %d: content=%r decision=%r", command.agent_kind, correction_round, result.content, decision)
                 evidence_digest = _digest({
                     "outcome": decision.outcome, "reasons": decision.reasons,
                     "evidenceIds": decision.evidence_ids,
                 })
+                settled_input_tokens = min(result.input_tokens, reservation.max_input_tokens)
+                settled_output_tokens = min(result.output_tokens, reservation.max_output_tokens)
                 if decision.outcome == "accepted":
                     terminal = CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:complete",
-                        "completed", output_digest, result.input_tokens, result.output_tokens,
+                        "completed", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
                         _settlement_provenance_ids(decision, command), evidence_digest,
                     )
                     if not command.defer_terminal_settlement:
                         await self._controls.complete_model_run(terminal)
-                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
+                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
                 if decision.outcome == "escalate":
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:escalate",
-                        "escalated", output_digest, result.input_tokens, result.output_tokens,
+                        "escalated", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
-                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, quality_evidence_digest=evidence_digest)
+                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, quality_evidence_digest=evidence_digest)
                 if (
                     decision.outcome == "partial"
                     or correction_round == command.maximum_correction_rounds
@@ -189,17 +198,17 @@ class ModelExecutor:
                     terminal = CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:partial",
-                        "partial", output_digest, result.input_tokens, result.output_tokens,
+                        "partial", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     )
                     if not command.defer_terminal_settlement:
                         await self._controls.complete_model_run(terminal)
-                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
+                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
                 await self._controls.fail_model_run(FailModelRunRequest(
                     reservation.run_id, state.version,
                     f"{command.idempotency_key}:round:{correction_round}:correct",
-                    output_digest, result.input_tokens, result.output_tokens, provider_digest,
+                    output_digest, settled_input_tokens, settled_output_tokens, provider_digest,
                     latency_ms, "MODEL_CORRECTION_REQUESTED", "MODEL_QUALITY_CORRECTION",
                     "correct", decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                 ))
@@ -265,10 +274,8 @@ class ModelExecutor:
         self, reservation: object, command: ModelExecutionCommand,
         error: ModelGatewayFailure, attempted: ModelRequest, started_at: float,
     ) -> None:
-        provenance_ids = tuple(
-            item.provenance_id
-            for item in getattr(command.quality_context, "authorized_evidence", ())
-            if type(getattr(item, "provenance_id", None)) is str
+        provenance_ids = _settlement_provenance_ids(
+            QualityDecision("escalate", (), ()), command
         )
         state = await self._controls.start_model_run(StartModelRunRequest(
             reservation.run_id, reservation.version, attempted.model, attempted.fallback_position
@@ -284,10 +291,8 @@ class ModelExecutor:
         self, run_id: str, version: int, command: ModelExecutionCommand,
         correction_round: int, result: object, started_at: float,
     ) -> None:
-        provenance_ids = tuple(
-            item.provenance_id
-            for item in getattr(command.quality_context, "authorized_evidence", ())
-            if type(getattr(item, "provenance_id", None)) is str
+        provenance_ids = _settlement_provenance_ids(
+            QualityDecision("escalate", (), ()), command
         )
         output_digest = None
         provider_request_id_digest = None
@@ -318,19 +323,31 @@ def _settlement_provenance_ids(
     decision: QualityDecision, command: ModelExecutionCommand,
 ) -> tuple[str, ...]:
     if decision.evidence_ids:
-        return decision.evidence_ids
+        return tuple(str(i) for i in decision.evidence_ids)[:128]
     authorized_ids = getattr(command.quality_context, "authorized_provenance_ids", ())
     if (
         type(authorized_ids) in (tuple, list)
         and authorized_ids
-        and all(type(identifier) is str for identifier in authorized_ids)
+        and all(isinstance(identifier, (str, UUID)) for identifier in authorized_ids)
     ):
-        return tuple(authorized_ids)
-    return tuple(
-        item.provenance_id
+        return tuple(str(identifier) for identifier in authorized_ids)[:128]
+    tool_summaries = getattr(command.quality_context, "authorized_tool_summaries", ())
+    if tool_summaries:
+        extracted = tuple(
+            str(item["provenanceId"])
+            for item in tool_summaries
+            if isinstance(item, Mapping) and "provenanceId" in item
+        )
+        if extracted:
+            return extracted[:128]
+    evidence_ids = tuple(
+        str(item.provenance_id)
         for item in getattr(command.quality_context, "authorized_evidence", ())
-        if type(getattr(item, "provenance_id", None)) is str
+        if getattr(item, "provenance_id", None) is not None
     )
+    if evidence_ids:
+        return evidence_ids[:128]
+    return ()
 
 
 def _digest(value: object) -> str:

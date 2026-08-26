@@ -47,6 +47,17 @@ describe("ToolRegistryService", () => {
     await expect(mismatched.service.authorize(request)).rejects.toMatchObject({ code: "TASK_AGENT_MISMATCH" });
   });
 
+  it("accepts a live orchestration descriptor as the Department task assignment", async () => {
+    const harness = createHarness({ taskAssigned: false, orchestrationAssigned: true });
+
+    await expect(harness.service.authorize(request)).resolves.toMatchObject({ effect: "ALLOW" });
+    expect(harness.repository.hasActiveOrchestrationModelAuthority)
+      .toHaveBeenCalledWith(session, "task-1", "catalog", "revision-1", expect.any(String));
+    expect(harness.policy.evaluateInSession).toHaveBeenCalledWith(session, expect.objectContaining({
+      department: "catalog",
+    }));
+  });
+
   it("rejects unknown tools, stale grants, scope, and parameter digests before budget", async () => {
     const cases = [
       [{ toolExists: false }, "TOOL_NOT_FOUND"],
@@ -207,6 +218,7 @@ describe("ToolRegistryService", () => {
 
 function createHarness(options: {
   readonly agentActive?: boolean; readonly taskAssigned?: boolean; readonly toolExists?: boolean;
+  readonly orchestrationAssigned?: boolean;
   readonly grantExists?: boolean; readonly grantScope?: string;
   readonly policyEffect?: "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
   readonly approvalValid?: boolean;
@@ -223,6 +235,8 @@ function createHarness(options: {
   const repository = {
     findAgentByClientId: vi.fn(async () => ({ kind: "catalog", keycloakClientId: "agent-catalog", active: options.agentActive ?? true, version: 1, createdAt: "", updatedAt: "" })),
     findTaskForAgent: vi.fn(async () => options.taskAssigned === false ? undefined : ({ id: "task-1", state: "ready", createdBy: "operator", goal: "g", instructions: "i", configurationRevisionId: "revision-1", version: 1, createdAt: "", updatedAt: "" })),
+    findTaskById: vi.fn(async () => options.orchestrationAssigned ? ({ id: "task-1", state: "ready", createdBy: "operator", goal: "g", instructions: "i", configurationRevisionId: "revision-1", version: 1, createdAt: "", updatedAt: "" }) : undefined),
+    hasActiveOrchestrationModelAuthority: vi.fn(async () => options.orchestrationAssigned ?? false),
     findRevision: vi.fn(async () => ({ id: "revision-1", state: "active", createdBy: "admin", payloadDigest: digest, version: 4, createdAt: "", updatedAt: "" })),
     findTool: vi.fn(async () => options.toolExists === false ? undefined : ({ name: descriptor.name, version: 1, inputSchemaDigest: descriptor.inputSchemaDigest, outputSchemaDigest: descriptor.outputSchemaDigest, active: true, executionCostMicros: 1, maximumAttempts: 2 })),
     findToolGrant: vi.fn(async () => options.grantExists === false ? undefined : ({ id: "grant-1", revisionId: "revision-1", agentKind: "catalog", toolName: descriptor.name, toolVersion: 1, purpose: "store_health_review", dataScope: options.grantScope ?? "catalog:health:read", maxInvocations: 10 })),
@@ -264,7 +278,7 @@ function createHarness(options: {
     () => "2026-08-14T12:00:00.000Z",
     options.observability,
   );
-  return { service, repository, adapter, adapters };
+  return { service, repository, adapter, adapters, policy };
 }
 
 function completenessOutput(

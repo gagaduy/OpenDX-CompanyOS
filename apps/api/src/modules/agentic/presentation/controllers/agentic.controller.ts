@@ -8,6 +8,7 @@ import { ApplicationError } from "../../../../shared/http/application-error";
 import type { AgentTaskService } from "../../application/services/interfaces/agent-task.service";
 import type { AgenticQueryService } from "../../application/services/interfaces/agentic-query.service";
 import type { AgenticFileService } from "../../application/services/interfaces/agentic-file.service";
+import type { AgenticConsoleService } from "../../application/services/interfaces/agentic-console.service";
 import type { AgenticIntakeFile } from "../../domain/entities/agentic-file";
 import type { ApprovalService } from "../../application/services/interfaces/approval.service";
 import type { ConfigurationService } from "../../application/services/interfaces/configuration.service";
@@ -17,6 +18,7 @@ import {
   parseExpectedVersion, parsePage, parseRevocation, parseUpdateRevision,
   parseUpdateTask, parseUuid,
   parseFileAction, parseFileApproval, parseIdempotencyKey,
+  parseConsoleTaskFilter, parseEmptyQuery, parseTaskIntake,
 } from "../validators/agentic.validator";
 
 export class AgenticController {
@@ -27,13 +29,34 @@ export class AgenticController {
     private readonly revocations: EmergencyRevocationService,
     private readonly queries: AgenticQueryService,
     private readonly files?: AgenticFileService,
+    private readonly consoleService?: AgenticConsoleService,
   ) {}
+
+  readonly createTaskIntake = handle(async (request, response) => {
+    const result = await consoleTasks(this.consoleService).createTaskIntake({
+      ...parseTaskIntake(request.body),
+      idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]),
+    }, principal(response.locals));
+    response.status(result.disposition === "created" ? 201 : 200)
+      .json(successResponse("Agent task intake accepted", result.detail));
+  });
+  readonly getTaskOverview = handle(async (request, response) => {
+    parseEmptyQuery(request.query);
+    response.json(successResponse("Agent task overview retrieved", await consoleTasks(this.consoleService).getOverview(principal(response.locals))));
+  });
+  readonly getTaskOperations = handle(async (request, response) => {
+    response.json(successResponse("Agent task operations retrieved", await consoleTasks(this.consoleService)
+      .getTaskOperations(parseUuid(request.params.taskId), principal(response.locals))));
+  });
 
   readonly createTask = handle(async (request, response) => {
     response.status(201).json(successResponse("Agent task created", await this.tasks.create(parseCreateTask(request.body), principal(response.locals))));
   });
   readonly listTasks = handle(async (request, response) => {
-    response.json(successResponse("Agent tasks retrieved", await this.tasks.list(parsePage(request.query), principal(response.locals))));
+    const data = this.consoleService === undefined
+      ? await this.tasks.list(parsePage(request.query), principal(response.locals))
+      : await this.consoleService.listTasks(parseConsoleTaskFilter(request.query), principal(response.locals));
+    response.json(successResponse("Agent tasks retrieved", data));
   });
   readonly getTask = handle(async (request, response) => {
     response.json(successResponse("Agent task retrieved", await this.tasks.get(parseUuid(request.params.taskId), principal(response.locals))));
@@ -53,16 +76,28 @@ export class AgenticController {
   readonly getApproval = handle(async (request, response) => {
     response.json(successResponse("Agent approval retrieved", await this.approvals.get(parseUuid(request.params.approvalId), principal(response.locals))));
   });
+  readonly getApprovalDetail = handle(async (request, response) => {
+    const staff = principal(response.locals);
+    const approval = await this.approvals.get(parseUuid(request.params.approvalId), staff);
+    response.json(successResponse("Agent approval detail retrieved", await consoleTasks(this.consoleService).getApprovalDetail(approval)));
+  });
   readonly decideApproval = handle(async (request, response) => {
     const result = await this.approvals.decideCommand({ approvalId: parseUuid(request.params.approvalId), ...parseDecision(request.body) }, principal(response.locals));
     response.status(result.workflowSignal && result.disposition === "accepted" ? 202 : 200)
       .json(successResponse("Agent approval decided", result.approval));
   });
   readonly listEmployees = handle(async (_request, response) => {
-    response.json(successResponse("Digital Employees retrieved", await this.queries.listEmployees()));
+    const data = this.consoleService === undefined
+      ? await this.queries.listEmployees()
+      : await this.consoleService.listEmployees(principal(response.locals));
+    response.json(successResponse("Digital Employees retrieved", data));
   });
   readonly getEmployee = handle(async (request, response) => {
-    response.json(successResponse("Digital Employee retrieved", await this.queries.getEmployee(parseAgentKind(request.params.agentKind))));
+    const kind = parseAgentKind(request.params.agentKind);
+    const data = this.consoleService === undefined
+      ? await this.queries.getEmployee(kind)
+      : await this.consoleService.getEmployee(kind, principal(response.locals));
+    response.json(successResponse("Digital Employee retrieved", data));
   });
   readonly createRevision = handle(async (request, response) => {
     response.status(201).json(successResponse("Configuration draft created", await this.configurations.createDraft(parseCreateRevision(request.body), principal(response.locals))));
@@ -86,24 +121,27 @@ export class AgenticController {
     response.status(201).json(successResponse("Revocation request accepted", await this.revocations.request({ ...parseRevocation(request.body), correlationId: String(response.locals.correlationId) }, principal(response.locals))));
   });
   readonly listAudit = handle(async (request, response) => {
-    response.json(successResponse("Agent audit retrieved", await this.queries.listAudit(parseAuditQuery(request.query), principal(response.locals))));
+    response.json(successResponse("Agent audit retrieved", await consoleTasks(this.consoleService).listAudit(parseAuditQuery(request.query), principal(response.locals))));
   });
   readonly uploadFile = handle(async (request, response) => {
     if (request.file === undefined) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
     if (Object.keys(request.body).length !== 0) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
-    const result = await files(this.files).upload({ originalFilename: request.file.originalname, mediaType: request.file.mimetype as "text/csv" | "text/plain", content: request.file.buffer }, principal(response.locals));
-    response.status(201).json(successResponse("Agentic file uploaded", fileResponse(result.file)));
+    const result = await files(this.files).upload({ idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]), originalFilename: request.file.originalname, mediaType: request.file.mimetype as "text/csv" | "text/plain", content: request.file.buffer }, principal(response.locals));
+    response.status(result.disposition === "created" ? 201 : 200).json(successResponse("Agentic file uploaded", fileResponse(result.file)));
   });
   readonly getFile = handle(async (request, response) => {
     response.json(successResponse("Agentic file retrieved", fileResponse(await files(this.files).get(parseUuid(request.params.fileId), principal(response.locals)))));
   });
   readonly previewFile = handle(async (request, response) => {
-    response.json(successResponse("Agentic file preview retrieved", await files(this.files).scanAndPreview(parseUuid(request.params.fileId), principal(response.locals))));
+    const staff = principal(response.locals);
+    const governance = await consoleTasks(this.consoleService).getFileGovernancePreview(staff);
+    const preview = await files(this.files).scanAndPreview(parseUuid(request.params.fileId), staff);
+    response.json(successResponse("Agentic file preview retrieved", { ...preview, governance }));
   });
   readonly approveFile = handle(async (request, response) => {
     const input = parseFileApproval(request.body);
     const task = await files(this.files).approvePreview({ fileId: parseUuid(request.params.fileId), ...input, idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]) }, principal(response.locals));
-    response.status(201).json(successResponse("Agentic file preview approved", task));
+    response.status(201).json(successResponse("Agentic file preview approved", { task, subtasks: [], dependencies: [] }));
   });
   readonly rejectFile = handle(async (request, response) => {
     const result = await files(this.files).reject(parseUuid(request.params.fileId), parseFileAction(request.body).expectedFileVersion, principal(response.locals));
@@ -125,6 +163,11 @@ function handle(operation: (request: Request, response: Response) => Promise<voi
 
 function files(service: AgenticFileService | undefined): AgenticFileService {
   if (service === undefined) throw new ApplicationError(503, "FILE_INTAKE_UNAVAILABLE", "Agentic file intake is unavailable");
+  return service;
+}
+
+function consoleTasks(service: AgenticConsoleService | undefined): AgenticConsoleService {
+  if (service === undefined) throw new ApplicationError(503, "AGENTIC_CONSOLE_UNAVAILABLE", "Agentic Console is unavailable");
   return service;
 }
 

@@ -8,10 +8,11 @@ import type { StaffRole } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
 
 export interface AgenticControllerHandlers {
+  readonly createTaskIntake: RequestHandler; readonly getTaskOverview: RequestHandler; readonly getTaskOperations: RequestHandler;
   readonly createTask: RequestHandler; readonly listTasks: RequestHandler;
   readonly getTask: RequestHandler; readonly updateTask: RequestHandler;
   readonly readyTask: RequestHandler; readonly cancelTask: RequestHandler;
-  readonly listApprovals: RequestHandler; readonly getApproval: RequestHandler;
+  readonly listApprovals: RequestHandler; readonly getApproval: RequestHandler; readonly getApprovalDetail: RequestHandler;
   readonly decideApproval: RequestHandler; readonly listEmployees: RequestHandler;
   readonly getEmployee: RequestHandler; readonly createRevision: RequestHandler;
   readonly updateRevision: RequestHandler; readonly submitRevision: RequestHandler;
@@ -56,16 +57,20 @@ export function createAgenticRouter(
     });
   };
 
+  router.post("/tasks/intake", authenticate, guard("agentic.task.intake.denied", operator), controller.createTaskIntake);
+  router.get("/tasks/overview", authenticate, guard("agentic.task.overview.denied", taskReader), controller.getTaskOverview);
   router.post("/tasks", authenticate, guard("agentic.task.create.denied", operator), controller.createTask);
   router.get("/tasks", authenticate, guard("agentic.task.list.denied", taskReader), controller.listTasks);
   router.post("/tasks/:taskId/ready", authenticate, guard("agentic.task.ready.denied", operator), controller.readyTask);
   router.post("/tasks/:taskId/cancel", authenticate, guard("agentic.task.cancel.denied", operator), controller.cancelTask);
   router.post("/tasks/:taskId/start", authenticate, guard("agentic.workflow.start.denied", operator), workflows.startWorkflow);
+  router.get("/tasks/:taskId/operations", authenticate, guard("agentic.task.operations.denied", taskReader), controller.getTaskOperations);
   router.get("/tasks/:taskId", authenticate, guard("agentic.task.read.denied", taskReader), controller.getTask);
   router.patch("/tasks/:taskId", authenticate, guard("agentic.task.update.denied", operator), controller.updateTask);
 
   router.get("/approvals", authenticate, guard("agentic.approval.list.denied", approvalReader), controller.listApprovals);
   router.post("/approvals/:approvalId/decision", authenticate, guard("agentic.approval.decide.denied", approver), controller.decideApproval);
+  router.get("/approvals/:approvalId/detail", authenticate, guard("agentic.approval.detail.denied", approvalReader), controller.getApprovalDetail);
   router.get("/approvals/:approvalId", authenticate, guard("agentic.approval.read.denied", approvalReader), controller.getApproval);
 
   router.post("/workflow-runs/:runId/cancel", authenticate, guard("agentic.workflow.cancel.denied", operator), workflows.cancelWorkflow);

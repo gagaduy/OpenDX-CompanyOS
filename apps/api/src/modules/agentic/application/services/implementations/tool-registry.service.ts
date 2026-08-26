@@ -28,7 +28,8 @@ import type {
 } from "../interfaces/tool-registry";
 
 type ToolRepository = Pick<AgenticRepository,
-  | "findAgentByClientId" | "findTaskForAgent" | "findRevision" | "findTool"
+  | "findAgentByClientId" | "findTaskForAgent" | "findTaskById"
+  | "hasActiveOrchestrationModelAuthority" | "findRevision" | "findTool"
   | "findToolGrant" | "findModelConfiguration" | "findActiveRevocation" | "findApproval"
   | "reserveBudget" | "reserveToolInvocation" | "completeToolInvocation" | "failToolInvocation"
   | "appendAudit" | "appendProvenance" | "countToolInvocations">;
@@ -395,9 +396,20 @@ export class ToolRegistryService implements ToolRegistry {
       || agent.keycloakClientId !== request.principal.clientId
     ) fail("AGENT_NOT_ACTIVE", "Agent identity is not active");
 
-    const task = await this.repository.findTaskForAgent(
+    let task = await this.repository.findTaskForAgent(
       session, request.taskId, request.principal.agentKind,
     );
+    if (task === undefined) {
+      const orchestrationTask = await this.repository.findTaskById(session, request.taskId);
+      if (orchestrationTask?.state === "ready"
+        && orchestrationTask.configurationRevisionId !== undefined
+        && await this.repository.hasActiveOrchestrationModelAuthority(
+          session, request.taskId, request.principal.agentKind,
+          orchestrationTask.configurationRevisionId, this.now(),
+        )) {
+        task = orchestrationTask;
+      }
+    }
     if (task === undefined || task.configurationRevisionId === undefined) {
       fail("TASK_AGENT_MISMATCH", "Task is not ready for this Agent");
     }
@@ -449,7 +461,7 @@ export class ToolRegistryService implements ToolRegistry {
       policyVersion: revision.version,
       actorType: "agent",
       agentKind: request.principal.agentKind,
-      ...(request.department === undefined ? {} : { department: request.department }),
+      department: request.department ?? request.principal.agentKind,
       resource: request.toolName,
       action: "invoke",
       purpose: request.purpose,

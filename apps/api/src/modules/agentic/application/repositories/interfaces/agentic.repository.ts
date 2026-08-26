@@ -21,6 +21,7 @@ import type {
 import type {
   ActivityInvocation,
   WorkflowRun,
+  WorkflowRunState,
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
 import type {
@@ -211,8 +212,21 @@ export interface AuditFilter {
   readonly resourceTypes?: readonly string[];
 }
 
+export interface AgenticAuditRepositoryFilter {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly actorId?: string;
+  readonly action?: string;
+  readonly outcome?: AuditEventRecord["outcome"];
+  readonly resourceType?: string;
+  readonly occurredFrom?: string;
+  readonly occurredTo?: string;
+  readonly resourceTypes?: readonly string[];
+}
+
 export interface ApprovalListFilter {
   readonly requesterId?: string;
+  readonly readerId?: string;
   readonly approverScopes?: readonly ApproverScope[];
 }
 
@@ -364,6 +378,79 @@ export interface OrchestrationSettlementFacts {
 
 export type ImmutableAppendResult = "created" | "duplicate" | "conflict";
 
+export interface StaffIntakeBinding {
+  readonly kind: "task_intake" | "file_upload";
+  readonly actorId: string;
+  readonly idempotencyKey: string;
+  readonly requestDigest: string;
+  readonly resourceId: string;
+  readonly createdAt: string;
+}
+
+export type AgenticConsoleTaskScope =
+  | { readonly kind: "owner"; readonly actorId: string }
+  | { readonly kind: "approval"; readonly actorId: string }
+  | { readonly kind: "oversight" }
+  | { readonly kind: "all" };
+
+export interface AgenticConsoleTaskRepositoryFilter {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly scope: AgenticConsoleTaskScope;
+  readonly state?: string;
+  readonly createdBy?: string;
+  readonly createdFrom?: string;
+  readonly createdTo?: string;
+}
+
+export interface AgenticConsoleTaskOverviewRecord {
+  readonly counts: Readonly<Record<"running" | "waiting" | "failed" | "completed" | "canceled", number>>;
+  readonly pendingApprovals: number;
+  readonly settledCostMicros: number;
+}
+export type AgenticConsoleTaskRecord = Omit<AgentTask, "state"> & {
+  readonly state: AgentTask["state"] | WorkflowRunState;
+};
+
+export interface AgenticConsoleTaskOperationsRecord {
+  readonly task: AgentTask;
+  readonly workflow?: WorkflowRun;
+  readonly timeline: readonly {
+    readonly id: string; readonly kind: string; readonly state: string;
+    readonly occurredAt: string; readonly branchId?: string; readonly reasonCode?: string;
+  }[];
+  readonly branches: readonly {
+    readonly id: string; readonly owner: string; readonly state: string;
+    readonly dependencies: readonly string[]; readonly toolNames: readonly string[];
+    readonly dataClasses: readonly string[];
+  }[];
+  readonly reservedMicros: number;
+  readonly settledMicros: number;
+  readonly approvals: readonly ApprovalRequest[];
+  readonly provenance: readonly ProvenanceRecord[];
+  readonly report?: {
+    readonly reportDigest: string;
+    readonly payloadDigest: string;
+    readonly completionState: "complete" | "partial" | "quality_escalated" | "canceled";
+    readonly payload: Readonly<Record<string, unknown>>;
+  };
+}
+
+export interface AgenticConsoleEmployeeRecord {
+  readonly agent: AgentProfile;
+  readonly configuration?: { readonly id: string; readonly version: number; readonly updatedAt: string };
+  readonly model?: Pick<ModelConfigurationRecord, "primaryModel" | "fallbackModels">;
+  readonly tools: readonly Pick<ToolGrantRecord, "toolName" | "toolVersion" | "dataScope">[];
+  readonly budget?: Omit<BudgetLimitRecord, "revisionId" | "agentKind">;
+  readonly revocation?: RevocationRecord;
+  readonly recentRuns: readonly {
+    readonly taskId: string;
+    readonly state: string;
+    readonly settledCostMicros: number;
+    readonly completedAt?: string;
+  }[];
+}
+
 export interface AgenticFileApprovalInput {
   readonly id: string;
   readonly fileId: string;
@@ -450,6 +537,12 @@ export interface AgenticRepository {
   appendExecutiveReportPayload(session: DatabaseSession, reportId: string, reportDigest: string, payload: Readonly<Record<string, unknown>>): Promise<ImmutableAppendResult>;
   findExecutiveReportPayload(session: DatabaseSession, reportId: string): Promise<ExecutiveReportPayloadRecord | undefined>;
   findExecutiveReportReference(session: DatabaseSession, reportId: string): Promise<ExecutiveReportReferenceRecord | undefined>;
+  findStaffIntakeBinding(session: DatabaseSession, kind: StaffIntakeBinding["kind"], actorId: string, idempotencyKey: string): Promise<StaffIntakeBinding | undefined>;
+  bindStaffIntake(session: DatabaseSession, binding: StaffIntakeBinding): Promise<"created" | "duplicate" | "conflict">;
+  listConsoleTasks(session: DatabaseSession, filter: AgenticConsoleTaskRepositoryFilter): Promise<{ readonly items: readonly AgenticConsoleTaskRecord[]; readonly totalItems: number }>;
+  getConsoleTaskOverview(session: DatabaseSession, scope: AgenticConsoleTaskScope): Promise<AgenticConsoleTaskOverviewRecord>;
+  hasConsoleTaskAccess(session: DatabaseSession, taskId: string, scope: AgenticConsoleTaskScope): Promise<boolean>;
+  getConsoleTaskOperations(session: DatabaseSession, taskId: string): Promise<AgenticConsoleTaskOperationsRecord | undefined>;
   claimIntakeFilesForProcessing(session: DatabaseSession, now: string, limit: number): Promise<readonly string[]>;
   claimExpiredIntakeFiles(session: DatabaseSession, now: string, limit: number): Promise<readonly { readonly id: string; readonly objectKey: string; readonly version: number }[]>;
   markIntakeObjectDeleted(session: DatabaseSession, fileId: string, expectedVersion: number, at: string): Promise<boolean>;
@@ -463,6 +556,7 @@ export interface AgenticRepository {
   findAgentByClientId(session: DatabaseSession, clientId: string): Promise<AgentProfile | undefined>;
   findAgentByKind(session: DatabaseSession, agentKind: AgentKind): Promise<AgentProfile | undefined>;
   listAgents(session: DatabaseSession): Promise<readonly AgentProfile[]>;
+  getConsoleEmployee(session: DatabaseSession, agentKind: AgentKind, recentLimit: number): Promise<AgenticConsoleEmployeeRecord | undefined>;
   createTask(session: DatabaseSession, task: AgentTask): Promise<void>;
   findTask(session: DatabaseSession, taskId: string, ownerId: string): Promise<AgentTask | undefined>;
   findTaskById(session: DatabaseSession, taskId: string): Promise<AgentTask | undefined>;
@@ -518,6 +612,7 @@ export interface AgenticRepository {
     excludingIdempotencyKey: string,
   ): Promise<number>;
   listAudit(session: DatabaseSession, filter: AuditFilter): Promise<readonly AuditEventRecord[]>;
+  listConsoleAudit(session: DatabaseSession, filter: AgenticAuditRepositoryFilter): Promise<{ readonly items: readonly AuditEventRecord[]; readonly totalItems: number }>;
   appendProvenance(session: DatabaseSession, record: ProvenanceRecord): Promise<void>;
   listProvenance(session: DatabaseSession, taskId: string): Promise<readonly ProvenanceRecord[]>;
   createWorkflowRun(session: DatabaseSession, run: WorkflowRun): Promise<WorkflowRunCreateResult>;
@@ -532,6 +627,7 @@ export interface AgenticRepository {
   finishActivityInvocation(session: DatabaseSession, invocation: ActivityInvocation, expectedVersion: number): Promise<boolean>;
   createWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<WorkflowSignalReceiptCreateResult>;
   findWorkflowSignalReceipt(session: DatabaseSession, idempotencyKey: string): Promise<WorkflowSignalReceipt | undefined>;
+  findWorkflowSignalReceiptForApproval(session: DatabaseSession, approvalId: string): Promise<WorkflowSignalReceipt | undefined>;
   findWorkflowApproval(session: DatabaseSession, runId: string): Promise<ApprovalRequest | undefined>;
   updateWorkflowSignalReceipt(session: DatabaseSession, receipt: WorkflowSignalReceipt): Promise<boolean>;
   listPendingWorkflowSignals(session: DatabaseSession, limit: number): Promise<readonly WorkflowSignalReceipt[]>;

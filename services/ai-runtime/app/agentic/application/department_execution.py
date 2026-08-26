@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Callable, Mapping
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from app.agentic.application.context_boundary import AuthorizedContextInput
+from app.agentic.application.context_boundary import (
+    AuthorizedContextInput,
+    _AGENT_FIELDS,
+)
 from app.agentic.application.model_executor import ModelExecutionCommand
 from app.agentic.application.phase_f_context import PhaseFContext, build_phase_f_context
 from app.agentic.application.ports import (
@@ -191,9 +195,25 @@ class DepartmentExecutionService:
                 "summaryDigest": canonical_digest(output["summary"]),
             })
 
+        merged_fields: dict[str, object] = {
+            "summary": f"Governed {descriptor.agent_kind} department analysis",
+            "riskLevel": "low",
+        }
+        for tr in tool_results:
+            out = tr.get("output", {})
+            if isinstance(out, Mapping):
+                summ = out.get("summary")
+                if isinstance(summ, Mapping):
+                    merged_fields.update(dict(summ))
+                elif isinstance(summ, str):
+                    merged_fields["summary"] = summ
+        allowed = _AGENT_FIELDS.get(descriptor.agent_kind, frozenset())
+        sanitized_fields = {k: v for k, v in merged_fields.items() if k in allowed}
+        if "summary" not in sanitized_fields:
+            sanitized_fields["summary"] = f"Governed {descriptor.agent_kind} evidence"
         context = AuthorizedContextInput(
             classification="internal",
-            fields={"summary": "Governed Department evidence", "evidence": tool_results},
+            fields=sanitized_fields,
         )
         try:
             outcome = await self._models.execute(ModelExecutionCommand(
@@ -213,6 +233,7 @@ class DepartmentExecutionService:
                 ),
             ))
         except Exception as error:
+            logging.getLogger("opendx.agentic").error("Department model execution failed for %s: %r", descriptor.agent_kind, error, exc_info=True)
             code, retryable = _governed_failure(error, "DEPARTMENT_MODEL_FAILED")
             if retryable:
                 raise DepartmentExecutionError(code, retryable=True) from error
@@ -366,6 +387,7 @@ class AiCeoPlanningService:
                 frozenset(eligible), provenance_ids,
             ),
         ))
+        await _settle_rejected_deferred_outcome(self._controls, outcome)
         proposal = _accepted_result(outcome, "AI_CEO_PLANNING_UNAVAILABLE")
         subtasks_value = proposal.get("subtasks")
         if type(subtasks_value) is not list:
@@ -503,15 +525,16 @@ class AiCeoSynthesisService:
         if resolved_branches != expected_branches:
             raise DepartmentExecutionError("SYNTHESIS_CONTEXT_INVALID")
         accepted_references = tuple({
-            "resultId": item["resultId"], "subtaskId": item["subtaskId"],
-            "resultDigest": item["resultDigest"],
+            "resultId": str(item["resultId"]), "subtaskId": str(item["subtaskId"]),
+            "resultDigest": str(item["resultDigest"]),
         } for item in accepted if isinstance(item, Mapping))
         unavailable_references = tuple({
-            "subtaskId": item["subtaskId"], "reasonCode": "DEPARTMENT_UNAVAILABLE",
+            "subtaskId": str(item["subtaskId"]), "reasonCode": str(item.get("reasonCode", "DEPARTMENT_UNAVAILABLE")),
         } for item in unavailable if isinstance(item, Mapping))
         provenance = tuple(sorted({
-            value for item in accepted if isinstance(item, Mapping)
-            for value in item.get("provenanceIds", ()) if type(value) is str
+            str(value) for item in accepted if isinstance(item, Mapping)
+            for value in item.get("provenanceIds", ())
+            if value is not None
         }))
         partial_ids = tuple(
             str(item["resultId"]) for item in accepted
@@ -544,6 +567,7 @@ class AiCeoSynthesisService:
                 partial_result_ids=partial_ids,
             ),
         ))
+        await _settle_rejected_deferred_outcome(self._controls, outcome)
         report = _accepted_result(outcome, "AI_CEO_SYNTHESIS_UNAVAILABLE")
         completion = report.get("completionState")
         if completion not in {"complete", "partial", "quality_escalated", "canceled"}:
@@ -553,8 +577,9 @@ class AiCeoSynthesisService:
             *report.get("recommendedActions", []), *report.get("conflicts", []),
         )
         conclusion_ids = sorted({
-            value for item in material if isinstance(item, Mapping)
-            for value in item.get("provenanceIds", ()) if type(value) is str
+            str(value) for item in material if isinstance(item, Mapping)
+            for value in item.get("provenanceIds", ())
+            if value is not None
         })
         unavailable_report = report.get("unavailableBranches")
         if type(unavailable_report) is not list:
@@ -619,13 +644,23 @@ def _ai_ceo_view(raw: object) -> AiCeoExecutionView:
 
 
 def _accepted_result(outcome: object, unavailable_code: str) -> dict[str, object]:
-    if getattr(outcome, "status", None) != "completed":
+    if getattr(outcome, "status", None) not in ("completed", "partial"):
         raise DepartmentExecutionError(unavailable_code)
     content = _mutable_json(getattr(outcome, "accepted_content", None))
     digest = getattr(outcome, "output_digest", None)
     if not isinstance(content, dict) or canonical_digest(content) != digest:
         raise DepartmentExecutionError("MODEL_RESULT_BINDING_INVALID")
     return content
+
+
+async def _settle_rejected_deferred_outcome(
+    controls: AgenticControlPort, outcome: object,
+) -> None:
+    if getattr(outcome, "status", None) in ("completed", "partial"):
+        return
+    terminal = getattr(outcome, "deferred_terminal_settlement", None)
+    if terminal is not None:
+        await controls.complete_model_run(terminal)
 
 
 def _governed_failure(error: Exception, fallback_code: str) -> tuple[str, bool]:

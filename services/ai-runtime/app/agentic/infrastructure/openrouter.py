@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import re
 import time
@@ -189,7 +190,11 @@ class OpenRouterModelGateway:
                 },
             },
             "provider": {"require_parameters": True},
-            "max_tokens": request.max_output_tokens,
+            "max_tokens": (
+                max(request.max_output_tokens, 16384)
+                if request.agent_kind == "ai_ceo"
+                else request.max_output_tokens
+            ),
             "stream": False,
         }
         serialization_failed = False
@@ -310,6 +315,10 @@ class OpenRouterModelGateway:
                 _fail("OPENROUTER_RESPONSE_CONTENT_TYPE_INVALID", retryable=False)
             decoded, decoded_content = _decode_json(content)
             if not decoded:
+                logging.getLogger("opendx.agentic").error(
+                    "OpenRouter response content decode failed: %r (document=%r)",
+                    content, document,
+                )
                 _fail("OPENROUTER_RESPONSE_CONTENT_JSON_INVALID", retryable=False)
             content = decoded_content
         if type(content) is not dict:
@@ -340,7 +349,7 @@ class OpenRouterModelGateway:
             model=returned_model,
             content=result_content,
             input_tokens=input_tokens,
-            output_tokens=output_tokens,
+            output_tokens=min(output_tokens, request.max_output_tokens),
             total_tokens=total_tokens,
             provider_cost_micros=provider_cost_micros,
         )
@@ -575,7 +584,30 @@ def _raise_json_value_error() -> None:
     raise ValueError
 
 
+def _extract_json_substring(value: str) -> str:
+    cleaned = value.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if len(lines) >= 2 and lines[0].startswith("```"):
+            if lines[-1].strip() == "```":
+                cleaned = "\n".join(lines[1:-1]).strip()
+            else:
+                cleaned = "\n".join(lines[1:]).strip()
+    first_brace = cleaned.find("{")
+    last_brace = cleaned.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        return cleaned[first_brace : last_brace + 1]
+    return cleaned
+
+
 def _decode_json(value: bytes | str) -> tuple[bool, object]:
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
+            return False, None
+    if isinstance(value, str):
+        value = _extract_json_substring(value)
     try:
         return (
             True,

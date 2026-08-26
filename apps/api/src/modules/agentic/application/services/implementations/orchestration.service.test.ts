@@ -53,7 +53,7 @@ describe("OrchestrationServiceImpl", () => {
       }),
       findRevision: vi.fn().mockResolvedValue({ id: "00000000-0000-4000-8000-000000000002", state: "active", version: 4 }),
       listProvenance: vi.fn().mockResolvedValue([{ id: "00000000-0000-4000-8000-000000000003",
-        taskId: "00000000-0000-4000-8000-000000000001", sourceType: "agentic_task",
+        taskId: "00000000-0000-4000-8000-000000000001", sourceType: "staff_task_intake",
         sourceId: "00000000-0000-4000-8000-000000000001", sourceDigest: "f".repeat(64),
         classification: "internal", recordedBy: "operator-a", recordedAt: "2026-08-22T00:00:00.000Z" },
       { id: "00000000-0000-4000-8000-000000000099", taskId: "00000000-0000-4000-8000-000000000001",
@@ -100,7 +100,7 @@ describe("OrchestrationServiceImpl", () => {
       timeoutSeconds: 30, budgetMicros: 10_000,
     }));
     expect(brief.provenance).toEqual([{ id: "00000000-0000-4000-8000-000000000003",
-      sourceType: "agentic_task", sourceDigest: "f".repeat(64), classification: "internal" }]);
+      sourceType: "staff_task_intake", sourceDigest: "f".repeat(64), classification: "internal" }]);
     expect(brief.digest).toMatch(/^[a-f0-9]{64}$/);
     expect(brief.planningAuthority).toEqual({
       authorityId: expect.any(String), authorityDigest: expect.stringMatching(/^[a-f0-9]{64}$/),

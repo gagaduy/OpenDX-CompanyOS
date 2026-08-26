@@ -37,9 +37,17 @@ def test_rejects_payload_or_authority_digest_mismatch_and_sensitive_fields() -> 
 
 def test_ai_ceo_schema_digests_match_the_api_catalog() -> None:
     assert {name: canonical_digest(schema) for name, schema in AI_CEO_RESULT_SCHEMAS.items()} == {
-        "orchestration_plan_proposal_v1": "7eded91450af684f3d83d1a38f1773ba165166e96139ea783e546e7f6d79efaa",
-        "store_health_ai_ceo_report_v1": "5aa7bf4620581bfadd32407eb44f825c04fda99b2b2e5ced85c5b98929eb4174",
+        "orchestration_plan_proposal_v1": "c7e0c56c2a125433828418434f2a294bb4c40362bf6f5948ffec0ec84f8ab352",
+        "store_health_ai_ceo_report_v1": "9eb44168f058917b0eec2c1f30b7dbb6fc54ee6c8e7b1d891da3d56d0ddbe51f",
     }
+
+
+def test_planning_schema_requires_independent_department_branches() -> None:
+    dependencies = AI_CEO_RESULT_SCHEMAS["orchestration_plan_proposal_v1"][
+        "properties"
+    ]["subtasks"]["items"]["properties"]["dependencies"]
+
+    assert dependencies["maxItems"] == 0
 
 
 def authority_view() -> dict[str, object]:

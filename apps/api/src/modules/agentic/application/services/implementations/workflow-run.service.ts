@@ -401,12 +401,16 @@ export class WorkflowRunServiceImpl implements WorkflowRunService {
   private async dispatchStart(run: WorkflowRun): Promise<WorkflowRun> {
     if (run.temporalRunId !== undefined) return run;
     try {
+      const task = await this.transactions.runReadOnly((session) =>
+        this.repository.findTaskById(session, run.taskId));
+      if (task === undefined) throw new Error("Workflow run has no task");
       const result = await this.gateway.start({
         workflowRunId: run.id,
         temporalWorkflowId: run.temporalWorkflowId,
         taskId: run.taskId,
         workflowVersion: 1,
         planRevision: run.planRevision,
+        executionProfile: task.executionProfile ?? "store_health_review",
       });
       return this.transactions.run(async (session) => {
         const current = await this.requireRun(session, run.id);

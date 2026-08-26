@@ -24,6 +24,7 @@ describe("WorkflowCommandDispatcher", () => {
     expect(gateway.start).toHaveBeenCalledWith(expect.objectContaining({
       workflowRunId: run.id,
       temporalWorkflowId: run.temporalWorkflowId,
+      executionProfile: "advanced_live",
     }));
     expect(repository.attachTemporalRunId).toHaveBeenCalledWith(
       session, run.id, "temporal-run-1", 1, "2026-08-14T12:00:00.000Z",
@@ -93,6 +94,7 @@ function harness(options: HarnessOptions = {}) {
     listPendingWorkflowStarts: vi.fn(async () => options.starts ?? []),
     listPendingWorkflowSignals: vi.fn(async () => options.signals ?? []),
     findWorkflowRun: vi.fn(async (_session: DatabaseSession, id: string) => runs.get(id)),
+    findTaskById: vi.fn(async () => ({ executionProfile: "advanced_live" as const })),
     attachTemporalRunId: vi.fn(async () => true),
     updateWorkflowSignalReceipt: vi.fn(async (
       _session: DatabaseSession,

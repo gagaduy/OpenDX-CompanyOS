@@ -46,8 +46,7 @@ def _strict(properties: dict[str, object]) -> dict[str, object]:
 
 def _provenance_ids() -> dict[str, object]:
     return {
-        "type": "array", "minItems": 1, "maxItems": 8,
-        "uniqueItems": True, "items": _uuid(),
+        "type": "array", "minItems": 1, "maxItems": 8, "items": _uuid(),
     }
 
 
@@ -57,7 +56,7 @@ def _tool_summary(
     return _strict({
         "toolName": (
             {"type": "string", "enum": list(_TOOLS[agent_kind])}
-            if tool_name is None else {"const": tool_name}
+            if tool_name is None else {"type": "string", "const": tool_name}
         ),
         "provenanceId": _uuid(),
         "summaryDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -81,7 +80,8 @@ def _schema(agent_kind: DepartmentAgentKind) -> dict[str, object]:
         "provenanceIds": _provenance_ids(),
     })
     return _strict({
-        "schemaVersion": {"const": 1}, "agentKind": {"const": agent_kind},
+        "schemaVersion": {"type": "integer", "const": 1},
+        "agentKind": {"type": "string", "const": agent_kind},
         "status": {"type": "string", "enum": ["complete", "partial"]},
         "summary": _string(1_000),
         "conclusions": {"type": "array", "maxItems": 8, "items": conclusion},
@@ -90,11 +90,7 @@ def _schema(agent_kind: DepartmentAgentKind) -> dict[str, object]:
         "payload": _strict({
             "toolSummaries": {
                 "type": "array", "minItems": 1,
-                "maxItems": len(_TOOLS[agent_kind]), "uniqueItems": True,
-                "allOf": [{
-                    "contains": _tool_summary(agent_kind, tool_name),
-                    "minContains": 0, "maxContains": 1,
-                } for tool_name in _TOOLS[agent_kind]],
+                "maxItems": len(_TOOLS[agent_kind]),
                 "items": _tool_summary(agent_kind),
             },
         }),

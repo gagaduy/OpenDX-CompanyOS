@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json as json_module
+import logging
 import re
 from typing import Any, Mapping
 from urllib.parse import quote
@@ -300,6 +301,8 @@ class AgenticControlClient:
         except httpx.HTTPError as error:
             raise AgenticControlError("AGENTIC_CONTROL_TRANSPORT_FAILED", retryable=True) from error
         if not is_success:
+            raw_body = b"".join(chunks).decode("utf-8", errors="replace")
+            logging.getLogger("opendx.agentic").error("Agentic control error: %s %s -> %s: %s", method, path, status_code, raw_body)
             error_code = "AGENTIC_CONTROL_REJECTED"
             try:
                 envelope = json_module.loads(b"".join(chunks))

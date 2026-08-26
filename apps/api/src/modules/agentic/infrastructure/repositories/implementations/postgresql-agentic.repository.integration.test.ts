@@ -33,7 +33,8 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_executive_report_payloads,
+    await pool.query(`TRUNCATE agentic_staff_intake_idempotency,
+      agentic_executive_report_payloads,
       agentic_accepted_orchestration_result_payloads,
       agentic_ai_ceo_execution_payloads, agentic_ai_ceo_execution_authorities,
       agentic_orchestration_execution_payloads,
@@ -56,6 +57,20 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("round-trips an Advanced live execution profile", async () => {
+    const at = "2026-08-26T00:00:00.000Z";
+    const taskId = randomUUID();
+
+    await transactions.run((session) => repository.createTask(session, {
+      id: taskId, state: "draft", createdBy: "operator-a",
+      goal: "Coordinate an advanced review", instructions: "Use governed evidence.",
+      executionProfile: "advanced_live", version: 1, createdAt: at, updatedAt: at,
+    }));
+
+    await expect(transactions.runReadOnly((session) => repository.findTask(session, taskId, "operator-a")))
+      .resolves.toMatchObject({ executionProfile: "advanced_live" });
   });
 
   it("persists one immutable orchestration plan revision per task", async () => {
@@ -347,6 +362,100 @@ suite("PostgresqlAgenticRepository", () => {
     expect(await transactions.runReadOnly((session) => repository.findIntakeFile(session, file.id))).toMatchObject({ status: "approved", version: 5 });
   });
 
+  it("binds staff intake by kind, actor, key, digest, and resource without mutation", async () => {
+    const staffIntakeRepository = repository as unknown as {
+      bindStaffIntake: (
+        session: Parameters<Parameters<typeof transactions.run>[0]>[0],
+        binding: {
+          readonly kind: "task_intake" | "file_upload";
+          readonly actorId: string;
+          readonly idempotencyKey: string;
+          readonly requestDigest: string;
+          readonly resourceId: string;
+          readonly createdAt: string;
+        },
+      ) => Promise<"created" | "duplicate" | "conflict">;
+      findStaffIntakeBinding: (
+        session: Parameters<Parameters<typeof transactions.run>[0]>[0],
+        kind: "task_intake" | "file_upload",
+        actorId: string,
+        idempotencyKey: string,
+      ) => Promise<unknown>;
+    };
+    const resourceId = randomUUID();
+    const binding = {
+      kind: "file_upload" as const,
+      actorId: "governance-a",
+      idempotencyKey: "console:file:1",
+      requestDigest: "a".repeat(64),
+      resourceId,
+      createdAt: "2026-08-25T00:00:00.000Z",
+    };
+
+    await expect(transactions.run((session) =>
+      staffIntakeRepository.bindStaffIntake(session, binding))).resolves.toBe("created");
+    await expect(transactions.run((session) =>
+      staffIntakeRepository.bindStaffIntake(session, binding))).resolves.toBe("duplicate");
+    await expect(transactions.run((session) => staffIntakeRepository.bindStaffIntake(session, {
+      ...binding,
+      requestDigest: "b".repeat(64),
+      resourceId: randomUUID(),
+    }))).resolves.toBe("conflict");
+    await expect(transactions.run((session) => staffIntakeRepository.bindStaffIntake(session, {
+      ...binding,
+      actorId: "governance-b",
+      resourceId: randomUUID(),
+    }))).resolves.toBe("created");
+    await expect(transactions.runReadOnly((session) => staffIntakeRepository.findStaffIntakeBinding(
+      session, binding.kind, binding.actorId, binding.idempotencyKey,
+    ))).resolves.toEqual(binding);
+  });
+
+  it("projects filtered task pages and overview counts inside the requested staff scope", async () => {
+    const firstId = "00000000-0000-4000-8000-000000000101";
+    const secondId = "00000000-0000-4000-8000-000000000102";
+    const otherId = "00000000-0000-4000-8000-000000000103";
+    const at = "2026-08-25T00:00:00.000Z";
+    await transactions.run(async (session) => {
+      for (const task of [
+        { id: firstId, state: "draft" as const, createdBy: "operator-a", goal: "First", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+        { id: secondId, state: "draft" as const, createdBy: "operator-a", goal: "Second", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+        { id: otherId, state: "draft" as const, createdBy: "operator-b", goal: "Other", instructions: "Evidence", version: 1, createdAt: at, updatedAt: at },
+      ]) await repository.createTask(session, task);
+    });
+
+    await expect(transactions.runReadOnly((session) => repository.listConsoleTasks(session, {
+      page: 1, pageSize: 25, state: "draft",
+      createdFrom: "2026-08-24T00:00:00.000Z", createdTo: "2026-08-26T00:00:00.000Z",
+      scope: { kind: "owner", actorId: "operator-a" },
+    }))).resolves.toMatchObject({
+      totalItems: 2,
+      items: [{ id: firstId }, { id: secondId }],
+    });
+    await expect(transactions.runReadOnly((session) => repository.listConsoleTasks(session, {
+      page: 1, pageSize: 25, scope: { kind: "oversight" },
+    }))).resolves.toMatchObject({ totalItems: 3 });
+    await expect(transactions.runReadOnly((session) => repository.getConsoleTaskOverview(
+      session, { kind: "owner", actorId: "operator-a" },
+    ))).resolves.toMatchObject({
+      counts: { running: 0, waiting: 2, failed: 0, completed: 0, canceled: 0 },
+      pendingApprovals: 0,
+      settledCostMicros: 0,
+    });
+    await expect(transactions.runReadOnly((session) => repository.hasConsoleTaskAccess(
+      session, firstId, { kind: "owner", actorId: "operator-a" },
+    ))).resolves.toBe(true);
+    await expect(transactions.runReadOnly((session) => repository.hasConsoleTaskAccess(
+      session, firstId, { kind: "owner", actorId: "operator-b" },
+    ))).resolves.toBe(false);
+    await expect(transactions.runReadOnly((session) => repository.getConsoleTaskOperations(
+      session, firstId,
+    ))).resolves.toMatchObject({
+      task: { id: firstId }, timeline: [], branches: [], reservedMicros: 0,
+      settledMicros: 0, approvals: [], provenance: [],
+    });
+  });
+
   it("rejects reuse of an approval idempotency key with a changed preview payload", async () => {
     const at = "2026-08-22T00:00:00.000Z"; const fileId = randomUUID(); const key = `file-approval:${fileId}`;
     await pool.query(`INSERT INTO agentic_intake_files(id,object_key,original_filename,format,media_type,byte_size,payload_digest,status,created_by,version,created_at,updated_at,scanned_at)
@@ -424,6 +533,29 @@ suite("PostgresqlAgenticRepository", () => {
         inputCostMicrosPerMillion: 0,
         outputCostMicrosPerMillion: Number.MAX_SAFE_INTEGER,
       });
+  });
+
+  it("projects bounded Digital Employee configuration, revocation, and recent terminal runs", async () => {
+    const { taskId, revisionId } = await createReadyTask(pool);
+    await pool.query("INSERT INTO agentic_model_fallbacks(revision_id,agent_kind,position,model) VALUES($1,'catalog',1,'openai/catalog-fallback')", [revisionId]);
+    await pool.query("INSERT INTO agentic_budget_limits(revision_id,agent_kind,task_cost_micros,daily_cost_micros,monthly_cost_micros) VALUES($1,'catalog',10000,100000,1000000)", [revisionId]);
+    await pool.query(`INSERT INTO agentic_tool_grants(id,revision_id,agent_kind,tool_name,tool_version,purpose,data_scope,max_invocations)
+      VALUES($1,$2,'catalog','catalog.product_completeness',1,'store_health_review','catalog:health:read',10)`, [randomUUID(), revisionId]);
+    await pool.query("UPDATE agentic_configuration_revisions SET state='active',decided_by='admin-a',decided_at='2026-08-19T00:00:00.000Z',updated_at='2026-08-19T00:00:00.000Z' WHERE id=$1", [revisionId]);
+    const reserved = modelRun(taskId, revisionId);
+    await transactions.run((session) => repository.reserveModelRun(session, reserved));
+    const running = runningModelRun(reserved);
+    await transactions.run((session) => repository.markModelRunRunning(session, running, 1));
+    await transactions.run((session) => repository.settleModelRunTerminal(session, completedModelRun(running), 2));
+
+    const employee = await transactions.runReadOnly((session) => repository.getConsoleEmployee(session, "catalog", 5));
+    expect(employee).toMatchObject({
+      agent: { kind: "catalog" }, configuration: { id: revisionId },
+      model: { primaryModel: "google/gemma-4-26b-a4b-it:free", fallbackModels: ["openai/catalog-fallback"] },
+      tools: [{ toolName: "catalog.product_completeness", toolVersion: 1, dataScope: "catalog:health:read" }],
+      budget: { taskCostMicros: 10000, dailyCostMicros: 100000, monthlyCostMicros: 1000000 },
+      recentRuns: [{ taskId, state: "completed", settledCostMicros: 0, completedAt: "2026-08-19T01:02:00.000Z" }],
+    });
   });
 
   it.each([
@@ -1196,6 +1328,8 @@ suite("PostgresqlAgenticRepository", () => {
 
     await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(session, receipt)))
       .resolves.toEqual({ status: "created", receipt });
+    await expect(transactions.runReadOnly((session) => repository.findWorkflowSignalReceiptForApproval(session, approvalId)))
+      .resolves.toEqual(receipt);
     await expect(transactions.run((session) => repository.createWorkflowSignalReceipt(
       session, { ...receipt, id: randomUUID() },
     ))).resolves.toEqual({ status: "duplicate", receipt });

@@ -3,6 +3,7 @@
 
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -42,12 +43,25 @@ suite("Agentic PostgreSQL admin API", () => {
     async signalApproval() {}, async signalCancellation() {},
     async describe() { return { status: "running" as const }; },
   };
+  const privateFiles = new Map<string, Buffer>();
   const agentic = createAgenticModule({
     toolAdapters: { resolve: () => { throw new Error("Tool adapters are unavailable in this fixture"); } },
     transactions, staffTokenVerifier: verifier, workloadTokenVerifier: workloadVerifier,
     workflowGateway, generateId: randomUUID, now: () => "2026-08-14T12:00:00.000Z",
     workflowApprovalTtlMs: 3_600_000, dispatcherIntervalMs: 5_000,
     dispatcherBatchSize: 20,
+    agenticFileStorage: {
+      async put(key, content) { privateFiles.set(key, Buffer.from(content)); },
+      async open(key) { return Readable.from(privateFiles.get(key) ?? Buffer.alloc(0)); },
+      async delete(key) { privateFiles.delete(key); },
+    },
+    agenticFileScanner: { async scan() { return { status: "clean" as const }; } },
+    agenticFileParser: {
+      parse(_format, bytes) {
+        const rows = Buffer.from(bytes).toString("utf8").trim().split(/\r?\n/);
+        return { rowCount: rows.length, columnCount: Math.max(...rows.map((row) => row.split(",").length)), samples: rows.slice(0, 10) };
+      },
+    },
   });
   const app = express();
   app.use(correlationIdMiddleware, express.json());
@@ -57,7 +71,10 @@ suite("Agentic PostgreSQL admin API", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_provenance_records,agentic_audit_events,agentic_revocations,
+    privateFiles.clear();
+    await pool.query(`TRUNCATE agentic_staff_intake_idempotency,
+      agentic_file_approvals,agentic_file_previews,agentic_intake_files,
+      agentic_provenance_records,agentic_audit_events,agentic_revocations,
       agentic_approval_requests,agentic_budget_entries,agentic_budget_limits,agentic_model_fallbacks,
       agentic_model_configs,agentic_tool_grants,agentic_tools,agentic_policies,
       agentic_subtask_dependencies,agentic_subtasks,agentic_tasks,agentic_configuration_revisions,
@@ -86,6 +103,87 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).get("/v1/admin/agentic/tasks").set("authorization", "Bearer agentic_auditor").expect(403);
     const employees = await request(app).get("/v1/admin/agentic/employees").set("authorization", "Bearer agentic_auditor").expect(200);
     expect(employees.body.data).toHaveLength(7);
+    const inventory = await request(app).get("/v1/admin/agentic/employees/inventory").set("authorization", "Bearer agentic_auditor").expect(200);
+    expect(inventory.body.data).toMatchObject({ kind: "inventory", department: "Inventory", governance: { active: false, revoked: false, configurationVersion: 0 }, executionHealth: { state: "unknown", basis: "no_active_configuration" } });
+    expect(JSON.stringify(inventory.body.data)).not.toMatch(/keycloak|secret|credential|clientSecret|prompt/i);
+  });
+
+  it("paginates and role-scopes Agentic audit with stable time and id ordering", async () => {
+    const occurredAt = "2026-08-14T10:00:00.000Z";
+    await pool.query(`INSERT INTO agentic_audit_events
+      (id,actor_id,actor_type,action,resource_type,resource_id,outcome,correlation_id,occurred_at) VALUES
+      ('00000000-0000-4000-8000-000000000001','actor-a','staff','commerce.read','commerce_order','order-1','allowed','corr-1',$1),
+      ('00000000-0000-4000-8000-000000000002','actor-a','staff','task.read','agentic_task','task-1','denied','corr-2',$1),
+      ('00000000-0000-4000-8000-000000000003','actor-a','staff','configuration.activate','configuration_revision','revision-1','failed','corr-3',$1)`, [occurredAt]);
+
+    const governance = await request(app).get(`/v1/admin/agentic/audit?page=1&pageSize=25&occurredFrom=${encodeURIComponent(occurredAt)}&occurredTo=${encodeURIComponent(occurredAt)}`)
+      .set("authorization", "Bearer agentic_governance_admin:governance-a").expect(200);
+    expect(governance.body.data).toMatchObject({ totalItems: 1, items: [{ resourceType: "configuration_revision" }] });
+    const auditorFirst = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=1&actorId=actor-a")
+      .set("authorization", "Bearer agentic_auditor:auditor-a").expect(200);
+    const auditorSecond = await request(app).get("/v1/admin/agentic/audit?page=2&pageSize=1&actorId=actor-a")
+      .set("authorization", "Bearer agentic_auditor:auditor-a").expect(200);
+    expect(auditorFirst.body.data).toMatchObject({ totalItems: 2, items: [{ id: "00000000-0000-4000-8000-000000000003" }] });
+    expect(auditorSecond.body.data).toMatchObject({ totalItems: 2, items: [{ id: "00000000-0000-4000-8000-000000000002" }] });
+    const administrator = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=25")
+      .set("authorization", "Bearer administrator:admin-a").expect(200);
+    expect(administrator.body.data.totalItems).toBe(3);
+    const outsideGovernanceScope = await request(app).get("/v1/admin/agentic/audit?page=1&pageSize=25&resourceType=commerce_order")
+      .set("authorization", "Bearer agentic_governance_admin:governance-a").expect(200);
+    expect(outsideGovernanceScope.body.data).toMatchObject({ totalItems: 0, items: [] });
+    await request(app).get("/v1/admin/agentic/audit?limit=25").set("authorization", "Bearer administrator:admin-a").expect(400);
+    await request(app).get(`/v1/admin/agentic/audit?occurredFrom=${encodeURIComponent("2026-08-15T00:00:00.000Z")}&occurredTo=${encodeURIComponent("2026-08-14T00:00:00.000Z")}`).set("authorization", "Bearer administrator:admin-a").expect(400);
+    await request(app).get("/v1/admin/agentic/audit").set("authorization", "Bearer agentic_operator:operator-a").expect(403);
+    await request(app).get("/v1/admin/agentic/audit").set("authorization", "Bearer agentic_approver:approver-a").expect(403);
+  });
+
+  it("creates and exactly replays guided staff task intake with role-scoped reads", async () => {
+    const operator = { authorization: "Bearer agentic_operator:operator-a", "idempotency-key": "console:task:1" };
+    const body = { mode: "store_health_review", goal: "Review Store Health", instructions: "Use approved aggregate evidence only.", reviewWindow: { start: "2026-08-08", end: "2026-08-14" } };
+    const created = await request(app).post("/v1/admin/agentic/tasks/intake").set(operator).send(body).expect(201);
+    const replayed = await request(app).post("/v1/admin/agentic/tasks/intake").set(operator).send(body).expect(200);
+    expect(replayed.body.data.task.id).toBe(created.body.data.task.id);
+    expect(created.body.data).toMatchObject({ subtasks: [{ agentKind: "ai_ceo", title: "Coordinate Store Health Review" }], dependencies: [] });
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_tasks")).rows[0]?.count).toBe("1");
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_provenance_records")).rows[0]?.count).toBe("1");
+
+    const changed = await request(app).post("/v1/admin/agentic/tasks/intake").set(operator).send({ ...body, goal: "Changed" }).expect(409);
+    expect(changed.body.errorCode).toBe("IDEMPOTENCY_CONFLICT");
+    const owned = await request(app).get("/v1/admin/agentic/tasks?state=draft&page=1&pageSize=25").set("authorization", "Bearer agentic_operator:operator-a").expect(200);
+    expect(owned.body.data).toMatchObject({ totalItems: 1 });
+    const other = await request(app).get("/v1/admin/agentic/tasks").set("authorization", "Bearer agentic_operator:operator-b").expect(200);
+    expect(other.body.data).toMatchObject({ totalItems: 0 });
+    const overview = await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_operator:operator-a").expect(200);
+    expect(overview.body.data).toMatchObject({ counts: { waiting: 1 }, pendingApprovals: 0, settledCostMicros: 0 });
+    const operations = await request(app).get(`/v1/admin/agentic/tasks/${created.body.data.task.id}/operations`)
+      .set("authorization", "Bearer agentic_operator:operator-a").expect(200);
+    expect(operations.body.data).toMatchObject({ task: { id: created.body.data.task.id }, timeline: [{ kind: "agentic_task.intake", state: "allowed" }], branches: [], costs: { reservedMicros: 0, settledMicros: 0 } });
+    expect(operations.body.data.task).not.toHaveProperty("instructions");
+    await request(app).get(`/v1/admin/agentic/tasks/${created.body.data.task.id}/operations`)
+      .set("authorization", "Bearer agentic_operator:operator-b").expect(404);
+
+    await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_approver").expect(200);
+    await request(app).get("/v1/admin/agentic/tasks/overview").set("authorization", "Bearer agentic_governance_admin").expect(200);
+    await request(app).post("/v1/admin/agentic/tasks/intake").set("authorization", "Bearer agentic_approver").send(body).expect(403);
+    await request(app).get("/v1/admin/agentic/tasks").set("authorization", "Bearer agentic_auditor").expect(403);
+    await request(app).get("/v1/admin/agentic/tasks/overview?extra=true").set("authorization", "Bearer agentic_operator").expect(400);
+    await request(app).post("/v1/admin/agentic/tasks/intake").set("authorization", "Bearer agentic_operator").send(body).expect(400);
+    await request(app).post("/v1/admin/agentic/tasks/intake").set(operator).send({ ...body, departmentDag: [] }).expect(400);
+  });
+
+  it("exactly replays a staff file upload with one record and one audit event", async () => {
+    const authorization = "Bearer agentic_governance_admin:governance-a";
+    const upload = () => request(app).post("/v1/admin/agentic/files")
+      .set("authorization", authorization)
+      .set("idempotency-key", "console:file:integration-1")
+      .attach("file", Buffer.from("sku,stock\nA,1\n"), { filename: "health.csv", contentType: "text/csv" });
+
+    const created = await upload().expect(201);
+    const replayed = await upload().expect(200);
+
+    expect(replayed.body.data.id).toBe(created.body.data.id);
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_intake_files")).rows[0]?.count).toBe("1");
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_audit_events WHERE action='agentic_file.upload'")).rows[0]?.count).toBe("1");
   });
 
   it("records denied access without exposing task instructions", async () => {
@@ -200,6 +298,16 @@ suite("Agentic PostgreSQL admin API", () => {
     const approvals = await request(app).get("/v1/admin/agentic/approvals")
       .set("authorization", "Bearer agentic_approver:approver").expect(200);
     const approvalId = approvals.body.data.items[0].id as string;
+    const detailBeforeDecision = await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_approver:approver").expect(200);
+    expect(detailBeforeDecision.body.data).toMatchObject({ approval: { id: approvalId }, risk: { level: "high" } });
+    expect(detailBeforeDecision.body.data).not.toHaveProperty("payloadDigest");
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set(operator).expect(200);
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_governance_admin:reviewer").expect(200);
+    await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_auditor:auditor").expect(403);
     const approvalDecision = {
       expectedVersion: 1,
       decision: "approved",
@@ -208,6 +316,10 @@ suite("Agentic PostgreSQL admin API", () => {
     await request(app).post(`/v1/admin/agentic/approvals/${approvalId}/decision`)
       .set("authorization", "Bearer agentic_approver:approver")
       .send(approvalDecision).expect(202);
+    const detailAfterDecision = await request(app).get(`/v1/admin/agentic/approvals/${approvalId}/detail`)
+      .set("authorization", "Bearer agentic_approver:approver").expect(200);
+    expect(detailAfterDecision.body.data.payloadDigest).toBe(detailAfterDecision.body.data.approval.parametersDigest);
+    expect((await pool.query("SELECT count(*)::text count FROM agentic_workflow_signal_receipts WHERE approval_id=$1", [approvalId])).rows[0]?.count).toBe("1");
     await request(app).post(`/v1/admin/agentic/approvals/${approvalId}/decision`)
       .set("authorization", "Bearer agentic_approver:approver")
       .send(approvalDecision).expect(200);
@@ -423,7 +535,7 @@ suite("Agentic PostgreSQL admin API", () => {
     const runId = randomUUID();
     await pool.query(`INSERT INTO agentic_workflow_runs
       (id,task_id,workflow_name,workflow_version,plan_revision,temporal_workflow_id,state,created_at,updated_at)
-      VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,1,$3,'dispatching',$4,$4)`,
+      VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,2,$3,'dispatching',$4,$4)`,
     [runId, taskId, `agentic-task-${taskId}-v1`, at]);
     const dispatch = await request(app).get(`/v1/internal/agentic/orchestration/dispatch-plans/${runId}`)
       .set(worker).expect("cache-control", "no-store").expect(200);
