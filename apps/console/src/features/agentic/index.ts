@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 export { createAgenticApi } from "./api/agentic-api";
 export { AgenticTasksPage } from "./pages/agentic-tasks-page";
+export { AgenticCommandCenterPage } from "./pages/agentic-command-center-page";
+export { AgenticCommandCenter } from "./components/agentic-command-center";
 export { AgenticTaskIntakePage } from "./pages/agentic-task-intake-page";
 export { AgenticTaskDetailPage } from "./pages/agentic-task-detail-page";
 export { AgenticApprovalsPage } from "./pages/agentic-approvals-page";

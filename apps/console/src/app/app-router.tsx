@@ -24,7 +24,7 @@ import { createPaymentOperationsApi } from "../features/payments/api/payment-ope
 import { PaymentDetailPage } from "../features/payments/pages/payment-detail-page";
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
-import { AgenticApprovalsPage, AgenticAuditPage, AgenticEmployeeDetailPage, AgenticEmployeesPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi, type AgentKind } from "../features/agentic";
+import { AgenticApprovalsPage, AgenticAuditPage, AgenticCommandCenterPage, AgenticEmployeeDetailPage, AgenticEmployeesPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi, type AgentKind } from "../features/agentic";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -51,6 +51,8 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/dashboard" element={<DashboardRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/company-overview" element={<CompanyOverviewPage />} />
           <Route path="/agentic/tasks" element={<AgenticRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/agentic/command-center" element={<AgenticRoute apiBaseUrl={apiBaseUrl} />} />
+          <Route path="/agentic/tasks-table" element={<AgenticRoute apiBaseUrl={apiBaseUrl} table />} />
           <Route path="/agentic/tasks/new" element={<AgenticRoute apiBaseUrl={apiBaseUrl} intake />} />
           <Route path="/agentic/tasks/:taskId" element={<AgenticRoute apiBaseUrl={apiBaseUrl} detail />} />
           <Route path="/agentic/approvals" element={<AgenticApprovalRoute apiBaseUrl={apiBaseUrl} />} />
@@ -108,14 +110,15 @@ function HomeRedirect() {
   return <Navigate to={target} replace />;
 }
 
-function AgenticRoute({ apiBaseUrl, intake = false, detail = false }: { readonly apiBaseUrl: string; readonly intake?: boolean; readonly detail?: boolean }) {
+function AgenticRoute({ apiBaseUrl, intake = false, detail = false, table = false }: { readonly apiBaseUrl: string; readonly intake?: boolean; readonly detail?: boolean; readonly table?: boolean }) {
   const { session } = useAuth();
   const { taskId } = useParams();
   const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
   if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator", "agentic_governance_admin"]}><AgenticTaskIntakePage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
   if (detail && taskId !== undefined) return <StaffRoleRoute allowed={readers}><AgenticTaskDetailPage api={api} taskId={taskId} roles={session?.roles ?? []} /></StaffRoleRoute>;
-  return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
+  if (table) return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
+  return <StaffRoleRoute allowed={readers}><AgenticCommandCenterPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
 }
 
 function InventoryRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
