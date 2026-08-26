@@ -169,26 +169,28 @@ class ModelExecutor:
                     "outcome": decision.outcome, "reasons": decision.reasons,
                     "evidenceIds": decision.evidence_ids,
                 })
+                settled_input_tokens = min(result.input_tokens, reservation.max_input_tokens)
+                settled_output_tokens = min(result.output_tokens, reservation.max_output_tokens)
                 if decision.outcome == "accepted":
                     terminal = CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:complete",
-                        "completed", output_digest, result.input_tokens, result.output_tokens,
+                        "completed", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_COMPLETED", "accepted", (),
                         _settlement_provenance_ids(decision, command), evidence_digest,
                     )
                     if not command.defer_terminal_settlement:
                         await self._controls.complete_model_run(terminal)
-                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
+                    return ModelExecutionOutcome("completed", reservation.run_id, output_digest, (), command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
                 if decision.outcome == "escalate":
                     await self._controls.complete_model_run(CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:escalate",
-                        "escalated", output_digest, result.input_tokens, result.output_tokens,
+                        "escalated", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_ESCALATED", "escalate",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     ))
-                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, quality_evidence_digest=evidence_digest)
+                    return ModelExecutionOutcome("escalated", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, quality_evidence_digest=evidence_digest)
                 if (
                     decision.outcome == "partial"
                     or correction_round == command.maximum_correction_rounds
@@ -196,17 +198,17 @@ class ModelExecutor:
                     terminal = CompleteModelRunRequest(
                         reservation.run_id, state.version,
                         f"{command.idempotency_key}:round:{correction_round}:partial",
-                        "partial", output_digest, result.input_tokens, result.output_tokens,
+                        "partial", output_digest, settled_input_tokens, settled_output_tokens,
                         provider_digest, latency_ms, "MODEL_PARTIAL", "partial",
                         decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                     )
                     if not command.defer_terminal_settlement:
                         await self._controls.complete_model_run(terminal)
-                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, result.input_tokens, result.output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
+                    return ModelExecutionOutcome("partial", reservation.run_id, output_digest, decision.reasons, command.agent_kind, result.model, fallback_position, settled_input_tokens, settled_output_tokens, result.provider_cost_micros or 0, latency_ms, correction_round, result.content, evidence_digest, terminal if command.defer_terminal_settlement else None)
                 await self._controls.fail_model_run(FailModelRunRequest(
                     reservation.run_id, state.version,
                     f"{command.idempotency_key}:round:{correction_round}:correct",
-                    output_digest, result.input_tokens, result.output_tokens, provider_digest,
+                    output_digest, settled_input_tokens, settled_output_tokens, provider_digest,
                     latency_ms, "MODEL_CORRECTION_REQUESTED", "MODEL_QUALITY_CORRECTION",
                     "correct", decision.reasons, _settlement_provenance_ids(decision, command), evidence_digest,
                 ))
