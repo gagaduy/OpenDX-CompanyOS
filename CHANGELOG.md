@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject Advanced tasks before they enter the execution queue when the active
+  configuration lacks the models, fallback authority, budgets, or Department
+  tool grants required by the live AI CEO workforce.
+
 ### Added
 
 - Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a

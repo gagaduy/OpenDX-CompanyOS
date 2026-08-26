@@ -46,6 +46,19 @@ describe("AgentTaskServiceImpl", () => {
       .rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
   });
 
+  it("rejects Advanced live ready when the active revision has no live workforce authority", async () => {
+    const task = { ...draft, executionProfile: "advanced_live" as const };
+    const { service, repository } = harness({
+      task,
+      activeRevision: { id: "revision-empty" },
+      revisionChildren: { policies: [], toolGrants: [], modelConfigurations: [], budgetLimits: [] },
+    });
+
+    await expect(service.ready({ taskId: task.id, expectedVersion: 1 }, operator()))
+      .rejects.toMatchObject({ code: "LIVE_CONFIGURATION_INCOMPLETE" });
+    expect(repository.updateTask).not.toHaveBeenCalled();
+  });
+
   it("cancels draft or ready tasks with optimistic version and keeps canceled tasks immutable", async () => {
     await expect(harness({ task: draft }).service.cancel({ taskId: "task-1", expectedVersion: 1 }, operator()))
       .resolves.toMatchObject({ task: { state: "canceled", version: 2 } });
@@ -74,7 +87,7 @@ describe("AgentTaskServiceImpl", () => {
   });
 });
 
-function harness(options: { readonly task?: typeof draft; readonly activeRevision?: Record<string, unknown>; readonly activeRun?: Record<string, unknown> } = {}) {
+function harness(options: { readonly task?: AgentTask; readonly activeRevision?: Record<string, unknown>; readonly activeRun?: Record<string, unknown>; readonly revisionChildren?: Record<string, unknown> } = {}) {
   const hasTaskOption = Object.prototype.hasOwnProperty.call(options, "task");
   const repository = {
     createTask: vi.fn(async () => undefined), replaceTaskGraph: vi.fn(async () => true),
@@ -82,6 +95,7 @@ function harness(options: { readonly task?: typeof draft; readonly activeRevisio
     findTaskById: vi.fn(async () => hasTaskOption ? options.task : draft),
     findTaskForApproval: vi.fn(async () => hasTaskOption ? options.task : draft),
     findActiveRevision: vi.fn(async () => options.activeRevision), updateTask: vi.fn(async () => true),
+    getRevisionChildren: vi.fn(async () => options.revisionChildren),
     listTaskGraph: vi.fn(async () => ({ subtasks: [], dependencies: [] })),
     listTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),
     listAllTasks: vi.fn(async () => ({ items: [draft], totalItems: 1 })),

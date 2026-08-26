@@ -4,8 +4,9 @@
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
 import type { DatabaseSession, TransactionRunner } from "../../../../../shared/database/transaction";
 import type {
-  AgenticRepository, AgentSubtaskDependencyRecord, AgentSubtaskRecord,
+  AgenticRepository, AgentSubtaskDependencyRecord, AgentSubtaskRecord, RevisionChildren,
 } from "../../repositories/interfaces/agentic.repository";
+import { STORE_HEALTH_EXECUTION_CATALOG } from "../../orchestration/store-health-execution-catalog";
 import type { AgentTask } from "../../../domain/entities/agent-task";
 import { assertAcyclicDependencies, transitionTask } from "../../../domain/services/agent-governance-rules";
 import { AgenticApplicationError } from "../agentic-application.error";
@@ -17,7 +18,7 @@ import type {
 type TaskRepository = Pick<AgenticRepository,
   | "createTask" | "findTask" | "findTaskById" | "findTaskForApproval" | "listTasks"
   | "listAllTasks" | "updateTask" | "replaceTaskGraph" | "listTaskGraph"
-  | "findActiveRevision" | "findActiveWorkflowRunForTask"
+  | "findActiveRevision" | "getRevisionChildren" | "findActiveWorkflowRunForTask"
   | "appendAudit" | "appendProvenance">;
 
 interface PreparedGraph {
@@ -93,6 +94,12 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       assertVersion(current, input.expectedVersion);
       const active = await this.repository.findActiveRevision(session);
       if (active === undefined) fail("NO_ACTIVE_CONFIGURATION", "No active configuration exists");
+      if (current.executionProfile === "advanced_live") {
+        const children = await this.repository.getRevisionChildren(session, active.id);
+        if (!supportsLiveWorkforce(children)) {
+          fail("LIVE_CONFIGURATION_INCOMPLETE", "Active configuration does not authorize the live workforce");
+        }
+      }
       const at = this.now();
       const next = transitionTask(current, { type: "ready", revisionId: active.id }, at);
       if (!await this.repository.updateTask(session, next, input.expectedVersion)) fail("STALE_VERSION", "Task version is stale");
@@ -212,5 +219,20 @@ function requireOperator(principal: StaffPrincipal): void {
 }
 function isOversight(principal: StaffPrincipal): boolean {
   return principal.roles.includes("administrator") || principal.roles.includes("agentic_governance_admin");
+}
+function supportsLiveWorkforce(children: RevisionChildren): boolean {
+  const requiredAgents = ["ai_ceo", ...STORE_HEALTH_EXECUTION_CATALOG.map(({ agentKind }) => agentKind)];
+  const hasModelsAndBudgets = requiredAgents.every((agentKind) =>
+    children.modelConfigurations.some((model) => model.agentKind === agentKind
+      && model.fallbackModels.length === 1)
+    && children.budgetLimits.some((budget) => budget.agentKind === agentKind
+      && budget.taskCostMicros > 0));
+  const hasToolGrants = STORE_HEALTH_EXECUTION_CATALOG.every((entry) =>
+    entry.toolGrants.every((expected) => children.toolGrants.some((grant) =>
+      grant.agentKind === entry.agentKind && grant.toolName === expected.name
+      && grant.toolVersion === expected.version && grant.purpose === expected.purpose
+      && grant.dataScope === expected.dataScope
+      && grant.maxInvocations >= expected.maximumInvocations)));
+  return hasModelsAndBudgets && hasToolGrants;
 }
 function fail(code: string, message: string): never { throw new AgenticApplicationError(code, message); }
