@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a
+  failed real-runtime start is never presented as an ambiguous workflow state.
+
 - Carry a task's immutable execution profile from the API through Temporal so
   Advanced tasks force the real descriptor-based CEO and Department workflow
   instead of silently using legacy fake activities.

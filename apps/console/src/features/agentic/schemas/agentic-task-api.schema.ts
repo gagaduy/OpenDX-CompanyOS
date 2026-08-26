@@ -18,7 +18,7 @@ const workflowRun = z.object({
   workflowVersion: z.literal(1), planRevision: z.number().int().positive(), temporalWorkflowId: z.string(),
   temporalRunId: z.string().optional(), state: workflowState, projectionSequence: z.number().int().nonnegative(),
   resumeState: workflowState.exclude(["retrying"]).optional(),
-  outcomeCode: z.enum(["COMPLETED", "PARTIAL_ACTIVITY_FAILURE", "APPROVAL_REJECTED", "APPROVAL_EXPIRED", "CANCELED_BY_STAFF", "RETRY_EXHAUSTED", "ACTIVITY_REJECTED", "INVALID_FROZEN_PLAN"]).optional(),
+  outcomeCode: z.enum(["COMPLETED", "PARTIAL_ACTIVITY_FAILURE", "APPROVAL_REJECTED", "APPROVAL_EXPIRED", "CANCELED_BY_STAFF", "RETRY_EXHAUSTED", "ACTIVITY_REJECTED", "INVALID_FROZEN_PLAN", "LIVE_EXECUTION_UNAVAILABLE"]).optional(),
   version: z.number().int().positive(), createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }), completedAt: z.iso.datetime({ offset: true }).optional(),
 }).strict();
