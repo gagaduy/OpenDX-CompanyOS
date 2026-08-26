@@ -39,7 +39,6 @@ describe("Store Health execution catalog", () => {
           required: ["toolSummaries"],
           properties: {
             toolSummaries: {
-              allOf: expect.any(Array),
               items: {
                 required: ["toolName", "provenanceId", "summaryDigest"],
                 properties: { provenanceId: { type: "string", format: "uuid" } },
@@ -67,6 +66,9 @@ describe("Store Health execution catalog", () => {
       expect(Object.isFrozen(entry.resultSchema)).toBe(true);
       expect(Object.isFrozen(entry.toolGrants)).toBe(true);
       expect(hasOnlyStrictObjectSchemas(entry.resultSchema)).toBe(true);
+      expect(hasTypedConstants(entry.resultSchema)).toBe(true);
+      expect(JSON.stringify(entry.resultSchema)).not.toContain("uniqueItems");
+      expect(JSON.stringify(entry.resultSchema)).not.toContain("allOf");
     }
   });
 
@@ -114,4 +116,12 @@ function hasOnlyStrictObjectSchemas(value: unknown): boolean {
     || ["properties", "required", "dependentSchemas"].some((key) => key in record);
   return (!objectSchema || record.additionalProperties === false)
     && Object.values(record).every(hasOnlyStrictObjectSchemas);
+}
+
+function hasTypedConstants(value: unknown): boolean {
+  if (Array.isArray(value)) return value.every(hasTypedConstants);
+  if (value === null || typeof value !== "object") return true;
+  const record = value as Record<string, unknown>;
+  return (!("const" in record) || typeof record.type === "string")
+    && Object.values(record).every(hasTypedConstants);
 }

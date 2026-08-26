@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   planning receives its required governed evidence instead of failing before
   model execution.
 
+- Emit OpenAI-compatible typed `const` JSON Schema nodes for AI CEO and
+  Department structured outputs, keep API/runtime schema digests aligned, and
+  retain planning provenance when a provider failure is settled.
+
 ### Added
 
 - Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a

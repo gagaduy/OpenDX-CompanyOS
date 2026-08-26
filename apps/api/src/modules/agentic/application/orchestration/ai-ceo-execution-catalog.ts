@@ -66,20 +66,20 @@ export interface AiCeoExecutionCatalogEntry {
 }
 
 const planningResultSchema = strictObject({
-  schemaVersion: { const: 1 },
+  schemaVersion: { type: "integer", const: 1 },
   subtasks: {
     type: "array", minItems: 1, maxItems: 6,
     items: strictObject({
       owner: { type: "string", enum: DEPARTMENTS },
       dependencies: {
-        type: "array", maxItems: 5, uniqueItems: true,
+        type: "array", maxItems: 5,
         items: { type: "string", enum: DEPARTMENTS },
       },
     }),
   },
 });
 const reportResultSchema = strictObject({
-  schemaVersion: { const: 1 },
+  schemaVersion: { type: "integer", const: 1 },
   completionState: { type: "string", enum: ["complete", "partial", "quality_escalated", "canceled"] },
   summary: boundedString(2_000),
   conclusions: { type: "array", maxItems: 12, items: conclusionJsonSchema() },
@@ -92,10 +92,10 @@ const reportResultSchema = strictObject({
     requiresHumanApproval: { type: "boolean" },
   }) },
   conflicts: { type: "array", maxItems: 12, items: conclusionJsonSchema() },
-  acceptedResultReferences: { type: "array", maxItems: 6, uniqueItems: true, items: strictObject({
+  acceptedResultReferences: { type: "array", maxItems: 6, items: strictObject({
     resultId: uuidJson(), subtaskId: uuidJson(), resultDigest: digestJson(),
   }) },
-  unavailableBranches: { type: "array", maxItems: 6, uniqueItems: true, items: strictObject({
+  unavailableBranches: { type: "array", maxItems: 6, items: strictObject({
     subtaskId: uuidJson(), reasonCode: reasonCodeJson(),
   }) },
 });
@@ -161,7 +161,7 @@ function boundedString(maxLength: number): Readonly<Record<string, unknown>> {
 }
 
 function provenanceIdsJson(): Readonly<Record<string, unknown>> {
-  return { type: "array", minItems: 1, maxItems: 8, uniqueItems: true, items: uuidJson() };
+  return { type: "array", minItems: 1, maxItems: 8, items: uuidJson() };
 }
 
 function uuidJson(): Readonly<Record<string, unknown>> {

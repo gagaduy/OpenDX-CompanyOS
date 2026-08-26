@@ -301,6 +301,20 @@ def test_gateway_failure_settlement_retains_authorized_evidence_provenance() -> 
     assert controls.failed[0].provenance_ids == ("prov-1",)
 
 
+def test_gateway_failure_settlement_retains_planning_provenance() -> None:
+    controls = Controls()
+    gateway = Gateway([ModelGatewayFailure("OPENROUTER_SCHEMA_INVALID", retryable=False)])
+    planning_command = ModelExecutionCommand(**{
+        **command().__dict__,
+        "quality_context": SimpleNamespace(authorized_provenance_ids=("prov-1",)),
+    })
+
+    with pytest.raises(ModelExecutionError):
+        asyncio.run(executor(controls, gateway, Quality([])).execute(planning_command))
+
+    assert controls.failed[0].provenance_ids == ("prov-1",)
+
+
 def test_retryable_primary_and_fallback_failure_settles_the_fallback_attempt() -> None:
     controls = Controls()
     gateway = Gateway([

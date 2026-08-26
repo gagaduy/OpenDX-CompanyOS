@@ -265,10 +265,8 @@ class ModelExecutor:
         self, reservation: object, command: ModelExecutionCommand,
         error: ModelGatewayFailure, attempted: ModelRequest, started_at: float,
     ) -> None:
-        provenance_ids = tuple(
-            item.provenance_id
-            for item in getattr(command.quality_context, "authorized_evidence", ())
-            if type(getattr(item, "provenance_id", None)) is str
+        provenance_ids = _settlement_provenance_ids(
+            QualityDecision("escalate", (), ()), command
         )
         state = await self._controls.start_model_run(StartModelRunRequest(
             reservation.run_id, reservation.version, attempted.model, attempted.fallback_position
@@ -284,10 +282,8 @@ class ModelExecutor:
         self, run_id: str, version: int, command: ModelExecutionCommand,
         correction_round: int, result: object, started_at: float,
     ) -> None:
-        provenance_ids = tuple(
-            item.provenance_id
-            for item in getattr(command.quality_context, "authorized_evidence", ())
-            if type(getattr(item, "provenance_id", None)) is str
+        provenance_ids = _settlement_provenance_ids(
+            QualityDecision("escalate", (), ()), command
         )
         output_digest = None
         provider_request_id_digest = None

@@ -22,6 +22,7 @@ describe("AI CEO execution catalog", () => {
       expect(entry.resultSchemaDigest).toBe(canonicalDigest(entry.resultSchema));
       expect(Object.isFrozen(entry.resultSchema)).toBe(true);
       expect(hasOnlyStrictObjectSchemas(entry.resultSchema)).toBe(true);
+      expect(hasTypedConstants(entry.resultSchema)).toBe(true);
     }
   });
 
@@ -58,10 +59,7 @@ describe("AI CEO execution catalog", () => {
   });
 
   it("publishes structural report constraints and separates contextual branch validation", () => {
-    expect(AI_CEO_EXECUTION_CATALOG.synthesis.resultSchema).toMatchObject({ properties: {
-        acceptedResultReferences: { uniqueItems: true },
-        unavailableBranches: { uniqueItems: true },
-      } });
+    expect(JSON.stringify(AI_CEO_EXECUTION_CATALOG)).not.toContain("uniqueItems");
     const report = parseAiCeoExecutiveReport({
       schemaVersion: 1, completionState: "partial", summary: "Partial review",
       conclusions: [], risks: [], recommendedActions: [], conflicts: [],
@@ -82,6 +80,14 @@ function expectCode(operation: () => unknown, code: string): void {
     expect(error).toBeInstanceOf(AgenticApplicationError);
     expect((error as AgenticApplicationError).code).toBe(code);
   }
+}
+
+function hasTypedConstants(value: unknown): boolean {
+  if (Array.isArray(value)) return value.every(hasTypedConstants);
+  if (value === null || typeof value !== "object") return true;
+  const record = value as Record<string, unknown>;
+  return (!("const" in record) || typeof record.type === "string")
+    && Object.values(record).every(hasTypedConstants);
 }
 
 function hasOnlyStrictObjectSchemas(value: unknown): boolean {

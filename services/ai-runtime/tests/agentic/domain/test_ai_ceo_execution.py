@@ -37,8 +37,8 @@ def test_rejects_payload_or_authority_digest_mismatch_and_sensitive_fields() -> 
 
 def test_ai_ceo_schema_digests_match_the_api_catalog() -> None:
     assert {name: canonical_digest(schema) for name, schema in AI_CEO_RESULT_SCHEMAS.items()} == {
-        "orchestration_plan_proposal_v1": "7eded91450af684f3d83d1a38f1773ba165166e96139ea783e546e7f6d79efaa",
-        "store_health_ai_ceo_report_v1": "5aa7bf4620581bfadd32407eb44f825c04fda99b2b2e5ced85c5b98929eb4174",
+        "orchestration_plan_proposal_v1": "da0e9a8cfb537b2fd1c875445d44c03f7e7e43911391bd489b6373b848c9c84c",
+        "store_health_ai_ceo_report_v1": "9eb44168f058917b0eec2c1f30b7dbb6fc54ee6c8e7b1d891da3d56d0ddbe51f",
     }
 
 

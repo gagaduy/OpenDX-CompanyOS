@@ -157,8 +157,8 @@ function departmentResultSchema(
     required: ["schemaVersion", "agentKind", "status", "summary", "conclusions",
       "risks", "recommendedActions", "payload"],
     properties: {
-      schemaVersion: { const: 1 },
-      agentKind: { const: agentKind },
+      schemaVersion: { type: "integer", const: 1 },
+      agentKind: { type: "string", const: agentKind },
       status: { type: "string", enum: ["complete", "partial"] },
       summary: boundedString(1_000),
       conclusions: { type: "array", maxItems: 8, items: conclusionSchema() },
@@ -170,11 +170,7 @@ function departmentResultSchema(
         required: ["toolSummaries"],
         properties: {
           toolSummaries: {
-            type: "array", minItems: 1, maxItems: toolNames.length, uniqueItems: true,
-            allOf: toolNames.map((toolName) => ({
-              contains: toolSummarySchema(toolNames, toolName),
-              minContains: 0, maxContains: 1,
-            })),
+            type: "array", minItems: 1, maxItems: toolNames.length,
             items: toolSummarySchema(toolNames),
           },
         },
@@ -190,7 +186,7 @@ function toolSummarySchema(
   return strictObject({
     toolName: toolName === undefined
       ? { type: "string", enum: toolNames }
-      : { const: toolName },
+      : { type: "string", const: toolName },
     provenanceId: uuidSchema(),
     summaryDigest: { type: "string", pattern: "^[a-f0-9]{64}$" },
   });
@@ -222,7 +218,7 @@ function strictObject(properties: Readonly<Record<string, unknown>>): Readonly<R
 }
 
 function provenanceIds(): Readonly<Record<string, unknown>> {
-  return { type: "array", minItems: 1, maxItems: 8, uniqueItems: true, items: uuidSchema() };
+  return { type: "array", minItems: 1, maxItems: 8, items: uuidSchema() };
 }
 
 function uuidSchema(): Readonly<Record<string, unknown>> {
