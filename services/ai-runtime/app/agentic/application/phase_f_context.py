@@ -72,7 +72,8 @@ def build_phase_f_prompt(context: PhaseFContext) -> ModelPrompt:
             "2. In acceptedResultReferences, copy every usable branch from the input branches with its exact resultId, subtaskId, and resultDigest verbatim. "
             "3. In unavailableBranches, include an entry for each unavailable branch with its exact subtaskId and reasonCode (leave as [] if none). "
             "4. Set completionState to 'complete' if all branches are usable and there are no unavailable branches or partial branches; otherwise 'partial'. "
-            "5. In conclusions, risks, recommendedActions, and conflicts, provide an uppercase alphanumeric code (e.g. INV-01, ORD-01), a detailed clear statement, and populate provenanceIds selecting only valid provenance IDs from the input branch provenanceIds."
+            "5. In conclusions, risks, recommendedActions, and conflicts, provide an uppercase alphanumeric code (e.g. INV-01, ORD-01), a detailed clear statement, and populate provenanceIds selecting only valid provenance IDs from the input branch provenanceIds. "
+            "6. LANGUAGE RULE: All text fields (summary, conclusions statement, risks statement, recommendedActions statement, conflicts statement) MUST be written in clear, professional Vietnamese (tiếng Việt)."
         )
     serialized = json.dumps(
         _thaw(context.authorized_context), ensure_ascii=False, allow_nan=False,
