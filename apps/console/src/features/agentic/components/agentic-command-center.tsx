@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   Send,
@@ -25,9 +26,12 @@ import {
   Headphones,
   DollarSign,
   ArrowRight,
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
 import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
+import { ExecutiveReport } from "./executive-report";
 import "../styles/agentic-command-center.css";
 
 interface AgenticCommandCenterProps {
@@ -36,63 +40,6 @@ interface AgenticCommandCenterProps {
   readonly tasks?: AgenticTaskPage;
   readonly onTaskCreated?: () => void;
 }
-
-interface AgentCardState {
-  readonly name: string;
-  readonly roleTag: "SKILL" | "TRỢ LÝ" | "ĐỘI";
-  readonly department: "catalog" | "operations" | "support" | "finance";
-  readonly status: "idle" | "running" | "completed";
-  readonly contentText?: string;
-  readonly showProgress?: boolean;
-}
-
-const INITIAL_AGENTS: readonly AgentCardState[] = [
-  {
-    name: "Cây bút Sản phẩm",
-    roleTag: "SKILL",
-    department: "catalog",
-    status: "running",
-    contentText: "Viết lại mô tả sản phẩm bộ sưu tập Thu Đông...",
-  },
-  {
-    name: "Chuyên viên Merchandising",
-    roleTag: "TRỢ LÝ",
-    department: "catalog",
-    status: "completed",
-  },
-  {
-    name: "Kỹ sư Tồn kho",
-    roleTag: "SKILL",
-    department: "operations",
-    status: "running",
-    contentText: "Đang tính toán lại định mức tồn kho an toàn...",
-    showProgress: true,
-  },
-  {
-    name: "Điều phối Đơn hàng",
-    roleTag: "ĐỘI",
-    department: "operations",
-    status: "completed",
-  },
-  {
-    name: "Quản gia CSKH",
-    roleTag: "TRỢ LÝ",
-    department: "support",
-    status: "idle",
-  },
-  {
-    name: "Chuyên viên CRM",
-    roleTag: "SKILL",
-    department: "support",
-    status: "completed",
-  },
-  {
-    name: "Kiểm soát viên Tài chính",
-    roleTag: "SKILL",
-    department: "finance",
-    status: "idle",
-  },
-];
 
 export function AgenticCommandCenter({
   api,
@@ -104,53 +51,89 @@ export function AgenticCommandCenter({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"hub" | "orchestration" | "workforce">("hub");
   const [recentOutcomesOpen, setRecentOutcomesOpen] = useState(true);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  
+  // Active task state
+  const latestTask = tasks?.items?.[0];
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(42);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeOperations, setActiveOperations] = useState<AgenticTaskOperations | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Poll operations if a live task is running
+  // Initialize with latest active or completed task
+  useEffect(() => {
+    if (!activeTaskId && latestTask?.id) {
+      setActiveTaskId(latestTask.id);
+    }
+  }, [activeTaskId, latestTask?.id]);
+
+  // Poll operations when a task is active
   useEffect(() => {
     if (!activeTaskId) return;
 
-    const interval = setInterval(async () => {
+    let isMounted = true;
+    const fetchOps = async () => {
       try {
         const ops = await api.loadOperations(activeTaskId);
-        setActiveOperations(ops);
-        if (["completed", "partially_completed", "failed", "canceled"].includes(ops.task.state)) {
-          setActiveRunId(null);
+        if (isMounted) {
+          setActiveOperations(ops);
+          if (ops.workflow) {
+            setActiveRunId(ops.workflow.id);
+          }
         }
       } catch (err) {
-        console.error("Failed to poll operations", err);
+        console.error("Failed to load task operations:", err);
       }
-    }, 3000);
+    };
 
-    return () => clearInterval(interval);
+    fetchOps();
+    const interval = setInterval(fetchOps, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [activeTaskId, api]);
 
-  // Live timer for active reasoning
+  const currentWorkflowState = activeOperations?.workflow?.state ?? activeOperations?.task.state ?? latestTask?.state ?? "idle";
+  const isRunning = [
+    "planning",
+    "awaiting_plan_approval",
+    "dispatching",
+    "department_analysis",
+    "quality_review",
+    "collaboration",
+    "executive_synthesis",
+    "retrying",
+  ].includes(currentWorkflowState);
+
+  // Timer effect only when running
   useEffect(() => {
-    timerRef.current = setInterval(() => {
+    if (!isRunning) return;
+    const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
-  const handleSendStrategicTask = async (customGoal?: string) => {
+  const handleSendStrategicTask = async (customGoal?: string, customInstructions?: string) => {
     const goalText = (customGoal || prompt).trim();
     if (!goalText || isSubmitting) return;
 
     try {
       setIsSubmitting(true);
       const idempotencyKey = crypto.randomUUID();
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
       const created = await api.createTask(
         {
-          mode: "advanced",
+          mode: "store_health_review",
           goal: goalText,
-          instructions: `Thực hiện phân tích và lên kế hoạch tự động cho mục tiêu: ${goalText}`,
+          instructions: customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
+          reviewWindow: {
+            start: thirtyDaysAgo.toISOString().slice(0, 10),
+            end: now.toISOString().slice(0, 10),
+          },
         },
         idempotencyKey,
       );
@@ -174,7 +157,8 @@ export function AgenticCommandCenter({
     if (!activeRunId || !activeOperations?.workflow) return;
     try {
       await api.cancelWorkflow(activeRunId, activeOperations.workflow.version, "CANCELED_BY_STAFF");
-      setActiveRunId(null);
+      const updated = await api.loadOperations(activeOperations.task.id);
+      setActiveOperations(updated);
     } catch (err) {
       console.error("Failed to stop workflow:", err);
     }
@@ -182,10 +166,36 @@ export function AgenticCommandCenter({
 
   const handleAgentDirectTask = async (agentName: string, directPrompt: string) => {
     if (!directPrompt.trim()) return;
-    await handleSendStrategicTask(`[${agentName}] ${directPrompt}`);
+    await handleSendStrategicTask(
+      `Yêu cầu trực tiếp cho [${agentName}]: ${directPrompt}`,
+      `Trực tiếp giao việc cho nhân sự ${agentName}: ${directPrompt}`,
+    );
   };
 
-  const activeCount = overview?.counts.running ?? 2;
+  const activeCount = overview?.counts.running ?? (isRunning ? 1 : 0);
+
+  // Helper to get branch status
+  const getBranchState = (department: string): "idle" | "running" | "completed" | "failed" => {
+    if (!activeOperations?.branches) return "idle";
+    const branch = activeOperations.branches.find((b) => b.owner.toLowerCase().includes(department.toLowerCase()));
+    if (!branch) return isRunning ? "idle" : "idle";
+    if (branch.state === "completed") return "completed";
+    if (["running", "in_progress", "pending"].includes(branch.state)) return "running";
+    if (branch.state === "failed") return "failed";
+    return "idle";
+  };
+
+  // Branch owners mapping for executive report
+  const branchOwners = new Map(activeOperations?.branches.map(({ id, owner }) => [id, owner]) ?? []);
+  const executiveReportData = activeOperations?.report
+    ? {
+        ...activeOperations.report,
+        unavailableBranches: activeOperations.report.unavailableBranches.map((b) => ({
+          ...b,
+          subtaskId: branchOwners.get(b.subtaskId) ?? b.subtaskId,
+        })),
+      }
+    : undefined;
 
   return (
     <section className="commandCenterWorkspace">
@@ -204,27 +214,22 @@ export function AgenticCommandCenter({
           >
             Command Hub
           </button>
-          <button
-            type="button"
-            className={`ccNavTab ${activeTab === "orchestration" ? "active" : ""}`}
-            onClick={() => setActiveTab("orchestration")}
+          <Link
+            to={activeTaskId ? `/agentic/tasks/${activeTaskId}` : "/agentic/tasks-table"}
+            className="ccNavTab"
           >
             Orchestration
-          </button>
-          <button
-            type="button"
-            className={`ccNavTab ${activeTab === "workforce" ? "active" : ""}`}
-            onClick={() => setActiveTab("workforce")}
-          >
+          </Link>
+          <Link to="/agentic/employees" className="ccNavTab">
             Workforce
-          </button>
+          </Link>
         </nav>
 
         <div className="ccHeaderRight">
           <span className="ccStatBadge">4 Phòng ban</span>
           <span className="ccStatBadge">8 Nhân sự AI</span>
-          <span className="ccStatBadge activeTasks">
-            <span className="ccPillDot" />
+          <span className={`ccStatBadge ${activeCount > 0 ? "activeTasks" : ""}`}>
+            {activeCount > 0 && <span className="ccPillDot" />}
             <span>{activeCount} Đang làm</span>
           </span>
 
@@ -247,7 +252,7 @@ export function AgenticCommandCenter({
           <input
             type="text"
             className="ccMainPromptInput"
-            placeholder="Hãy giao việc chiến lược cho AI CEO..."
+            placeholder="Hãy giao việc chiến lược cho AI CEO (ví dụ: Rà soát rủi ro kinh doanh đợt này)..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => {
@@ -273,21 +278,31 @@ export function AgenticCommandCenter({
             onClick={() => setRecentOutcomesOpen((prev) => !prev)}
           >
             <Clock size={13} />
-            <span>Lịch sử (6)</span>
+            <span>Lịch sử ({tasks?.items.length ?? 0})</span>
           </button>
           <button
             type="button"
             className="ccQuickPill"
-            onClick={() => handleSendStrategicTask("Rà soát sức khỏe cửa hàng toàn diện")}
+            onClick={() =>
+              handleSendStrategicTask(
+                "Kiểm toán rủi ro kinh doanh & tồn kho khẩn cấp",
+                "Rà soát các SKU có nguy cơ đứt hàng và cảnh báo tồn kho bán chậm.",
+              )
+            }
           >
             <span>Rà soát sức khỏe cửa hàng</span>
           </button>
           <button
             type="button"
             className="ccQuickPill"
-            onClick={() => handleSendStrategicTask("Kiểm toán rủi ro tồn kho khẩn cấp")}
+            onClick={() =>
+              handleSendStrategicTask(
+                "Rà soát đơn hàng quá hạn & khiếu nại khách hàng",
+                "Kiểm tra các đơn hàng bị kẹt giao và ticket khách hàng vi phạm thời gian hỗ trợ.",
+              )
+            }
           >
-            <span>Kiểm toán tồn kho</span>
+            <span>Kiểm toán đơn hàng & CSKH</span>
           </button>
         </div>
 
@@ -302,18 +317,31 @@ export function AgenticCommandCenter({
           </div>
           {recentOutcomesOpen && (
             <div className="ccRecentOutcomesList">
-              <div className="ccRecentOutcomeItem">
-                <CheckCircle2 size={16} className="ccCheckIcon" />
-                <span>
-                  <strong>Kiểm toán tồn kho xong...</strong> Đã phát hiện 3 SKU có nguy cơ đứt hàng và tạo cảnh báo bổ sung.
-                </span>
-              </div>
-              <div className="ccRecentOutcomeItem">
-                <CheckCircle2 size={16} className="ccCheckIcon" />
-                <span>
-                  <strong>Phân tích đơn hàng xong...</strong> 12 đơn hàng quá hạn 48h được chuyển sang bộ phận hỗ trợ xử lý.
-                </span>
-              </div>
+              {tasks?.items && tasks.items.length > 0 ? (
+                tasks.items.slice(0, 3).map((item) => (
+                  <div
+                    key={item.id}
+                    className="ccRecentOutcomeItem"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setActiveTaskId(item.id)}
+                  >
+                    <CheckCircle2 size={16} className="ccCheckIcon" />
+                    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                      <span>
+                        <strong>{item.goal}</strong> — Trạng thái: <em>{item.state}</em>
+                      </span>
+                      <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        {new Date(item.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="ccRecentOutcomeItem">
+                  <CheckCircle2 size={16} className="ccCheckIcon" />
+                  <span>Chưa có tác vụ nào gần đây. Hãy giao việc ở khung trên!</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -322,39 +350,59 @@ export function AgenticCommandCenter({
       {/* 3. Pipeline Flow Bar */}
       <div className="ccPipelineBar">
         <div className="ccPipelineSteps">
-          <div className="ccPipelineNode active">
+          <div className={`ccPipelineNode ${isRunning ? "active" : ""}`}>
             <Bot size={14} />
             <span>AI CEO</span>
           </div>
           <ArrowRight className="ccPipelineArrow" size={14} />
-          <div className="ccPipelineNode active">
+          <div className={`ccPipelineNode ${getBranchState("inventory") === "running" ? "active" : ""}`}>
             <Package size={14} />
             <span>Kỹ sư Tồn kho</span>
           </div>
           <ArrowRight className="ccPipelineArrow" size={14} />
-          <div className="ccPipelineNode">
+          <div className={`ccPipelineNode ${getBranchState("order") === "running" ? "active" : ""}`}>
             <ShoppingBag size={14} />
             <span>Điều phối Đơn hàng</span>
           </div>
           <ArrowRight className="ccPipelineArrow" size={14} />
-          <div className="ccPipelineNode">
+          <div className={`ccPipelineNode ${currentWorkflowState === "executive_synthesis" ? "active" : ""}`}>
             <Bot size={14} />
             <span>AI CEO Tổng hợp</span>
           </div>
         </div>
 
         <div className="ccPipelineStatus">
-          <div className="ccReasoningIndicator">
-            <span className="ccPulseDot" />
-            <span>
-              Đang suy luận... {Math.floor(elapsedSeconds / 60)}:
-              {String(elapsedSeconds % 60).padStart(2, "0")}
-            </span>
-          </div>
-          <button type="button" className="ccStopButton" onClick={handleStopTask}>
-            <Square size={12} fill="currentColor" />
-            <span>Dừng</span>
-          </button>
+          {isRunning ? (
+            <>
+              <div className="ccReasoningIndicator">
+                <span className="ccPulseDot" />
+                <span>
+                  Đang thực thi: {currentWorkflowState}... {Math.floor(elapsedSeconds / 60)}:
+                  {String(elapsedSeconds % 60).padStart(2, "0")}
+                </span>
+              </div>
+              <button type="button" className="ccStopButton" onClick={handleStopTask}>
+                <Square size={12} fill="currentColor" />
+                <span>Dừng</span>
+              </button>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontSize: "0.85rem", fontWeight: 600 }}>
+              <CheckCircle2 size={15} color="#10b981" />
+              <span>
+                {activeOperations?.task.state ? `Tác vụ gần nhất: ${activeOperations.task.state}` : "Sẵn sàng nhận việc"}
+              </span>
+              {activeTaskId && (
+                <Link
+                  to={`/agentic/tasks/${activeTaskId}`}
+                  style={{ color: "#38bdf8", marginLeft: "0.5rem", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}
+                >
+                  <span>Chi tiết</span>
+                  <ExternalLink size={12} />
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -367,8 +415,8 @@ export function AgenticCommandCenter({
               <Layers size={16} color="#38bdf8" />
               <span>Catalog & Marketing</span>
             </div>
-            <span className="ccDeptCountBadge amber">
-              <span className="ccPillDot" style={{ width: 6, height: 6 }} />
+            <span className={`ccDeptCountBadge ${getBranchState("catalog") === "running" ? "amber" : "green"}`}>
+              {getBranchState("catalog") === "running" ? <span className="ccPillDot" style={{ width: 6, height: 6 }} /> : <Check size={12} />}
               <span>2 Nhân sự</span>
             </span>
           </div>
@@ -376,14 +424,14 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Cây bút Sản phẩm"
             roleTag="SKILL"
-            status="running"
-            statusText="Viết lại mô tả sản phẩm bộ sưu tập Thu Đông..."
+            status={getBranchState("catalog") === "running" ? "running" : getBranchState("catalog") === "completed" ? "completed" : "idle"}
+            statusText={getBranchState("catalog") === "running" ? "Đang rà soát danh mục sản phẩm và mô tả..." : undefined}
             onSend={(text) => handleAgentDirectTask("Cây bút Sản phẩm", text)}
           />
           <AgentCard
             name="Chuyên viên Merchandising"
             roleTag="TRỢ LÝ"
-            status="completed"
+            status={getBranchState("catalog") === "completed" ? "completed" : "idle"}
             onSend={(text) => handleAgentDirectTask("Chuyên viên Merchandising", text)}
           />
         </div>
@@ -395,8 +443,8 @@ export function AgenticCommandCenter({
               <Package size={16} color="#fbbf24" />
               <span>Vận hành</span>
             </div>
-            <span className="ccDeptCountBadge amber">
-              <span className="ccPillDot" style={{ width: 6, height: 6 }} />
+            <span className={`ccDeptCountBadge ${getBranchState("inventory") === "running" || getBranchState("order") === "running" ? "amber" : "green"}`}>
+              {getBranchState("inventory") === "running" ? <span className="ccPillDot" style={{ width: 6, height: 6 }} /> : <Check size={12} />}
               <span>2 Nhân sự</span>
             </span>
           </div>
@@ -404,15 +452,16 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Kỹ sư Tồn kho"
             roleTag="SKILL"
-            status="running"
-            statusText="Đang tính toán lại định mức tồn kho an toàn..."
-            showProgress
+            status={getBranchState("inventory") === "running" ? "running" : getBranchState("inventory") === "completed" ? "completed" : "idle"}
+            statusText={getBranchState("inventory") === "running" ? "Đang tính toán lại định mức tồn kho an toàn..." : undefined}
+            showProgress={getBranchState("inventory") === "running"}
             onSend={(text) => handleAgentDirectTask("Kỹ sư Tồn kho", text)}
           />
           <AgentCard
             name="Điều phối Đơn hàng"
             roleTag="ĐỘI"
-            status="completed"
+            status={getBranchState("order") === "running" ? "running" : getBranchState("order") === "completed" ? "completed" : "idle"}
+            statusText={getBranchState("order") === "running" ? "Đang rà soát đơn hàng quá hạn thanh toán..." : undefined}
             onSend={(text) => handleAgentDirectTask("Điều phối Đơn hàng", text)}
           />
         </div>
@@ -424,8 +473,8 @@ export function AgenticCommandCenter({
               <Headphones size={16} color="#34d399" />
               <span>CSKH & Cộng đồng</span>
             </div>
-            <span className="ccDeptCountBadge green">
-              <Check size={12} />
+            <span className={`ccDeptCountBadge ${getBranchState("support") === "running" ? "amber" : "green"}`}>
+              {getBranchState("support") === "running" ? <span className="ccPillDot" style={{ width: 6, height: 6 }} /> : <Check size={12} />}
               <span>2 Nhân sự</span>
             </span>
           </div>
@@ -433,13 +482,14 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Quản gia CSKH"
             roleTag="TRỢ LÝ"
-            status="idle"
+            status={getBranchState("support") === "running" ? "running" : getBranchState("support") === "completed" ? "completed" : "idle"}
+            statusText={getBranchState("support") === "running" ? "Đang phân tích các ticket khiếu nại khách hàng..." : undefined}
             onSend={(text) => handleAgentDirectTask("Quản gia CSKH", text)}
           />
           <AgentCard
             name="Chuyên viên CRM"
             roleTag="SKILL"
-            status="completed"
+            status={getBranchState("crm") === "completed" ? "completed" : "idle"}
             onSend={(text) => handleAgentDirectTask("Chuyên viên CRM", text)}
           />
         </div>
@@ -451,8 +501,8 @@ export function AgenticCommandCenter({
               <DollarSign size={16} color="#a78bfa" />
               <span>Tài chính</span>
             </div>
-            <span className="ccDeptCountBadge green">
-              <Check size={12} />
+            <span className={`ccDeptCountBadge ${getBranchState("finance") === "running" ? "amber" : "green"}`}>
+              {getBranchState("finance") === "running" ? <span className="ccPillDot" style={{ width: 6, height: 6 }} /> : <Check size={12} />}
               <span>1 Nhân sự</span>
             </span>
           </div>
@@ -460,11 +510,19 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Kiểm soát viên Tài chính"
             roleTag="SKILL"
-            status="idle"
+            status={getBranchState("finance") === "running" ? "running" : getBranchState("finance") === "completed" ? "completed" : "idle"}
+            statusText={getBranchState("finance") === "running" ? "Đang đối soát giao dịch và cổng thanh toán..." : undefined}
             onSend={(text) => handleAgentDirectTask("Kiểm soát viên Tài chính", text)}
           />
         </div>
       </div>
+
+      {/* 5. Live Executive Report Output when available */}
+      {executiveReportData && (
+        <div style={{ marginTop: "2rem" }}>
+          <ExecutiveReport report={executiveReportData} workflowState={currentWorkflowState} />
+        </div>
+      )}
     </section>
   );
 }
@@ -472,7 +530,7 @@ export function AgenticCommandCenter({
 interface AgentCardProps {
   readonly name: string;
   readonly roleTag: "SKILL" | "TRỢ LÝ" | "ĐỘI";
-  readonly status: "idle" | "running" | "completed";
+  readonly status: "idle" | "running" | "completed" | "failed";
   readonly statusText?: string;
   readonly showProgress?: boolean;
   readonly onSend: (input: string) => void;
@@ -504,6 +562,10 @@ function AgentCard({
         ) : status === "completed" ? (
           <span className="ccStatusIndicatorIcon">
             <CheckCircle2 size={15} color="#10b981" />
+          </span>
+        ) : status === "failed" ? (
+          <span className="ccStatusIndicatorIcon">
+            <AlertTriangle size={15} color="#ef4444" />
           </span>
         ) : (
           <span className="ccStatusIndicatorDot gray" />
