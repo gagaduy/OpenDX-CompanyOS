@@ -32,6 +32,7 @@ const failedOutcomes = new Set<WorkflowOutcomeCode>([
   "RETRY_EXHAUSTED",
   "ACTIVITY_REJECTED",
   "INVALID_FROZEN_PLAN",
+  "LIVE_EXECUTION_UNAVAILABLE",
 ]);
 
 export function transitionWorkflowRun(

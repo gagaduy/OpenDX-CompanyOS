@@ -280,7 +280,11 @@ class StoreHealthReviewWorkflowV1:
             )
             if plan is None:
                 return await self._canceled(run_id, (), ())
-        except (ActivityError, ValueError):
+        except ActivityError:
+            return await self._finish(
+                run_id, WorkflowState.FAILED, "LIVE_EXECUTION_UNAVAILABLE", (), (),
+            )
+        except ValueError:
             return await self._finish(
                 run_id, WorkflowState.FAILED, "INVALID_FROZEN_PLAN", (), (),
             )
@@ -330,7 +334,12 @@ class StoreHealthReviewWorkflowV1:
             report = SynthesisExecutionReference.model_validate_json(
                 json.dumps(report_raw)
             )
-        except (ActivityError, ValueError):
+        except ActivityError:
+            return await self._finish(
+                run_id, WorkflowState.FAILED, "LIVE_EXECUTION_UNAVAILABLE",
+                successful, failed,
+            )
+        except ValueError:
             return await self._finish(
                 run_id, WorkflowState.FAILED, "RETRY_EXHAUSTED", successful, failed,
             )
