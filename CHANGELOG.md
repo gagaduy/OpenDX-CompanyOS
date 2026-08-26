@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Advanced task execution, CEO delegation, bounded Department work, truthful
   runtime failures, and human-approved owning-module mutation proposals.
 
+- Add the TDD implementation plan for the first live-runtime activation slice.
+
 - Add role- and state-aware `Mark ready` and `Start task` controls to Digital
   Workforce task detail, binding each command to the authoritative optimistic
   version, suppressing duplicate submissions, validating workflow responses,
