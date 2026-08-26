@@ -25,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Department structured outputs, keep API/runtime schema digests aligned, and
   retain planning provenance when a provider failure is settled.
 
+- Resolve the accepted orchestration plan independently from the frozen task
+  revision so a Ready task at version 2 can dispatch the AI CEO's version 1
+  plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
+
 ### Added
 
 - Surface `LIVE_EXECUTION_UNAVAILABLE` in the Digital Workforce Console so a

@@ -275,8 +275,11 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
               COALESCE(array_agg(dependency.dependency_subtask_id::text ORDER BY dependency.dependency_subtask_id)
                 FILTER (WHERE dependency.dependency_subtask_id IS NOT NULL),'{}') AS dependencies
        FROM agentic_workflow_runs run
-       JOIN agentic_orchestration_plan_revisions plan
-         ON plan.task_id=run.task_id AND plan.version=run.plan_revision
+       JOIN LATERAL (
+         SELECT candidate.* FROM agentic_orchestration_plan_revisions candidate
+         WHERE candidate.task_id=run.task_id
+         ORDER BY candidate.version DESC LIMIT 1
+       ) plan ON true
        JOIN agentic_orchestration_plan_subtasks subtask ON subtask.plan_id=plan.id
        JOIN agentic_orchestration_execution_descriptors descriptor
          ON descriptor.task_id=plan.task_id AND descriptor.plan_version=plan.version

@@ -535,7 +535,7 @@ suite("Agentic PostgreSQL admin API", () => {
     const runId = randomUUID();
     await pool.query(`INSERT INTO agentic_workflow_runs
       (id,task_id,workflow_name,workflow_version,plan_revision,temporal_workflow_id,state,created_at,updated_at)
-      VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,1,$3,'dispatching',$4,$4)`,
+      VALUES($1,$2,'StoreHealthReviewWorkflowV1',1,2,$3,'dispatching',$4,$4)`,
     [runId, taskId, `agentic-task-${taskId}-v1`, at]);
     const dispatch = await request(app).get(`/v1/internal/agentic/orchestration/dispatch-plans/${runId}`)
       .set(worker).expect("cache-control", "no-store").expect(200);
