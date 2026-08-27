@@ -356,6 +356,60 @@ export class PostgresqlCustomerRepository implements CustomerRepository {
     );
     return true;
   }
+
+  async listWishlist(
+    s: DatabaseSession,
+    customerId: string,
+    query: { readonly page: number; readonly pageSize: number },
+  ) {
+    const count = await s.query<{ total: string }>(
+      `SELECT count(*)::text AS total
+       FROM customer_wishlist_items
+       WHERE customer_id = $1`,
+      [customerId],
+    );
+    const rows = await s.query<{ product_id: string }>(
+      `SELECT product_id
+       FROM customer_wishlist_items
+       WHERE customer_id = $1
+       ORDER BY created_at DESC, product_id ASC
+       LIMIT $2 OFFSET $3`,
+      [customerId, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    return {
+      productIds: rows.rows.map(({ product_id }) => product_id),
+      totalItems: safeInteger(
+        count.rows[0]?.total ?? "0",
+        "wishlist item total",
+      ),
+    };
+  }
+
+  async addWishlistItem(
+    s: DatabaseSession,
+    customerId: string,
+    productId: string,
+    createdAt: string,
+  ) {
+    await s.query(
+      `INSERT INTO customer_wishlist_items(customer_id,product_id,created_at)
+       VALUES($1,$2,$3)
+       ON CONFLICT (customer_id,product_id) DO NOTHING`,
+      [customerId, productId, createdAt],
+    );
+  }
+
+  async removeWishlistItem(
+    s: DatabaseSession,
+    customerId: string,
+    productId: string,
+  ) {
+    await s.query(
+      `DELETE FROM customer_wishlist_items
+       WHERE customer_id=$1 AND product_id=$2`,
+      [customerId, productId],
+    );
+  }
 }
 
 function safeInteger(value: unknown, label: string): number {

@@ -38,10 +38,22 @@ suite("customer migration", () => {
           "customer_sessions",
           "guest_sessions",
           "customer_addresses",
+          "customer_wishlist_items",
         ],
       ],
     );
-    expect(tables.rows.map(({ table_name }) => table_name)).toHaveLength(5);
+    expect(tables.rows.map(({ table_name }) => table_name)).toHaveLength(6);
+    const constraints = await pool.query<{ delete_rule: string }>(
+      `SELECT rc.delete_rule
+       FROM information_schema.referential_constraints rc
+       WHERE rc.constraint_schema = 'public'
+         AND rc.constraint_name LIKE 'customer_wishlist_items_%_fkey'
+       ORDER BY rc.constraint_name`,
+    );
+    expect(constraints.rows).toEqual([
+      { delete_rule: "CASCADE" },
+      { delete_rule: "CASCADE" },
+    ]);
     const columns = await pool.query<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns
        WHERE table_name IN ('customer_sessions', 'guest_sessions')
@@ -72,6 +84,16 @@ suite("customer migration", () => {
     `),
     ).rejects.toMatchObject({ code: "23514" });
 
+    await runCustomerMigrations(databaseUrl!, "down", 1);
+    expect(
+      (await pool.query(
+        "SELECT to_regclass('public.customer_wishlist_items') AS name",
+      )).rows[0],
+    ).toEqual({ name: null });
+    expect(
+      (await pool.query("SELECT to_regclass('public.customers') AS name"))
+        .rows[0],
+    ).toEqual({ name: "customers" });
     await runCustomerMigrations(databaseUrl!, "down", 1);
     expect(
       (await pool.query("SELECT to_regclass('public.customers') AS name"))

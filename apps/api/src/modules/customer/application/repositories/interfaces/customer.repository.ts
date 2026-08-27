@@ -21,6 +21,16 @@ export interface CustomerOperationsSearchQuery {
   readonly pageSize: number;
 }
 
+export interface CustomerWishlistPageQuery {
+  readonly page: number;
+  readonly pageSize: number;
+}
+
+export interface CustomerWishlistPage {
+  readonly productIds: readonly string[];
+  readonly totalItems: number;
+}
+
 export interface CustomerRepository {
   lockIdentityRegistration(
     session: DatabaseSession,
@@ -123,4 +133,20 @@ export interface CustomerRepository {
     addressId: string,
     now: string,
   ): Promise<boolean>;
+  listWishlist(
+    session: DatabaseSession,
+    customerId: string,
+    query: CustomerWishlistPageQuery,
+  ): Promise<CustomerWishlistPage>;
+  addWishlistItem(
+    session: DatabaseSession,
+    customerId: string,
+    productId: string,
+    createdAt: string,
+  ): Promise<void>;
+  removeWishlistItem(
+    session: DatabaseSession,
+    customerId: string,
+    productId: string,
+  ): Promise<void>;
 }
