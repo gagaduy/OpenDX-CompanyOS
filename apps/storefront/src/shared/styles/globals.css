@@ -2942,14 +2942,17 @@ img {
 }
 
 .homepage-hero-region .storefront-hero > img {
+  right: 0;
+  left: auto;
+  width: 52%;
   object-fit: contain;
-  object-position: 74% center;
+  object-position: center;
   transform: none;
   background: var(--surface-2);
 }
 
 .homepage-hero-region .hero-scrim {
-  width: 62%;
+  width: 52%;
   right: auto;
   background: rgba(1, 1, 2, 0.82);
 }

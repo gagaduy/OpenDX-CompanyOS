@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Keep homepage hero product media centered inside a dedicated right-hand panel
+  so square Catalog images are not cut through by the content scrim.
+
 - Make the Storefront `Danh mục` and `Khám phá` navigation menus interactive
   with live Catalog categories, increase desktop canvas and typography scale,
   and extend responsive browser acceptance to cover both menus.

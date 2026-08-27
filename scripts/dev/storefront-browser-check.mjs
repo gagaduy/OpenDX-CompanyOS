@@ -149,6 +149,18 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
       },
       homepage: location.pathname === "/" ? {
         hero: document.querySelector(".homepage-hero-region") !== null,
+        heroMedia: (() => {
+          const hero = document.querySelector(".homepage-hero-region .storefront-hero");
+          const media = hero?.querySelector(".hero-slide-image");
+          if (!(hero instanceof HTMLElement) || !(media instanceof HTMLImageElement)) return null;
+          const heroRect = hero.getBoundingClientRect();
+          const mediaRect = media.getBoundingClientRect();
+          return {
+            startsInRightHalf: mediaRect.left >= heroRect.left + heroRect.width * 0.48,
+            rightAligned: Math.abs(mediaRect.right - heroRect.right) <= 1,
+            contained: mediaRect.width <= heroRect.width * 0.55,
+          };
+        })(),
         categories: document.querySelectorAll(".homepage-category-rail nav a").length,
         assurances: document.querySelectorAll(".service-assurance-item").length,
         promotions: document.querySelectorAll(".category-promotion-card").length,
@@ -198,7 +210,13 @@ function assertRoute(result, viewport, theme, route) {
   }
   if (result.homepage !== null) {
     const home = result.homepage;
-    if (!home.hero || home.categories < 4 || home.assurances !== 4 || home.promotions < 4 || home.tabs !== 3 || home.canvas !== 0) {
+    if (
+      !home.hero || home.heroMedia === null ||
+      !home.heroMedia.startsInRightHalf || !home.heroMedia.rightAligned ||
+      !home.heroMedia.contained || home.categories < 4 ||
+      home.assurances !== 4 || home.promotions < 4 || home.tabs !== 3 ||
+      home.canvas !== 0
+    ) {
       throw new Error(`${viewport.name} ${theme}: homepage hierarchy is incomplete ${JSON.stringify(home)}`);
     }
     if (
