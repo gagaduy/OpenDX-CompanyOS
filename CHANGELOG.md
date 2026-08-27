@@ -59,6 +59,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   quality gates and API report acceptance, and provide adequate token budget for
   AI CEO synthesis generation.
 
+### Removed
+
+- Remove the superseded Three.js Storefront homepage runtime, model assets,
+  obsolete tests, and its dedicated package dependencies after the API-driven
+  commerce homepage replacement reached full test coverage.
+
 ### Added
 
 - Redesign cart, checkout, payment return, and order history routes as compact

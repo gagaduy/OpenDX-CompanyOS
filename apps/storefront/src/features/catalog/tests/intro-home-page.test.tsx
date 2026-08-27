@@ -55,8 +55,6 @@ describe("IntroHomePage", () => {
     expect(screen.getByRole("tab", { name: "Mới nhất" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sản phẩm nổi bật" })).toBeVisible();
     expect(container.querySelector("canvas")).toBeNull();
-    expect(container.querySelector("[data-experience-mode]")).toBeNull();
-    expect(container.querySelector(".experience-scene-navigation")).toBeNull();
   });
 });
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { HomepageSceneId } from "../types/homepage-experience.types";
 import type {
   ProductPage,
   StorefrontCategory,
@@ -36,13 +35,6 @@ export interface HomepageCatalogState {
   readonly rails: Readonly<
     Record<HomepageRailId, HomepageRegion<readonly StorefrontProduct[]>>
   >;
-  readonly loading: boolean;
-  readonly error?: string;
-  readonly sceneProducts: Readonly<
-    Partial<Record<HomepageSceneId, StorefrontProduct>>
-  >;
-  readonly featuredProducts: readonly StorefrontProduct[];
-  readonly retry: () => Promise<void>;
 }
 
 export const homepageQueries: Readonly<Record<HomepageRailId, string>> = {
@@ -170,34 +162,6 @@ export function useHomepageCatalog(api: HomepageCatalogReader): HomepageCatalogS
       featured: { ...rails.featured, retry: () => loadRail("featured") },
       bestSelling: { ...rails.bestSelling, retry: () => loadRail("bestSelling") },
       newest: { ...rails.newest, retry: () => loadRail("newest") },
-    },
-    loading:
-      categories.status === "loading" ||
-      hero.status === "loading" ||
-      promotions.status === "loading" ||
-      Object.values(rails).some((region) => region.status === "loading"),
-    error:
-      categories.status === "error" ||
-      hero.status === "error" ||
-      promotions.status === "error" ||
-      Object.values(rails).some((region) => region.status === "error")
-        ? "Không thể tải một số khu vực sản phẩm."
-        : undefined,
-    sceneProducts: {
-      smartphones: promotions.data[0]?.product,
-      computing: promotions.data[1]?.product,
-      audio: promotions.data[2]?.product,
-      gaming: promotions.data[3]?.product,
-    },
-    featuredProducts: rails.bestSelling.data,
-    retry: async () => {
-      await Promise.all([
-        loadCategories(),
-        loadHero(),
-        loadRail("featured"),
-        loadRail("bestSelling"),
-        loadRail("newest"),
-      ]);
     },
   };
 }
