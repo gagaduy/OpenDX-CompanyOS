@@ -46,7 +46,7 @@ export function WishlistButton({
       >
         <Heart aria-hidden="true" fill={wished ? "currentColor" : "none"} />
       </button>
-      {wishlist.error === undefined ? null : (
+      {wishlist.error === undefined || wishlist.errorProductId !== productId ? null : (
         <span role="alert" className="wishlist-error">
           {wishlist.error}
         </span>

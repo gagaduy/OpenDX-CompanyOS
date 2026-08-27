@@ -55,7 +55,7 @@ export function WishlistPage({
 
         {wishlist.loading ? (
           <p role="status" className="state-panel">Đang tải danh sách yêu thích...</p>
-        ) : wishlist.error !== undefined ? (
+        ) : wishlist.error !== undefined && wishlist.errorProductId === undefined ? (
           <div role="alert" className="state-panel">
             <p>{wishlist.error}</p>
             <button className="button secondary" type="button" onClick={() => void wishlist.refresh(wishlist.page)}>

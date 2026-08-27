@@ -30,6 +30,7 @@ interface WishlistContextValue {
   readonly loading: boolean;
   readonly pendingProductIds: ReadonlySet<string>;
   readonly error?: string;
+  readonly errorProductId?: string;
   readonly refresh: (page?: number) => Promise<void>;
   readonly setWished: (productId: string, wished: boolean) => Promise<void>;
 }
@@ -61,6 +62,7 @@ export function WishlistProvider({
     () => new Set(),
   );
   const [error, setError] = useState<string>();
+  const [errorProductId, setErrorProductId] = useState<string>();
 
   const refresh = useCallback(
     async (page = 1) => {
@@ -77,8 +79,10 @@ export function WishlistProvider({
           totalPages: result.totalPages,
         });
         setError(undefined);
+        setErrorProductId(undefined);
       } catch {
         setError("Không thể tải danh sách yêu thích.");
+        setErrorProductId(undefined);
       } finally {
         setLoading(false);
       }
@@ -96,12 +100,15 @@ export function WishlistProvider({
     setWishedProductIds(new Set());
     setMeta({ page: 1, pageSize: 24, totalItems: 0, totalPages: 0 });
     setError(undefined);
+    setErrorProductId(undefined);
   }, [refresh, session.kind, sessionLoading]);
 
   const setWished = useCallback(
     async (productId: string, wished: boolean) => {
       if (session.kind !== "customer" || pendingProductIds.has(productId)) return;
       setPendingProductIds((current) => new Set(current).add(productId));
+      setError(undefined);
+      setErrorProductId(undefined);
       try {
         const confirmation = wished
           ? await api.add(productId)
@@ -121,8 +128,10 @@ export function WishlistProvider({
           setProducts((current) => current.filter(({ id }) => id !== productId));
         }
         setError(undefined);
+        setErrorProductId(undefined);
       } catch {
         setError("Không thể cập nhật danh sách yêu thích.");
+        setErrorProductId(productId);
       } finally {
         setPendingProductIds((current) => {
           const next = new Set(current);
@@ -145,6 +154,7 @@ export function WishlistProvider({
       loading,
       pendingProductIds,
       ...(error === undefined ? {} : { error }),
+      ...(errorProductId === undefined ? {} : { errorProductId }),
       refresh,
       setWished,
     }),
@@ -155,6 +165,7 @@ export function WishlistProvider({
       loading,
       pendingProductIds,
       error,
+      errorProductId,
       refresh,
       setWished,
     ],

@@ -143,6 +143,53 @@ describe("WishlistButton", () => {
     );
   });
 
+  it("shows a failed mutation only beside the product that was updated", async () => {
+    const sessionApi = {
+      get: vi.fn(async () => ({
+        kind: "customer" as const,
+        customerId: "customer-1",
+        email: "buyer@example.com",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+      })),
+    } as unknown as CustomerSessionApi;
+    const wishlistApi = {
+      list: vi.fn(async () => ({
+        items: [], page: 1, pageSize: 24, totalItems: 0, totalPages: 0,
+      })),
+      add: vi.fn(async () => {
+        throw new Error("offline");
+      }),
+      remove: vi.fn(),
+    };
+    render(
+      <MemoryRouter initialEntries={["/products"]}>
+        <CustomerSessionProvider api={sessionApi}>
+          <WishlistProvider api={wishlistApi}>
+            <div data-testid="phone-wishlist">
+              <WishlistButton productId={productId} productName="Nova Phone" />
+            </div>
+            <div data-testid="laptop-wishlist">
+              <WishlistButton productId="laptop-id" productName="Nova Laptop" />
+            </div>
+          </WishlistProvider>
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(wishlistApi.list).toHaveBeenCalledOnce());
+    await userEvent.click(
+      screen.getByRole("button", { name: "Thêm Nova Phone vào yêu thích" }),
+    );
+
+    expect(await screen.findAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByTestId("phone-wishlist")).toHaveTextContent(
+      "Không thể cập nhật danh sách yêu thích",
+    );
+    expect(screen.getByTestId("laptop-wishlist")).not.toHaveTextContent(
+      "Không thể cập nhật danh sách yêu thích",
+    );
+  });
+
   it("refreshes the public server count after an idempotent add", async () => {
     const sessionApi = {
       get: vi.fn(async () => ({

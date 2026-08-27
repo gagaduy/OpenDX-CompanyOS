@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Scope failed wishlist mutations to the affected product and present one
+  non-overlapping alert instead of repeating the same text across every card.
+
 - Keep homepage hero product media centered inside a dedicated right-hand panel
   so square Catalog images are not cut through by the content scrim.
 
