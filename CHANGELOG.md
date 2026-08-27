@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add transactional Storefront hero video imports with digest-addressed MinIO
+  storage, a serialized upload-and-activation critical section, replay
+  convergence, reference-safe cleanup, and recoverable disable behavior.
+
 - Add dependency-free MP4 duration inspection and deterministic Catalog domain
   validation for Storefront hero video chapter imports.
 
