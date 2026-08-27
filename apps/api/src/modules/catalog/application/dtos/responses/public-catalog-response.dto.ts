@@ -39,6 +39,8 @@ export interface PublicProductVariantDto {
   readonly price: {
     readonly amountMinor: number;
     readonly currency: "VND";
+    readonly previousAmountMinor?: number;
+    readonly discountPercentage?: number;
   };
   readonly availableQuantity: number;
   readonly purchasable: boolean;

@@ -37,6 +37,8 @@ export interface PublicProductProjection {
     readonly price: {
       readonly amountMinor: number;
       readonly currency: "VND";
+      readonly previousAmountMinor?: number;
+      readonly discountPercentage?: number;
     };
   }[];
 }
@@ -92,6 +94,10 @@ export interface PublicCatalogRepository {
     session: DatabaseSession,
     slug: string,
   ): Promise<PublicProductProjection | undefined>;
+  findProductsByIds(
+    session: DatabaseSession,
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductProjection[]>;
   findMediaAuthorization(
     session: DatabaseSession,
     productId: string,

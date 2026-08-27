@@ -10,6 +10,7 @@ import { ProductMediaService } from "./application/services/implementations/prod
 import { ProductService } from "./application/services/implementations/product.service";
 import { ProductPublicationService } from "./application/services/implementations/product-publication.service";
 import { PublicCatalogService } from "./application/services/implementations/public-catalog.service";
+import { PublicWishlistProductReaderService } from "./application/services/implementations/public-wishlist-product-reader";
 import { VariantService } from "./application/services/implementations/variant.service";
 import { CatalogVariantReaderService } from "./application/services/implementations/catalog-variant-reader";
 import { StorefrontVariantReaderService } from "./application/services/implementations/storefront-variant-reader";
@@ -55,6 +56,18 @@ export function createStorefrontVariantReader(transactions: TransactionRunner) {
     new PostgresqlPublicCatalogRepository(),
     transactions,
   );
+}
+
+export function createPublicWishlistProductReader(
+  transactions: TransactionRunner,
+  availability: InventoryAvailabilityReader,
+) {
+  const catalog = new PublicCatalogService(
+    new PostgresqlPublicCatalogRepository(),
+    availability,
+    transactions,
+  );
+  return new PublicWishlistProductReaderService(catalog);
 }
 
 export function createCatalogHealthReader(

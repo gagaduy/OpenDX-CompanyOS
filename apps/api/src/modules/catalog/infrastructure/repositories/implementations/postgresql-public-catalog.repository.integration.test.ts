@@ -443,6 +443,22 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
     const returnedIds = page.items.map((item) => item.id);
     expect(returnedIds).toContain(saleProduct);
     expect(returnedIds).not.toContain(nonSaleProduct);
+    expect(
+      page.items.find(({ id }) => id === saleProduct)?.variants[0]?.price,
+    ).toEqual({
+      amountMinor: 8_000_000,
+      currency: "VND",
+      previousAmountMinor: 10_000_000,
+      discountPercentage: 20,
+    });
+
+    const raised = await transactions.runReadOnly((session) =>
+      repository.findProductBySlug(session, "raised-price-phone"),
+    );
+    expect(raised?.variants[0]?.price).toEqual({
+      amountMinor: 9_000_000,
+      currency: "VND",
+    });
   });
 });
 

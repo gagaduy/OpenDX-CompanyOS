@@ -59,6 +59,7 @@ interface VariantRow {
   option_values: unknown;
   amount_minor: string;
   currency: string;
+  previous_amount_minor: string | null;
 }
 
 interface MediaRow {
@@ -335,6 +336,22 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     return (await this.mapProducts(session, result.rows))[0];
   }
 
+  async findProductsByIds(
+    session: DatabaseSession,
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductProjection[]> {
+    if (productIds.length === 0) return [];
+    const result = await session.query<ProductRow>(
+      `SELECT ${productProjectionColumns}
+       FROM products p
+       ${productProjectionJoins}
+       WHERE p.id = ANY($1::uuid[]) AND ${completePublishedProduct}
+       ORDER BY array_position($1::uuid[], p.id)`,
+      [productIds],
+    );
+    return this.mapProducts(session, result.rows);
+  }
+
   async findMediaAuthorization(
     session: DatabaseSession,
     productId: string,
@@ -368,6 +385,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     const result = await session.query<StorefrontVariantRow>(
       `SELECT variant.id, variant.product_id, variant.sku, variant.title,
               variant.option_values, price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text,
               p.name AS product_name, p.slug AS product_slug,
               primary_media.id AS primary_media_id,
               primary_media.alt_text AS primary_media_alt_text
@@ -375,12 +393,18 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
        JOIN products p ON p.id = variant.product_id
        JOIN categories category ON category.id = p.category_id
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency
+         SELECT candidate.amount_minor, candidate.currency,
+                (SELECT previous.amount_minor
+                 FROM product_prices previous
+                 WHERE previous.variant_id = variant.id
+                   AND previous.valid_from < candidate.valid_from
+                 ORDER BY previous.valid_from DESC, previous.id DESC
+                 LIMIT 1) AS previous_amount_minor
          FROM product_prices candidate
          WHERE candidate.variant_id = variant.id
            AND candidate.valid_from <= NOW()
            AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC
+         ORDER BY candidate.valid_from DESC, candidate.id DESC
          LIMIT 1
        ) price ON true
        JOIN LATERAL (
@@ -419,15 +443,22 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     if (rows.length === 0) return [];
     const variants = await session.query<VariantRow>(
       `SELECT variant.id, variant.product_id, variant.sku, variant.title,
-              variant.option_values, price.amount_minor::text, price.currency
+              variant.option_values, price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text
        FROM product_variants variant
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency
+         SELECT candidate.amount_minor, candidate.currency,
+                (SELECT previous.amount_minor
+                 FROM product_prices previous
+                 WHERE previous.variant_id = variant.id
+                   AND previous.valid_from < candidate.valid_from
+                 ORDER BY previous.valid_from DESC, previous.id DESC
+                 LIMIT 1) AS previous_amount_minor
          FROM product_prices candidate
          WHERE candidate.variant_id = variant.id
            AND candidate.valid_from <= NOW()
            AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC
+         ORDER BY candidate.valid_from DESC, candidate.id DESC
          LIMIT 1
        ) price ON true
        WHERE variant.product_id = ANY($1::uuid[]) AND variant.status = 'active'
@@ -468,11 +499,31 @@ function mapVariant(row: VariantRow): PublicProductProjection["variants"][number
   if (!Number.isSafeInteger(amountMinor)) {
     throw new Error("Product price exceeds safe integer range");
   }
+  const previousAmountMinor =
+    row.previous_amount_minor === null
+      ? undefined
+      : Number(row.previous_amount_minor);
+  if (
+    previousAmountMinor !== undefined &&
+    !Number.isSafeInteger(previousAmountMinor)
+  ) {
+    throw new Error("Previous product price exceeds safe integer range");
+  }
+  const markdown =
+    previousAmountMinor !== undefined && previousAmountMinor > amountMinor
+      ? {
+          previousAmountMinor,
+          discountPercentage: Number(
+            ((BigInt(previousAmountMinor) - BigInt(amountMinor)) * 100n) /
+              BigInt(previousAmountMinor),
+          ),
+        }
+      : {};
   return {
     id: row.id,
     sku: row.sku,
     title: row.title,
     optionValues: structuredClone(row.option_values),
-    price: { amountMinor, currency: "VND" },
+    price: { amountMinor, currency: "VND", ...markdown },
   };
 }

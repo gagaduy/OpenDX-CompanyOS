@@ -98,6 +98,15 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     });
   }
 
+  async getPublishedByIds(
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductDto[]> {
+    if (productIds.length === 0) return [];
+    return this.transactions.runReadOnly(async (session) =>
+      this.enrich(await this.repository.findProductsByIds(session, productIds)),
+    );
+  }
+
   async getMediaContentAuthorization(productId: string, mediaId: string) {
     return this.transactions.runReadOnly(async (session) => {
       const authorization = await this.repository.findMediaAuthorization(
