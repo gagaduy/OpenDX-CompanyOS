@@ -259,6 +259,11 @@ img {
   font-size: 13px;
 }
 
+.header-search input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
 .header-search input::placeholder {
   color: var(--ink-subtle);
 }
@@ -2541,6 +2546,10 @@ img {
 }
 
 @media (max-width: 768px) {
+  .product-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .catalog-discovery-page .catalog-browser {
     grid-template-columns: 1fr;
   }

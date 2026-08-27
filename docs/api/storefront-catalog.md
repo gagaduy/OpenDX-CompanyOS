@@ -14,15 +14,17 @@ credentials.
 
 ```text
 GET /v1/storefront/categories
+GET /v1/storefront/hero-slides
 GET /v1/storefront/products
 GET /v1/storefront/products/:slug
 GET /v1/storefront/products/:productId/media/:mediaId/content
 ```
 
 Product listing accepts `query`, category slug in `category`, `minPriceVnd`,
-`maxPriceVnd`, `stockStatus` (`in_stock` or `out_of_stock`), `sort` (`newest`,
-`price_asc`, `price_desc`, or `name_asc`), `page`, and `pageSize` (maximum 100). Responses
-use `{ success, message, data, meta? }`. Product detail contains category,
+`maxPriceVnd`, `stockStatus` (`in_stock` or `out_of_stock`), `discountStatus`
+(`on_sale`), `sort` (`newest`, `best_selling`, `price_asc`, `price_desc`, or
+`name_asc`), `page`, and `pageSize` (maximum 100). Responses use
+`{ success, message, data, meta? }`. Product detail contains category,
 public descriptive fields, primary media, and active variants with current VND
 price and live calculated availability.
 
@@ -32,11 +34,23 @@ price and live calculated availability.
   "sku": "TECH-PHONE-BLACK",
   "title": "Black",
   "optionValues": { "color": "Black" },
-  "price": { "amountMinor": 19990000, "currency": "VND" },
+  "price": {
+    "amountMinor": 17990000,
+    "currency": "VND",
+    "previousAmountMinor": 19990000,
+    "discountPercentage": 10
+  },
   "availableQuantity": 0,
   "purchasable": false
 }
 ```
+
+`previousAmountMinor` and `discountPercentage` are optional backend-derived
+sale evidence. The comparable prior amount is the most recent earlier valid
+price record for the same variant. Both fields are omitted unless that amount
+is greater than the current price. The percentage is rounded down from
+`(previous - current) * 100 / previous`; clients must not invent either value.
+Catalog markdown evidence is separate from checkout promotion codes.
 
 Published sold-out products remain discoverable. Their variants report zero
 availability and `purchasable: false`; restocking changes that calculation

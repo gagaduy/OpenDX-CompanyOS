@@ -64,6 +64,26 @@ implementation. A customer choice must persist without a visible theme flash.
   while preserving compact operational layouts for catalog filters, cart, and
   account management.
 
+## NovaCommerce Storefront Composition
+
+The Storefront uses a dark-tech commerce vocabulary in both themes. Its shared
+shell has a utility row for brand, search, account, wishlist, cart, and theme
+control, followed by a compact discovery navigation row. Feature pages reuse
+that shell and one semantic token system; theme variants never fork the route
+or component tree.
+
+Desktop discovery is deliberately dense: category navigation, the Catalog hero,
+service assurances, promotion cards, and product tabs appear in bounded panels
+with consistent hairlines. Product and promotion collections use horizontal
+rails only where the viewport cannot preserve the desktop columns. Cart,
+checkout, payment, order, profile, address, and wishlist routes use compact
+customer workspaces with sticky summaries where space permits.
+
+Glow is reserved for the active brand or primary-action edge and must remain
+bounded by its owning panel. It must not become an atmospheric page background.
+Responsive layouts preserve the desktop information order, keep rails internally
+scrollable, and never increase the document width beyond the viewport.
+
 ## Product Areas
 
 Mission Control, Workflow Builder, Approval Inbox, Graph Explorer, Audit Explorer, and Digital Workforce should be implemented as dense operational interfaces, not landing-page sections.

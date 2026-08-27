@@ -67,6 +67,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Complete the NovaCommerce Storefront redesign across every customer route
+  with shared dark/light themes, an API-driven commerce homepage, public
+  backend-derived price evidence, authenticated customer wishlists, responsive
+  browser acceptance, and removal of the superseded Three.js experience.
+
 - Redesign cart, checkout, payment return, and order history routes as compact
   dark-tech transaction workspaces while preserving authoritative backend
   validation, idempotency, and payment reconciliation behavior.
