@@ -76,11 +76,11 @@ describe("StorefrontShell", () => {
     ).toHaveAttribute("href", "/products#catalog");
   });
 
-  it("renders customer discovery taskbar shortcuts below the Storefront header", () => {
+  it("renders the two-row commerce header with customer actions", () => {
     render(
       <MemoryRouter initialEntries={["/"]}>
         <ThemeProvider>
-          <StorefrontShell cartCount={0}>
+          <StorefrontShell cartCount={2} wishlistCount={3} authenticated={false}>
             <main id="main-content">
               <section id="catalog" aria-label="Catalog" />
             </main>
@@ -89,31 +89,38 @@ describe("StorefrontShell", () => {
       </MemoryRouter>,
     );
 
-    const taskbar = screen.getByRole("navigation", {
-      name: "Lối tắt khám phá",
-    });
+    const taskbar = screen.getByRole("navigation", { name: "Điều hướng chính" });
 
     expect(document.querySelector(".topbar-inner")).not.toBeNull();
-    expect(taskbar.querySelector(".discovery-taskbar-inner")).not.toBeNull();
+    expect(taskbar.closest(".header-nav-row")).not.toBeNull();
     expect(
-      within(taskbar).getByRole("link", { name: "Sản phẩm mới" }),
-    ).toHaveAttribute("href", "/products?sort=newest#catalog");
-    expect(
-      within(taskbar).getByRole("link", { name: "Bán chạy" }),
-    ).toHaveAttribute("href", "/products?sort=best_selling#catalog");
-    expect(
-      within(taskbar).getByRole("link", { name: "Đang giảm" }),
-    ).toHaveAttribute("href", "/products?discountStatus=on_sale#catalog");
-    expect(
-      within(taskbar).getByRole("link", { name: "Còn hàng" }),
-    ).toHaveAttribute("href", "/products?stockStatus=in_stock#catalog");
-    expect(
-      within(taskbar).getByRole("link", { name: "Hỗ trợ" }),
-    ).toHaveAttribute("href", "/products#support");
-    expect(
-      within(taskbar).queryByRole("button", { name: "Tìm nhanh sản phẩm" }),
-    ).toBeNull();
+      within(taskbar).getByRole("link", { name: "Trang chủ" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Đăng nhập" })).toHaveAttribute(
+      "href",
+      "/sign-in",
+    );
+    expect(screen.getByRole("link", { name: "Yêu thích, 3 sản phẩm" })).toHaveAttribute(
+      "href",
+      "/account/wishlist",
+    );
+    expect(screen.getByRole("link", { name: "Giỏ hàng, 2 sản phẩm" })).toBeVisible();
     expect(document.getElementById("support")).toBeInstanceOf(HTMLElement);
+  });
+
+  it("links an authenticated customer to their account", () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <ThemeProvider>
+          <StorefrontShell authenticated />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const accountLinks = screen.getAllByRole("link", { name: "Tài khoản" });
+    expect(accountLinks.some((link) => link.getAttribute("href") === "/account")).toBe(
+      true,
+    );
   });
 
   it("submits customer search from the Storefront header", async () => {
@@ -151,6 +158,50 @@ describe("StorefrontShell", () => {
       expect(screen.getByLabelText("current location")).toHaveTextContent(
         "/products?query=laptop+gaming&page=1#catalog",
       ),
+    );
+  });
+
+  it("drops unsupported query state when submitting a product search", async () => {
+    function LocationProbe() {
+      const currentLocation = useLocation();
+      return (
+        <output aria-label="current location">
+          {currentLocation.pathname}
+          {currentLocation.search}
+          {currentLocation.hash}
+        </output>
+      );
+    }
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          "/products?category=laptops&pageSize=12&redirect=https%3A%2F%2Fevil.example",
+        ]}
+      >
+        <ThemeProvider>
+          <StorefrontShell>
+            <main id="main-content">
+              <LocationProbe />
+            </main>
+          </StorefrontShell>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const search = screen.getByRole("searchbox", {
+      name: "Tìm kiếm sản phẩm",
+    });
+    await userEvent.type(search, "gaming");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("current location")).toHaveTextContent(
+        "/products?category=laptops&pageSize=12&query=gaming&page=1#catalog",
+      ),
+    );
+    expect(screen.getByLabelText("current location")).not.toHaveTextContent(
+      "redirect",
     );
   });
 });

@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add backend-derived sale evidence, authenticated PostgreSQL wishlist state,
+  and the shared two-row dark-tech NovaCommerce Storefront shell while
+  preserving the customer light and dark theme preference.
+
 - Approve the NovaCommerce Storefront dark-tech redesign for all customer
   routes, a data-driven commerce homepage, dual themes, backend-derived sale
   evidence, and an authenticated PostgreSQL-backed customer wishlist.

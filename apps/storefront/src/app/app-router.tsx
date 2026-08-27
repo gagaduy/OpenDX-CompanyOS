@@ -33,6 +33,7 @@ import { OrderListPage } from "../features/order/pages/order-list-page";
 import { OrderDetailPage } from "../features/order/pages/order-detail-page";
 import {
   WishlistProvider,
+  useWishlist,
   type WishlistApi,
 } from "../features/wishlist";
 
@@ -174,5 +175,13 @@ function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
 
 function ShellWithCart() {
   const { cart } = useCart();
-  return <StorefrontShell cartCount={cart.itemCount} />;
+  const { totalItems } = useWishlist();
+  const { session } = useCustomerSession();
+  return (
+    <StorefrontShell
+      cartCount={cart.itemCount}
+      wishlistCount={totalItems}
+      authenticated={session.kind === "customer"}
+    />
+  );
 }
