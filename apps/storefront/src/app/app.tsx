@@ -4,7 +4,8 @@
 import { RouterProvider } from "react-router-dom";
 import { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
 import { CartApi } from "../features/cart/api/cart-api";
-import { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
+import { StorefrontCatalogApi } from "../features/catalog";
+import { WishlistApi } from "../features/wishlist";
 import { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
 import { CheckoutApi } from "../features/checkout/api/checkout-api";
 import { OrderApi } from "../features/order/api/order-api";
@@ -28,6 +29,7 @@ export function App({
     checkoutApi: new CheckoutApi(client),
     paymentApi: new PaymentApi(client),
     orderApi: new OrderApi(client),
+    wishlistApi: new WishlistApi(client),
     apiBaseUrl: environment.apiBaseUrl,
     ...(environment.googleClientId === undefined
       ? {}

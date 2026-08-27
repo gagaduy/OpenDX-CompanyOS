@@ -11,8 +11,8 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { GoogleSignInButton } from "../components/google-sign-in-button";
 import { useCustomerSession } from "../hooks/customer-session-context";
+import { safeReturnUrl } from "../lib/safe-return-url";
 
-const allowedReturns = new Set(["/cart", "/account", "/account/addresses"]);
 export function SignInPage({
   googleClientId,
 }: {
@@ -22,9 +22,7 @@ export function SignInPage({
   const navigate = useNavigate();
   const [parameters] = useSearchParams();
   const [error, setError] = useState<string>();
-  const returnTo = allowedReturns.has(parameters.get("returnTo") ?? "")
-    ? parameters.get("returnTo")!
-    : "/account";
+  const returnTo = safeReturnUrl(parameters.get("returnTo"));
   const credential = useCallback(
     async (value: string) => {
       try {

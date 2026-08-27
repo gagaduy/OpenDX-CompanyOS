@@ -16,7 +16,13 @@ export function CheckoutGate({
   ) : (
     <Navigate
       replace
-      to={`/sign-in?returnTo=${encodeURIComponent(location.pathname)}`}
+      to={`/sign-in?returnTo=${encodeURIComponent(
+        safePath(location.pathname, location.search, location.hash),
+      )}`}
     />
   );
+}
+
+function safePath(pathname: string, search: string, hash: string) {
+  return `${pathname}${search}${hash}`;
 }

@@ -18,6 +18,8 @@ export const variantSchema = z.object({
   price: z.object({
     amountMinor: z.number().int().nonnegative(),
     currency: z.literal("VND"),
+    previousAmountMinor: z.number().int().positive().optional(),
+    discountPercentage: z.number().int().min(1).max(99).optional(),
   }),
   availableQuantity: z.number().int().nonnegative(),
   purchasable: z.boolean(),

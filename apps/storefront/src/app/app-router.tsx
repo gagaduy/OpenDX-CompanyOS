@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Navigate, createBrowserRouter } from "react-router-dom";
-import type { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
-import { CategoryPage } from "../features/catalog/pages/category-page";
-import { HomePage } from "../features/catalog/pages/home-page";
-import { IntroHomePage } from "../features/catalog/pages/intro-home-page";
-import { SearchPage } from "../features/catalog/pages/search-page";
+import {
+  CategoryPage,
+  HomePage,
+  IntroHomePage,
+  ProductDetailPage,
+  SearchPage,
+  type StorefrontCatalogApi,
+} from "../features/catalog";
 import { StorefrontShell } from "./storefront-shell";
 import type { CartApi } from "../features/cart/api/cart-api";
 import { CartProvider, useCart } from "../features/cart/hooks/cart-context";
 import { CartPage } from "../features/cart/pages/cart-page";
-import { ProductDetailPage } from "../features/catalog/pages/product-detail-page";
 import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
 import {
   CustomerSessionProvider,
@@ -29,6 +31,10 @@ import { PaymentReturnPage } from "../features/payment/pages/payment-return-page
 import type { OrderApi } from "../features/order/api/order-api";
 import { OrderListPage } from "../features/order/pages/order-list-page";
 import { OrderDetailPage } from "../features/order/pages/order-detail-page";
+import {
+  WishlistProvider,
+  type WishlistApi,
+} from "../features/wishlist";
 
 export function createAppRouter(dependencies: {
   readonly catalogApi: StorefrontCatalogApi;
@@ -38,6 +44,7 @@ export function createAppRouter(dependencies: {
   readonly checkoutApi: CheckoutApi;
   readonly paymentApi: PaymentApi;
   readonly orderApi: OrderApi;
+  readonly wishlistApi: WishlistApi;
   readonly apiBaseUrl: string;
   readonly googleClientId?: string;
 }) {
@@ -45,7 +52,9 @@ export function createAppRouter(dependencies: {
     {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
-          <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
+          <WishlistProvider api={dependencies.wishlistApi}>
+            <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
+          </WishlistProvider>
         </CustomerSessionProvider>
       ),
       children: [
