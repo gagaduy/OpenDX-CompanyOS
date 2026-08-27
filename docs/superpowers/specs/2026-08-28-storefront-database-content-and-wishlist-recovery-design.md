@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-The design direction was approved in collaborative review on 2026-08-28. This
-written specification awaits final review before implementation planning.
+The design direction and written specification were approved in collaborative
+review on 2026-08-28. It is ready for implementation planning.
 
 ## Purpose
 

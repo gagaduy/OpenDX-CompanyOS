@@ -13,9 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
-- Define the approved Storefront database-content boundary and Wishlist schema
-  recovery acceptance so merchandising assurances and trust metrics become
-  typed Catalog data without turning interface vocabulary into database rows.
+- Define the approved Storefront database-content boundary and its TDD delivery
+  plan, including Wishlist schema recovery acceptance, so merchandising
+  assurances and trust metrics become typed Catalog data without turning
+  interface vocabulary into database rows.
 
 ### Fixed
 
