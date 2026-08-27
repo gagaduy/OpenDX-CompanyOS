@@ -65,6 +65,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   routes, a data-driven commerce homepage, dual themes, backend-derived sale
   evidence, and an authenticated PostgreSQL-backed customer wishlist.
 
+- Add the task-by-task TDD implementation plan for the approved NovaCommerce
+  Storefront dark-tech redesign and wishlist vertical slices.
+
 - Deliver the AI Operations Command Center interface in the Digital Workforce
   Console featuring the CEO strategic command input hub, live orchestration
   pipeline bar with real-time reasoning timers, 4-department workforce grid with
