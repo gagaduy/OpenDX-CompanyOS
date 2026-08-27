@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Planned
+
+- Define the approved Storefront database-content boundary and Wishlist schema
+  recovery acceptance so merchandising assurances and trust metrics become
+  typed Catalog data without turning interface vocabulary into database rows.
+
 ### Fixed
 
 - Scope failed wishlist mutations to the affected product and present one
