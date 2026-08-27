@@ -5,6 +5,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme-provider";
+import { StorefrontContentProvider } from "../context/storefront-content-provider";
 import { IntroHomePage } from "../pages/intro-home-page";
 import type { StorefrontCategory, StorefrontProduct } from "../types/catalog.types";
 
@@ -25,6 +26,7 @@ describe("IntroHomePage", () => {
     };
     const featured = product();
     const api = {
+      content: vi.fn(async () => storefrontContent),
       categories: vi.fn(async () => [category]),
       heroSlides: vi.fn(async () => [{ category, product: featured }]),
       products: vi.fn(async () => ({
@@ -35,7 +37,9 @@ describe("IntroHomePage", () => {
     const { container } = render(
       <MemoryRouter>
         <ThemeProvider>
-          <IntroHomePage api={api} apiBaseUrl="http://localhost:4000" />
+          <StorefrontContentProvider api={api}>
+            <IntroHomePage api={api} apiBaseUrl="http://localhost:4000" />
+          </StorefrontContentProvider>
         </ThemeProvider>
       </MemoryRouter>,
     );
@@ -57,6 +61,18 @@ describe("IntroHomePage", () => {
     expect(container.querySelector("canvas")).toBeNull();
   });
 });
+
+const storefrontContent = {
+  assurances: [
+    { code: "delivery", iconKey: "truck" as const, title: "Miễn phí vận chuyển", description: "Cho đơn hàng đủ điều kiện" },
+    { code: "warranty", iconKey: "shield-check" as const, title: "Bảo hành chính hãng", description: "Cam kết sản phẩm xác thực" },
+    { code: "installment", iconKey: "badge-percent" as const, title: "Trả góp 0%", description: "Theo điều kiện thanh toán" },
+    { code: "support", iconKey: "headphones" as const, title: "Hỗ trợ 24/7", description: "Đồng hành khi bạn cần" },
+  ],
+  metrics: [
+    { code: "products", displayValue: "100%", label: "Sản phẩm chính hãng" },
+  ],
+};
 
 function product(): StorefrontProduct {
   return {

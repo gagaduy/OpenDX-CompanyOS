@@ -3076,6 +3076,41 @@ img {
   align-content: center;
 }
 
+.service-content-loading {
+  gap: 10px;
+  overflow: hidden;
+}
+
+.service-content-skeleton {
+  min-height: 42px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  opacity: 0.72;
+}
+
+.service-content-error {
+  min-height: 120px;
+  place-items: center;
+}
+
+.service-content-error > div {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: var(--ink-subtle);
+  text-align: center;
+}
+
+.service-content-error button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--primary-hover);
+  cursor: pointer;
+}
+
 .service-assurance-item {
   padding: 18px 2px;
   display: grid;

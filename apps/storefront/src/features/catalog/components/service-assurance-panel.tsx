@@ -1,35 +1,86 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { BadgePercent, Headphones, ShieldCheck, Truck } from "lucide-react";
+import {
+  BadgePercent,
+  Headphones,
+  ShieldCheck,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
+import { useStorefrontContent } from "../context/storefront-content-provider";
+import type { StorefrontAssuranceIconKey } from "../types/catalog.types";
 
-const assurances = [
-  { icon: Truck, title: "Miễn phí vận chuyển", copy: "Cho đơn hàng đủ điều kiện" },
-  { icon: ShieldCheck, title: "Bảo hành chính hãng", copy: "Cam kết sản phẩm xác thực" },
-  { icon: BadgePercent, title: "Trả góp 0%", copy: "Theo điều kiện thanh toán" },
-  { icon: Headphones, title: "Hỗ trợ 24/7", copy: "Đồng hành khi bạn cần" },
-] as const;
+const assuranceIcons = {
+  truck: Truck,
+  "shield-check": ShieldCheck,
+  "badge-percent": BadgePercent,
+  headphones: Headphones,
+} satisfies Record<StorefrontAssuranceIconKey, LucideIcon>;
 
 export function ServiceAssurancePanel() {
+  const state = useStorefrontContent();
+  if (state.status === "loading") {
+    return (
+      <aside
+        className="service-assurance-panel service-content-loading"
+        role="status"
+        aria-label="Đang tải cam kết dịch vụ"
+      >
+        {Array.from({ length: 4 }, (_, index) => (
+          <span className="service-content-skeleton" aria-hidden="true" key={index} />
+        ))}
+      </aside>
+    );
+  }
+  if (state.status === "empty") return null;
+  if (state.status === "error") {
+    return (
+      <aside className="service-assurance-panel service-content-error" aria-label="Cam kết dịch vụ">
+        <div role="alert">
+          <span>Không thể tải cam kết dịch vụ.</span>
+          <button type="button" onClick={state.retry}>Thử lại</button>
+        </div>
+      </aside>
+    );
+  }
+  if (state.content.assurances.length === 0) return null;
   return (
     <aside className="service-assurance-panel" aria-label="Cam kết dịch vụ">
-      {assurances.map(({ icon: Icon, title, copy }) => (
-        <div className="service-assurance-item" key={title}>
-          <Icon aria-hidden="true" />
-          <span><strong>{title}</strong><small>{copy}</small></span>
-        </div>
-      ))}
+      {state.content.assurances.map(({ code, iconKey, title, description }) => {
+        const Icon = assuranceIcons[iconKey];
+        return (
+          <div className="service-assurance-item" key={code}>
+            <Icon aria-hidden="true" />
+            <span><strong>{title}</strong><small>{description}</small></span>
+          </div>
+        );
+      })}
     </aside>
   );
 }
 
 export function ServiceMetricStrip() {
+  const state = useStorefrontContent();
+  if (state.status === "loading") {
+    return (
+      <section
+        className="service-metric-strip service-content-loading"
+        role="status"
+        aria-label="Đang tải chỉ số cửa hàng"
+      >
+        {Array.from({ length: 4 }, (_, index) => (
+          <span className="service-content-skeleton" aria-hidden="true" key={index} />
+        ))}
+      </section>
+    );
+  }
+  if (state.status !== "ready" || state.content.metrics.length === 0) return null;
   return (
     <section className="service-metric-strip" aria-label="Năng lực NovaCommerce">
-      <div><strong>100%</strong><span>Sản phẩm chính hãng</span></div>
-      <div><strong>30+</strong><span>Thương hiệu uy tín</span></div>
-      <div><strong>1.000+</strong><span>Sản phẩm đa dạng</span></div>
-      <div><strong>50.000+</strong><span>Khách hàng tin tưởng</span></div>
+      {state.content.metrics.map(({ code, displayValue, label }) => (
+        <div key={code}><strong>{displayValue}</strong><span>{label}</span></div>
+      ))}
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { CartProvider, type CartApi } from "../../cart";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
+import { StorefrontContentProvider } from "../context/storefront-content-provider";
 import { ProductDetailPage } from "../pages/product-detail-page";
 
 vi.mock("../../wishlist", () => ({
@@ -18,6 +19,7 @@ vi.mock("../../wishlist", () => ({
 describe("product detail", () => {
   it("shows variant identity and creates a guest only on the first add", async () => {
     const catalog = {
+      content: vi.fn(async () => storefrontContent),
       product: vi.fn(async () => product),
     } as unknown as StorefrontCatalogApi;
     const createGuest = vi.fn(async () => ({
@@ -37,19 +39,21 @@ describe("product detail", () => {
     } as unknown as CartApi;
     render(
       <MemoryRouter initialEntries={["/products/nova-mouse"]}>
-        <CartProvider api={cart}>
-          <Routes>
-            <Route
-              path="/products/:productSlug"
-              element={
-                <ProductDetailPage
-                  api={catalog}
-                  apiBaseUrl="http://localhost:3000"
-                />
-              }
-            />
-          </Routes>
-        </CartProvider>
+        <StorefrontContentProvider api={catalog}>
+          <CartProvider api={cart}>
+            <Routes>
+              <Route
+                path="/products/:productSlug"
+                element={
+                  <ProductDetailPage
+                    api={catalog}
+                    apiBaseUrl="http://localhost:3000"
+                  />
+                }
+              />
+            </Routes>
+          </CartProvider>
+        </StorefrontContentProvider>
       </MemoryRouter>,
     );
     expect(
@@ -75,6 +79,16 @@ describe("product detail", () => {
     expect(add).toHaveBeenCalledWith("variant-1", 1);
   });
 });
+
+const storefrontContent = {
+  assurances: [
+    { code: "delivery", iconKey: "truck" as const, title: "Miễn phí vận chuyển", description: "Cho đơn hàng đủ điều kiện" },
+    { code: "warranty", iconKey: "shield-check" as const, title: "Bảo hành chính hãng", description: "Cam kết sản phẩm xác thực" },
+    { code: "installment", iconKey: "badge-percent" as const, title: "Trả góp 0%", description: "Theo điều kiện thanh toán" },
+    { code: "support", iconKey: "headphones" as const, title: "Hỗ trợ 24/7", description: "Đồng hành khi bạn cần" },
+  ],
+  metrics: [],
+};
 
 const emptyCart = {
   ownerKind: "anonymous" as const,
