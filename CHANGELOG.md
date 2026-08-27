@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Make the Storefront `Danh mục` and `Khám phá` navigation menus interactive
+  with live Catalog categories, increase desktop canvas and typography scale,
+  and extend responsive browser acceptance to cover both menus.
+
 - Forward Department Agent client secrets to the API in development Docker
   Compose environments so seed scripts and internal governance checks validate
   environment configuration cleanly.

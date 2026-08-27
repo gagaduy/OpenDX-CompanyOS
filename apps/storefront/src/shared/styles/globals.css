@@ -100,6 +100,7 @@ body {
   min-width: 320px;
   background: var(--canvas);
   color: var(--ink);
+  font-size: 16px;
 }
 
 button,
@@ -256,7 +257,7 @@ img {
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .header-search input:focus-visible {
@@ -2258,8 +2259,8 @@ img {
 }
 
 .catalog-discovery-page .catalog-page {
-  width: min(100%, 1380px);
-  padding: 34px clamp(14px, 3vw, 30px) 80px;
+  width: min(100%, 1540px);
+  padding: 38px clamp(16px, 2vw, 24px) 88px;
 }
 
 .catalog-discovery-page .catalog-heading {
@@ -2324,7 +2325,7 @@ img {
   padding: 8px 9px;
   border-color: transparent;
   background: transparent;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .catalog-discovery-page .catalog-filters {
@@ -2336,13 +2337,13 @@ img {
 
 .catalog-discovery-page .catalog-filters input,
 .catalog-discovery-page .catalog-filters select {
-  height: 38px;
+  height: 42px;
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .catalog-toolbar {
-  min-height: 44px;
+  min-height: 48px;
   margin-bottom: 10px;
   padding: 0 12px;
   display: flex;
@@ -2353,7 +2354,7 @@ img {
   border-radius: 10px;
   background: var(--surface-1);
   color: var(--ink-subtle);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .catalog-discovery-page .product-grid {
@@ -2603,7 +2604,7 @@ img {
 
 /* Customer account and wishlist workspace */
 .account-page {
-  width: min(100%, 1240px);
+  width: min(100%, 1360px);
   padding: 32px clamp(14px, 3vw, 30px) 80px;
 }
 
@@ -2851,15 +2852,15 @@ img {
 
 /* Dynamic NovaCommerce commerce homepage */
 .commerce-home-page {
-  width: min(100%, 1380px);
+  width: min(100%, 1540px);
   margin: 0 auto;
-  padding: 14px clamp(14px, 3vw, 30px) 34px;
+  padding: 14px clamp(16px, 2vw, 24px) 38px;
 }
 
 .commerce-home-primary {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr) 210px;
-  gap: 12px;
+  grid-template-columns: 215px minmax(0, 1fr) 230px;
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -2880,7 +2881,7 @@ img {
 }
 
 .homepage-category-rail h2 {
-  min-height: 44px;
+  min-height: 48px;
   margin: 0;
   padding: 0 14px;
   display: flex;
@@ -2888,7 +2889,7 @@ img {
   gap: 9px;
   border-bottom: 1px solid var(--hairline-strong);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
 }
 
@@ -2903,7 +2904,7 @@ img {
 
 .homepage-category-rail nav a,
 .category-all-link {
-  min-height: 37px;
+  min-height: 40px;
   padding: 0 9px;
   display: flex;
   align-items: center;
@@ -2911,7 +2912,7 @@ img {
   gap: 10px;
   border-radius: 8px;
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .homepage-category-rail nav a:hover,
@@ -2929,13 +2930,13 @@ img {
 
 .homepage-hero-region {
   min-width: 0;
-  min-height: 382px;
+  min-height: 420px;
   overflow: hidden;
   background: var(--surface-2);
 }
 
 .homepage-hero-region .storefront-hero {
-  min-height: 380px;
+  min-height: 418px;
   place-items: stretch;
   background: var(--surface-2);
 }
@@ -2985,7 +2986,7 @@ img {
 .homepage-hero-region .hero-slide-copy > p {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -3014,7 +3015,7 @@ img {
   border-color: var(--hairline-strong);
   background: var(--surface-1);
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .homepage-hero-region .hero-category-selector button[aria-pressed="true"] {
@@ -3084,12 +3085,12 @@ img {
 }
 
 .service-assurance-item strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .service-assurance-item small {
   color: var(--ink-subtle);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -3112,12 +3113,12 @@ img {
 }
 
 .commerce-section-heading h2 {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .commerce-section-heading .eyebrow {
   color: var(--primary-hover);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
@@ -3126,7 +3127,7 @@ img {
   align-items: center;
   gap: 5px;
   color: var(--primary-hover);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .commerce-section-heading > a svg {
@@ -3140,8 +3141,8 @@ img {
 }
 
 .category-promotion-card {
-  min-height: 130px;
-  padding: 15px;
+  min-height: 142px;
+  padding: 17px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 42%;
@@ -3163,12 +3164,12 @@ img {
 .category-promotion-card small,
 .category-promotion-card em {
   color: var(--primary-hover);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
 }
 
 .category-promotion-card strong {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.35;
 }
 
@@ -3189,7 +3190,7 @@ img {
 }
 
 .homepage-product-section {
-  padding: 0 14px 14px;
+  padding: 0 16px 16px;
 }
 
 .product-section-heading {
@@ -3203,8 +3204,8 @@ img {
 }
 
 .product-rail-tabs button {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 14px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -3231,11 +3232,11 @@ img {
 }
 
 .homepage-product-rail .product-card h2 {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .homepage-product-rail .price {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .region-state {
@@ -3247,7 +3248,7 @@ img {
   justify-items: center;
   gap: 8px;
   color: var(--ink-subtle);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -3287,12 +3288,12 @@ img {
 
 .service-metric-strip strong {
   color: var(--primary-hover);
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .service-metric-strip span {
   color: var(--ink-subtle);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 @media (max-width: 1100px) {
@@ -3374,7 +3375,8 @@ img {
 
 .topbar-inner {
   min-height: 72px;
-  grid-template-columns: minmax(190px, 0.7fr) minmax(280px, 1.5fr) auto;
+  width: min(100%, 1480px);
+  grid-template-columns: minmax(210px, 0.7fr) minmax(320px, 1.5fr) auto;
   gap: clamp(16px, 2vw, 32px);
 }
 
@@ -3383,6 +3385,7 @@ img {
   align-items: center;
   gap: 10px;
   letter-spacing: -0.03em;
+  font-size: 23px;
 }
 
 .brand-mark {
@@ -3402,15 +3405,15 @@ img {
 
 .header-search {
   width: 100%;
-  height: 42px;
+  height: 46px;
   padding: 0 4px 0 14px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-1) 92%, transparent);
 }
 
 .header-search button {
-  width: 36px;
-  height: 34px;
+  width: 40px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: 0;
@@ -3425,8 +3428,8 @@ img {
 }
 
 .header-action {
-  min-height: 42px;
-  padding: 0 8px;
+  min-height: 46px;
+  padding: 0 10px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -3434,7 +3437,7 @@ img {
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -3470,29 +3473,98 @@ img {
 }
 
 .header-nav-row .main-nav {
-  width: min(100%, 1320px);
-  min-height: 40px;
+  width: min(100%, 1480px);
+  min-height: 44px;
   margin: 0 auto;
   padding: 0 clamp(20px, 4vw, 42px);
   justify-content: center;
   gap: clamp(38px, 7vw, 88px);
   text-transform: none;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.header-nav-row .main-nav a {
-  min-height: 40px;
+.header-nav-row .main-nav > a,
+.nav-menu > button {
+  min-height: 44px;
 }
 
-.header-nav-row .main-nav a::after {
+.header-nav-row .main-nav > a::after {
   bottom: 0;
   height: 2px;
   box-shadow: 0 0 12px transparent;
 }
 
-.header-nav-row .main-nav a.active::after {
+.header-nav-row .main-nav > a.active::after {
   background: var(--primary);
   box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
+.nav-menu {
+  height: 44px;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.nav-menu > button {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.nav-menu > button:hover,
+.nav-menu > button:focus-visible,
+.nav-menu > button[aria-expanded="true"] {
+  color: var(--ink);
+}
+
+.nav-menu > button svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 150ms ease;
+}
+
+.nav-menu > button[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown {
+  width: 230px;
+  padding: 7px;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 60;
+  display: grid;
+  transform: translateX(-50%);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+
+.header-nav-row .nav-dropdown a {
+  min-height: 40px;
+  padding: 0 11px;
+  border-radius: 7px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.header-nav-row .nav-dropdown a::after {
+  display: none;
+}
+
+.header-nav-row .nav-dropdown a:hover,
+.header-nav-row .nav-dropdown a:focus-visible {
+  background: var(--surface-2);
+  color: var(--primary-hover);
 }
 
 @media (max-width: 1199px) {
@@ -3545,6 +3617,26 @@ img {
   .header-nav-row .main-nav.open { display: flex; }
   .header-nav-row .main-nav a { padding: 0 10px; }
   .header-nav-row .main-nav a::after { display: none; }
+
+  .nav-menu {
+    width: 100%;
+    height: auto;
+    display: grid;
+  }
+
+  .nav-menu > button {
+    width: 100%;
+    padding: 0 10px;
+    justify-content: space-between;
+  }
+
+  .nav-dropdown {
+    width: 100%;
+    position: static;
+    transform: none;
+    border-color: var(--hairline);
+    box-shadow: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -3557,7 +3649,7 @@ img {
 
 /* NovaCommerce transactional customer routes */
 .transaction-page {
-  width: min(100%, 1320px);
+  width: min(100%, 1440px);
 }
 
 .transaction-page .page-heading {

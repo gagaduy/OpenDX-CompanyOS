@@ -126,6 +126,9 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
     `${viewport.name} ${theme} ${route.path}: route did not settle`,
   );
   await setTheme(client, theme);
+  const navigation = route.id === "home"
+    ? await verifyNavigationMenus(client, viewport, theme)
+    : null;
   await focusFirstInteractiveElement(client);
   const result = await evaluate(client, `(() => {
     const active = document.activeElement;
@@ -154,6 +157,7 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
       } : null,
     };
   })()`);
+  result.navigation = navigation;
   assertRoute(result, viewport, theme, route);
   await client.send("Runtime.evaluate", {
     expression: "document.activeElement instanceof HTMLElement && document.activeElement.blur()",
@@ -197,7 +201,64 @@ function assertRoute(result, viewport, theme, route) {
     if (!home.hero || home.categories < 4 || home.assurances !== 4 || home.promotions < 4 || home.tabs !== 3 || home.canvas !== 0) {
       throw new Error(`${viewport.name} ${theme}: homepage hierarchy is incomplete ${JSON.stringify(home)}`);
     }
+    if (
+      result.navigation === null || result.navigation.categories < 4 ||
+      result.navigation.discoveryItems !== 3 ||
+      result.navigation.phoneHref !== "/products?category=phones#catalog"
+    ) {
+      throw new Error(
+        `${viewport.name} ${theme}: primary navigation menus are incomplete ${JSON.stringify(result.navigation)}`,
+      );
+    }
   }
+}
+
+async function verifyNavigationMenus(client, viewport, theme) {
+  await client.send("Runtime.evaluate", { expression: `(() => {
+    const navigation = document.querySelector(".main-nav");
+    if (navigation !== null && getComputedStyle(navigation).display === "none") {
+      document.querySelector(".mobile-menu")?.click();
+    }
+    const categoryButton = [...document.querySelectorAll(".nav-menu > button")]
+      .find((button) => button.textContent?.includes("Danh mục"));
+    categoryButton?.click();
+  })()` });
+  await waitForCondition(
+    client,
+    `document.querySelectorAll('.nav-dropdown [role="menuitem"]').length >= 4`,
+    `${viewport.name} ${theme}: category navigation did not open`,
+  );
+  const categoryState = await evaluate(client, `({
+    categories: document.querySelectorAll('.nav-dropdown [role="menuitem"]').length,
+    phoneHref: [...document.querySelectorAll('.nav-dropdown [role="menuitem"]')]
+      .find((item) => item.textContent?.trim() === "Điện thoại")?.getAttribute("href") ?? null,
+  })`);
+  await client.send("Runtime.evaluate", { expression: `(() => {
+    const discoveryButton = [...document.querySelectorAll(".nav-menu > button")]
+      .find((button) => button.textContent?.includes("Khám phá"));
+    discoveryButton?.click();
+  })()` });
+  await waitForCondition(
+    client,
+    `document.querySelectorAll('.nav-dropdown [role="menuitem"]').length === 3`,
+    `${viewport.name} ${theme}: discovery navigation did not open`,
+  );
+  const discoveryItems = await evaluate(
+    client,
+    `document.querySelectorAll('.nav-dropdown [role="menuitem"]').length`,
+  );
+  const screenshotPath = join(
+    outputDirectory,
+    `navigation-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+  );
+  await saveScreenshot(client, screenshotPath);
+  await client.send("Runtime.evaluate", { expression: `(() => {
+    dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    if (document.querySelector(".main-nav")?.classList.contains("open")) {
+      document.querySelector(".mobile-menu")?.click();
+    }
+  })()` });
+  return { ...categoryState, discoveryItems, screenshotPath };
 }
 
 async function setTheme(client, theme) {

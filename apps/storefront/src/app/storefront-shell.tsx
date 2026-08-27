@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  ChevronDown,
   Menu,
   Moon,
   Heart,
@@ -22,6 +23,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useTheme } from "./theme-provider";
+import type { StorefrontCategory } from "../features/catalog";
 
 const supportedCatalogParameters = [
   "category",
@@ -49,17 +51,35 @@ export function StorefrontShell({
   cartCount = 0,
   wishlistCount = 0,
   authenticated = false,
+  categories = [],
   children,
 }: {
   readonly cartCount?: number;
   readonly wishlistCount?: number;
   readonly authenticated?: boolean;
+  readonly categories?: readonly StorefrontCategory[];
   readonly children?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openNavigationMenu, setOpenNavigationMenu] = useState<
+    "categories" | "discovery" | null
+  >(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { resolvedTheme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenNavigationMenu(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
+  useEffect(() => {
+    setOpenNavigationMenu(null);
+    setMenuOpen(false);
+  }, [location.pathname, location.search, location.hash]);
 
   function submitHeaderSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -198,8 +218,61 @@ export function StorefrontShell({
           >
             <NavLink to="/" end>Trang chủ</NavLink>
             <NavLink to="/products">Sản phẩm</NavLink>
-            <Link to="/products#categories">Danh mục</Link>
-            <Link to="/products#catalog">Khám phá</Link>
+            <div className="nav-menu">
+              <button
+                type="button"
+                aria-expanded={openNavigationMenu === "categories"}
+                aria-haspopup="menu"
+                onClick={() =>
+                  setOpenNavigationMenu((current) =>
+                    current === "categories" ? null : "categories",
+                  )
+                }
+              >
+                Danh mục <ChevronDown aria-hidden="true" />
+              </button>
+              {openNavigationMenu === "categories" ? (
+                <div className="nav-dropdown" role="menu">
+                  {categories.map((category) => (
+                    <Link
+                      key={category.id}
+                      role="menuitem"
+                      to={`/products?category=${encodeURIComponent(category.slug)}#catalog`}
+                    >
+                      {category.name}
+                    </Link>
+                  ))}
+                  <Link role="menuitem" to="/products#catalog">Tất cả danh mục</Link>
+                </div>
+              ) : null}
+            </div>
+            <div className="nav-menu">
+              <button
+                type="button"
+                aria-expanded={openNavigationMenu === "discovery"}
+                aria-haspopup="menu"
+                onClick={() =>
+                  setOpenNavigationMenu((current) =>
+                    current === "discovery" ? null : "discovery",
+                  )
+                }
+              >
+                Khám phá <ChevronDown aria-hidden="true" />
+              </button>
+              {openNavigationMenu === "discovery" ? (
+                <div className="nav-dropdown" role="menu">
+                  <Link role="menuitem" to="/products?discountStatus=on_sale#catalog">
+                    Sản phẩm nổi bật
+                  </Link>
+                  <Link role="menuitem" to="/products?sort=best_selling#catalog">
+                    Sản phẩm bán chạy
+                  </Link>
+                  <Link role="menuitem" to="/products?sort=newest#catalog">
+                    Sản phẩm mới nhất
+                  </Link>
+                </div>
+              ) : null}
+            </div>
           </nav>
         </div>
       </header>
@@ -212,7 +285,7 @@ export function StorefrontShell({
         <nav aria-label="Điều hướng chân trang">
           <Link to="/">Trang chủ</Link>
           <Link to="/products">Sản phẩm</Link>
-          <Link to="/products#categories">Danh mục</Link>
+          <Link to="/products#catalog">Danh mục</Link>
           <Link to="/account">Tài khoản</Link>
           <Link to="/orders">Đơn hàng</Link>
           <Link to="/cart">Giỏ hàng</Link>

@@ -13,24 +13,17 @@ describe("StorefrontShell", () => {
     vi.restoreAllMocks();
   });
 
-  it("links the Storefront navigation to home and product discovery routes", async () => {
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: vi.fn(),
-    });
-    const scrollIntoView = vi
-      .spyOn(window.HTMLElement.prototype, "scrollIntoView")
-      .mockImplementation(() => undefined);
-
+  it("opens functional category and discovery menus from the primary navigation", async () => {
     render(
       <MemoryRouter initialEntries={["/"]}>
         <ThemeProvider>
-          <StorefrontShell cartCount={0}>
-            <main id="main-content">
-              <section id="categories" aria-label="Danh mục khách hàng" />
-              <section id="catalog" aria-label="Khám phá sản phẩm" />
-            </main>
-          </StorefrontShell>
+          <StorefrontShell
+            cartCount={0}
+            categories={[
+              { id: "phones-id", name: "Điện thoại", slug: "phones", sortOrder: 0 },
+              { id: "laptops-id", name: "Laptop", slug: "laptops", sortOrder: 1 },
+            ]}
+          />
         </ThemeProvider>
       </MemoryRouter>,
     );
@@ -46,34 +39,29 @@ describe("StorefrontShell", () => {
       within(mainNavigation).getByRole("link", { name: "Sản phẩm" }),
     ).toHaveAttribute("href", "/products");
 
-    await userEvent.click(
-      within(mainNavigation).getByRole("link", { name: "Danh mục" }),
+    const categoryButton = within(mainNavigation).getByRole("button", {
+      name: "Danh mục",
+    });
+    await userEvent.click(categoryButton);
+    expect(categoryButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("menuitem", { name: "Điện thoại" })).toHaveAttribute(
+      "href",
+      "/products?category=phones#catalog",
     );
 
-    await waitFor(() =>
-      expect(scrollIntoView).toHaveBeenCalledWith({
-        block: "start",
-        behavior: "smooth",
-      }),
-    );
-    expect(scrollIntoView.mock.instances[0]).toBe(
-      document.getElementById("categories"),
-    );
-    expect(
-      within(mainNavigation).getByRole("link", { name: "Danh mục" }),
-    ).toHaveAttribute("href", "/products#categories");
-
-    await userEvent.click(
-      within(mainNavigation).getByRole("link", { name: "Khám phá" }),
+    const discoveryButton = within(mainNavigation).getByRole("button", {
+      name: "Khám phá",
+    });
+    await userEvent.click(discoveryButton);
+    expect(categoryButton).toHaveAttribute("aria-expanded", "false");
+    expect(discoveryButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("menuitem", { name: "Sản phẩm bán chạy" })).toHaveAttribute(
+      "href",
+      "/products?sort=best_selling#catalog",
     );
 
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
-    expect(scrollIntoView.mock.instances[1]).toBe(
-      document.getElementById("catalog"),
-    );
-    expect(
-      within(mainNavigation).getByRole("link", { name: "Khám phá" }),
-    ).toHaveAttribute("href", "/products#catalog");
+    await userEvent.keyboard("{Escape}");
+    expect(discoveryButton).toHaveAttribute("aria-expanded", "false");
   });
 
   it("renders the two-row commerce header with customer actions", () => {

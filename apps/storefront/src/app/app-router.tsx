@@ -9,6 +9,7 @@ import {
   ProductDetailPage,
   SearchPage,
   type StorefrontCatalogApi,
+  useNavigationCategories,
 } from "../features/catalog";
 import { StorefrontShell } from "./storefront-shell";
 import { CartPage, CartProvider, useCart, type CartApi } from "../features/cart";
@@ -55,7 +56,10 @@ export function createAppRouter(dependencies: {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
           <WishlistProvider api={dependencies.wishlistApi}>
-            <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
+            <StorefrontSessionBoundary
+              cartApi={dependencies.cartApi}
+              catalogApi={dependencies.catalogApi}
+            />
           </WishlistProvider>
         </CustomerSessionProvider>
       ),
@@ -171,7 +175,13 @@ export function createAppRouter(dependencies: {
   ]);
 }
 
-function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
+function StorefrontSessionBoundary({
+  cartApi,
+  catalogApi,
+}: {
+  readonly cartApi: CartApi;
+  readonly catalogApi: StorefrontCatalogApi;
+}) {
   const { loading } = useCustomerSession();
   if (loading) {
     return (
@@ -186,20 +196,26 @@ function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
   }
   return (
     <CartProvider api={cartApi}>
-      <ShellWithCart />
+      <ShellWithCart catalogApi={catalogApi} />
     </CartProvider>
   );
 }
 
-function ShellWithCart() {
+function ShellWithCart({
+  catalogApi,
+}: {
+  readonly catalogApi: StorefrontCatalogApi;
+}) {
   const { cart } = useCart();
   const { totalItems } = useWishlist();
   const { session } = useCustomerSession();
+  const navigation = useNavigationCategories(catalogApi);
   return (
     <StorefrontShell
       cartCount={cart.itemCount}
       wishlistCount={totalItems}
       authenticated={session.kind === "customer"}
+      categories={navigation.categories}
     />
   );
 }
