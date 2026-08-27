@@ -24,6 +24,20 @@ const categories = [
   ["Accessories", "accessories", "Keyboards, mice, audio, and connectivity essentials"],
 ] as const;
 
+const assurances = [
+  ["free-delivery", "truck", "Miễn phí vận chuyển", "Cho đơn hàng đủ điều kiện"],
+  ["official-warranty", "shield-check", "Bảo hành chính hãng", "Cam kết sản phẩm xác thực"],
+  ["zero-installment", "badge-percent", "Trả góp 0%", "Theo điều kiện thanh toán"],
+  ["customer-support", "headphones", "Hỗ trợ 24/7", "Đồng hành khi bạn cần"],
+] as const;
+
+const trustMetrics = [
+  ["authentic-products", "100%", "Sản phẩm chính hãng"],
+  ["trusted-brands", "30+", "Thương hiệu uy tín"],
+  ["product-selection", "1.000+", "Sản phẩm đa dạng"],
+  ["trusted-customers", "50.000+", "Khách hàng tin tưởng"],
+] as const;
+
 const products: readonly SeedProduct[] = [
   { name: "Nova Laptop Pro", slug: "laptop-pro", category: 0, description: "High-performance laptop with a vivid display for demanding professional work.", image: "laptop-pro.png", price: 32_990_000, options: ["16 GB / 512 GB", "32 GB / 1 TB"] },
   { name: "Nova Laptop Air", slug: "laptop-air", category: 0, description: "Lightweight all-day laptop for mobile productivity.", image: "laptop-air.png", price: 24_990_000, options: ["8 GB / 256 GB", "16 GB / 512 GB"] },
@@ -57,6 +71,31 @@ export async function seedCatalog(
   );
 
   await transactions.run(async (session) => {
+    for (const [sortOrder, [code, iconKey, title, description]] of assurances.entries()) {
+      await session.query(
+        `INSERT INTO storefront_service_assurances
+          (code, icon_key, title, description, sort_order, enabled, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+         ON CONFLICT (code) DO UPDATE SET
+          icon_key = EXCLUDED.icon_key, title = EXCLUDED.title,
+          description = EXCLUDED.description, sort_order = EXCLUDED.sort_order,
+          enabled = true, updated_at = NOW()`,
+        [code, iconKey, title, description, sortOrder],
+      );
+    }
+
+    for (const [sortOrder, [code, displayValue, label]] of trustMetrics.entries()) {
+      await session.query(
+        `INSERT INTO storefront_trust_metrics
+          (code, display_value, label, sort_order, enabled, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+         ON CONFLICT (code) DO UPDATE SET
+          display_value = EXCLUDED.display_value, label = EXCLUDED.label,
+          sort_order = EXCLUDED.sort_order, enabled = true, updated_at = NOW()`,
+        [code, displayValue, label, sortOrder],
+      );
+    }
+
     for (const [categoryIndex, category] of categories.entries()) {
       await session.query(
         `INSERT INTO categories
