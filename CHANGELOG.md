@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add dependency-free MP4 duration inspection and deterministic Catalog domain
+  validation for Storefront hero video chapter imports.
+
 - Add the Catalog PostgreSQL schema, timeline constraints, rollback coverage,
   and migration-readiness requirement for Storefront hero video presentations
   and category chapters.
