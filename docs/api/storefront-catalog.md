@@ -14,10 +14,40 @@ credentials.
 
 ```text
 GET /v1/storefront/categories
+GET /v1/storefront/content
 GET /v1/storefront/hero-slides
 GET /v1/storefront/products
 GET /v1/storefront/products/:slug
 GET /v1/storefront/products/:productId/media/:mediaId/content
+```
+
+`GET /v1/storefront/content` anonymously returns enabled service assurances
+and trust metrics ordered by their configured order and stable code. It returns
+empty arrays when no content is enabled and never exposes enable flags, sort
+orders, or persistence timestamps.
+
+```json
+{
+  "success": true,
+  "message": "Storefront content retrieved",
+  "data": {
+    "assurances": [
+      {
+        "code": "free-delivery",
+        "iconKey": "truck",
+        "title": "Miễn phí vận chuyển",
+        "description": "Cho đơn hàng đủ điều kiện"
+      }
+    ],
+    "metrics": [
+      {
+        "code": "authentic-products",
+        "displayValue": "100%",
+        "label": "Sản phẩm chính hãng"
+      }
+    ]
+  }
+}
 ```
 
 Product listing accepts `query`, category slug in `category`, `minPriceVnd`,

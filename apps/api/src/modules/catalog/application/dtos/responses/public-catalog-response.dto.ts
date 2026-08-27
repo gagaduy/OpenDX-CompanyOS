@@ -25,6 +25,26 @@ export interface PublicCategoryDto {
   readonly sortOrder: number;
 }
 
+export type StorefrontAssuranceIconKey =
+  | "truck"
+  | "shield-check"
+  | "badge-percent"
+  | "headphones";
+
+export interface PublicStorefrontContentDto {
+  readonly assurances: readonly {
+    readonly code: string;
+    readonly iconKey: StorefrontAssuranceIconKey;
+    readonly title: string;
+    readonly description: string;
+  }[];
+  readonly metrics: readonly {
+    readonly code: string;
+    readonly displayValue: string;
+    readonly label: string;
+  }[];
+}
+
 export interface PublicProductMediaDto {
   readonly id: string;
   readonly altText: string;

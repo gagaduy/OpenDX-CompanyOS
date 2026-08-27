@@ -20,8 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Add typed Catalog tables, constraints, and idempotent approved seed data for
-  Storefront service assurances and trust metrics.
+- Add typed Catalog tables, constraints, idempotent approved seed data, and an
+  anonymous purpose-specific API for Storefront service assurances and trust
+  metrics.
 
 ### Fixed
 

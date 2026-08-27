@@ -38,7 +38,9 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
     await runOrderMigrations(databaseUrl!, "up");
   });
   beforeEach(async () => {
-    await pool.query("TRUNCATE audit_events, categories CASCADE");
+    await pool.query(
+      "TRUNCATE audit_events, categories, storefront_service_assurances, storefront_trust_metrics CASCADE",
+    );
     await pool.query(
       `INSERT INTO categories
         (id, name, slug, sort_order, status, created_at, updated_at, version)
@@ -79,6 +81,36 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
                'Phone X front', 0, true, NOW())`,
       [ids.media, ids.published],
     );
+  });
+
+  it("returns only enabled Storefront content ordered by sort order and code", async () => {
+    await pool.query(`INSERT INTO storefront_service_assurances
+      (code, icon_key, title, description, sort_order, enabled, created_at, updated_at)
+      VALUES
+      ('warranty', 'shield-check', 'Warranty', 'Official', 1, true, NOW(), NOW()),
+      ('delivery', 'truck', 'Delivery', 'Fast', 1, true, NOW(), NOW()),
+      ('hidden', 'headphones', 'Hidden', 'Hidden', 0, false, NOW(), NOW())`);
+    await pool.query(`INSERT INTO storefront_trust_metrics
+      (code, display_value, label, sort_order, enabled, created_at, updated_at)
+      VALUES
+      ('products', '100%', 'Products', 0, true, NOW(), NOW()),
+      ('hidden', '0', 'Hidden', 0, false, NOW(), NOW())`);
+
+    await expect(
+      transactions.runReadOnly((session) => repository.listStorefrontContent(session)),
+    ).resolves.toEqual({
+      assurances: [
+        { code: "delivery", iconKey: "truck", title: "Delivery", description: "Fast" },
+        { code: "warranty", iconKey: "shield-check", title: "Warranty", description: "Official" },
+      ],
+      metrics: [{ code: "products", displayValue: "100%", label: "Products" }],
+    });
+  });
+
+  it("returns empty Storefront content arrays when no rows are enabled", async () => {
+    await expect(
+      transactions.runReadOnly((session) => repository.listStorefrontContent(session)),
+    ).resolves.toEqual({ assurances: [], metrics: [] });
   });
   afterAll(async () => {
     await runOrderMigrations(databaseUrl!, "down").catch(() => undefined);

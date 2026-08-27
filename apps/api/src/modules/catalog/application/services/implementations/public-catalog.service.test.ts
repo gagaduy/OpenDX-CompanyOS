@@ -33,6 +33,56 @@ const product = {
 };
 
 describe("PublicCatalogService", () => {
+  it("returns Storefront content through the read-only Catalog boundary", async () => {
+    const content = {
+      assurances: [
+        {
+          code: "free-delivery",
+          iconKey: "truck" as const,
+          title: "Miễn phí vận chuyển",
+          description: "Cho đơn hàng đủ điều kiện",
+        },
+      ],
+      metrics: [
+        {
+          code: "authentic-products",
+          displayValue: "100%",
+          label: "Sản phẩm chính hãng",
+        },
+      ],
+    };
+    const repository = {
+      listStorefrontContent: vi.fn(async () => content),
+    } as unknown as PublicCatalogRepository;
+    const availability = { getByVariantIds: vi.fn() } as unknown as InventoryAvailabilityReader;
+    const transactions: TransactionRunner = {
+      run: (work) => work({ query: vi.fn() }),
+      runReadOnly: (work) => work({ query: vi.fn() }),
+    };
+
+    const service = new PublicCatalogService(repository, availability, transactions);
+
+    await expect(service.getStorefrontContent()).resolves.toEqual(content);
+  });
+
+  it("preserves empty Storefront content without inventing defaults", async () => {
+    const repository = {
+      listStorefrontContent: vi.fn(async () => ({ assurances: [], metrics: [] })),
+    } as unknown as PublicCatalogRepository;
+    const availability = { getByVariantIds: vi.fn() } as unknown as InventoryAvailabilityReader;
+    const transactions: TransactionRunner = {
+      run: (work) => work({ query: vi.fn() }),
+      runReadOnly: (work) => work({ query: vi.fn() }),
+    };
+
+    const service = new PublicCatalogService(repository, availability, transactions);
+
+    await expect(service.getStorefrontContent()).resolves.toEqual({
+      assurances: [],
+      metrics: [],
+    });
+  });
+
   it("enriches ordered newest-per-category hero slides without dropping sold-out products", async () => {
     const phoneVariantId = "d1000000-0000-4000-8000-000000000002";
     const laptop = {

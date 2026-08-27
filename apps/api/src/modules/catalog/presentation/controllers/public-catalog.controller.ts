@@ -15,6 +15,19 @@ export class PublicCatalogController {
     private readonly storage: ProductMediaStorage,
   ) {}
 
+  readonly content: RequestHandler = async (_request, response, next) => {
+    try {
+      response.json(
+        successResponse(
+          "Storefront content retrieved",
+          await this.service.getStorefrontContent(),
+        ),
+      );
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
   readonly categories: RequestHandler = async (_request, response, next) => {
     try { response.json(successResponse("Categories retrieved", await this.service.listCategories())); }
     catch (error) { next(toHttpError(error)); }

@@ -11,7 +11,11 @@ import type {
   StorefrontVariantProjection,
 } from "../../../application/repositories/interfaces/public-catalog.repository";
 import type { PublicProductListQuery } from "../../../application/dtos/requests/public-catalog-request.dto";
-import type { PublicCategoryDto } from "../../../application/dtos/responses/public-catalog-response.dto";
+import type {
+  PublicCategoryDto,
+  PublicStorefrontContentDto,
+  StorefrontAssuranceIconKey,
+} from "../../../application/dtos/responses/public-catalog-response.dto";
 import { assertAttributes, assertVariantOptions } from "../../../domain/services/catalog-rules";
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 
@@ -74,6 +78,19 @@ interface StorefrontVariantRow extends VariantRow {
   product_slug: string;
   primary_media_id: string;
   primary_media_alt_text: string;
+}
+
+interface StorefrontAssuranceRow {
+  code: string;
+  icon_key: StorefrontAssuranceIconKey;
+  title: string;
+  description: string;
+}
+
+interface StorefrontMetricRow {
+  code: string;
+  display_value: string;
+  label: string;
 }
 
 const completePublishedProduct = `p.status = 'published'
@@ -142,6 +159,36 @@ const productProjectionJoins = `JOIN categories category ON category.id = p.cate
   ) primary_media ON true`;
 
 export class PostgresqlPublicCatalogRepository implements PublicCatalogRepository {
+  async listStorefrontContent(
+    session: DatabaseSession,
+  ): Promise<PublicStorefrontContentDto> {
+    const assurances = await session.query<StorefrontAssuranceRow>(
+      `SELECT code, icon_key, title, description
+       FROM storefront_service_assurances
+       WHERE enabled = true
+       ORDER BY sort_order, code`,
+    );
+    const metrics = await session.query<StorefrontMetricRow>(
+      `SELECT code, display_value, label
+       FROM storefront_trust_metrics
+       WHERE enabled = true
+       ORDER BY sort_order, code`,
+    );
+    return {
+      assurances: assurances.rows.map((row) => ({
+        code: row.code,
+        iconKey: row.icon_key,
+        title: row.title,
+        description: row.description,
+      })),
+      metrics: metrics.rows.map((row) => ({
+        code: row.code,
+        displayValue: row.display_value,
+        label: row.label,
+      })),
+    };
+  }
+
   async inspectPublicationReadiness(
     session: DatabaseSession,
     productId: string,

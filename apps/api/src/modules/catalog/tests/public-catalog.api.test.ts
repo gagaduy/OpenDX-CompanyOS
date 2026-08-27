@@ -35,9 +35,23 @@ const product = {
     purchasable: false,
   }],
 };
+const content = {
+  assurances: [{
+    code: "free-delivery",
+    iconKey: "truck" as const,
+    title: "Miễn phí vận chuyển",
+    description: "Cho đơn hàng đủ điều kiện",
+  }],
+  metrics: [{
+    code: "authentic-products",
+    displayValue: "100%",
+    label: "Sản phẩm chính hãng",
+  }],
+};
 
 function fixture() {
   const service: PublicCatalogServiceContract = {
+    getStorefrontContent: vi.fn(async () => content),
     listCategories: vi.fn(async () => []),
     listHeroSlides: vi.fn(async () => []),
     listProducts: vi.fn(async (query) => ({ items: [product], ...query, totalItems: 1, totalPages: 1 })),
@@ -55,6 +69,22 @@ function fixture() {
 }
 
 describe("Public Catalog API", () => {
+  it("serves purpose-safe Storefront content anonymously", async () => {
+    const { app, service } = fixture();
+
+    const response = await request(app).get("/v1/storefront/content").expect(200);
+
+    expect(response.body).toEqual({
+      success: true,
+      message: "Storefront content retrieved",
+      data: content,
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /sortOrder|enabled|createdAt|updatedAt/,
+    );
+    expect(service.getStorefrontContent).toHaveBeenCalledOnce();
+  });
+
   it("serves purpose-safe ordered hero slides anonymously", async () => {
     const { app, service } = fixture();
     vi.mocked(service.listHeroSlides).mockResolvedValue([

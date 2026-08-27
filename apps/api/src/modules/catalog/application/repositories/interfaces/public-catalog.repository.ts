@@ -5,7 +5,10 @@ import type { DatabaseSession } from "../../../../../shared/database/transaction
 import type { ProductAttributes } from "../../../domain/entities/product";
 import type { VariantOptions } from "../../../domain/entities/product-variant";
 import type { PublicProductListQuery } from "../../dtos/requests/public-catalog-request.dto";
-import type { PublicCategoryDto } from "../../dtos/responses/public-catalog-response.dto";
+import type {
+  PublicCategoryDto,
+  PublicStorefrontContentDto,
+} from "../../dtos/responses/public-catalog-response.dto";
 
 export interface PublicationReadinessSnapshot {
   readonly categoryActive: boolean;
@@ -78,6 +81,9 @@ export interface StorefrontVariantProjection {
 }
 
 export interface PublicCatalogRepository {
+  listStorefrontContent(
+    session: DatabaseSession,
+  ): Promise<PublicStorefrontContentDto>;
   inspectPublicationReadiness(
     session: DatabaseSession,
     productId: string,

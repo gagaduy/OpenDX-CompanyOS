@@ -23,6 +23,12 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     private readonly transactions: TransactionRunner,
   ) {}
 
+  getStorefrontContent() {
+    return this.transactions.runReadOnly((session) =>
+      this.repository.listStorefrontContent(session),
+    );
+  }
+
   listCategories() {
     return this.transactions.runReadOnly((session) =>
       this.repository.listCategories(session),
