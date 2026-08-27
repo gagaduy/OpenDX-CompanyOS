@@ -2,166 +2,125 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { HomepageProductOverlay } from "../components/homepage-experience/homepage-product-overlay";
-import { StaticHomepageExperience } from "../components/homepage-experience/static-homepage-experience";
 import { useHomepageCatalog } from "../hooks/use-homepage-catalog";
 import type {
   ProductPage,
+  StorefrontCategory,
+  StorefrontHeroSlide,
   StorefrontProduct,
 } from "../types/catalog.types";
 
-describe("homepage Catalog journey", () => {
-  it("loads authoritative products with the exact scene queries", async () => {
-    const phone = product("phone", "Nova Phone", "Phones");
-    const laptop = product("laptop", "Nova Laptop Pro", "Laptops");
-    const headphones = product("headphones", "Nova Headphones", "Accessories");
-    const controller = product("controller", "Nova Controller", "Accessories");
+describe("homepage Catalog orchestration", () => {
+  it("loads categories, hero, promotions, and product rails from bounded queries", async () => {
+    const categories = [category("phones", "Điện thoại"), category("laptops", "Laptop")];
+    const phone = product("phone", "Nova Phone", "Điện thoại");
+    const laptop = product("laptop", "Nova Laptop Pro", "Laptop");
+    const heroSlides: readonly StorefrontHeroSlide[] = [
+      { category: categories[0]!, product: phone },
+    ];
     const products = vi.fn(async (parameters: URLSearchParams) => {
       const query = parameters.toString();
-      const item = query.startsWith("category=phones")
-        ? phone
-        : query.startsWith("category=laptops")
-          ? laptop
-          : query.startsWith("query=headphones")
-            ? headphones
-            : query.startsWith("query=controller")
-              ? controller
-              : phone;
-      return page(query === "sort=best_selling&page=1&pageSize=4" ? [phone, laptop, headphones, controller] : [item]);
+      if (query.startsWith("category=phones")) return page([phone]);
+      if (query.startsWith("category=laptops")) return page([laptop]);
+      return page([phone, laptop]);
     });
+    const api = {
+      categories: vi.fn(async () => categories),
+      heroSlides: vi.fn(async () => heroSlides),
+      products,
+    };
 
-    render(<CatalogProbe api={{ products }} />);
+    render(<CatalogProbe api={api} />);
 
-    await waitFor(() => expect(screen.getByTestId("catalog-state")).toHaveTextContent("Nova Phone|Nova Laptop Pro|Nova Headphones|Nova Controller|4"));
-    expect(products.mock.calls.map(([parameters]) => parameters.toString())).toEqual([
-      "category=phones&sort=best_selling&page=1&pageSize=1",
-      "category=laptops&sort=best_selling&page=1&pageSize=1",
-      "query=headphones&sort=best_selling&page=1&pageSize=1",
-      "query=controller&sort=best_selling&page=1&pageSize=1",
-      "sort=best_selling&page=1&pageSize=4",
-    ]);
+    await waitFor(() =>
+      expect(screen.getByTestId("catalog-state")).toHaveTextContent(
+        "ready:2|ready:1|ready:2|ready:2|ready:2|ready:2",
+      ),
+    );
+    expect(products.mock.calls.map(([parameters]) => parameters.toString())).toEqual(
+      expect.arrayContaining([
+        "discountStatus=on_sale&sort=newest&page=1&pageSize=8",
+        "sort=best_selling&page=1&pageSize=8",
+        "sort=newest&page=1&pageSize=8",
+        "category=phones&sort=best_selling&page=1&pageSize=1",
+        "category=laptops&sort=best_selling&page=1&pageSize=1",
+      ]),
+    );
   });
 
-  it("keeps the six-section journey and retries without invented products", async () => {
-    const products = vi.fn(async () => {
-      throw new Error("offline");
-    });
+  it("keeps successful regions when another request fails", async () => {
+    const phone = product("phone", "Nova Phone", "Điện thoại");
+    const api = {
+      categories: vi.fn(async () => [category("phones", "Điện thoại")]),
+      heroSlides: vi.fn(async () => {
+        throw new Error("hero offline");
+      }),
+      products: vi.fn(async (parameters: URLSearchParams) => {
+        if (parameters.get("sort") === "best_selling" && parameters.get("category") === null) {
+          throw new Error("best selling offline");
+        }
+        return page([phone]);
+      }),
+    };
 
-    render(
-      <MemoryRouter>
-        <StaticExperienceProbe api={{ products }} />
-      </MemoryRouter>,
+    render(<CatalogProbe api={api} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("catalog-state")).toHaveTextContent(
+        "ready:1|error:0|ready:1|ready:1|error:0|ready:1",
+      ),
     );
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Không thể tải sản phẩm nổi bật.",
-    );
-    expect(screen.getAllByTestId("homepage-scene")).toHaveLength(6);
-    expect(screen.queryByText("0 ₫")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Thử tải lại" }));
-    await waitFor(() => expect(products).toHaveBeenCalledTimes(10));
   });
 
-  it("renders product price, availability, and safe missing-price copy", () => {
-    render(
-      <MemoryRouter>
-        <HomepageProductOverlay
-          product={product("laptop", "Nova Laptop Pro", "Laptops")}
-          apiBaseUrl="http://localhost:4000"
-          fallbackHref="/products?category=laptops#catalog"
-        />
-        <HomepageProductOverlay
-          product={product("empty", "Nova Prototype", "Computing", [])}
-          apiBaseUrl="http://localhost:4000"
-          fallbackHref="/products?category=computing#catalog"
-        />
-        <HomepageProductOverlay
-          product={product("sold", "Nova Sold Out", "Gaming", [variant(false)])}
-          apiBaseUrl="http://localhost:4000"
-          fallbackHref="/products?category=gaming#catalog"
-        />
-      </MemoryRouter>,
-    );
+  it("models empty API responses without inventing commerce content", async () => {
+    const api = {
+      categories: vi.fn(async () => [] as readonly StorefrontCategory[]),
+      heroSlides: vi.fn(async () => [] as readonly StorefrontHeroSlide[]),
+      products: vi.fn(async () => page([])),
+    };
 
-    expect(screen.getAllByText("32.990.000 ₫")).toHaveLength(2);
-    expect(screen.getByText("Giá đang cập nhật")).toBeVisible();
-    expect(screen.getAllByText("Tạm hết hàng")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Xem Nova Laptop Pro" })).toHaveAttribute(
-      "href",
-      "/products/laptop",
+    render(<CatalogProbe api={api} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("catalog-state")).toHaveTextContent(
+        "empty:0|empty:0|empty:0|empty:0|empty:0|empty:0",
+      ),
     );
   });
 });
 
-function CatalogProbe({
-  api,
-}: {
-  readonly api: Parameters<typeof useHomepageCatalog>[0];
-}) {
+function CatalogProbe({ api }: { readonly api: Parameters<typeof useHomepageCatalog>[0] }) {
   const state = useHomepageCatalog(api);
   return (
     <output data-testid="catalog-state">
-      {state.sceneProducts.smartphones?.name}|{state.sceneProducts.computing?.name}|
-      {state.sceneProducts.audio?.name}|{state.sceneProducts.gaming?.name}|
-      {state.featuredProducts.length}
+      {state.categories.status}:{state.categories.data.length}|
+      {state.hero.status}:{state.hero.data.length}|
+      {state.promotions.status}:{state.promotions.data.length}|
+      {state.rails.featured.status}:{state.rails.featured.data.length}|
+      {state.rails.bestSelling.status}:{state.rails.bestSelling.data.length}|
+      {state.rails.newest.status}:{state.rails.newest.data.length}
     </output>
   );
 }
 
-function StaticExperienceProbe({
-  api,
-}: {
-  readonly api: Parameters<typeof useHomepageCatalog>[0];
-}) {
-  const catalog = useHomepageCatalog(api);
-  return <StaticHomepageExperience catalog={catalog} apiBaseUrl="http://localhost:4000" />;
+function category(slug: string, name: string): StorefrontCategory {
+  return { id: `${slug}-category`, slug, name, sortOrder: 0 };
 }
 
-function product(
-  slug: string,
-  name: string,
-  categoryName: string,
-  variants: StorefrontProduct["variants"] = [variant(true)],
-): StorefrontProduct {
+function product(slug: string, name: string, categoryName: string): StorefrontProduct {
   return {
-    id: `${slug}-id`,
-    categoryId: `${categoryName}-id`,
-    categoryName,
-    name,
-    slug,
-    description: `${name} description`,
-    attributes: {},
-    primaryMedia: {
-      id: `${slug}-media`,
-      altText: name,
-      contentUrl: `/media/${slug}`,
-    },
-    variants,
-  };
-}
-
-function variant(purchasable: boolean): StorefrontProduct["variants"][number] {
-  return {
-    id: `variant-${String(purchasable)}`,
-    sku: `SKU-${String(purchasable)}`,
-    title: "Default",
-    optionValues: {},
-    price: { amountMinor: 32_990_000, currency: "VND" },
-    availableQuantity: purchasable ? 2 : 0,
-    purchasable,
+    id: `${slug}-id`, categoryId: `${categoryName}-id`, categoryName, name, slug,
+    description: `${name} description`, attributes: {},
+    primaryMedia: { id: `${slug}-media`, altText: name, contentUrl: `/media/${slug}` },
+    variants: [{
+      id: `${slug}-variant`, sku: `${slug.toUpperCase()}-SKU`, title: "Default",
+      optionValues: {}, price: { amountMinor: 32_990_000, currency: "VND" },
+      availableQuantity: 2, purchasable: true,
+    }],
   };
 }
 
 function page(items: readonly StorefrontProduct[]): ProductPage {
-  return {
-    items,
-    page: 1,
-    pageSize: items.length,
-    totalItems: items.length,
-    totalPages: items.length === 0 ? 0 : 1,
-  };
+  return { items, page: 1, pageSize: items.length, totalItems: items.length, totalPages: items.length === 0 ? 0 : 1 };
 }

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -97,6 +97,12 @@ export function StorefrontHero({
     setManualEpoch((current) => current + 1);
   }
 
+  function selectRelativeSlide(offset: number) {
+    const next =
+      (normalizedIndex + offset + availableSlides.length) % availableSlides.length;
+    selectSlide(next);
+  }
+
   function handleBlur(event: FocusEvent<HTMLElement>) {
     if (!event.currentTarget.contains(event.relatedTarget)) {
       setFocusWithin(false);
@@ -129,6 +135,9 @@ export function StorefrontHero({
         key={product.id}
         src={new URL(product.primaryMedia.contentUrl, apiBaseUrl).toString()}
         alt={product.primaryMedia.altText}
+        loading="eager"
+        width="960"
+        height="540"
         onError={handleImageError}
       />
       <div className="hero-scrim" />
@@ -163,6 +172,24 @@ export function StorefrontHero({
           </div>
         )}
       </div>
+      {availableSlides.length > 1 ? (
+        <div className="hero-carousel-controls">
+          <button
+            type="button"
+            aria-label="Slide trước"
+            onClick={() => selectRelativeSlide(-1)}
+          >
+            <ChevronLeft aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Slide tiếp theo"
+            onClick={() => selectRelativeSlide(1)}
+          >
+            <ChevronRight aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <a className="hero-scroll" href="#categories" aria-label="Xem danh mục">
         <ArrowDown />
       </a>

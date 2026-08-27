@@ -58,6 +58,8 @@ describe("StorefrontHero category carousel", () => {
       "href",
       "/products?category=laptops#catalog",
     );
+    expect(screen.getByRole("button", { name: "Slide tiếp theo" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Slide trước" })).toBeVisible();
 
     act(() => vi.advanceTimersByTime(5_000));
     expect(screen.getByRole("heading", { name: "Nova Phone" })).toBeVisible();

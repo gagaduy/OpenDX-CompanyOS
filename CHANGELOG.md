@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Replace the Storefront's legacy homepage route with a resilient API-driven
+  commerce layout containing category navigation, rotating Catalog hero,
+  service assurances, category promotions, product tabs, and metric panels.
+
 - Add backend-derived sale evidence, authenticated PostgreSQL wishlist state,
   and the shared two-row dark-tech NovaCommerce Storefront shell while
   preserving the customer light and dark theme preference.
