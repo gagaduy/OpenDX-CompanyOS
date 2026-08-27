@@ -66,6 +66,7 @@ async function main() {
         for (const route of routes.filter(({ id }) => id !== "sign-in" && id !== "home")) {
           evidence.push(await verifyRoute(client, viewport, theme, route, false));
         }
+        evidence.push(await verifyUnavailableContent(client, viewport, theme));
       }
     }
     client.close();
@@ -74,6 +75,46 @@ async function main() {
     await stopProcess(browser);
     await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
+}
+
+async function verifyUnavailableContent(client, viewport, theme) {
+  await client.send("Page.navigate", {
+    url: new URL("/?content=unavailable", storefrontUrl).toString(),
+  });
+  await waitForCondition(
+    client,
+    `document.querySelector(".commerce-home-page") !== null
+      && document.querySelector('[role="alert"]') !== null`,
+    `${viewport.name} ${theme}: unavailable content state did not settle`,
+  );
+  await setTheme(client, theme);
+  const result = await evaluate(client, `({
+    theme: document.documentElement.dataset.theme,
+    viewportWidth: innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    heroVisible: document.querySelector(".homepage-hero-region") !== null,
+    productVisible: document.body.innerText.includes("Nova Phone Pro"),
+    alerts: document.querySelectorAll('[role="alert"]').length,
+    retryActions: [...document.querySelectorAll("button")]
+      .filter((button) => button.textContent?.trim() === "Thử lại").length,
+    metricsVisible: document.querySelector(".service-metric-strip") !== null,
+  })`);
+  if (
+    result.theme !== theme || result.viewportWidth !== viewport.width ||
+    result.documentWidth > result.viewportWidth || !result.heroVisible ||
+    !result.productVisible || result.alerts !== 1 || result.retryActions !== 1 ||
+    result.metricsVisible
+  ) {
+    throw new Error(
+      `${viewport.name} ${theme}: unavailable content boundary is incorrect ${JSON.stringify(result)}`,
+    );
+  }
+  const screenshotPath = join(
+    outputDirectory,
+    `content-unavailable-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+  );
+  await saveScreenshot(client, screenshotPath);
+  return { viewport, theme, requestedRoute: "/?content=unavailable", screenshotPath, ...result };
 }
 
 async function installFixtures(client) {
@@ -86,6 +127,14 @@ async function installFixtures(client) {
       window.fetch = async (input) => {
         const rawUrl = typeof input === "string" || input instanceof URL ? String(input) : input.url;
         const url = new URL(rawUrl, location.href);
+        if (
+          url.pathname === "/v1/storefront/content" &&
+          new URL(location.href).searchParams.get("content") === "unavailable"
+        ) {
+          return new Response(JSON.stringify({ success: false, message: "Content unavailable" }), {
+            status: 500, headers: { "Content-Type": "application/json; charset=utf-8" },
+          });
+        }
         let fixture;
         if (url.pathname === "/v1/storefront/session") {
           fixture = location.pathname === "/sign-in" ? fixtures.anonymousSession : fixtures.customerSession;
@@ -163,6 +212,8 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
         })(),
         categories: document.querySelectorAll(".homepage-category-rail nav a").length,
         assurances: document.querySelectorAll(".service-assurance-item").length,
+        assuranceCopyFromCatalog: document.body.innerText.includes("Nội dung trình duyệt từ Catalog"),
+        metricValueFromCatalog: document.body.innerText.includes("88+"),
         promotions: document.querySelectorAll(".category-promotion-card").length,
         tabs: document.querySelectorAll('[role="tab"]').length,
         canvas: document.querySelectorAll("canvas").length,
@@ -214,7 +265,8 @@ function assertRoute(result, viewport, theme, route) {
       !home.hero || home.heroMedia === null ||
       !home.heroMedia.startsInRightHalf || !home.heroMedia.rightAligned ||
       !home.heroMedia.contained || home.categories < 4 ||
-      home.assurances !== 4 || home.promotions < 4 || home.tabs !== 3 ||
+      home.assurances !== 4 || !home.assuranceCopyFromCatalog ||
+      !home.metricValueFromCatalog || home.promotions < 4 || home.tabs !== 3 ||
       home.canvas !== 0
     ) {
       throw new Error(`${viewport.name} ${theme}: homepage hierarchy is incomplete ${JSON.stringify(home)}`);
@@ -339,6 +391,20 @@ function createFixtures() {
     }],
   }));
   const envelope = (data, extra = {}) => ({ success: true, message: "Browser fixture", data, ...extra });
+  const storefrontContent = {
+    assurances: [
+      { code: "delivery", iconKey: "truck", title: "Miễn phí vận chuyển", description: "Nội dung trình duyệt từ Catalog" },
+      { code: "warranty", iconKey: "shield-check", title: "Bảo hành chính hãng", description: "Cam kết sản phẩm xác thực" },
+      { code: "installment", iconKey: "badge-percent", title: "Trả góp 0%", description: "Theo điều kiện thanh toán" },
+      { code: "support", iconKey: "headphones", title: "Hỗ trợ 24/7", description: "Đồng hành khi bạn cần" },
+    ],
+    metrics: [
+      { code: "products", displayValue: "88+", label: "Sản phẩm chính hãng" },
+      { code: "brands", displayValue: "30+", label: "Thương hiệu uy tín" },
+      { code: "selection", displayValue: "1.000+", label: "Sản phẩm đa dạng" },
+      { code: "customers", displayValue: "50.000+", label: "Khách hàng tin tưởng" },
+    ],
+  };
   const customerSession = envelope({
     kind: "customer", customerId: "customer-1", email: "duy@example.com",
     expiresAt: "2099-01-01T00:00:00.000Z", cartResolution: "not_required",
@@ -392,6 +458,7 @@ function createFixtures() {
     products: envelope(products, { meta: { page: 1, pageSize: 12, totalItems: products.length, totalPages: 1 } }),
     product: envelope(products[0]),
     byPath: {
+      "/v1/storefront/content": envelope(storefrontContent),
       "/v1/storefront/categories": envelope(categories),
       "/v1/storefront/hero-slides": envelope(categories.map((category, index) => ({ category, product: products[index] }))),
       "/v1/storefront/cart": cart,

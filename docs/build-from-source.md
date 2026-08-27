@@ -457,6 +457,23 @@ Run the API:
 pnpm --filter @opendx/api dev
 ```
 
+For a non-destructive Storefront Catalog content rollout, build the affected
+images, apply all migrations, run only the idempotent Catalog seed, and then
+recreate the API and Storefront without starting dependency seed jobs again:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps api \
+  pnpm --filter @opendx/api db:seed:catalog
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+curl -fsS http://localhost:4000/health/ready
+```
+
+This sequence does not reset, restore, truncate, or replace customer/product
+records. The Catalog seed upserts its documented stable rows.
+
 Run the AI runtime gateway and worker on the host only when Temporal and the
 documented environment are already available:
 

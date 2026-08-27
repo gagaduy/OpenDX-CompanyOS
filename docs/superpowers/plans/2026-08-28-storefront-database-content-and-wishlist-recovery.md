@@ -80,8 +80,9 @@ await runCatalogMigrations(databaseUrl!, "up");
 Run:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml run --rm \
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm \
   -e TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test \
+  -e MINIO_BUCKET=product-media-test \
   api pnpm --filter @opendx/api exec vitest run --config vitest.integration.config.ts \
   src/shared/database/migrations/catalog-migration.integration.test.ts
 ```
@@ -475,7 +476,7 @@ git commit -m "feat(storefront): load catalog content once"
 - Modify: `apps/storefront/src/features/catalog/tests/product-detail.test.tsx`
 - Modify: `apps/storefront/src/features/catalog/pages/intro-home-page.tsx`
 - Modify: `apps/storefront/src/features/catalog/pages/product-detail-page.tsx`
-- Modify: `apps/storefront/src/styles/storefront.css`
+- Modify: `apps/storefront/src/shared/styles/globals.css`
 
 **Interfaces:**
 - Consumes: Task 6 `useStorefrontContent` state and validated icon keys.
@@ -521,7 +522,7 @@ Keep page call sites as `<ServiceAssurancePanel />` and `<ServiceMetricStrip />`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/storefront/src/features/catalog apps/storefront/src/styles/storefront.css
+git add apps/storefront/src/features/catalog apps/storefront/src/shared/styles/globals.css
 git commit -m "feat(storefront): render database-backed assurances"
 ```
 
@@ -565,9 +566,10 @@ Expected: every populated/unavailable theme and viewport case PASS.
 Document this non-destructive rollout order in `docs/build-from-source.md`:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml run --rm migrate
-docker compose -f infra/docker/docker-compose.yml run --rm seed
-docker compose -f infra/docker/docker-compose.yml up -d --build api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps api pnpm --filter @opendx/api db:seed:catalog
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --no-deps --force-recreate api storefront
 ```
 
 Move the relevant `[Unreleased]` item from `Planned` to `Added`/`Fixed`, naming database-backed content and exact Wishlist readiness. Do not claim CMS behavior.
@@ -577,9 +579,9 @@ Move the relevant `[Unreleased]` item from `Planned` to `Added`/`Fixed`, naming 
 Run the rollout commands, then read-only checks:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml exec -T postgres psql -U opendx_local -d opendx_local -c \
+docker compose --env-file .env -f infra/docker/docker-compose.yml exec -T postgres psql -U opendx_local -d opendx -c \
   "SELECT name FROM customer_migrations WHERE name='202608270030_add_customer_wishlist'; SELECT to_regclass('public.customer_wishlist_items'); SELECT count(*) FROM storefront_service_assurances; SELECT count(*) FROM storefront_trust_metrics;"
-curl --fail http://localhost:4000/readyz
+curl --fail http://localhost:4000/health/ready
 curl --fail http://localhost:4000/v1/storefront/content
 curl --fail http://localhost:3100/
 ```
@@ -594,7 +596,7 @@ Use the existing local customer sign-in flow in a fresh browser session, capture
 
 ```bash
 pnpm --filter @opendx/api test
-docker compose -f infra/docker/docker-compose.yml run --rm \
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm \
   -e TEST_DATABASE_URL=postgres://opendx_local:opendx_local_password@postgres:5432/opendx_test \
   -e MINIO_BUCKET=product-media-test api pnpm --filter @opendx/api test:integration
 pnpm --filter @opendx/storefront test
