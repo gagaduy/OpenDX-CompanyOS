@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Redesign cart, checkout, payment return, and order history routes as compact
+  dark-tech transaction workspaces while preserving authoritative backend
+  validation, idempotency, and payment reconciliation behavior.
+
 - Add the authenticated customer wishlist workspace with server pagination,
   cart/remove actions, unified account navigation, and a real Catalog-backed
   sign-in backdrop with a safe local fallback.

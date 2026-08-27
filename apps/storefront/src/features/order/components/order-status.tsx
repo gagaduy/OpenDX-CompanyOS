@@ -14,7 +14,11 @@ const labels: Record<OrderDetail["status"], string> = {
 };
 
 export function OrderStatus({ status }: { readonly status: OrderDetail["status"] }) {
-  return <span className={`order-status ${status}`}>{labels[status]}</span>;
+  return (
+    <span className={`order-status status-badge ${status}`}>
+      {labels[status]}
+    </span>
+  );
 }
 
 export function orderStatusLabel(status: OrderDetail["status"]): string {

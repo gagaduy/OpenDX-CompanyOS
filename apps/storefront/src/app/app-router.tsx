@@ -24,13 +24,13 @@ import {
   AddressPage,
   type CustomerAccountApi,
 } from "../features/customer-account";
-import type { CheckoutApi } from "../features/checkout/api/checkout-api";
-import { CheckoutPage } from "../features/checkout/pages/checkout-page";
-import type { PaymentApi } from "../features/payment/api/payment-api";
-import { PaymentReturnPage } from "../features/payment/pages/payment-return-page";
-import type { OrderApi } from "../features/order/api/order-api";
-import { OrderListPage } from "../features/order/pages/order-list-page";
-import { OrderDetailPage } from "../features/order/pages/order-detail-page";
+import { CheckoutPage, type CheckoutApi } from "../features/checkout";
+import { PaymentReturnPage, type PaymentApi } from "../features/payment";
+import {
+  OrderDetailPage,
+  OrderListPage,
+  type OrderApi,
+} from "../features/order";
 import {
   WishlistProvider,
   WishlistPage,

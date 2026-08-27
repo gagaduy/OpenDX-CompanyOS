@@ -3786,3 +3786,196 @@ img {
     padding: 0 7px;
   }
 }
+
+/* NovaCommerce transactional customer routes */
+.transaction-page {
+  width: min(100%, 1320px);
+}
+
+.transaction-page .page-heading {
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.transaction-page .page-heading h1 {
+  letter-spacing: -0.035em;
+}
+
+.transaction-list {
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: 0 18px 50px rgba(0, 18, 42, 0.12);
+}
+
+.cart-lines.transaction-list {
+  padding: 0 22px;
+  border-top: 1px solid var(--hairline);
+}
+
+.transaction-list .cart-line:last-child {
+  border-bottom: 0;
+}
+
+.sticky-summary {
+  top: 132px;
+  border-color: var(--hairline-strong);
+  box-shadow: 0 18px 50px rgba(0, 18, 42, 0.16);
+}
+
+.sticky-summary::before {
+  height: 2px;
+  position: absolute;
+  inset: -1px 20px auto;
+  background: var(--primary);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--primary) 52%, transparent);
+  content: "";
+}
+
+.checkout-main.transaction-list {
+  padding: 0 26px;
+}
+
+.checkout-main.transaction-list .checkout-section:first-child {
+  padding-top: 28px;
+}
+
+.checkout-main.transaction-list .checkout-section:last-child {
+  padding-bottom: 28px;
+}
+
+.address-choice,
+.review-line,
+.order-row {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.address-choice:hover,
+.order-row:hover {
+  background: var(--surface-2);
+}
+
+.status-badge {
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.customer-workspace-panel .order-list,
+.order-detail-section {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.customer-workspace-panel .order-list {
+  padding: 0 22px;
+  border-top: 1px solid var(--hairline);
+}
+
+.customer-workspace-panel .order-row:last-child {
+  border-bottom: 0;
+}
+
+.order-detail-layout > section {
+  display: grid;
+  gap: 18px;
+}
+
+.order-detail-section {
+  padding: 26px;
+}
+
+.order-detail-section:first-child {
+  padding-top: 26px;
+  border-top: 1px solid var(--hairline);
+}
+
+.transaction-timeline li::before {
+  background: var(--primary);
+  opacity: 0.35;
+}
+
+.payment-result-page {
+  background: var(--surface-0);
+}
+
+.payment-status-panel {
+  padding: clamp(32px, 5vw, 58px);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 24px 70px rgba(0, 18, 42, 0.2);
+}
+
+.payment-status-panel::before {
+  height: 2px;
+  position: absolute;
+  inset: 0 18% auto;
+  background: var(--primary);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 58%, transparent);
+  content: "";
+}
+
+.transaction-dialog {
+  width: min(620px, calc(100% - 32px));
+  border-color: var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 28px 90px rgba(0, 18, 42, 0.34);
+}
+
+@media (max-width: 900px) {
+  .cart-layout,
+  .checkout-layout,
+  .order-detail-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .sticky-summary {
+    position: static;
+  }
+
+  .order-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .order-row > strong,
+  .order-row > svg {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 640px) {
+  .cart-lines.transaction-list,
+  .checkout-main.transaction-list,
+  .customer-workspace-panel .order-list,
+  .order-detail-section {
+    padding-inline: 14px;
+  }
+
+  .cart-line {
+    grid-template-columns: 82px minmax(0, 1fr) 36px;
+  }
+
+  .cart-line-image {
+    width: 82px;
+  }
+
+  .cart-line .quantity-control,
+  .cart-line .line-total {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .order-row {
+    padding-block: 16px;
+  }
+}

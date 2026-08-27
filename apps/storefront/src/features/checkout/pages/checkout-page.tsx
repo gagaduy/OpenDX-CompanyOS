@@ -5,10 +5,12 @@ import { Check, MapPin, ShieldCheck } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatVnd } from "../../../shared/format/currency";
-import type { CustomerAccountApi } from "../../customer-account/api/customer-account-api";
-import { useCustomerAccount } from "../../customer-account/hooks/use-customer-account";
+import {
+  useCustomerAccount,
+  type CustomerAccountApi,
+} from "../../customer-account";
 import type { CheckoutApi } from "../api/checkout-api";
-import { PaymentSubmitForm } from "../../payment/components/payment-submit-form";
+import { PaymentSubmitForm } from "../../payment";
 import { checkoutErrorMessage } from "../mappers/checkout-error.mapper";
 import type { CheckoutCreation } from "../types/checkout.types";
 
@@ -59,14 +61,17 @@ export function CheckoutPage({
   }
 
   return (
-    <main id="main-content" className="content-page checkout-page">
+    <main id="main-content" className="content-page transaction-page checkout-page">
       <div className="page-heading">
         <div><span className="eyebrow">Thanh toán bảo mật</span><h1>Hoàn tất đơn hàng</h1></div>
         <p><ShieldCheck aria-hidden="true" /> Thanh toán an toàn</p>
       </div>
       {error && <p className="inline-alert" role="alert">{error}</p>}
       <div className="checkout-layout">
-        <section className="checkout-main" aria-label="Thông tin checkout">
+        <section
+          className="checkout-main transaction-list"
+          aria-label="Thông tin checkout"
+        >
           <div className="checkout-section">
             <header><span>01</span><div><h2>Địa chỉ nhận hàng</h2><p>Chọn địa chỉ đã xác minh trong tài khoản.</p></div></header>
             {account.addresses.length === 0 ? (
@@ -98,7 +103,10 @@ export function CheckoutPage({
             </div>
           )}
         </section>
-        <aside className="checkout-summary">
+        <aside
+          className="checkout-summary sticky-summary"
+          aria-label="Tóm tắt thanh toán"
+        >
           <span className="eyebrow">Tóm tắt</span>
           <h2>{checkout ? "Đơn hàng của bạn" : "Kiểm tra lần cuối"}</h2>
           {checkout ? (

@@ -46,7 +46,7 @@ export function CartResolutionDialog({
     <dialog
       ref={dialog}
       open
-      className="resolution-dialog"
+      className="resolution-dialog transaction-dialog"
       aria-labelledby="resolution-title"
       onKeyDown={trap}
     >
