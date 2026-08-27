@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ### Fixed
 
 - Forward Department Agent client secrets to the API in development Docker
@@ -58,6 +60,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   AI CEO synthesis generation.
 
 ### Added
+
+- Approve the NovaCommerce Storefront dark-tech redesign for all customer
+  routes, a data-driven commerce homepage, dual themes, backend-derived sale
+  evidence, and an authenticated PostgreSQL-backed customer wishlist.
 
 - Deliver the AI Operations Command Center interface in the Digital Workforce
   Console featuring the CEO strategic command input hub, live orchestration
