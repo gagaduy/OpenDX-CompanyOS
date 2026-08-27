@@ -12,16 +12,18 @@ import {
 } from "../features/catalog";
 import { StorefrontShell } from "./storefront-shell";
 import { CartPage, CartProvider, useCart, type CartApi } from "../features/cart";
-import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
 import {
+  CheckoutGate,
   CustomerSessionProvider,
+  SignInPage,
   useCustomerSession,
-} from "../features/authentication/hooks/customer-session-context";
-import { SignInPage } from "../features/authentication/pages/sign-in-page";
-import { CheckoutGate } from "../features/authentication/components/checkout-gate";
-import type { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
-import { AccountPage } from "../features/customer-account/pages/account-page";
-import { AddressPage } from "../features/customer-account/pages/address-page";
+  type CustomerSessionApi,
+} from "../features/authentication";
+import {
+  AccountPage,
+  AddressPage,
+  type CustomerAccountApi,
+} from "../features/customer-account";
 import type { CheckoutApi } from "../features/checkout/api/checkout-api";
 import { CheckoutPage } from "../features/checkout/pages/checkout-page";
 import type { PaymentApi } from "../features/payment/api/payment-api";
@@ -31,6 +33,7 @@ import { OrderListPage } from "../features/order/pages/order-list-page";
 import { OrderDetailPage } from "../features/order/pages/order-detail-page";
 import {
   WishlistProvider,
+  WishlistPage,
   useWishlist,
   type WishlistApi,
 } from "../features/wishlist";
@@ -92,7 +95,13 @@ export function createAppRouter(dependencies: {
         },
         {
           path: "/sign-in",
-          element: <SignInPage googleClientId={dependencies.googleClientId} />,
+          element: (
+            <SignInPage
+              googleClientId={dependencies.googleClientId}
+              catalogApi={dependencies.catalogApi}
+              apiBaseUrl={dependencies.apiBaseUrl}
+            />
+          ),
         },
         {
           path: "/account",
@@ -107,6 +116,17 @@ export function createAppRouter(dependencies: {
           element: (
             <CheckoutGate>
               <AddressPage api={dependencies.accountApi} />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/account/wishlist",
+          element: (
+            <CheckoutGate>
+              <WishlistPage
+                accountApi={dependencies.accountApi}
+                apiBaseUrl={dependencies.apiBaseUrl}
+              />
             </CheckoutGate>
           ),
         },

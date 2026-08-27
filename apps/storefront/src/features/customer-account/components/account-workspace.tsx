@@ -3,8 +3,10 @@
 
 import {
   CheckCircle2,
+  Heart,
   LogOut,
   MapPin,
+  Package,
   UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -18,7 +20,7 @@ export function AccountWorkspace({
   children,
 }: {
   readonly profile: CustomerProfile;
-  readonly active: "profile" | "addresses";
+  readonly active: "profile" | "addresses" | "wishlist" | "orders";
   readonly onLogout: () => void;
   readonly children: ReactNode;
 }) {
@@ -47,6 +49,15 @@ export function AccountWorkspace({
             to="/account/addresses"
           >
             <MapPin /> Địa chỉ
+          </NavLink>
+          <NavLink
+            className={active === "wishlist" ? "active" : ""}
+            to="/account/wishlist"
+          >
+            <Heart /> Yêu thích
+          </NavLink>
+          <NavLink className={active === "orders" ? "active" : ""} to="/orders">
+            <Package /> Đơn hàng
           </NavLink>
         </nav>
         <div className="account-content">{children}</div>

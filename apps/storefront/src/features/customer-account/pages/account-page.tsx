@@ -3,7 +3,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
+import { useCustomerSession } from "../../authentication";
 import type { CustomerAccountApi } from "../api/customer-account-api";
 import { ProfileForm } from "../components/profile-form";
 import { AccountWorkspace } from "../components/account-workspace";

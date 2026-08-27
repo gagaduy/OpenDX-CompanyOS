@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RouterProvider } from "react-router-dom";
-import { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
+import { CustomerSessionApi } from "../features/authentication";
 import { CartApi } from "../features/cart";
 import { StorefrontCatalogApi } from "../features/catalog";
 import { WishlistApi } from "../features/wishlist";
-import { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
+import { CustomerAccountApi } from "../features/customer-account";
 import { CheckoutApi } from "../features/checkout/api/checkout-api";
 import { OrderApi } from "../features/order/api/order-api";
 import { PaymentApi } from "../features/payment/api/payment-api";

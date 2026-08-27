@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add the authenticated customer wishlist workspace with server pagination,
+  cart/remove actions, unified account navigation, and a real Catalog-backed
+  sign-in backdrop with a safe local fallback.
+
 - Redesign Catalog discovery, reusable product cards, and product detail with
   backend-supplied sale evidence, wishlist controls, authoritative stock, and
   direct cart actions through feature public APIs.

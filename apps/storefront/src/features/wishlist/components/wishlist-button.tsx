@@ -3,8 +3,7 @@
 
 import { Heart } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
-import { safeReturnUrl } from "../../authentication/lib/safe-return-url";
+import { safeReturnUrl, useCustomerSession } from "../../authentication";
 import { useWishlist } from "../hooks/wishlist-context";
 
 export function WishlistButton({

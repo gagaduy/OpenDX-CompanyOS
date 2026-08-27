@@ -7,11 +7,14 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { CustomerSessionApi } from "../../authentication/api/customer-session-api";
 import { CustomerSessionProvider } from "../../authentication/hooks/customer-session-context";
+import { CartProvider, type CartApi } from "../../cart";
+import type { CustomerAccountApi } from "../../customer-account/api/customer-account-api";
 import type { ApiClient } from "../../../shared/http/api-client";
 import { WishlistApi } from "../api/wishlist-api";
 import { WishlistButton } from "../components/wishlist-button";
-import { WishlistProvider } from "../hooks/wishlist-context";
+import { WishlistProvider, type WishlistClient } from "../hooks/wishlist-context";
 import { useWishlist } from "../hooks/wishlist-context";
+import { WishlistPage } from "../pages/wishlist-page";
 
 const productId = "b2000000-0000-4000-8000-000000000001";
 const wishlistProduct = {
@@ -23,7 +26,17 @@ const wishlistProduct = {
   description: "Nova phone",
   attributes: {},
   primaryMedia: { id: "media-1", altText: "Nova Phone", contentUrl: "/phone.png" },
-  variants: [],
+  variants: [
+    {
+      id: "variant-1",
+      sku: "PHONE-1",
+      title: "Default",
+      optionValues: {},
+      price: { amountMinor: 9_990_000, currency: "VND" as const },
+      availableQuantity: 3,
+      purchasable: true,
+    },
+  ],
 };
 
 describe("WishlistApi", () => {
@@ -171,6 +184,64 @@ describe("WishlistButton", () => {
   });
 });
 
+describe("WishlistPage", () => {
+  it("renders server pagination and keeps cart and remove actions functional", async () => {
+    const list = vi.fn(async (page = 1) => ({
+      items: [wishlistProduct],
+      page,
+      pageSize: 12,
+      totalItems: 13,
+      totalPages: 2,
+    }));
+    const remove = vi.fn(async () => ({ productId, wished: false as const }));
+    const cartAdd = vi.fn(async () => ({ ...guestCart, itemCount: 1 }));
+    renderWishlistPage({ list, remove, cartAdd });
+
+    expect(screen.getByText("Đang tải danh sách yêu thích...")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Sản phẩm yêu thích" })).toBeVisible();
+    expect(await screen.findByText("13 sản phẩm")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Thêm Nova Phone vào giỏ hàng" }),
+    );
+    expect(cartAdd).toHaveBeenCalledWith("variant-1", 1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Trang sau" }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(2, 12));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Xóa Nova Phone khỏi yêu thích" }),
+    );
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(productId));
+  });
+
+  it("renders an empty state with a product-discovery action", async () => {
+    renderWishlistPage({
+      list: vi.fn(async () => ({
+        items: [], page: 1, pageSize: 12, totalItems: 0, totalPages: 0,
+      })),
+    });
+
+    expect(await screen.findByText("Chưa có sản phẩm yêu thích")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Khám phá sản phẩm" })).toHaveAttribute(
+      "href", "/products",
+    );
+  });
+
+  it("keeps a recoverable list error scoped to the wishlist region", async () => {
+    const list = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    renderWishlistPage({ list });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không thể tải danh sách yêu thích",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+});
+
 function LocationProbe() {
   const location = useLocation();
   return (
@@ -184,3 +255,60 @@ function WishlistCountProbe() {
   const wishlist = useWishlist();
   return <output aria-label="wishlist count">{wishlist.totalItems}</output>;
 }
+
+function renderWishlistPage({
+  list,
+  remove = vi.fn(async () => ({ productId, wished: false as const })),
+  cartAdd = vi.fn(async () => guestCart),
+}: {
+  readonly list: WishlistClient["list"];
+  readonly remove?: WishlistClient["remove"];
+  readonly cartAdd?: CartApi["add"];
+}) {
+  const sessions = {
+    get: vi.fn(async () => ({
+      kind: "customer" as const,
+      customerId: "customer-1",
+      email: "buyer@example.com",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    })),
+  } as unknown as CustomerSessionApi;
+  const wishlist = {
+    list,
+    add: vi.fn(async () => ({ productId, wished: true as const })),
+    remove,
+  };
+  const cart = {
+    get: vi.fn(async () => guestCart),
+    add: cartAdd,
+  } as unknown as CartApi;
+  const account = {
+    profile: vi.fn(async () => ({
+      id: "customer-1", email: "buyer@example.com", fullName: "Duy", version: 1,
+    })),
+    addresses: vi.fn(async () => []),
+  } as unknown as CustomerAccountApi;
+
+  return render(
+    <MemoryRouter initialEntries={["/account/wishlist"]}>
+      <CustomerSessionProvider api={sessions}>
+        <WishlistProvider api={wishlist}>
+          <CartProvider api={cart}>
+            <WishlistPage accountApi={account} apiBaseUrl="http://localhost:4000" />
+          </CartProvider>
+        </WishlistProvider>
+      </CustomerSessionProvider>
+    </MemoryRouter>,
+  );
+}
+
+const guestCart = {
+  id: "cart-1",
+  ownerKind: "guest" as const,
+  version: 1,
+  status: "active" as const,
+  items: [],
+  itemCount: 0,
+  totalVnd: 0,
+  requiresAction: false,
+};

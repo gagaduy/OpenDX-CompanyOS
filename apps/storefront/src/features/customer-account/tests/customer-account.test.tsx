@@ -57,6 +57,14 @@ describe("customer account", () => {
       "href",
       "/account/addresses",
     );
+    expect(screen.getByRole("link", { name: "Yêu thích" })).toHaveAttribute(
+      "href",
+      "/account/wishlist",
+    );
+    expect(screen.getByRole("link", { name: "Đơn hàng" })).toHaveAttribute(
+      "href",
+      "/orders",
+    );
     await userEvent.clear(screen.getByLabelText("Họ và tên"));
     await userEvent.type(screen.getByLabelText("Họ và tên"), "Duy Nguyen");
     await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));

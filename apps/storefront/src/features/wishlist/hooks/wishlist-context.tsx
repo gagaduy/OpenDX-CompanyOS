@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { StorefrontProduct } from "../../catalog";
-import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
+import { useCustomerSession } from "../../authentication";
 import type { WishlistMutation, WishlistPage } from "../types/wishlist.types";
 
 export interface WishlistClient {
@@ -67,7 +67,7 @@ export function WishlistProvider({
       if (session.kind !== "customer") return;
       setLoading(true);
       try {
-        const result = await api.list(page, 48);
+        const result = await api.list(page, 12);
         setProducts(result.items);
         setWishedProductIds(new Set(result.items.map(({ id }) => id)));
         setMeta({
@@ -107,7 +107,11 @@ export function WishlistProvider({
           ? await api.add(productId)
           : await api.remove(productId);
         if (confirmation.wished !== wished) throw new Error("Wishlist state mismatch");
-        await refresh(meta.page);
+        const targetPage =
+          !wished && products.length === 1 && meta.page > 1
+            ? meta.page - 1
+            : meta.page;
+        await refresh(targetPage);
         setWishedProductIds((current) => {
           const next = new Set(current);
           wished ? next.add(productId) : next.delete(productId);
@@ -127,7 +131,7 @@ export function WishlistProvider({
         });
       }
     },
-    [api, meta.page, pendingProductIds, refresh, session.kind],
+    [api, meta.page, pendingProductIds, products.length, refresh, session.kind],
   );
 
   const value = useMemo(
