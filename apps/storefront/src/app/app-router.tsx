@@ -11,9 +11,7 @@ import {
   type StorefrontCatalogApi,
 } from "../features/catalog";
 import { StorefrontShell } from "./storefront-shell";
-import type { CartApi } from "../features/cart/api/cart-api";
-import { CartProvider, useCart } from "../features/cart/hooks/cart-context";
-import { CartPage } from "../features/cart/pages/cart-page";
+import { CartPage, CartProvider, useCart, type CartApi } from "../features/cart";
 import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
 import {
   CustomerSessionProvider,

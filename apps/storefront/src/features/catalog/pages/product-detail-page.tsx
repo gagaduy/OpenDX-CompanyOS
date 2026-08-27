@@ -5,9 +5,11 @@ import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { formatVnd } from "../../../shared/format/currency";
-import { useCart } from "../../cart/hooks/cart-context";
+import { useCart } from "../../cart";
+import { WishlistButton } from "../../wishlist";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
 import { ProductGallery } from "../components/product-gallery";
+import { ServiceAssurancePanel } from "../components/service-assurance-panel";
 import { VariantSelector } from "../components/variant-selector";
 import { useProductDetail } from "../hooks/use-product-detail";
 
@@ -66,8 +68,19 @@ export function ProductDetailPage({
       <section className="product-detail-info">
         <span className="eyebrow">{product.categoryName}</span>
         <h1>{product.name}</h1>
+        {product.brand === undefined ? null : (
+          <p className="product-brand">{product.brand}</p>
+        )}
         <p className="product-description">{product.description}</p>
-        <p className="detail-price">{formatVnd(selected.price.amountMinor)}</p>
+        <div className="detail-price-row">
+          <p className="detail-price">{formatVnd(selected.price.amountMinor)}</p>
+          {selected.price.previousAmountMinor === undefined ? null : (
+            <del>{formatVnd(selected.price.previousAmountMinor)}</del>
+          )}
+          {selected.price.discountPercentage === undefined ? null : (
+            <span className="discount-badge">-{selected.price.discountPercentage}%</span>
+          )}
+        </div>
         <p className="sku">SKU {selected.sku}</p>
         <VariantSelector
           variants={product.variants}
@@ -105,14 +118,17 @@ export function ProductDetailPage({
             </button>
           </div>
         </div>
-        <button
-          className="button primary buy-button"
-          disabled={!selected.purchasable || cartLoading}
-          onClick={() => void submit()}
-        >
-          <ShoppingCart />
-          {cartLoading ? "Đang cập nhật..." : "Thêm vào giỏ"}
-        </button>
+        <div className="product-detail-actions">
+          <button
+            className="button primary buy-button"
+            disabled={!selected.purchasable || cartLoading}
+            onClick={() => void submit()}
+          >
+            <ShoppingCart aria-hidden="true" />
+            {cartLoading ? "Đang cập nhật..." : "Thêm vào giỏ"}
+          </button>
+          <WishlistButton productId={product.id} productName={product.name} />
+        </div>
         {added && (
           <p role="status" className="success-message">
             Đã thêm vào giỏ hàng.
@@ -124,6 +140,9 @@ export function ProductDetailPage({
           </p>
         )}
       </section>
+      <div className="product-detail-assurances">
+        <ServiceAssurancePanel />
+      </div>
     </main>
   );
 }

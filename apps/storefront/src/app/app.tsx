@@ -3,7 +3,7 @@
 
 import { RouterProvider } from "react-router-dom";
 import { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
-import { CartApi } from "../features/cart/api/cart-api";
+import { CartApi } from "../features/cart";
 import { StorefrontCatalogApi } from "../features/catalog";
 import { WishlistApi } from "../features/wishlist";
 import { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";

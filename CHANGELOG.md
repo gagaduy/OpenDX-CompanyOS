@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Redesign Catalog discovery, reusable product cards, and product detail with
+  backend-supplied sale evidence, wishlist controls, authoritative stock, and
+  direct cart actions through feature public APIs.
+
 - Replace the Storefront's legacy homepage route with a resilient API-driven
   commerce layout containing category navigation, rotating Catalog hero,
   service assurances, category promotions, product tabs, and metric panels.

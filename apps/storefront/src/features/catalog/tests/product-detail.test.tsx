@@ -5,10 +5,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import type { CartApi } from "../../cart/api/cart-api";
-import { CartProvider } from "../../cart/hooks/cart-context";
+import { CartProvider, type CartApi } from "../../cart";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
 import { ProductDetailPage } from "../pages/product-detail-page";
+
+vi.mock("../../wishlist", () => ({
+  WishlistButton: ({ productName }: { readonly productName: string }) => (
+    <button type="button" aria-label={`Thêm ${productName} vào yêu thích`} />
+  ),
+}));
 
 describe("product detail", () => {
   it("shows variant identity and creates a guest only on the first add", async () => {
@@ -51,6 +56,20 @@ describe("product detail", () => {
       await screen.findByRole("heading", { name: "Nova Mouse" }),
     ).toBeVisible();
     expect(screen.getByText("SKU MOUSE-BLACK")).toBeVisible();
+    expect(screen.getByText("NovaTech")).toBeVisible();
+    expect(screen.getByText("1.590.000 ₫")).toBeVisible();
+    expect(screen.getByText("-19%")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Thêm Nova Mouse vào yêu thích" }),
+    ).toBeVisible();
+    for (const assurance of [
+      "Miễn phí vận chuyển",
+      "Bảo hành chính hãng",
+      "Trả góp 0%",
+      "Hỗ trợ 24/7",
+    ]) {
+      expect(screen.getByText(assurance)).toBeVisible();
+    }
     await userEvent.click(screen.getByRole("button", { name: "Thêm vào giỏ" }));
     expect(createGuest).toHaveBeenCalledOnce();
     expect(add).toHaveBeenCalledWith("variant-1", 1);
@@ -70,6 +89,7 @@ const product = {
   id: "product-1",
   categoryId: "category-1",
   categoryName: "Accessories",
+  brand: "NovaTech",
   name: "Nova Mouse",
   slug: "nova-mouse",
   description: "Wireless mouse",
@@ -81,7 +101,12 @@ const product = {
       sku: "MOUSE-BLACK",
       title: "Black",
       optionValues: { color: "Black" },
-      price: { amountMinor: 1_290_000, currency: "VND" as const },
+      price: {
+        amountMinor: 1_290_000,
+        previousAmountMinor: 1_590_000,
+        discountPercentage: 19,
+        currency: "VND" as const,
+      },
       availableQuantity: 8,
       purchasable: true,
     },

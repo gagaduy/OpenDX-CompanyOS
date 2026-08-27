@@ -8,6 +8,16 @@ import { ThemeProvider } from "../../../app/theme-provider";
 import { IntroHomePage } from "../pages/intro-home-page";
 import type { StorefrontCategory, StorefrontProduct } from "../types/catalog.types";
 
+vi.mock("../../cart", () => ({
+  useCart: () => ({ add: vi.fn(async () => undefined), loading: false }),
+}));
+
+vi.mock("../../wishlist", () => ({
+  WishlistButton: ({ productName }: { readonly productName: string }) => (
+    <button type="button" aria-label={`Thêm ${productName} vào yêu thích`} />
+  ),
+}));
+
 describe("IntroHomePage", () => {
   it("renders the approved desktop commerce hierarchy from Catalog data", async () => {
     const category: StorefrontCategory = {

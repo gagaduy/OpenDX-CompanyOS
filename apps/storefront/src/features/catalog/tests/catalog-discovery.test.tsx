@@ -8,6 +8,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
 import { HomePage } from "../pages/home-page";
 
+vi.mock("../../cart", () => ({
+  useCart: () => ({ add: vi.fn(async () => undefined), loading: false }),
+}));
+
+vi.mock("../../wishlist", () => ({
+  WishlistButton: ({ productName }: { readonly productName: string }) => (
+    <button type="button" aria-label={`Thêm ${productName} vào yêu thích`} />
+  ),
+}));
+
 describe("catalog discovery", () => {
   it("restores URL filters and renders authoritative sold-out products", async () => {
     const products = vi.fn(async (parameters: URLSearchParams) => ({
@@ -84,7 +94,9 @@ describe("catalog discovery", () => {
     const sidebar = await screen.findByRole("complementary", {
       name: "Danh mục và bộ lọc sản phẩm",
     });
-    await waitFor(() => expect(heroSlides).toHaveBeenCalledOnce());
+    expect(await screen.findByRole("list", { name: "Danh sách sản phẩm" })).toBeVisible();
+    expect(document.querySelector(".catalog-toolbar")).not.toBeNull();
+    expect(heroSlides).not.toHaveBeenCalled();
     expect(
       within(sidebar).getByRole("button", { name: "Mở bộ lọc sản phẩm" }),
     ).toHaveAttribute("aria-expanded", "false");
@@ -104,7 +116,8 @@ describe("catalog discovery", () => {
     ).toHaveAttribute("aria-expanded", "true");
     expect(
       within(sidebar).getByTestId("discovery-sidebar-panel"),
-    ).toHaveAttribute("aria-hidden", "false");
+    ).toBeVisible();
+    expect(sidebar).toHaveAttribute("data-state", "open");
     expect(
       within(sidebar).getByRole("button", { name: "Đóng bộ lọc sản phẩm" }),
     ).toHaveAttribute("aria-expanded", "true");
