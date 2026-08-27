@@ -6,7 +6,7 @@ import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
+import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
 import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
@@ -136,6 +136,10 @@ const customer = createCustomerModule({
   cookies: storefrontCookies,
   authenticationRateLimit: environment.authenticationRateLimit,
   cartLoginResolver,
+  wishlistProducts: createPublicWishlistProductReader(
+    transactions,
+    inventory.availability,
+  ),
 });
 const cart = createCartModule({
   transactions,

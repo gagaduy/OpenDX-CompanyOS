@@ -158,6 +158,7 @@ describeWithDatabase("Phase 6 checkout-to-paid exit acceptance", () => {
     storefrontOrigin: "http://localhost:3100",
     cookies,
     authenticationRateLimit: 20,
+    wishlistProducts: { async getPublishedByIds() { return []; } },
   });
   const cart = createCartModule({
     transactions,

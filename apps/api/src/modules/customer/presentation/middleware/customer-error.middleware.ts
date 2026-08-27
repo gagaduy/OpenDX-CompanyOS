@@ -13,6 +13,7 @@ const status: Record<string, number> = {
   STALE_VERSION: 409,
   INVALID_ADDRESS: 400,
   INVALID_CUSTOMER_PROFILE: 400,
+  WISHLIST_PRODUCT_NOT_FOUND: 404,
 };
 export const customerErrorMiddleware: ErrorRequestHandler = (
   error,

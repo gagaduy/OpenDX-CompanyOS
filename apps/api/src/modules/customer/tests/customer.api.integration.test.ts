@@ -24,6 +24,22 @@ const cookies = {
   csrfName: "opendx_csrf",
   secure: false,
 } as const;
+const wishlistProductId = "b2000000-0000-4000-8000-000000000001";
+const wishlistProduct = {
+  id: wishlistProductId,
+  categoryId: "b1000000-0000-4000-8000-000000000001",
+  categoryName: "Phones",
+  name: "Nova Phone",
+  slug: "nova-phone",
+  description: "Nova phone",
+  attributes: {},
+  primaryMedia: {
+    id: "b3000000-0000-4000-8000-000000000001",
+    altText: "Nova Phone",
+    contentUrl: "/v1/storefront/products/b2000000-0000-4000-8000-000000000001/media/b3000000-0000-4000-8000-000000000001/content",
+  },
+  variants: [],
+} as const;
 
 suite("customer API integration", () => {
   const pool = new Pool({ connectionString: databaseUrl });
@@ -33,6 +49,26 @@ suite("customer API integration", () => {
   beforeAll(async () => {
     await runCatalogMigrations(databaseUrl!, "up");
     await runCustomerMigrations(databaseUrl!, "up");
+    await pool.query(
+      `INSERT INTO categories
+        (id,name,slug,sort_order,status,created_at,updated_at,version)
+       VALUES ($1,'Phones','phones',0,'active',NOW(),NOW(),1)
+       ON CONFLICT (id) DO NOTHING`,
+      [wishlistProduct.categoryId],
+    );
+    await pool.query(
+      `INSERT INTO products
+        (id,category_id,name,slug,description,attributes,status,created_at,updated_at,version)
+       VALUES ($1,$2,$3,$4,$5,'{}','published',NOW(),NOW(),1)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        wishlistProduct.id,
+        wishlistProduct.categoryId,
+        wishlistProduct.name,
+        wishlistProduct.slug,
+        wishlistProduct.description,
+      ],
+    );
     const verifier: GoogleIdentityVerifier = {
       async verify(credential) {
         const second = credential === "second-google-credential";
@@ -56,6 +92,11 @@ suite("customer API integration", () => {
       storefrontOrigin: origin,
       cookies,
       authenticationRateLimit: 100,
+      wishlistProducts: {
+        async getPublishedByIds(productIds) {
+          return productIds.includes(wishlistProductId) ? [wishlistProduct] : [];
+        },
+      },
     });
     operations = module.operations;
     app = createApiApp({
@@ -234,6 +275,7 @@ suite("customer API integration", () => {
       storefrontOrigin: origin,
       cookies,
       authenticationRateLimit: 20,
+      wishlistProducts: { async getPublishedByIds() { return []; } },
       cartLoginResolver: {
         async inspect() {
           throw new Error("Cart dependency unavailable");
@@ -339,6 +381,57 @@ suite("customer API integration", () => {
       { id: "b2400000-0000-4000-8000-000000000001" },
       { id: "b2400000-0000-4000-8000-000000000002" },
     ]);
+  });
+
+  it("protects and isolates idempotent customer wishlist endpoints", async () => {
+    await request(app).get("/v1/storefront/account/wishlist").expect(401);
+
+    const first = request.agent(app);
+    const firstLogin = await loginAs(first, "signed-google-credential");
+    const firstCsrf = cookieValue(firstLogin.headers["set-cookie"], "opendx_csrf");
+    await first
+      .put(`/v1/storefront/account/wishlist/items/${wishlistProductId}`)
+      .set("Origin", origin)
+      .expect(403);
+    const added = await first
+      .put(`/v1/storefront/account/wishlist/items/${wishlistProductId}`)
+      .set("Origin", origin)
+      .set("x-csrf-token", firstCsrf)
+      .expect(200);
+    expect(added.body.data).toEqual({ productId: wishlistProductId, wished: true });
+    await first
+      .put(`/v1/storefront/account/wishlist/items/${wishlistProductId}`)
+      .set("Origin", origin)
+      .set("x-csrf-token", firstCsrf)
+      .expect(200);
+
+    const listed = await first.get("/v1/storefront/account/wishlist").expect(200);
+    expect(listed.body).toMatchObject({
+      data: [{ id: wishlistProductId }],
+      meta: { page: 1, pageSize: 24, totalItems: 1, totalPages: 1 },
+    });
+
+    const second = request.agent(app);
+    await loginAs(second, "second-google-credential");
+    const isolated = await second.get("/v1/storefront/account/wishlist").expect(200);
+    expect(isolated.body.meta.totalItems).toBe(0);
+
+    const removed = await first
+      .delete(`/v1/storefront/account/wishlist/items/${wishlistProductId}`)
+      .set("Origin", origin)
+      .set("x-csrf-token", firstCsrf)
+      .expect(200);
+    expect(removed.body.data).toEqual({ productId: wishlistProductId, wished: false });
+    await first
+      .delete(`/v1/storefront/account/wishlist/items/${wishlistProductId}`)
+      .set("Origin", origin)
+      .set("x-csrf-token", firstCsrf)
+      .expect(200);
+    await first
+      .put("/v1/storefront/account/wishlist/items/b2000000-0000-4000-8000-000000000099")
+      .set("Origin", origin)
+      .set("x-csrf-token", firstCsrf)
+      .expect(404);
   });
 });
 
