@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   assurances and trust metrics become typed Catalog data without turning
   interface vocabulary into database rows.
 
+### Added
+
+- Add typed Catalog tables and constraints for Storefront service assurances
+  and trust metrics.
+
 ### Fixed
 
 - Scope failed wishlist mutations to the affected product and present one

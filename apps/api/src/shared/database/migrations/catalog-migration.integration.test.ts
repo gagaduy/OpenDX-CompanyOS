@@ -17,6 +17,8 @@ describeWithDatabase("catalog migration", () => {
     "product_prices",
     "product_media",
     "audit_events",
+    "storefront_service_assurances",
+    "storefront_trust_metrics",
   ] as const;
 
   afterAll(async () => {
@@ -43,6 +45,16 @@ describeWithDatabase("catalog migration", () => {
       "product_prices_health_variant_window_idx",
       "product_media_health_product_primary_idx",
     ]));
+    await expect(
+      pool.query(`INSERT INTO storefront_service_assurances
+        (code, icon_key, title, description, sort_order, enabled, created_at, updated_at)
+       VALUES ('bad-icon', 'unknown', 'Title', 'Copy', 0, true, NOW(), NOW())`),
+    ).rejects.toThrow();
+    await expect(
+      pool.query(`INSERT INTO storefront_trust_metrics
+        (code, display_value, label, sort_order, enabled, created_at, updated_at)
+       VALUES ('bad-order', '1', 'Label', -1, true, NOW(), NOW())`),
+    ).rejects.toThrow();
     await pool.query(
       "TRUNCATE product_media,product_prices,product_variants,products,categories CASCADE",
     );
@@ -73,6 +85,28 @@ describeWithDatabase("catalog migration", () => {
       .toContain("products_health_status_updated_idx");
 
     await runCatalogMigrations(databaseUrl!, "down", 1);
+    const contentTables = await pool.query<{ assurance: string | null; metric: string | null }>(
+      `SELECT to_regclass('public.storefront_service_assurances')::text AS assurance,
+              to_regclass('public.storefront_trust_metrics')::text AS metric`,
+    );
+    expect(contentTables.rows[0]).toEqual({ assurance: null, metric: null });
+    await expect(indexNames(pool)).resolves.toContain("products_health_status_updated_idx");
+    const preserved = await pool.query<{ status: string }>(
+      "SELECT status FROM products WHERE id = '82000000-0000-4000-8000-000000000001'",
+    );
+    expect(preserved.rows[0]).toEqual({ status: "published" });
+
+    await runCatalogMigrations(databaseUrl!, "up");
+    const reapplied = await pool.query<{ assurance: string | null; metric: string | null }>(
+      `SELECT to_regclass('public.storefront_service_assurances')::text AS assurance,
+              to_regclass('public.storefront_trust_metrics')::text AS metric`,
+    );
+    expect(reapplied.rows[0]).toEqual({
+      assurance: "storefront_service_assurances",
+      metric: "storefront_trust_metrics",
+    });
+
+    await runCatalogMigrations(databaseUrl!, "down", 2);
     await expect(indexNames(pool)).resolves.not.toContain("products_health_status_updated_idx");
     const product = await pool.query<{ status: string }>(
       "SELECT status FROM products WHERE id = '82000000-0000-4000-8000-000000000001'",
@@ -82,7 +116,7 @@ describeWithDatabase("catalog migration", () => {
     await runCatalogMigrations(databaseUrl!, "up");
     await expect(indexNames(pool)).resolves.toContain("products_health_status_updated_idx");
 
-    await runCatalogMigrations(databaseUrl!, "down", 2);
+    await runCatalogMigrations(databaseUrl!, "down", 3);
     const draft = await pool.query<{ status: string }>(
       "SELECT status FROM products WHERE id = '82000000-0000-4000-8000-000000000001'",
     );
