@@ -26,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Make API readiness require both the exact Customer Wishlist migration ledger
+  entry and its PostgreSQL table so a partially migrated runtime fails closed.
+
 - Scope failed wishlist mutations to the affected product and present one
   non-overlapping alert instead of repeating the same text across every card.
 

@@ -486,6 +486,10 @@ The API readiness probe verifies every PostgreSQL migration family through
 Reporting and Agentic, plus Keycloak, ClamAV, the product-media MinIO bucket,
 and the private `support-attachments` bucket. It uses the repository's current
 minimum migration counts so an older partially migrated stack stays unready.
+Customer readiness additionally requires the exact
+`202608270030_add_customer_wishlist` ledger entry and the
+`customer_wishlist_items` table, so application/schema drift cannot report
+healthy after a partial deploy.
 It does not contact SePay. Runtime persistence remains PostgreSQL-only; there
 is no memory database switch.
 
