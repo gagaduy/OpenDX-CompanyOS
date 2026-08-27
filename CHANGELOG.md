@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Planned
+
+- Define the approved database- and MinIO-backed Storefront hero video design,
+  including chapter-synchronized products, accessible playback, byte-range
+  delivery, and image fallbacks for mobile and reduced-motion clients.
+
 ### Added
 
 - Add typed Catalog tables, constraints, idempotent approved seed data, and an
