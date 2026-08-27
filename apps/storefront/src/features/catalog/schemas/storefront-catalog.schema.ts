@@ -3,6 +3,35 @@
 
 import { z } from "zod";
 
+const nonEmptyTextSchema = z.string().trim().min(1);
+
+export const storefrontAssuranceIconKeySchema = z.enum([
+  "truck",
+  "shield-check",
+  "badge-percent",
+  "headphones",
+]);
+
+export const storefrontContentSchema = z.object({
+  assurances: z.array(z.object({
+    code: nonEmptyTextSchema,
+    iconKey: storefrontAssuranceIconKeySchema,
+    title: nonEmptyTextSchema,
+    description: nonEmptyTextSchema,
+  })),
+  metrics: z.array(z.object({
+    code: nonEmptyTextSchema,
+    displayValue: nonEmptyTextSchema,
+    label: nonEmptyTextSchema,
+  })),
+});
+
+export const storefrontContentEnvelopeSchema = z.object({
+  success: z.literal(true),
+  message: z.string(),
+  data: storefrontContentSchema,
+});
+
 export const categorySchema = z.object({
   id: z.string(),
   name: z.string(),

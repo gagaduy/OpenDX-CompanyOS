@@ -8,6 +8,7 @@ import {
   IntroHomePage,
   ProductDetailPage,
   SearchPage,
+  StorefrontContentProvider,
   type StorefrontCatalogApi,
   useNavigationCategories,
 } from "../features/catalog";
@@ -55,12 +56,14 @@ export function createAppRouter(dependencies: {
     {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
-          <WishlistProvider api={dependencies.wishlistApi}>
-            <StorefrontSessionBoundary
-              cartApi={dependencies.cartApi}
-              catalogApi={dependencies.catalogApi}
-            />
-          </WishlistProvider>
+          <StorefrontContentProvider api={dependencies.catalogApi}>
+            <WishlistProvider api={dependencies.wishlistApi}>
+              <StorefrontSessionBoundary
+                cartApi={dependencies.cartApi}
+                catalogApi={dependencies.catalogApi}
+              />
+            </WishlistProvider>
+          </StorefrontContentProvider>
         </CustomerSessionProvider>
       ),
       children: [

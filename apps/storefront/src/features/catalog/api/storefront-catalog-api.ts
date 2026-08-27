@@ -7,11 +7,20 @@ import {
   heroSlidesEnvelopeSchema,
   productEnvelopeSchema,
   productsEnvelopeSchema,
+  storefrontContentEnvelopeSchema,
 } from "../schemas/storefront-catalog.schema";
 import { mapProductPage } from "../mappers/catalog.mapper";
 
 export class StorefrontCatalogApi {
   constructor(private readonly client: ApiClient) {}
+  async content() {
+    return (
+      await this.client.request(
+        "/v1/storefront/content",
+        storefrontContentEnvelopeSchema,
+      )
+    ).data;
+  }
   async categories() {
     return (
       await this.client.request(
