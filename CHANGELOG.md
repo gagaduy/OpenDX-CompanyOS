@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
+- Define one governed Marketing & Creative department with three distinct
+  Digital Employees, direct or AI CEO assignment, human-approved Facebook Page
+  publication, platform-neutral adapters, private report artifacts, and
+  deterministic recovery and acceptance boundaries.
+
 - Define the approved database- and MinIO-backed Storefront hero video design,
   including chapter-synchronized products, accessible playback, byte-range
   delivery, and image fallbacks for mobile and reduced-motion clients.
