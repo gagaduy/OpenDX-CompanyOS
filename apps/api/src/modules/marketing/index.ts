@@ -1,0 +1,9 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+export * from "./domain/entities/marketing-campaign";
+export * from "./domain/services/marketing-campaign-rules";
+export * from "./application/dtos/marketing.dto";
+export * from "./application/repositories/interfaces/marketing.repository";
+export * from "./application/services/interfaces/marketing-campaign.service";
+export * from "./marketing.module";

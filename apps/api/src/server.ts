@@ -34,6 +34,7 @@ import { createCrmHealthReader, createCrmModule } from "./modules/crm";
 import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
 import { createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
+import { createMarketingModule } from "./modules/marketing";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
 import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
@@ -255,6 +256,12 @@ const agentic = createAgenticModule({
   ...(metrics === undefined ? {} : { metrics }),
   monotonicNow: performance.now.bind(performance),
 });
+const marketing = createMarketingModule({
+  database: pool,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: () => new Date().toISOString(),
+});
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
   promotions: promotion.checkout, checkouts: checkout.paid, carts: cart.paid,
@@ -285,6 +292,7 @@ const app = createApiApp({
   agenticAdminRouter: agentic.adminRouter,
   agenticInternalRouter: agentic.internalRouter,
   agenticToolRouter: agentic.toolRouter,
+  marketingAdminRouter: marketing.adminRouter,
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,
