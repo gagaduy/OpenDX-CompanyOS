@@ -73,6 +73,7 @@ export function IntroHomePage({
             presentation={catalog.hero.data}
             fallbackProduct={fallbackProduct}
             apiBaseUrl={apiBaseUrl}
+            videoEnabled={false}
           />
         </div>
 

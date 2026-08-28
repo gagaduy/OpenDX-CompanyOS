@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -104,7 +104,10 @@ describe("customer authentication", () => {
       ],
       page: 1, pageSize: 1, totalItems: 1, totalPages: 1,
     }));
-    const catalog = { products } as unknown as StorefrontCatalogApi;
+    const catalog = {
+      products,
+      heroPresentation: vi.fn(async () => ({ slides: [] })),
+    } as unknown as StorefrontCatalogApi;
 
     render(
       <MemoryRouter>
@@ -119,6 +122,82 @@ describe("customer authentication", () => {
     );
     expect(products).toHaveBeenCalledWith(
       new URLSearchParams("sort=best_selling&page=1&pageSize=1"),
+    );
+  });
+
+  it("plays the active Catalog presentation behind the sign-in panel", async () => {
+    const sessions = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+    const catalog = {
+      products: vi.fn(async () => ({ items: [] })),
+      heroPresentation: vi.fn(async () => ({
+        media: {
+          id: "presentation-1",
+          contentUrl: "/v1/storefront/hero-media/presentation-1/content",
+          contentType: "video/mp4" as const,
+          byteSize: 25_481_434,
+          durationMs: 24_750,
+        },
+        slides: [],
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={sessions}>
+          <SignInPage catalogApi={catalog} apiBaseUrl="http://localhost:4000" />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    const video = await screen.findByTestId("sign-in-video");
+    expect(video).toHaveAttribute(
+      "src",
+      "http://localhost:4000/v1/storefront/hero-media/presentation-1/content",
+    );
+    expect(video).toHaveAttribute("autoplay");
+    expect(video).toHaveAttribute("loop");
+    expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveProperty("muted", true);
+    expect(video).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps the product image when the sign-in video cannot play", async () => {
+    const sessions = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+    const catalog = {
+      products: vi.fn(async () => ({
+        items: [{
+          primaryMedia: {
+            altText: "Nova Phone",
+            contentUrl: "/media/phone",
+          },
+        }],
+      })),
+      heroPresentation: vi.fn(async () => ({
+        media: {
+          contentUrl: "/media/sign-in.mp4",
+          contentType: "video/mp4" as const,
+        },
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={sessions}>
+          <SignInPage catalogApi={catalog} apiBaseUrl="http://localhost:4000" />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.error(await screen.findByTestId("sign-in-video"));
+
+    expect(screen.queryByTestId("sign-in-video")).not.toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "Nova Phone" })).toHaveAttribute(
+      "src",
+      "http://localhost:4000/media/phone",
     );
   });
 });

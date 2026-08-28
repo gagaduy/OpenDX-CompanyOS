@@ -31,6 +31,7 @@ export interface StorefrontHeroProps {
   readonly presentation: StorefrontHeroPresentation;
   readonly fallbackProduct?: StorefrontProduct;
   readonly apiBaseUrl: string;
+  readonly videoEnabled?: boolean;
 }
 
 const playbackRequestToken = Symbol("storefrontHeroPlaybackRequest");
@@ -43,6 +44,7 @@ export function StorefrontHero({
   presentation,
   fallbackProduct,
   apiBaseUrl,
+  videoEnabled = true,
 }: StorefrontHeroProps) {
   const { slides } = presentation;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -78,7 +80,7 @@ export function StorefrontHero({
     activeSlide?.product ?? (fallbackUsable ? fallbackProduct : undefined);
   const videoMedia = presentation.media;
   const videoMode =
-    videoEligible && videoMedia !== undefined && !videoFailed;
+    videoEnabled && videoEligible && videoMedia !== undefined && !videoFailed;
   const interactionPaused = hovered || focusWithin || !documentVisible;
 
   const attemptPlayback = useCallback(

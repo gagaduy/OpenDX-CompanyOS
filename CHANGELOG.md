@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Play the database-managed Catalog presentation as the full-bleed sign-in
+  backdrop with muted inline looping, a product-image poster, media-error
+  fallback, and explicit homepage video suppression.
+
 - Require Storefront browser acceptance to decode a deterministic VP9 MP4
   video track with production-aligned chapter timing on tablet and desktop.
 

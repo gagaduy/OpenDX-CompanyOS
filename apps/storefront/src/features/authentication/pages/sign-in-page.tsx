@@ -30,6 +30,7 @@ export function SignInPage({
     src: "/sign-in-product.png",
     alt: "Máy tính NovaCommerce trong không gian làm việc",
   });
+  const [videoSource, setVideoSource] = useState<string>();
   const returnTo = safeReturnUrl(parameters.get("returnTo"));
   const credential = useCallback(
     async (value: string) => {
@@ -66,6 +67,23 @@ export function SignInPage({
       active = false;
     };
   }, [apiBaseUrl, catalogApi]);
+  useEffect(() => {
+    if (catalogApi === undefined || apiBaseUrl === undefined) return;
+    let active = true;
+    void catalogApi
+      .heroPresentation()
+      .then((presentation) => {
+        if (active && presentation.media !== undefined) {
+          setVideoSource(
+            new URL(presentation.media.contentUrl, apiBaseUrl).toString(),
+          );
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, catalogApi]);
   if (session.kind === "customer") return <Navigate replace to={returnTo} />;
   return (
     <main id="main-content" className="auth-page">
@@ -74,6 +92,20 @@ export function SignInPage({
         src={backdrop.src}
         alt={backdrop.alt}
       />
+      {videoSource !== undefined ? (
+        <video
+          className="auth-backdrop auth-video"
+          data-testid="sign-in-video"
+          src={videoSource}
+          poster={backdrop.src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+          onError={() => setVideoSource(undefined)}
+        />
+      ) : null}
       <span className="auth-scrim" />
       <section className="auth-panel">
         <span className="auth-brand">NovaCommerce</span>
@@ -101,6 +133,12 @@ export function SignInPage({
 }
 
 export interface SignInCatalogReader {
+  heroPresentation(): Promise<{
+    readonly media?: {
+      readonly contentUrl: string;
+      readonly contentType: "video/mp4";
+    };
+  }>;
   products(parameters: URLSearchParams): Promise<{
     readonly items: readonly {
       readonly primaryMedia: {

@@ -19,6 +19,10 @@ vi.mock("../../wishlist", () => ({
   ),
 }));
 
+vi.mock("../hooks/use-hero-video-eligibility", () => ({
+  useHeroVideoEligibility: () => true,
+}));
+
 describe("IntroHomePage", () => {
   it("renders the approved desktop commerce hierarchy from Catalog data", async () => {
     const category: StorefrontCategory = {
@@ -117,6 +121,43 @@ describe("IntroHomePage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Không thể tải khu vực nổi bật.",
     );
+  });
+
+  it("keeps presentation video off the homepage", async () => {
+    const featured = product();
+    const category: StorefrontCategory = {
+      id: "phones-category", name: "Điện thoại", slug: "phones", sortOrder: 0,
+    };
+    const api = {
+      content: vi.fn(async () => storefrontContent),
+      categories: vi.fn(async () => [category]),
+      heroPresentation: vi.fn(async () => ({
+        media: {
+          id: "presentation-1",
+          contentUrl: "/media/presentation.mp4",
+          contentType: "video/mp4" as const,
+          byteSize: 25_481_434,
+          durationMs: 24_750,
+        },
+        slides: [{ category, product: featured }],
+      })),
+      products: vi.fn(async () => ({
+        items: [featured], page: 1, pageSize: 1, totalItems: 1, totalPages: 1,
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <StorefrontContentProvider api={api}>
+            <IntroHomePage api={api} apiBaseUrl="http://localhost:4000" />
+          </StorefrontContentProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Nova Phone", level: 1 })).toBeVisible();
+    expect(screen.queryByTestId("hero-video")).not.toBeInTheDocument();
   });
 });
 

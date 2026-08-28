@@ -1550,6 +1550,7 @@ img {
 }
 
 .auth-backdrop,
+.auth-video,
 .auth-scrim {
   position: absolute;
   inset: 0;
@@ -1562,6 +1563,11 @@ img {
   object-position: center 52%;
   filter: saturate(0.82) contrast(1.02);
   transform: scale(1.015);
+}
+
+.auth-video {
+  object-fit: cover;
+  object-position: center;
 }
 
 .auth-scrim {
