@@ -139,8 +139,35 @@ export function MarketingCampaignListPage({
       </div>
 
       {error && (
-        <div style={{ padding: "1rem 1.25rem", borderRadius: "0.75rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
-          ⚠️ {error}
+        <div style={{ padding: "1.25rem 1.5rem", borderRadius: "0.85rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "0.875rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.3rem" }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, color: "#fee2e2" }}>
+                {error.includes("Authentication") || error.includes("xác thực") || error.includes("401") || error.includes("hết hạn")
+                  ? "Phiên đăng nhập quản trị viên đã hết hạn"
+                  : "Có lỗi xảy ra khi tải dữ liệu chiến dịch"}
+              </div>
+              <div style={{ fontSize: "0.8rem", color: "#fca5a5", marginTop: "0.2rem" }}>
+                {error.includes("Authentication") || error.includes("xác thực") || error.includes("401")
+                  ? "Mã xác thực Keycloak của bạn đã hết hạn sau một khoảng thời gian. Vui lòng đăng nhập lại để làm mới phiên."
+                  : error}
+              </div>
+            </div>
+          </div>
+          {(error.includes("Authentication") || error.includes("xác thực") || error.includes("401") || error.includes("hết hạn")) && (
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.href = "/sign-in";
+              }}
+              className="marketingBtnPrimary"
+              style={{ padding: "0.5rem 1.1rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+            >
+              🔐 Đăng nhập lại ngay
+            </button>
+          )}
         </div>
       )}
 

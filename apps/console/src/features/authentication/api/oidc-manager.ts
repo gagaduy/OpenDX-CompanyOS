@@ -44,14 +44,23 @@ export function createOidcAuthClient(environment: ConsoleEnvironment): AuthClien
     post_logout_redirect_uri: environment.oidcPostLogoutRedirectUri,
     response_type: "code",
     scope: "openid",
-    automaticSilentRenew: false,
+    automaticSilentRenew: true,
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
   });
 
   return {
     async getSession() {
       const user = await manager.getUser();
-      return user === null || user.expired ? null : mapUser(user);
+      if (user === null) return null;
+      if (user.expired) {
+        try {
+          const renewed = await manager.signinSilent();
+          return renewed ? mapUser(renewed) : null;
+        } catch {
+          return null;
+        }
+      }
+      return mapUser(user);
     },
     async signIn() {
       await manager.signinRedirect();
