@@ -46,4 +46,16 @@ export class MarketingApplicationError extends ApplicationError {
   static invalidStateTransition(message: string): MarketingApplicationError {
     return new MarketingApplicationError(409, "INVALID_STATE_TRANSITION", message);
   }
+
+  static packageNotFound(id: string): MarketingApplicationError {
+    return new MarketingApplicationError(404, "PACKAGE_NOT_FOUND", `Publication package ${id} not found.`);
+  }
+
+  static packageNotApproved(id: string): MarketingApplicationError {
+    return new MarketingApplicationError(400, "PACKAGE_NOT_APPROVED", `Publication package ${id} is not in approved state.`);
+  }
+
+  static publicationFailed(message: string): MarketingApplicationError {
+    return new MarketingApplicationError(502, "PUBLICATION_FAILED", message);
+  }
 }

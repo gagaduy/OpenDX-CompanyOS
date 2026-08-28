@@ -83,6 +83,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
       "awaiting_human_approval",
       new Set<MarketingCampaignState>([
         "scheduled",
+        "publishing",
         "revision_requested",
         "failed",
         "canceled",

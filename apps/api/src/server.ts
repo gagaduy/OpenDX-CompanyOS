@@ -331,6 +331,7 @@ const server = app.listen(environment.apiPort, () => {
   support.attachmentRetentionWorker.start();
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
+  marketing.publisherWorker.start();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
@@ -353,6 +354,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.escalationWorker.stop();
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
+  marketing.publisherWorker.stop();
   await agentic.dispatcher.stop();
   agentic.fileLifecycleWorker?.stop();
   const closeError = await new Promise<Error | undefined>((resolve) => {

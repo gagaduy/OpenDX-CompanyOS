@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement fail-closed exactly-once Marketing Facebook publication engine and asynchronous background worker.
+
 - Implement Meta Graph API Facebook Publisher port, fail-closed adapter with token sanitization, and structured error mapping.
 
 - Add deterministic Marketing Department Tool adapters for campaign brief retrieval, Catalog product summary extraction, content drafting with prohibited claim checks, PNG visual asset validation, publication package assembly, and publication status reporting.
