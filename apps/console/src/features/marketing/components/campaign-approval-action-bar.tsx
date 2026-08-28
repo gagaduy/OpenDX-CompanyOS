@@ -34,6 +34,7 @@ export function CampaignApprovalActionBar({
   const isAwaitingApproval =
     campaign.state === "campaign_review" ||
     campaign.state === "awaiting_human_approval" ||
+    campaign.state === "revision_requested" ||
     campaign.state === "scheduled";
 
   const modalContent = revisionModalOpen && typeof document !== "undefined" ? (
