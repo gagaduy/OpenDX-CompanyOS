@@ -101,7 +101,7 @@ services:
       POSTGRES_USER: opendx_admin
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-55432}:5432"
     volumes:
       - opendx_postgres:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
