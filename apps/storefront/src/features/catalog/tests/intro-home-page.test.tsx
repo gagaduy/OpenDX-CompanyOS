@@ -28,7 +28,9 @@ describe("IntroHomePage", () => {
     const api = {
       content: vi.fn(async () => storefrontContent),
       categories: vi.fn(async () => [category]),
-      heroSlides: vi.fn(async () => [{ category, product: featured }]),
+      heroPresentation: vi.fn(async () => ({
+        slides: [{ category, product: featured }],
+      })),
       products: vi.fn(async () => ({
         items: [featured], page: 1, pageSize: 1, totalItems: 1, totalPages: 1,
       })),
@@ -59,6 +61,62 @@ describe("IntroHomePage", () => {
     expect(screen.getByRole("tab", { name: "Mới nhất" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sản phẩm nổi bật" })).toBeVisible();
     expect(container.querySelector("canvas")).toBeNull();
+    expect(api.heroPresentation).toHaveBeenCalledOnce();
+  });
+
+  it("passes the featured rail product as the empty-presentation fallback", async () => {
+    const featured = product();
+    const api = {
+      content: vi.fn(async () => storefrontContent),
+      categories: vi.fn(async () => []),
+      heroPresentation: vi.fn(async () => ({ slides: [] })),
+      products: vi.fn(async () => ({
+        items: [featured], page: 1, pageSize: 1, totalItems: 1, totalPages: 1,
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <StorefrontContentProvider api={api}>
+            <IntroHomePage api={api} apiBaseUrl="http://localhost:4000" />
+          </StorefrontContentProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Nova Phone", level: 1 })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Khám phá ngay" })).toHaveAttribute(
+      "href",
+      "/products/nova-phone",
+    );
+  });
+
+  it("keeps the hero error region isolated when presentation loading fails", async () => {
+    const api = {
+      content: vi.fn(async () => storefrontContent),
+      categories: vi.fn(async () => []),
+      heroPresentation: vi.fn(async () => {
+        throw new Error("hero offline");
+      }),
+      products: vi.fn(async () => ({
+        items: [], page: 1, pageSize: 0, totalItems: 0, totalPages: 0,
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <StorefrontContentProvider api={api}>
+            <IntroHomePage api={api} apiBaseUrl="http://localhost:4000" />
+          </StorefrontContentProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không thể tải khu vực nổi bật.",
+    );
   });
 });
 

@@ -155,7 +155,7 @@ describe("StorefrontHero category carousel", () => {
     rerender(
       <MemoryRouter>
         <StorefrontHero
-          slides={[]}
+          presentation={{ slides: [] }}
           apiBaseUrl="http://localhost:4000"
         />
       </MemoryRouter>,
@@ -172,7 +172,11 @@ function renderHero(props: {
 }) {
   return render(
     <MemoryRouter>
-      <StorefrontHero {...props} apiBaseUrl="http://localhost:4000" />
+      <StorefrontHero
+        presentation={{ slides: [...props.slides] }}
+        fallbackProduct={props.fallbackProduct}
+        apiBaseUrl="http://localhost:4000"
+      />
     </MemoryRouter>,
   );
 }

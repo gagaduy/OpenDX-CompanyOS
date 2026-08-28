@@ -70,7 +70,7 @@ export function IntroHomePage({
             </div>
           ) : null}
           <StorefrontHero
-            slides={catalog.hero.data}
+            presentation={catalog.hero.data}
             fallbackProduct={fallbackProduct}
             apiBaseUrl={apiBaseUrl}
           />

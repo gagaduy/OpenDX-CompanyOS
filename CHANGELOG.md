@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add validated Storefront hero presentation transport and independently
+  recoverable homepage state for synchronized media chapters and image
+  fallbacks.
+
 - Add anonymous synchronized Storefront hero presentation metadata and
   active-only MP4 delivery with single HTTP byte-range streaming, strict
   completeness fallback to legacy image slides, no-store replacement-safe

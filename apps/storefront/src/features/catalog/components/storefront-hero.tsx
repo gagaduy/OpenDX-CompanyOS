@@ -13,21 +13,22 @@ import { formatVnd } from "../../../shared/format/currency";
 import { useDocumentVisibility } from "../hooks/use-document-visibility";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import type {
-  StorefrontHeroSlide,
+  StorefrontHeroPresentation,
   StorefrontProduct,
 } from "../types/catalog.types";
 
 export interface StorefrontHeroProps {
-  readonly slides: readonly StorefrontHeroSlide[];
+  readonly presentation: StorefrontHeroPresentation;
   readonly fallbackProduct?: StorefrontProduct;
   readonly apiBaseUrl: string;
 }
 
 export function StorefrontHero({
-  slides,
+  presentation,
   fallbackProduct,
   apiBaseUrl,
 }: StorefrontHeroProps) {
+  const { slides } = presentation;
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualEpoch, setManualEpoch] = useState(0);
   const [failedProductIds, setFailedProductIds] = useState<ReadonlySet<string>>(
