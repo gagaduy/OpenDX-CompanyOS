@@ -14,6 +14,7 @@ import type { StaffTokenVerifier } from "../../../shared/auth/staff-auth.middlew
 import { createCatalogModule } from "../catalog.module";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "../infrastructure/storage/minio-product-media.storage";
 import { bootstrapProductMediaBucket } from "../infrastructure/storage/bootstrap-product-media-bucket";
+import { MinioStorefrontHeroMediaStorage } from "../infrastructure/storage/minio-storefront-hero-media.storage";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const endpoint = process.env.MINIO_ENDPOINT;
@@ -68,6 +69,7 @@ describeWithInfrastructure("Catalog API composition", () => {
     const catalog = createCatalogModule({
         transactions,
         mediaStorage: new MinioProductMediaStorage(minio, bucket!),
+        heroMediaStorage: new MinioStorefrontHeroMediaStorage(minio, bucket!),
         mediaInspector: new FileTypeProductMediaInspector(),
         staffTokenVerifier: verifier,
         generateId: randomUUID,
@@ -159,5 +161,108 @@ describeWithInfrastructure("Catalog API composition", () => {
     for (const forbidden of ["companyId", "object_key", "objectKey", "secretKey", "databaseUrl"]) {
       expect(serialized).not.toContain(forbidden);
     }
+  });
+
+  it("serves an active hero presentation and a bounded media byte range", async () => {
+    const fixtureIds = {
+      category: "e7100000-0000-4000-8000-000000000001",
+      product: "e7200000-0000-4000-8000-000000000001",
+      variant: "e7300000-0000-4000-8000-000000000001",
+      price: "e7400000-0000-4000-8000-000000000001",
+      media: "e7500000-0000-4000-8000-000000000001",
+      presentation: "e7600000-0000-4000-8000-000000000001",
+    };
+    const digest = "b".repeat(64);
+    const objectKey = `storefront/hero/${digest}.mp4`;
+    await pool.query(
+      `INSERT INTO categories
+        (id, name, slug, sort_order, status, created_at, updated_at, version)
+       VALUES ($1, 'Hero Phones', 'hero-phones', 0, 'active', NOW(), NOW(), 1)`,
+      [fixtureIds.category],
+    );
+    await pool.query(
+      `INSERT INTO products
+        (id, category_id, name, slug, description, attributes, status,
+         created_at, updated_at, version)
+       VALUES ($1, $2, 'Hero Phone', 'hero-phone', 'Hero phone', '{}',
+         'published', NOW(), NOW(), 1)`,
+      [fixtureIds.product, fixtureIds.category],
+    );
+    await pool.query(
+      `INSERT INTO product_variants
+        (id, product_id, sku, title, option_values, status,
+         created_at, updated_at, version)
+       VALUES ($1, $2, 'HERO-PHONE', 'Default', '{"color":"Black"}',
+         'active', NOW(), NOW(), 1)`,
+      [fixtureIds.variant, fixtureIds.product],
+    );
+    await pool.query(
+      `INSERT INTO product_prices
+        (id, variant_id, amount_minor, currency, tax_inclusive, valid_from,
+         created_by)
+       VALUES ($1, $2, 1000000, 'VND', true, NOW(), 'integration')`,
+      [fixtureIds.price, fixtureIds.variant],
+    );
+    await pool.query(
+      `INSERT INTO product_media
+        (id, product_id, object_key, content_type, byte_size, alt_text,
+         sort_order, is_primary, created_at)
+       VALUES ($1, $2, 'seed/hero-phone.png', 'image/png', 1,
+         'Hero Phone', 0, true, NOW())`,
+      [fixtureIds.media, fixtureIds.product],
+    );
+    await pool.query(
+      `INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ($1, 'integration-hero', $2, 'video/mp4', 6, 4000, $3, true)`,
+      [fixtureIds.presentation, objectKey, digest],
+    );
+    await pool.query(
+      `INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ($1, $2, 0, 0, 4000, 'Hero Phones')`,
+      [fixtureIds.presentation, fixtureIds.category],
+    );
+    await minio.putObject(
+      bucket!,
+      objectKey,
+      Buffer.from([1, 2, 3, 4, 5, 6]),
+      6,
+      { "Content-Type": "video/mp4" },
+    );
+
+    const presentation = await request(app)
+      .get("/v1/storefront/hero-presentation")
+      .expect(200);
+    expect(presentation.body.data).toMatchObject({
+      media: {
+        id: fixtureIds.presentation,
+        contentUrl: `/v1/storefront/hero-media/${fixtureIds.presentation}/content`,
+        byteSize: 6,
+      },
+      slides: [{ chapter: { startMs: 0, endMs: 4_000 } }],
+    });
+    expect(JSON.stringify(presentation.body)).not.toMatch(
+      /objectKey|contentDigest|createdAt|updatedAt/,
+    );
+
+    const range = await request(app)
+      .get(`/v1/storefront/hero-media/${fixtureIds.presentation}/content`)
+      .set("Range", "bytes=2-4")
+      .expect("cache-control", "no-store")
+      .expect("content-range", "bytes 2-4/6")
+      .expect("content-length", "3")
+      .expect(206);
+    expect(range.body).toEqual(Buffer.from([3, 4, 5]));
+
+    const head = await request(app)
+      .head(`/v1/storefront/hero-media/${fixtureIds.presentation}/content`)
+      .expect("accept-ranges", "bytes")
+      .expect("cache-control", "no-store")
+      .expect("content-type", /video\/mp4/)
+      .expect("content-length", "6")
+      .expect(200);
+    expect(head.body).toEqual({});
   });
 });

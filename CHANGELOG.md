@@ -20,6 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add anonymous synchronized Storefront hero presentation metadata and
+  active-only MP4 delivery with single HTTP byte-range streaming, strict
+  completeness fallback to legacy image slides, no-store replacement-safe
+  caching, metadata-only HEAD authorization, and purpose-safe DTOs.
+
 - Add explicit operator commands, bounded local-file reads, and a validated
   six-chapter configuration to import or recoverably disable the synchronized
   Storefront hero video without persisting host file paths or deleting retained

@@ -353,6 +353,138 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
     ]);
   });
 
+  it("projects an active six-chapter hero using the newest eligible product per configured category", async () => {
+    const presentationId = "e6000000-0000-4000-8000-000000000001";
+    const categorySlugs = [
+      "phones",
+      "laptops",
+      "tablets",
+      "smart-watches",
+      "computer-components",
+      "accessories",
+    ];
+    const categoryIds = categorySlugs.map((_, index) =>
+      index === 0
+        ? ids.category
+        : `e1000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+    );
+    for (let index = 1; index < categorySlugs.length; index += 1) {
+      await pool.query(
+        `INSERT INTO categories
+          (id, name, slug, sort_order, status, created_at, updated_at, version)
+         VALUES ($1, $2, $3, $4, 'active', NOW(), NOW(), 1)`,
+        [categoryIds[index], `Category ${index}`, categorySlugs[index], index],
+      );
+      await insertCompleteProduct(pool, {
+        productId: `e2000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        categoryId: categoryIds[index],
+        variantId: `e3000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        priceId: `e4000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        mediaId: `e5000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        name: `Hero Product ${index}`,
+        slug: `hero-product-${index}`,
+        amountMinor: 10_000_000 + index,
+        createdAt: `2026-08-${String(index + 10).padStart(2, "0")}T00:00:00.000Z`,
+      });
+    }
+    await pool.query(
+      "UPDATE products SET created_at = '2026-08-01T00:00:00.000Z' WHERE id = $1",
+      [ids.published],
+    );
+    await insertCompleteProduct(pool, {
+      productId: "e2000000-0000-4000-8000-000000000069",
+      variantId: "e3000000-0000-4000-8000-000000000069",
+      priceId: "e4000000-0000-4000-8000-000000000069",
+      mediaId: "e5000000-0000-4000-8000-000000000069",
+      name: "Newest Hero Phone",
+      slug: "newest-hero-phone",
+      amountMinor: 20_000_000,
+      createdAt: "2026-08-20T00:00:00.000Z",
+    });
+    await pool.query(
+      `INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ($1, 'nova-signal', $2, 'video/mp4', 25000000, 24000, $3, true)`,
+      [
+        presentationId,
+        `storefront/hero/${"a".repeat(64)}.mp4`,
+        "a".repeat(64),
+      ],
+    );
+    for (let index = 0; index < categoryIds.length; index += 1) {
+      await pool.query(
+        `INSERT INTO storefront_hero_chapters
+          (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          presentationId,
+          categoryIds[index],
+          index,
+          index * 4_000,
+          (index + 1) * 4_000,
+          `Chapter ${index}`,
+        ],
+      );
+    }
+
+    const presentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+
+    expect(presentation).toMatchObject({
+      media: {
+        id: presentationId,
+        contentType: "video/mp4",
+        byteSize: 25_000_000,
+        durationMs: 24_000,
+      },
+      configuredChapterCount: 6,
+    });
+    expect(presentation?.slides.map(({ category }) => category.slug)).toEqual(
+      categorySlugs,
+    );
+    expect(presentation?.slides[0]?.product.slug).toBe("newest-hero-phone");
+    await expect(
+      transactions.runReadOnly((session) =>
+        repository.findHeroMediaAuthorization(session, presentationId),
+      ),
+    ).resolves.toMatchObject({
+      mediaId: presentationId,
+      contentType: "video/mp4",
+      byteSize: 25_000_000,
+    });
+
+    await pool.query("UPDATE categories SET status = 'archived' WHERE id = $1", [
+      categoryIds[1],
+    ]);
+    const incompletePresentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+    expect(incompletePresentation?.configuredChapterCount).toBe(6);
+    expect(incompletePresentation?.slides).toHaveLength(5);
+    await pool.query("UPDATE categories SET status = 'active' WHERE id = $1", [
+      categoryIds[1],
+    ]);
+    await pool.query("UPDATE products SET status = 'draft' WHERE category_id = $1", [
+      categoryIds[1],
+    ]);
+    const unpublishedPresentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+    expect(unpublishedPresentation?.configuredChapterCount).toBe(6);
+    expect(unpublishedPresentation?.slides).toHaveLength(5);
+    await pool.query(
+      "UPDATE storefront_hero_presentations SET enabled = false WHERE id = $1",
+      [presentationId],
+    );
+    await expect(
+      transactions.runReadOnly((session) =>
+        repository.findHeroMediaAuthorization(session, presentationId),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it("orders best-selling products by all-time paid order quantities", async () => {
     const products = {
       top: "e2000000-0000-4000-8000-000000000020",

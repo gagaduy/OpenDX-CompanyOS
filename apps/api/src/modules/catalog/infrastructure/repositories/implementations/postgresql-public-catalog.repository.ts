@@ -5,6 +5,8 @@ import type {
   PublicationReadinessSnapshot,
   PublicCatalogRepository,
   PublicHeroSlideProjection,
+  PublicHeroMediaAuthorization,
+  PublicHeroPresentationProjection,
   PublicMediaAuthorization,
   PublicProductListResult,
   PublicProductProjection,
@@ -55,6 +57,21 @@ interface HeroProductRow extends ProductRow {
   category_slug: string;
 }
 
+interface HeroPresentationRow {
+  id: string;
+  object_key: string;
+  content_type: "video/mp4";
+  byte_size: string;
+  duration_ms: number;
+  configured_chapter_count: number;
+}
+
+interface HeroChapterProductRow extends HeroProductRow {
+  start_ms: number;
+  end_ms: number;
+  label: string;
+}
+
 interface VariantRow {
   id: string;
   product_id: string;
@@ -71,6 +88,13 @@ interface MediaRow {
   media_id: string;
   object_key: string;
   content_type: string;
+}
+
+interface HeroMediaRow {
+  media_id: string;
+  object_key: string;
+  content_type: "video/mp4";
+  byte_size: string;
 }
 
 interface StorefrontVariantRow extends VariantRow {
@@ -281,6 +305,95 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
       },
       product: products[index]!,
     }));
+  }
+
+  async findActiveHeroPresentation(
+    session: DatabaseSession,
+  ): Promise<PublicHeroPresentationProjection | undefined> {
+    const presentationResult = await session.query<HeroPresentationRow>(
+      `SELECT presentation.id, presentation.object_key,
+              presentation.content_type, presentation.byte_size::text,
+              presentation.duration_ms,
+              (SELECT count(*)::int
+               FROM storefront_hero_chapters chapter
+               WHERE chapter.presentation_id = presentation.id)
+                AS configured_chapter_count
+       FROM storefront_hero_presentations presentation
+       WHERE presentation.enabled = true`,
+    );
+    const presentation = presentationResult.rows[0];
+    if (presentation === undefined) return undefined;
+
+    const chapterResult = await session.query<HeroChapterProductRow>(
+      `WITH eligible_chapters AS (
+         SELECT chapter.category_id, chapter.sort_order, chapter.start_ms,
+                chapter.end_ms, chapter.label, newest.id AS product_id
+         FROM storefront_hero_chapters chapter
+         JOIN LATERAL (
+           SELECT p.id
+           FROM products p
+           JOIN categories category ON category.id = p.category_id
+           WHERE p.category_id = chapter.category_id
+             AND ${completePublishedProduct}
+           ORDER BY p.created_at DESC, p.id ASC
+           LIMIT 1
+         ) newest ON true
+         WHERE chapter.presentation_id = $1
+       )
+       SELECT ${productProjectionColumns}, category.slug AS category_slug,
+              eligible.start_ms, eligible.end_ms, eligible.label
+       FROM eligible_chapters eligible
+       JOIN products p ON p.id = eligible.product_id
+       ${productProjectionJoins}
+       ORDER BY eligible.sort_order, eligible.category_id`,
+      [presentation.id],
+    );
+    const products = await this.mapProducts(session, chapterResult.rows);
+    return {
+      media: {
+        id: presentation.id,
+        objectKey: presentation.object_key,
+        contentType: presentation.content_type,
+        byteSize: toSafeInteger(presentation.byte_size, "Hero media byte size"),
+        durationMs: presentation.duration_ms,
+      },
+      configuredChapterCount: presentation.configured_chapter_count,
+      slides: chapterResult.rows.map((row, index) => ({
+        category: {
+          id: row.category_id,
+          name: row.category_name,
+          slug: row.category_slug,
+        },
+        product: products[index]!,
+        chapter: {
+          startMs: row.start_ms,
+          endMs: row.end_ms,
+          label: row.label,
+        },
+      })),
+    };
+  }
+
+  async findHeroMediaAuthorization(
+    session: DatabaseSession,
+    mediaId: string,
+  ): Promise<PublicHeroMediaAuthorization | undefined> {
+    const result = await session.query<HeroMediaRow>(
+      `SELECT presentation.id AS media_id, presentation.object_key,
+              presentation.content_type, presentation.byte_size::text
+       FROM storefront_hero_presentations presentation
+       WHERE presentation.id = $1 AND presentation.enabled = true`,
+      [mediaId],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          mediaId: row.media_id,
+          objectKey: row.object_key,
+          contentType: row.content_type,
+          byteSize: toSafeInteger(row.byte_size, "Hero media byte size"),
+        };
   }
 
   async listProducts(
@@ -573,4 +686,12 @@ function mapVariant(row: VariantRow): PublicProductProjection["variants"][number
     optionValues: structuredClone(row.option_values),
     price: { amountMinor, currency: "VND", ...markdown },
   };
+}
+
+function toSafeInteger(value: string, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} exceeds safe integer range`);
+  }
+  return parsed;
 }
