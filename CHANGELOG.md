@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Marketing Content, Visual, and Publisher Digital Employee prompt templates, Pydantic schemas, and agent orchestration in AI runtime.
+
 - Implement fail-closed exactly-once Marketing Facebook publication engine and asynchronous background worker.
 
 - Implement Meta Graph API Facebook Publisher port, fail-closed adapter with token sanitization, and structured error mapping.
