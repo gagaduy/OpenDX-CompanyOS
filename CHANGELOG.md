@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Establish Marketing campaign publication domain entities, state machine transitions, quality correction boundaries, approval invalidation rules, PostgreSQL schema migrations, and repository implementation.
+
 - Add typed Catalog tables, constraints, idempotent approved seed data, and an
   anonymous purpose-specific API for Storefront service assurances and trust
   metrics, with a validated fetch-once Storefront content provider and bounded

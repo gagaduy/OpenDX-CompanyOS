@@ -29,6 +29,10 @@ const reportingMigrationsDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../modules/reporting/infrastructure/database/migrations",
 );
+const marketingMigrationsDirectory = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../modules/marketing/infrastructure/database/migrations",
+);
 
 export async function runCatalogMigrations(
   databaseUrl: string,
@@ -114,6 +118,24 @@ export async function runReportingMigrations(
     count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
     dir: reportingMigrationsDirectory,
     migrationsTable: "reporting_migrations",
+    advisoryLockMode: "wait",
+    checkOrder: true,
+    singleTransaction: true,
+    log: () => undefined,
+  });
+}
+
+export async function runMarketingMigrations(
+  databaseUrl: string,
+  direction: "up" | "down",
+  count?: number,
+): Promise<void> {
+  await runner({
+    databaseUrl,
+    direction,
+    count: direction === "down" && count === undefined ? Number.MAX_SAFE_INTEGER : count,
+    dir: marketingMigrationsDirectory,
+    migrationsTable: "marketing_migrations",
     advisoryLockMode: "wait",
     checkOrder: true,
     singleTransaction: true,
