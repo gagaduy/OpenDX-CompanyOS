@@ -15,9 +15,11 @@ import {
 } from "./agentic-production-compose-check.mjs";
 
 const composePath = "infra/deploy/compose.production.yml";
+const developmentComposePath = "infra/docker/docker-compose.yml";
 const caddyPath = "infra/deploy/Caddyfile";
 const keycloakRealmPath = "infra/keycloak/realm-production.json";
 const compose = readFileSync(composePath, "utf8");
+const developmentCompose = readFileSync(developmentComposePath, "utf8");
 const caddy = readFileSync(caddyPath, "utf8");
 
 const requiredComposeFragments = [
@@ -35,11 +37,16 @@ const requiredComposeFragments = [
   "target: production",
   "COOKIE_SECURE: \"true\"",
   "OPENDX_ENV: production",
+  "FACEBOOK_PAGE_ACCESS_TOKEN: ${FACEBOOK_PAGE_ACCESS_TOKEN:?FACEBOOK_PAGE_ACCESS_TOKEN is required}",
 ];
 for (const fragment of requiredComposeFragments) {
   if (!compose.includes(fragment)) {
     throw new Error(`Missing production Compose fragment: ${fragment}`);
   }
+}
+
+if (!developmentCompose.includes("FACEBOOK_PAGE_ACCESS_TOKEN: ${FACEBOOK_PAGE_ACCESS_TOKEN:-}")) {
+  throw new Error("Development API must receive FACEBOOK_PAGE_ACCESS_TOKEN from the local environment");
 }
 
 for (const hostnameVariable of [

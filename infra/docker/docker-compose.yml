@@ -11,6 +11,7 @@ x-api-environment: &api-environment
   CONSOLE_ORIGIN: http://localhost:3000
   STOREFRONT_ORIGIN: http://localhost:3100
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  FACEBOOK_PAGE_ACCESS_TOKEN: ${FACEBOOK_PAGE_ACCESS_TOKEN:-}
   CUSTOMER_COOKIE_NAME: opendx_customer
   GUEST_COOKIE_NAME: opendx_guest
   CSRF_COOKIE_NAME: opendx_csrf

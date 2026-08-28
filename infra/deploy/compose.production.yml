@@ -47,6 +47,7 @@ x-api-environment: &api-environment
   CONSOLE_ORIGIN: ${CONSOLE_ORIGIN:-https://console.example.com}
   STOREFRONT_ORIGIN: ${STOREFRONT_ORIGIN:-https://shop.example.com}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+  FACEBOOK_PAGE_ACCESS_TOKEN: ${FACEBOOK_PAGE_ACCESS_TOKEN:?FACEBOOK_PAGE_ACCESS_TOKEN is required}
   CUSTOMER_COOKIE_NAME: ${CUSTOMER_COOKIE_NAME:-opendx_customer}
   GUEST_COOKIE_NAME: ${GUEST_COOKIE_NAME:-opendx_guest}
   CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-opendx_csrf}

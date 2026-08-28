@@ -18,6 +18,7 @@ import type {
   MarketingCampaignResponseDto,
 } from "../application/dtos/marketing.dto";
 import { MarketingApplicationError } from "../presentation/middleware/marketing-error.middleware";
+import { FacebookPublisherError } from "../application/ports/facebook-publisher.port";
 
 function createTestApp(
   service: IMarketingCampaignService,
@@ -518,6 +519,56 @@ describe("Marketing Admin API", () => {
     expect(response.status).toBe(403);
     expect(mockService.getCampaign).not.toHaveBeenCalled();
     expect(mockPublisherService.publishApprovedPackage).not.toHaveBeenCalled();
+  });
+
+  it("POST /campaigns/:campaignId/retry-publication returns a sanitized provider failure", async () => {
+    vi.stubEnv("FACEBOOK_PAGE_ACCESS_TOKEN", "configured-page-token");
+    const approvedPackage = {
+      id: "00000000-0000-4000-8000-000000000010",
+      campaignId: sampleCampaignDto.id,
+      packageVersion: 1,
+      contentVersionId: "00000000-0000-4000-8000-000000000011",
+      visualAssetId: "00000000-0000-4000-8000-000000000012",
+      facebookPageConfigurationId: "fb-page-1",
+      scheduledFor: "2026-08-30T10:00:00.000Z",
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "e".repeat(64),
+      status: "approved" as const,
+      approvalRequestId: "approval-1",
+      createdAt: "2026-08-29T10:00:00.000Z",
+      updatedAt: "2026-08-29T10:00:00.000Z",
+    };
+    const mockService: IMarketingCampaignService = {
+      createCampaign: vi.fn(),
+      getCampaign: vi.fn().mockResolvedValue({
+        ...sampleDetailDto,
+        campaign: { ...sampleCampaignDto, state: "failed" as const },
+        publicationPackages: [approvedPackage],
+        currentPackage: approvedPackage,
+        publicationRecord: null,
+      }),
+      listCampaigns: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+    };
+    const mockPublisherService: MarketingPublisherService = {
+      publishApprovedPackage: vi.fn().mockRejectedValue(
+        new FacebookPublisherError("FACEBOOK_TOKEN_INVALID", "Facebook token is invalid", { retryable: false }),
+      ),
+    };
+    const app = createTestApp(mockService, undefined, ["agentic_approver"], "staff-approver-1", mockPublisherService);
+
+    const response = await request(app)
+      .post(`/v1/admin/marketing/campaigns/${sampleCampaignDto.id}/retry-publication`)
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(502);
+    expect(response.body.errorCode).toBe("FACEBOOK_TOKEN_INVALID");
+    expect(response.body.message).toBe("Facebook token is invalid");
   });
 
   it("POST /campaigns/:campaignId/request-revision allows operator to request revision", async () => {

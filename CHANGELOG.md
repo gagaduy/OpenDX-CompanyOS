@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add an approver-only Facebook publication retry action for failed Marketing
+  campaigns, preserving the approved package, exactly-once publication record,
+  and fail-closed credential handling.
+
 - Document Marketing & Creative Facebook Publication architecture, deliverable evidence, zero new external dependencies, and update MVP roadmap status.
 
 - Add Marketing Facebook publication end-to-end integration test suite and CLI demonstration runner (`pnpm demo:marketing`).
@@ -57,6 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   fixtures and unavailable-content isolation across light and dark themes.
 
 ### Fixed
+
+- Forward the Facebook Page access token from deployment configuration into the
+  API container so approved Marketing publications do not fall back to an
+  invalid placeholder token.
 
 - Make API readiness require both the exact Customer Wishlist migration ledger
   entry and its PostgreSQL table so a partially migrated runtime fails closed.
