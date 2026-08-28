@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add Marketing Facebook publication end-to-end integration test suite and CLI demonstration runner (`pnpm demo:marketing`).
+
 - Build Staff Console Marketing control room, brief viewer, copy iterations preview, 1:1 visual canvas, live Facebook feed post mockup modal, approval action bar, and deliverable download panel.
 
 - Expose Staff Admin Marketing APIs for human approval, revision requests, quality feedback, artifact listing, deliverable generation, and binary artifact download.

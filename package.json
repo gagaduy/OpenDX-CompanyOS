@@ -62,6 +62,7 @@
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",
     "check:phase8-exit": "pnpm test:phase8-exit && node scripts/dev/phase8-exit-check.mjs",
+    "demo:marketing": "pnpm --filter @opendx/api exec tsx ../../scripts/dev/marketing-facebook-demo.ts",
     "check:fast": "bash scripts/dev/check-fast.sh",
     "check:full": "bash scripts/dev/check.sh",
     "check": "pnpm check:fast"
