@@ -56,6 +56,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Deduplicate in-flight customer-session restoration under React Strict Mode
+  so a canceled payment return cannot rotate the same session twice and send
+  an authenticated customer back to sign-in.
+
 - Reveal the synchronized Storefront hero video behind a translucent copy
   panel and bounded floating product stage while preserving image-only
   fallbacks for mobile, reduced-motion, and unavailable media.

@@ -2,15 +2,60 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { StrictMode } from "react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { CustomerSessionApi } from "../api/customer-session-api";
 import { CustomerSessionProvider } from "../hooks/customer-session-context";
 import { SignInPage } from "../pages/sign-in-page";
 import { safeReturnUrl } from "../lib/safe-return-url";
 import type { StorefrontCatalogApi } from "../../catalog";
+import { CheckoutGate } from "../components/checkout-gate";
 
 describe("customer authentication", () => {
+  it("restores a customer session once when StrictMode returns from a canceled payment", async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: "customer" as const,
+        customerId: "customer-1",
+        email: "buyer@example.com",
+        expiresAt: "2026-09-28T00:00:00.000Z",
+      })
+      .mockResolvedValueOnce({ kind: "anonymous" as const });
+    const api = { get } as unknown as CustomerSessionApi;
+
+    render(
+      <StrictMode>
+        <MemoryRouter
+          initialEntries={["/payment/return?outcome=cancel"]}
+        >
+          <CustomerSessionProvider api={api}>
+            <Routes>
+              <Route
+                path="/payment/return"
+                element={
+                  <CheckoutGate>
+                    <h1>Trạng thái thanh toán</h1>
+                  </CheckoutGate>
+                }
+              />
+              <Route path="/sign-in" element={<h1>Đăng nhập</h1>} />
+            </Routes>
+          </CustomerSessionProvider>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Trạng thái thanh toán" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Đăng nhập" }),
+    ).not.toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
   it("accepts only local Storefront return URLs", () => {
     expect(safeReturnUrl("/account/wishlist?from=heart#items")).toBe(
       "/account/wishlist?from=heart#items",

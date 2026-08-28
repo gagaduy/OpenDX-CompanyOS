@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -36,17 +37,30 @@ export function CustomerSessionProvider({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const restore = useCallback(async () => {
-    setLoading(true);
-    try {
-      setSession(await api.get());
-      setError(undefined);
-    } catch {
-      setSession({ kind: "anonymous" });
-      setError("Không thể khôi phục phiên đăng nhập.");
-    } finally {
-      setLoading(false);
-    }
+  const restoreInFlight = useRef<Promise<void> | undefined>(undefined);
+  const restore = useCallback(() => {
+    const activeRestore = restoreInFlight.current;
+    if (activeRestore !== undefined) return activeRestore;
+
+    const request = (async () => {
+      setLoading(true);
+      try {
+        setSession(await api.get());
+        setError(undefined);
+      } catch {
+        setSession({ kind: "anonymous" });
+        setError("Không thể khôi phục phiên đăng nhập.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    restoreInFlight.current = request;
+    void request.finally(() => {
+      if (restoreInFlight.current === request) {
+        restoreInFlight.current = undefined;
+      }
+    });
+    return request;
   }, [api]);
   useEffect(() => {
     void restore();
