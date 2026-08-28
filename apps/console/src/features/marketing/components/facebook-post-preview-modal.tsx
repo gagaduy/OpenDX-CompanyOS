@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { createPortal } from "react-dom";
 import type { CampaignBrief, ContentVersion, VisualAsset } from "../types";
 import "../styles/marketing.css";
 
@@ -18,12 +19,13 @@ export function FacebookPostPreviewModal({
   readonly visual: VisualAsset | null;
 }) {
   if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
 
   const bodyText = content?.primaryText ?? content?.body ?? "Chưa có nội dung bài viết.";
   const headline = content?.headline;
   const hashtags = content?.hashtags ?? [];
 
-  return (
+  return createPortal(
     <div className="fbModalBackdrop" onClick={onClose}>
       <div className="fbModalContainer" onClick={(e) => e.stopPropagation()}>
         {/* Modal Top Bar */}
@@ -119,6 +121,7 @@ export function FacebookPostPreviewModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

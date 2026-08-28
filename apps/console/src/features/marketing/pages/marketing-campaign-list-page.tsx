@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import type { MarketingApi } from "../api/marketing-api";
 import type { CreateMarketingCampaignInput, MarketingCampaign } from "../types";
@@ -220,9 +221,9 @@ export function MarketingCampaignListPage({
       )}
 
       {/* Create Modal */}
-      {isCreateOpen && (
-        <div className="fbModalBackdrop">
-          <div style={{ background: "#131722", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "1.25rem", maxWidth: "600px", width: "100%", padding: "1.75rem", boxShadow: "0 25px 70px rgba(0,0,0,0.8)", maxHeight: "90vh", overflowY: "auto" }}>
+      {isCreateOpen && typeof document !== "undefined" && createPortal(
+        <div className="fbModalBackdrop" onClick={() => setIsCreateOpen(false)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(12px)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", boxSizing: "border-box" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#131722", border: "1px solid rgba(255, 255, 255, 0.16)", borderRadius: "1.25rem", maxWidth: "600px", width: "100%", padding: "1.75rem", boxShadow: "0 25px 80px rgba(0,0,0,0.9)", maxHeight: "90vh", overflowY: "auto", color: "#fff", zIndex: 100000 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "1rem", marginBottom: "1.25rem" }}>
               <div>
                 <h3 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -356,7 +357,8 @@ export function MarketingCampaignListPage({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
