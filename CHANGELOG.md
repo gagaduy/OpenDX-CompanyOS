@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Collapse the Storefront sign-in panel to a focused Google trigger and reveal
+  an accessible modal that closes by button, Escape, or backdrop interaction
+  while restoring keyboard focus.
+
 - Play the database-managed Catalog presentation as the full-bleed sign-in
   backdrop with muted inline looping, a product-image poster, media-error
   fallback, and explicit homepage video suppression.

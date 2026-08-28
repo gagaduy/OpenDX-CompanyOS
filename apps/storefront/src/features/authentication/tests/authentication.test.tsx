@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -65,7 +66,121 @@ describe("customer authentication", () => {
     expect(safeReturnUrl("/account\\evil")).toBe("/account");
     expect(safeReturnUrl("/account\nattack")).toBe("/account");
   });
+
+  it("reveals the sign-in panel from a compact Google trigger", async () => {
+    const user = userEvent.setup();
+    const api = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={api}>
+          <SignInPage />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    const trigger = await screen.findByRole("button", {
+      name: "Mở đăng nhập Google",
+    });
+    expect(trigger).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Đăng nhập NovaCommerce" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(trigger);
+
+    expect(screen.getByRole("dialog", { name: "Đăng nhập NovaCommerce" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Đăng nhập NovaCommerce" }),
+    ).toBeVisible();
+  });
+
+  it("returns focus to the Google trigger after the close button dismisses the panel", async () => {
+    const user = userEvent.setup();
+    const api = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={api}>
+          <SignInPage />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    const trigger = await screen.findByRole("button", {
+      name: "Mở đăng nhập Google",
+    });
+    await user.click(trigger);
+    const close = screen.getByRole("button", { name: "Thu gọn đăng nhập" });
+
+    expect(close).toHaveFocus();
+    await user.click(close);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mở đăng nhập Google" }),
+    ).toHaveFocus();
+  });
+
+  it("closes the sign-in panel with Escape", async () => {
+    const user = userEvent.setup();
+    const api = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={api}>
+          <SignInPage />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Mở đăng nhập Google" }),
+    );
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mở đăng nhập Google" }),
+    ).toHaveFocus();
+  });
+
+  it("dismisses from the modal backdrop without closing on panel interaction", async () => {
+    const user = userEvent.setup();
+    const api = {
+      get: vi.fn(async () => ({ kind: "anonymous" as const })),
+    } as unknown as CustomerSessionApi;
+
+    render(
+      <MemoryRouter>
+        <CustomerSessionProvider api={api}>
+          <SignInPage />
+        </CustomerSessionProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Mở đăng nhập Google" }),
+    );
+    await user.click(screen.getByRole("dialog"));
+    expect(screen.getByRole("dialog")).toBeVisible();
+
+    await user.click(screen.getByTestId("auth-modal-layer"));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mở đăng nhập Google" }),
+    ).toHaveFocus();
+  });
+
   it("fails closed when Google is unconfigured while explaining catalog remains usable", async () => {
+    const user = userEvent.setup();
     const api = {
       get: vi.fn(async () => ({ kind: "anonymous" as const })),
     } as unknown as CustomerSessionApi;
@@ -75,6 +190,9 @@ describe("customer authentication", () => {
           <SignInPage />
         </CustomerSessionProvider>
       </MemoryRouter>,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Mở đăng nhập Google" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Google Sign-In chưa được cấu hình",

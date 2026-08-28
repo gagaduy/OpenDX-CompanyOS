@@ -1574,18 +1574,110 @@ img {
   background: var(--overlay);
 }
 
+.auth-google-trigger {
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--auth-border);
+  border-radius: 50%;
+  background: var(--auth-panel);
+  box-shadow: var(--auth-shadow);
+  cursor: pointer;
+  backdrop-filter: blur(18px);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.auth-google-trigger:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: var(--primary-hover);
+}
+
+.auth-google-trigger > span {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(17, 18, 20, 0.12);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.auth-google-trigger svg {
+  width: 28px;
+  height: 28px;
+}
+
+.auth-modal-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 16px;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+}
+
 .auth-panel {
   position: relative;
   z-index: 1;
   width: min(520px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
   padding: 46px 52px;
   display: grid;
+  overflow-y: auto;
   border: 1px solid var(--auth-border);
   border-radius: 8px;
   background: var(--auth-panel);
   color: var(--auth-ink);
   box-shadow: var(--auth-shadow);
   backdrop-filter: blur(18px);
+  animation: auth-panel-enter 180ms ease-out;
+}
+
+.auth-panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--auth-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--auth-muted);
+  cursor: pointer;
+}
+
+.auth-panel-close:hover {
+  border-color: var(--primary-hover);
+  color: var(--auth-ink);
+}
+
+.auth-panel-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes auth-panel-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .auth-brand {
@@ -1974,8 +2066,13 @@ img {
   }
 
   .hero-slide-image,
-  .hero-slide-copy {
+  .hero-slide-copy,
+  .auth-panel {
     animation: none;
+  }
+
+  .auth-google-trigger {
+    transition: none;
   }
 }
 
@@ -2819,7 +2916,13 @@ img {
   }
 
   .auth-panel {
+    width: 100%;
+    max-height: calc(100% - 16px);
     padding: 34px 24px;
+  }
+
+  .auth-modal-layer {
+    padding: 8px;
   }
 
   .auth-panel h1 {
