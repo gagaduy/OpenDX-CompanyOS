@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import type { MarketingCampaign } from "../types";
+import "../styles/marketing.css";
 
 export function CampaignApprovalActionBar({
   campaign,
@@ -35,32 +36,33 @@ export function CampaignApprovalActionBar({
     campaign.state === "scheduled";
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Campaign State:
+    <div className="sectionCard" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem", padding: "1.15rem 1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Hành động Quản trị:
         </span>
-        <span className="px-3 py-1 text-xs font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase tracking-wider">
-          {campaign.state.replace(/_/g, " ")}
+        <span style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>
+          {isAwaitingApproval ? "Chiến dịch đã sẵn sàng duyệt để đăng lên Fanpage" : "Chiến dịch đang được điều hành tự động"}
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
         <button
           type="button"
           onClick={onOpenPreview}
-          className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+          className="marketingBtnSecondary"
         >
-          📱 Preview Facebook Post
+          <span>📱</span> Preview Facebook Post
         </button>
 
         <button
           type="button"
           disabled={loading}
           onClick={onGenerateDeliverables}
-          className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition disabled:opacity-50"
+          className="marketingBtnSecondary"
+          style={{ borderColor: "rgba(168, 85, 247, 0.3)", color: "#c084fc" }}
         >
-          📦 Generate Deliverables
+          <span>📦</span> Generate Deliverables
         </button>
 
         {isAwaitingApproval && (
@@ -69,18 +71,19 @@ export function CampaignApprovalActionBar({
               type="button"
               disabled={loading}
               onClick={() => setRevisionModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition disabled:opacity-50"
+              className="marketingBtnSecondary"
+              style={{ borderColor: "rgba(245, 158, 11, 0.3)", color: "#fbbf24" }}
             >
-              🔄 Request Revision
+              <span>🔄</span> Request Revision
             </button>
 
             <button
               type="button"
               disabled={loading}
               onClick={onApprove}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+              className="marketingBtnSuccess"
             >
-              ✓ Approve & Publish to Facebook
+              {loading ? "Đang xử lý..." : "✓ Approve & Publish to Facebook"}
             </button>
           </>
         )}
@@ -88,36 +91,36 @@ export function CampaignApprovalActionBar({
 
       {/* Revision Modal */}
       {revisionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-6 shadow-xl border border-gray-200 dark:border-gray-800">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">
-              Request Creative Revision
+        <div className="fbModalBackdrop">
+          <div style={{ background: "#131722", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "1.25rem", maxWidth: "480px", width: "100%", padding: "1.75rem", boxShadow: "0 25px 70px rgba(0,0,0,0.8)" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#fff", margin: "0 0 0.5rem" }}>
+              Yêu cầu Nhân sự số Chỉnh sửa
             </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Provide feedback for the Digital Employees. This will invalidate current package approval and trigger re-drafting.
+            <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0 0 1rem", lineHeight: 1.5 }}>
+              Nhập ghi chú phản hồi cho Marketing Digital Employees (Content & Visual). Hệ thống sẽ kích hoạt lại quy trình soạn thảo theo ý bạn.
             </p>
             <textarea
               rows={4}
               value={revisionFeedback}
               onChange={(e) => setRevisionFeedback(e.target.value)}
-              placeholder="e.g. Tone should be more energetic, emphasize the 50% discount mandatory message."
-              className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              placeholder="VD: Cần nhấn mạnh hơn vào ưu đãi giảm 15% và điều chỉnh hook hào hứng hơn..."
+              style={{ width: "100%", padding: "0.75rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", fontSize: "0.875rem", outline: "none", boxSizing: "border-box" }}
             />
-            <div className="flex justify-end gap-2">
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
               <button
                 type="button"
                 onClick={() => setRevisionModalOpen(false)}
-                className="px-3.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                className="marketingBtnSecondary"
               >
-                Cancel
+                Hủy bỏ
               </button>
               <button
                 type="button"
+                disabled={loading || !revisionFeedback.trim()}
                 onClick={handleRevisionSubmit}
-                disabled={!revisionFeedback.trim() || loading}
-                className="px-4 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
+                className="marketingBtnPrimary"
               >
-                Submit Revision Request
+                {loading ? "Đang gửi..." : "Gửi yêu cầu chỉnh sửa"}
               </button>
             </div>
           </div>

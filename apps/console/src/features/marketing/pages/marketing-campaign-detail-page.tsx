@@ -11,6 +11,7 @@ import { VisualAssetPreview } from "../components/visual-asset-preview";
 import { FacebookPostPreviewModal } from "../components/facebook-post-preview-modal";
 import { CampaignApprovalActionBar } from "../components/campaign-approval-action-bar";
 import { MarketingDeliverablesPanel } from "../components/marketing-deliverables-panel";
+import "../styles/marketing.css";
 
 export function MarketingCampaignDetailPage({
   api,
@@ -32,7 +33,7 @@ export function MarketingCampaignDetailPage({
       setDetail(data);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load marketing campaign detail");
+      setError(err.message || "Không thể tải chi tiết chiến dịch tiếp thị");
     } finally {
       setLoading(false);
     }
@@ -49,7 +50,7 @@ export function MarketingCampaignDetailPage({
       await api.approveCampaign(campaignId, { decision: "approve" });
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Approval failed");
+      setError(err.message || "Phê duyệt chiến dịch thất bại");
     } finally {
       setActionLoading(false);
     }
@@ -62,7 +63,7 @@ export function MarketingCampaignDetailPage({
       await api.requestRevision(campaignId, { feedback });
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Revision request failed");
+      setError(err.message || "Yêu cầu chỉnh sửa thất bại");
     } finally {
       setActionLoading(false);
     }
@@ -75,7 +76,7 @@ export function MarketingCampaignDetailPage({
       await api.generateDeliverables(campaignId);
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Deliverable generation failed");
+      setError(err.message || "Xuất bản tài liệu bàn giao thất bại");
     } finally {
       setActionLoading(false);
     }
@@ -83,20 +84,23 @@ export function MarketingCampaignDetailPage({
 
   if (loading && !detail) {
     return (
-      <div className="p-12 text-center text-sm text-gray-500">
-        Loading campaign control room...
+      <div className="marketingWorkspace" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+        <div style={{ textAlign: "center", color: "#94a3b8" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔄</div>
+          <div>Đang tải phòng điều khiển chiến dịch...</div>
+        </div>
       </div>
     );
   }
 
   if (!detail) {
     return (
-      <div className="p-8 max-w-7xl mx-auto space-y-4">
-        <div className="p-6 rounded-xl bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 text-sm">
-          {error || "Marketing campaign not found"}
+      <div className="marketingWorkspace">
+        <div style={{ padding: "1.5rem", borderRadius: "1rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", marginBottom: "1rem" }}>
+          {error || "Không tìm thấy chiến dịch tiếp thị yêu cầu"}
         </div>
-        <Link to="/marketing/campaigns" className="text-blue-600 hover:underline text-sm font-semibold">
-          ← Back to Marketing Campaigns
+        <Link to="/marketing/campaigns" className="marketingBtnSecondary">
+          ← Quay lại Danh sách Chiến dịch
         </Link>
       </div>
     );
@@ -105,39 +109,50 @@ export function MarketingCampaignDetailPage({
   const { campaign, brief, contentVersions, visualAssets, artifacts, publicationRecord } = detail;
   const latestContent = contentVersions[contentVersions.length - 1] ?? null;
   const latestVisual = visualAssets[visualAssets.length - 1] ?? null;
+  const isAwaiting = campaign.state === "awaiting_human_approval";
+  const isLive = campaign.state === "completed" || campaign.state === "publishing";
+  const badgeClass = isAwaiting ? "statusBadge awaitingApproval" : isLive ? "statusBadge publishedLive" : "statusBadge drafting";
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      {/* Top Breadcrumb & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="marketingWorkspace">
+      {/* Header & Controls */}
+      <div className="marketingHeader">
         <div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-            <Link to="/marketing/campaigns" className="hover:underline">
-              Marketing
-            </Link>
+          <div className="marketingBreadcrumb">
+            <Link to="/marketing/campaigns">Tiếp thị & Sáng tạo</Link>
             <span>/</span>
-            <span className="font-mono">{campaign.id.slice(0, 8)}</span>
+            <span style={{ color: "#cbd5e1", fontFamily: "monospace" }}>#{campaign.id.slice(0, 8)}</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {brief?.campaignName ?? "Marketing Campaign"}
+          <h1 className="marketingTitle">
+            <span>📢</span> {brief?.campaignName ?? "Chiến dịch Tiếp thị"}
           </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem" }}>
+            <span className={badgeClass}>
+              {isAwaiting ? "⏳ Chờ Phê Duyệt" : isLive ? "✅ Đã Đăng Live Facebook" : campaign.state.replace(/_/g, " ")}
+            </span>
+            <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+              Tạo bởi <strong style={{ color: "#cbd5e1" }}>{campaign.createdBy}</strong> lúc {new Date(campaign.createdAt).toLocaleString()}
+            </span>
+          </div>
         </div>
 
-        {publicationRecord && (
-          <a
-            href={publicationRecord.postUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition flex items-center gap-1.5 shrink-0"
-          >
-            <span>🌐</span> View Live Facebook Post ↗
-          </a>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {publicationRecord && (
+            <a
+              href={publicationRecord.postUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="marketingBtnSuccess"
+            >
+              <span>🌐</span> View Live Facebook Post ↗
+            </a>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 text-sm">
-          {error}
+        <div style={{ padding: "1rem 1.25rem", borderRadius: "0.75rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
+          ⚠️ {error}
         </div>
       )}
 
@@ -155,7 +170,7 @@ export function MarketingCampaignDetailPage({
       <CampaignBriefCard brief={brief} />
 
       {/* Creative Split: Content Draft & Visual Asset */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="marketingDetailGrid">
         <ContentDraftPreview contents={contentVersions} />
         <VisualAssetPreview visuals={visualAssets} />
       </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { MarketingApi } from "../api/marketing-api";
 import type { CreateMarketingCampaignInput, MarketingCampaign } from "../types";
+import "../styles/marketing.css";
 
 export function MarketingCampaignListPage({
   api,
@@ -35,7 +36,7 @@ export function MarketingCampaignListPage({
       setCampaigns(data.items);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load marketing campaigns");
+      setError(err.message || "Không thể tải danh sách chiến dịch");
     } finally {
       setLoading(false);
     }
@@ -77,130 +78,172 @@ export function MarketingCampaignListPage({
     }
   };
 
+  const awaitingCount = campaigns.filter((c) => c.state === "awaiting_human_approval").length;
+  const publishedCount = campaigns.filter((c) => c.state === "completed" || c.state === "publishing").length;
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="marketingWorkspace">
+      <div className="marketingHeader">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span>📢</span> Tiếp thị & Ấn phẩm Facebook
+          <div className="marketingBreadcrumb">
+            <span>NOVACOMMERCE</span>
+            <span>/</span>
+            <span style={{ color: "#94a3b8" }}>DIGITAL WORKFORCE</span>
+          </div>
+          <h1 className="marketingTitle">
+            <span>📢</span> Marketing & Creative Publication
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Điều hành phòng Marketing số (Content, Visual, Publisher), duyệt bài đăng Fanpage và xuất bản Deliverables.
+          <p className="marketingSubtitle">
+            Trung tâm điều hành 3 nhân sự số Marketing (Content, Visual Design, Publisher). Soạn bài viết, thiết kế ảnh 1:1, duyệt bài và đăng trực tiếp lên Fanpage Facebook.
           </p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm text-sm flex items-center gap-2 transition"
+          className="marketingBtnPrimary"
         >
           <span>✨</span> Giao việc Tiếp thị mới
         </button>
       </div>
 
+      {/* Metrics Summary */}
+      <div className="marketingStatsGrid">
+        <div className="marketingStatCard">
+          <div className="marketingStatIcon">📊</div>
+          <div>
+            <div className="marketingStatVal">{campaigns.length}</div>
+            <div className="marketingStatLabel">Tổng chiến dịch</div>
+          </div>
+        </div>
+        <div className="marketingStatCard">
+          <div className="marketingStatIcon" style={{ background: "rgba(245, 158, 11, 0.15)", color: "#fbbf24", borderColor: "rgba(245, 158, 11, 0.3)" }}>⏳</div>
+          <div>
+            <div className="marketingStatVal">{awaitingCount}</div>
+            <div className="marketingStatLabel">Đang chờ phê duyệt</div>
+          </div>
+        </div>
+        <div className="marketingStatCard">
+          <div className="marketingStatIcon" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", borderColor: "rgba(16, 185, 129, 0.3)" }}>🚀</div>
+          <div>
+            <div className="marketingStatVal">{publishedCount}</div>
+            <div className="marketingStatLabel">Đã đăng lên Facebook</div>
+          </div>
+        </div>
+        <div className="marketingStatCard">
+          <div className="marketingStatIcon" style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", borderColor: "rgba(168, 85, 247, 0.3)" }}>📁</div>
+          <div>
+            <div className="marketingStatVal">{campaigns.length * 5}</div>
+            <div className="marketingStatLabel">Tài liệu Deliverables</div>
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 text-sm">
-          {error}
+        <div style={{ padding: "1rem 1.25rem", borderRadius: "0.75rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
+          ⚠️ {error}
         </div>
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-sm text-gray-500">
-          Đang tải danh sách chiến dịch tiếp thị...
+        <div style={{ padding: "4rem", textAlign: "center", color: "#64748b", fontSize: "0.9rem" }}>
+          🔄 Đang tải dữ liệu chiến dịch tiếp thị...
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-12 text-center space-y-4">
-          <div className="text-4xl">🚀</div>
-          <div>
-            <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
-              Chưa có chiến dịch tiếp thị nào được khởi tạo
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Bạn có thể giao việc ngay cho 3 nhân sự số Marketing để tạo nội dung, thiết kế ảnh 1:1 và đăng lên Fanpage.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsCreateOpen(true)}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition"
-          >
+        <div className="marketingCard" style={{ padding: "4rem 2rem", textAlign: "center" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🚀</div>
+          <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#fff", marginBottom: "0.5rem" }}>
+            Chưa có chiến dịch tiếp thị nào
+          </h3>
+          <p style={{ color: "#94a3b8", fontSize: "0.875rem", maxWidth: "500px", margin: "0 auto 1.5rem" }}>
+            Khởi tạo chiến dịch đầu tiên để 3 nhân sự số tự động soạn bài viết, tạo ảnh vuông 1:1 và hỗ trợ xuất bản lên Fanpage.
+          </p>
+          <button onClick={() => setIsCreateOpen(true)} className="marketingBtnPrimary">
             + Giao việc cho Phòng Marketing ngay
           </button>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-800/60 text-xs font-semibold text-gray-500 border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
+        <div className="marketingCard">
+          <table className="marketingTable">
+            <thead>
               <tr>
-                <th className="px-6 py-3.5">Mã Chiến Dịch</th>
-                <th className="px-6 py-3.5">Trạng Thái</th>
-                <th className="px-6 py-3.5">Hình Thức Giao Việc</th>
-                <th className="px-6 py-3.5">Người Khởi Tạo</th>
-                <th className="px-6 py-3.5">Thời Gian</th>
-                <th className="px-6 py-3.5 text-right">Thao Tác</th>
+                <th>Mã Chiến Dịch</th>
+                <th>Trạng Thái</th>
+                <th>Phòng Ban</th>
+                <th>Người Khởi Tạo</th>
+                <th>Thời Gian</th>
+                <th style={{ textAlign: "right" }}>Thao Tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {campaigns.map((camp) => (
-                <tr key={camp.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition">
-                  <td className="px-6 py-4 font-mono text-xs text-gray-900 dark:text-gray-100">
-                    <Link
-                      to={`/marketing/campaigns/${camp.id}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                    >
-                      {camp.id.slice(0, 8)}...
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase">
-                      {camp.state.replace(/_/g, " ")}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-600 dark:text-gray-400">
-                    {camp.assignmentMode}
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-600 dark:text-gray-400">
-                    {camp.createdBy}
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    {new Date(camp.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      to={`/marketing/campaigns/${camp.id}`}
-                      className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition inline-flex items-center gap-1"
-                    >
-                      Vào Phòng Điều Khiển →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {campaigns.map((camp) => {
+                const isAwaiting = camp.state === "awaiting_human_approval";
+                const isLive = camp.state === "completed" || camp.state === "publishing";
+                const badgeClass = isAwaiting ? "statusBadge awaitingApproval" : isLive ? "statusBadge publishedLive" : "statusBadge drafting";
+                return (
+                  <tr key={camp.id}>
+                    <td>
+                      <Link
+                        to={`/marketing/campaigns/${camp.id}`}
+                        style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none", fontFamily: "monospace" }}
+                      >
+                        #{camp.id.slice(0, 8)}
+                      </Link>
+                    </td>
+                    <td>
+                      <span className={badgeClass}>
+                        {isAwaiting ? "awaiting human approval" : isLive ? "published live" : camp.state.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                      Direct Marketing Dept
+                    </td>
+                    <td style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                      {camp.createdBy}
+                    </td>
+                    <td style={{ color: "#64748b", fontSize: "0.825rem" }}>
+                      {new Date(camp.createdAt).toLocaleString()}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Link
+                        to={`/marketing/campaigns/${camp.id}`}
+                        className="marketingBtnSecondary"
+                        style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                      >
+                        View Control Room →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* Create Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl max-w-2xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
+        <div className="fbModalBackdrop">
+          <div style={{ background: "#131722", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "1.25rem", maxWidth: "600px", width: "100%", padding: "1.75rem", boxShadow: "0 25px 70px rgba(0,0,0,0.8)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "1rem", marginBottom: "1.25rem" }}>
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span>✨</span> Khởi tạo Chiến dịch Tiếp thị Mới
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Giao việc trực tiếp cho các nhân sự số Marketing (Viết bài, Thiết kế ảnh 1:1, Đăng Facebook).
+                <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.25rem 0 0" }}>
+                  Giao việc cho Marketing Digital Employees (Content, Visual Design, Publisher).
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg font-semibold"
+                style={{ background: "transparent", border: "none", color: "#94a3b8", fontSize: "1.3rem", cursor: "pointer" }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateCampaign} className="space-y-4 text-sm">
+            <form onSubmit={handleCreateCampaign} style={{ display: "flex", flexDirection: "column", gap: "1rem", fontSize: "0.875rem" }}>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
                   Tên chiến dịch:
                 </label>
                 <input
@@ -208,13 +251,13 @@ export function MarketingCampaignListPage({
                   required
                   value={formData.campaignName}
                   onChange={(e) => setFormData({ ...formData, campaignName: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                   placeholder="VD: Quảng bá NovaPhone 17 Pro Max"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
                   Mục tiêu chiến dịch:
                 </label>
                 <input
@@ -222,41 +265,41 @@ export function MarketingCampaignListPage({
                   required
                   value={formData.objective}
                   onChange={(e) => setFormData({ ...formData, objective: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  placeholder="VD: Thúc đẩy đặt hàng với ưu đãi giảm giá 15%"
+                  style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
+                  placeholder="VD: Thúc đẩy đặt hàng sớm với ưu đãi giảm giá 15%"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    Mã sản phẩm (Catalog Reference):
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
+                    Mã sản phẩm:
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.subjectReference}
                     onChange={(e) => setFormData({ ...formData, subjectReference: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    ID Trang Facebook Fanpage:
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
+                    ID Fanpage Facebook:
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.facebookPageId}
                     onChange={(e) => setFormData({ ...formData, facebookPageId: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
                   Thông điệp bắt buộc (Mandatory Message):
                 </label>
                 <input
@@ -264,13 +307,13 @@ export function MarketingCampaignListPage({
                   required
                   value={formData.mandatoryMessage}
                   onChange={(e) => setFormData({ ...formData, mandatoryMessage: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                   placeholder="VD: Ưu đãi giảm ngay 15% cho khách hàng đặt trước hôm nay"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
                   Lời kêu gọi hành động (Call To Action):
                 </label>
                 <input
@@ -278,35 +321,35 @@ export function MarketingCampaignListPage({
                   required
                   value={formData.callToAction}
                   onChange={(e) => setFormData({ ...formData, callToAction: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                   placeholder="VD: Đặt trước ngay tại NovaCommerce Store"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Đối tượng khách hàng mục tiêu (Audience):
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "0.35rem" }}>
+                  Đối tượng khách hàng mục tiêu:
                 </label>
                 <input
                   type="text"
                   value={formData.audience}
                   onChange={(e) => setFormData({ ...formData, audience: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "0.65rem", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", color: "#fff", outline: "none" }}
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
+                  className="marketingBtnSecondary"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm transition disabled:opacity-50 flex items-center gap-2"
+                  className="marketingBtnPrimary"
                 >
                   {submitting ? "Đang khởi tạo..." : "🚀 Bắt đầu Chiến dịch & Giao việc"}
                 </button>

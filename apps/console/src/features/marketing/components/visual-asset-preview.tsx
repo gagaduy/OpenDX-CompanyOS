@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { VisualAsset } from "../types";
+import "../styles/marketing.css";
 
 export function VisualAssetPreview({
   visuals,
@@ -10,8 +11,8 @@ export function VisualAssetPreview({
 }) {
   if (visuals.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-6 text-center text-sm text-gray-500">
-        No visual assets created yet.
+      <div className="sectionCard" style={{ textAlign: "center", padding: "2.5rem", color: "#64748b" }}>
+        Chưa có thiết kế hình ảnh nào được tạo.
       </div>
     );
   }
@@ -19,53 +20,52 @@ export function VisualAssetPreview({
   const latest = visuals[visuals.length - 1]!;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            1:1 Visual Asset
+    <div className="sectionCard">
+      <div className="sectionCardHeader">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <h3 className="sectionCardTitle">
+            <span>🖼️</span> Thiết Kế Hình Ảnh (Visual Graphic)
           </h3>
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+          <span className="statusBadge" style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", borderColor: "rgba(168, 85, 247, 0.3)", fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
             {latest.aspectRatio} Square ({latest.width}x{latest.height})
           </span>
         </div>
-        <span className="text-xs text-gray-500 font-mono">
+        <span style={{ fontSize: "0.75rem", color: "#64748b", fontFamily: "monospace" }}>
           {(latest.byteSize / 1024).toFixed(1)} KB
         </span>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-start">
-        <div className="w-48 h-48 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-indigo-500/10 to-purple-500/20 flex flex-col items-center justify-center p-4 text-center shrink-0">
-          <span className="text-3xl mb-1">🖼️</span>
-          <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-            {latest.aspectRatio} PNG Graphic
-          </span>
-          <span className="text-[10px] text-gray-500 mt-1 truncate max-w-[150px]">
-            {latest.storageKey}
-          </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div className="visualPreviewFrame" style={{ minHeight: "220px" }}>
+          <div className="visualFrameBadge">
+            1080 × 1080 PNG (1:1)
+          </div>
+          <div style={{ fontSize: "3.5rem", marginBottom: "0.5rem", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))" }}>
+            ✨ 📱 ✨
+          </div>
+          <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff" }}>
+            {latest.altText || "Ảnh Quảng Bá Sản Phẩm NovaCommerce"}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.25rem" }}>
+            Chuẩn hóa định dạng RGBA cho Meta Graph API
+          </div>
         </div>
 
-        <div className="flex-1 text-xs space-y-2">
-          {latest.promptSummary && (
+        <div style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.8rem" }}>
             <div>
-              <span className="font-semibold text-gray-500 uppercase block mb-0.5">Creative Prompt Direction</span>
-              <p className="text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-2.5 rounded border border-gray-100 dark:border-gray-800">
-                {latest.promptSummary}
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div>
-              <span className="font-semibold text-gray-500 block">Format & Media</span>
-              <span className="text-gray-800 dark:text-gray-200">{latest.mediaType}</span>
+              <span style={{ color: "#64748b", fontWeight: 600, display: "block" }}>Định dạng Media:</span>
+              <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{latest.mediaType} (Pure Node.js RGBA)</span>
             </div>
             <div>
-              <span className="font-semibold text-gray-500 block">Image SHA-256</span>
-              <code className="text-[11px] text-gray-600 dark:text-gray-400 font-mono truncate block">
+              <span style={{ color: "#64748b", fontWeight: 600, display: "block" }}>Mã SHA-256 Ảnh:</span>
+              <code style={{ fontSize: "0.75rem", color: "#94a3b8", fontFamily: "monospace" }}>
                 {latest.imageDigest.slice(0, 16)}...
               </code>
             </div>
+          </div>
+          <div style={{ marginTop: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(255,255,255,0.06)", fontSize: "0.75rem", color: "#64748b" }}>
+            Đường dẫn lưu trữ: <code style={{ color: "#94a3b8" }}>{latest.storageKey}</code>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ContentVersion } from "../types";
+import "../styles/marketing.css";
 
 export function ContentDraftPreview({
   contents,
@@ -10,8 +11,8 @@ export function ContentDraftPreview({
 }) {
   if (contents.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-6 text-center text-sm text-gray-500">
-        No content drafts generated yet.
+      <div className="sectionCard" style={{ textAlign: "center", padding: "2.5rem", color: "#64748b" }}>
+        Chưa có bản thảo bài viết nào được tạo.
       </div>
     );
   }
@@ -19,55 +20,66 @@ export function ContentDraftPreview({
   const latest = contents[contents.length - 1]!;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            Facebook Post Copy
+    <div className="sectionCard">
+      <div className="sectionCardHeader">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <h3 className="sectionCardTitle">
+            <span>✍️</span> Bản Thảo Nội Dung (Content Copy)
           </h3>
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <span className="statusBadge publishedLive" style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
             v{latest.versionNumber}
           </span>
         </div>
-        <span className="text-xs text-gray-500">
-          Total iterations: {contents.length}
+        <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+          Số lần chỉnh sửa: {contents.length}
         </span>
       </div>
 
       {latest.headline && (
-        <div className="mb-3">
-          <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Headline</span>
-          <h4 className="text-sm font-bold text-gray-900 dark:text-white">{latest.headline}</h4>
+        <div style={{ marginBottom: "0.85rem" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.25rem" }}>
+            Tiêu đề Headline:
+          </span>
+          <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#f8fafc" }}>
+            {latest.headline}
+          </div>
         </div>
       )}
 
-      <div className="mb-4">
-        <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Body Text</span>
-        <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-4 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans border border-gray-100 dark:border-gray-800">
-          {latest.primaryText ?? latest.body}
+      <div style={{ marginBottom: "1rem" }}>
+        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+          Nội dung chính bài viết:
+        </span>
+        <div className="contentCopyBox">
+          {latest.body}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
         <div>
-          <span className="font-semibold text-gray-500 block">Call to Action</span>
-          <span className="font-medium text-blue-600 dark:text-blue-400">{latest.callToAction}</span>
+          <span style={{ color: "#64748b", fontWeight: 600, display: "block" }}>Lời kêu gọi (CTA):</span>
+          <span style={{ color: "#60a5fa", fontWeight: 700 }}>{latest.callToAction}</span>
         </div>
         <div>
-          <span className="font-semibold text-gray-500 block">Content Digest</span>
-          <code className="text-[11px] text-gray-600 dark:text-gray-400 truncate block font-mono">
+          <span style={{ color: "#64748b", fontWeight: 600, display: "block" }}>Mã SHA-256 Digest:</span>
+          <code style={{ fontSize: "0.75rem", color: "#94a3b8", fontFamily: "monospace" }}>
             {latest.contentDigest.slice(0, 16)}...
           </code>
         </div>
       </div>
 
       {latest.hashtags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-800">
-          {latest.hashtags.map((tag, i) => (
-            <span key={i} className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-              {tag.startsWith("#") ? tag : `#${tag}`}
-            </span>
-          ))}
+        <div style={{ paddingTop: "0.75rem", borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+            Hashtags chiến dịch:
+          </span>
+          <div className="hashtagsList">
+            {latest.hashtags.map((tag, i) => (
+              <span key={i} className="hashtagChip">
+                {tag.startsWith("#") ? tag : `#${tag}`}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
