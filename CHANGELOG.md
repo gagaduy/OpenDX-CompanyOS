@@ -20,6 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add explicit operator commands, bounded local-file reads, and a validated
+  six-chapter configuration to import or recoverably disable the synchronized
+  Storefront hero video without persisting host file paths or deleting retained
+  MinIO media.
+
 - Add transactional Storefront hero video imports with digest-addressed MinIO
   storage, a serialized upload-and-activation critical section, replay
   convergence, reference-safe cleanup, and recoverable disable behavior.

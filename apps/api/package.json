@@ -57,6 +57,8 @@
     "db:seed:inventory": "tsx src/modules/inventory/infrastructure/seeds/run-inventory-seed.ts",
     "db:seed:promotion": "tsx src/modules/promotion/infrastructure/seeds/run-promotion-seed.ts",
     "db:seed:dashboard-demo": "tsx src/modules/reporting/infrastructure/seeds/run-dashboard-demo-seed.ts",
+    "db:import:storefront-hero": "tsx src/modules/catalog/infrastructure/imports/run-storefront-hero-import.ts",
+    "db:disable:storefront-hero": "tsx src/modules/catalog/infrastructure/imports/run-storefront-hero-disable.ts",
     "db:seed:all": "pnpm db:seed:company-core && pnpm db:seed:catalog && pnpm db:seed:inventory && pnpm db:seed:promotion && pnpm db:seed:dashboard-demo"
   },
   "dependencies": {
