@@ -1,16 +1,26 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import {
+  ArrowDown,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Pause,
+  Play,
+} from "lucide-react";
+import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FocusEvent,
 } from "react";
 import { Link } from "react-router-dom";
 import { formatVnd } from "../../../shared/format/currency";
 import { useDocumentVisibility } from "../hooks/use-document-visibility";
+import { useHeroVideoEligibility } from "../hooks/use-hero-video-eligibility";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import type {
   StorefrontHeroPresentation,
@@ -22,6 +32,12 @@ export interface StorefrontHeroProps {
   readonly fallbackProduct?: StorefrontProduct;
   readonly apiBaseUrl: string;
 }
+
+const playbackRequestToken = Symbol("storefrontHeroPlaybackRequest");
+
+type HeroVideoElement = HTMLVideoElement & {
+  [playbackRequestToken]?: object;
+};
 
 export function StorefrontHero({
   presentation,
@@ -35,10 +51,18 @@ export function StorefrontHero({
     () => new Set(),
   );
   const [fallbackFailed, setFallbackFailed] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [playbackRequest, setPlaybackRequest] = useState<
+    "automatic" | "explicit" | undefined
+  >("automatic");
   const [hovered, setHovered] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
+  const videoRef = useRef<HeroVideoElement>(null);
   const documentVisible = useDocumentVisibility();
+  const [lastDocumentVisible, setLastDocumentVisible] = useState(documentVisible);
   const reducedMotion = useReducedMotion();
+  const videoEligible = useHeroVideoEligibility();
   const availableSlides = useMemo(
     () => slides.filter(({ product }) => !failedProductIds.has(product.id)),
     [failedProductIds, slides],
@@ -52,6 +76,65 @@ export function StorefrontHero({
     !failedProductIds.has(fallbackProduct.id);
   const product =
     activeSlide?.product ?? (fallbackUsable ? fallbackProduct : undefined);
+  const videoMedia = presentation.media;
+  const videoMode =
+    videoEligible && videoMedia !== undefined && !videoFailed;
+  const interactionPaused = hovered || focusWithin || !documentVisible;
+
+  const attemptPlayback = useCallback(
+    (
+      video: HeroVideoElement,
+      failureMode: "recoverable" | "fallback",
+    ) => {
+      const requestToken = {};
+      video[playbackRequestToken] = requestToken;
+      const handleFailure = () => {
+        if (
+          videoRef.current !== video ||
+          video[playbackRequestToken] !== requestToken
+        ) {
+          return;
+        }
+        if (failureMode === "fallback") {
+          setVideoFailed(true);
+        } else {
+          setManuallyPaused(true);
+        }
+      };
+      try {
+        const playback = video.play();
+        if (playback !== undefined) void playback.catch(handleFailure);
+      } catch {
+        handleFailure();
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setVideoFailed(false);
+    setManuallyPaused(false);
+    setPlaybackRequest("automatic");
+  }, [presentation.media?.id]);
+
+  useEffect(() => {
+    if (lastDocumentVisible === documentVisible) return;
+    setLastDocumentVisible(documentVisible);
+    if (
+      documentVisible &&
+      !hovered &&
+      !focusWithin &&
+      !manuallyPaused
+    ) {
+      setPlaybackRequest("automatic");
+    }
+  }, [
+    documentVisible,
+    focusWithin,
+    hovered,
+    lastDocumentVisible,
+    manuallyPaused,
+  ]);
 
   useEffect(() => {
     if (availableSlides.length === 0 || activeIndex < availableSlides.length) {
@@ -66,7 +149,8 @@ export function StorefrontHero({
       hovered ||
       focusWithin ||
       !documentVisible ||
-      reducedMotion
+      reducedMotion ||
+      videoMode
     ) {
       return;
     }
@@ -82,6 +166,29 @@ export function StorefrontHero({
     hovered,
     manualEpoch,
     reducedMotion,
+    videoMode,
+  ]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!videoMode || video === null) return;
+
+    if (interactionPaused || manuallyPaused) {
+      pauseVideo(video);
+      return;
+    }
+    if (playbackRequest === undefined) return;
+    setPlaybackRequest(undefined);
+    attemptPlayback(
+      video,
+      playbackRequest === "explicit" ? "fallback" : "recoverable",
+    );
+  }, [
+    attemptPlayback,
+    interactionPaused,
+    manuallyPaused,
+    playbackRequest,
+    videoMode,
   ]);
 
   if (product === undefined) return null;
@@ -96,6 +203,17 @@ export function StorefrontHero({
   function selectSlide(index: number) {
     setActiveIndex(index);
     setManualEpoch((current) => current + 1);
+    if (videoMode) {
+      const selected = availableSlides[index];
+      const video = videoRef.current;
+      if (selected?.chapter !== undefined && video !== null) {
+        video.currentTime = selected.chapter.startMs / 1_000;
+        if (!manuallyPaused) {
+          attemptPlayback(video, "recoverable");
+          if (interactionPaused) pauseVideo(video);
+        }
+      }
+    }
   }
 
   function selectRelativeSlide(offset: number) {
@@ -107,6 +225,9 @@ export function StorefrontHero({
   function handleBlur(event: FocusEvent<HTMLElement>) {
     if (!event.currentTarget.contains(event.relatedTarget)) {
       setFocusWithin(false);
+      if (!hovered && !manuallyPaused && documentVisible) {
+        setPlaybackRequest("automatic");
+      }
     }
   }
 
@@ -122,17 +243,77 @@ export function StorefrontHero({
     });
   }
 
+  function handleTimeUpdate() {
+    const video = videoRef.current;
+    const durationMs = videoMedia?.durationMs;
+    if (video === null || durationMs === undefined || durationMs <= 0) return;
+    const elapsedMs = Math.max(0, video.currentTime * 1_000) % durationMs;
+    const timedSlide = presentation.slides.find(
+      ({ chapter }) =>
+        chapter !== undefined &&
+        elapsedMs >= chapter.startMs &&
+        elapsedMs < chapter.endMs,
+    );
+    if (timedSlide === undefined || failedProductIds.has(timedSlide.product.id)) {
+      return;
+    }
+    const nextIndex = availableSlides.findIndex(
+      ({ product: candidate }) => candidate.id === timedSlide.product.id,
+    );
+    if (nextIndex >= 0) setActiveIndex(nextIndex);
+  }
+
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (video === null) return;
+    if (manuallyPaused) {
+      setManuallyPaused(false);
+      setPlaybackRequest("explicit");
+      return;
+    }
+    setManuallyPaused(true);
+    pauseVideo(video);
+  }
+
   return (
     <section
       className="storefront-hero"
       aria-label="Danh mục sản phẩm nổi bật"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocusWithin(true)}
+      onMouseEnter={(event) => {
+        if (!isPlaybackControlTarget(event.target)) setHovered(true);
+      }}
+      onMouseLeave={() => {
+        setHovered(false);
+        if (!focusWithin && !manuallyPaused && documentVisible) {
+          setPlaybackRequest("automatic");
+        }
+      }}
+      onFocus={(event) => {
+        if (!isPlaybackControlTarget(event.target)) setFocusWithin(true);
+      }}
       onBlur={handleBlur}
     >
+      {videoMode && videoMedia !== undefined ? (
+        <video
+          key={videoMedia.id}
+          ref={videoRef}
+          className="hero-video-background"
+          data-testid="hero-video"
+          src={new URL(videoMedia.contentUrl, apiBaseUrl).toString()}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden="true"
+          tabIndex={-1}
+          onTimeUpdate={handleTimeUpdate}
+          onError={() => setVideoFailed(true)}
+        />
+      ) : null}
+      <div className="hero-scrim" />
       <img
-        className="hero-slide-image"
+        className="hero-slide-image hero-product-stage"
         key={product.id}
         src={new URL(product.primaryMedia.contentUrl, apiBaseUrl).toString()}
         alt={product.primaryMedia.altText}
@@ -141,7 +322,6 @@ export function StorefrontHero({
         height="540"
         onError={handleImageError}
       />
-      <div className="hero-scrim" />
       <div className="hero-content">
         <div className="hero-slide-copy" key={`copy-${product.id}`}>
           <span className="hero-eyebrow">Sản phẩm nổi bật</span>
@@ -191,9 +371,48 @@ export function StorefrontHero({
           </button>
         </div>
       ) : null}
+      {videoMode ? (
+        <button
+          className="hero-playback-control"
+          type="button"
+          aria-label={manuallyPaused ? "Phát video" : "Tạm dừng video"}
+          onClick={togglePlayback}
+          onMouseEnter={() => {
+            setHovered(false);
+            if (!focusWithin && !manuallyPaused && documentVisible) {
+              setPlaybackRequest("automatic");
+            }
+          }}
+          onMouseLeave={() => setHovered(true)}
+          onFocus={() => {
+            setFocusWithin(false);
+            if (!hovered && !manuallyPaused && documentVisible) {
+              setPlaybackRequest("automatic");
+            }
+          }}
+        >
+          {manuallyPaused ? (
+            <Play aria-hidden="true" />
+          ) : (
+            <Pause aria-hidden="true" />
+          )}
+        </button>
+      ) : null}
       <a className="hero-scroll" href="#categories" aria-label="Xem danh mục">
         <ArrowDown />
       </a>
     </section>
   );
+}
+
+function isPlaybackControlTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(".hero-playback-control") !== null
+  );
+}
+
+function pauseVideo(video: HeroVideoElement) {
+  delete video[playbackRequestToken];
+  video.pause();
 }

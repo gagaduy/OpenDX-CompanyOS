@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add a desktop, reduced-motion-aware Storefront hero that synchronizes
+  database-backed product chapters with accessible MP4 playback while keeping
+  image rotation and product-level failure fallbacks intact.
+
 - Add validated Storefront hero presentation transport and independently
   recoverable homepage state for synchronized media chapters and image
   fallbacks.

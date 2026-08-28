@@ -417,6 +417,21 @@ img {
   transform: scale(1.03);
 }
 
+.hero-video-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.hero-product-stage {
+  z-index: 1;
+  pointer-events: none;
+}
+
 .hero-slide-image,
 .hero-slide-copy {
   animation: hero-slide-enter 240ms ease-out;
@@ -435,12 +450,13 @@ img {
 .hero-scrim {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: rgba(0, 0, 0, 0.56);
 }
 
 .hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: min(760px, calc(100% - 48px));
   text-align: center;
 }
@@ -2954,10 +2970,11 @@ img {
 .homepage-hero-region .storefront-hero {
   min-height: 418px;
   place-items: stretch;
+  border-radius: 12px;
   background: var(--surface-2);
 }
 
-.homepage-hero-region .storefront-hero > img {
+.homepage-hero-region .hero-product-stage {
   right: 0;
   left: auto;
   width: 52%;
@@ -2967,14 +2984,22 @@ img {
   background: var(--surface-2);
 }
 
+.homepage-hero-region .hero-video-background {
+  object-position: center;
+}
+
 .homepage-hero-region .hero-scrim {
-  width: 52%;
-  right: auto;
-  background: rgba(1, 1, 2, 0.82);
+  inset: 12px auto 12px 12px;
+  width: calc(47% - 12px);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+  opacity: 0.94;
 }
 
 :root[data-theme="light"] .homepage-hero-region .hero-scrim {
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--surface-2);
+  opacity: 0.92;
 }
 
 .homepage-hero-region .hero-content {
@@ -3064,6 +3089,32 @@ img {
   color: var(--ink);
   cursor: pointer;
   pointer-events: auto;
+}
+
+.hero-playback-control {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 4;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.hero-playback-control:hover {
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+.hero-playback-control svg {
+  width: 16px;
+  height: 16px;
 }
 
 .homepage-hero-region .hero-scroll {
@@ -3418,6 +3469,12 @@ img {
   .product-rail-tabs {
     order: 3;
     width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .homepage-hero-region .hero-slide-copy {
+    width: min(47%, 420px);
   }
 }
 
