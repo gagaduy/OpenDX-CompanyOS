@@ -363,6 +363,7 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
   const heroVideo = route.id === "home"
     ? await verifyHeroPresentation(client, viewport, theme)
     : null;
+  if (heroVideo !== null) await delay(300);
   await focusFirstInteractiveElement(client);
   const result = await evaluate(client, `(() => {
     const active = document.activeElement;
@@ -434,6 +435,39 @@ async function verifyHeroPresentation(client, viewport, theme) {
   const initial = await evaluate(client, `(() => {
     const hero = document.querySelector(".homepage-hero-region .storefront-hero");
     const rect = hero?.getBoundingClientRect();
+    const video = hero?.querySelector('[data-testid="hero-video"]');
+    const videoRect = video?.getBoundingClientRect();
+    const productStage = hero?.querySelector(".hero-product-stage");
+    const productRect = productStage?.getBoundingClientRect();
+    const scrim = hero?.querySelector(".hero-scrim");
+    const scrimRect = scrim?.getBoundingClientRect();
+    const copyRect = hero?.querySelector(".hero-slide-copy")?.getBoundingClientRect();
+    const selector = hero?.querySelector(".hero-category-selector");
+    const selectorRect = selector?.getBoundingClientRect();
+    const tabRects = [...(selector?.querySelectorAll("button") ?? [])]
+      .map((tab) => tab.getBoundingClientRect());
+    const playbackRect = hero?.querySelector(".hero-playback-control")?.getBoundingClientRect();
+    const arrowRects = [...(hero?.querySelectorAll(".hero-carousel-controls button") ?? [])]
+      .map((button) => button.getBoundingClientRect());
+    const scrimColor = scrim === null ? null : getComputedStyle(scrim).backgroundColor;
+    const scrimAlpha = scrimColor === null
+      ? 1
+      : Number(scrimColor.match(/rgba?\\([^,]+,[^,]+,[^,]+(?:,\\s*([0-9.]+))?\\)/)?.[1] ?? 1);
+    const clippedArea = (candidate, boundary) => {
+      if (candidate === undefined || boundary === undefined) return 0;
+      const width = Math.max(0, Math.min(candidate.right, boundary.right) - Math.max(candidate.left, boundary.left));
+      const height = Math.max(0, Math.min(candidate.bottom, boundary.bottom) - Math.max(candidate.top, boundary.top));
+      return width * height;
+    };
+    const contains = (outer, inner, tolerance = 1) => outer !== undefined && inner !== undefined
+      && inner.left >= outer.left - tolerance && inner.right <= outer.right + tolerance
+      && inner.top >= outer.top - tolerance && inner.bottom <= outer.bottom + tolerance;
+    const intersects = (first, second) => clippedArea(first, second) > 1;
+    const heroArea = rect === undefined ? 0 : rect.width * rect.height;
+    const scrimArea = clippedArea(scrimRect, rect);
+    const productArea = clippedArea(productRect, rect);
+    const overlayIntersectionArea = clippedArea(scrimRect, productRect);
+    const overlayUnionArea = scrimArea + productArea - overlayIntersectionArea;
     return {
       firstCategory: ${JSON.stringify(firstCategory)},
       videoCount: hero?.querySelectorAll('[data-testid="hero-video"]').length ?? -1,
@@ -448,6 +482,39 @@ async function verifyHeroPresentation(client, viewport, theme) {
       carouselControls: hero?.querySelectorAll(".hero-carousel-controls button").length ?? 0,
       contained: rect === undefined ? false : rect.left >= 0 && rect.right <= innerWidth,
       overflow: hero instanceof HTMLElement ? hero.scrollWidth > hero.clientWidth : true,
+      hasVideoClass: hero?.classList.contains("has-hero-video") ?? false,
+      videoCoversHero: rect !== undefined && videoRect !== undefined
+        ? Math.abs(videoRect.left - rect.left) <= 1
+          && Math.abs(videoRect.top - rect.top) <= 1
+          && Math.abs(videoRect.width - rect.width) <= 1
+          && Math.abs(videoRect.height - rect.height) <= 1
+        : false,
+      productWidthRatio: rect !== undefined && productRect !== undefined
+        ? productRect.width / rect.width
+        : 1,
+      productHeightRatio: rect !== undefined && productRect !== undefined
+        ? productRect.height / rect.height
+        : 1,
+      unobscuredVideoAreaRatio: heroArea > 0
+        ? 1 - overlayUnionArea / heroArea
+        : 0,
+      effectiveVideoVisibilityRatio: heroArea > 0
+        ? 1 - (productArea + scrimAlpha * (scrimArea - overlayIntersectionArea)) / heroArea
+        : 0,
+      overlaysContained: contains(rect, scrimRect) && contains(rect, productRect),
+      copyContainedByScrim: contains(scrimRect, copyRect),
+      selectorContained: contains(rect, selectorRect),
+      selectorOverflow: selector instanceof HTMLElement
+        ? selector.scrollWidth > selector.clientWidth + 1
+        : true,
+      tabsContained: tabRects.length > 0
+        && tabRects.every((tabRect) => contains(selectorRect, tabRect) && contains(rect, tabRect)),
+      controlsClearProduct: playbackRect !== undefined
+        && !intersects(playbackRect, productRect)
+        && arrowRects.length === 2
+        && arrowRects.every((arrowRect) => !intersects(arrowRect, productRect)),
+      selectorClearProduct: !intersects(selectorRect, productRect),
+      scrimAlpha,
     };
   })()`);
   const expectsVideo = viewport.width >= 768;
@@ -457,7 +524,15 @@ async function verifyHeroPresentation(client, viewport, theme) {
     !initial.cta || initial.categories !== 6 || initial.carouselControls !== 2 ||
     !initial.contained || initial.overflow || initial.videoCount !== (expectsVideo ? 1 : 0) ||
     (expectsVideo && initial.playbackLabel === null) ||
-    (!expectsVideo && initial.playbackLabel !== null)
+    (!expectsVideo && initial.playbackLabel !== null) ||
+    (expectsVideo && (!initial.hasVideoClass || !initial.videoCoversHero ||
+      !initial.overlaysContained || !initial.copyContainedByScrim ||
+      !initial.selectorContained || initial.selectorOverflow || !initial.tabsContained ||
+      !initial.controlsClearProduct || !initial.selectorClearProduct ||
+      initial.productWidthRatio > 0.44 || initial.productHeightRatio > 0.82 ||
+      initial.unobscuredVideoAreaRatio < 0.35 ||
+      initial.effectiveVideoVisibilityRatio < 0.45 || initial.scrimAlpha >= 0.95)) ||
+    (!expectsVideo && initial.hasVideoClass)
   ) {
     throw new Error(`${viewport.name} ${theme}: hero presentation is incomplete ${JSON.stringify(initial)}`);
   }
@@ -566,7 +641,8 @@ function assertRoute(result, viewport, theme, route) {
     const home = result.homepage;
     if (
       !home.hero || home.heroMedia === null ||
-      !home.heroMedia.startsInRightHalf || !home.heroMedia.rightAligned ||
+      !home.heroMedia.startsInRightHalf ||
+      (home.videoCount === 0 && !home.heroMedia.rightAligned) ||
       !home.heroMedia.contained || home.categories < 4 ||
       home.assurances !== 4 || !home.assuranceCopyFromCatalog ||
       !home.metricValueFromCatalog || home.promotions < 4 || home.tabs !== 3 ||

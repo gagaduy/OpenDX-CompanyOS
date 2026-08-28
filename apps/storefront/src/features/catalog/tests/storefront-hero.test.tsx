@@ -50,6 +50,9 @@ describe("StorefrontHero synchronized video", () => {
     eligibility.value = true;
     renderHero({ presentation: videoPresentation(), fallbackProduct: laptop });
 
+    expect(
+      screen.getByRole("region", { name: "Danh mục sản phẩm nổi bật" }),
+    ).toHaveClass("has-hero-video");
     const video = screen.getByTestId("hero-video") as HTMLVideoElement;
     expect(video).toHaveAttribute(
       "src",
@@ -66,6 +69,9 @@ describe("StorefrontHero synchronized video", () => {
   it("does not render video when the client is ineligible or media is absent", () => {
     const presentation = videoPresentation();
     const { rerender } = renderHero({ presentation, fallbackProduct: laptop });
+    expect(
+      screen.getByRole("region", { name: "Danh mục sản phẩm nổi bật" }),
+    ).not.toHaveClass("has-hero-video");
     expect(screen.queryByTestId("hero-video")).not.toBeInTheDocument();
 
     eligibility.value = true;
@@ -319,6 +325,9 @@ describe("StorefrontHero synchronized video", () => {
     fireEvent.error(screen.getByTestId("hero-video"));
 
     expect(screen.queryByTestId("hero-video")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Danh mục sản phẩm nổi bật" }),
+    ).not.toHaveClass("has-hero-video");
     expect(screen.getByRole("img", { name: "Nova Laptop image" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Nova Laptop" })).toBeVisible();
     expect(screen.getByText("Từ 10.000.000 ₫")).toBeVisible();

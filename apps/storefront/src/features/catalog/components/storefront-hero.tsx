@@ -277,7 +277,7 @@ export function StorefrontHero({
 
   return (
     <section
-      className="storefront-hero"
+      className={`storefront-hero${videoMode ? " has-hero-video" : ""}`}
       aria-label="Danh mục sản phẩm nổi bật"
       onMouseEnter={(event) => {
         if (!isPlaybackControlTarget(event.target)) setHovered(true);

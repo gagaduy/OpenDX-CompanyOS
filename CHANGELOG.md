@@ -56,6 +56,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Reveal the synchronized Storefront hero video behind a translucent copy
+  panel and bounded floating product stage while preserving image-only
+  fallbacks for mobile, reduced-motion, and unavailable media.
+
 - Keep active Storefront hero metadata, chapter products, and prices on one
   PostgreSQL statement snapshot during operator replacement, and document the
   video import with a portable operator-provided host path.
