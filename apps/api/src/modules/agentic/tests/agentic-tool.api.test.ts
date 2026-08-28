@@ -68,17 +68,62 @@ describe("Agentic department tool API", () => {
     await send({ ...valid, parameters: { value: "x".repeat(17_000) } }).expect(413);
     expect(current.tools.invoke).toHaveBeenCalledTimes(2);
   });
+
+  it("authorizes marketing_content agent for marketing tools", async () => {
+    const current = fixture();
+    const marketingPayload = {
+      taskId: "11111111-1111-4111-8111-111111111111",
+      toolName: "marketing.save_content_draft",
+      toolVersion: 1,
+      purpose: "marketing_publication",
+      dataScope: "marketing:content:write",
+      dataClassification: "internal",
+      modelId: "openai/gpt-5-mini",
+      parameters: {
+        campaign_id: "00000000-0000-4000-8000-000000000001",
+        primary_text: "Text",
+        hashtags: ["#tag"],
+        call_to_action: "CTA",
+      },
+      idempotencyKey: "invoke-mkt-1",
+      correlationId: "correlation-1",
+      causationId: "causation-1",
+    };
+
+    const response = await request(current.app)
+      .post("/v1/internal/agentic/tools/invoke")
+      .set("authorization", "Bearer marketing-content-token")
+      .send(marketingPayload)
+      .expect(200);
+
+    expect(response.body.data).toEqual({ output: { ok: true }, provenanceIds: [] });
+    expect(current.tools.invoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        principal: {
+          subject: "service-account-agent-marketing-content",
+          clientId: "agent-marketing-content",
+          agentKind: "marketing_content",
+        },
+      }),
+    );
+  });
 });
 
 function fixture() {
-  const tools = { authorize: vi.fn(), invoke: vi.fn(async (input: typeof valid & {
+  const tools = { authorize: vi.fn(), invoke: vi.fn(async (input: {
     readonly principal: { readonly agentKind: string };
+    readonly dataScope?: string;
+    readonly dataClassification?: string;
   }) => {
-    if (
-      input.principal.agentKind !== "catalog"
-      || input.dataScope !== "catalog:health:read"
-      || input.dataClassification !== "internal"
-    ) {
+    if (input.principal.agentKind === "catalog") {
+      if (input.dataScope !== "catalog:health:read" || input.dataClassification !== "internal") {
+        throw new AgenticApplicationError("TOOL_SCOPE_DENIED", "Tool scope denied");
+      }
+    } else if (input.principal.agentKind === "marketing_content") {
+      if (input.dataScope !== "marketing:content:write" || input.dataClassification !== "internal") {
+        throw new AgenticApplicationError("TOOL_SCOPE_DENIED", "Tool scope denied");
+      }
+    } else {
       throw new AgenticApplicationError("TOOL_SCOPE_DENIED", "Tool scope denied");
     }
     return { output: { ok: true }, provenanceIds: [] };
@@ -90,6 +135,7 @@ function fixture() {
         "inventory-token": { sub: "service-account-agent-inventory", azp: "agent-inventory" },
         "inactive-token": { sub: "service-account-agent-inactive", azp: "agent-inactive" },
         "worker-token": { sub: "service-account-opendx-agentic-worker", azp: "opendx-agentic-worker" },
+        "marketing-content-token": { sub: "service-account-agent-marketing-content", azp: "agent-marketing-content" },
       };
       if (token === "wrong-audience-token") throw new Error("wrong audience");
       const value = values[token];
@@ -102,9 +148,11 @@ function fixture() {
       ? { agentKind: "catalog" as const, active: true }
       : clientId === "agent-inventory"
         ? { agentKind: "inventory" as const, active: true }
-        : clientId === "agent-inactive"
-          ? { agentKind: "catalog" as const, active: false }
-          : undefined),
+        : clientId === "agent-marketing-content"
+          ? { agentKind: "marketing_content" as const, active: true }
+          : clientId === "agent-inactive"
+            ? { agentKind: "catalog" as const, active: false }
+            : undefined),
   };
   const router = createAgenticToolRouter(
     new AgenticToolController(tools as never),

@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add deterministic Marketing Department Tool adapters for campaign brief retrieval, Catalog product summary extraction, content drafting with prohibited claim checks, PNG visual asset validation, publication package assembly, and publication status reporting.
+
 - Govern three Marketing Digital Employees (`marketing_content`, `marketing_visual`, `marketing_publisher`) with isolated Keycloak service credentials, database schema constraints, environment templates, and runtime settings.
 
 - Add governed direct Marketing campaign intake, deterministic scope and cross-department validation, idempotency replay handling, and staff administration API routes.

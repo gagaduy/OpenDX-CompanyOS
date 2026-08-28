@@ -10,12 +10,14 @@ import type { InventoryHealthReader } from "../../../inventory";
 import type { OrderHealthReader } from "../../../order";
 import type { PaymentHealthReader } from "../../../payment";
 import type { SupportHealthReader, SupportOrderReferenceReader } from "../../../support";
+import type { MarketingRepository } from "../../../marketing/application/repositories/interfaces/marketing.repository";
 import { CatalogDepartmentToolAdapter } from "./catalog-department-tool.adapter";
 import { CrmDepartmentToolAdapter } from "./crm-department-tool.adapter";
 import { FinanceDepartmentToolAdapter } from "./finance-department-tool.adapter";
 import { InventoryDepartmentToolAdapter } from "./inventory-department-tool.adapter";
 import { OrderDepartmentToolAdapter } from "./order-department-tool.adapter";
 import { SupportDepartmentToolAdapter } from "./support-department-tool.adapter";
+import { MarketingDepartmentToolAdapter, type CatalogProductReader } from "./marketing-tool.adapters";
 import { SignedDepartmentToolCursorAdapter } from "./signed-department-tool-cursor";
 
 export interface FixedDepartmentAdapters {
@@ -25,6 +27,7 @@ export interface FixedDepartmentAdapters {
   readonly finance: DepartmentToolAdapter;
   readonly crm: DepartmentToolAdapter;
   readonly support: DepartmentToolAdapter;
+  readonly marketing?: DepartmentToolAdapter;
 }
 
 const owner: Readonly<Record<DepartmentToolName, keyof FixedDepartmentAdapters>> = {
@@ -45,16 +48,22 @@ const owner: Readonly<Record<DepartmentToolName, keyof FixedDepartmentAdapters>>
   "support.sla_risk": "support",
   "support.classification_summary": "support",
   "support.related_order_context": "support",
+  "marketing.fetch_campaign_brief": "marketing",
+  "marketing.fetch_catalog_product_summary": "marketing",
+  "marketing.save_content_draft": "marketing",
+  "marketing.save_visual_asset": "marketing",
+  "marketing.assemble_publication_package": "marketing",
+  "marketing.fetch_publication_status": "marketing",
 };
 
 export class FixedDepartmentToolAdapterRegistry implements DepartmentToolAdapterRegistry {
   constructor(private readonly adapters: FixedDepartmentAdapters) {}
   resolve(name: DepartmentToolName, version: 1): DepartmentToolAdapter {
     const department = owner[name];
-    if (version !== 1 || department === undefined) {
+    if (version !== 1 || department === undefined || this.adapters[department] === undefined) {
       throw new AgenticApplicationError("TOOL_UNAVAILABLE", "Department tool is unavailable");
     }
-    return this.adapters[department];
+    return this.adapters[department]!;
   }
 }
 
@@ -65,6 +74,8 @@ export function createFixedDepartmentToolAdapterRegistry(readers: {
   readonly finance: PaymentHealthReader;
   readonly crm: CrmHealthReader;
   readonly support: SupportHealthReader & SupportOrderReferenceReader;
+  readonly marketingRepository?: MarketingRepository;
+  readonly catalogProductReader?: CatalogProductReader;
 }, now: () => string, cursorSecret: string): FixedDepartmentToolAdapterRegistry {
   const wrap = (adapter: DepartmentToolAdapter) =>
     new SignedDepartmentToolCursorAdapter(adapter, cursorSecret, now);
@@ -75,5 +86,16 @@ export function createFixedDepartmentToolAdapterRegistry(readers: {
     finance: wrap(new FinanceDepartmentToolAdapter(readers.finance, now)),
     crm: wrap(new CrmDepartmentToolAdapter(readers.crm, now)),
     support: wrap(new SupportDepartmentToolAdapter(readers.support, readers.support, now)),
+    ...(readers.marketingRepository === undefined
+      ? {}
+      : {
+          marketing: wrap(
+            new MarketingDepartmentToolAdapter({
+              marketingRepository: readers.marketingRepository,
+              catalogReader: readers.catalogProductReader,
+              now,
+            }),
+          ),
+        }),
   });
 }

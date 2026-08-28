@@ -220,6 +220,12 @@ const reporting = createReportingModule({
   now: () => new Date().toISOString(),
 });
 const currentTime = () => new Date().toISOString();
+const marketing = createMarketingModule({
+  database: pool,
+  staffTokenVerifier,
+  generateId: randomUUID,
+  now: currentTime,
+});
 const orderHealth = createOrderHealthReader({ transactions, now: currentTime });
 const supportHealth = createSupportHealthReader({
   transactions,
@@ -233,6 +239,7 @@ const toolAdapters = createFixedDepartmentToolAdapterRegistry({
   finance: createPaymentHealthReader({ transactions, now: currentTime }),
   crm: createCrmHealthReader({ transactions, analytics, now: currentTime }),
   support: supportHealth,
+  marketingRepository: marketing.repository,
 }, currentTime, environment.agentic.controlClientSecret);
 const agentic = createAgenticModule({
   transactions,
@@ -255,12 +262,6 @@ const agentic = createAgenticModule({
   logger,
   ...(metrics === undefined ? {} : { metrics }),
   monotonicNow: performance.now.bind(performance),
-});
-const marketing = createMarketingModule({
-  database: pool,
-  staffTokenVerifier,
-  generateId: randomUUID,
-  now: () => new Date().toISOString(),
 });
 const paymentOperations = payment.createOperations({
   orders: order.checkout, inventory: inventory.reservations,
