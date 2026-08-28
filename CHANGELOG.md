@@ -53,6 +53,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Align the final Nova Signal hero chapter with the approved source video's
+  measured 24,750 ms duration while preserving the first five four-second
+  chapters.
+
 - Make API readiness require both the exact Customer Wishlist migration ledger
   entry and its PostgreSQL table so a partially migrated runtime fails closed.
 

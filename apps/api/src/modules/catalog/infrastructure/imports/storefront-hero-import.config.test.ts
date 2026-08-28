@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   parseStorefrontHeroDisableArguments,
   parseStorefrontHeroImportArguments,
@@ -22,6 +23,24 @@ const validConfig = {
 };
 
 describe("Storefront hero import configuration", () => {
+  it("keeps the approved Nova Signal chapter timeline aligned with the source video", () => {
+    const committed = parseStorefrontHeroImportConfig(
+      readFileSync(new URL("./nova-signal-hero.json", import.meta.url), "utf8"),
+    );
+
+    expect(committed).toEqual({
+      code: "nova-signal",
+      chapters: [
+        { categorySlug: "laptops", sortOrder: 0, startMs: 0, endMs: 4_000, label: "Laptop nổi bật" },
+        { categorySlug: "phones", sortOrder: 1, startMs: 4_000, endMs: 8_000, label: "Điện thoại nổi bật" },
+        { categorySlug: "tablets", sortOrder: 2, startMs: 8_000, endMs: 12_000, label: "Máy tính bảng nổi bật" },
+        { categorySlug: "smart-watches", sortOrder: 3, startMs: 12_000, endMs: 16_000, label: "Đồng hồ thông minh nổi bật" },
+        { categorySlug: "computer-components", sortOrder: 4, startMs: 16_000, endMs: 20_000, label: "Linh kiện nổi bật" },
+        { categorySlug: "accessories", sortOrder: 5, startMs: 20_000, endMs: 24_750, label: "Phụ kiện nổi bật" },
+      ],
+    });
+  });
+
   it("parses one explicit video file and one explicit configuration file", () => {
     expect(
       parseStorefrontHeroImportArguments([
