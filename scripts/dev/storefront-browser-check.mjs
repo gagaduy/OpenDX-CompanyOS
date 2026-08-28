@@ -6,6 +6,13 @@ import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { gunzipSync } from "node:zlib";
+
+const heroMediaPath = "/v1/storefront/hero-media/83000000-0000-4000-8000-000000000001/content";
+const heroMediaBytes = gunzipSync(Buffer.from(
+  "H4sICCdtkWoCA3N0b3JlZnJvbnQtYnJvd3Nlci1hdWRpby5tcDQA7ZixSgNBEIYnJpAUItEklVFOELFRUBQrwc50KcRKmzNzIUduc8ftXow2+hC+gwqCWFmkSeEjWPgEPoMgqLN3Oe9MQEgnOMP/MbuzOzO77QCA0VRnnvC2NoFMe2LDlq4gKFa5E67bpSNHdFuo77w+LlxrAPIFgJsBZEArsR+b8f0e/GpTAOV35ZttWh+rdtgzn/SMq1Hf0RaT9V22UEnyVcuRKskY1g1zy0WBtkkLQ+Do3/uXMHsFh0/h7bUWOn5cWLpBJ93ogPZYMzvoWPpOqS/sTpMWRSmiovGDMIpX0beaqS9MB75jROvShVQnDq33pZKYurNT9wI59u0MFLWjp2orYd2TFOt9R2BVKhWnZaPUbA0gd09+MCzV00+ido1UeSL3EPm5Fzo7T34RxrMMwzAMwzAMwzAMwzAM88cpS9Vwk5lX5Zl8I0Cl54FHwgq9tqV49idaji/Q9kcHmut2NGBcuUVLD9sW0QyTwzmdGaDtKksq49TsWhTYHbbYnqRFIWoxMy+o9tvnB4vFYrFYLBaLxWKx/qe+AEYnqovnIwAA",
+  "base64",
+));
 
 const storefrontUrl = process.env.STOREFRONT_URL ?? "http://localhost:3100";
 const outputDirectory = process.env.BROWSER_EVIDENCE_DIR ?? join(tmpdir(), "opendx-storefront-browser");
@@ -51,6 +58,7 @@ async function main() {
     await client.send("Page.enable");
     await client.send("Runtime.enable");
     await client.send("Network.enable");
+    await installHeroMediaFixture(client);
     await installFixtures(client);
     const evidence = [];
     for (const viewport of viewports) {
@@ -67,6 +75,12 @@ async function main() {
           evidence.push(await verifyRoute(client, viewport, theme, route, false));
         }
         evidence.push(await verifyUnavailableContent(client, viewport, theme));
+        if (viewport.name === "desktop") {
+          evidence.push(await verifyUnavailableHeroVideo(client, viewport, theme));
+        }
+      }
+      if (viewport.name === "desktop") {
+        evidence.push(...await verifyReducedMotionHome(client, viewport));
       }
     }
     client.close();
@@ -117,6 +131,98 @@ async function verifyUnavailableContent(client, viewport, theme) {
   return { viewport, theme, requestedRoute: "/?content=unavailable", screenshotPath, ...result };
 }
 
+async function verifyUnavailableHeroVideo(client, viewport, theme) {
+  await client.send("Page.navigate", {
+    url: new URL("/?hero-video=unavailable", storefrontUrl).toString(),
+  });
+  await waitForCondition(
+    client,
+    `document.querySelector(".homepage-hero-region .hero-product-stage") !== null
+      && document.querySelector('[data-testid="hero-video"]') === null
+      && document.body.innerText.includes("Nova Phone Pro")`,
+    `${viewport.name} ${theme}: unavailable hero media did not fall back`,
+  );
+  await setTheme(client, theme);
+  const result = await evaluate(client, `(() => {
+    const hero = document.querySelector(".homepage-hero-region .storefront-hero");
+    return {
+      theme: document.documentElement.dataset.theme,
+      videoCount: hero?.querySelectorAll('[data-testid="hero-video"]').length ?? -1,
+      imageCount: hero?.querySelectorAll(".hero-product-stage").length ?? 0,
+      productVisible: hero?.textContent?.includes("Nova Phone Pro") ?? false,
+      descriptionVisible: hero?.textContent?.includes("Mô tả đầy đủ cho Điện thoại") ?? false,
+      ctaVisible: [...(hero?.querySelectorAll("a") ?? [])]
+        .some((link) => link.textContent?.includes("Khám phá ngay")),
+      categories: hero?.querySelectorAll(".hero-category-selector button").length ?? 0,
+      carouselControls: hero?.querySelectorAll(".hero-carousel-controls button").length ?? 0,
+      overflow: hero instanceof HTMLElement ? hero.scrollWidth > hero.clientWidth : true,
+    };
+  })()`);
+  if (
+    result.theme !== theme || result.videoCount !== 0 || result.imageCount !== 1 ||
+    !result.productVisible || !result.descriptionVisible || !result.ctaVisible ||
+    result.categories !== 6 || result.carouselControls !== 2 || result.overflow
+  ) {
+    throw new Error(
+      `${viewport.name} ${theme}: unavailable hero media fallback is incomplete ${JSON.stringify(result)}`,
+    );
+  }
+  const screenshotPath = join(
+    outputDirectory,
+    `hero-video-unavailable-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+  );
+  await saveScreenshot(client, screenshotPath);
+  return { viewport, theme, requestedRoute: "/?hero-video=unavailable", screenshotPath, ...result };
+}
+
+async function verifyReducedMotionHome(client, viewport) {
+  await client.send("Emulation.setEmulatedMedia", {
+    media: "screen",
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  const evidence = [];
+  try {
+    for (const theme of ["dark", "light"]) {
+      await client.send("Page.navigate", { url: new URL("/", storefrontUrl).toString() });
+      await waitForCondition(
+        client,
+        `document.querySelector(".homepage-hero-region .hero-product-stage") !== null
+          && document.querySelector('[data-testid="hero-video"]') === null`,
+        `${viewport.name} ${theme}: reduced-motion image fallback did not settle`,
+      );
+      await setTheme(client, theme);
+      const result = await evaluate(client, `({
+        theme: document.documentElement.dataset.theme,
+        videoCount: document.querySelectorAll('[data-testid="hero-video"]').length,
+        imageCount: document.querySelectorAll(".homepage-hero-region .hero-product-stage").length,
+        productVisible: document.body.innerText.includes("Nova Phone Pro"),
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+      })`);
+      if (
+        result.theme !== theme || result.videoCount !== 0 || result.imageCount !== 1 ||
+        !result.productVisible || result.documentWidth > result.viewportWidth
+      ) {
+        throw new Error(
+          `${viewport.name} ${theme}: reduced-motion fallback is incomplete ${JSON.stringify(result)}`,
+        );
+      }
+      const screenshotPath = join(
+        outputDirectory,
+        `home-reduced-motion-${viewport.name}-${theme}-${viewport.width}x${viewport.height}.png`,
+      );
+      await saveScreenshot(client, screenshotPath);
+      evidence.push({ viewport, theme, requestedRoute: "/", reducedMotion: true, screenshotPath, ...result });
+    }
+  } finally {
+    await client.send("Emulation.setEmulatedMedia", {
+      media: "screen",
+      features: [{ name: "prefers-reduced-motion", value: "no-preference" }],
+    });
+  }
+  return evidence;
+}
+
 async function installFixtures(client) {
   const fixtures = createFixtures();
   await client.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -142,6 +248,11 @@ async function installFixtures(client) {
           fixture = fixtures.products;
         } else if (url.pathname.startsWith("/v1/storefront/products/")) {
           fixture = fixtures.product;
+        } else if (url.pathname === "/v1/storefront/hero-presentation") {
+          fixture = structuredClone(fixtures.byPath[url.pathname]);
+          if (new URL(location.href).searchParams.get("hero-video") === "unavailable") {
+            fixture.data.media.contentUrl += "?unavailable=1";
+          }
         } else {
           fixture = fixtures.byPath[url.pathname];
         }
@@ -156,6 +267,77 @@ async function installFixtures(client) {
       };
     })();`,
   });
+}
+
+async function installHeroMediaFixture(client) {
+  client.on("Fetch.requestPaused", async ({ request, requestId }) => {
+    const url = new URL(request.url);
+    if (url.pathname !== heroMediaPath) {
+      await client.send("Fetch.continueRequest", { requestId });
+      return;
+    }
+    if (url.searchParams.get("unavailable") === "1") {
+      await client.send("Fetch.fulfillRequest", {
+        requestId,
+        responseCode: 503,
+        responseHeaders: responseHeaders([
+          ["Content-Type", "application/json; charset=utf-8"],
+          ["Cache-Control", "no-store"],
+        ]),
+        body: Buffer.from('{"success":false,"message":"Hero media unavailable"}').toString("base64"),
+      });
+      return;
+    }
+    const range = request.headers.Range ?? request.headers.range;
+    const selected = selectByteRange(range, heroMediaBytes.length);
+    if (selected === null) {
+      await client.send("Fetch.fulfillRequest", {
+        requestId,
+        responseCode: 416,
+        responseHeaders: responseHeaders([
+          ["Accept-Ranges", "bytes"],
+          ["Cache-Control", "no-store"],
+          ["Content-Range", `bytes */${heroMediaBytes.length}`],
+        ]),
+      });
+      return;
+    }
+    const { start, end, partial } = selected;
+    const body = request.method === "HEAD"
+      ? ""
+      : heroMediaBytes.subarray(start, end + 1).toString("base64");
+    await client.send("Fetch.fulfillRequest", {
+      requestId,
+      responseCode: partial ? 206 : 200,
+      responseHeaders: responseHeaders([
+        ["Accept-Ranges", "bytes"],
+        ["Cache-Control", "no-store"],
+        ["Content-Length", String(end - start + 1)],
+        ["Content-Type", "video/mp4"],
+        ...(partial ? [["Content-Range", `bytes ${start}-${end}/${heroMediaBytes.length}`]] : []),
+      ]),
+      body,
+    });
+  });
+  await client.send("Fetch.enable", {
+    patterns: [{ urlPattern: `*${heroMediaPath}*`, requestStage: "Request" }],
+  });
+}
+
+function selectByteRange(value, length) {
+  if (value === undefined) return { start: 0, end: length - 1, partial: false };
+  const match = /^bytes=(\d+)-(\d*)$/.exec(value);
+  if (match === null) return null;
+  const start = Number(match[1]);
+  const requestedEnd = match[2] === "" ? length - 1 : Number(match[2]);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start >= length || requestedEnd < start) {
+    return null;
+  }
+  return { start, end: Math.min(requestedEnd, length - 1), partial: true };
+}
+
+function responseHeaders(entries) {
+  return entries.map(([name, value]) => ({ name, value }));
 }
 
 async function verifyRoute(client, viewport, theme, route, hardReload) {
@@ -178,6 +360,9 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
   const navigation = route.id === "home"
     ? await verifyNavigationMenus(client, viewport, theme)
     : null;
+  const heroVideo = route.id === "home"
+    ? await verifyHeroPresentation(client, viewport, theme)
+    : null;
   await focusFirstInteractiveElement(client);
   const result = await evaluate(client, `(() => {
     const active = document.activeElement;
@@ -198,6 +383,7 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
       },
       homepage: location.pathname === "/" ? {
         hero: document.querySelector(".homepage-hero-region") !== null,
+        videoCount: document.querySelectorAll('[data-testid="hero-video"]').length,
         heroMedia: (() => {
           const hero = document.querySelector(".homepage-hero-region .storefront-hero");
           const media = hero?.querySelector(".hero-slide-image");
@@ -221,6 +407,7 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
     };
   })()`);
   result.navigation = navigation;
+  result.heroVideo = heroVideo;
   assertRoute(result, viewport, theme, route);
   await client.send("Runtime.evaluate", {
     expression: "document.activeElement instanceof HTMLElement && document.activeElement.blur()",
@@ -231,6 +418,100 @@ async function verifyRoute(client, viewport, theme, route, hardReload) {
   );
   await saveScreenshot(client, screenshotPath);
   return { viewport, theme, requestedRoute: route.path, screenshotPath, ...result };
+}
+
+async function verifyHeroPresentation(client, viewport, theme) {
+  const firstCategory = await evaluate(client, `(() => {
+    const button = document.querySelector(".hero-category-selector button");
+    button?.click();
+    return button?.textContent?.trim() ?? null;
+  })()`);
+  await waitForCondition(
+    client,
+    `document.querySelector(".hero-slide-copy h1")?.textContent?.trim() === "Nova Phone Pro"`,
+    `${viewport.name} ${theme}: first hero product did not settle`,
+  );
+  const initial = await evaluate(client, `(() => {
+    const hero = document.querySelector(".homepage-hero-region .storefront-hero");
+    const rect = hero?.getBoundingClientRect();
+    return {
+      firstCategory: ${JSON.stringify(firstCategory)},
+      videoCount: hero?.querySelectorAll('[data-testid="hero-video"]').length ?? -1,
+      imageCount: hero?.querySelectorAll(".hero-product-stage").length ?? 0,
+      name: hero?.querySelector("h1")?.textContent?.trim() ?? null,
+      fullDescription: hero?.textContent?.includes("Mô tả đầy đủ cho Điện thoại") ?? false,
+      price: hero?.textContent?.includes("29.990.000") ?? false,
+      cta: [...(hero?.querySelectorAll("a") ?? [])]
+        .some((link) => link.textContent?.includes("Khám phá ngay")),
+      playbackLabel: hero?.querySelector(".hero-playback-control")?.getAttribute("aria-label") ?? null,
+      categories: hero?.querySelectorAll(".hero-category-selector button").length ?? 0,
+      carouselControls: hero?.querySelectorAll(".hero-carousel-controls button").length ?? 0,
+      contained: rect === undefined ? false : rect.left >= 0 && rect.right <= innerWidth,
+      overflow: hero instanceof HTMLElement ? hero.scrollWidth > hero.clientWidth : true,
+    };
+  })()`);
+  const expectsVideo = viewport.width >= 768;
+  if (
+    initial.firstCategory !== "Điện thoại" || initial.imageCount !== 1 ||
+    initial.name !== "Nova Phone Pro" || !initial.fullDescription || !initial.price ||
+    !initial.cta || initial.categories !== 6 || initial.carouselControls !== 2 ||
+    !initial.contained || initial.overflow || initial.videoCount !== (expectsVideo ? 1 : 0) ||
+    (expectsVideo && initial.playbackLabel === null) ||
+    (!expectsVideo && initial.playbackLabel !== null)
+  ) {
+    throw new Error(`${viewport.name} ${theme}: hero presentation is incomplete ${JSON.stringify(initial)}`);
+  }
+  if (!expectsVideo) return { mode: "image", ...initial };
+
+  await client.send("Runtime.evaluate", { expression: `(() => {
+    const video = document.querySelector('[data-testid="hero-video"]');
+    if (!(video instanceof HTMLVideoElement)) return;
+    video.pause();
+    video.currentTime = 5;
+    video.dispatchEvent(new Event("timeupdate"));
+  })()` });
+  await waitForCondition(
+    client,
+    `document.querySelector(".hero-slide-copy h1")?.textContent?.trim() === "Nova Laptop Pro"`,
+    `${viewport.name} ${theme}: synthetic timeupdate did not select the second chapter`,
+  );
+
+  await client.send("Runtime.evaluate", { expression: `(() => {
+    const button = [...document.querySelectorAll(".hero-category-selector button")]
+      .find((candidate) => candidate.textContent?.trim() === "Máy tính bảng");
+    button?.click();
+  })()` });
+  await waitForCondition(
+    client,
+    `document.querySelector(".hero-slide-copy h1")?.textContent?.trim() === "Nova Máy tính bảng Pro"
+      && Math.abs((document.querySelector('[data-testid="hero-video"]')?.currentTime ?? -1) - 8) < 0.25`,
+    `${viewport.name} ${theme}: category selection did not seek its chapter`,
+  );
+
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector(".hero-playback-control")?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.querySelector(".hero-playback-control")?.getAttribute("aria-label") === "Phát video"`,
+    `${viewport.name} ${theme}: playback control did not expose paused state`,
+  );
+  await client.send("Runtime.evaluate", {
+    expression: `document.querySelector(".hero-playback-control")?.click()`,
+  });
+  await waitForCondition(
+    client,
+    `document.querySelector(".hero-playback-control")?.getAttribute("aria-label") === "Tạm dừng video"`,
+    `${viewport.name} ${theme}: playback control did not resume`,
+  );
+  return {
+    mode: "video",
+    ...initial,
+    timeupdateProduct: "Nova Laptop Pro",
+    selectedCategory: "Máy tính bảng",
+    selectedChapterSeconds: 8,
+    playbackToggled: true,
+  };
 }
 
 function assertRoute(result, viewport, theme, route) {
@@ -270,6 +551,9 @@ function assertRoute(result, viewport, theme, route) {
       home.canvas !== 0
     ) {
       throw new Error(`${viewport.name} ${theme}: homepage hierarchy is incomplete ${JSON.stringify(home)}`);
+    }
+    if (viewport.name === "desktop" && home.videoCount !== 1) {
+      throw new Error(`${viewport.name} ${theme}: synchronized hero video is missing`);
     }
     if (
       result.navigation === null || result.navigation.categories < 4 ||
@@ -362,7 +646,8 @@ function createFixtures() {
   );
   const categories = [
     ["phones", "Điện thoại"], ["laptops", "Laptop"],
-    ["audio", "Âm thanh"], ["gaming", "Gaming"],
+    ["tablets", "Máy tính bảng"], ["wearables", "Thiết bị đeo"],
+    ["components", "PC & Linh kiện"], ["accessories", "Phụ kiện"],
   ].map(([slug, name], index) => ({
     id: `category-${index + 1}`, name, slug,
     description: `${name} NovaCommerce`, sortOrder: index,
@@ -373,7 +658,7 @@ function createFixtures() {
     name: index === 0 ? "Nova Phone Pro" : `Nova ${category.name} Pro`,
     slug: index === 0 ? "nova-phone" : `nova-${category.slug}`,
     brand: "NovaCommerce",
-    description: "Hiệu năng cao, thiết kế bền vững và bảo hành chính hãng.",
+    description: `Mô tả đầy đủ cho ${category.name}, thiết kế bền vững và bảo hành chính hãng.`,
     attributes: { warranty: "24 tháng" },
     primaryMedia: {
       id: `media-${index + 1}`,
@@ -404,6 +689,24 @@ function createFixtures() {
       { code: "selection", displayValue: "1.000+", label: "Sản phẩm đa dạng" },
       { code: "customers", displayValue: "50.000+", label: "Khách hàng tin tưởng" },
     ],
+  };
+  const heroPresentation = {
+    media: {
+      id: "83000000-0000-4000-8000-000000000001",
+      contentUrl: "/v1/storefront/hero-media/83000000-0000-4000-8000-000000000001/content",
+      contentType: "video/mp4",
+      byteSize: 9_191,
+      durationMs: 24_000,
+    },
+    slides: categories.map((category, index) => ({
+      category,
+      product: products[index],
+      chapter: {
+        startMs: index * 4_000,
+        endMs: (index + 1) * 4_000,
+        label: category.name,
+      },
+    })),
   };
   const customerSession = envelope({
     kind: "customer", customerId: "customer-1", email: "duy@example.com",
@@ -461,6 +764,7 @@ function createFixtures() {
       "/v1/storefront/content": envelope(storefrontContent),
       "/v1/storefront/categories": envelope(categories),
       "/v1/storefront/hero-slides": envelope(categories.map((category, index) => ({ category, product: products[index] }))),
+      "/v1/storefront/hero-presentation": envelope(heroPresentation),
       "/v1/storefront/cart": cart,
       "/v1/storefront/account": profile,
       "/v1/storefront/account/addresses": addresses,
@@ -510,12 +814,19 @@ class CdpClient {
     this.nextId = 1;
     this.pending = new Map();
     this.events = [];
+    this.eventHandlers = new Map();
   }
   async connect() {
     this.socket = new WebSocket(this.url);
     this.socket.addEventListener("message", (event) => {
       const message = JSON.parse(String(event.data));
       if (message.id === undefined) {
+        const handler = this.eventHandlers.get(message.method);
+        if (handler !== undefined) {
+          void handler(message.params).catch((error) => {
+            this.events.push({ method: "Fixture.handlerFailed", params: { message: String(error) } });
+          });
+        }
         if (
           message.method === "Runtime.exceptionThrown" ||
           message.method === "Runtime.consoleAPICalled" ||
@@ -544,6 +855,7 @@ class CdpClient {
       this.socket.send(JSON.stringify({ id, method, params }));
     });
   }
+  on(method, handler) { this.eventHandlers.set(method, handler); }
   close() { this.socket.close(); }
 }
 

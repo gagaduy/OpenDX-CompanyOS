@@ -11,18 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Planned
-
-- Define the approved database- and MinIO-backed Storefront hero video design
-  and TDD implementation plan, including chapter-synchronized products,
-  accessible playback, byte-range delivery, and image fallbacks for mobile and
-  reduced-motion clients.
-
 ### Added
 
-- Add a desktop, reduced-motion-aware Storefront hero that synchronizes
-  database-backed product chapters with accessible MP4 playback while keeping
-  image rotation and product-level failure fallbacks intact.
+- Add the database- and MinIO-backed Storefront hero video with PostgreSQL
+  product chapters, bounded operator import, replacement-safe no-store HTTP
+  range delivery, synchronized desktop playback and controls, plus image
+  fallbacks for mobile, reduced-motion, media-error, and product-error states.
 
 - Add validated Storefront hero presentation transport and independently
   recoverable homepage state for synchronized media chapters and image

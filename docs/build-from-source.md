@@ -321,7 +321,9 @@ pnpm check:storefront-browser
 ```
 
 The check uses Chrome DevTools Protocol without an additional package. It
-validates seeded image delivery, semantic content, keyboard-visible focus,
+validates deterministic Storefront media fixtures, synchronized desktop hero
+video chapters and playback controls, image fallbacks for mobile,
+reduced-motion, and media errors, semantic content, keyboard-visible focus,
 dark/light theme switching, and horizontal overflow at 390x844, 768x1024, and
 1440x900. Dark and light screenshots are written to
 `/tmp/opendx-storefront-browser` by default. Set `CHROME_BIN`,
@@ -473,6 +475,37 @@ curl -fsS http://localhost:4000/health/ready
 
 This sequence does not reset, restore, truncate, or replace customer/product
 records. The Catalog seed upserts its documented stable rows.
+
+For the approved synchronized Storefront hero video rollout, build the affected
+images, apply migrations, import the bounded local MP4 into MinIO with its
+validated PostgreSQL chapter configuration, and recreate only the API and
+Storefront:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
+  -v '/home/nguyenphuong/Videos/BogusHatefulSpools-Aug-28-05-38-22.mp4:/imports/hero.mp4:ro' \
+  api pnpm --filter @opendx/api db:import:storefront-hero \
+  --file /imports/hero.mp4 \
+  --config /workspace/apps/api/src/modules/catalog/infrastructure/imports/nova-signal-hero.json
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+```
+
+The import is replay-safe and does not reset customer or Catalog data. If the
+presentation must be withdrawn, use its recoverable disable command and then
+recreate the two serving containers:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
+  api pnpm --filter @opendx/api db:disable:storefront-hero --code nova-signal
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+```
+
+Do not roll this feature back with direct SQL or by deleting its MinIO object;
+the disable command preserves a recoverable, auditable presentation state.
 
 Run the AI runtime gateway and worker on the host only when Temporal and the
 documented environment are already available:
