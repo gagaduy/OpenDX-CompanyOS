@@ -232,9 +232,31 @@ describe("MarketingPublisherService", () => {
     service = new MarketingPublisherServiceImpl({
       marketingRepository: repository,
       facebookPublisher: mockFacebookPublisher,
+      assetStorageReader: vi.fn().mockResolvedValue(Buffer.from("stored-png-bytes")),
       now: () => fixedNow,
       generateId: () => "00000000-0000-4000-8000-000000000099",
     });
+  });
+
+  it("fails closed before contacting Facebook when asset storage is unavailable", async () => {
+    const serviceWithoutStorage = new MarketingPublisherServiceImpl({
+      marketingRepository: repository,
+      facebookPublisher: mockFacebookPublisher,
+      now: () => fixedNow,
+      generateId: () => "00000000-0000-4000-8000-000000000099",
+    });
+
+    await expect(
+      serviceWithoutStorage.publishApprovedPackage({
+        campaignId,
+        packageId,
+        pageId: "100200",
+        pageAccessToken: "token-123",
+      }),
+    ).rejects.toMatchObject({ errorCode: "MARKETING_ASSET_STORAGE_UNAVAILABLE" });
+
+    expect(mockFacebookPublisher.publishImagePost).not.toHaveBeenCalled();
+    expect(repository.attempts).toHaveLength(0);
   });
 
   it("successfully publishes an approved package and transitions campaign to completed", async () => {

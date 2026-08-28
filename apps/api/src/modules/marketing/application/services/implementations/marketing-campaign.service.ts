@@ -46,17 +46,37 @@ const CROSS_DEPARTMENT_PATTERNS = [
 
 export interface MarketingCampaignServiceOptions {
   readonly repository: MarketingRepository;
+  readonly materializeVisualAsset?: (
+    input: MaterializeMarketingVisualAssetInput,
+  ) => Promise<MaterializedMarketingVisualAsset>;
   readonly generateId?: () => string;
   readonly now?: () => string;
 }
 
+export interface MaterializeMarketingVisualAssetInput {
+  readonly campaignId: string;
+  readonly versionNumber: number;
+  readonly storageKey: string;
+  readonly mediaType: "image/png";
+  readonly width: number;
+  readonly height: number;
+  readonly altText: string;
+}
+
+export interface MaterializedMarketingVisualAsset {
+  readonly byteSize: number;
+  readonly imageDigest: string;
+}
+
 export class MarketingCampaignService implements IMarketingCampaignService {
   private readonly repository: MarketingRepository;
+  private readonly materializeVisualAsset?: MarketingCampaignServiceOptions["materializeVisualAsset"];
   private readonly generateId: () => string;
   private readonly now: () => string;
 
   constructor(options: MarketingCampaignServiceOptions) {
     this.repository = options.repository;
+    this.materializeVisualAsset = options.materializeVisualAsset;
     this.generateId = options.generateId ?? randomUUID;
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -390,10 +410,20 @@ export class MarketingCampaignService implements IMarketingCampaignService {
 
     // AI Designer: Generate revised Visual Asset
     const newVisualId = randomUUID();
-    const prevVisual = existingVisuals[existingVisuals.length - 1];
-    const imageDigest = createHash("sha256")
-      .update(`${newVisualId}-visual-v${newVersionNumber}-${feedbackNote}`)
-      .digest("hex");
+    if (!this.materializeVisualAsset) {
+      throw MarketingApplicationError.assetStorageUnavailable();
+    }
+    const storageKey = `marketing/${campaignId}/visual_v${newVersionNumber}.png`;
+    const altText = `Hình ảnh chiến dịch v${newVersionNumber} - ${brief?.campaignName ?? "NovaCommerce"}`;
+    const materializedVisual = await this.materializeVisualAsset({
+      campaignId,
+      versionNumber: newVersionNumber,
+      storageKey,
+      mediaType: "image/png",
+      width: 1080,
+      height: 1080,
+      altText,
+    });
 
     const newVisual: VisualAsset = {
       id: newVisualId,
@@ -403,10 +433,10 @@ export class MarketingCampaignService implements IMarketingCampaignService {
       width: 1080,
       height: 1080,
       mediaType: "image/png",
-      byteSize: prevVisual?.byteSize ?? 184320,
-      imageDigest,
-      storageKey: `marketing/${campaignId}/visual_v${newVersionNumber}.png`,
-      altText: `Hình ảnh chiến dịch v${newVersionNumber} - ${brief?.campaignName ?? "NovaCommerce"}`,
+      byteSize: materializedVisual.byteSize,
+      imageDigest: materializedVisual.imageDigest,
+      storageKey,
+      altText,
       costMicros: 0,
       createdAt: now,
     };
@@ -421,7 +451,7 @@ export class MarketingCampaignService implements IMarketingCampaignService {
 
     // Step 5: Assemble Publication Package
     const packageDigest = createHash("sha256")
-      .update(`${contentDigest}:${imageDigest}`)
+      .update(`${contentDigest}:${materializedVisual.imageDigest}`)
       .digest("hex");
 
     const newPackage: PublicationPackage = {
@@ -433,7 +463,7 @@ export class MarketingCampaignService implements IMarketingCampaignService {
       facebookPageConfigurationId: brief?.facebookPageConfigurationId ?? "fb_page_novacommerce_main",
       scheduledFor: brief?.scheduledFor ?? now,
       contentDigest,
-      imageDigest,
+      imageDigest: materializedVisual.imageDigest,
       packageDigest,
       status: "draft",
       approvalRequestId: null,

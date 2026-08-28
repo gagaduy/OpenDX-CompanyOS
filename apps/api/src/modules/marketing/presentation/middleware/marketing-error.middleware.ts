@@ -74,4 +74,12 @@ export class MarketingApplicationError extends ApplicationError {
       "Facebook Page publishing credentials are not configured.",
     );
   }
+
+  static assetStorageUnavailable(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      503,
+      "MARKETING_ASSET_STORAGE_UNAVAILABLE",
+      "The approved Marketing visual cannot be loaded from private storage.",
+    );
+  }
 }

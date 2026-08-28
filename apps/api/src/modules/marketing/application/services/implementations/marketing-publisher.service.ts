@@ -75,15 +75,10 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       throw new MarketingApplicationError(404, "VISUAL_ASSET_NOT_FOUND", `Visual asset ${pkg.visualAssetId} not found`);
     }
 
-    // Read asset buffer
-    let imageBuffer: Buffer;
-    if (this.assetStorageReader) {
-      const storageKey = visual.storageKey || (visual as any).storageUri || "";
-      imageBuffer = await this.assetStorageReader(storageKey);
-    } else {
-      // Fallback empty PNG buffer header if no storage reader provided in mock
-      imageBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    if (!this.assetStorageReader) {
+      throw MarketingApplicationError.assetStorageUnavailable();
     }
+    const imageBuffer = await this.assetStorageReader(visual.storageKey);
 
     const parts: string[] = [];
     const text = (content as any).primaryText ?? content.body ?? "";

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CampaignBrief,
   ContentVersion,
@@ -297,5 +297,93 @@ describe("MarketingCampaignService", () => {
     expect(detail.campaign.id).toBe(created.id);
     expect(detail.brief?.campaignName).toBe(validBriefInput.campaignName);
     expect(detail.contentVersions).toEqual([]);
+  });
+
+  it("materializes revised PNG bytes before persisting visual metadata", async () => {
+    const created = await service.createCampaign("operator-1", validBriefInput);
+    repository.campaigns.set(created.id, {
+      ...repository.campaigns.get(created.id)!,
+      state: "campaign_review",
+    });
+    repository.contents.set(created.id, [{
+      id: "00000000-0000-4000-8000-000000000010",
+      campaignId: created.id,
+      versionNumber: 1,
+      hook: "Initial hook",
+      body: "Initial body",
+      callToAction: "Order now",
+      hashtags: ["#NovaCommerce"],
+      visualDirection: "Square visual",
+      factualClaimSourceIds: [],
+      contentDigest: "c".repeat(64),
+      modelRunId: null,
+      costMicros: 0,
+      createdAt: fixedNow,
+    }]);
+    repository.visuals.set(created.id, [{
+      id: "00000000-0000-4000-8000-000000000011",
+      campaignId: created.id,
+      versionNumber: 1,
+      mediaType: "image/png",
+      aspectRatio: "1:1",
+      width: 1080,
+      height: 1080,
+      byteSize: 100,
+      imageDigest: "d".repeat(64),
+      altText: "Initial visual",
+      storageKey: `marketing/${created.id}/visual_v1.png`,
+      modelRunId: null,
+      costMicros: 0,
+      createdAt: fixedNow,
+    }]);
+    repository.packages.set(created.id, [{
+      id: "00000000-0000-4000-8000-000000000012",
+      campaignId: created.id,
+      packageVersion: 1,
+      contentVersionId: "00000000-0000-4000-8000-000000000010",
+      visualAssetId: "00000000-0000-4000-8000-000000000011",
+      facebookPageConfigurationId: "page-cfg-primary",
+      scheduledFor: validBriefInput.scheduledFor,
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "p".repeat(64),
+      status: "approved",
+      approvalRequestId: "approver-1",
+      createdAt: fixedNow,
+      updatedAt: fixedNow,
+    }]);
+
+    const materializeVisualAsset = vi.fn().mockResolvedValue({
+      byteSize: 2_048,
+      imageDigest: "f".repeat(64),
+    });
+    const revisionService = new MarketingCampaignService({
+      repository,
+      materializeVisualAsset,
+      now: () => fixedNow,
+    });
+
+    await revisionService.requestRevision("operator-1", created.id, {
+      feedback: "Use a brighter visual",
+      targetVersion: "both",
+    });
+
+    expect(materializeVisualAsset).toHaveBeenCalledWith(expect.objectContaining({
+      campaignId: created.id,
+      versionNumber: 2,
+      storageKey: `marketing/${created.id}/visual_v2.png`,
+      mediaType: "image/png",
+      width: 1080,
+      height: 1080,
+    }));
+    expect(repository.visuals.get(created.id)?.at(-1)).toMatchObject({
+      byteSize: 2_048,
+      imageDigest: "f".repeat(64),
+    });
+    expect(repository.packages.get(created.id)?.at(-1)).toMatchObject({
+      imageDigest: "f".repeat(64),
+      status: "draft",
+      approvalRequestId: null,
+    });
   });
 });

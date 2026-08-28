@@ -11,5 +11,6 @@ export * from "./application/services/interfaces/marketing-publisher.service";
 export * from "./application/services/interfaces/marketing-artifact-generator.service";
 export * from "./application/services/implementations/marketing-artifact.service";
 export * from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
+export * from "./infrastructure/storage/minio-marketing-artifact.storage";
 export * from "./infrastructure/workers/marketing-publisher.worker";
 export * from "./marketing.module";

@@ -34,7 +34,7 @@ import { createCrmHealthReader, createCrmModule } from "./modules/crm";
 import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
 import { createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
-import { createMarketingModule } from "./modules/marketing";
+import { createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
 import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
@@ -220,9 +220,13 @@ const reporting = createReportingModule({
   now: () => new Date().toISOString(),
 });
 const currentTime = () => new Date().toISOString();
+const marketingStorage = new MinioMarketingArtifactStorage(minio, environment.minioBucket);
 const marketing = createMarketingModule({
   database: pool,
   staffTokenVerifier,
+  assetStorageReader: (key) => marketingStorage.read(key),
+  storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
+  storageReader: (key) => marketingStorage.read(key),
   generateId: randomUUID,
   now: currentTime,
 });

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { createHash } from "node:crypto";
 import type { Router } from "express";
 import type { Pool } from "pg";
 import type { StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
@@ -17,6 +18,7 @@ import { MarketingArtifactServiceImpl } from "./application/services/implementat
 import type { FacebookPublisherPort } from "./application/ports/facebook-publisher.port";
 import { MetaGraphFacebookPublisherAdapter } from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
 import { MarketingPublisherWorker } from "./infrastructure/workers/marketing-publisher.worker";
+import { create1x1SquarePngBuffer } from "./infrastructure/generators/facebook-visual-png.generator";
 
 export interface MarketingModuleOptions {
   readonly database: Pool;
@@ -40,8 +42,24 @@ export interface MarketingModule {
 
 export function createMarketingModule(options: MarketingModuleOptions): MarketingModule {
   const repository = new PostgresqlMarketingRepository(options.database);
+  const materializeVisualAsset = options.storageWriter === undefined
+    ? undefined
+    : async (input: {
+        readonly storageKey: string;
+        readonly mediaType: "image/png";
+        readonly width: number;
+        readonly height: number;
+      }) => {
+        const buffer = create1x1SquarePngBuffer(input.width, input.height);
+        await options.storageWriter!(input.storageKey, buffer, input.mediaType);
+        return {
+          byteSize: buffer.byteLength,
+          imageDigest: createHash("sha256").update(buffer).digest("hex"),
+        };
+      };
   const campaignService = new MarketingCampaignService({
     repository,
+    ...(materializeVisualAsset === undefined ? {} : { materializeVisualAsset }),
     generateId: options.generateId,
     now: options.now,
   });

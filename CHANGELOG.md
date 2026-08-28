@@ -62,6 +62,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Persist and load Marketing visual bytes through private MinIO storage so
+  Facebook publication never submits an invalid placeholder PNG header, and
+  materialize revision image metadata from the stored bytes before approval.
+
 - Forward the Facebook Page access token from deployment configuration into the
   API container so approved Marketing publications do not fall back to an
   invalid placeholder token.
