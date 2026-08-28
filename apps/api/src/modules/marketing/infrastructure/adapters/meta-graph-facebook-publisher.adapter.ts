@@ -131,7 +131,7 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort 
       throw new FacebookPublisherError("INVALID_INPUT", "pageId and pageAccessToken are required");
     }
 
-    const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(pageId)}?fields=id,name,tasks,can_post&access_token=${encodeURIComponent(pageAccessToken)}`;
+    const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(pageId)}?fields=id,name,can_post&access_token=${encodeURIComponent(pageAccessToken)}`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
