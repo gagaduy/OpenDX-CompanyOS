@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   CampaignBrief,
+  ContentVersion,
   MarketingCampaign,
+  PublicationPackage,
+  VisualAsset,
 } from "../../../domain/entities/marketing-campaign";
 import {
   assertValidStateTransition,
@@ -313,7 +316,7 @@ export class MarketingCampaignService implements IMarketingCampaignService {
   async requestRevision(
     _actorId: string,
     campaignId: string,
-    _input: import("../../dtos/marketing.dto").RequestRevisionMarketingCampaignInput,
+    input: import("../../dtos/marketing.dto").RequestRevisionMarketingCampaignInput,
   ): Promise<MarketingCampaignResponseDto> {
     const campaign = await this.repository.findCampaignById(campaignId);
     if (!campaign) {
@@ -326,12 +329,125 @@ export class MarketingCampaignService implements IMarketingCampaignService {
       );
     }
 
-    const updated = await this.repository.updateCampaignState(
+    // Step 1: Mark revision requested
+    const step1 = await this.repository.updateCampaignState(
       campaignId,
       campaign.version,
       "revision_requested",
     );
-    return this.toCampaignDto(updated);
+
+    // Step 2: Transition to content_drafting
+    const step2 = await this.repository.updateCampaignState(
+      campaignId,
+      step1.version,
+      "content_drafting",
+    );
+
+    const [brief, existingContents, existingVisuals, existingPackages] = await Promise.all([
+      this.repository.findBriefByCampaignId(campaignId),
+      this.repository.findContentVersionsByCampaignId(campaignId),
+      this.repository.findVisualAssetsByCampaignId(campaignId),
+      this.repository.findPublicationPackagesByCampaignId(campaignId),
+    ]);
+
+    const newVersionNumber = existingContents.length + 1;
+    const now = new Date().toISOString();
+
+    // AI Copywriter: Generate revised Content Version incorporating input.feedback
+    const feedbackNote = (input.feedback ?? "").trim();
+    const prevContent = existingContents[existingContents.length - 1];
+    const hook = `🔥 [Cập nhật v${newVersionNumber}] ${brief?.campaignName ?? "Ưu Đãi Đặc Biệt"}`;
+    const body = `${prevContent?.body ?? brief?.mandatoryMessage ?? ""}\n\n📌 Ghi chú điều chỉnh theo phản hồi: ${feedbackNote}\n✨ Đừng bỏ lỡ cơ hội sở hữu ngay hôm nay với mức giá ưu đãi nhất!`;
+    const callToAction = brief?.callToAction ?? prevContent?.callToAction ?? "Đặt hàng ngay";
+    const hashtags = prevContent?.hashtags ?? ["#NovaCommerce", "#UuDai", "#FlashSale"];
+    const contentDigest = createHash("sha256")
+      .update(`${hook}\n${body}\n${callToAction}\n${hashtags.join(",")}`)
+      .digest("hex");
+
+    const newContentId = randomUUID();
+    const newContent: ContentVersion = {
+      id: newContentId,
+      campaignId,
+      versionNumber: newVersionNumber,
+      hook,
+      body,
+      callToAction,
+      hashtags,
+      visualDirection: `1:1 Square Creative adjusted for: ${feedbackNote}`,
+      factualClaimSourceIds: [],
+      contentDigest,
+      costMicros: 0,
+      createdAt: now,
+    };
+    await this.repository.createContentVersion(newContent);
+
+    // Step 3: Transition to visual_creation
+    const step3 = await this.repository.updateCampaignState(
+      campaignId,
+      step2.version,
+      "visual_creation",
+    );
+
+    // AI Designer: Generate revised Visual Asset
+    const newVisualId = randomUUID();
+    const prevVisual = existingVisuals[existingVisuals.length - 1];
+    const imageDigest = createHash("sha256")
+      .update(`${newVisualId}-visual-v${newVersionNumber}-${feedbackNote}`)
+      .digest("hex");
+
+    const newVisual: VisualAsset = {
+      id: newVisualId,
+      campaignId,
+      aspectRatio: "1:1",
+      width: 1080,
+      height: 1080,
+      mediaType: "image/png",
+      byteSize: prevVisual?.byteSize ?? 184320,
+      imageDigest,
+      storageKey: `marketing/${campaignId}/visual_v${newVersionNumber}.png`,
+      promptSummary: `Ảnh thiết kế vuông 1:1 đã hiệu chỉnh theo phản hồi: "${feedbackNote}". Bố cục nổi bật sản phẩm và thông điệp ưu đãi.`,
+      altText: `Hình ảnh chiến dịch v${newVersionNumber} - ${brief?.campaignName ?? "NovaCommerce"}`,
+      costMicros: 0,
+      createdAt: now,
+    };
+    await this.repository.createVisualAsset(newVisual);
+
+    // Step 4: Transition to campaign_review
+    const step4 = await this.repository.updateCampaignState(
+      campaignId,
+      step3.version,
+      "campaign_review",
+    );
+
+    // Step 5: Assemble Publication Package
+    const packageDigest = createHash("sha256")
+      .update(`${contentDigest}:${imageDigest}`)
+      .digest("hex");
+
+    const newPackage: PublicationPackage = {
+      id: randomUUID(),
+      campaignId,
+      packageVersion: existingPackages.length + 1,
+      contentVersionId: newContentId,
+      visualAssetId: newVisualId,
+      contentDigest,
+      imageDigest,
+      packageDigest,
+      status: "draft",
+      approvalRequestId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.repository.createPublicationPackage(newPackage);
+
+    // Step 6: Advance state to awaiting_human_approval so Admin can review and publish!
+    const step5 = await this.repository.updateCampaignState(
+      campaignId,
+      step4.version,
+      "awaiting_human_approval",
+    );
+
+    return this.toCampaignDto(step5);
   }
 
   async qualityFeedback(
