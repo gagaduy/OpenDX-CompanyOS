@@ -52,6 +52,8 @@ built-in memory store for Google authentication abuse protection. A hosted
 multi-replica deployment must configure a reviewed shared store during Phase 8;
 the in-memory limiter is not treated as a cross-replica quota authority.
 
+Marketing deliverable generators (`campaign_brief_docx`, `facebook_content_docx`, `facebook_visual_png`, `facebook_publication_log_xlsx`, `marketing_final_report_pdf`) are implemented in pure TypeScript using Node standard library utilities (`node:crypto`, `node:buffer`, `node:stream`) without introducing heavy external document or image SDKs.
+
 ## Python
 
 Dependency manifest:

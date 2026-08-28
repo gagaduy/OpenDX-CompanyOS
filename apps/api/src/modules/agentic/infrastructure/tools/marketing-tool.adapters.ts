@@ -7,7 +7,7 @@ import { AgenticApplicationError } from "../../application/services/agentic-appl
 import { departmentToolResult, unavailable } from "./department-tool-result.factory";
 import type { MarketingRepository } from "../../../marketing/application/repositories/interfaces/marketing.repository";
 import type { ContentVersion, PublicationPackage, VisualAsset } from "../../../marketing/domain/entities/marketing-campaign";
-import { canTransitionState } from "../../../marketing/domain/services/marketing-campaign-rules";
+import { canTransitionState, validatePng1x1Square } from "../../../marketing/domain/services/marketing-campaign-rules";
 
 export interface CatalogProductReader {
   findProductSummary(productId: string): Promise<{
@@ -140,6 +140,14 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         }
       }
 
+      // Check mandatory message
+      if (brief.mandatoryMessage && !combinedText.includes(brief.mandatoryMessage.toLowerCase())) {
+        throw new AgenticApplicationError(
+          "MANDATORY_MESSAGE_MISSING",
+          `Content draft must include mandatory message: "${brief.mandatoryMessage}"`,
+        );
+      }
+
       const existingVersions = await this.marketingRepository.findContentVersionsByCampaignId(campaignId);
       const versionNumber = existingVersions.length + 1;
       const contentId = this.generateId();
@@ -153,12 +161,14 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         id: contentId,
         campaignId,
         versionNumber,
-        primaryText,
-        headline: headline ?? null,
-        hashtags,
+        hook: headline ?? "",
+        body: primaryText,
         callToAction,
-        sha256Digest: digest,
-        modelProvenance: modelProvenance ?? null,
+        hashtags,
+        visualDirection: "1:1 Square Visual",
+        factualClaimSourceIds: [],
+        contentDigest: digest,
+        costMicros: 0,
         createdAt,
       };
 
@@ -181,6 +191,10 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         content_version_id: contentId,
         campaign_id: campaignId,
         version_number: versionNumber,
+        headline: headline ?? null,
+        primary_text: primaryText,
+        call_to_action: callToAction,
+        hashtags,
         created_at: createdAt,
       };
 
@@ -193,25 +207,18 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
       }
       const campaignId = parameters.campaign_id as string;
       const assetName = parameters.asset_name as string;
-      const format = parameters.format as "png";
-      const dimensions = parameters.dimensions as { width: number; height: number };
       const assetBytesBase64 = parameters.asset_bytes_base64 as string;
       const promptSummary = parameters.prompt_summary as string | undefined;
 
       const buffer = Buffer.from(assetBytesBase64, "base64");
-      const isPng =
-        buffer.length >= 8 &&
-        buffer[0] === 0x89 &&
-        buffer[1] === 0x50 &&
-        buffer[2] === 0x4e &&
-        buffer[3] === 0x47 &&
-        buffer[4] === 0x0d &&
-        buffer[5] === 0x0a &&
-        buffer[6] === 0x1a &&
-        buffer[7] === 0x0a;
-
-      if (!isPng) {
+      const validation = validatePng1x1Square(buffer);
+      if (!validation.valid) {
         throw new AgenticApplicationError("INVALID_IMAGE_FORMAT", "Asset must be a valid PNG image format");
+      }
+
+      const brief = await this.marketingRepository.findBriefByCampaignId(campaignId);
+      if (!brief) {
+        throw new AgenticApplicationError("BRIEF_NOT_FOUND", `Campaign brief for ${campaignId} not found`);
       }
 
       const assetId = this.generateId();
@@ -225,13 +232,15 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         id: assetId,
         campaignId,
         versionNumber,
-        assetName,
-        format,
-        dimensions,
-        storageUri,
-        sha256Digest,
-        fileSizeBytes: buffer.length,
-        promptSummary: promptSummary ?? null,
+        mediaType: "image/png",
+        aspectRatio: "1:1",
+        width: 1080,
+        height: 1080,
+        byteSize: buffer.length,
+        imageDigest: sha256Digest,
+        altText: assetName,
+        storageKey: `marketing-visuals/${campaignId}/${assetId}.png`,
+        costMicros: 0,
         createdAt,
       };
 
@@ -246,13 +255,15 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
       }
 
       const summary = {
-        visual_asset_id: assetId,
+        asset_id: assetId,
         campaign_id: campaignId,
         version_number: versionNumber,
+        asset_name: assetName,
+        media_type: "image/png",
+        aspect_ratio: "1:1",
+        dimensions: "1080x1080",
         storage_uri: storageUri,
         sha256_digest: sha256Digest,
-        width: dimensions.width,
-        height: dimensions.height,
         file_size_bytes: buffer.length,
         created_at: createdAt,
       };
@@ -261,22 +272,21 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
     }
 
     if (name === "marketing.assemble_publication_package") {
-      if (kind !== "marketing_content" && kind !== "marketing_visual" && kind !== "marketing_publisher") {
+      if (kind !== "marketing_publisher") {
         return unavailable();
       }
       const campaignId = parameters.campaign_id as string;
       const contentVersionId = parameters.content_version_id as string;
       const visualAssetId = parameters.visual_asset_id as string;
 
-      const [brief, contentVersion, visualAsset] = await Promise.all([
-        this.marketingRepository.findBriefByCampaignId(campaignId),
-        this.marketingRepository.findContentVersionById(contentVersionId),
-        this.marketingRepository.findVisualAssetById(visualAssetId),
-      ]);
-
+      const brief = await this.marketingRepository.findBriefByCampaignId(campaignId);
       if (!brief) {
-        throw new AgenticApplicationError("CAMPAIGN_NOT_FOUND", `Campaign brief not found for campaign ${campaignId}`);
+        throw new AgenticApplicationError("BRIEF_NOT_FOUND", `Campaign brief for ${campaignId} not found`);
       }
+
+      const contentVersion = await this.marketingRepository.findContentVersionById(contentVersionId);
+      const visualAsset = await this.marketingRepository.findVisualAssetById(visualAssetId);
+
       if (!contentVersion || contentVersion.campaignId !== campaignId) {
         throw new AgenticApplicationError("CONTENT_VERSION_NOT_FOUND", `Content version ${contentVersionId} not found for campaign`);
       }
@@ -290,7 +300,7 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
       const createdAt = this.now();
 
       const payloadDigest = createHash("sha256")
-        .update(`${contentVersion.sha256Digest}:${visualAsset.sha256Digest}:${brief.facebookPageConfigurationId}`)
+        .update(`${contentVersion.contentDigest}:${visualAsset.imageDigest}:${brief.facebookPageConfigurationId}`)
         .digest("hex");
 
       const publicationPackage: PublicationPackage = {
@@ -299,10 +309,15 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         packageVersion,
         contentVersionId,
         visualAssetId,
-        payloadDigest,
+        facebookPageConfigurationId: brief.facebookPageConfigurationId,
+        scheduledFor: brief.scheduledFor,
+        contentDigest: contentVersion.contentDigest,
+        imageDigest: visualAsset.imageDigest,
+        packageDigest: payloadDigest,
         status: "draft",
         approvalRequestId: null,
         createdAt,
+        updatedAt: createdAt,
       };
 
       await this.marketingRepository.createPublicationPackage(publicationPackage);
@@ -350,9 +365,9 @@ export class MarketingDepartmentToolAdapter implements DepartmentToolAdapter {
         package_id: currentPackage?.id ?? null,
         package_status: currentPackage?.status ?? null,
         approval_request_id: currentPackage?.approvalRequestId ?? null,
-        published_at: publicationRecord?.publishedAt ?? null,
+        published_at: publicationRecord?.verifiedAt ?? null,
         external_post_id: publicationRecord?.externalPostId ?? null,
-        external_post_url: publicationRecord?.externalPostUrl ?? null,
+        external_post_url: publicationRecord?.postUrl ?? null,
       };
 
       return departmentToolResult(name, context, parameters, this.now, summary);

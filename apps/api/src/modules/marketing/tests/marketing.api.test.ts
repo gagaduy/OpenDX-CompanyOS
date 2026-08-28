@@ -10,8 +10,8 @@ import { MarketingController } from "../presentation/controllers/marketing.contr
 import { createMarketingAdminRouter } from "../presentation/routes/marketing.routes";
 import type { IMarketingCampaignService } from "../application/services/interfaces/marketing-campaign.service";
 import type { MarketingArtifactService } from "../application/services/interfaces/marketing-artifact-generator.service";
+import type { MarketingArtifact } from "../domain/entities/marketing-campaign";
 import type {
-  MarketingArtifact,
   MarketingCampaignDetailResponseDto,
   MarketingCampaignListResponseDto,
   MarketingCampaignResponseDto,

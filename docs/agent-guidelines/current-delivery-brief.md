@@ -11,9 +11,10 @@ agents; consult linked documents only when the change needs their detail.
 ## Current Focus
 
 Commerce Phases 1-8 are complete. Post-Commerce Agentic Workforce Phases A-E
-and Phase F Slice 1 are complete; Phase F schedules and Company Memory remain
-deferred with GraphRAG and later phases. The canonical status, approved scope,
-and active branch information are in
+and Phase F Slice 1 are complete. Marketing & Creative: Facebook Page Publication
+is implemented with 3 governed Digital Employees, fail-closed publishing engine,
+5 deliverable artifact generators, and Staff Console control room. The canonical
+status, approved scope, and active branch information are in
 [`../roadmap/mvp-status.md`](../roadmap/mvp-status.md).
 
 ## Non-Negotiable Boundaries

@@ -16,7 +16,7 @@ import type {
   PublicationPackageStatus,
   PublicationRecord,
   VisualAsset,
-} from "../../../domain/entities/marketing-campaign";
+} from "../../domain/entities/marketing-campaign";
 
 class MockMarketingRepository implements MarketingRepository {
   public campaigns: Map<string, MarketingCampaign> = new Map();

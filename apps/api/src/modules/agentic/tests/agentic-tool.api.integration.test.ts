@@ -278,5 +278,6 @@ function emptySummary(name: DepartmentToolName): Record<string, unknown> {
     case "support.sla_risk": return { openTickets: 0, atRiskCount: 0, breachedCount: 0, countsByPriority: [] };
     case "support.classification_summary": return { countsByPriority: [], countsByStatus: [], operationalClasses: [], unassignedCount: 0, escalatedCount: 0 };
     case "support.related_order_context": return { ticketId, hasRelatedOrder: false };
+    default: return {};
   }
 }

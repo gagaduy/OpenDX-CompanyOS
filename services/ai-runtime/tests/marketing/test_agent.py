@@ -42,10 +42,11 @@ def sample_product() -> CatalogProductSummary:
     )
 
 
-@pytest.mark.asyncio
-async def test_marketing_content_agent_drafts_valid_copy(sample_brief, sample_product):
+import asyncio
+
+def test_marketing_content_agent_drafts_valid_copy(sample_brief, sample_product):
     agent = MarketingContentAgent()
-    draft = await agent.draft_content(sample_brief, sample_product)
+    draft = asyncio.run(agent.draft_content(sample_brief, sample_product))
 
     assert isinstance(draft, ContentDraftOutput)
     assert sample_brief.mandatory_message in draft.primary_text
@@ -54,8 +55,7 @@ async def test_marketing_content_agent_drafts_valid_copy(sample_brief, sample_pr
     assert "#novaphone_15_pro" in draft.hashtags
 
 
-@pytest.mark.asyncio
-async def test_marketing_content_agent_detects_prohibited_claims(sample_brief, sample_product):
+def test_marketing_content_agent_detects_prohibited_claims(sample_brief, sample_product):
     class FakeLLMWithProhibitedClaim:
         async def complete(self, messages, response_format=None):
             return ContentDraftOutput(
@@ -67,16 +67,15 @@ async def test_marketing_content_agent_detects_prohibited_claims(sample_brief, s
 
     agent = MarketingContentAgent(llm_client=FakeLLMWithProhibitedClaim())
     with pytest.raises(ValueError, match="prohibited claim"):
-        await agent.draft_content(sample_brief, sample_product)
+        asyncio.run(agent.draft_content(sample_brief, sample_product))
 
 
-@pytest.mark.asyncio
-async def test_marketing_visual_agent_generates_valid_png_asset(sample_brief, sample_product):
+def test_marketing_visual_agent_generates_valid_png_asset(sample_brief, sample_product):
     content_agent = MarketingContentAgent()
-    draft = await content_agent.draft_content(sample_brief, sample_product)
+    draft = asyncio.run(content_agent.draft_content(sample_brief, sample_product))
 
     visual_agent = MarketingVisualAgent()
-    asset = await visual_agent.create_visual_asset(sample_brief, draft, sample_product)
+    asset = asyncio.run(visual_agent.create_visual_asset(sample_brief, draft, sample_product))
 
     assert asset.format == "png"
     assert asset.dimensions.width == 1080
@@ -84,22 +83,21 @@ async def test_marketing_visual_agent_generates_valid_png_asset(sample_brief, sa
     assert asset.asset_bytes_base64 is not None
 
 
-@pytest.mark.asyncio
-async def test_marketing_publisher_agent_assembles_package(sample_brief, sample_product):
+def test_marketing_publisher_agent_assembles_package(sample_brief, sample_product):
     content_agent = MarketingContentAgent()
-    draft = await content_agent.draft_content(sample_brief, sample_product)
+    draft = asyncio.run(content_agent.draft_content(sample_brief, sample_product))
 
     visual_agent = MarketingVisualAgent()
-    asset = await visual_agent.create_visual_asset(sample_brief, draft, sample_product)
+    asset = asyncio.run(visual_agent.create_visual_asset(sample_brief, draft, sample_product))
 
     publisher_agent = MarketingPublisherAgent()
-    package = await publisher_agent.verify_and_package(
+    package = asyncio.run(publisher_agent.verify_and_package(
         brief=sample_brief,
         content_version_id="content-ver-1",
         content_draft=draft,
         visual_asset_id="visual-asset-1",
         visual_asset=asset,
-    )
+    ))
 
     assert package.campaign_id == sample_brief.campaign_id
     assert package.content_version_id == "content-ver-1"

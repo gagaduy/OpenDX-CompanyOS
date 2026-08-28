@@ -14,3 +14,5 @@ export interface MarketingArtifactService {
   getArtifactPayload(artifactId: string): Promise<GeneratedArtifactPayload | null>;
   listArtifactsByCampaignId(campaignId: string): Promise<readonly MarketingArtifact[]>;
 }
+
+export type MarketingArtifactGeneratorService = MarketingArtifactService;

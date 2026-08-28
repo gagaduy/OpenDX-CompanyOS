@@ -25,7 +25,6 @@ import { generateFacebookPublicationLogXlsx } from "../infrastructure/generators
 import { generateMarketingFinalReportPdf } from "../infrastructure/generators/marketing-final-report-pdf.generator";
 import type { FacebookPublisherPort } from "../application/ports/facebook-publisher.port";
 import { MarketingPublisherServiceImpl } from "../application/services/implementations/marketing-publisher.service";
-import type { MarketingCampaignRepository } from "../domain/repositories/marketing-campaign.repository";
 
 describe("Marketing Facebook Publication End-to-End Workflow Integration", () => {
   it("executes the entire 12-state lifecycle from brief creation to 5 deliverables generation and completion", async () => {
@@ -80,10 +79,8 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       id: randomUUID(),
       campaignId,
       versionNumber: 1,
-      variant: "feed_post_square",
-      headline: "NovaPhone 15 Pro Max Ra Mắt",
+      hook: "NovaPhone 15 Pro Max Ra Mắt",
       body: contentText,
-      primaryText: contentText,
       callToAction: brief.callToAction,
       hashtags: ["#NovaPhone15", "#NovaCommerce"],
       visualDirection: "1:1 Square studio render",
@@ -95,7 +92,7 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     };
 
     // Rule check: no prohibited claims and mandatory message present
-    const fullText = `${contentVersion.headline ?? ""} ${contentVersion.body}`.toLowerCase();
+    const fullText = `${contentVersion.hook} ${contentVersion.body}`.toLowerCase();
     expect(fullText).toContain(brief.mandatoryMessage.toLowerCase());
     for (const claim of brief.prohibitedClaims) {
       expect(fullText).not.toContain(claim.toLowerCase());
@@ -118,7 +115,6 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       imageDigest: "",
       altText: "NovaPhone 15 Hero Square Visual",
       storageKey: `marketing/${campaignId}/hero.png`,
-      promptSummary: "Hero studio shot",
       modelRunId: randomUUID(),
       costMicros: 25000,
       createdAt: now,
@@ -136,7 +132,6 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       imageDigest: createHash("sha256").update(pngResult.buffer).digest("hex"),
       altText: "NovaPhone 15 Hero Square Visual",
       storageKey: `marketing/${campaignId}/hero.png`,
-      promptSummary: "Hero studio shot",
       modelRunId: randomUUID(),
       costMicros: 25000,
       createdAt: now,
@@ -162,16 +157,15 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       contentDigest: contentVersion.contentDigest,
       imageDigest: visualAsset.imageDigest,
       packageDigest,
-      status: "ready_for_review",
+      status: "submitted_for_approval",
       approvalRequestId: null,
       createdAt: now,
       updatedAt: now,
     };
 
-    // Transition: visual_creation -> package_assembly -> campaign_review -> awaiting_human_approval
-    campaign = { ...campaign, state: "package_assembly", version: 5 };
-    campaign = { ...campaign, state: "campaign_review", version: 6 };
-    campaign = { ...campaign, state: "awaiting_human_approval", version: 7 };
+    // Transition: visual_creation -> campaign_review -> awaiting_human_approval
+    campaign = { ...campaign, state: "campaign_review", version: 5 };
+    campaign = { ...campaign, state: "awaiting_human_approval", version: 6 };
 
     // 5. Human-in-the-loop Staff Approval
     pkg = {
@@ -188,7 +182,12 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
         postUrl: "https://www.facebook.com/page-novacommerce-official/posts/998877",
         providerReceiptDigest: "receipt-hash-12345",
       }),
-      verifyPublication: vi.fn().mockResolvedValue(true),
+      verifyPageAccess: vi.fn().mockResolvedValue({
+        pageId: "page-novacommerce-official",
+        pageName: "NovaCommerce Official",
+        canPostPhotos: true,
+        tokenExpiresAt: null,
+      }),
     };
 
     let publicationRecord: PublicationRecord | null = null;
@@ -205,10 +204,15 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
         publicationAttempts.push(att);
         return att;
       }),
-      updatePublicationAttempt: vi.fn().mockImplementation(async (id, status) => {
-        const att = publicationAttempts.find((a) => a.id === id);
-        if (att) att.status = status;
-        return att;
+      updatePublicationAttempt: vi.fn().mockImplementation(async (id, update) => {
+        const index = publicationAttempts.findIndex((a) => a.id === id);
+        if (index >= 0) {
+          const existing = publicationAttempts[index]!;
+          const updated = { ...existing, ...update };
+          publicationAttempts[index] = updated;
+          return updated;
+        }
+        return null;
       }),
       createPublicationRecord: vi.fn().mockImplementation(async (rec) => {
         publicationRecord = rec;

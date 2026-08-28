@@ -50,3 +50,5 @@ export interface IMarketingCampaignService {
     input: import("../../dtos/marketing.dto").QualityFeedbackMarketingCampaignInput,
   ): Promise<MarketingCampaignResponseDto>;
 }
+
+export type MarketingCampaignService = IMarketingCampaignService;

@@ -2,23 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Request, Response, NextFunction } from "express";
-import type { IMarketingCampaignService } from "../../application/services/interfaces/marketing-campaign.service";
-import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
+import type { MarketingCampaignService } from "../../application/services/interfaces/marketing-campaign.service";
 import type { MarketingPublisherService } from "../../application/services/interfaces/marketing-publisher.service";
+import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
 import {
-  approveMarketingCampaignSchema,
-  cancelMarketingCampaignSchema,
   createMarketingCampaignSchema,
   listMarketingCampaignsSchema,
-  qualityFeedbackMarketingCampaignSchema,
+  cancelMarketingCampaignSchema,
+  approveMarketingCampaignSchema,
   requestRevisionMarketingCampaignSchema,
+  qualityFeedbackMarketingCampaignSchema,
 } from "../validators/marketing.validator";
-import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
+import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
+
+function getParam(val: unknown): string {
+  if (Array.isArray(val)) return String(val[0] ?? "");
+  return typeof val === "string" ? val : "";
+}
 
 export class MarketingController {
   constructor(
-    private readonly service: IMarketingCampaignService,
+    private readonly service: MarketingCampaignService,
     private readonly artifactService?: MarketingArtifactService,
     private readonly publisherService?: MarketingPublisherService,
   ) {}
@@ -30,13 +35,12 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const idempotencyKeyHeader = req.header("Idempotency-Key") ?? req.header("idempotency-key");
-      const parsedBody = createMarketingCampaignSchema.parse(req.body);
-      const idempotencyKey = idempotencyKeyHeader ?? parsedBody.idempotencyKey;
-
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
       if (!idempotencyKey) {
-        throw new ApplicationError(400, "MISSING_IDEMPOTENCY_KEY", "Idempotency-Key header is required.");
+        throw new ApplicationError(400, "MISSING_IDEMPOTENCY_KEY", "Idempotency-Key header is required");
       }
+
+      const parsedBody = createMarketingCampaignSchema.parse(req.body);
 
       const result = await this.service.createCampaign(principal.subject, {
         ...parsedBody,
@@ -51,7 +55,7 @@ export class MarketingController {
 
   getCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -80,7 +84,7 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -99,7 +103,7 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -119,7 +123,7 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -158,7 +162,7 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -178,7 +182,7 @@ export class MarketingController {
         throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
       }
 
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -193,7 +197,7 @@ export class MarketingController {
 
   generateDeliverables = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -210,7 +214,7 @@ export class MarketingController {
 
   listArtifacts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const campaignId = req.params.campaignId;
+      const campaignId = getParam(req.params.campaignId);
       if (!campaignId) {
         throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
       }
@@ -227,7 +231,7 @@ export class MarketingController {
 
   downloadArtifact = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const artifactId = req.params.artifactId;
+      const artifactId = getParam(req.params.artifactId);
       if (!artifactId) {
         throw new ApplicationError(400, "INVALID_ARTIFACT_ID", "Artifact ID is required.");
       }

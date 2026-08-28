@@ -224,6 +224,9 @@ describe("MarketingDepartmentToolAdapter", () => {
     agentKind: agentKind as any,
     toolName,
     toolVersion: 1,
+    attempt: 1,
+    correlationId: "00000000-0000-4000-8000-000000000066",
+    causationId: "00000000-0000-4000-8000-000000000055",
   });
 
   it("marketing.fetch_campaign_brief succeeds for marketing_content", async () => {
@@ -248,39 +251,58 @@ describe("MarketingDepartmentToolAdapter", () => {
       product_id: "novaphone-15",
       title: "NovaPhone 15",
       default_price_vnd: 25000000,
-      is_published: true,
     });
   });
 
-  it("marketing.save_content_draft detects prohibited claims and rejects", async () => {
-    const context = makeContext("marketing.save_content_draft", "marketing_content");
-    await expect(
-      adapter.execute(context, {
-        campaign_id: campaignId,
-        primary_text: "Our product offers a 100% cure for all tech problems!",
-        hashtags: ["#novaphone"],
-        call_to_action: "Order now",
-      }),
-    ).rejects.toThrow(/prohibited claim: "100% cure"/i);
+  it("marketing.fetch_catalog_product_summary fails for missing product", async () => {
+    const context = makeContext("marketing.fetch_catalog_product_summary", "marketing_visual");
+    await expect(adapter.execute(context, { product_id: "non-existent" })).rejects.toThrow(AgenticApplicationError);
   });
 
-  it("marketing.save_content_draft saves valid content and advances campaign state", async () => {
+  it("marketing.save_content_draft generates draft, validates prohibited claims, and advances state", async () => {
     const context = makeContext("marketing.save_content_draft", "marketing_content");
     const result = await adapter.execute(context, {
       campaign_id: campaignId,
-      primary_text: "Discover the new NovaPhone 15 with unmatched camera quality! Order now for exclusive gift.",
-      headline: "NovaPhone 15 is Here",
-      hashtags: ["#novaphone", "#flagship"],
-      call_to_action: "Order at NovaCommerce Store",
+      headline: "Special NovaPhone 15 Deal",
+      primary_text: "Get the latest phone today. Order now for exclusive gift.",
+      call_to_action: "Shop now",
+      hashtags: ["#novaphone"],
     });
 
     expect(result.summary).toMatchObject({
       campaign_id: campaignId,
       version_number: 1,
+      headline: "Special NovaPhone 15 Deal",
     });
 
     const updated = await repository.findCampaignById(campaignId);
     expect(updated?.state).toBe("visual_creation");
+  });
+
+  it("marketing.save_content_draft rejects prohibited claims", async () => {
+    const context = makeContext("marketing.save_content_draft", "marketing_content");
+    await expect(
+      adapter.execute(context, {
+        campaign_id: campaignId,
+        headline: "100% cure for all bugs",
+        primary_text: "Order now for exclusive gift.",
+        call_to_action: "Shop now",
+        hashtags: [],
+      }),
+    ).rejects.toThrow(/prohibited claim/i);
+  });
+
+  it("marketing.save_content_draft rejects missing mandatory message", async () => {
+    const context = makeContext("marketing.save_content_draft", "marketing_content");
+    await expect(
+      adapter.execute(context, {
+        campaign_id: campaignId,
+        headline: "Nice phone",
+        primary_text: "Just a regular phone message without required gift text.",
+        call_to_action: "Shop now",
+        hashtags: [],
+      }),
+    ).rejects.toThrow(/mandatory message/i);
   });
 
   it("marketing.save_visual_asset rejects invalid non-PNG files", async () => {
@@ -317,8 +339,7 @@ describe("MarketingDepartmentToolAdapter", () => {
     expect(result.summary).toMatchObject({
       campaign_id: campaignId,
       version_number: 1,
-      width: 1080,
-      height: 1080,
+      aspect_ratio: "1:1",
     });
 
     const updated = await repository.findCampaignById(campaignId);
@@ -333,12 +354,14 @@ describe("MarketingDepartmentToolAdapter", () => {
       id: contentId,
       campaignId,
       versionNumber: 1,
-      primaryText: "Text",
-      headline: null,
-      hashtags: [],
+      hook: "Headline",
+      body: "Text",
       callToAction: "CTA",
-      sha256Digest: "a".repeat(64),
-      modelProvenance: null,
+      hashtags: [],
+      visualDirection: "Visual",
+      factualClaimSourceIds: [],
+      contentDigest: "a".repeat(64),
+      costMicros: 0,
       createdAt: fixedNow,
     });
 
@@ -346,13 +369,15 @@ describe("MarketingDepartmentToolAdapter", () => {
       id: visualId,
       campaignId,
       versionNumber: 1,
-      assetName: "asset.png",
-      format: "png",
-      dimensions: { width: 1080, height: 1080 },
-      storageUri: "minio://test",
-      sha256Digest: "b".repeat(64),
-      fileSizeBytes: 1024,
-      promptSummary: null,
+      mediaType: "image/png",
+      aspectRatio: "1:1",
+      width: 1080,
+      height: 1080,
+      byteSize: 1024,
+      imageDigest: "b".repeat(64),
+      altText: "asset.png",
+      storageKey: "test",
+      costMicros: 0,
       createdAt: fixedNow,
     });
 
