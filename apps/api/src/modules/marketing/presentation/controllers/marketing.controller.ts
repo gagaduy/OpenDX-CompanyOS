@@ -3,16 +3,25 @@
 
 import type { Request, Response, NextFunction } from "express";
 import type { IMarketingCampaignService } from "../../application/services/interfaces/marketing-campaign.service";
+import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
+import type { MarketingPublisherService } from "../../application/services/interfaces/marketing-publisher.service";
 import {
+  approveMarketingCampaignSchema,
   cancelMarketingCampaignSchema,
   createMarketingCampaignSchema,
   listMarketingCampaignsSchema,
+  qualityFeedbackMarketingCampaignSchema,
+  requestRevisionMarketingCampaignSchema,
 } from "../validators/marketing.validator";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
 
 export class MarketingController {
-  constructor(private readonly service: IMarketingCampaignService) {}
+  constructor(
+    private readonly service: IMarketingCampaignService,
+    private readonly artifactService?: MarketingArtifactService,
+    private readonly publisherService?: MarketingPublisherService,
+  ) {}
 
   createCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -98,6 +107,143 @@ export class MarketingController {
       const parsed = cancelMarketingCampaignSchema.parse(req.body);
       const result = await this.service.cancelCampaign(principal.subject, campaignId, parsed.reason);
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  approveCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const campaignId = req.params.campaignId;
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+
+      const parsed = approveMarketingCampaignSchema.parse(req.body);
+      const result = await this.service.approveCampaign(principal.subject, campaignId, parsed);
+
+      if (parsed.decision === "approve" && this.publisherService) {
+        try {
+          const detail = await this.service.getCampaign(campaignId);
+          if (detail.currentPackage && detail.brief) {
+            const pageId = detail.brief.facebookPageConfigurationId || "primary";
+            const pageAccessToken = parsed.facebookPageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "default-token";
+            await this.publisherService.publishApprovedPackage({
+              campaignId,
+              packageId: detail.currentPackage.id,
+              pageId,
+              pageAccessToken,
+            });
+          }
+        } catch {
+          // Handled fail-closed inside service
+        }
+      }
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  requestRevision = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const campaignId = req.params.campaignId;
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+
+      const parsed = requestRevisionMarketingCampaignSchema.parse(req.body);
+      const result = await this.service.requestRevision(principal.subject, campaignId, parsed);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  qualityFeedback = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const campaignId = req.params.campaignId;
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+
+      const parsed = qualityFeedbackMarketingCampaignSchema.parse(req.body);
+      const result = await this.service.qualityFeedback(principal.subject, campaignId, parsed);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  generateDeliverables = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const campaignId = req.params.campaignId;
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+      if (!this.artifactService) {
+        throw new ApplicationError(500, "ARTIFACT_SERVICE_UNAVAILABLE", "Artifact service is unavailable");
+      }
+
+      const deliverables = await this.artifactService.generateAllDeliverables(campaignId);
+      res.status(200).json({ items: deliverables, total: deliverables.length });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listArtifacts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const campaignId = req.params.campaignId;
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+      if (!this.artifactService) {
+        throw new ApplicationError(500, "ARTIFACT_SERVICE_UNAVAILABLE", "Artifact service is unavailable");
+      }
+
+      const items = await this.artifactService.listArtifactsByCampaignId(campaignId);
+      res.status(200).json({ items, total: items.length });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  downloadArtifact = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const artifactId = req.params.artifactId;
+      if (!artifactId) {
+        throw new ApplicationError(400, "INVALID_ARTIFACT_ID", "Artifact ID is required.");
+      }
+      if (!this.artifactService) {
+        throw new ApplicationError(500, "ARTIFACT_SERVICE_UNAVAILABLE", "Artifact service is unavailable");
+      }
+
+      const payload = await this.artifactService.getArtifactPayload(artifactId);
+      if (!payload) {
+        throw new ApplicationError(404, "ARTIFACT_NOT_FOUND", `Artifact ${artifactId} not found.`);
+      }
+
+      res.setHeader("Content-Type", payload.artifact.mediaType);
+      res.setHeader("Content-Disposition", `attachment; filename="${payload.artifact.filename}"`);
+      res.setHeader("Content-Length", payload.buffer.length);
+      res.status(200).send(payload.buffer);
     } catch (error) {
       next(error);
     }

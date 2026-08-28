@@ -279,6 +279,88 @@ export class MarketingCampaignService implements IMarketingCampaignService {
     return this.toCampaignDto(updated);
   }
 
+  async approveCampaign(
+    actorId: string,
+    campaignId: string,
+    input: import("../../dtos/marketing.dto").ApproveMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto> {
+    const campaign = await this.repository.findCampaignById(campaignId);
+    if (!campaign) {
+      throw MarketingApplicationError.campaignNotFound(campaignId);
+    }
+
+    const currentPackage = await this.repository.findCurrentPackageByCampaignId(campaignId);
+    if (!currentPackage) {
+      throw MarketingApplicationError.packageNotFound(campaignId);
+    }
+
+    if (input.decision === "approve") {
+      await this.repository.updatePublicationPackageStatus(currentPackage.id, "approved", actorId);
+      if (campaign.state !== "awaiting_human_approval" && canTransitionState(campaign.state, "awaiting_human_approval")) {
+        await this.repository.updateCampaignState(campaign.id, campaign.version, "awaiting_human_approval");
+      }
+    } else {
+      await this.repository.updatePublicationPackageStatus(currentPackage.id, "rejected", actorId);
+      if (canTransitionState(campaign.state, "revision_requested")) {
+        await this.repository.updateCampaignState(campaign.id, campaign.version, "revision_requested");
+      }
+    }
+
+    const updated = await this.repository.findCampaignById(campaignId);
+    return this.toCampaignDto(updated ?? campaign);
+  }
+
+  async requestRevision(
+    _actorId: string,
+    campaignId: string,
+    _input: import("../../dtos/marketing.dto").RequestRevisionMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto> {
+    const campaign = await this.repository.findCampaignById(campaignId);
+    if (!campaign) {
+      throw MarketingApplicationError.campaignNotFound(campaignId);
+    }
+
+    if (!canTransitionState(campaign.state, "revision_requested")) {
+      throw MarketingApplicationError.invalidStateTransition(
+        `Cannot request revision for marketing campaign in state '${campaign.state}'.`,
+      );
+    }
+
+    const updated = await this.repository.updateCampaignState(
+      campaignId,
+      campaign.version,
+      "revision_requested",
+    );
+    return this.toCampaignDto(updated);
+  }
+
+  async qualityFeedback(
+    _actorId: string,
+    campaignId: string,
+    input: import("../../dtos/marketing.dto").QualityFeedbackMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto> {
+    const campaign = await this.repository.findCampaignById(campaignId);
+    if (!campaign) {
+      throw MarketingApplicationError.campaignNotFound(campaignId);
+    }
+
+    if (input.status === "escalated") {
+      if (!canTransitionState(campaign.state, "quality_escalated")) {
+        throw MarketingApplicationError.invalidStateTransition(
+          `Cannot escalate marketing campaign in state '${campaign.state}'.`,
+        );
+      }
+      const updated = await this.repository.updateCampaignState(
+        campaignId,
+        campaign.version,
+        "quality_escalated",
+      );
+      return this.toCampaignDto(updated);
+    }
+
+    return this.toCampaignDto(campaign);
+  }
+
   private toCampaignDto(campaign: MarketingCampaign): MarketingCampaignResponseDto {
     return {
       id: campaign.id,

@@ -69,3 +69,19 @@ export interface MarketingCampaignListResponseDto {
   readonly items: readonly MarketingCampaignResponseDto[];
   readonly total: number;
 }
+
+export interface ApproveMarketingCampaignInput {
+  readonly decision: "approve" | "reject";
+  readonly reason?: string;
+  readonly facebookPageAccessToken?: string;
+}
+
+export interface RequestRevisionMarketingCampaignInput {
+  readonly feedback: string;
+  readonly targetVersion?: "content" | "visual" | "both";
+}
+
+export interface QualityFeedbackMarketingCampaignInput {
+  readonly status: "passed" | "escalated";
+  readonly notes?: string;
+}

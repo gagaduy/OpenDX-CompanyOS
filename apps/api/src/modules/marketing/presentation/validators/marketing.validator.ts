@@ -44,3 +44,19 @@ export const listMarketingCampaignsSchema = z.object({
 export const cancelMarketingCampaignSchema = z.object({
   reason: z.string().trim().min(1).max(1000).optional(),
 });
+
+export const approveMarketingCampaignSchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  reason: z.string().trim().min(1).max(1000).optional(),
+  facebookPageAccessToken: z.string().trim().min(1).optional(),
+});
+
+export const requestRevisionMarketingCampaignSchema = z.object({
+  feedback: z.string().trim().min(1).max(2000),
+  targetVersion: z.enum(["content", "visual", "both"]).default("both"),
+});
+
+export const qualityFeedbackMarketingCampaignSchema = z.object({
+  status: z.enum(["passed", "escalated"]),
+  notes: z.string().trim().min(1).max(1000).optional(),
+});

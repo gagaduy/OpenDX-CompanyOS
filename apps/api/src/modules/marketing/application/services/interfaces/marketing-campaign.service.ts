@@ -31,4 +31,22 @@ export interface IMarketingCampaignService {
     campaignId: string,
     reason?: string,
   ): Promise<MarketingCampaignResponseDto>;
+
+  approveCampaign(
+    actorId: string,
+    campaignId: string,
+    input: import("../../dtos/marketing.dto").ApproveMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto>;
+
+  requestRevision(
+    actorId: string,
+    campaignId: string,
+    input: import("../../dtos/marketing.dto").RequestRevisionMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto>;
+
+  qualityFeedback(
+    actorId: string,
+    campaignId: string,
+    input: import("../../dtos/marketing.dto").QualityFeedbackMarketingCampaignInput,
+  ): Promise<MarketingCampaignResponseDto>;
 }

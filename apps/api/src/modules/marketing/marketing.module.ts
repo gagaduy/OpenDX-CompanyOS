@@ -64,7 +64,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     now: options.now,
     generateId: options.generateId,
   });
-  const controller = new MarketingController(campaignService);
+  const controller = new MarketingController(campaignService, artifactService, publisherService);
   const adminRouter = createMarketingAdminRouter({
     controller,
     staffTokenVerifier: options.staffTokenVerifier,

@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Expose Staff Admin Marketing APIs for human approval, revision requests, quality feedback, artifact listing, deliverable generation, and binary artifact download.
+
 - Implement 5 required Marketing deliverable artifact generators (campaign brief DOCX, Facebook content DOCX, visual PNG, publication log XLSX, final report PDF) and artifact storage service.
 
 - Implement Marketing Content, Visual, and Publisher Digital Employee prompt templates, Pydantic schemas, and agent orchestration in AI runtime.
