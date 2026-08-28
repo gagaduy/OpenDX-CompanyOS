@@ -32,6 +32,9 @@ x-api-environment: &api-environment
   AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
   AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
   AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+  AGENT_MARKETING_CONTENT_CLIENT_SECRET: ${AGENT_MARKETING_CONTENT_CLIENT_SECRET:-opendx_agent_marketing_content_change_me}
+  AGENT_MARKETING_VISUAL_CLIENT_SECRET: ${AGENT_MARKETING_VISUAL_CLIENT_SECRET:-opendx_agent_marketing_visual_change_me}
+  AGENT_MARKETING_PUBLISHER_CLIENT_SECRET: ${AGENT_MARKETING_PUBLISHER_CLIENT_SECRET:-opendx_agent_marketing_publisher_change_me}
   AI_RUNTIME_INTERNAL_URL: http://ai-runtime:8000
   AGENTIC_EXECUTION_ENABLED: ${AGENTIC_EXECUTION_ENABLED:-true}
   WORKFLOW_GATEWAY_TIMEOUT_MS: ${WORKFLOW_GATEWAY_TIMEOUT_MS:-5000}
@@ -211,6 +214,9 @@ services:
       AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
       AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
       AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+      AGENT_MARKETING_CONTENT_CLIENT_SECRET: ${AGENT_MARKETING_CONTENT_CLIENT_SECRET:-opendx_agent_marketing_content_change_me}
+      AGENT_MARKETING_VISUAL_CLIENT_SECRET: ${AGENT_MARKETING_VISUAL_CLIENT_SECRET:-opendx_agent_marketing_visual_change_me}
+      AGENT_MARKETING_PUBLISHER_CLIENT_SECRET: ${AGENT_MARKETING_PUBLISHER_CLIENT_SECRET:-opendx_agent_marketing_publisher_change_me}
     ports:
       - "${KEYCLOAK_PORT:-8080}:8080"
     volumes:
@@ -239,6 +245,9 @@ services:
       AGENT_FINANCE_CLIENT_SECRET: ${AGENT_FINANCE_CLIENT_SECRET:-opendx_agent_finance_change_me}
       AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
       AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+      AGENT_MARKETING_CONTENT_CLIENT_SECRET: ${AGENT_MARKETING_CONTENT_CLIENT_SECRET:-opendx_agent_marketing_content_change_me}
+      AGENT_MARKETING_VISUAL_CLIENT_SECRET: ${AGENT_MARKETING_VISUAL_CLIENT_SECRET:-opendx_agent_marketing_visual_change_me}
+      AGENT_MARKETING_PUBLISHER_CLIENT_SECRET: ${AGENT_MARKETING_PUBLISHER_CLIENT_SECRET:-opendx_agent_marketing_publisher_change_me}
     volumes:
       - ../keycloak/reconcile-production-realm.sh:/opt/opendx/reconcile-production-realm.sh:ro
     entrypoint: ["/bin/sh", "/opt/opendx/reconcile-production-realm.sh"]
@@ -389,6 +398,12 @@ services:
       AGENT_CRM_CLIENT_SECRET: ${AGENT_CRM_CLIENT_SECRET:-opendx_agent_crm_change_me}
       AGENT_SUPPORT_CLIENT_ID: agent-support
       AGENT_SUPPORT_CLIENT_SECRET: ${AGENT_SUPPORT_CLIENT_SECRET:-opendx_agent_support_change_me}
+      AGENT_MARKETING_CONTENT_CLIENT_ID: agent-marketing-content
+      AGENT_MARKETING_CONTENT_CLIENT_SECRET: ${AGENT_MARKETING_CONTENT_CLIENT_SECRET:-opendx_agent_marketing_content_change_me}
+      AGENT_MARKETING_VISUAL_CLIENT_ID: agent-marketing-visual
+      AGENT_MARKETING_VISUAL_CLIENT_SECRET: ${AGENT_MARKETING_VISUAL_CLIENT_SECRET:-opendx_agent_marketing_visual_change_me}
+      AGENT_MARKETING_PUBLISHER_CLIENT_ID: agent-marketing-publisher
+      AGENT_MARKETING_PUBLISHER_CLIENT_SECRET: ${AGENT_MARKETING_PUBLISHER_CLIENT_SECRET:-opendx_agent_marketing_publisher_change_me}
     depends_on:
       temporal-namespace:
         condition: service_completed_successfully

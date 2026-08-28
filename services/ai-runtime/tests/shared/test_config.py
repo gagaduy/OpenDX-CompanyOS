@@ -115,7 +115,7 @@ def test_ai_ceo_identity_is_required_and_redacted_for_descriptor_execution() -> 
     assert "local-ai-ceo-secret" not in repr(settings)
 
 
-def test_descriptor_execution_requires_six_distinct_department_identities() -> None:
+def test_descriptor_execution_requires_nine_distinct_department_identities() -> None:
     values = environment() | _department_identities() | {
         "ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED": "true",
         "DEPARTMENT_TOOL_API_BASE_URL": "http://api:4000/v1/internal/agentic",
@@ -125,7 +125,8 @@ def test_descriptor_execution_requires_six_distinct_department_identities() -> N
 
     assert settings.orchestration_descriptor_execution_enabled is True
     assert tuple(settings.keycloak.department_identities) == (
-        "catalog", "inventory", "order", "finance", "crm", "support"
+        "catalog", "inventory", "order", "finance", "crm", "support",
+        "marketing_content", "marketing_visual", "marketing_publisher"
     )
     assert settings.department_tool_api_base_url == "http://api:4000/v1/internal/agentic"
     assert "catalog-secret" not in repr(settings)
@@ -524,7 +525,10 @@ def _department_identities() -> dict[str, str]:
         "OPENROUTER_EXECUTION_ENABLED": "true",
         "OPENROUTER_API_KEY": "test-live-openrouter-key",
     }
-    for department in ("CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"):
-        values[f"AGENT_{department}_CLIENT_ID"] = f"agent-{department.lower()}"
+    for department in (
+        "CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT",
+        "MARKETING_CONTENT", "MARKETING_VISUAL", "MARKETING_PUBLISHER",
+    ):
+        values[f"AGENT_{department}_CLIENT_ID"] = f"agent-{department.lower().replace('_', '-')}"
         values[f"AGENT_{department}_CLIENT_SECRET"] = f"{department.lower()}-secret"
     return values

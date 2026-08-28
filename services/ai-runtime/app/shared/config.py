@@ -11,9 +11,13 @@ from urllib.parse import ParseResult, urlparse
 
 
 Environment = Literal["development", "test", "production"]
-DepartmentAgentKind = Literal["catalog", "inventory", "order", "finance", "crm", "support"]
+DepartmentAgentKind = Literal[
+    "catalog", "inventory", "order", "finance", "crm", "support",
+    "marketing_content", "marketing_visual", "marketing_publisher"
+]
 DEPARTMENT_AGENT_KINDS: tuple[DepartmentAgentKind, ...] = (
-    "catalog", "inventory", "order", "finance", "crm", "support"
+    "catalog", "inventory", "order", "finance", "crm", "support",
+    "marketing_content", "marketing_visual", "marketing_publisher"
 )
 
 
