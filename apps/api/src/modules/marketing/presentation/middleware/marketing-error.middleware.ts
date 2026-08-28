@@ -58,4 +58,20 @@ export class MarketingApplicationError extends ApplicationError {
   static publicationFailed(message: string): MarketingApplicationError {
     return new MarketingApplicationError(502, "PUBLICATION_FAILED", message);
   }
+
+  static publicationRetryNotAllowed(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      409,
+      "PUBLICATION_RETRY_NOT_ALLOWED",
+      "Only a failed campaign with an approved publication package can be retried.",
+    );
+  }
+
+  static facebookCredentialsUnavailable(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      503,
+      "FACEBOOK_CREDENTIALS_UNAVAILABLE",
+      "Facebook Page publishing credentials are not configured.",
+    );
+  }
 }

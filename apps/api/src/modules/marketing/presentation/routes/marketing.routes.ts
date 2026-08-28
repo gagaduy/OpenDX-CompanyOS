@@ -40,6 +40,7 @@ export function createMarketingAdminRouter(options: CreateMarketingRouterOptions
   router.post("/campaigns/:campaignId/ready", requireStaffRole(...operatorRoles), controller.markReady);
   router.post("/campaigns/:campaignId/cancel", requireStaffRole(...operatorRoles), controller.cancelCampaign);
   router.post("/campaigns/:campaignId/approve", requireStaffRole(...approverRoles), controller.approveCampaign);
+  router.post("/campaigns/:campaignId/retry-publication", requireStaffRole(...approverRoles), controller.retryPublication);
   router.post("/campaigns/:campaignId/request-revision", requireStaffRole(...operatorOrApproverRoles), controller.requestRevision);
   router.post("/campaigns/:campaignId/quality-feedback", requireStaffRole(...operatorOrApproverRoles), controller.qualityFeedback);
   router.post("/campaigns/:campaignId/generate-deliverables", requireStaffRole(...operatorRoles), controller.generateDeliverables);

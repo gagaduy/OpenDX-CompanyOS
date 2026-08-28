@@ -9,17 +9,21 @@ import "../styles/marketing.css";
 export function CampaignApprovalActionBar({
   campaign,
   onApprove,
+  onRetryPublication,
   onRequestRevision,
   onGenerateDeliverables,
   onOpenPreview,
   loading = false,
+  canRetryPublication = false,
 }: {
   readonly campaign: MarketingCampaign;
   readonly onApprove: () => Promise<void>;
+  readonly onRetryPublication: () => Promise<void>;
   readonly onRequestRevision: (feedback: string) => Promise<void>;
   readonly onGenerateDeliverables: () => Promise<void>;
   readonly onOpenPreview: () => void;
   readonly loading?: boolean;
+  readonly canRetryPublication?: boolean;
 }) {
   const [revisionModalOpen, setRevisionModalOpen] = useState(false);
   const [revisionFeedback, setRevisionFeedback] = useState("");
@@ -192,6 +196,17 @@ export function CampaignApprovalActionBar({
               {loading ? "Đang xử lý..." : "✓ Approve & Publish to Facebook"}
             </button>
           </>
+        )}
+
+        {canRetryPublication && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onRetryPublication}
+            className="marketingBtnPrimary"
+          >
+            {loading ? "Đang đăng lại..." : "↻ Đăng lại lên Facebook"}
+          </button>
         )}
       </div>
 

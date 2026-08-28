@@ -3,14 +3,15 @@
 
 import express from "express";
 import request from "supertest";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "../../../shared/auth/staff-principal";
 import { createErrorHandler } from "../../../shared/http/error-handler.middleware";
 import { MarketingController } from "../presentation/controllers/marketing.controller";
 import { createMarketingAdminRouter } from "../presentation/routes/marketing.routes";
 import type { IMarketingCampaignService } from "../application/services/interfaces/marketing-campaign.service";
 import type { MarketingArtifactService } from "../application/services/interfaces/marketing-artifact-generator.service";
-import type { MarketingArtifact } from "../domain/entities/marketing-campaign";
+import type { MarketingPublisherService } from "../application/services/interfaces/marketing-publisher.service";
+import type { MarketingArtifact, PublicationRecord } from "../domain/entities/marketing-campaign";
 import type {
   MarketingCampaignDetailResponseDto,
   MarketingCampaignListResponseDto,
@@ -23,6 +24,7 @@ function createTestApp(
   artifactService?: MarketingArtifactService,
   roles: StaffRole[] = ["agentic_operator"],
   subject = "staff-operator-1",
+  publisherService?: MarketingPublisherService,
 ) {
   const app = express();
   app.use(express.json());
@@ -37,7 +39,7 @@ function createTestApp(
     },
   };
 
-  const controller = new MarketingController(service, artifactService);
+  const controller = new MarketingController(service, artifactService, publisherService);
   const router = createMarketingAdminRouter({
     controller,
     staffTokenVerifier: tokenVerifier,
@@ -50,6 +52,10 @@ function createTestApp(
 }
 
 describe("Marketing Admin API", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const sampleCampaignDto: MarketingCampaignResponseDto = {
     id: "00000000-0000-4000-8000-000000000001",
     state: "draft",
@@ -366,6 +372,152 @@ describe("Marketing Admin API", () => {
     expect(mockService.approveCampaign).toHaveBeenCalledWith("staff-operator-1", sampleCampaignDto.id, {
       decision: "approve",
     });
+  });
+
+  it("POST /campaigns/:campaignId/retry-publication republishes an approved failed campaign", async () => {
+    vi.stubEnv("FACEBOOK_PAGE_ACCESS_TOKEN", "configured-page-token");
+    const approvedPackage = {
+      id: "00000000-0000-4000-8000-000000000010",
+      campaignId: sampleCampaignDto.id,
+      packageVersion: 1,
+      contentVersionId: "00000000-0000-4000-8000-000000000011",
+      visualAssetId: "00000000-0000-4000-8000-000000000012",
+      facebookPageConfigurationId: "fb-page-1",
+      scheduledFor: "2026-08-30T10:00:00.000Z",
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "e".repeat(64),
+      status: "approved" as const,
+      approvalRequestId: "approval-1",
+      createdAt: "2026-08-29T10:00:00.000Z",
+      updatedAt: "2026-08-29T10:00:00.000Z",
+    };
+    const failedDetail = {
+      ...sampleDetailDto,
+      campaign: { ...sampleCampaignDto, state: "failed" as const },
+      publicationPackages: [approvedPackage],
+      currentPackage: approvedPackage,
+    };
+    const publicationRecord: PublicationRecord = {
+      id: "00000000-0000-4000-8000-000000000020",
+      packageId: approvedPackage.id,
+      platform: "facebook",
+      pageId: "fb-page-1",
+      externalPostId: "fb-page-1_123",
+      postUrl: "https://www.facebook.com/fb-page-1/posts/123",
+      packageDigest: approvedPackage.packageDigest,
+      contentDigest: approvedPackage.contentDigest,
+      imageDigest: approvedPackage.imageDigest,
+      verifiedAt: "2026-08-29T10:01:00.000Z",
+      providerReceiptDigest: "f".repeat(64),
+      createdAt: "2026-08-29T10:01:00.000Z",
+    };
+    const mockService: IMarketingCampaignService = {
+      createCampaign: vi.fn(),
+      getCampaign: vi.fn().mockResolvedValue(failedDetail),
+      listCampaigns: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+    };
+    const mockPublisherService: MarketingPublisherService = {
+      publishApprovedPackage: vi.fn().mockResolvedValue(publicationRecord),
+    };
+    const app = createTestApp(
+      mockService,
+      undefined,
+      ["agentic_approver"],
+      "staff-approver-1",
+      mockPublisherService,
+    );
+
+    const response = await request(app)
+      .post(`/v1/admin/marketing/campaigns/${sampleCampaignDto.id}/retry-publication`)
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(publicationRecord);
+    expect(mockPublisherService.publishApprovedPackage).toHaveBeenCalledWith({
+      campaignId: sampleCampaignDto.id,
+      packageId: approvedPackage.id,
+      pageId: "fb-page-1",
+      pageAccessToken: "configured-page-token",
+    });
+  });
+
+  it("POST /campaigns/:campaignId/retry-publication fails closed without a page token", async () => {
+    vi.stubEnv("FACEBOOK_PAGE_ACCESS_TOKEN", "");
+    const approvedPackage = {
+      id: "00000000-0000-4000-8000-000000000010",
+      campaignId: sampleCampaignDto.id,
+      packageVersion: 1,
+      contentVersionId: "00000000-0000-4000-8000-000000000011",
+      visualAssetId: "00000000-0000-4000-8000-000000000012",
+      facebookPageConfigurationId: "fb-page-1",
+      scheduledFor: "2026-08-30T10:00:00.000Z",
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "e".repeat(64),
+      status: "approved" as const,
+      approvalRequestId: "approval-1",
+      createdAt: "2026-08-29T10:00:00.000Z",
+      updatedAt: "2026-08-29T10:00:00.000Z",
+    };
+    const mockService: IMarketingCampaignService = {
+      createCampaign: vi.fn(),
+      getCampaign: vi.fn().mockResolvedValue({
+        ...sampleDetailDto,
+        campaign: { ...sampleCampaignDto, state: "failed" as const },
+        publicationPackages: [approvedPackage],
+        currentPackage: approvedPackage,
+        publicationRecord: null,
+      }),
+      listCampaigns: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+    };
+    const mockPublisherService: MarketingPublisherService = {
+      publishApprovedPackage: vi.fn(),
+    };
+    const app = createTestApp(mockService, undefined, ["agentic_approver"], "staff-approver-1", mockPublisherService);
+
+    const response = await request(app)
+      .post(`/v1/admin/marketing/campaigns/${sampleCampaignDto.id}/retry-publication`)
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(503);
+    expect(response.body.errorCode).toBe("FACEBOOK_CREDENTIALS_UNAVAILABLE");
+    expect(mockPublisherService.publishApprovedPackage).not.toHaveBeenCalled();
+  });
+
+  it("POST /campaigns/:campaignId/retry-publication denies non-approvers", async () => {
+    const mockService: IMarketingCampaignService = {
+      createCampaign: vi.fn(),
+      getCampaign: vi.fn(),
+      listCampaigns: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+    };
+    const mockPublisherService: MarketingPublisherService = {
+      publishApprovedPackage: vi.fn(),
+    };
+    const app = createTestApp(mockService, undefined, ["agentic_operator"], "staff-operator-1", mockPublisherService);
+
+    const response = await request(app)
+      .post(`/v1/admin/marketing/campaigns/${sampleCampaignDto.id}/retry-publication`)
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(403);
+    expect(mockService.getCampaign).not.toHaveBeenCalled();
+    expect(mockPublisherService.publishApprovedPackage).not.toHaveBeenCalled();
   });
 
   it("POST /campaigns/:campaignId/request-revision allows operator to request revision", async () => {

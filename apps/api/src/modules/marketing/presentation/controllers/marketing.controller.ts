@@ -15,6 +15,7 @@ import {
 } from "../validators/marketing.validator";
 import { ApplicationError } from "../../../../shared/http/application-error";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
+import { MarketingApplicationError } from "../middleware/marketing-error.middleware";
 
 function getParam(val: unknown): string {
   if (Array.isArray(val)) return String(val[0] ?? "");
@@ -149,6 +150,44 @@ export class MarketingController {
         }
       }
 
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  retryPublication = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const campaignId = getParam(req.params.campaignId);
+      if (!campaignId) {
+        throw new ApplicationError(400, "INVALID_CAMPAIGN_ID", "Campaign ID is required.");
+      }
+      if (!this.publisherService) {
+        throw MarketingApplicationError.facebookCredentialsUnavailable();
+      }
+
+      const detail = await this.service.getCampaign(campaignId);
+      const pkg = detail.currentPackage;
+      if (detail.campaign.state !== "failed" || !pkg || pkg.status !== "approved" || detail.publicationRecord) {
+        throw MarketingApplicationError.publicationRetryNotAllowed();
+      }
+
+      const pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+      if (!pageAccessToken) {
+        throw MarketingApplicationError.facebookCredentialsUnavailable();
+      }
+
+      const result = await this.publisherService.publishApprovedPackage({
+        campaignId,
+        packageId: pkg.id,
+        pageId: pkg.facebookPageConfigurationId,
+        pageAccessToken,
+      });
       res.status(200).json(result);
     } catch (error) {
       next(error);

@@ -69,6 +69,19 @@ export function MarketingCampaignDetailPage({
     }
   };
 
+  const handleRetryPublication = async () => {
+    if (!campaignId) return;
+    try {
+      setActionLoading(true);
+      await api.retryPublication(campaignId);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Đăng lại lên Facebook thất bại");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleGenerateDeliverables = async () => {
     if (!campaignId) return;
     try {
@@ -187,10 +200,16 @@ export function MarketingCampaignDetailPage({
       <CampaignApprovalActionBar
         campaign={campaign}
         onApprove={handleApprove}
+        onRetryPublication={handleRetryPublication}
         onRequestRevision={handleRequestRevision}
         onGenerateDeliverables={handleGenerateDeliverables}
         onOpenPreview={() => setPreviewOpen(true)}
         loading={actionLoading}
+        canRetryPublication={
+          campaign.state === "failed" &&
+          detail.currentPackage?.status === "approved" &&
+          !detail.publicationRecord
+        }
       />
 
       {/* Brief Card */}

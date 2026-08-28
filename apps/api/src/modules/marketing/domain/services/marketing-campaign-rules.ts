@@ -12,7 +12,6 @@ import {
 
 const TERMINAL_STATES: ReadonlySet<MarketingCampaignState> = new Set<MarketingCampaignState>([
   "completed",
-  "failed",
   "canceled",
   "out_of_scope",
   "cross_department_coordination_required",
@@ -148,7 +147,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
     ["out_of_scope", new Set<MarketingCampaignState>()],
     ["cross_department_coordination_required", new Set<MarketingCampaignState>()],
     ["completed", new Set<MarketingCampaignState>()],
-    ["failed", new Set<MarketingCampaignState>()],
+    ["failed", new Set<MarketingCampaignState>(["publishing"])],
     ["canceled", new Set<MarketingCampaignState>()],
   ]);
 

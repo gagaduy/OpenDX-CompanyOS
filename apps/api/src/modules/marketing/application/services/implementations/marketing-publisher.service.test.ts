@@ -302,4 +302,35 @@ describe("MarketingPublisherService", () => {
     const campaign = await repository.findCampaignById(campaignId);
     expect(campaign?.state).toBe("failed");
   });
+
+  it("retries a failed approved package with a fresh attempt and completes", async () => {
+    repository.campaigns.set(campaignId, {
+      ...repository.campaigns.get(campaignId)!,
+      state: "failed",
+      version: 2,
+    });
+    repository.attempts.push({
+      id: "00000000-0000-4000-8000-000000000098",
+      packageId,
+      attemptKey: "failed-attempt",
+      platform: "facebook",
+      pageConfigurationId: "page-cfg-1",
+      status: "failed",
+      errorCode: "FACEBOOK_TOKEN_INVALID",
+      errorClass: "fatal",
+      startedAt: fixedNow,
+      finishedAt: fixedNow,
+    });
+
+    await service.publishApprovedPackage({
+      campaignId,
+      packageId,
+      pageId: "100200",
+      pageAccessToken: "corrected-token",
+    });
+
+    expect(repository.attempts).toHaveLength(2);
+    expect(repository.attempts[1]?.status).toBe("succeeded");
+    expect((await repository.findCampaignById(campaignId))?.state).toBe("completed");
+  });
 });

@@ -165,10 +165,16 @@ describe("Marketing Campaign Rules", () => {
       expect(canTransitionState("publication_unknown", "failed")).toBe(true);
     });
 
+    it("allows only publication retry recovery from failed", () => {
+      expect(isTerminalState("failed")).toBe(false);
+      expect(canTransitionState("failed", "publishing")).toBe(true);
+      expect(canTransitionState("failed", "campaign_review")).toBe(false);
+      expect(canTransitionState("failed", "awaiting_human_approval")).toBe(false);
+    });
+
     it("prevents transitioning out of terminal states", () => {
       const terminalStates: MarketingCampaignState[] = [
         "completed",
-        "failed",
         "canceled",
         "out_of_scope",
         "cross_department_coordination_required",

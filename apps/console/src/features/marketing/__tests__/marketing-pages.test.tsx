@@ -125,6 +125,7 @@ describe("Marketing Console Pages", () => {
       markReady: vi.fn(),
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn(),
+      retryPublication: vi.fn(),
       requestRevision: vi.fn(),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),
@@ -151,6 +152,7 @@ describe("Marketing Console Pages", () => {
       markReady: vi.fn(),
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn().mockResolvedValue(sampleCampaign),
+      retryPublication: vi.fn(),
       requestRevision: vi.fn().mockResolvedValue(sampleCampaign),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -192,6 +194,7 @@ describe("Marketing Console Pages", () => {
       markReady: vi.fn(),
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn(),
+      retryPublication: vi.fn(),
       requestRevision: vi.fn(),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),
@@ -219,5 +222,64 @@ describe("Marketing Console Pages", () => {
     expect(screen.getByRole("button", { name: /Like/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Comment/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Share/i })).toBeInTheDocument();
+  });
+
+  it("offers an explicit retry for a failed approved publication", async () => {
+    const approvedPackage = {
+      id: "pkg-approved-1",
+      campaignId: sampleCampaign.id,
+      packageVersion: 1,
+      contentVersionId: "content-1",
+      visualAssetId: "visual-1",
+      facebookPageConfigurationId: "page-official",
+      scheduledFor: "2026-08-30T10:00:00.000Z",
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "p".repeat(64),
+      status: "approved" as const,
+      approvalRequestId: "approval-1",
+      createdAt: "2026-08-29T10:00:00.000Z",
+      updatedAt: "2026-08-29T10:00:00.000Z",
+    };
+    const failedDetail: MarketingCampaignDetail = {
+      ...sampleDetail,
+      campaign: { ...sampleCampaign, state: "failed" },
+      publicationPackages: [approvedPackage],
+      currentPackage: approvedPackage,
+      publicationRecord: null,
+    };
+    const retryPublication = vi.fn().mockResolvedValue({});
+    const mockApi = {
+      listCampaigns: vi.fn(),
+      getCampaign: vi.fn().mockResolvedValue(failedDetail),
+      createCampaign: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      retryPublication,
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+      generateDeliverables: vi.fn(),
+      listArtifacts: vi.fn(),
+      getArtifactDownloadUrl: vi.fn((id: string) => `/download/${id}`),
+    } as MarketingApi;
+
+    render(
+      <MemoryRouter initialEntries={[`/marketing/campaigns/${sampleCampaign.id}`]}>
+        <Routes>
+          <Route
+            path="/marketing/campaigns/:campaignId"
+            element={<MarketingCampaignDetailPage api={mockApi} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const retryButton = await screen.findByRole("button", { name: /Đăng lại lên Facebook/i });
+    await userEvent.click(retryButton);
+
+    await waitFor(() => {
+      expect(retryPublication).toHaveBeenCalledWith(sampleCampaign.id);
+    });
   });
 });

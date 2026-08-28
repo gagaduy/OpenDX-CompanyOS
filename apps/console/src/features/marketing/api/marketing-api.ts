@@ -6,6 +6,7 @@ import type {
   MarketingArtifact,
   MarketingCampaign,
   MarketingCampaignDetail,
+  PublicationRecord,
 } from "../types";
 
 export interface MarketingApi {
@@ -15,6 +16,7 @@ export interface MarketingApi {
   markReady(campaignId: string): Promise<MarketingCampaign>;
   cancelCampaign(campaignId: string, reason?: string): Promise<MarketingCampaign>;
   approveCampaign(campaignId: string, input: { decision: "approve" | "reject"; reason?: string; facebookPageAccessToken?: string }): Promise<MarketingCampaign>;
+  retryPublication(campaignId: string): Promise<PublicationRecord>;
   requestRevision(campaignId: string, input: { feedback: string; targetVersion?: "content" | "visual" | "both" }): Promise<MarketingCampaign>;
   qualityFeedback(campaignId: string, input: { status: "passed" | "escalated"; notes?: string }): Promise<MarketingCampaign>;
   generateDeliverables(campaignId: string): Promise<{ items: readonly MarketingArtifact[]; total: number }>;
@@ -79,6 +81,12 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
       return request(`/v1/admin/marketing/campaigns/${campaignId}/approve`, {
         method: "POST",
         body: JSON.stringify(input),
+      });
+    },
+
+    async retryPublication(campaignId) {
+      return request(`/v1/admin/marketing/campaigns/${campaignId}/retry-publication`, {
+        method: "POST",
       });
     },
 
