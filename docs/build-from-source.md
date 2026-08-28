@@ -321,7 +321,7 @@ pnpm check:storefront-browser
 ```
 
 The check uses Chrome DevTools Protocol without an additional package. It
-validates deterministic Storefront media fixtures, synchronized desktop hero
+validates deterministic Storefront media fixtures, synchronized tablet/desktop hero
 video chapters and playback controls, image fallbacks for mobile,
 reduced-motion, and media errors, semantic content, keyboard-visible focus,
 dark/light theme switching, and horizontal overflow at 390x844, 768x1024, and

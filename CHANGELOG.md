@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Require Storefront browser acceptance to decode a deterministic VP9 MP4
+  video track with production-aligned chapter timing on tablet and desktop.
+
 - Add the database- and MinIO-backed Storefront hero video with PostgreSQL
   product chapters, bounded operator import, replacement-safe no-store HTTP
   range delivery, synchronized desktop playback and controls, plus image

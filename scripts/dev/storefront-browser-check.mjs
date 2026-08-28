@@ -10,7 +10,7 @@ import { gunzipSync } from "node:zlib";
 
 const heroMediaPath = "/v1/storefront/hero-media/83000000-0000-4000-8000-000000000001/content";
 const heroMediaBytes = gunzipSync(Buffer.from(
-  "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",
+  "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",
   "base64",
 ));
 
@@ -463,6 +463,27 @@ async function verifyHeroPresentation(client, viewport, theme) {
   }
   if (!expectsVideo) return { mode: "image", ...initial };
 
+  await waitForCondition(
+    client,
+    `(() => {
+      const video = document.querySelector('[data-testid="hero-video"]');
+      return video instanceof HTMLVideoElement
+        && video.readyState >= HTMLMediaElement.HAVE_METADATA
+        && video.videoWidth > 0
+        && video.videoHeight > 0;
+    })()`,
+    `${viewport.name} ${theme}: hero media did not decode video metadata`,
+  );
+  const decodedMedia = await evaluate(client, `(() => {
+    const video = document.querySelector('[data-testid="hero-video"]');
+    return video instanceof HTMLVideoElement ? {
+      readyState: video.readyState,
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      duration: video.duration,
+    } : null;
+  })()`);
+
   await client.send("Runtime.evaluate", { expression: `(() => {
     const video = document.querySelector('[data-testid="hero-video"]');
     if (!(video instanceof HTMLVideoElement)) return;
@@ -511,6 +532,7 @@ async function verifyHeroPresentation(client, viewport, theme) {
     selectedCategory: "Máy tính bảng",
     selectedChapterSeconds: 8,
     playbackToggled: true,
+    decodedMedia,
   };
 }
 
@@ -695,15 +717,15 @@ function createFixtures() {
       id: "83000000-0000-4000-8000-000000000001",
       contentUrl: "/v1/storefront/hero-media/83000000-0000-4000-8000-000000000001/content",
       contentType: "video/mp4",
-      byteSize: 9_191,
-      durationMs: 24_000,
+      byteSize: 4_587,
+      durationMs: 24_750,
     },
     slides: categories.map((category, index) => ({
       category,
       product: products[index],
       chapter: {
         startMs: index * 4_000,
-        endMs: (index + 1) * 4_000,
+        endMs: index === categories.length - 1 ? 24_750 : (index + 1) * 4_000,
         label: category.name,
       },
     })),
