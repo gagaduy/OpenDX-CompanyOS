@@ -12,6 +12,8 @@ import type { MarketingRepository } from "./application/repositories/interfaces/
 import type { IMarketingCampaignService } from "./application/services/interfaces/marketing-campaign.service";
 import type { MarketingPublisherService } from "./application/services/interfaces/marketing-publisher.service";
 import { MarketingPublisherServiceImpl } from "./application/services/implementations/marketing-publisher.service";
+import type { MarketingArtifactService } from "./application/services/interfaces/marketing-artifact-generator.service";
+import { MarketingArtifactServiceImpl } from "./application/services/implementations/marketing-artifact.service";
 import type { FacebookPublisherPort } from "./application/ports/facebook-publisher.port";
 import { MetaGraphFacebookPublisherAdapter } from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
 import { MarketingPublisherWorker } from "./infrastructure/workers/marketing-publisher.worker";
@@ -21,6 +23,8 @@ export interface MarketingModuleOptions {
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly facebookPublisher?: FacebookPublisherPort;
   readonly assetStorageReader?: (storageKey: string) => Promise<Buffer>;
+  readonly storageWriter?: (key: string, buffer: Buffer, mediaType: string) => Promise<void>;
+  readonly storageReader?: (key: string) => Promise<Buffer>;
   readonly generateId?: () => string;
   readonly now?: () => string;
 }
@@ -30,6 +34,7 @@ export interface MarketingModule {
   readonly campaignService: IMarketingCampaignService;
   readonly publisherService: MarketingPublisherService;
   readonly publisherWorker: MarketingPublisherWorker;
+  readonly artifactService: MarketingArtifactService;
   readonly repository: MarketingRepository;
 }
 
@@ -52,6 +57,13 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     publisherService,
     marketingRepository: repository,
   });
+  const artifactService = new MarketingArtifactServiceImpl({
+    marketingRepository: repository,
+    storageWriter: options.storageWriter,
+    storageReader: options.storageReader,
+    now: options.now,
+    generateId: options.generateId,
+  });
   const controller = new MarketingController(campaignService);
   const adminRouter = createMarketingAdminRouter({
     controller,
@@ -63,6 +75,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     campaignService,
     publisherService,
     publisherWorker,
+    artifactService,
     repository,
   };
 }
