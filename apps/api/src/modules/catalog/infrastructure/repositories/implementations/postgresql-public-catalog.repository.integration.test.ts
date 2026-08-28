@@ -4,7 +4,10 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runCatalogMigrations, runCompanyCoreMigrations } from "../../../../../shared/database/run-migrations";
-import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
+import {
+  PostgresTransactionRunner,
+  type DatabaseSession,
+} from "../../../../../shared/database/transaction";
 import { runCartMigrations } from "../../../../cart/infrastructure/database/run-cart-migrations";
 import { runCheckoutMigrations } from "../../../../checkout/infrastructure/database/run-checkout-migrations";
 import { runCustomerMigrations } from "../../../../customer/infrastructure/database/run-customer-migrations";
@@ -483,6 +486,80 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
         repository.findHeroMediaAuthorization(session, presentationId),
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("returns one complete hero presentation snapshot during a concurrent replacement", async () => {
+    const presentationId = "e6000000-0000-4000-8000-000000000002";
+    const oldDigest = "c".repeat(64);
+    const newDigest = "d".repeat(64);
+    const oldObjectKey = `storefront/hero/${oldDigest}.mp4`;
+    const newObjectKey = `storefront/hero/${newDigest}.mp4`;
+    await pool.query(
+      `INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ($1, 'snapshot-test', $2, 'video/mp4', 100, 4000, $3, true)`,
+      [presentationId, oldObjectKey, oldDigest],
+    );
+    await pool.query(
+      `INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ($1, $2, 0, 0, 4000, 'Old chapter')`,
+      [presentationId, ids.category],
+    );
+
+    let replacementCommitted = false;
+    const commitReplacement = async (): Promise<void> => {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `UPDATE storefront_hero_presentations
+           SET object_key = $2, byte_size = 200, content_digest = $3
+           WHERE id = $1`,
+          [presentationId, newObjectKey, newDigest],
+        );
+        await client.query(
+          `UPDATE storefront_hero_chapters
+           SET label = 'New chapter'
+           WHERE presentation_id = $1`,
+          [presentationId],
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
+
+    let statementCount = 0;
+    const presentation = await transactions.runReadOnly((session) => {
+      const orchestratedSession: DatabaseSession = {
+        async query<Row extends object>(text: string, values?: readonly unknown[]) {
+          statementCount += 1;
+          const result = await session.query<Row>(text, values);
+          if (!replacementCommitted) {
+            replacementCommitted = true;
+            await commitReplacement();
+          }
+          return result;
+        },
+      };
+      return repository.findActiveHeroPresentation(orchestratedSession);
+    });
+
+    expect(replacementCommitted).toBe(true);
+    expect(statementCount).toBe(1);
+    expect([
+      { objectKey: oldObjectKey, byteSize: 100, label: "Old chapter" },
+      { objectKey: newObjectKey, byteSize: 200, label: "New chapter" },
+    ]).toContainEqual({
+      objectKey: presentation?.media.objectKey,
+      byteSize: presentation?.media.byteSize,
+      label: presentation?.slides[0]?.chapter.label,
+    });
   });
 
   it("orders best-selling products by all-time paid order quantities", async () => {

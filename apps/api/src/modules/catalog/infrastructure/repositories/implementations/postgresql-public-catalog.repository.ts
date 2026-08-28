@@ -57,19 +57,34 @@ interface HeroProductRow extends ProductRow {
   category_slug: string;
 }
 
-interface HeroPresentationRow {
-  id: string;
+interface HeroPresentationSnapshotRow {
+  presentation_id: string;
   object_key: string;
   content_type: "video/mp4";
   byte_size: string;
   duration_ms: number;
   configured_chapter_count: number;
-}
-
-interface HeroChapterProductRow extends HeroProductRow {
-  start_ms: number;
-  end_ms: number;
-  label: string;
+  category_id: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  product_slug: string | null;
+  product_brand: string | null;
+  product_description: string | null;
+  product_attributes: unknown;
+  primary_media_id: string | null;
+  primary_media_alt_text: string | null;
+  start_ms: number | null;
+  end_ms: number | null;
+  label: string | null;
+  variant_id: string | null;
+  variant_sku: string | null;
+  variant_title: string | null;
+  variant_option_values: unknown;
+  amount_minor: string | null;
+  currency: string | null;
+  previous_amount_minor: string | null;
 }
 
 interface VariantRow {
@@ -310,67 +325,126 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
   async findActiveHeroPresentation(
     session: DatabaseSession,
   ): Promise<PublicHeroPresentationProjection | undefined> {
-    const presentationResult = await session.query<HeroPresentationRow>(
-      `SELECT presentation.id, presentation.object_key,
-              presentation.content_type, presentation.byte_size::text,
-              presentation.duration_ms,
-              (SELECT count(*)::int
-               FROM storefront_hero_chapters chapter
-               WHERE chapter.presentation_id = presentation.id)
-                AS configured_chapter_count
-       FROM storefront_hero_presentations presentation
-       WHERE presentation.enabled = true`,
-    );
-    const presentation = presentationResult.rows[0];
-    if (presentation === undefined) return undefined;
-
-    const chapterResult = await session.query<HeroChapterProductRow>(
-      `WITH eligible_chapters AS (
-         SELECT chapter.category_id, chapter.sort_order, chapter.start_ms,
-                chapter.end_ms, chapter.label, newest.id AS product_id
-         FROM storefront_hero_chapters chapter
+    const result = await session.query<HeroPresentationSnapshotRow>(
+      `WITH active_presentation AS MATERIALIZED (
+         SELECT presentation.id, presentation.object_key,
+                presentation.content_type, presentation.byte_size,
+                presentation.duration_ms,
+                (SELECT count(*)::int
+                 FROM storefront_hero_chapters configured_chapter
+                 WHERE configured_chapter.presentation_id = presentation.id)
+                  AS configured_chapter_count
+         FROM storefront_hero_presentations presentation
+         WHERE presentation.enabled = true
+       ), eligible_chapters AS MATERIALIZED (
+         SELECT chapter.presentation_id, chapter.category_id,
+                category.name AS category_name, category.slug AS category_slug,
+                chapter.sort_order, chapter.start_ms, chapter.end_ms, chapter.label,
+                p.id AS product_id, p.name AS product_name, p.slug AS product_slug,
+                p.brand AS product_brand, p.description AS product_description,
+                p.attributes AS product_attributes,
+                primary_media.id AS primary_media_id,
+                primary_media.alt_text AS primary_media_alt_text
+         FROM active_presentation presentation
+         JOIN storefront_hero_chapters chapter
+           ON chapter.presentation_id = presentation.id
          JOIN LATERAL (
-           SELECT p.id
-           FROM products p
-           JOIN categories category ON category.id = p.category_id
-           WHERE p.category_id = chapter.category_id
-             AND ${completePublishedProduct}
-           ORDER BY p.created_at DESC, p.id ASC
+           SELECT candidate.id
+           FROM products candidate
+           JOIN categories candidate_category
+             ON candidate_category.id = candidate.category_id
+           WHERE candidate.category_id = chapter.category_id
+             AND candidate.status = 'published'
+             AND candidate_category.status = 'active'
+             AND EXISTS (
+               SELECT 1 FROM product_media required_media
+               WHERE required_media.product_id = candidate.id
+                 AND required_media.is_primary = true
+             )
+             AND EXISTS (
+               SELECT 1 FROM product_variants required_variant
+               WHERE required_variant.product_id = candidate.id
+                 AND required_variant.status = 'active'
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM product_variants unpriced_variant
+               WHERE unpriced_variant.product_id = candidate.id
+                 AND unpriced_variant.status = 'active'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM product_prices current_price
+                   WHERE current_price.variant_id = unpriced_variant.id
+                     AND current_price.valid_from <= NOW()
+                     AND (current_price.valid_to IS NULL OR current_price.valid_to > NOW())
+                 )
+             )
+           ORDER BY candidate.created_at DESC, candidate.id ASC
            LIMIT 1
          ) newest ON true
-         WHERE chapter.presentation_id = $1
+         JOIN products p ON p.id = newest.id
+         JOIN categories category ON category.id = p.category_id
+         JOIN LATERAL (
+           SELECT media.id, media.alt_text
+           FROM product_media media
+           WHERE media.product_id = p.id AND media.is_primary = true
+           LIMIT 1
+         ) primary_media ON true
        )
-       SELECT ${productProjectionColumns}, category.slug AS category_slug,
-              eligible.start_ms, eligible.end_ms, eligible.label
-       FROM eligible_chapters eligible
-       JOIN products p ON p.id = eligible.product_id
-       ${productProjectionJoins}
-       ORDER BY eligible.sort_order, eligible.category_id`,
-      [presentation.id],
+       SELECT presentation.id AS presentation_id, presentation.object_key,
+              presentation.content_type, presentation.byte_size::text,
+              presentation.duration_ms, presentation.configured_chapter_count,
+              eligible.category_id, eligible.category_name, eligible.category_slug,
+              eligible.product_id, eligible.product_name, eligible.product_slug,
+              eligible.product_brand, eligible.product_description,
+              eligible.product_attributes, eligible.primary_media_id,
+              eligible.primary_media_alt_text, eligible.start_ms, eligible.end_ms,
+              eligible.label, variant.id AS variant_id,
+              variant.sku AS variant_sku, variant.title AS variant_title,
+              variant.option_values AS variant_option_values,
+              price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text
+       FROM active_presentation presentation
+       LEFT JOIN eligible_chapters eligible
+         ON eligible.presentation_id = presentation.id
+       LEFT JOIN product_variants variant
+         ON variant.product_id = eligible.product_id AND variant.status = 'active'
+       LEFT JOIN LATERAL (
+         SELECT candidate.amount_minor, candidate.currency,
+                (SELECT previous.amount_minor
+                 FROM product_prices previous
+                 WHERE previous.variant_id = variant.id
+                   AND previous.valid_from < candidate.valid_from
+                 ORDER BY previous.valid_from DESC, previous.id DESC
+                 LIMIT 1) AS previous_amount_minor
+         FROM product_prices candidate
+         WHERE candidate.variant_id = variant.id
+           AND candidate.valid_from <= NOW()
+           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
+         ORDER BY candidate.valid_from DESC, candidate.id DESC
+         LIMIT 1
+       ) price ON true
+       ORDER BY eligible.sort_order, eligible.category_id,
+                variant.created_at, variant.id`,
     );
-    const products = await this.mapProducts(session, chapterResult.rows);
+    const presentation = result.rows[0];
+    if (presentation === undefined) return undefined;
+
+    const chapterGroups = new Map<string, HeroPresentationSnapshotRow[]>();
+    for (const row of result.rows) {
+      if (row.category_id === null) continue;
+      const rows = chapterGroups.get(row.category_id) ?? [];
+      rows.push(row);
+      chapterGroups.set(row.category_id, rows);
+    }
     return {
       media: {
-        id: presentation.id,
+        id: presentation.presentation_id,
         objectKey: presentation.object_key,
         contentType: presentation.content_type,
         byteSize: toSafeInteger(presentation.byte_size, "Hero media byte size"),
         durationMs: presentation.duration_ms,
       },
       configuredChapterCount: presentation.configured_chapter_count,
-      slides: chapterResult.rows.map((row, index) => ({
-        category: {
-          id: row.category_id,
-          name: row.category_name,
-          slug: row.category_slug,
-        },
-        product: products[index]!,
-        chapter: {
-          startMs: row.start_ms,
-          endMs: row.end_ms,
-          label: row.label,
-        },
-      })),
+      slides: [...chapterGroups.values()].map(mapHeroSnapshotSlide),
     };
   }
 
@@ -685,6 +759,79 @@ function mapVariant(row: VariantRow): PublicProductProjection["variants"][number
     title: row.title,
     optionValues: structuredClone(row.option_values),
     price: { amountMinor, currency: "VND", ...markdown },
+  };
+}
+
+function mapHeroSnapshotSlide(
+  rows: readonly HeroPresentationSnapshotRow[],
+): PublicHeroPresentationProjection["slides"][number] {
+  const row = rows[0];
+  if (
+    row === undefined ||
+    row.category_id === null ||
+    row.category_name === null ||
+    row.category_slug === null ||
+    row.product_id === null ||
+    row.product_name === null ||
+    row.product_slug === null ||
+    row.product_description === null ||
+    row.primary_media_id === null ||
+    row.primary_media_alt_text === null ||
+    row.start_ms === null ||
+    row.end_ms === null ||
+    row.label === null
+  ) {
+    throw new Error("Incomplete Storefront hero projection");
+  }
+  assertAttributes(row.product_attributes);
+  const productId = row.product_id;
+  const variants = rows.map((variantRow) => {
+    if (
+      variantRow.variant_id === null ||
+      variantRow.variant_sku === null ||
+      variantRow.variant_title === null ||
+      variantRow.amount_minor === null ||
+      variantRow.currency === null
+    ) {
+      throw new Error("Incomplete Storefront hero variant projection");
+    }
+    return mapVariant({
+      id: variantRow.variant_id,
+      product_id: productId,
+      sku: variantRow.variant_sku,
+      title: variantRow.variant_title,
+      option_values: variantRow.variant_option_values,
+      amount_minor: variantRow.amount_minor,
+      currency: variantRow.currency,
+      previous_amount_minor: variantRow.previous_amount_minor,
+    });
+  });
+  return {
+    category: {
+      id: row.category_id,
+      name: row.category_name,
+      slug: row.category_slug,
+    },
+    product: {
+      id: row.product_id,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      name: row.product_name,
+      slug: row.product_slug,
+      ...(row.product_brand === null ? {} : { brand: row.product_brand }),
+      description: row.product_description,
+      attributes: structuredClone(row.product_attributes),
+      primaryMedia: {
+        id: row.primary_media_id,
+        altText: row.primary_media_alt_text,
+      },
+      variants,
+    },
+    chapter: {
+      startMs: row.start_ms,
+      endMs: row.end_ms,
+      label: row.label,
+    },
   };
 }
 

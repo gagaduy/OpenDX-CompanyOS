@@ -510,10 +510,11 @@ Add `/v1/storefront/hero-presentation` fixture with six chapters and a small det
 Document this exact non-destructive import after building/migrating:
 
 ```bash
+export HERO_VIDEO_FILE=/absolute/path/to/hero.mp4
 docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
 docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
 docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
-  -v '/home/nguyenphuong/Videos/BogusHatefulSpools-Aug-28-05-38-22.mp4:/imports/hero.mp4:ro' \
+  -v "${HERO_VIDEO_FILE}:/imports/hero.mp4:ro" \
   api pnpm --filter @opendx/api db:import:storefront-hero -- \
   --file /imports/hero.mp4 \
   --config /workspace/apps/api/src/modules/catalog/infrastructure/imports/nova-signal-hero.json

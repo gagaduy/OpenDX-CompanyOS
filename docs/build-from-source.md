@@ -482,11 +482,12 @@ validated PostgreSQL chapter configuration, and recreate only the API and
 Storefront:
 
 ```bash
+export HERO_VIDEO_FILE=/absolute/path/to/hero.mp4
 docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
 docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
 docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
-  -v '/home/nguyenphuong/Videos/BogusHatefulSpools-Aug-28-05-38-22.mp4:/imports/hero.mp4:ro' \
-  api pnpm --filter @opendx/api db:import:storefront-hero \
+  -v "${HERO_VIDEO_FILE}:/imports/hero.mp4:ro" \
+  api pnpm --filter @opendx/api db:import:storefront-hero -- \
   --file /imports/hero.mp4 \
   --config /workspace/apps/api/src/modules/catalog/infrastructure/imports/nova-signal-hero.json
 docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
@@ -499,7 +500,7 @@ recreate the two serving containers:
 
 ```bash
 docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
-  api pnpm --filter @opendx/api db:disable:storefront-hero --code nova-signal
+  api pnpm --filter @opendx/api db:disable:storefront-hero -- --code nova-signal
 docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
   --no-deps --force-recreate api storefront
 ```

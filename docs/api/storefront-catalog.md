@@ -41,7 +41,7 @@ presentation is absent or any chapter is incomplete, the response omits
       "contentUrl": "/v1/storefront/hero-media/e7600000-0000-4000-8000-000000000001/content",
       "contentType": "video/mp4",
       "byteSize": 25481434,
-      "durationMs": 24000
+      "durationMs": 24750
     },
     "slides": [
       {
