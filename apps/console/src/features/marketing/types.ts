@@ -159,6 +159,9 @@ export interface MarketingCampaign {
   readonly createdBy: string;
   readonly idempotencyKey: string;
   readonly sourceTaskId?: string | null;
+  readonly campaignName?: string | null;
+  readonly objective?: string | null;
+  readonly mandatoryMessage?: string | null;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -177,10 +180,15 @@ export interface MarketingCampaignDetail {
 }
 
 export interface CreateMarketingCampaignInput {
+  readonly assignmentMode?: "direct_department" | "ai_ceo";
   readonly campaignName: string;
   readonly objective: string;
-  readonly subjectKind: "catalog_product" | "free_topic";
-  readonly subjectReference: string;
+  readonly subject?: {
+    readonly kind: "catalog_product" | "free_topic";
+    readonly reference: string;
+  };
+  readonly subjectKind?: "catalog_product" | "free_topic";
+  readonly subjectReference?: string;
   readonly audience?: string;
   readonly language: "vi" | "en";
   readonly tone?: string;

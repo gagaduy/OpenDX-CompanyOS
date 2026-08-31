@@ -12,12 +12,15 @@ import { InventoryService } from "./application/services/implementations/invento
 import { PostgresqlInventoryAuditRepository } from "./infrastructure/repositories/implementations/postgresql-inventory-audit.repository";
 import { PostgresqlInventoryHealthRepository } from "./infrastructure/repositories/implementations/postgresql-inventory-health.repository";
 import { PostgresqlInventoryRepository } from "./infrastructure/repositories/implementations/postgresql-inventory.repository";
+import type { Pool } from "pg";
 import { ReservationExpiryWorker } from "./infrastructure/workers/reservation-expiry.worker";
 import { InventoryController } from "./presentation/controllers/inventory.controller";
 import { createInventoryRouter } from "./presentation/routes/inventory.routes";
+import { AiOperationsService } from "./application/services/implementations/ai-operations.service";
 
 export interface InventoryModuleDependencies {
   readonly transactions: TransactionRunner;
+  readonly database?: Pool;
   readonly variantReader: CatalogVariantReader;
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly generateId: () => string;
@@ -62,6 +65,9 @@ export function createInventoryModule(dependencies: InventoryModuleDependencies)
     dependencies.now,
     dependencies.reservationTtlMs,
   );
+  const aiOperations = dependencies.database
+    ? new AiOperationsService(dependencies.database, dependencies.now, dependencies.generateId)
+    : undefined;
   const appendDenied = async (denied: {
     actorId: string; action: string; resourceId: string; correlationId: string;
   }) => dependencies.transactions.run((session) => audit.append(session, {
@@ -77,7 +83,7 @@ export function createInventoryModule(dependencies: InventoryModuleDependencies)
     occurredAt: dependencies.now(),
   }));
   const router: Router = createInventoryRouter(
-    new InventoryController(service),
+    new InventoryController(service, aiOperations),
     authenticateStaff(dependencies.staffTokenVerifier),
     appendDenied,
   );

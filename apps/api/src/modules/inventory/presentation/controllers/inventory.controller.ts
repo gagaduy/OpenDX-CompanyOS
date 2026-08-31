@@ -18,7 +18,14 @@ import {
 } from "../validators/inventory.validator";
 
 export class InventoryController {
-  constructor(private readonly service: InventoryServiceContract) {}
+  constructor(
+    private readonly service: InventoryServiceContract,
+    private readonly aiOperations?: {
+      generateOperationsProposal: (req: { prompt: string }) => Promise<any>;
+      getProposalDocx: (id: string) => { buffer: Buffer; filename: string; mediaType: string };
+      applyOperationsProposal: (id: string, req: { items: any[] }) => Promise<any>;
+    },
+  ) {}
 
   readonly list: RequestHandler = async (request, response, next) => {
     try {
@@ -60,6 +67,43 @@ export class InventoryController {
         query.pageSize,
       );
       response.json(successResponse("Stock movements retrieved", result.items, pagination(result)));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly generateAiProposal: RequestHandler = async (request, response, next) => {
+    try {
+      if (!this.aiOperations) {
+        throw new ApplicationError(500, "AI_OPERATIONS_UNAVAILABLE", "AI Operations service is not configured");
+      }
+      const prompt = typeof request.body?.prompt === "string" ? request.body.prompt : "";
+      const proposal = await this.aiOperations.generateOperationsProposal({ prompt });
+      response.json(successResponse("AI Operations proposal generated", proposal));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly getAiProposalDocx: RequestHandler = async (request, response, next) => {
+    try {
+      if (!this.aiOperations) {
+        throw new ApplicationError(500, "AI_OPERATIONS_UNAVAILABLE", "AI Operations service is not configured");
+      }
+      const proposalId = request.params.proposalId as string;
+      const file = this.aiOperations.getProposalDocx(proposalId);
+      response.setHeader("Content-Type", file.mediaType);
+      response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+      response.setHeader("Content-Length", file.buffer.length);
+      response.status(200).send(file.buffer);
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly applyAiProposal: RequestHandler = async (request, response, next) => {
+    try {
+      if (!this.aiOperations) {
+        throw new ApplicationError(500, "AI_OPERATIONS_UNAVAILABLE", "AI Operations service is not configured");
+      }
+      const proposalId = request.params.proposalId as string;
+      const items = Array.isArray(request.body?.items) ? request.body.items : [];
+      const result = await this.aiOperations.applyOperationsProposal(proposalId, { items });
+      response.json(successResponse("AI Operations proposal applied", result));
     } catch (error) { next(toHttpError(error)); }
   };
 }

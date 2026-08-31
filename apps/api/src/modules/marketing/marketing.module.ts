@@ -45,12 +45,111 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
   const materializeVisualAsset = options.storageWriter === undefined
     ? undefined
     : async (input: {
+        readonly campaignId?: string;
+        readonly versionNumber?: number;
         readonly storageKey: string;
         readonly mediaType: "image/png";
         readonly width: number;
         readonly height: number;
+        readonly altText?: string;
       }) => {
-        const buffer = create1x1SquarePngBuffer(input.width, input.height);
+        let buffer: Buffer = create1x1SquarePngBuffer(input.width, input.height);
+
+        const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+        if (apiKey && process.env.OPENROUTER_EXECUTION_ENABLED === "true") {
+          try {
+            const rawTopic = (input.altText ?? "")
+              .replace(/^Hình ảnh chiến dịch v\d+\s*-\s*/i, "")
+              .replace(/^Chiến dịch:\s*/i, "")
+              .replace(/^\[.*?\]\s*/i, "")
+              .replace(/^(triển khai|viết bài|thiết kế|lên bài|tạo|quảng bá|chạy)\s*(chiến dịch)?\s*(tiếp thị|quảng cáo)?\s*(cho)?\s*/i, "")
+              .trim();
+
+            const lower = rawTopic.toLowerCase();
+            let productDescription: string;
+            if (lower.includes("bàn phím cơ") || lower.includes("keyboard") || lower.includes("nova mechanical")) {
+              productDescription = "a premium Nova Mechanical Gaming Keyboard with custom illuminated RGB switches, aluminum chassis, minimalist dark studio tech desk";
+            } else if (lower.includes("tai nghe") || lower.includes("headset") || lower.includes("headphone")) {
+              productDescription = "a sleek premium wireless gaming headset with soft breathable memory foam cushions, subtle RGB illumination accent, dark studio background";
+            } else if (lower.includes("laptop") || lower.includes("máy tính xách tay")) {
+              productDescription = "a modern ultra-thin flagship laptop with aluminum chassis, stunning vibrant edge-to-edge display, illuminated keyboard, sleek tech desk";
+            } else if (lower.includes("chuột") || lower.includes("mouse")) {
+              productDescription = "an ergonomic wireless gaming mouse with precision optical sensor, matte texture, subtle RGB glow";
+            } else if (lower.includes("đồng hồ") || lower.includes("smartwatch") || lower.includes("watch")) {
+              productDescription = "a luxury modern smartwatch with AMOLED touchscreen display, titanium case, premium fluoroelastomer strap";
+            } else if (lower.includes("điện thoại") || lower.includes("smartphone") || lower.includes("phone")) {
+              productDescription = "a flagship smartphone with curved AMOLED screen, glossy ceramic back, multi-camera lens array, studio lighting";
+            } else {
+              const cleaned = rawTopic
+                .replace(/trên fanpage/gi, "")
+                .replace(/trên facebook/gi, "")
+                .replace(/mạng xã hội/gi, "")
+                .replace(/hôm nay/gi, "")
+                .replace(/giảm giá\s*\d+%/gi, "")
+                .trim();
+              productDescription = cleaned ? `a commercial hero showcase of ${cleaned}` : "a sleek high-tech consumer electronics product in modern studio setting";
+            }
+
+            const prompt = `Professional commercial studio product photography of ${productDescription}.
+Style & Composition:
+- Centered hero product shot, luxury commercial advertisement aesthetics, 1:1 square aspect ratio.
+- Photorealistic studio lighting, soft shadows, sharp focus, volumetric rim lighting, crisp 8k details, premium finish and textures.
+- Sleek modern atmospheric dark studio background with subtle ambient color gradient complementing the product.
+- CLEAN VISUAL RULES:
+  * DO NOT include any text, letters, words, typos, phrases, slogans, or sentences.
+  * DO NOT include floating labels, badges, user interface elements, or promotional banners.
+  * NO watermarks, NO brand logos or graphic overlays.
+  * PURE photorealistic product photograph only.`;
+
+            const model = process.env.MARKETING_VISUAL_MODELS || "google/gemini-2.5-flash-image";
+
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: "user", content: prompt }],
+              }),
+              signal: AbortSignal.timeout(15000),
+            });
+
+            if (res.ok) {
+              const data = (await res.json()) as any;
+              const msg = data.choices?.[0]?.message;
+              let base64Data: string | undefined;
+
+              if (Array.isArray(msg?.images) && msg.images.length > 0) {
+                const firstImg = msg.images[0];
+                const url = typeof firstImg === "string" ? firstImg : firstImg?.image_url?.url || firstImg?.url;
+                if (url) {
+                  const match = url.match(/data:image\/[a-zA-Z0-9.+_-]+;base64,([\s\S]+)/);
+                  base64Data = match ? match[1] : url;
+                }
+              }
+
+              if (!base64Data && typeof msg?.content === "string") {
+                const match = msg.content.match(/data:image\/[a-zA-Z0-9.+_-]+;base64,([\s\S]+)/);
+                if (match) {
+                  base64Data = match[1];
+                }
+              }
+
+              if (base64Data) {
+                const cleaned = base64Data.replace(/\s+/g, "");
+                const decoded = Buffer.from(cleaned, "base64");
+                if (decoded.length > 500) {
+                  buffer = decoded;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("OpenRouter image generation failed, fallback to solid buffer:", err);
+          }
+        }
+
         await options.storageWriter!(input.storageKey, buffer, input.mediaType);
         return {
           byteSize: buffer.byteLength,

@@ -37,6 +37,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
         "waiting_for_input",
         "out_of_scope",
         "cross_department_coordination_required",
+        "revision_requested",
         "failed",
         "canceled",
       ]),

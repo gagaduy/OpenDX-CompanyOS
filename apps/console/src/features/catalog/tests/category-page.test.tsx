@@ -16,6 +16,7 @@ function api(): CatalogApi {
     createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
     uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(),
     checkPublicationReadiness: vi.fn(), publishProduct: vi.fn(), unpublishProduct: vi.fn(),
+    generateMerchandisingProposal: vi.fn(), applyMerchandisingProposal: vi.fn(),
   };
 }
 

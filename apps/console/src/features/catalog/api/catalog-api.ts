@@ -17,6 +17,64 @@ export class CatalogApiError extends Error {
   constructor(readonly code: CatalogErrorCode, message: string) { super(message); this.name = "CatalogApiError"; }
 }
 
+export interface MerchandisingItem {
+  readonly targetProductId: string;
+  readonly targetVariantId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly categoryName: string;
+  readonly optimizedTitle: string;
+  readonly optimizedDescription: string;
+  readonly badge: string;
+  readonly originalPriceVnd: number;
+  readonly proposedPriceVnd: number;
+  readonly discountPercent: number;
+  readonly savingAmountVnd: number;
+}
+
+export interface MerchandisingProposal {
+  readonly id: string;
+  readonly prompt: string;
+  readonly items: readonly MerchandisingItem[];
+  readonly targetProductId?: string;
+  readonly targetVariantId?: string;
+  readonly productName?: string;
+  readonly productSlug?: string;
+  readonly categoryName?: string;
+  readonly optimizedTitle?: string;
+  readonly optimizedDescription?: string;
+  readonly badge?: string;
+  readonly originalPriceVnd?: number;
+  readonly proposedPriceVnd?: number;
+  readonly discountPercent?: number;
+  readonly savingAmountVnd?: number;
+  readonly pricingRationale: string;
+  readonly salesProjection: string;
+  readonly status: "pending_approval" | "applied" | "rejected";
+  readonly createdAt: string;
+}
+
+export interface ApplyMerchandisingResult {
+  readonly success: boolean;
+  readonly proposalId: string;
+  readonly updatedCount: number;
+  readonly items: readonly {
+    readonly productId: string;
+    readonly productName: string;
+    readonly originalPriceVnd: number;
+    readonly newPriceVnd: number;
+    readonly discountPercent: number;
+    readonly badge: string;
+  }[];
+  readonly appliedAt: string;
+  readonly productId?: string;
+  readonly productName?: string;
+  readonly originalPriceVnd?: number;
+  readonly newPriceVnd?: number;
+  readonly discountPercent?: number;
+  readonly badge?: string;
+}
+
 export interface CatalogApi {
   listProducts(query: ProductQuery): Promise<ProductPage>;
   getProduct(id: string): Promise<Product>;
@@ -39,6 +97,8 @@ export interface CatalogApi {
   checkPublicationReadiness(productId: string): Promise<PublicationReadiness>;
   publishProduct(productId: string, version: number): Promise<Product>;
   unpublishProduct(productId: string, version: number): Promise<Product>;
+  generateMerchandisingProposal(input: { readonly prompt: string; readonly targetProductId?: string }): Promise<MerchandisingProposal>;
+  applyMerchandisingProposal(input: { readonly proposalId: string; readonly customTitle?: string; readonly customDescription?: string; readonly customPriceVnd?: number }): Promise<ApplyMerchandisingResult>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -91,6 +151,12 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     async checkPublicationReadiness(productId) { return parse(publicationReadinessEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publication-readiness`)).data; },
     async publishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publish`, write("POST", { version }))).data); },
     async unpublishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/unpublish`, write("POST", { version }))).data); },
+    async generateMerchandisingProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/generate-proposal", write("POST", input))) as MerchandisingProposal;
+    },
+    async applyMerchandisingProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/apply-proposal", write("POST", input))) as ApplyMerchandisingResult;
+    },
   };
 }
 

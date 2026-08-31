@@ -139,11 +139,15 @@ function AgenticRoute({ apiBaseUrl, intake = false, detail = false, table = fals
   const { session } = useAuth();
   const { taskId } = useParams();
   const api = useMemo(() => createAgenticApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const marketingApi = useMemo(() => createMarketingApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const catalogApi = useMemo(() => createCatalogApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const inventoryApi = useMemo(() => createInventoryApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const supportApi = useMemo(() => createSupportOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin"] as const;
   if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator", "agentic_governance_admin"]}><AgenticTaskIntakePage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
   if (detail && taskId !== undefined) return <StaffRoleRoute allowed={readers}><AgenticTaskDetailPage api={api} taskId={taskId} roles={session?.roles ?? []} /></StaffRoleRoute>;
   if (table) return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
-  return <StaffRoleRoute allowed={readers}><AgenticCommandCenterPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
+  return <StaffRoleRoute allowed={readers}><AgenticCommandCenterPage api={api} marketingApi={marketingApi} catalogApi={catalogApi} inventoryApi={inventoryApi} supportApi={supportApi} roles={session?.roles ?? []} /></StaffRoleRoute>;
 }
 
 function InventoryRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {

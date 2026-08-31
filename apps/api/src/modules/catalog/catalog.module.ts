@@ -35,6 +35,9 @@ import { createProductRouter } from "./presentation/routes/product.routes";
 import { createProductPublicationRouter } from "./presentation/routes/product-publication.routes";
 import { createPublicCatalogRouter } from "./presentation/routes/public-catalog.routes";
 import { createVariantRouter } from "./presentation/routes/variant.routes";
+import { AiMerchandisingService } from "./application/services/implementations/ai-merchandising.service";
+import { AiMerchandisingController } from "./presentation/controllers/ai-merchandising.controller";
+import { createAiMerchandisingRouter } from "./presentation/routes/ai-merchandising.routes";
 
 export interface CatalogModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -151,6 +154,12 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     metadata: {},
     occurredAt: dependencies.now(),
   }));
+  const aiMerchandisingService = new AiMerchandisingService(
+    dependencies.transactions,
+    audit,
+    dependencies.generateId,
+    dependencies.now,
+  );
   const adminRouter = Router();
   adminRouter.use(createCategoryRouter(new CategoryController(categoryService), authenticate));
   adminRouter.use(createProductRouter(new ProductController(productService), authenticate));
@@ -167,6 +176,12 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     authenticate,
     appendDenied,
   ));
+  adminRouter.use(
+    createAiMerchandisingRouter(
+      new AiMerchandisingController(aiMerchandisingService),
+      authenticate,
+    ),
+  );
   const publicRouter = createPublicCatalogRouter(
     new PublicCatalogController(publicCatalogService, dependencies.mediaStorage),
   );

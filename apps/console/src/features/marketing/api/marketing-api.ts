@@ -22,6 +22,7 @@ export interface MarketingApi {
   generateDeliverables(campaignId: string): Promise<{ items: readonly MarketingArtifact[]; total: number }>;
   listArtifacts(campaignId: string, signal?: AbortSignal): Promise<{ items: readonly MarketingArtifact[]; total: number }>;
   getArtifactDownloadUrl(artifactId: string): string;
+  fetchArtifactBlob?(artifactId: string): Promise<Blob>;
 }
 
 export function createMarketingApi(baseUrl: string, accessToken: string): MarketingApi {
@@ -57,10 +58,18 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
     },
 
     async createCampaign(input, idempotencyKey) {
+      const payload = {
+        ...input,
+        assignmentMode: input.assignmentMode ?? "direct_department",
+        subject: input.subject ?? {
+          kind: input.subjectKind ?? "free_topic",
+          reference: input.subjectReference ?? "san-pham",
+        },
+      };
       return request("/v1/admin/marketing/campaigns", {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify(input),
+        body: JSON.stringify(payload),
       });
     },
 
@@ -116,6 +125,19 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
 
     getArtifactDownloadUrl(artifactId) {
       return `${baseUrl}/v1/admin/marketing/artifacts/${artifactId}/download`;
+    },
+
+    async fetchArtifactBlob(artifactId) {
+      const response = await fetch(`${baseUrl}/v1/admin/marketing/artifacts/${artifactId}/download`, {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "x-correlation-id": crypto.randomUUID(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch artifact blob: ${response.status}`);
+      }
+      return response.blob();
     },
   };
 }

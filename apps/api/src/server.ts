@@ -94,6 +94,7 @@ const workflowGateway = new HttpWorkflowGateway({
 });
 const inventory = createInventoryModule({
   transactions,
+  database: pool,
   variantReader: createCatalogVariantReader(),
   staffTokenVerifier,
   generateId: randomUUID,
@@ -202,6 +203,7 @@ const crm = createCrmModule({
 });
 const support = createSupportModule({
   transactions,
+  database: pool,
   customers: customer.operations,
   orders: order.operations,
   staffTokenVerifier,

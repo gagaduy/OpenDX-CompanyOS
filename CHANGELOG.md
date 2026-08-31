@@ -24,6 +24,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Governed AI Customer Support & CRM workflow (Phòng CSKH & Trải nghiệm Khách hàng) featuring **Quản gia CSKH (Support Steward)** for CSAT & sentiment analysis, **Chuyên viên CRM (CRM Specialist)** for VIP customer retention & churn risk prediction, live OpenRouter Gemini 2.5 Flash analysis, pure OpenXML Word DOCX audit report export, automated promotion voucher generation in `promotions` table, and one-click human approval with bulk resolution in the Agentic Command Center.
+
+### Fixed
+
+- Ensure support proposal approvals strictly follow PostgreSQL state machine lifecycle triggers (`new` -> `escalated` -> `resolved`) and enforce CEO-specified discount percentages and compensation voucher creation in database.
+- Gracefully handle undefined payment aggregates during checkout expiration in `PaymentService`.
+
+- Implement Governed AI Merchandising & Pricing workflow (Phòng Danh mục & Định giá) powered by live OpenRouter Gemini 2.5 Flash, generating SEO-optimized product copy, strategic Flash Sale pricing models with profit margin analysis, and interactive Command Center proposal cards enabling one-click live price and product updates on the Storefront database upon human administrator approval.
+
+- Integrate live OpenRouter Google Gemini 2.5 Flash copywriter and Gemini Image poster generation with NovaCommerce brand identity, in-flight Facebook publication concurrency deduplication, authenticated in-console image preview via blob URL, and full prompt history tracking in the AI Command Center.
+
+- Build unified Command Hub (`AgenticCommandCenter`) with intelligent AI CEO Intent Routing (auto-classifying marketing campaigns vs operations audits), dynamic visual pipeline bar, unified 4-department workforce grid (Marketing, Operations, Support/CRM, Finance) with 9 digital employees, direct inline agent card tasking, and in-place Facebook post preview, human approval, revision feedback, and deliverables download.
+
 - Add an approver-only Facebook publication retry action for failed Marketing
   campaigns, preserving the approved package, exactly-once publication record,
   and fail-closed credential handling.

@@ -147,7 +147,7 @@ interface ArtifactRow {
   created_at: Date;
 }
 
-function mapCampaignRow(row: CampaignRow): MarketingCampaign {
+function mapCampaignRow(row: any): MarketingCampaign {
   return {
     id: row.id,
     state: row.state,
@@ -155,10 +155,13 @@ function mapCampaignRow(row: CampaignRow): MarketingCampaign {
     createdBy: row.created_by,
     idempotencyKey: row.idempotency_key,
     sourceTaskId: row.source_task_id,
+    campaignName: row.campaign_name ?? null,
+    objective: row.objective ?? null,
+    mandatoryMessage: row.mandatory_message ?? null,
     version: row.version,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
-  };
+  } as MarketingCampaign;
 }
 
 function mapBriefRow(row: BriefRow): CampaignBrief {
@@ -360,8 +363,11 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
   }
 
   async findCampaignById(id: string): Promise<MarketingCampaign | null> {
-    const result = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns WHERE id = $1",
+    const result = await this.pool.query(
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON c.id = b.campaign_id
+       WHERE c.id = $1`,
       [id],
     );
     if (result.rowCount === 0 || !result.rows[0]) {
@@ -374,8 +380,11 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     createdBy: string,
     idempotencyKey: string,
   ): Promise<MarketingCampaign | null> {
-    const result = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns WHERE created_by = $1 AND idempotency_key = $2",
+    const result = await this.pool.query(
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON c.id = b.campaign_id
+       WHERE c.created_by = $1 AND c.idempotency_key = $2`,
       [createdBy, idempotencyKey],
     );
     if (result.rowCount === 0 || !result.rows[0]) {
@@ -390,8 +399,12 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
   }): Promise<readonly MarketingCampaign[]> {
     const limit = params?.limit ?? 50;
     const offset = params?.offset ?? 0;
-    const result = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+    const result = await this.pool.query(
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON c.id = b.campaign_id
+       ORDER BY c.created_at DESC
+       LIMIT $1 OFFSET $2`,
       [limit, offset],
     );
     return result.rows.map(mapCampaignRow);

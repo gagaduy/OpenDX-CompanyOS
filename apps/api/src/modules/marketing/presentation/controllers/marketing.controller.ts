@@ -137,7 +137,9 @@ export class MarketingController {
         try {
           const detail = await this.service.getCampaign(campaignId);
           if (detail.currentPackage && detail.brief) {
-            const pageId = detail.brief.facebookPageConfigurationId || "primary";
+            const configuredPageId = detail.brief.facebookPageConfigurationId;
+            const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
+            const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
             const pageAccessToken = parsed.facebookPageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "default-token";
             await this.publisherService.publishApprovedPackage({
               campaignId,
@@ -184,11 +186,14 @@ export class MarketingController {
       }
 
       let result;
+      const configuredPageId = pkg.facebookPageConfigurationId;
+      const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
+      const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
       try {
         result = await this.publisherService.publishApprovedPackage({
           campaignId,
           packageId: pkg.id,
-          pageId: pkg.facebookPageConfigurationId,
+          pageId,
           pageAccessToken,
         });
       } catch (error) {

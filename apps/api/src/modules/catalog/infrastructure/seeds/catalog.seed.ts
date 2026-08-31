@@ -133,14 +133,11 @@ export async function seedCatalog(
             option_values = EXCLUDED.option_values, status = EXCLUDED.status, updated_at = NOW()`,
           [variantId, productId, `NOVA-${String(productIndex + 1).padStart(3, "0")}-${optionIndex + 1}`, option, JSON.stringify({ option })],
         );
+        await session.query(`DELETE FROM product_prices WHERE variant_id = $1`, [variantId]);
         await session.query(
           `INSERT INTO product_prices
             (id, variant_id, amount_minor, currency, tax_inclusive, valid_from, valid_to, created_by)
-           VALUES ($1, $2, $3, 'VND', true, '2026-08-05T00:00:00.000Z', NULL, 'system:catalog-seed')
-           ON CONFLICT (id) DO UPDATE SET
-            variant_id = EXCLUDED.variant_id, amount_minor = EXCLUDED.amount_minor,
-            currency = EXCLUDED.currency, tax_inclusive = EXCLUDED.tax_inclusive,
-            valid_from = EXCLUDED.valid_from, valid_to = NULL, created_by = EXCLUDED.created_by`,
+           VALUES ($1, $2, $3, 'VND', true, '2026-08-05T00:00:00.000Z', NULL, 'system:catalog-seed')`,
           [id(4, sequence), variantId, product.price + optionIndex * 50_000],
         );
       }

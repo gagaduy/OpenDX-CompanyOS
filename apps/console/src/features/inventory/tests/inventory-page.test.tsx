@@ -33,6 +33,9 @@ function api(overrides: Partial<InventoryApi> = {}): InventoryApi {
       items: [{ id: "70000000-0000-4000-8000-000000000001", movementType: "receive" as const, onHandDelta: 8, reservedDelta: 0, reasonCode: "INITIAL_STOCK", actorType: "system" as const, actorId: "seed", occurredAt: "2026-08-05T00:00:00.000Z" }],
       page: 1, pageSize: 20, totalItems: 1, totalPages: 1,
     })),
+    generateOperationsProposal: vi.fn(async () => ({ id: "prop-1", prompt: "test", items: [] })),
+    downloadOperationsDocx: vi.fn(async () => undefined),
+    applyOperationsProposal: vi.fn(async () => ({ proposalId: "prop-1", appliedCount: 1, updatedItems: [] })),
     ...overrides,
   };
 }

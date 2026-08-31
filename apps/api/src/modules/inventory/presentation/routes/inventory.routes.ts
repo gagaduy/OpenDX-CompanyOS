@@ -33,5 +33,8 @@ export function createInventoryRouter(
   router.get("/items/:inventoryItemId/movements", ...read, controller.movements);
   router.post("/receipts", authenticate, receiptGuard, controller.receive);
   router.post("/items/:inventoryItemId/adjust", authenticate, adjustmentGuard, controller.adjust);
+  router.post("/ai-proposal", authenticate, controller.generateAiProposal);
+  router.get("/ai-proposal/:proposalId/docx", authenticate, controller.getAiProposalDocx);
+  router.post("/ai-proposal/:proposalId/apply", authenticate, controller.applyAiProposal);
   return router;
 }

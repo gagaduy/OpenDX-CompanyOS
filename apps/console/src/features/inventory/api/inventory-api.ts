@@ -23,6 +23,9 @@ export interface InventoryApi {
   receive(input: { readonly variantId: string; readonly quantity: number; readonly idempotencyKey: string }): Promise<InventoryItemView>;
   adjust(id: string, input: { readonly delta: number; readonly reasonCode: string; readonly reasonNote?: string; readonly version: number }): Promise<InventoryItemView>;
   listMovements(id: string, page: number, pageSize: number, signal?: AbortSignal): Promise<InventoryPageView<InventoryMovementView>>;
+  generateOperationsProposal(prompt: string): Promise<any>;
+  downloadOperationsDocx(proposalId: string, filename: string): Promise<void>;
+  applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]): Promise<any>;
 }
 
 export function createInventoryApi(baseUrl: string, accessToken: string): InventoryApi {
@@ -41,7 +44,8 @@ export function createInventoryApi(baseUrl: string, accessToken: string): Invent
     if (!response.ok) {
       const parsed = inventoryErrorEnvelopeSchema.safeParse(body);
       const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(response.status);
-      throw new InventoryApiError(code, publicMessage(code));
+      const msg = (body as any)?.error?.message || (body as any)?.message || (body as any)?.errorMessage || publicMessage(code);
+      throw new InventoryApiError(code, msg);
     }
     return body;
   };
@@ -67,6 +71,29 @@ export function createInventoryApi(baseUrl: string, accessToken: string): Invent
     async listMovements(id, page, pageSize, signal) {
       const envelope = parse(movementListEnvelopeSchema, await request(`/v1/admin/inventory/items/${id}/movements?page=${page}&pageSize=${pageSize}`, { signal }));
       return { items: envelope.data.map(mapMovement), ...envelope.meta };
+    },
+    async generateOperationsProposal(prompt: string) {
+      const envelope: any = await request("/v1/admin/inventory/ai-proposal", write({ prompt }));
+      return envelope.data;
+    },
+    async downloadOperationsDocx(proposalId: string, filename: string) {
+      const response = await fetch(`${baseUrl}/v1/admin/inventory/ai-proposal/${proposalId}/docx`, {
+        headers: { authorization: `Bearer ${accessToken}`, "x-correlation-id": crypto.randomUUID() },
+      });
+      if (!response.ok) throw new Error("Failed to download DOCX report");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || `bao_cao_kho_van_${proposalId.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+    async applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]) {
+      const envelope: any = await request(`/v1/admin/inventory/ai-proposal/${proposalId}/apply`, write({ items }));
+      return envelope.data;
     },
   };
 }

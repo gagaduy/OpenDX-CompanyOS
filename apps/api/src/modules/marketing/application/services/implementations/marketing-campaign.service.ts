@@ -373,13 +373,61 @@ export class MarketingCampaignService implements IMarketingCampaignService {
     const newVersionNumber = existingContents.length + 1;
     const now = new Date().toISOString();
 
-    // AI Copywriter: Generate revised Content Version incorporating input.feedback
+    // AI Copywriter: Generate creative Content Version via OpenRouter Gemini LLM
     const feedbackNote = (input.feedback ?? "").trim();
-    const prevContent = existingContents[existingContents.length - 1];
-    const hook = `🔥 [Cập nhật v${newVersionNumber}] ${brief?.campaignName ?? "Ưu Đãi Đặc Biệt"}`;
-    const body = `${prevContent?.body ?? brief?.mandatoryMessage ?? ""}\n\n📌 Ghi chú điều chỉnh theo phản hồi: ${feedbackNote}\n✨ Đừng bỏ lỡ cơ hội sở hữu ngay hôm nay với mức giá ưu đãi nhất!`;
-    const callToAction = brief?.callToAction ?? prevContent?.callToAction ?? "Đặt hàng ngay";
-    const hashtags = prevContent?.hashtags ?? ["#NovaCommerce", "#UuDai", "#FlashSale"];
+    let hook = `🔥 [Cập nhật v${newVersionNumber}] ${brief?.campaignName ?? "Ưu Đãi Đặc Biệt"}`;
+    let body = `${brief?.mandatoryMessage ?? ""}\n\n📌 Ghi chú điều chỉnh: ${feedbackNote}\n✨ Đừng bỏ lỡ cơ hội sở hữu ngay hôm nay với mức giá ưu đãi nhất tại NovaCommerce Store!`;
+    let callToAction = brief?.callToAction ?? "Đặt hàng ngay";
+    let hashtags = ["#NovaCommerce", "#UuDai", "#FlashSale"];
+
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+    if (apiKey && process.env.OPENROUTER_EXECUTION_ENABLED === "true") {
+      try {
+        const prompt = `Bạn là một Cây bút Tiếp thị (Copywriter) hàng đầu cho nền tảng thương mại điện tử NovaCommerce.
+Hãy sáng tạo một bài đăng Facebook bán hàng chuyên nghiệp, hấp dẫn, có cảm xúc cho chiến dịch sau:
+- Tên chiến dịch: ${brief?.campaignName ?? "Chiến dịch tiếp thị"}
+- Thông điệp / Yêu cầu người dùng: ${brief?.mandatoryMessage ?? ""}
+- Lời kêu gọi hành động: ${brief?.callToAction ?? "Mua ngay"}
+${feedbackNote ? `- Ghi chú phản hồi / Yêu cầu sửa đổi: ${feedbackNote}` : ""}
+
+Yêu cầu trả về đúng định dạng JSON không bọc markdown theo cấu trúc:
+{
+  "hook": "Tiêu đề giật tít hấp dẫn có icon và tên sản phẩm (1 dòng)",
+  "body": "Nội dung bài viết Facebook đầy đủ, hấp dẫn, chia đoạn rõ ràng với emoji, nêu bật lợi ích và quà tặng",
+  "callToAction": "Lời kêu gọi hành động",
+  "hashtags": ["#NovaCommerce", "#TenSanPham", "#UuDai"]
+}`;
+
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: process.env.MARKETING_CONTENT_MODELS || "google/gemini-2.5-flash",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          const contentStr = data.choices?.[0]?.message?.content;
+          if (contentStr) {
+            const parsed = JSON.parse(contentStr);
+            if (parsed.hook) hook = parsed.hook;
+            if (parsed.body) body = parsed.body;
+            if (parsed.callToAction) callToAction = parsed.callToAction;
+            if (Array.isArray(parsed.hashtags) && parsed.hashtags.length > 0) hashtags = parsed.hashtags;
+          }
+        }
+      } catch (err) {
+        console.error("OpenRouter LLM copy generation failed, using fallback:", err);
+      }
+    }
+
     const contentDigest = createHash("sha256")
       .update(`${hook}\n${body}\n${callToAction}\n${hashtags.join(",")}`)
       .digest("hex");
@@ -517,6 +565,9 @@ export class MarketingCampaignService implements IMarketingCampaignService {
       createdBy: campaign.createdBy,
       idempotencyKey: campaign.idempotencyKey,
       sourceTaskId: campaign.sourceTaskId ?? null,
+      campaignName: (campaign as any).campaignName ?? null,
+      objective: (campaign as any).objective ?? null,
+      mandatoryMessage: (campaign as any).mandatoryMessage ?? null,
       version: campaign.version,
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,

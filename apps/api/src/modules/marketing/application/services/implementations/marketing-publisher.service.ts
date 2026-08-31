@@ -60,6 +60,22 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       return existingRecord;
     }
 
+    // In-flight concurrency lock: if an attempt is currently started within the last 45s, skip duplicate call
+    const priorAttempts = await this.marketingRepository.findPublicationAttemptsByPackageId(packageId);
+    const activeAttempt = priorAttempts.find(
+      (a) => a.status === "started" && Math.abs(Date.now() - new Date(a.startedAt).getTime()) < 45_000,
+    );
+    if (activeAttempt) {
+      for (let i = 0; i < 6; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        const record = await this.marketingRepository.findPublicationRecordByPackageId(packageId);
+        if (record) return record;
+      }
+      const record = await this.marketingRepository.findPublicationRecordByPackageId(packageId);
+      if (record) return record;
+      throw new MarketingApplicationError(409, "PUBLICATION_IN_PROGRESS", "A publication attempt for this package is already in progress.");
+    }
+
     // Must be in approved status and have approvalRequestId
     if (pkg.status !== "approved" && campaign.state !== "awaiting_human_approval" && campaign.state !== "publishing") {
       throw MarketingApplicationError.packageNotApproved(packageId);

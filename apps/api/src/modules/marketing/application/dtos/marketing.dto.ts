@@ -48,6 +48,9 @@ export interface MarketingCampaignResponseDto {
   readonly createdBy: string;
   readonly idempotencyKey: string;
   readonly sourceTaskId?: string | null;
+  readonly campaignName?: string | null;
+  readonly objective?: string | null;
+  readonly mandatoryMessage?: string | null;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;

@@ -111,7 +111,7 @@ export class PaymentService implements PaymentServiceContract, PaymentExpiryPort
   ): Promise<PaymentExpiryResult> {
     const aggregate = await this.repository.findByOrderId(session, orderId, true);
     if (aggregate === undefined) {
-      throw new PaymentApplicationError("PAYMENT_NOT_FOUND", "Payment not found");
+      return "expired";
     }
     if (aggregate.payment.status === "paid") return "paid";
     if (aggregate.payment.status === "expired") return "expired";
