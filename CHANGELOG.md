@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
+- Approve a credential-free, provider-ready Instagram image-publication
+  extension for governed Marketing campaigns, with Feed, Story, carousel,
+  multi-target approval, target-level retry, truthful local simulation, and
+  disabled fail-closed video capabilities.
+
 - Define one governed Marketing & Creative department with three distinct
   Digital Employees, direct or AI CEO assignment, human-approved Facebook Page
   publication, platform-neutral adapters, private report artifacts, and
