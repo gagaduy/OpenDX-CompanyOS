@@ -17,6 +17,7 @@ export interface MarketingApi {
   cancelCampaign(campaignId: string, reason?: string): Promise<MarketingCampaign>;
   approveCampaign(campaignId: string, input: { decision: "approve" | "reject"; reason?: string; facebookPageAccessToken?: string }): Promise<MarketingCampaign>;
   retryPublication(campaignId: string): Promise<PublicationRecord>;
+  retryTargetPublication(campaignId: string, targetId: string): Promise<PublicationRecord>;
   requestRevision(campaignId: string, input: { feedback: string; targetVersion?: "content" | "visual" | "both" }): Promise<MarketingCampaign>;
   qualityFeedback(campaignId: string, input: { status: "passed" | "escalated"; notes?: string }): Promise<MarketingCampaign>;
   generateDeliverables(campaignId: string): Promise<{ items: readonly MarketingArtifact[]; total: number }>;
@@ -95,6 +96,12 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
 
     async retryPublication(campaignId) {
       return request(`/v1/admin/marketing/campaigns/${campaignId}/retry-publication`, {
+        method: "POST",
+      });
+    },
+
+    async retryTargetPublication(campaignId, targetId) {
+      return request(`/v1/admin/marketing/campaigns/${campaignId}/targets/${targetId}/retry`, {
         method: "POST",
       });
     },

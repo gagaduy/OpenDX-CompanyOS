@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { MarketingApi } from "../api/marketing-api";
-import type { MarketingCampaignDetail } from "../types";
+import type { MarketingCampaignDetail, PublicationTarget } from "../types";
 import { CampaignBriefCard } from "../components/campaign-brief-card";
 import { ContentDraftPreview } from "../components/content-draft-preview";
 import { VisualAssetPreview } from "../components/visual-asset-preview";
@@ -76,7 +76,20 @@ export function MarketingCampaignDetailPage({
       await api.retryPublication(campaignId);
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Đăng lại lên Facebook thất bại");
+      setError(err.message || "Đăng lại thất bại");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRetryTarget = async (targetId: string) => {
+    if (!campaignId) return;
+    try {
+      setActionLoading(true);
+      await api.retryTargetPublication(campaignId, targetId);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Đăng lại mục tiêu thất bại");
     } finally {
       setActionLoading(false);
     }
@@ -119,12 +132,20 @@ export function MarketingCampaignDetailPage({
     );
   }
 
-  const { campaign, brief, contentVersions, visualAssets, artifacts, publicationRecord } = detail;
+  const { campaign, brief, contentVersions, visualAssets, artifacts, publicationRecord, currentPackage } = detail;
   const latestContent = contentVersions[contentVersions.length - 1] ?? null;
   const latestVisual = visualAssets[visualAssets.length - 1] ?? null;
+  const targets = currentPackage?.targets ?? [];
   const isAwaiting = campaign.state === "awaiting_human_approval";
   const isLive = campaign.state === "completed" || campaign.state === "publishing";
-  const badgeClass = isAwaiting ? "statusBadge awaitingApproval" : isLive ? "statusBadge publishedLive" : "statusBadge drafting";
+  const isPartialFailure = campaign.state === "partial_failure";
+  const badgeClass = isAwaiting
+    ? "statusBadge awaitingApproval"
+    : isLive
+    ? "statusBadge publishedLive"
+    : isPartialFailure
+    ? "statusBadge partialFailure"
+    : "statusBadge drafting";
 
   return (
     <div className="marketingWorkspace">
@@ -141,7 +162,13 @@ export function MarketingCampaignDetailPage({
           </h1>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem" }}>
             <span className={badgeClass}>
-              {isAwaiting ? "⏳ Chờ Phê Duyệt" : isLive ? "✅ Đã Đăng Live Facebook" : campaign.state.replace(/_/g, " ")}
+              {isAwaiting
+                ? "⏳ Chờ Phê Duyệt"
+                : isLive
+                ? "✅ Đã Xuất Bản Thành Công"
+                : isPartialFailure
+                ? "⚠️ Một Số Kênh Thất Bại"
+                : campaign.state.replace(/_/g, " ")}
             </span>
             <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
               Tạo bởi <strong style={{ color: "#cbd5e1" }}>{campaign.createdBy}</strong> lúc {new Date(campaign.createdAt).toLocaleString()}
@@ -150,14 +177,14 @@ export function MarketingCampaignDetailPage({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          {publicationRecord && (
+          {publicationRecord && publicationRecord.postUrl && (
             <a
               href={publicationRecord.postUrl}
               target="_blank"
               rel="noreferrer"
               className="marketingBtnSuccess"
             >
-              <span>🌐</span> View Live Facebook Post ↗
+              <span>🌐</span> Xem Bài Đăng Trực Tuyến ↗
             </a>
           )}
         </div>
@@ -206,11 +233,72 @@ export function MarketingCampaignDetailPage({
         onOpenPreview={() => setPreviewOpen(true)}
         loading={actionLoading}
         canRetryPublication={
-          campaign.state === "failed" &&
-          detail.currentPackage?.status === "approved" &&
-          !detail.publicationRecord
+          (campaign.state === "failed" || campaign.state === "partial_failure") &&
+          detail.currentPackage?.status === "approved"
         }
       />
+
+      {/* Multi-Platform Publication Targets Card */}
+      {targets.length > 0 && (
+        <div style={{ background: "#111827", borderRadius: "1rem", border: "1px solid #1f2937", padding: "1.25rem", marginBottom: "1.5rem" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: 700, color: "#f3f4f6", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span>🎯</span> Kênh Xuất Bản Đa Nền Tảng (Multi-Platform Targets)
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+            {targets.map((target) => {
+              const isTargetVerified = target.status === "verified";
+              const isTargetFailed = target.status === "failed" || target.status === "platform_rejected";
+              const platformIcon = target.platform === "facebook" ? "🔵" : "📸";
+              const platformLabel = target.platform === "facebook" ? "Facebook" : "Instagram";
+              const formatLabel = target.format === "feed_image" ? "Feed Image (1:1)" : target.format === "story_image" ? "Story (9:16)" : "Carousel (1:1)";
+
+              return (
+                <div
+                  key={target.id}
+                  style={{
+                    background: "#1f2937",
+                    borderRadius: "0.75rem",
+                    border: `1px solid ${isTargetVerified ? "rgba(34, 197, 94, 0.4)" : isTargetFailed ? "rgba(239, 68, 68, 0.4)" : "#374151"}`,
+                    padding: "1rem",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 700, color: "#f9fafb" }}>
+                      <span>{platformIcon}</span> {platformLabel} • {formatLabel}
+                    </div>
+                    <span
+                      style={{
+                        padding: "0.2rem 0.6rem",
+                        borderRadius: "9999px",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: isTargetVerified ? "rgba(34, 197, 94, 0.2)" : isTargetFailed ? "rgba(239, 68, 68, 0.2)" : "rgba(107, 114, 128, 0.2)",
+                        color: isTargetVerified ? "#4ade80" : isTargetFailed ? "#f87171" : "#9ca3af",
+                      }}
+                    >
+                      {target.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "#9ca3af", marginBottom: "0.5rem" }}>
+                    Chế độ: <strong style={{ color: "#e5e7eb" }}>{target.executionMode}</strong> {target.required ? "• Bắt buộc" : "• Tùy chọn"}
+                  </div>
+                  {isTargetFailed && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetryTarget(target.id)}
+                      disabled={actionLoading}
+                      className="marketingBtnSecondary"
+                      style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", width: "100%", justifyContent: "center" }}
+                    >
+                      🔄 Thử lại kênh này
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Brief Card */}
       <CampaignBriefCard brief={brief} />
@@ -227,13 +315,14 @@ export function MarketingCampaignDetailPage({
         getDownloadUrl={api.getArtifactDownloadUrl}
       />
 
-      {/* Live Facebook Post Preview Modal */}
+      {/* Live Social Post Preview Modal */}
       <FacebookPostPreviewModal
         isOpen={previewOpen}
         onClose={() => setPreviewOpen(false)}
         brief={brief}
         content={latestContent}
         visual={latestVisual}
+        targets={targets}
       />
     </div>
   );

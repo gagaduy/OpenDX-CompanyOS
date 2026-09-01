@@ -16,11 +16,57 @@ export type MarketingCampaignState =
   | "verifying_publication"
   | "reporting"
   | "completed"
+  | "partial_failure"
   | "schedule_missed"
   | "platform_rejected"
   | "blocked_credentials"
   | "failed"
   | "canceled";
+
+export type SocialPlatform = "facebook" | "instagram";
+
+export type PublicationFormat =
+  | "feed_image"
+  | "story_image"
+  | "image_carousel"
+  | "feed_video"
+  | "story_video"
+  | "reel_video";
+
+export type PublicationExecutionMode = "simulation" | "live" | "disabled";
+
+export type PublicationTargetStatus =
+  | "pending_approval"
+  | "approved"
+  | "scheduled"
+  | "claimed"
+  | "publishing"
+  | "publication_unknown"
+  | "verified"
+  | "platform_rejected"
+  | "failed";
+
+export interface PublicationTarget {
+  readonly id: string;
+  readonly packageId: string;
+  readonly platform: SocialPlatform;
+  readonly format: PublicationFormat;
+  readonly accountConfigurationId: string;
+  readonly contentVersionId: string;
+  readonly mediaAssetIds: readonly string[];
+  readonly caption: string;
+  readonly scheduledFor: string;
+  readonly required: boolean;
+  readonly executionMode: PublicationExecutionMode;
+  readonly contentDigest: string;
+  readonly mediaDigest: string;
+  readonly targetDigest: string;
+  readonly status: PublicationTargetStatus;
+  readonly leaseOwner?: string | null;
+  readonly leaseExpiresAt?: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
 
 export interface ProvenanceSource {
   readonly sourceType: string;
@@ -43,6 +89,7 @@ export interface CampaignBrief {
   readonly prohibitedClaims: readonly string[];
   readonly callToAction: string;
   readonly facebookPageConfigurationId: string;
+  readonly instagramAccountConfigurationId?: string | null;
   readonly scheduledFor: string;
   readonly deadline: string;
   readonly approverId: string;
@@ -56,7 +103,8 @@ export interface ContentVersion {
   readonly id: string;
   readonly campaignId: string;
   readonly versionNumber: number;
-  readonly variant: string;
+  readonly variant?: string;
+  readonly hook?: string | null;
   readonly headline?: string | null;
   readonly body: string;
   readonly primaryText?: string;
@@ -75,7 +123,7 @@ export interface VisualAsset {
   readonly campaignId: string;
   readonly versionNumber: number;
   readonly mediaType: string;
-  readonly aspectRatio: "1:1";
+  readonly aspectRatio: "1:1" | "9:16" | "16:9";
   readonly width: number;
   readonly height: number;
   readonly byteSize: number;
@@ -99,8 +147,9 @@ export interface PublicationPackage {
   readonly contentDigest: string;
   readonly imageDigest: string;
   readonly packageDigest: string;
-  readonly status: "draft" | "ready_for_review" | "approved" | "rejected" | "superseded";
+  readonly status: "draft" | "submitted_for_approval" | "approved" | "rejected" | "superseded";
   readonly approvalRequestId?: string | null;
+  readonly targets?: readonly PublicationTarget[];
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -108,9 +157,13 @@ export interface PublicationPackage {
 export interface PublicationAttempt {
   readonly id: string;
   readonly packageId: string;
-  readonly platform: "facebook";
+  readonly targetId?: string | null;
+  readonly attemptKey?: string;
+  readonly platform: SocialPlatform;
   readonly pageConfigurationId: string;
-  readonly status: "started" | "succeeded" | "failed" | "timed_out" | "aborted";
+  readonly executionMode?: PublicationExecutionMode;
+  readonly simulated?: boolean;
+  readonly status: "started" | "succeeded" | "failed" | "timed_out" | "aborted" | "unknown";
   readonly startedAt: string;
   readonly finishedAt?: string | null;
   readonly durationMs?: number | null;
@@ -121,15 +174,21 @@ export interface PublicationAttempt {
 export interface PublicationRecord {
   readonly id: string;
   readonly packageId: string;
-  readonly platform: "facebook";
+  readonly targetId?: string | null;
+  readonly platform: SocialPlatform;
   readonly pageId: string;
   readonly externalPostId: string;
-  readonly postUrl: string;
+  readonly postUrl?: string | null;
+  readonly executionMode?: PublicationExecutionMode;
+  readonly simulated?: boolean;
+  readonly displayMessage?: string | null;
   readonly packageDigest: string;
   readonly contentDigest: string;
-  readonly imageDigest: string;
+  readonly imageDigest?: string | null;
+  readonly targetDigest?: string | null;
   readonly verifiedAt: string;
   readonly providerReceiptDigest: string;
+  readonly verificationEvidenceDigest?: string | null;
   readonly createdAt: string;
 }
 
@@ -196,8 +255,11 @@ export interface CreateMarketingCampaignInput {
   readonly prohibitedClaims: readonly string[];
   readonly callToAction: string;
   readonly facebookPageConfigurationId: string;
+  readonly instagramAccountConfigurationId?: string;
   readonly scheduledFor: string;
   readonly deadline: string;
   readonly approverId: string;
   readonly maximumCostMicros: number;
+  readonly provenance?: readonly ProvenanceSource[];
+  readonly sourceTaskId?: string;
 }

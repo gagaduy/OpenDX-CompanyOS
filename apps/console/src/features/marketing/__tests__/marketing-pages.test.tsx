@@ -86,7 +86,61 @@ describe("Marketing Console Pages", () => {
       },
     ],
     publicationPackages: [],
-    currentPackage: null,
+    currentPackage: {
+      id: "pkg-1",
+      campaignId: sampleCampaign.id,
+      packageVersion: 1,
+      contentVersionId: "content-1",
+      visualAssetId: "visual-1",
+      facebookPageConfigurationId: "page-official",
+      scheduledFor: "2026-08-30T10:00:00.000Z",
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      packageDigest: "p".repeat(64),
+      status: "submitted_for_approval",
+      targets: [
+        {
+          id: "target-fb",
+          packageId: "pkg-1",
+          platform: "facebook",
+          format: "feed_image",
+          accountConfigurationId: "page-official",
+          contentVersionId: "content-1",
+          mediaAssetIds: ["visual-1"],
+          caption: "Khám phá ngay NovaPhone 15",
+          scheduledFor: "2026-08-30T10:00:00.000Z",
+          required: true,
+          executionMode: "live",
+          contentDigest: "c".repeat(64),
+          mediaDigest: "d".repeat(64),
+          targetDigest: "t1".padEnd(64, "0"),
+          status: "pending_approval",
+          createdAt: "2026-08-29T10:00:00.000Z",
+          updatedAt: "2026-08-29T10:00:00.000Z",
+        },
+        {
+          id: "target-ig",
+          packageId: "pkg-1",
+          platform: "instagram",
+          format: "feed_image",
+          accountConfigurationId: "ig-default",
+          contentVersionId: "content-1",
+          mediaAssetIds: ["visual-1"],
+          caption: "Khám phá ngay NovaPhone 15",
+          scheduledFor: "2026-08-30T10:00:00.000Z",
+          required: false,
+          executionMode: "simulation",
+          contentDigest: "c".repeat(64),
+          mediaDigest: "d".repeat(64),
+          targetDigest: "t2".padEnd(64, "0"),
+          status: "pending_approval",
+          createdAt: "2026-08-29T10:00:00.000Z",
+          updatedAt: "2026-08-29T10:00:00.000Z",
+        },
+      ],
+      createdAt: "2026-08-29T10:00:00.000Z",
+      updatedAt: "2026-08-29T10:00:00.000Z",
+    },
     publicationAttempts: [],
     publicationRecord: {
       id: "record-1",
@@ -126,6 +180,7 @@ describe("Marketing Console Pages", () => {
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn(),
       retryPublication: vi.fn(),
+      retryTargetPublication: vi.fn(),
       requestRevision: vi.fn(),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),
@@ -153,6 +208,7 @@ describe("Marketing Console Pages", () => {
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn().mockResolvedValue(sampleCampaign),
       retryPublication: vi.fn(),
+      retryTargetPublication: vi.fn(),
       requestRevision: vi.fn().mockResolvedValue(sampleCampaign),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -175,7 +231,12 @@ describe("Marketing Console Pages", () => {
     expect(screen.getAllByText(/Tặng tai nghe không dây khi đặt trước/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Siêu phẩm NovaPhone 15/i)).toBeInTheDocument();
     expect(screen.getByText(/1:1 Square \(1080x1080\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/View Live Facebook Post/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xem Bài Đăng Trực Tuyến/i)).toBeInTheDocument();
+
+    // Verify multi-target cards rendered
+    expect(screen.getByText(/Kênh Xuất Bản Đa Nền Tảng/i)).toBeInTheDocument();
+    expect(screen.getByText(/Facebook • Feed Image \(1:1\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Instagram • Feed Image \(1:1\)/i)).toBeInTheDocument();
 
     // Click Approve button
     const approveBtn = screen.getByRole("button", { name: /Approve & Publish to Facebook/i });
@@ -186,7 +247,7 @@ describe("Marketing Console Pages", () => {
     });
   });
 
-  it("opens Facebook live post preview modal", async () => {
+  it("opens multi-platform live post preview modal", async () => {
     const mockApi: MarketingApi = {
       listCampaigns: vi.fn(),
       getCampaign: vi.fn().mockResolvedValue(sampleDetail),
@@ -195,6 +256,7 @@ describe("Marketing Console Pages", () => {
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn(),
       retryPublication: vi.fn(),
+      retryTargetPublication: vi.fn(),
       requestRevision: vi.fn(),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),
@@ -218,10 +280,10 @@ describe("Marketing Console Pages", () => {
     const previewBtn = screen.getByRole("button", { name: /Preview Facebook Post/i });
     await userEvent.click(previewBtn);
 
-    expect(await screen.findByText(/Facebook Page Live Feed Mockup/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Like/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Comment/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Share/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Multi-Platform Publication Preview/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Facebook Feed \(1:1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Instagram Feed \(1:1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Instagram Story \(9:16\)/i })).toBeInTheDocument();
   });
 
   it("offers an explicit retry for a failed approved publication", async () => {
@@ -238,6 +300,7 @@ describe("Marketing Console Pages", () => {
       packageDigest: "p".repeat(64),
       status: "approved" as const,
       approvalRequestId: "approval-1",
+      targets: [],
       createdAt: "2026-08-29T10:00:00.000Z",
       updatedAt: "2026-08-29T10:00:00.000Z",
     };
@@ -257,6 +320,7 @@ describe("Marketing Console Pages", () => {
       cancelCampaign: vi.fn(),
       approveCampaign: vi.fn(),
       retryPublication,
+      retryTargetPublication: vi.fn(),
       requestRevision: vi.fn(),
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),

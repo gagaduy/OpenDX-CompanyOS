@@ -1777,7 +1777,7 @@ export function AgenticCommandCenter({
                 </button>
               )}
 
-              {activeCampaignDetail.publicationRecord && (
+              {activeCampaignDetail.publicationRecord?.postUrl && (
                 <a
                   href={activeCampaignDetail.publicationRecord.postUrl}
                   target="_blank"
