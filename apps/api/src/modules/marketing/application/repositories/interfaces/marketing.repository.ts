@@ -83,6 +83,7 @@ export interface MarketingRepository {
 
   createPublicationRecord(record: PublicationRecord): Promise<PublicationRecord>;
   findPublicationRecordByPackageId(packageId: string): Promise<PublicationRecord | null>;
+  findPublicationRecordsByPackageId?(packageId: string): Promise<readonly PublicationRecord[]>;
   findPublicationRecordByExternalPostId(
     platform: string,
     pageId: string,

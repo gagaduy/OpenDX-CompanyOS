@@ -49,6 +49,9 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
       if (urlStr.includes("/17841400000000000/media_publish")) {
         return new Response(JSON.stringify({ id: "ig-post-999" }), { status: 200 });
       }
+      if (urlStr.includes("/ig-post-999")) {
+        return new Response(JSON.stringify({ id: "ig-post-999", permalink: "https://www.instagram.com/p/ig-post-999" }), { status: 200 });
+      }
       return new Response("Not Found", { status: 404 });
     });
 

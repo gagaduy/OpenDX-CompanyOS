@@ -132,7 +132,7 @@ export function MarketingCampaignDetailPage({
     );
   }
 
-  const { campaign, brief, contentVersions, visualAssets, artifacts, publicationRecord, currentPackage } = detail;
+  const { campaign, brief, contentVersions, visualAssets, artifacts, publicationRecord, publicationRecords, currentPackage } = detail;
   const latestContent = contentVersions[contentVersions.length - 1] ?? null;
   const latestVisual = visualAssets[visualAssets.length - 1] ?? null;
   const targets = currentPackage?.targets ?? [];
@@ -177,16 +177,44 @@ export function MarketingCampaignDetailPage({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          {publicationRecord && publicationRecord.postUrl && (
-            <a
-              href={publicationRecord.postUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="marketingBtnSuccess"
-            >
-              <span>🌐</span> Xem Bài Đăng Trực Tuyến ↗
-            </a>
-          )}
+          {(() => {
+            const records = (publicationRecords && publicationRecords.length > 0)
+              ? publicationRecords
+              : (publicationRecord ? [publicationRecord] : []);
+
+            const fbRecord = records.find((r) => r.platform === "facebook" && r.postUrl);
+            const igRecord = records.find((r) => r.platform === "instagram" && r.postUrl);
+
+            return (
+              <>
+                {fbRecord?.postUrl && (
+                  <a
+                    href={fbRecord.postUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="marketingBtnSuccess"
+                  >
+                    <span>🔵</span> Xem bài trên Facebook ↗
+                  </a>
+                )}
+                {igRecord?.postUrl && (
+                  <a
+                    href={igRecord.postUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="marketingBtnSuccess"
+                    style={{
+                      background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                      color: "#fff",
+                      border: "none",
+                    }}
+                  >
+                    <span>📸</span> Xem bài trên Instagram ↗
+                  </a>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -293,6 +321,39 @@ export function MarketingCampaignDetailPage({
                       🔄 Thử lại kênh này
                     </button>
                   )}
+                  {isTargetVerified && (() => {
+                    const targetRecord = (publicationRecords || []).find((r) => r.targetId === target.id || r.platform === target.platform)
+                      || (publicationRecord?.targetId === target.id || publicationRecord?.platform === target.platform ? publicationRecord : null);
+
+                    if (!targetRecord?.postUrl) return null;
+
+                    return (
+                      <a
+                        href={targetRecord.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="marketingBtnSecondary"
+                        style={{
+                          fontSize: "0.75rem",
+                          padding: "0.35rem 0.6rem",
+                          width: "100%",
+                          justifyContent: "center",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          textDecoration: "none",
+                          color: target.platform === "instagram" ? "#f472b6" : "#60a5fa",
+                          borderColor: target.platform === "instagram" ? "rgba(244, 114, 182, 0.4)" : "rgba(96, 165, 250, 0.4)",
+                          background: target.platform === "instagram" ? "rgba(244, 114, 182, 0.1)" : "rgba(96, 165, 250, 0.1)",
+                          borderRadius: "0.5rem",
+                          fontWeight: 600,
+                          marginTop: "0.5rem",
+                        }}
+                      >
+                        <span>{target.platform === "facebook" ? "🔵" : "📸"}</span> Xem bài trên {platformLabel} ↗
+                      </a>
+                    );
+                  })()}
                 </div>
               );
             })}

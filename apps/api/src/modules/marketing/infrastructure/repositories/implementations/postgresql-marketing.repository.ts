@@ -761,6 +761,14 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     return res.rows[0] ? this.mapRecordRow(res.rows[0]) : null;
   }
 
+  async findPublicationRecordsByPackageId(packageId: string): Promise<readonly PublicationRecord[]> {
+    const res = await this.pool.query<RecordRow>(
+      "SELECT * FROM marketing_publication_records WHERE package_id = $1 ORDER BY created_at ASC",
+      [packageId],
+    );
+    return res.rows.map((row) => this.mapRecordRow(row));
+  }
+
   async findPublicationRecordByExternalPostId(
     platform: string,
     pageId: string,

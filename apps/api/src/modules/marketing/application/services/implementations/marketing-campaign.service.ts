@@ -238,13 +238,19 @@ export class MarketingCampaignService implements IMarketingCampaignService {
 
     let attempts: readonly import("../../../domain/entities/marketing-campaign").PublicationAttempt[] = [];
     let publicationRecord: import("../../../domain/entities/marketing-campaign").PublicationRecord | null = null;
+    let publicationRecords: readonly import("../../../domain/entities/marketing-campaign").PublicationRecord[] = [];
     let targets: readonly PublicationTarget[] = [];
 
     if (currentPackage) {
-      [attempts, publicationRecord, targets] = await Promise.all([
+      const recordsPromise = this.repository.findPublicationRecordsByPackageId
+        ? this.repository.findPublicationRecordsByPackageId(currentPackage.id)
+        : Promise.resolve([]);
+
+      [attempts, publicationRecord, targets, publicationRecords] = await Promise.all([
         this.repository.findPublicationAttemptsByPackageId(currentPackage.id),
         this.repository.findPublicationRecordByPackageId(currentPackage.id),
         this.repository.findPublicationTargetsByPackageId(currentPackage.id),
+        recordsPromise,
       ]);
       (currentPackage as any).targets = targets;
     }
@@ -258,6 +264,7 @@ export class MarketingCampaignService implements IMarketingCampaignService {
       currentPackage,
       publicationAttempts: attempts,
       publicationRecord,
+      publicationRecords,
       artifacts,
     };
   }

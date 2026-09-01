@@ -1775,17 +1775,46 @@ export function AgenticCommandCenter({
                 </button>
               )}
 
-              {activeCampaignDetail.publicationRecord?.postUrl && (
-                <a
-                  href={activeCampaignDetail.publicationRecord.postUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ccMarketingActionBtn livePost"
-                >
-                  <ExternalLink size={14} />
-                  <span>Xem bài đăng Facebook live ↗</span>
-                </a>
-              )}
+              {(() => {
+                const records = (activeCampaignDetail.publicationRecords && activeCampaignDetail.publicationRecords.length > 0)
+                  ? activeCampaignDetail.publicationRecords
+                  : (activeCampaignDetail.publicationRecord ? [activeCampaignDetail.publicationRecord] : []);
+
+                const fbRecord = records.find((r) => r.platform === "facebook" && r.postUrl);
+                const igRecord = records.find((r) => r.platform === "instagram" && r.postUrl);
+
+                return (
+                  <>
+                    {fbRecord?.postUrl && (
+                      <a
+                        href={fbRecord.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ccMarketingActionBtn livePost"
+                      >
+                        <ExternalLink size={14} />
+                        <span>Xem bài đăng Facebook live ↗</span>
+                      </a>
+                    )}
+                    {igRecord?.postUrl && (
+                      <a
+                        href={igRecord.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ccMarketingActionBtn livePost"
+                        style={{
+                          background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                          color: "#ffffff",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                        }}
+                      >
+                        <ExternalLink size={14} />
+                        <span>Xem bài đăng Instagram live ↗</span>
+                      </a>
+                    )}
+                  </>
+                );
+              })()}
 
               {activeCampaignDetail.campaign.state === "completed" && activeCampaignDetail.artifacts.length === 0 && (
                 <button

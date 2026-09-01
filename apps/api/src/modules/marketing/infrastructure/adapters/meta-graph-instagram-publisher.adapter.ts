@@ -122,13 +122,27 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     const providerReceiptDigest = createHash("sha256").update(publishResponse.rawText).digest("hex");
     const verificationEvidenceDigest = createHash("sha256").update(`evidence:${postId}:${verifiedAt}`).digest("hex");
 
+    let publicationUrl = `https://www.instagram.com/novacommerce_350/`;
+    try {
+      const permalinkEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(postId)}?fields=id,permalink&access_token=${encodeURIComponent(this.accessToken)}`;
+      const permalinkResp = await this.fetchWithTimeout(permalinkEndpoint, { method: "GET" });
+      if (permalinkResp.ok) {
+        const parsed = await permalinkResp.json();
+        if (parsed.permalink) {
+          publicationUrl = parsed.permalink;
+        }
+      }
+    } catch {
+      publicationUrl = `https://www.instagram.com/p/${postId}`;
+    }
+
     return {
       platform: "instagram",
       executionMode: "live",
       simulated: false,
       externalPublicationId: postId,
       pageId: accountId,
-      publicationUrl: `https://www.instagram.com/p/${postId}`,
+      publicationUrl,
       providerReceiptDigest,
       verificationEvidenceDigest,
       verifiedAt,

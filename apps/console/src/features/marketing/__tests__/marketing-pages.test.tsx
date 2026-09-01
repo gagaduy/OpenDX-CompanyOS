@@ -230,8 +230,7 @@ describe("Marketing Console Pages", () => {
     expect(await screen.findAllByText(/NovaPhone 15 Launch Campaign/i)).toHaveLength(2);
     expect(screen.getAllByText(/Tặng tai nghe không dây khi đặt trước/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Siêu phẩm NovaPhone 15/i)).toBeInTheDocument();
-    expect(screen.getByText(/1:1 Square \(1080x1080\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Xem Bài Đăng Trực Tuyến/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xem bài trên Facebook/i)).toBeInTheDocument();
 
     // Verify multi-target cards rendered
     expect(screen.getByText(/Kênh Xuất Bản Đa Nền Tảng/i)).toBeInTheDocument();

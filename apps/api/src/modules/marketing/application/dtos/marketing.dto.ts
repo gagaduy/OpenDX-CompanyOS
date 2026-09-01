@@ -65,6 +65,7 @@ export interface MarketingCampaignDetailResponseDto {
   readonly currentPackage: PublicationPackage | null;
   readonly publicationAttempts: readonly PublicationAttempt[];
   readonly publicationRecord: PublicationRecord | null;
+  readonly publicationRecords?: readonly PublicationRecord[];
   readonly artifacts: readonly MarketingArtifact[];
 }
 
