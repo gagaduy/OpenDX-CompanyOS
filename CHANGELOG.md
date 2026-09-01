@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Persist governed Marketing publication targets with forward/downward migration lifecycle, backfill for existing Facebook packages, and target-level leased claims.
 - Model governed Marketing publication targets, format capability policy (Feed, Story, Carousel), and canonical target/package digests.
 
 - Implement Governed AI Customer Support & CRM workflow (Phòng CSKH & Trải nghiệm Khách hàng) featuring **Quản gia CSKH (Support Steward)** for CSAT & sentiment analysis, **Chuyên viên CRM (CRM Specialist)** for VIP customer retention & churn risk prediction, live OpenRouter Gemini 2.5 Flash analysis, pure OpenXML Word DOCX audit report export, automated promotion voucher generation in `promotions` table, and one-click human approval with bulk resolution in the Agentic Command Center.

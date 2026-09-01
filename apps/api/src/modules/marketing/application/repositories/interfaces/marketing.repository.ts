@@ -11,8 +11,24 @@ import type {
   PublicationPackage,
   PublicationPackageStatus,
   PublicationRecord,
+  PublicationTarget,
+  PublicationTargetStatus,
   VisualAsset,
 } from "../../../domain/entities/marketing-campaign";
+
+export interface ClaimDueTargetsInput {
+  readonly workerId: string;
+  readonly now: string;
+  readonly leaseSeconds: number;
+  readonly limit: number;
+}
+
+export interface UpdateTargetStatusInput {
+  readonly targetId: string;
+  readonly status: PublicationTargetStatus;
+  readonly leaseOwner?: string | null;
+  readonly leaseExpiresAt?: string | null;
+}
 
 export interface MarketingRepository {
   createCampaign(campaign: MarketingCampaign, brief: CampaignBrief): Promise<MarketingCampaign>;
@@ -44,6 +60,15 @@ export interface MarketingRepository {
     status: PublicationPackageStatus,
     approvalRequestId?: string | null,
   ): Promise<PublicationPackage>;
+
+  createPublicationTargets(targets: readonly PublicationTarget[]): Promise<readonly PublicationTarget[]>;
+  findPublicationTargetsByPackageId(packageId: string): Promise<readonly PublicationTarget[]>;
+  findPublicationTargetById(id: string): Promise<PublicationTarget | null>;
+  claimDuePublicationTargets(input: ClaimDueTargetsInput): Promise<readonly PublicationTarget[]>;
+  updatePublicationTargetStatus(input: UpdateTargetStatusInput): Promise<PublicationTarget>;
+  releasePublicationTargetLease(targetId: string, workerId: string): Promise<void>;
+  findPublicationAttemptsByTargetId(targetId: string): Promise<readonly PublicationAttempt[]>;
+  findPublicationRecordByTargetId(targetId: string): Promise<PublicationRecord | null>;
 
   createPublicationAttempt(attempt: PublicationAttempt): Promise<PublicationAttempt>;
   updatePublicationAttempt(

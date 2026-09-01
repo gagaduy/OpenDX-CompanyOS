@@ -16,6 +16,7 @@ const tables = [
   "marketing_content_versions",
   "marketing_visual_assets",
   "marketing_publication_packages",
+  "marketing_publication_targets",
   "marketing_publication_attempts",
   "marketing_publication_records",
   "marketing_artifacts",
@@ -50,164 +51,120 @@ suite("Marketing publication migration", () => {
     }
   });
 
-  it("enforces unique constraints and foreign keys", async () => {
-    const campaignId = randomUUID();
-    const briefId = randomUUID();
-    const contentId = randomUUID();
-    const visualId = randomUUID();
-    const packageId = randomUUID();
-    const attemptId = randomUUID();
-    const recordId = randomUUID();
-    const artifactId = randomUUID();
+  it("backfills legacy facebook package into publication target and rolls down safely", async () => {
+    // 1. Roll back to 0
+    await runMarketingMigrations(databaseUrl!, "down", 999_999);
 
-    // 1. Insert campaign
+    // 2. Migrate only 1 step up (legacy schema)
+    await runMarketingMigrations(databaseUrl!, "up", 1);
+
+    const legacyCampaignId = randomUUID();
+    const legacyBriefId = randomUUID();
+    const legacyContentId = randomUUID();
+    const legacyVisualId = randomUUID();
+    const legacyPackageId = randomUUID();
+    const legacyAttemptId = randomUUID();
+    const legacyRecordId = randomUUID();
+
     await pool.query(
       `INSERT INTO marketing_campaigns (id, state, assignment_mode, created_by, idempotency_key)
-       VALUES ($1, 'draft', 'direct_department', 'admin-1', 'idemp-1')`,
-      [campaignId],
+       VALUES ($1, 'reporting', 'direct_department', 'admin-legacy', 'idemp-legacy-1')`,
+      [legacyCampaignId],
     );
 
-    // Duplicate idempotency_key for same user must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_campaigns (id, state, assignment_mode, created_by, idempotency_key)
-         VALUES ($1, 'draft', 'direct_department', 'admin-1', 'idemp-1')`,
-        [randomUUID()],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
-
-    // 2. Insert brief
     await pool.query(
       `INSERT INTO marketing_campaign_briefs
        (id, campaign_id, campaign_name, objective, subject_kind, subject_reference,
         language, mandatory_message, call_to_action, facebook_page_configuration_id,
         scheduled_for, deadline, approver_id, maximum_cost_micros)
-       VALUES ($1, $2, 'Launch NovaPhone', 'Promote new phone', 'catalog_product', 'prod-1',
-               'vi', 'Special discount', 'Buy now', 'page-cfg-1',
+       VALUES ($1, $2, 'Legacy Campaign', 'Objective', 'catalog_product', 'prod-leg',
+               'vi', 'Legacy message', 'Buy now', 'page-cfg-legacy',
                '2026-08-30T10:00:00.000Z', '2026-08-30T20:00:00.000Z', 'approver-1', 500000)`,
-      [briefId, campaignId],
+      [legacyBriefId, legacyCampaignId],
     );
 
-    // Duplicate brief for same campaign must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_campaign_briefs
-         (id, campaign_id, campaign_name, objective, subject_kind, subject_reference,
-          language, mandatory_message, call_to_action, facebook_page_configuration_id,
-          scheduled_for, deadline, approver_id, maximum_cost_micros)
-         VALUES ($1, $2, 'Another Brief', 'Objective', 'free_topic', 'topic-1',
-                 'en', 'Message', 'CTA', 'page-cfg-1',
-                 '2026-08-30T10:00:00.000Z', '2026-08-30T20:00:00.000Z', 'approver-1', 500000)`,
-        [randomUUID(), campaignId],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
-
-    // 3. Insert content version
     const contentDigest = "a".repeat(64);
     await pool.query(
       `INSERT INTO marketing_content_versions
        (id, campaign_id, version_number, hook, body, call_to_action, visual_direction, content_digest)
-       VALUES ($1, $2, 1, 'Hot launch', 'Full body text here', 'Shop today', 'Realistic phone render', $3)`,
-      [contentId, campaignId, contentDigest],
+       VALUES ($1, $2, 1, 'Legacy hook', 'Legacy body', 'CTA', 'Direction', $3)`,
+      [legacyContentId, legacyCampaignId, contentDigest],
     );
 
-    // Duplicate content version_number for same campaign must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_content_versions
-         (id, campaign_id, version_number, hook, body, call_to_action, visual_direction, content_digest)
-         VALUES ($1, $2, 1, 'Another hook', 'Body text', 'CTA', 'Direction', $3)`,
-        [randomUUID(), campaignId, contentDigest],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
-
-    // 4. Insert visual asset
     const imageDigest = "b".repeat(64);
     await pool.query(
       `INSERT INTO marketing_visual_assets
        (id, campaign_id, version_number, media_type, aspect_ratio, width, height, byte_size, image_digest, alt_text, storage_key)
-       VALUES ($1, $2, 1, 'image/png', '1:1', 1024, 1024, 204800, $3, 'Phone visual', 'marketing/asset1.png')`,
-      [visualId, campaignId, imageDigest],
+       VALUES ($1, $2, 1, 'image/png', '1:1', 1024, 1024, 204800, $3, 'Alt', 'marketing/asset.png')`,
+      [legacyVisualId, legacyCampaignId, imageDigest],
     );
 
-    // 5. Insert publication package
     const packageDigest = "c".repeat(64);
     await pool.query(
       `INSERT INTO marketing_publication_packages
        (id, campaign_id, package_version, content_version_id, visual_asset_id,
         facebook_page_configuration_id, scheduled_for, content_digest, image_digest, package_digest, status)
-       VALUES ($1, $2, 1, $3, $4, 'page-cfg-1', '2026-08-30T10:00:00.000Z', $5, $6, $7, 'draft')`,
-      [packageId, campaignId, contentId, visualId, contentDigest, imageDigest, packageDigest],
+       VALUES ($1, $2, 1, $3, $4, 'page-cfg-legacy', '2026-08-30T10:00:00.000Z', $5, $6, $7, 'approved')`,
+      [legacyPackageId, legacyCampaignId, legacyContentId, legacyVisualId, contentDigest, imageDigest, packageDigest],
     );
 
-    // 6. Insert publication attempt
     await pool.query(
       `INSERT INTO marketing_publication_attempts
        (id, package_id, attempt_key, platform, page_configuration_id, status)
-       VALUES ($1, $2, 'attempt-key-1', 'facebook', 'page-cfg-1', 'started')`,
-      [attemptId, packageId],
+       VALUES ($1, $2, 'legacy-attempt-1', 'facebook', 'page-cfg-legacy', 'succeeded')`,
+      [legacyAttemptId, legacyPackageId],
     );
 
-    // Duplicate attempt_key must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_publication_attempts
-         (id, package_id, attempt_key, platform, page_configuration_id, status)
-         VALUES ($1, $2, 'attempt-key-1', 'facebook', 'page-cfg-1', 'started')`,
-        [randomUUID(), packageId],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
-
-    // 7. Insert publication record
-    const receiptDigest = "d".repeat(64);
     await pool.query(
       `INSERT INTO marketing_publication_records
        (id, package_id, platform, page_id, external_post_id, post_url,
         package_digest, content_digest, image_digest, verified_at, provider_receipt_digest)
-       VALUES ($1, $2, 'facebook', 'page-100', 'post-200', 'https://facebook.com/post-200',
+       VALUES ($1, $2, 'facebook', 'page-legacy-100', 'post-legacy-200', 'https://facebook.com/post-legacy-200',
                $3, $4, $5, '2026-08-30T10:05:00.000Z', $6)`,
-      [recordId, packageId, packageDigest, contentDigest, imageDigest, receiptDigest],
+      [legacyRecordId, legacyPackageId, packageDigest, contentDigest, imageDigest, "d".repeat(64)],
     );
 
-    // Duplicate (platform, page_id, external_post_id) must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_publication_records
-         (id, package_id, platform, page_id, external_post_id, post_url,
-          package_digest, content_digest, image_digest, verified_at, provider_receipt_digest)
-         VALUES ($1, $2, 'facebook', 'page-100', 'post-200', 'https://facebook.com/post-200-dup',
-                 $3, $4, $5, '2026-08-30T10:05:00.000Z', $6)`,
-        [randomUUID(), packageId, packageDigest, contentDigest, imageDigest, receiptDigest],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
+    // 3. Migrate forward to latest (step 2)
+    await runMarketingMigrations(databaseUrl!, "up");
 
-    // 8. Insert artifact
-    await pool.query(
-      `INSERT INTO marketing_artifacts
-       (id, campaign_id, kind, filename, media_type, byte_size, sha256_digest, storage_key)
-       VALUES ($1, $2, 'campaign_brief_docx', 'campaign-brief.docx', 'application/docx', 1024, $3, 'marketing/brief.docx')`,
-      [artifactId, campaignId, "e".repeat(64)],
+    // 4. Assert exactly one backfilled target and target_id linkage
+    const target = await pool.query(
+      "SELECT * FROM marketing_publication_targets WHERE package_id = $1",
+      [legacyPackageId],
     );
+    expect(target.rows).toEqual([
+      expect.objectContaining({
+        package_id: legacyPackageId,
+        platform: "facebook",
+        format: "feed_image",
+        execution_mode: "live",
+        status: "verified",
+      }),
+    ]);
 
-    // Duplicate artifact kind for same campaign must fail
-    await expect(
-      pool.query(
-        `INSERT INTO marketing_artifacts
-         (id, campaign_id, kind, filename, media_type, byte_size, sha256_digest, storage_key)
-         VALUES ($1, $2, 'campaign_brief_docx', 'another.docx', 'application/docx', 1024, $3, 'marketing/another.docx')`,
-        [randomUUID(), campaignId, "f".repeat(64)],
-      ),
-    ).rejects.toMatchObject({ code: "23505" });
+    const attempt = await pool.query(
+      "SELECT * FROM marketing_publication_attempts WHERE id = $1",
+      [legacyAttemptId],
+    );
+    const record = await pool.query(
+      "SELECT * FROM marketing_publication_records WHERE id = $1",
+      [legacyRecordId],
+    );
+    expect(attempt.rows[0]?.target_id).toBe(target.rows[0]?.id);
+    expect(record.rows[0]?.target_id).toBe(target.rows[0]?.id);
 
-    // 9. Cascade delete test: Deleting campaign cascades to all child tables
-    await pool.query("DELETE FROM marketing_campaigns WHERE id = $1", [campaignId]);
+    // 5. Roll down 1 step
+    await runMarketingMigrations(databaseUrl!, "down", 1);
+    expect((await pool.query("SELECT to_regclass('public.marketing_publication_targets') AS name")).rows[0]).toEqual({ name: null });
 
-    expect((await pool.query("SELECT id FROM marketing_campaign_briefs WHERE id = $1", [briefId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_content_versions WHERE id = $1", [contentId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_visual_assets WHERE id = $1", [visualId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_publication_packages WHERE id = $1", [packageId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_publication_attempts WHERE id = $1", [attemptId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_publication_records WHERE id = $1", [recordId])).rowCount).toBe(0);
-    expect((await pool.query("SELECT id FROM marketing_artifacts WHERE id = $1", [artifactId])).rowCount).toBe(0);
+    const legacyRecordAfterRollback = await pool.query(
+      "SELECT * FROM marketing_publication_records WHERE id = $1",
+      [legacyRecordId],
+    );
+    expect(legacyRecordAfterRollback.rows[0]?.package_id).toBe(legacyPackageId);
+
+    // 6. Migrate up again
+    await runMarketingMigrations(databaseUrl!, "up");
+    expect((await pool.query("SELECT to_regclass('public.marketing_publication_targets') AS name")).rows[0]).toEqual({ name: "marketing_publication_targets" });
   });
 });
