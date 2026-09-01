@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   including chapter-synchronized products, accessible playback, byte-range
   delivery, and image fallbacks for mobile and reduced-motion clients.
 
+### Fixed
+
+- Fix 500 error in marketing campaign creation and revision workflow by adding `assignmentMode` fallback, resolving duplicate publication target insertion with `ON CONFLICT` idempotency, handling `ZodError` as 400 validation responses, and preprocessing flat subject fields.
+
 ### Added
 
 - Enhance XLSX publication log and PDF executive report deliverables with multi-channel target audit details.

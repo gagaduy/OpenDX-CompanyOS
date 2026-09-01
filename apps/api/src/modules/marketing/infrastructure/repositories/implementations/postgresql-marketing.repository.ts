@@ -429,7 +429,8 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
               content_version_id, media_asset_ids, caption, scheduled_for,
               required, execution_mode, content_digest, media_digest, target_digest,
               status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             ON CONFLICT (id) DO UPDATE SET updated_at = EXCLUDED.updated_at`,
             [
               target.id,
               target.packageId,
@@ -550,6 +551,7 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
           required, execution_mode, content_digest, media_digest, target_digest,
           status, lease_owner, lease_expires_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+         ON CONFLICT (id) DO UPDATE SET updated_at = EXCLUDED.updated_at
          RETURNING *`,
         [
           target.id,

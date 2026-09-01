@@ -15,12 +15,25 @@ export const subjectSchema = z.object({
   reference: z.string().trim().min(1).max(500),
 });
 
-export const createMarketingCampaignSchema = z.object({
-  assignmentMode: z.enum(["direct_department", "ai_ceo"]).default("direct_department"),
-  idempotencyKey: z.string().trim().min(1).max(255).optional(),
-  campaignName: z.string().trim().min(1).max(500),
-  objective: z.string().trim().min(1).max(2000),
-  subject: subjectSchema,
+export const createMarketingCampaignSchema = z.preprocess(
+  (raw: any) => {
+    if (raw && typeof raw === "object" && !raw.subject && (raw.subjectKind || raw.subjectReference)) {
+      return {
+        ...raw,
+        subject: {
+          kind: raw.subjectKind ?? "free_topic",
+          reference: raw.subjectReference ?? "san-pham",
+        },
+      };
+    }
+    return raw;
+  },
+  z.object({
+    assignmentMode: z.enum(["direct_department", "ai_ceo"]).default("direct_department"),
+    idempotencyKey: z.string().trim().min(1).max(255).optional(),
+    campaignName: z.string().trim().min(1).max(500),
+    objective: z.string().trim().min(1).max(2000),
+    subject: subjectSchema,
   audience: z.string().trim().min(1).max(500).optional(),
   language: z.enum(["vi", "en"]),
   tone: z.string().trim().min(1).max(200).optional(),
@@ -34,7 +47,7 @@ export const createMarketingCampaignSchema = z.object({
   maximumCostMicros: z.number().int().positive().max(10_000_000_000),
   provenance: z.array(provenanceItemSchema).default([]),
   sourceTaskId: z.string().trim().min(1).max(255).optional(),
-});
+}));
 
 export const listMarketingCampaignsSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),

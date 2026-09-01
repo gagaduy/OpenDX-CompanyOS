@@ -172,7 +172,7 @@ export class MarketingCampaignService implements IMarketingCampaignService {
     const campaign: MarketingCampaign = {
       id: campaignId,
       state: "draft",
-      assignmentMode: input.assignmentMode,
+      assignmentMode: input.assignmentMode ?? "direct_department",
       createdBy: actorId,
       idempotencyKey: input.idempotencyKey,
       sourceTaskId: input.sourceTaskId ?? null,
