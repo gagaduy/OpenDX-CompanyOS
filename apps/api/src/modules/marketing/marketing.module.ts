@@ -168,13 +168,17 @@ Style & Composition:
         };
       };
 
+  const instagramConfiguration = options.publicationConfig?.instagram;
   const campaignService = new MarketingCampaignService({
     repository,
     ...(materializeVisualAsset === undefined ? {} : { materializeVisualAsset }),
     generateId: options.generateId,
     now: options.now,
-    instagramMode: options.publicationConfig?.instagram?.mode,
-    instagramAccountId: options.publicationConfig?.instagram?.businessAccountId,
+    instagramMode: instagramConfiguration?.mode,
+    instagramAccountId:
+      instagramConfiguration?.mode === "simulation" || instagramConfiguration?.mode === "live"
+        ? instagramConfiguration.accountConfigurationId
+        : undefined,
   });
 
   const publisherRegistry = options.publisherRegistry ?? new SocialPublisherRegistry();

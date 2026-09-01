@@ -33,6 +33,14 @@ const forbiddenExampleHostnames = new Set([
   "auth.example.com",
   "storage.example.com",
 ]);
+const reservedDocumentationDomains = ["example.com", "example.net", "example.org"] as const;
+
+function isReservedDocumentationHostname(hostname: string): boolean {
+  const normalizedHostname = hostname.toLowerCase();
+  return reservedDocumentationDomains.some(
+    (domain) => normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`),
+  );
+}
 
 const SEPAY_SANDBOX_CHECKOUT_URL = "https://pay-sandbox.sepay.vn/v1/checkout/init";
 const SEPAY_SANDBOX_API_URL = "https://pgapi-sandbox.sepay.vn";
@@ -199,6 +207,16 @@ const apiEnvironmentSchema = z
           code: "custom",
           path: ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL"],
           message: "must be an HTTPS URL when Instagram live mode is enabled",
+        });
+      } else if (
+        isReservedDocumentationHostname(
+          new URL(value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL).hostname,
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL"],
+          message: "must use a deployed public media host, not a reserved example domain",
         });
       }
     }

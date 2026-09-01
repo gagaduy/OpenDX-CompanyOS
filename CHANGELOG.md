@@ -51,6 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Reject reserved example domains for live Instagram media delivery so local
+  configuration fails closed instead of reaching Meta with an unreachable
+  placeholder URL.
+
 - Ensure support proposal approvals strictly follow PostgreSQL state machine lifecycle triggers (`new` -> `escalated` -> `resolved`) and enforce CEO-specified discount percentages and compensation voucher creation in database.
 - Gracefully handle undefined payment aggregates during checkout expiration in `PaymentService`.
 

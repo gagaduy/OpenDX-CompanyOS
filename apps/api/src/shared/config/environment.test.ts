@@ -100,13 +100,30 @@ describe("parseApiEnvironment", () => {
   });
 
   it.each([
-    ["INSTAGRAM_BUSINESS_ACCOUNT_ID", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_ACCESS_TOKEN: "token", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.example.com" }],
-    ["INSTAGRAM_ACCESS_TOKEN", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_BUSINESS_ACCOUNT_ID: "biz-1", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.example.com" }],
+    ["INSTAGRAM_BUSINESS_ACCOUNT_ID", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_ACCESS_TOKEN: "token", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.novacommerce.vn/media" }],
+    ["INSTAGRAM_ACCESS_TOKEN", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_BUSINESS_ACCOUNT_ID: "biz-1", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.novacommerce.vn/media" }],
     ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_BUSINESS_ACCOUNT_ID: "biz-1", INSTAGRAM_ACCESS_TOKEN: "token", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "http://insecure.com" }],
   ])("rejects incomplete live Instagram configuration: %s", (expectedKey, override) => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
     ).toThrow(expectedKey);
+  });
+
+  it.each([
+    "https://example.com/media",
+    "https://novacommerce.example.com/media",
+    "https://cdn.example.net/media",
+    "https://media.example.org/assets",
+  ])("rejects reserved public-media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        INSTAGRAM_PUBLICATION_MODE: "live",
+        INSTAGRAM_BUSINESS_ACCOUNT_ID: "17841400000000000",
+        INSTAGRAM_ACCESS_TOKEN: "token",
+        INSTAGRAM_PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrl,
+      }),
+    ).toThrow("INSTAGRAM_PUBLIC_MEDIA_BASE_URL");
   });
 
   it.each([
