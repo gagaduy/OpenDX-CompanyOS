@@ -53,4 +53,153 @@ describe("MinioMarketingArtifactStorage", () => {
       storage.write("../catalog/private.png", Buffer.from("x"), "image/png"),
     ).rejects.toThrow(/unsafe marketing storage key/i);
   });
+
+  it.each(["NoSuchKey", "NotFound"])(
+    "returns null when MinIO stat reports %s",
+    async (code) => {
+      const statObject = vi.fn().mockRejectedValue(
+        Object.assign(new Error("object missing"), { code }),
+      );
+      const getObject = vi.fn();
+      const storage = new MinioMarketingArtifactStorage(
+        { getObject, statObject } as never,
+        "product-media",
+      );
+
+      await expect(
+        storage.readVariant(
+          "marketing/public-media/asset-1/source-digest.jpg",
+        ),
+      ).resolves.toBeNull();
+      expect(getObject).not.toHaveBeenCalled();
+    },
+  );
+
+  it("propagates MinIO stat transport and authorization failures", async () => {
+    const authorizationError = Object.assign(new Error("access denied"), {
+      code: "AccessDenied",
+    });
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        getObject: vi.fn(),
+        statObject: vi.fn().mockRejectedValue(authorizationError),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant(
+        "marketing/public-media/asset-1/source-digest.jpg",
+      ),
+    ).rejects.toBe(authorizationError);
+  });
+
+  it("reads a complete private JPEG variant after checking its content type", async () => {
+    const statObject = vi.fn().mockResolvedValue({
+      size: 12,
+      etag: "jpeg-etag",
+      lastModified: new Date("2026-09-02T00:00:00.000Z"),
+      metaData: { "content-type": "image/jpeg" },
+      versionId: null,
+    });
+    const getObject = vi.fn().mockResolvedValue(
+      Readable.from([Buffer.from("jpeg-"), Buffer.from("bytes")]),
+    );
+    const storage = new MinioMarketingArtifactStorage(
+      { getObject, statObject } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant(
+        "marketing/public-media/asset-1/source-digest.jpg",
+      ),
+    ).resolves.toEqual({
+      bytes: Buffer.from("jpeg-bytes"),
+      mediaType: "image/jpeg",
+    });
+  });
+
+  it("fails closed when a stored variant is not JPEG", async () => {
+    const getObject = vi.fn();
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        getObject,
+        statObject: vi.fn().mockResolvedValue({
+          size: 9,
+          etag: "png-etag",
+          lastModified: new Date("2026-09-02T00:00:00.000Z"),
+          metaData: { "content-type": "image/png" },
+          versionId: null,
+        }),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant(
+        "marketing/public-media/asset-1/source-digest.jpg",
+      ),
+    ).rejects.toThrow(/must be image\/jpeg/i);
+    expect(getObject).not.toHaveBeenCalled();
+  });
+
+  it("writes a JPEG variant with source and output provenance metadata", async () => {
+    const putObject = vi.fn().mockResolvedValue(undefined);
+    const storage = new MinioMarketingArtifactStorage(
+      { putObject } as never,
+      "product-media",
+    );
+    const bytes = Buffer.from("jpeg-bytes");
+
+    await storage.writeVariant({
+      key: "marketing/public-media/asset-1/source-digest.jpg",
+      bytes,
+      sourceAssetId: "asset-1",
+      sourceDigest: "a".repeat(64),
+      outputDigest: "b".repeat(64),
+      width: 1080,
+      height: 1080,
+    });
+
+    expect(putObject).toHaveBeenCalledWith(
+      "product-media",
+      "marketing/public-media/asset-1/source-digest.jpg",
+      bytes,
+      bytes.byteLength,
+      {
+        "Content-Type": "image/jpeg",
+        "source-asset-id": "asset-1",
+        "source-digest": "a".repeat(64),
+        "output-digest": "b".repeat(64),
+        width: "1080",
+        height: "1080",
+      },
+    );
+  });
+
+  it.each([
+    "catalog/public-media/asset-1/source-digest.jpg",
+    "marketing/public-media/../private.jpg",
+    "marketing/public-media/asset-1\\private.jpg",
+  ])("rejects unsafe JPEG variant key %s", async (key) => {
+    const putObject = vi.fn();
+    const storage = new MinioMarketingArtifactStorage(
+      { putObject } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.writeVariant({
+        key,
+        bytes: Buffer.from("jpeg-bytes"),
+        sourceAssetId: "asset-1",
+        sourceDigest: "a".repeat(64),
+        outputDigest: "b".repeat(64),
+        width: 1080,
+        height: 1080,
+      }),
+    ).rejects.toThrow(/unsafe marketing storage key/i);
+    expect(putObject).not.toHaveBeenCalled();
+  });
 });
