@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Meta Graph API Instagram live publisher adapter for feed image, story image, and multi-image carousel.
 - Refactor Marketing publisher service to execute claimed publication targets independently with deterministic aggregate status derivation.
 - Introduce SocialPublisherPort, SocialPublisherRegistry, Facebook adapter wrapper, and truthful Instagram simulator.
 - Parse typed, fail-closed Marketing publication configuration with Facebook and Instagram simulation/live support.
