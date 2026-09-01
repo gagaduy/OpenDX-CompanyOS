@@ -75,14 +75,14 @@ describe("MinioMarketingArtifactStorage", () => {
     },
   );
 
-  it("propagates MinIO stat transport and authorization failures", async () => {
-    const authorizationError = Object.assign(new Error("access denied"), {
-      code: "AccessDenied",
-    });
+  it.each([
+    Object.assign(new Error("access denied"), { code: "AccessDenied" }),
+    Object.assign(new Error("connection reset"), { code: "ECONNRESET" }),
+  ])("propagates MinIO stat failures with code $code", async (statError) => {
     const storage = new MinioMarketingArtifactStorage(
       {
         getObject: vi.fn(),
-        statObject: vi.fn().mockRejectedValue(authorizationError),
+        statObject: vi.fn().mockRejectedValue(statError),
       } as never,
       "product-media",
     );
@@ -91,7 +91,88 @@ describe("MinioMarketingArtifactStorage", () => {
       storage.readVariant(
         "marketing/public-media/asset-1/source-digest.jpg",
       ),
-    ).rejects.toBe(authorizationError);
+    ).rejects.toBe(statError);
+  });
+
+  it.each(["NoSuchKey", "NotFound"])(
+    "returns null when a %s variant disappears after stat",
+    async (code) => {
+      const storage = new MinioMarketingArtifactStorage(
+        {
+          statObject: vi.fn().mockResolvedValue({
+            size: 12,
+            etag: "jpeg-etag",
+            lastModified: new Date("2026-09-02T00:00:00.000Z"),
+            metaData: { "content-type": "image/jpeg" },
+            versionId: null,
+          }),
+          getObject: vi.fn().mockRejectedValue(
+            Object.assign(new Error("object disappeared"), { code }),
+          ),
+        } as never,
+        "product-media",
+      );
+
+      await expect(
+        storage.readVariant(
+          "marketing/public-media/asset-1/source-digest.jpg",
+        ),
+      ).resolves.toBeNull();
+    },
+  );
+
+  it("propagates a transport failure while opening an existing variant", async () => {
+    const transportError = Object.assign(new Error("connection reset"), {
+      code: "ECONNRESET",
+    });
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        statObject: vi.fn().mockResolvedValue({
+          size: 12,
+          etag: "jpeg-etag",
+          lastModified: new Date("2026-09-02T00:00:00.000Z"),
+          metaData: { "content-type": "image/jpeg" },
+          versionId: null,
+        }),
+        getObject: vi.fn().mockRejectedValue(transportError),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant(
+        "marketing/public-media/asset-1/source-digest.jpg",
+      ),
+    ).rejects.toBe(transportError);
+  });
+
+  it("propagates a failure while streaming an existing variant", async () => {
+    const streamError = new Error("stream interrupted");
+    const stream = Readable.from(
+      (async function* () {
+        yield Buffer.from("partial-");
+        throw streamError;
+      })(),
+    );
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        statObject: vi.fn().mockResolvedValue({
+          size: 12,
+          etag: "jpeg-etag",
+          lastModified: new Date("2026-09-02T00:00:00.000Z"),
+          metaData: { "content-type": "image/jpeg" },
+          versionId: null,
+        }),
+        getObject: vi.fn().mockResolvedValue(stream),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant(
+        "marketing/public-media/asset-1/source-digest.jpg",
+      ),
+    ).rejects.toBe(streamError);
   });
 
   it("reads a complete private JPEG variant after checking its content type", async () => {

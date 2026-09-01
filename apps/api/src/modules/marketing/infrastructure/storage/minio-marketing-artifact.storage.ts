@@ -80,7 +80,16 @@ export class MinioMarketingArtifactStorage
       throw new Error("Stored Marketing public media variant must be image/jpeg");
     }
 
-    const stream = await this.client.getObject(this.bucket, key);
+    let stream: Awaited<ReturnType<Client["getObject"]>>;
+    try {
+      stream = await this.client.getObject(this.bucket, key);
+    } catch (error) {
+      if (isMissingObjectError(error)) {
+        return null;
+      }
+      throw error;
+    }
+
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
