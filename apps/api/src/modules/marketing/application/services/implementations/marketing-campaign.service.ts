@@ -56,6 +56,8 @@ export interface MarketingCampaignServiceOptions {
   ) => Promise<MaterializedMarketingVisualAsset>;
   readonly generateId?: () => string;
   readonly now?: () => string;
+  readonly instagramMode?: "disabled" | "simulation" | "live";
+  readonly instagramAccountId?: string;
 }
 
 export interface MaterializeMarketingVisualAssetInput {
@@ -78,12 +80,16 @@ export class MarketingCampaignService implements IMarketingCampaignService {
   private readonly materializeVisualAsset?: MarketingCampaignServiceOptions["materializeVisualAsset"];
   private readonly generateId: () => string;
   private readonly now: () => string;
+  private readonly instagramMode: "disabled" | "simulation" | "live";
+  private readonly instagramAccountId: string;
 
   constructor(options: MarketingCampaignServiceOptions) {
     this.repository = options.repository;
     this.materializeVisualAsset = options.materializeVisualAsset;
     this.generateId = options.generateId ?? randomUUID;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.instagramMode = options.instagramMode ?? "simulation";
+    this.instagramAccountId = options.instagramAccountId ?? "instagram-default";
   }
 
   async createCampaign(
@@ -553,15 +559,17 @@ Yêu cầu trả về đúng định dạng JSON không bọc markdown theo cấ
       updatedAt: now,
     };
 
+    const igExecutionMode = this.instagramMode === "live" ? "live" : "simulation";
+    const igAccountId = this.instagramAccountId;
     const igTargetId = this.generateId();
     const igTargetDigest = calculatePublicationTargetDigest({
       platform: "instagram",
       format: "feed_image",
-      accountConfigurationId: "instagram-default",
+      accountConfigurationId: igAccountId,
       caption: newContent.body,
       mediaAssetIds: [newVisualId],
       scheduledFor: brief?.scheduledFor ?? now,
-      executionMode: "simulation",
+      executionMode: igExecutionMode,
     });
 
     const igTarget: PublicationTarget = {
@@ -569,13 +577,13 @@ Yêu cầu trả về đúng định dạng JSON không bọc markdown theo cấ
       packageId: newPackageId,
       platform: "instagram",
       format: "feed_image",
-      accountConfigurationId: "instagram-default",
+      accountConfigurationId: igAccountId,
       contentVersionId: newContentId,
       mediaAssetIds: [newVisualId],
       caption: newContent.body,
       scheduledFor: brief?.scheduledFor ?? now,
       required: false,
-      executionMode: "simulation",
+      executionMode: igExecutionMode,
       contentDigest,
       mediaDigest: materializedVisual.imageDigest,
       targetDigest: igTargetDigest,

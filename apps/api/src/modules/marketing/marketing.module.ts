@@ -173,6 +173,8 @@ Style & Composition:
     ...(materializeVisualAsset === undefined ? {} : { materializeVisualAsset }),
     generateId: options.generateId,
     now: options.now,
+    instagramMode: options.publicationConfig?.instagram?.mode,
+    instagramAccountId: options.publicationConfig?.instagram?.businessAccountId,
   });
 
   const publisherRegistry = options.publisherRegistry ?? new SocialPublisherRegistry();
