@@ -42,6 +42,48 @@ function isReservedDocumentationHostname(hostname: string): boolean {
   );
 }
 
+function isPublicMediaHostname(hostname: string): boolean {
+  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    normalizedHostname === "localhost" ||
+    normalizedHostname.endsWith(".localhost") ||
+    normalizedHostname.endsWith(".local") ||
+    isReservedDocumentationHostname(normalizedHostname)
+  ) {
+    return false;
+  }
+
+  const ipv4Octets = normalizedHostname.split(".").map(Number);
+  if (
+    ipv4Octets.length === 4 &&
+    ipv4Octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
+  ) {
+    const [first, second] = ipv4Octets as [number, number, number, number];
+    return !(
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
+
+  if (normalizedHostname.includes(":")) {
+    const firstSegment = normalizedHostname.split(":", 1)[0] ?? "";
+    const firstSegmentValue = Number.parseInt(firstSegment, 16);
+    return !(
+      normalizedHostname === "::" ||
+      normalizedHostname === "::1" ||
+      normalizedHostname.startsWith("::ffff:") ||
+      normalizedHostname.startsWith("fc") ||
+      normalizedHostname.startsWith("fd") ||
+      (Number.isFinite(firstSegmentValue) && (firstSegmentValue & 0xffc0) === 0xfe80)
+    );
+  }
+
+  return true;
+}
+
 const SEPAY_SANDBOX_CHECKOUT_URL = "https://pay-sandbox.sepay.vn/v1/checkout/init";
 const SEPAY_SANDBOX_API_URL = "https://pgapi-sandbox.sepay.vn";
 const SEPAY_PRODUCTION_CHECKOUT_URL = "https://pay.sepay.vn/v1/checkout/init";
@@ -157,6 +199,19 @@ const apiEnvironmentSchema = z
     INSTAGRAM_BUSINESS_ACCOUNT_ID: optionalSecret,
     INSTAGRAM_ACCESS_TOKEN: optionalSecret,
     INSTAGRAM_PUBLIC_MEDIA_BASE_URL: optionalUrl,
+    MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: optionalSecret,
+    MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: positiveInteger
+      .pipe(z.number().int().min(60).max(3_600))
+      .default(900),
+    MARKETING_INSTAGRAM_JPEG_QUALITY: positiveInteger
+      .pipe(z.number().int().min(70).max(100))
+      .default(90),
+    MARKETING_PUBLIC_MEDIA_RATE_LIMIT: positiveInteger
+      .pipe(z.number().int().min(1).max(1_000))
+      .default(120),
+    MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: positiveInteger
+      .pipe(z.number().int().min(1_000).max(3_600_000))
+      .default(60_000),
     LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
@@ -200,6 +255,16 @@ const apiEnvironmentSchema = z
         });
       }
       if (
+        !value.MARKETING_PUBLIC_MEDIA_SIGNING_SECRET ||
+        value.MARKETING_PUBLIC_MEDIA_SIGNING_SECRET.length < 32
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["MARKETING_PUBLIC_MEDIA_SIGNING_SECRET"],
+          message: "must contain at least 32 characters when Instagram live mode is enabled",
+        });
+      }
+      if (
         !value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL ||
         !value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL.startsWith("https://")
       ) {
@@ -208,15 +273,11 @@ const apiEnvironmentSchema = z
           path: ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL"],
           message: "must be an HTTPS URL when Instagram live mode is enabled",
         });
-      } else if (
-        isReservedDocumentationHostname(
-          new URL(value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL).hostname,
-        )
-      ) {
+      } else if (!isPublicMediaHostname(new URL(value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL).hostname)) {
         context.addIssue({
           code: "custom",
           path: ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL"],
-          message: "must use a deployed public media host, not a reserved example domain",
+          message: "must use a publicly reachable media host",
         });
       }
     }
@@ -332,6 +393,11 @@ export type InstagramPublicationConfiguration =
       readonly businessAccountId: string;
       readonly accessToken: string;
       readonly publicMediaBaseUrl: string;
+      readonly signingSecret: string;
+      readonly urlTtlSeconds: number;
+      readonly jpegQuality: number;
+      readonly rateLimit: number;
+      readonly rateWindowMs: number;
     };
 
 export interface MarketingPublicationConfiguration {
@@ -513,6 +579,11 @@ export function parseApiEnvironment(
                 businessAccountId: value.INSTAGRAM_BUSINESS_ACCOUNT_ID!,
                 accessToken: value.INSTAGRAM_ACCESS_TOKEN!,
                 publicMediaBaseUrl: value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL!,
+                signingSecret: value.MARKETING_PUBLIC_MEDIA_SIGNING_SECRET!,
+                urlTtlSeconds: value.MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS,
+                jpegQuality: value.MARKETING_INSTAGRAM_JPEG_QUALITY,
+                rateLimit: value.MARKETING_PUBLIC_MEDIA_RATE_LIMIT,
+                rateWindowMs: value.MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS,
               }
             : {
                 mode: "simulation",

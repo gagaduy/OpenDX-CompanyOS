@@ -28,6 +28,20 @@ const validSource = {
   MEDIA_MAX_BYTES: "10485760",
 } as const;
 
+const liveInstagramSource = {
+  INSTAGRAM_PUBLICATION_MODE: "live",
+  INSTAGRAM_ACCOUNT_CONFIGURATION_ID: "ig-live-1",
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: "17841400000000000",
+  INSTAGRAM_ACCESS_TOKEN: "page-access-token",
+  INSTAGRAM_PUBLIC_MEDIA_BASE_URL:
+    "https://random.trycloudflare.com/v1/public/marketing/media",
+  MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: "s".repeat(32),
+  MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "900",
+  MARKETING_INSTAGRAM_JPEG_QUALITY: "90",
+  MARKETING_PUBLIC_MEDIA_RATE_LIMIT: "120",
+  MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: "60000",
+} as const;
+
 describe("parseApiEnvironment", () => {
   it("returns typed runtime configuration", () => {
     const environment = parseApiEnvironment(validSource);
@@ -83,19 +97,69 @@ describe("parseApiEnvironment", () => {
   it("parses live Instagram configuration when all required fields are present", () => {
     const environment = parseApiEnvironment({
       ...validSource,
-      INSTAGRAM_PUBLICATION_MODE: "live",
-      INSTAGRAM_ACCOUNT_CONFIGURATION_ID: "ig-live-1",
-      INSTAGRAM_BUSINESS_ACCOUNT_ID: "17841400000000000",
-      INSTAGRAM_ACCESS_TOKEN: "EAA...",
-      INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.novacommerce.vn/media",
+      ...liveInstagramSource,
     });
 
     expect(environment.marketing.instagram).toEqual({
       mode: "live",
       accountConfigurationId: "ig-live-1",
       businessAccountId: "17841400000000000",
-      accessToken: "EAA...",
-      publicMediaBaseUrl: "https://cdn.novacommerce.vn/media",
+      accessToken: "page-access-token",
+      publicMediaBaseUrl:
+        "https://random.trycloudflare.com/v1/public/marketing/media",
+      signingSecret: "s".repeat(32),
+      urlTtlSeconds: 900,
+      jpegQuality: 90,
+      rateLimit: 120,
+      rateWindowMs: 60_000,
+    });
+  });
+
+  it.each([
+    ["MARKETING_PUBLIC_MEDIA_SIGNING_SECRET", { MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: "short" }],
+    ["MARKETING_PUBLIC_MEDIA_SIGNING_SECRET", { MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: undefined }],
+    ["MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS", { MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "59" }],
+    ["MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS", { MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "3601" }],
+    ["MARKETING_INSTAGRAM_JPEG_QUALITY", { MARKETING_INSTAGRAM_JPEG_QUALITY: "69" }],
+    ["MARKETING_PUBLIC_MEDIA_RATE_LIMIT", { MARKETING_PUBLIC_MEDIA_RATE_LIMIT: "0" }],
+    ["MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS", { MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: "999" }],
+  ])("rejects unsafe live-media setting: %s", (expectedKey, override) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        ...liveInstagramSource,
+        ...override,
+      }),
+    ).toThrow(expectedKey);
+  });
+
+  it.each([
+    "https://localhost/v1/public/marketing/media",
+    "https://127.0.0.1/v1/public/marketing/media",
+    "https://10.0.0.1/v1/public/marketing/media",
+    "https://172.16.0.1/v1/public/marketing/media",
+    "https://192.168.1.1/v1/public/marketing/media",
+    "https://[::1]/v1/public/marketing/media",
+    "https://media.novacommerce.local/v1/public/marketing/media",
+  ])("rejects non-public media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        ...liveInstagramSource,
+        INSTAGRAM_PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrl,
+      }),
+    ).toThrow("INSTAGRAM_PUBLIC_MEDIA_BASE_URL");
+  });
+
+  it("parses Instagram simulation mode without live-media secrets", () => {
+    const environment = parseApiEnvironment({
+      ...validSource,
+      INSTAGRAM_PUBLICATION_MODE: "simulation",
+    });
+
+    expect(environment.marketing.instagram).toEqual({
+      mode: "simulation",
+      accountConfigurationId: "instagram-local-simulation",
     });
   });
 
@@ -118,9 +182,7 @@ describe("parseApiEnvironment", () => {
     expect(() =>
       parseApiEnvironment({
         ...validSource,
-        INSTAGRAM_PUBLICATION_MODE: "live",
-        INSTAGRAM_BUSINESS_ACCOUNT_ID: "17841400000000000",
-        INSTAGRAM_ACCESS_TOKEN: "token",
+        ...liveInstagramSource,
         INSTAGRAM_PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrl,
       }),
     ).toThrow("INSTAGRAM_PUBLIC_MEDIA_BASE_URL");
