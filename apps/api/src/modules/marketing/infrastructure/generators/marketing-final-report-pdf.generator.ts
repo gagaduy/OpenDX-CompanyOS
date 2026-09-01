@@ -23,6 +23,7 @@ export function generateMarketingFinalReportPdf(params: {
   mediaType: "application/pdf";
 } {
   const { campaign, brief, content, visual, pkg, record } = params;
+  const targets = pkg?.targets ?? [];
 
   const lines: string[] = [
     `OPENDX COMPANYOS - MARKETING CAMPAIGN FINAL REPORT`,
@@ -61,13 +62,14 @@ export function generateMarketingFinalReportPdf(params: {
     `Byte Size:         ${visual?.byteSize ?? 0} bytes`,
     `SHA-256 Digest:    ${visual?.imageDigest ?? (visual as any)?.sha256Digest ?? "N/A"}`,
     ``,
-    `4. GOVERNANCE & PUBLICATION AUDIT`,
+    `4. GOVERNANCE & MULTI-CHANNEL PUBLICATION AUDIT`,
     `------------------------------------------------------------`,
     `Package Version:   ${pkg?.packageVersion ?? 1}`,
     `Approval Request:  ${pkg?.approvalRequestId ?? "Approved by Human Supervisor"}`,
-    `Target Platform:   Facebook Page (Config: ${brief.facebookPageConfigurationId})`,
-    `External Post ID:  ${record?.externalPostId ?? "Pending / Recorded"}`,
-    `Live Post URL:     ${record?.postUrl ?? "N/A"}`,
+    `Facebook Config:   ${brief.facebookPageConfigurationId}`,
+    `Total Targets:     ${targets.length > 0 ? targets.length : 1}`,
+    `Primary Record:    ${record?.platform ?? "facebook"} | Post ID: ${record?.externalPostId ?? "Recorded"}`,
+    `Post URL:          ${record?.postUrl ?? "N/A"}`,
     `Verified At:       ${record?.verifiedAt ?? "N/A"}`,
     `Receipt Digest:    ${record?.providerReceiptDigest ?? "N/A"}`,
     ``,
@@ -103,7 +105,7 @@ endobj
 <<
   /Type /Page
   /Parent 2 0 R
-  /MediaBox [0 0 612 842]
+  /MediaBox [0 0 595 842]
   /Contents 4 0 R
   /Resources <<
     /Font <<
@@ -130,19 +132,19 @@ xref
 0000000009 00000 n 
 0000000058 00000 n 
 0000000115 00000 n 
-0000000306 00000 n 
+0000000280 00000 n 
 trailer
 <<
   /Size 5
   /Root 1 0 R
 >>
 startxref
-${400 + streamLength}
+${350 + streamLength}
 %%EOF`;
 
   return {
     buffer: Buffer.from(pdf, "utf-8"),
-    filename: `marketing_final_report_${campaign.id}.pdf`,
+    filename: `marketing_final_report_${campaign.id.slice(0, 8)}.pdf`,
     mediaType: "application/pdf",
   };
 }

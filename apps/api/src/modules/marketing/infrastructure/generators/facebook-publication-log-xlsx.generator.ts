@@ -41,14 +41,17 @@ export function generateFacebookPublicationLogXlsx(
   const headers = [
     "Attempt ID",
     "Package ID",
+    "Target ID",
     "Platform",
-    "Page Config ID",
+    "Execution Mode",
+    "Account / Page ID",
     "Status",
     "Started At",
     "Finished At",
     "Error Code",
     "External Post ID",
     "Post URL",
+    "Simulated",
   ];
 
   let rowsXml = `<row r="1">`;
@@ -61,11 +64,14 @@ export function generateFacebookPublicationLogXlsx(
   for (const a of attempts) {
     const postUrl = record?.postUrl ?? "";
     const postId = record?.externalPostId ?? "";
+    const isSimulated = a.simulated ? "YES" : "NO";
 
     const values = [
       a.id,
       a.packageId,
+      a.targetId ?? "",
       a.platform,
+      a.executionMode ?? "live",
       a.pageConfigurationId,
       a.status,
       a.startedAt,
@@ -73,6 +79,7 @@ export function generateFacebookPublicationLogXlsx(
       a.errorCode ?? "",
       postId,
       postUrl,
+      isSimulated,
     ];
 
     rowsXml += `<row r="${rowIndex}">`;
@@ -88,14 +95,17 @@ export function generateFacebookPublicationLogXlsx(
     const values = [
       "initial-direct",
       record.packageId,
+      record.targetId ?? "",
       record.platform,
+      record.executionMode ?? "live",
       record.pageId,
       "succeeded",
       record.createdAt,
       record.verifiedAt,
       "",
       record.externalPostId,
-      record.postUrl,
+      record.postUrl ?? "",
+      record.simulated ? "YES" : "NO",
     ];
     rowsXml += `<row r="${rowIndex}">`;
     values.forEach((val, i) => {
@@ -114,14 +124,14 @@ export function generateFacebookPublicationLogXlsx(
   const buffer = buildZip([
     { path: "[Content_Types].xml", content: contentTypesXml },
     { path: "_rels/.rels", content: rootRelsXml },
-    { path: "xl/_rels/workbook.xml.rels", content: workbookRelsXml },
     { path: "xl/workbook.xml", content: workbookXml },
+    { path: "xl/_rels/workbook.xml.rels", content: workbookRelsXml },
     { path: "xl/worksheets/sheet1.xml", content: sheetXml },
   ]);
 
   return {
     buffer,
-    filename: `facebook_publication_log_${campaignId}.xlsx`,
+    filename: `publication_log_${campaignId.slice(0, 8)}.xlsx`,
     mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   };
 }
@@ -136,8 +146,8 @@ function colName(n: number): string {
   return s;
 }
 
-function escapeXml(text: string): string {
-  return text
+function escapeXml(str: string): string {
+  return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
