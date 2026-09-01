@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Assemble governed multi-platform publication packages (Facebook and Instagram) and validate target digests during human approval.
 - Wire Marketing publisher worker, module factory, and server runtime for multi-channel target publication.
 - Implement Meta Graph API Instagram live publisher adapter for feed image, story image, and multi-image carousel.
 - Refactor Marketing publisher service to execute claimed publication targets independently with deterministic aggregate status derivation.

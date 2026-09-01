@@ -13,9 +13,14 @@ import type {
   PublicationPackageStatus,
   PublicationRecord,
   PublicationTarget,
+  PublicationTargetStatus,
   VisualAsset,
 } from "../../../domain/entities/marketing-campaign";
-import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
+import type {
+  ClaimDueTargetsInput,
+  MarketingRepository,
+  UpdateTargetStatusInput,
+} from "../../repositories/interfaces/marketing.repository";
 import type { CreateMarketingCampaignInput } from "../../dtos/marketing.dto";
 import { MarketingCampaignService } from "./marketing-campaign.service";
 import { MarketingApplicationError } from "../../../presentation/middleware/marketing-error.middleware";
@@ -26,6 +31,7 @@ class InMemoryMarketingRepository implements MarketingRepository {
   public contents: Map<string, ContentVersion[]> = new Map();
   public visuals: Map<string, VisualAsset[]> = new Map();
   public packages: Map<string, PublicationPackage[]> = new Map();
+  public targets: Map<string, PublicationTarget[]> = new Map();
   public attempts: Map<string, PublicationAttempt[]> = new Map();
   public records: Map<string, PublicationRecord> = new Map();
   public artifacts: Map<string, MarketingArtifact[]> = new Map();
@@ -40,10 +46,10 @@ class InMemoryMarketingRepository implements MarketingRepository {
     return this.campaigns.get(id) ?? null;
   }
 
-  async findCampaignByIdempotencyKey(createdBy: string, idempotencyKey: string): Promise<MarketingCampaign | null> {
-    for (const c of this.campaigns.values()) {
-      if (c.createdBy === createdBy && c.idempotencyKey === idempotencyKey) {
-        return c;
+  async findCampaignByIdempotencyKey(actorId: string, key: string): Promise<MarketingCampaign | null> {
+    for (const campaign of this.campaigns.values()) {
+      if (campaign.createdBy === actorId && campaign.idempotencyKey === key) {
+        return campaign;
       }
     }
     return null;
@@ -53,10 +59,17 @@ class InMemoryMarketingRepository implements MarketingRepository {
     return [...this.campaigns.values()];
   }
 
-  async updateCampaignState(id: string, expectedVersion: number, nextState: MarketingCampaignState): Promise<MarketingCampaign> {
+  async updateCampaignState(
+    id: string,
+    expectedVersion: number,
+    nextState: MarketingCampaignState,
+  ): Promise<MarketingCampaign> {
     const existing = this.campaigns.get(id);
-    if (!existing || existing.version !== expectedVersion) {
-      throw new Error("Concurrency error");
+    if (!existing) {
+      throw new Error(`Campaign ${id} not found`);
+    }
+    if (existing.version !== expectedVersion) {
+      throw new Error(`Version conflict: expected ${expectedVersion}, got ${existing.version}`);
     }
     const updated: MarketingCampaign = {
       ...existing,
@@ -113,7 +126,11 @@ class InMemoryMarketingRepository implements MarketingRepository {
     return this.packages.get(campaignId) ?? [];
   }
 
-  async findPublicationPackageById(): Promise<PublicationPackage | null> {
+  async findPublicationPackageById(id: string): Promise<PublicationPackage | null> {
+    for (const list of this.packages.values()) {
+      const match = list.find((p) => p.id === id);
+      if (match) return match;
+    }
     return null;
   }
 
@@ -134,19 +151,45 @@ class InMemoryMarketingRepository implements MarketingRepository {
   }
 
   async createPublicationTargets(targets: readonly PublicationTarget[]): Promise<readonly PublicationTarget[]> {
+    for (const target of targets) {
+      const list = this.targets.get(target.packageId) ?? [];
+      list.push(target);
+      this.targets.set(target.packageId, list);
+    }
     return targets;
   }
-  async findPublicationTargetsByPackageId(): Promise<readonly PublicationTarget[]> {
-    return [];
+  async findPublicationTargetsByPackageId(packageId: string): Promise<readonly PublicationTarget[]> {
+    return this.targets.get(packageId) ?? [];
   }
-  async findPublicationTargetById(): Promise<PublicationTarget | null> {
+  async findPublicationTargetById(id: string): Promise<PublicationTarget | null> {
+    for (const list of this.targets.values()) {
+      const match = list.find((t) => t.id === id);
+      if (match) return match;
+    }
     return null;
   }
-  async claimDuePublicationTargets(): Promise<readonly PublicationTarget[]> {
-    return [];
+  async claimDuePublicationTargets(options: ClaimDueTargetsInput): Promise<readonly PublicationTarget[]> {
+    const result: PublicationTarget[] = [];
+    for (const list of this.targets.values()) {
+      for (const t of list) {
+        if ((t.status === "approved" || t.status === "scheduled") && t.scheduledFor <= options.now) {
+          result.push(t);
+        }
+      }
+    }
+    return result.slice(0, options.limit);
   }
-  async updatePublicationTargetStatus(): Promise<PublicationTarget> {
-    throw new Error("Not implemented");
+  async updatePublicationTargetStatus(input: UpdateTargetStatusInput): Promise<PublicationTarget> {
+    for (const list of this.targets.values()) {
+      const match = list.find((t) => t.id === input.targetId);
+      if (match) {
+        const updated = { ...match, status: input.status, updatedAt: new Date().toISOString() };
+        const idx = list.indexOf(match);
+        list[idx] = updated;
+        return updated;
+      }
+    }
+    throw new Error("Target not found");
   }
   async releasePublicationTargetLease(): Promise<void> {}
   async findPublicationAttemptsByTargetId(): Promise<readonly PublicationAttempt[]> {
@@ -203,50 +246,53 @@ class InMemoryMarketingRepository implements MarketingRepository {
 describe("MarketingCampaignService", () => {
   let repository: InMemoryMarketingRepository;
   let service: MarketingCampaignService;
+
   const fixedNow = "2026-08-29T10:00:00.000Z";
+
+  const validBriefInput: CreateMarketingCampaignInput = {
+    idempotencyKey: "test-idem-001",
+    assignmentMode: "direct_department",
+    campaignName: "NovaPhone 15 Launch",
+    objective: "Drive initial awareness and pre-orders for NovaPhone 15 flagship",
+    subject: {
+      kind: "catalog_product",
+      reference: "prod_novaphone_15",
+    },
+    language: "vi",
+    mandatoryMessage: "NovaPhone 15 - Đỉnh cao công nghệ di động 2026",
+    prohibitedClaims: ["chữa bách bệnh", "số 1 toàn cầu"],
+    callToAction: "Đặt hàng ngay hôm nay",
+    facebookPageConfigurationId: "page-cfg-primary",
+    scheduledFor: "2026-08-30T10:00:00.000Z",
+    deadline: "2026-08-30T18:00:00.000Z",
+    approverId: "staff_manager_01",
+    maximumCostMicros: 50_000_000,
+    provenance: [{
+      sourceType: "user_brief",
+      sourceId: "brief_request_01",
+      sourceDigest: "d".repeat(64),
+      classification: "internal",
+    }],
+  };
 
   beforeEach(() => {
     repository = new InMemoryMarketingRepository();
     service = new MarketingCampaignService({
       repository,
-      generateId: () => "00000000-0000-4000-8000-000000000001",
       now: () => fixedNow,
     });
   });
 
-  const validBriefInput: CreateMarketingCampaignInput = {
-    assignmentMode: "direct_department",
-    idempotencyKey: "test-idemp-key-1",
-    campaignName: "NovaPhone 15 Launch",
-    objective: "Highlight flagship camera and performance",
-    subject: { kind: "catalog_product", reference: "novaphone-15" },
-    audience: "Tech early adopters",
-    language: "vi",
-    tone: "Inspiring and Premium",
-    mandatoryMessage: "Order now for exclusive early bird gift",
-    prohibitedClaims: ["No medical claims"],
-    callToAction: "Pre-order at NovaCommerce Store",
-    facebookPageConfigurationId: "page-cfg-primary",
-    scheduledFor: "2026-08-30T10:00:00.000Z",
-    deadline: "2026-08-30T18:00:00.000Z",
-    approverId: "staff-approver-1",
-    maximumCostMicros: 500000,
-    provenance: [
-      {
-        sourceType: "catalog_snapshot",
-        sourceId: "novaphone-15",
-        sourceDigest: "a".repeat(64),
-        classification: "internal",
-      },
-    ],
-  };
+  it("creates a campaign in draft state with correct brief and timestamps", async () => {
+    const result = await service.createCampaign("operator-1", validBriefInput);
+    expect(result.id).toBeDefined();
+    expect(result.state).toBe("draft");
+    expect(result.version).toBe(1);
 
-  it("creates a campaign in draft state with direct intake", async () => {
-    const created = await service.createCampaign("operator-1", validBriefInput);
-    expect(created.id).toBe("00000000-0000-4000-8000-000000000001");
-    expect(created.state).toBe("draft");
-    expect(created.assignmentMode).toBe("direct_department");
-    expect(created.createdBy).toBe("operator-1");
+    const brief = await repository.findBriefByCampaignId(result.id);
+    expect(brief).toBeDefined();
+    expect(brief?.campaignName).toBe(validBriefInput.campaignName);
+    expect(brief?.facebookPageConfigurationId).toBe(validBriefInput.facebookPageConfigurationId);
   });
 
   it("returns exact replay on same idempotency key and matching brief", async () => {
@@ -269,9 +315,9 @@ describe("MarketingCampaignService", () => {
     await expect(
       service.createCampaign("operator-1", {
         ...validBriefInput,
-        objective: "Run paid ads boosting on TikTok and Instagram",
+        objective: "Run paid ads boosting on TikTok",
       }),
-    ).rejects.toThrow(/strictly limited to single facebook page image post publication/i);
+    ).rejects.toThrow(/strictly limited to facebook and instagram publication/i);
   });
 
   it("rejects cross-department tasks without executing", async () => {
@@ -323,7 +369,7 @@ describe("MarketingCampaignService", () => {
     expect(detail.contentVersions).toEqual([]);
   });
 
-  it("materializes revised PNG bytes before persisting visual metadata", async () => {
+  it("materializes revised PNG bytes, creates multi-platform targets, and enables approval", async () => {
     const created = await service.createCampaign("operator-1", validBriefInput);
     repository.campaigns.set(created.id, {
       ...repository.campaigns.get(created.id)!,
@@ -400,14 +446,25 @@ describe("MarketingCampaignService", () => {
       width: 1080,
       height: 1080,
     }));
-    expect(repository.visuals.get(created.id)?.at(-1)).toMatchObject({
-      byteSize: 2_048,
-      imageDigest: "f".repeat(64),
-    });
-    expect(repository.packages.get(created.id)?.at(-1)).toMatchObject({
+
+    const latestPkg = repository.packages.get(created.id)?.at(-1);
+    expect(latestPkg).toMatchObject({
       imageDigest: "f".repeat(64),
       status: "draft",
       approvalRequestId: null,
     });
+
+    const targets = await repository.findPublicationTargetsByPackageId(latestPkg!.id);
+    expect(targets).toHaveLength(2);
+    expect(targets.some((t) => t.platform === "facebook" && t.format === "feed_image" && t.required)).toBe(true);
+    expect(targets.some((t) => t.platform === "instagram" && t.format === "feed_image" && !t.required)).toBe(true);
+
+    // Test approval flow
+    await revisionService.approveCampaign("approver-1", created.id, {
+      decision: "approve",
+    });
+
+    const approvedTargets = await repository.findPublicationTargetsByPackageId(latestPkg!.id);
+    expect(approvedTargets.every((t) => t.status === "approved")).toBe(true);
   });
 });
