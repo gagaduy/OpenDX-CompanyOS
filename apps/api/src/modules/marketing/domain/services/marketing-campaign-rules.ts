@@ -3,6 +3,7 @@
 
 import {
   type MarketingArtifact,
+  type MarketingArtifactKind,
   type MarketingCampaign,
   type MarketingCampaignState,
   type PublicationPackage,
@@ -117,6 +118,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
         "platform_rejected",
         "blocked_credentials",
         "failed",
+        "partial_failure",
       ]),
     ],
     [
@@ -124,6 +126,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
       new Set<MarketingCampaignState>([
         "verifying_publication",
         "failed",
+        "partial_failure",
       ]),
     ],
     [
@@ -132,6 +135,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
         "reporting",
         "platform_rejected",
         "failed",
+        "partial_failure",
       ]),
     ],
     [
@@ -141,6 +145,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
         "failed",
       ]),
     ],
+    ["partial_failure", new Set<MarketingCampaignState>(["publishing", "failed", "canceled"])],
     ["schedule_missed", new Set<MarketingCampaignState>(["scheduled", "failed", "canceled"])],
     ["blocked_credentials", new Set<MarketingCampaignState>(["scheduled", "publishing", "failed", "canceled"])],
     ["platform_rejected", new Set<MarketingCampaignState>(["failed", "canceled"])],
@@ -191,8 +196,8 @@ export function isApprovalInvalidatedByChange(
   pkg: PublicationPackage,
   changes: {
     contentDigest?: string;
-    imageDigest?: string;
-    facebookPageConfigurationId?: string;
+    imageDigest?: string | null;
+    facebookPageConfigurationId?: string | null;
     scheduledFor?: string;
   },
 ): boolean {
@@ -216,10 +221,11 @@ export function isApprovalInvalidatedByChange(
 
 export function assertCanCompleteCampaign(params: {
   campaign: MarketingCampaign;
-  publicationRecord: PublicationRecord | null;
+  publicationRecord?: PublicationRecord | null;
+  publicationRecords?: readonly PublicationRecord[];
   artifacts: readonly MarketingArtifact[];
 }): void {
-  const { campaign, publicationRecord, artifacts } = params;
+  const { campaign, publicationRecord, publicationRecords, artifacts } = params;
 
   if (campaign.state !== "reporting") {
     throw new Error(
@@ -227,18 +233,30 @@ export function assertCanCompleteCampaign(params: {
     );
   }
 
-  if (!publicationRecord) {
+  const records = publicationRecords || (publicationRecord ? [publicationRecord] : []);
+  if (records.length === 0) {
     throw new Error("Verified publication record is required for completion.");
   }
 
   const existingKinds = new Set(artifacts.map((a) => a.kind));
-  const missingKinds = REQUIRED_MARKETING_ARTIFACT_KINDS.filter(
-    (kind) => !existingKinds.has(kind),
-  );
 
-  if (missingKinds.length > 0) {
+  // Check required kinds: allow either facebook_* or social_* equivalents
+  const hasBrief = existingKinds.has("campaign_brief_docx");
+  const hasContent = existingKinds.has("facebook_content_docx") || existingKinds.has("social_content_docx");
+  const hasVisual = existingKinds.has("facebook_visual_png") || existingKinds.has("social_visual_png");
+  const hasLog = existingKinds.has("facebook_publication_log_xlsx") || existingKinds.has("social_publication_log_xlsx");
+  const hasFinalReport = existingKinds.has("marketing_final_report_pdf");
+
+  const missing: string[] = [];
+  if (!hasBrief) missing.push("campaign_brief_docx");
+  if (!hasContent) missing.push("facebook_content_docx or social_content_docx");
+  if (!hasVisual) missing.push("facebook_visual_png or social_visual_png");
+  if (!hasLog) missing.push("facebook_publication_log_xlsx or social_publication_log_xlsx");
+  if (!hasFinalReport) missing.push("marketing_final_report_pdf");
+
+  if (missing.length > 0) {
     throw new Error(
-      `Missing required marketing artifacts for completion: ${missingKinds.join(", ")}.`,
+      `Missing required marketing artifacts for completion: ${missing.join(", ")}.`,
     );
   }
 }
