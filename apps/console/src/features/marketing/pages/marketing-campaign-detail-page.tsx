@@ -226,11 +226,15 @@ export function MarketingCampaignDetailPage({
               <div style={{ fontWeight: 700, color: "#fee2e2" }}>
                 {error.includes("Authentication") || error.includes("xác thực") || error.includes("401") || error.includes("hết hạn")
                   ? "Phiên đăng nhập quản trị viên đã hết hạn"
+                  : error.includes("Application does not have permission") || error.includes("permission")
+                  ? "Lỗi quyền đăng bài Instagram từ Meta Graph API"
                   : "Có lỗi xảy ra"}
               </div>
               <div style={{ fontSize: "0.8rem", color: "#fca5a5", marginTop: "0.2rem" }}>
                 {error.includes("Authentication") || error.includes("xác thực") || error.includes("401")
                   ? "Mã xác thực Keycloak của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục thao tác."
+                  : error.includes("Application does not have permission")
+                  ? "Tài khoản Instagram novacommerce_350 chưa được liên kết chính thức vào Fanpage NovaCommerce trên Cài đặt Trang Facebook, hoặc Meta App đang ở chế độ Development chưa cấp quyền live cho tài khoản này."
                   : error}
               </div>
             </div>
