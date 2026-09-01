@@ -130,6 +130,7 @@ function isPublicMediaHostname(hostname: string): boolean {
   if (normalizedHostname.includes(":")) {
     const ipv6Address = parseIpv6Literal(normalizedHostname);
     if (ipv6Address === undefined) return false;
+    if (!isIpv6InCidr(ipv6Address, "2000::", 3)) return false;
     const nonPublicRanges = [
       ["::", 128],
       ["::1", 128],

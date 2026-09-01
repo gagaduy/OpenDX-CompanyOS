@@ -147,7 +147,9 @@ describe("parseApiEnvironment", () => {
     "https://224.0.0.1/v1/public/marketing/media",
     "https://255.255.255.255/v1/public/marketing/media",
     "https://[::1]/v1/public/marketing/media",
+    "https://[::c0a8:101]/media",
     "https://[2001:db8::1]/v1/public/marketing/media",
+    "https://[4000::1]/media",
     "https://[ff02::1]/v1/public/marketing/media",
     "https://media.novacommerce.local/v1/public/marketing/media",
   ])("rejects non-public media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
