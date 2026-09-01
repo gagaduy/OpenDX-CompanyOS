@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Parse typed, fail-closed Marketing publication configuration with Facebook and Instagram simulation/live support.
 - Persist governed Marketing publication targets with forward/downward migration lifecycle, backfill for existing Facebook packages, and target-level leased claims.
 - Model governed Marketing publication targets, format capability policy (Feed, Story, Carousel), and canonical target/package digests.
 

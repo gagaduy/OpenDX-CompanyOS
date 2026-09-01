@@ -10,7 +10,7 @@ const positiveInteger = z
   .pipe(z.number().int().positive());
 
 const optionalSecret = z.preprocess(
-  (value) => value === "" ? undefined : value,
+  (value) => (value === "" ? undefined : value),
   z.string().trim().min(1).optional(),
 );
 
@@ -34,175 +34,242 @@ const SEPAY_SANDBOX_CHECKOUT_URL = "https://pay-sandbox.sepay.vn/v1/checkout/ini
 const SEPAY_SANDBOX_API_URL = "https://pgapi-sandbox.sepay.vn";
 const SEPAY_PRODUCTION_CHECKOUT_URL = "https://pay.sepay.vn/v1/checkout/init";
 const SEPAY_PRODUCTION_API_URL = "https://pgapi.sepay.vn";
-const placeholderSecret = /(?:change|replace)[_-]?me|changeme|example[_-]?secret/i;
 
-const apiEnvironmentSchema = z.object({
-  OPENDX_ENV: z.enum(["development", "test", "production"]),
-  API_PORT: positiveInteger.pipe(z.number().max(65_535)),
-  DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
-    message: "must be a PostgreSQL URL",
-  }),
-  AGENTIC_ANALYTICS_DATABASE_URL: z.url()
-    .refine((value) => value.startsWith("postgres"), { message: "must be a PostgreSQL URL" })
-    .refine((value) => new URL(value).username === "opendx_agentic_reader", {
-      message: "must use the opendx_agentic_reader role",
+const apiEnvironmentSchema = z
+  .object({
+    OPENDX_ENV: z.enum(["development", "test", "production"]),
+    API_PORT: positiveInteger.pipe(z.number().max(65_535)),
+    DATABASE_URL: z.url().refine((value) => value.startsWith("postgres"), {
+      message: "must be a PostgreSQL URL",
     }),
-  CONSOLE_ORIGIN: z.url(),
-  STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
-  GOOGLE_CLIENT_ID: z.preprocess(
-    (value) => value === "" ? undefined : value,
-    z.string().trim().min(1).optional(),
-  ),
-  CUSTOMER_COOKIE_NAME: z.string().trim().min(1).default("opendx_customer"),
-  GUEST_COOKIE_NAME: z.string().trim().min(1).default("opendx_guest"),
-  CSRF_COOKIE_NAME: z.string().trim().min(1).default("opendx_csrf"),
-  COOKIE_SECURE: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
-  CUSTOMER_SESSION_TTL_SECONDS: positiveInteger.default(2592000).refine((value) => value === 2592000),
-  GUEST_SESSION_TTL_SECONDS: positiveInteger.default(604800).refine((value) => value === 604800),
-  AUTH_RATE_LIMIT: positiveInteger.default(20),
-  KEYCLOAK_ISSUER: z.url(),
-  KEYCLOAK_JWKS_URL: z.url().optional(),
-  KEYCLOAK_AUDIENCE: z.string().trim().min(1),
-  KEYCLOAK_TOKEN_URL: z.url(),
-  AGENTIC_CONTROL_CLIENT_ID: z.string().trim().min(1),
-  AGENTIC_CONTROL_CLIENT_SECRET: z.string().min(1),
-  AGENTIC_CONTROL_AUDIENCE: z.string().trim().min(1),
-  AI_RUNTIME_INTERNAL_URL: z.url(),
-  AGENTIC_EXECUTION_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
-  WORKFLOW_GATEWAY_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(500).max(30_000)),
-  WORKFLOW_DISPATCHER_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)),
-  WORKFLOW_DISPATCHER_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(1_000)),
-  AGENTIC_FILE_LIFECYCLE_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)).default(30_000),
-  AGENTIC_FILE_LIFECYCLE_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(100)).default(20),
-  MINIO_ENDPOINT: z.url(),
-  MINIO_ACCESS_KEY: z.string().trim().min(1),
-  MINIO_SECRET_KEY: z.string().min(1),
-  MINIO_BUCKET: z.string().trim().min(1),
-  MINIO_SUPPORT_BUCKET: z.string().trim().min(1).default("support-attachments"),
-  MEDIA_MAX_BYTES: positiveInteger,
-  CLAMAV_HOST: z.string().trim().min(1).default("clamav"),
-  CLAMAV_PORT: positiveInteger.pipe(z.number().int().max(65_535)).default(3310),
-  CLAMAV_TIMEOUT_SECONDS: positiveInteger.pipe(z.number().int().min(1).max(60)).default(30),
-  SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: positiveInteger.default(30),
-  SUPPORT_ESCALATION_INTERVAL_SECONDS: positiveInteger.default(30),
-  SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: positiveInteger.default(3600),
-  INVENTORY_RESERVATION_TTL_SECONDS: positiveInteger.default(900).refine(
-    (value) => value === 900,
-    { message: "must equal 900" },
-  ),
-  INVENTORY_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
-    z.number().int().min(5).max(300),
-  ),
-  CHECKOUT_TTL_SECONDS: positiveInteger.default(900).refine(
-    (value) => value === 900,
-    { message: "must equal 900" },
-  ),
-  CHECKOUT_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
-    z.number().int().min(5).max(300),
-  ),
-  SEPAY_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
-  SEPAY_CHECKOUT_URL: z.url().optional(),
-  SEPAY_API_BASE_URL: z.url().optional(),
-  SEPAY_MERCHANT_ID: optionalSecret,
-  SEPAY_SECRET_KEY: optionalSecret,
-  SEPAY_IPN_SECRET: optionalSecret,
-  SEPAY_SUCCESS_URL: z.url().optional(),
-  SEPAY_ERROR_URL: z.url().optional(),
-  SEPAY_CANCEL_URL: z.url().optional(),
-  SEPAY_REQUEST_TIMEOUT_MS: positiveInteger.default(5000).pipe(
-    z.number().int().min(500).max(30_000),
-  ),
-  PAYMENT_RECONCILIATION_INTERVAL_SECONDS: positiveInteger.default(60).pipe(
-    z.number().int().min(10).max(3_600),
-  ),
-  LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
-  METRICS_PATH: z.string().trim().regex(/^\/[a-z0-9/_-]*$/i).default("/metrics"),
-  READINESS_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(250).max(10_000)).default(2_000),
-  JSON_BODY_LIMIT: bodyLimit.default("1mb"),
-  PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: positiveInteger.default(10_000),
-  PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: optionalProductionConfirmation,
-}).superRefine((value, context) => {
-  const credentialFields = [
-    ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
-    ["SEPAY_SECRET_KEY", value.SEPAY_SECRET_KEY],
-    ["SEPAY_IPN_SECRET", value.SEPAY_IPN_SECRET],
-  ] as const;
-  const configuredCredentialCount = credentialFields.filter(([, credential]) => credential !== undefined).length;
-  if (configuredCredentialCount > 0 && configuredCredentialCount < credentialFields.length) {
-    for (const [field, credential] of credentialFields) {
-      if (credential === undefined) {
-        context.addIssue({ code: "custom", path: [field], message: "is required when SePay is configured" });
+    AGENTIC_ANALYTICS_DATABASE_URL: z
+      .url()
+      .refine((value) => value.startsWith("postgres"), { message: "must be a PostgreSQL URL" })
+      .refine((value) => new URL(value).username === "opendx_agentic_reader", {
+        message: "must use the opendx_agentic_reader role",
+      }),
+    CONSOLE_ORIGIN: z.url(),
+    STOREFRONT_ORIGIN: z.url().default("http://localhost:3100"),
+    GOOGLE_CLIENT_ID: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.string().trim().min(1).optional(),
+    ),
+    CUSTOMER_COOKIE_NAME: z.string().trim().min(1).default("opendx_customer"),
+    GUEST_COOKIE_NAME: z.string().trim().min(1).default("opendx_guest"),
+    CSRF_COOKIE_NAME: z.string().trim().min(1).default("opendx_csrf"),
+    COOKIE_SECURE: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .default(false),
+    CUSTOMER_SESSION_TTL_SECONDS: positiveInteger.default(2592000).refine((value) => value === 2592000),
+    GUEST_SESSION_TTL_SECONDS: positiveInteger.default(604800).refine((value) => value === 604800),
+    AUTH_RATE_LIMIT: positiveInteger.default(20),
+    KEYCLOAK_ISSUER: z.url(),
+    KEYCLOAK_JWKS_URL: z.url().optional(),
+    KEYCLOAK_AUDIENCE: z.string().trim().min(1),
+    KEYCLOAK_TOKEN_URL: z.url(),
+    AGENTIC_CONTROL_CLIENT_ID: z.string().trim().min(1),
+    AGENTIC_CONTROL_CLIENT_SECRET: z.string().min(1),
+    AGENTIC_CONTROL_AUDIENCE: z.string().trim().min(1),
+    AI_RUNTIME_INTERNAL_URL: z.url(),
+    AGENTIC_EXECUTION_ENABLED: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .default(false),
+    WORKFLOW_GATEWAY_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(500).max(30_000)),
+    WORKFLOW_DISPATCHER_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)),
+    WORKFLOW_DISPATCHER_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(1_000)),
+    AGENTIC_FILE_LIFECYCLE_INTERVAL_MS: positiveInteger.pipe(z.number().int().min(100).max(60_000)).default(30_000),
+    AGENTIC_FILE_LIFECYCLE_BATCH_SIZE: positiveInteger.pipe(z.number().int().max(100)).default(20),
+    MINIO_ENDPOINT: z.url(),
+    MINIO_ACCESS_KEY: z.string().trim().min(1),
+    MINIO_SECRET_KEY: z.string().min(1),
+    MINIO_BUCKET: z.string().trim().min(1),
+    MINIO_SUPPORT_BUCKET: z.string().trim().min(1).default("support-attachments"),
+    MEDIA_MAX_BYTES: positiveInteger,
+    CLAMAV_HOST: z.string().trim().min(1).default("clamav"),
+    CLAMAV_PORT: positiveInteger.pipe(z.number().int().max(65_535)).default(3310),
+    CLAMAV_TIMEOUT_SECONDS: positiveInteger.pipe(z.number().int().min(1).max(60)).default(30),
+    SUPPORT_ATTACHMENT_SCAN_INTERVAL_SECONDS: positiveInteger.default(30),
+    SUPPORT_ESCALATION_INTERVAL_SECONDS: positiveInteger.default(30),
+    SUPPORT_ATTACHMENT_RETENTION_INTERVAL_SECONDS: positiveInteger.default(3600),
+    INVENTORY_RESERVATION_TTL_SECONDS: positiveInteger.default(900).refine(
+      (value) => value === 900,
+      { message: "must equal 900" },
+    ),
+    INVENTORY_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
+      z.number().int().min(5).max(300),
+    ),
+    CHECKOUT_TTL_SECONDS: positiveInteger.default(900).refine(
+      (value) => value === 900,
+      { message: "must equal 900" },
+    ),
+    CHECKOUT_EXPIRY_INTERVAL_SECONDS: positiveInteger.default(30).pipe(
+      z.number().int().min(5).max(300),
+    ),
+    SEPAY_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+    SEPAY_CHECKOUT_URL: z.url().optional(),
+    SEPAY_API_BASE_URL: z.url().optional(),
+    SEPAY_MERCHANT_ID: optionalSecret,
+    SEPAY_SECRET_KEY: optionalSecret,
+    SEPAY_IPN_SECRET: optionalSecret,
+    SEPAY_SUCCESS_URL: z.url().optional(),
+    SEPAY_ERROR_URL: z.url().optional(),
+    SEPAY_CANCEL_URL: z.url().optional(),
+    SEPAY_REQUEST_TIMEOUT_MS: positiveInteger.default(5000).pipe(
+      z.number().int().min(500).max(30_000),
+    ),
+    PAYMENT_RECONCILIATION_INTERVAL_SECONDS: positiveInteger.default(60).pipe(
+      z.number().int().min(10).max(3_600),
+    ),
+    MARKETING_PUBLICATION_POLL_INTERVAL_MS: positiveInteger
+      .pipe(z.number().int().min(500).max(60_000))
+      .default(5_000),
+    MARKETING_TARGET_LEASE_SECONDS: positiveInteger
+      .pipe(z.number().int().min(5).max(300))
+      .default(30),
+    META_GRAPH_BASE_URL: z.url().default("https://graph.facebook.com"),
+    META_GRAPH_TIMEOUT_MS: positiveInteger
+      .pipe(z.number().int().min(500).max(30_000))
+      .default(10_000),
+    FACEBOOK_PAGE_ID: optionalSecret,
+    FACEBOOK_PAGE_ACCESS_TOKEN: optionalSecret,
+    INSTAGRAM_PUBLICATION_MODE: z
+      .enum(["disabled", "simulation", "live"])
+      .default("simulation"),
+    INSTAGRAM_ACCOUNT_CONFIGURATION_ID: z
+      .string()
+      .trim()
+      .min(1)
+      .default("instagram-local-simulation"),
+    INSTAGRAM_BUSINESS_ACCOUNT_ID: optionalSecret,
+    INSTAGRAM_ACCESS_TOKEN: optionalSecret,
+    INSTAGRAM_PUBLIC_MEDIA_BASE_URL: z.url().optional(),
+    LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
+    LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
+    METRICS_PATH: z.string().trim().regex(/^\/[a-z0-9/_-]*$/i).default("/metrics"),
+    READINESS_TIMEOUT_MS: positiveInteger.pipe(z.number().int().min(250).max(10_000)).default(2_000),
+    JSON_BODY_LIMIT: bodyLimit.default("1mb"),
+    PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: positiveInteger.default(10_000),
+    PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION: optionalProductionConfirmation,
+  })
+  .superRefine((value, context) => {
+    const credentialFields = [
+      ["SEPAY_MERCHANT_ID", value.SEPAY_MERCHANT_ID],
+      ["SEPAY_SECRET_KEY", value.SEPAY_SECRET_KEY],
+      ["SEPAY_IPN_SECRET", value.SEPAY_IPN_SECRET],
+    ] as const;
+    const configuredCredentialCount = credentialFields.filter(([, credential]) => credential !== undefined).length;
+    if (configuredCredentialCount > 0 && configuredCredentialCount < credentialFields.length) {
+      for (const [field, credential] of credentialFields) {
+        if (credential === undefined) {
+          context.addIssue({ code: "custom", path: [field], message: "is required when SePay is configured" });
+        }
       }
     }
-  }
-  if (value.MINIO_SUPPORT_BUCKET === value.MINIO_BUCKET) {
-    context.addIssue({ code: "custom", path: ["MINIO_SUPPORT_BUCKET"], message: "must be distinct from MINIO_BUCKET" });
-  }
+    if (value.MINIO_SUPPORT_BUCKET === value.MINIO_BUCKET) {
+      context.addIssue({ code: "custom", path: ["MINIO_SUPPORT_BUCKET"], message: "must be distinct from MINIO_BUCKET" });
+    }
 
-  if (value.OPENDX_ENV !== "production") return;
-  const runtimeUrl = new URL(value.AI_RUNTIME_INTERNAL_URL);
-  if (runtimeUrl.protocol !== "https:" && !(runtimeUrl.protocol === "http:" && runtimeUrl.hostname === "ai-runtime")) {
-    context.addIssue({ code: "custom", path: ["AI_RUNTIME_INTERNAL_URL"], message: "must use HTTPS or the approved Docker hostname" });
-  }
-  const tokenUrl = new URL(value.KEYCLOAK_TOKEN_URL);
-  if (tokenUrl.protocol !== "https:" && !(tokenUrl.protocol === "http:" && tokenUrl.hostname === "keycloak")) {
-    context.addIssue({ code: "custom", path: ["KEYCLOAK_TOKEN_URL"], message: "must use HTTPS or the approved Docker hostname" });
-  }
-  for (const [field, rawUrl] of [
-    ["CONSOLE_ORIGIN", value.CONSOLE_ORIGIN],
-    ["STOREFRONT_ORIGIN", value.STOREFRONT_ORIGIN],
-    ["KEYCLOAK_ISSUER", value.KEYCLOAK_ISSUER],
-    ["MINIO_ENDPOINT", value.MINIO_ENDPOINT],
-  ] as const) {
-    const hostname = new URL(rawUrl).hostname;
-    if (forbiddenExampleHostnames.has(hostname)) {
+    if (value.INSTAGRAM_PUBLICATION_MODE === "live") {
+      if (!value.INSTAGRAM_BUSINESS_ACCOUNT_ID) {
+        context.addIssue({
+          code: "custom",
+          path: ["INSTAGRAM_BUSINESS_ACCOUNT_ID"],
+          message: "is required when Instagram live mode is enabled",
+        });
+      }
+      if (!value.INSTAGRAM_ACCESS_TOKEN) {
+        context.addIssue({
+          code: "custom",
+          path: ["INSTAGRAM_ACCESS_TOKEN"],
+          message: "is required when Instagram live mode is enabled",
+        });
+      }
+      if (
+        !value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL ||
+        !value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL.startsWith("https://")
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL"],
+          message: "must be an HTTPS URL when Instagram live mode is enabled",
+        });
+      }
+    }
+
+    if (value.OPENDX_ENV !== "production") return;
+
+    if (value.INSTAGRAM_PUBLICATION_MODE === "simulation") {
       context.addIssue({
         code: "custom",
-        path: [field],
-        message: "must not use a placeholder production domain",
+        path: ["INSTAGRAM_PUBLICATION_MODE"],
+        message: "cannot be simulation in production",
       });
     }
-  }
-  if (!value.COOKIE_SECURE) {
-    context.addIssue({
-      code: "custom",
-      path: ["COOKIE_SECURE"],
-      message: "must be true in production",
-    });
-  }
-  if (!value.STOREFRONT_ORIGIN.startsWith("https://")) {
-    context.addIssue({
-      code: "custom",
-      path: ["STOREFRONT_ORIGIN"],
-      message: "must use HTTPS in production",
-    });
-  }
-  if (value.SEPAY_ENVIRONMENT !== "production") {
-    context.addIssue({ code: "custom", path: ["SEPAY_ENVIRONMENT"], message: "must be production" });
-  }
-  for (const [field, credential] of credentialFields) {
-    if (credential === undefined) {
-      context.addIssue({ code: "custom", path: [field], message: "is required in production" });
+
+    const runtimeUrl = new URL(value.AI_RUNTIME_INTERNAL_URL);
+    if (runtimeUrl.protocol !== "https:" && !(runtimeUrl.protocol === "http:" && runtimeUrl.hostname === "ai-runtime")) {
+      context.addIssue({ code: "custom", path: ["AI_RUNTIME_INTERNAL_URL"], message: "must use HTTPS or the approved Docker hostname" });
     }
-  }
-  if (value.SEPAY_CHECKOUT_URL !== SEPAY_PRODUCTION_CHECKOUT_URL) {
-    context.addIssue({ code: "custom", path: ["SEPAY_CHECKOUT_URL"], message: "must use the SePay production checkout endpoint" });
-  }
-  if (value.SEPAY_API_BASE_URL !== SEPAY_PRODUCTION_API_URL) {
-    context.addIssue({ code: "custom", path: ["SEPAY_API_BASE_URL"], message: "must use the SePay production API endpoint" });
-  }
-  for (const [field, url] of [
-    ["SEPAY_SUCCESS_URL", value.SEPAY_SUCCESS_URL],
-    ["SEPAY_ERROR_URL", value.SEPAY_ERROR_URL],
-    ["SEPAY_CANCEL_URL", value.SEPAY_CANCEL_URL],
-  ] as const) {
-    if (url === undefined || !url.startsWith("https://")) {
-      context.addIssue({ code: "custom", path: [field], message: "must use HTTPS in production" });
+    const tokenUrl = new URL(value.KEYCLOAK_TOKEN_URL);
+    if (tokenUrl.protocol !== "https:" && !(tokenUrl.protocol === "http:" && tokenUrl.hostname === "keycloak")) {
+      context.addIssue({ code: "custom", path: ["KEYCLOAK_TOKEN_URL"], message: "must use HTTPS or the approved Docker hostname" });
     }
-  }
-});
+    for (const [field, rawUrl] of [
+      ["CONSOLE_ORIGIN", value.CONSOLE_ORIGIN],
+      ["STOREFRONT_ORIGIN", value.STOREFRONT_ORIGIN],
+      ["KEYCLOAK_ISSUER", value.KEYCLOAK_ISSUER],
+      ["MINIO_ENDPOINT", value.MINIO_ENDPOINT],
+    ] as const) {
+      const hostname = new URL(rawUrl).hostname;
+      if (forbiddenExampleHostnames.has(hostname)) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: "must not use a placeholder production domain",
+        });
+      }
+    }
+    if (!value.COOKIE_SECURE) {
+      context.addIssue({
+        code: "custom",
+        path: ["COOKIE_SECURE"],
+        message: "must be true in production",
+      });
+    }
+    if (!value.STOREFRONT_ORIGIN.startsWith("https://")) {
+      context.addIssue({
+        code: "custom",
+        path: ["STOREFRONT_ORIGIN"],
+        message: "must use HTTPS in production",
+      });
+    }
+    if (value.SEPAY_ENVIRONMENT !== "production") {
+      context.addIssue({ code: "custom", path: ["SEPAY_ENVIRONMENT"], message: "must be production" });
+    }
+    for (const [field, credential] of credentialFields) {
+      if (credential === undefined) {
+        context.addIssue({ code: "custom", path: [field], message: "is required in production" });
+      }
+    }
+    if (value.SEPAY_CHECKOUT_URL !== SEPAY_PRODUCTION_CHECKOUT_URL) {
+      context.addIssue({ code: "custom", path: ["SEPAY_CHECKOUT_URL"], message: "must use the SePay production checkout endpoint" });
+    }
+    if (value.SEPAY_API_BASE_URL !== SEPAY_PRODUCTION_API_URL) {
+      context.addIssue({ code: "custom", path: ["SEPAY_API_BASE_URL"], message: "must use the SePay production API endpoint" });
+    }
+    for (const [field, url] of [
+      ["SEPAY_SUCCESS_URL", value.SEPAY_SUCCESS_URL],
+      ["SEPAY_ERROR_URL", value.SEPAY_ERROR_URL],
+      ["SEPAY_CANCEL_URL", value.SEPAY_CANCEL_URL],
+    ] as const) {
+      if (url === undefined || !url.startsWith("https://")) {
+        context.addIssue({ code: "custom", path: [field], message: "must use HTTPS in production" });
+      }
+    }
+  });
 
 interface SePayConfigurationBase {
   readonly environment: "sandbox" | "production";
@@ -223,6 +290,38 @@ export type SePayConfiguration = SePayConfigurationBase & (
       readonly ipnSecret: string;
     }
 );
+
+export interface FacebookPublicationConfiguration {
+  readonly pageId?: string;
+  readonly pageAccessToken?: string;
+}
+
+export type InstagramPublicationConfiguration =
+  | {
+      readonly mode: "disabled";
+    }
+  | {
+      readonly mode: "simulation";
+      readonly accountConfigurationId: string;
+    }
+  | {
+      readonly mode: "live";
+      readonly accountConfigurationId: string;
+      readonly businessAccountId: string;
+      readonly accessToken: string;
+      readonly publicMediaBaseUrl: string;
+    };
+
+export interface MarketingPublicationConfiguration {
+  readonly pollIntervalMs: number;
+  readonly targetLeaseSeconds: number;
+  readonly meta: {
+    readonly graphBaseUrl: string;
+    readonly requestTimeoutMs: number;
+  };
+  readonly facebook: FacebookPublicationConfiguration;
+  readonly instagram: InstagramPublicationConfiguration;
+}
 
 export interface ApiEnvironment {
   readonly environment: "development" | "test" | "production";
@@ -272,9 +371,13 @@ export interface ApiEnvironment {
   readonly checkoutTtlSeconds: number;
   readonly checkoutExpiryIntervalSeconds: number;
   readonly paymentReconciliationIntervalSeconds: number;
+  readonly marketing: MarketingPublicationConfiguration;
   readonly logging: {
     readonly format: "pretty" | "json";
-    readonly level: "debug" | "info" | "warn" | "error";
+    readonly level: "debug" | "info" | "warn";
+  } | {
+    readonly format: "pretty" | "json";
+    readonly level: "error";
   };
   readonly metrics: {
     readonly enabled: boolean;
@@ -365,6 +468,35 @@ export function parseApiEnvironment(
     checkoutExpiryIntervalSeconds: value.CHECKOUT_EXPIRY_INTERVAL_SECONDS,
     paymentReconciliationIntervalSeconds:
       value.PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
+    marketing: {
+      pollIntervalMs: value.MARKETING_PUBLICATION_POLL_INTERVAL_MS,
+      targetLeaseSeconds: value.MARKETING_TARGET_LEASE_SECONDS,
+      meta: {
+        graphBaseUrl: value.META_GRAPH_BASE_URL,
+        requestTimeoutMs: value.META_GRAPH_TIMEOUT_MS,
+      },
+      facebook: {
+        ...(value.FACEBOOK_PAGE_ID !== undefined ? { pageId: value.FACEBOOK_PAGE_ID } : {}),
+        ...(value.FACEBOOK_PAGE_ACCESS_TOKEN !== undefined
+          ? { pageAccessToken: value.FACEBOOK_PAGE_ACCESS_TOKEN }
+          : {}),
+      },
+      instagram:
+        value.INSTAGRAM_PUBLICATION_MODE === "disabled"
+          ? { mode: "disabled" }
+          : value.INSTAGRAM_PUBLICATION_MODE === "live"
+            ? {
+                mode: "live",
+                accountConfigurationId: value.INSTAGRAM_ACCOUNT_CONFIGURATION_ID,
+                businessAccountId: value.INSTAGRAM_BUSINESS_ACCOUNT_ID!,
+                accessToken: value.INSTAGRAM_ACCESS_TOKEN!,
+                publicMediaBaseUrl: value.INSTAGRAM_PUBLIC_MEDIA_BASE_URL!,
+              }
+            : {
+                mode: "simulation",
+                accountConfigurationId: value.INSTAGRAM_ACCOUNT_CONFIGURATION_ID,
+              },
+    },
     logging: {
       format: value.LOG_FORMAT,
       level: value.LOG_LEVEL,
