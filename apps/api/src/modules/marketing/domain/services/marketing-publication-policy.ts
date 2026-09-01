@@ -202,7 +202,10 @@ export function isApprovalInvalidatedByPackageChange(
   }
   const candidateDigest = Array.isArray(candidate)
     ? calculatePublicationPackageDigest(candidate)
-    : candidate.packageDigest ?? (candidate.targets ? calculatePublicationPackageDigest(candidate.targets) : "");
+    : (candidate as PublicationPackage).packageDigest ??
+      ((candidate as PublicationPackage).targets
+        ? calculatePublicationPackageDigest((candidate as PublicationPackage).targets!)
+        : "");
   return currentPackage.packageDigest !== candidateDigest;
 }
 

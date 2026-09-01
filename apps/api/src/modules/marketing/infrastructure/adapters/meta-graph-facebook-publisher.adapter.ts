@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import type {
   PublicationExecutionMode,
   SocialPlatform,
-} from "../../../domain/entities/marketing-campaign";
+} from "../../domain/entities/marketing-campaign";
 import {
   type FacebookPageVerificationResult,
   type FacebookPublishInput,

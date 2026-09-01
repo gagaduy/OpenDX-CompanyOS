@@ -24,6 +24,7 @@ import { generateFacebookVisualPng } from "../infrastructure/generators/facebook
 import { generateFacebookPublicationLogXlsx } from "../infrastructure/generators/facebook-publication-log-xlsx.generator";
 import { generateMarketingFinalReportPdf } from "../infrastructure/generators/marketing-final-report-pdf.generator";
 import type { FacebookPublisherPort } from "../application/ports/facebook-publisher.port";
+import { SocialPublisherRegistry } from "../application/services/implementations/social-publisher-registry";
 import { MarketingPublisherServiceImpl } from "../application/services/implementations/marketing-publisher.service";
 
 describe("Marketing Facebook Publication End-to-End Workflow Integration", () => {
@@ -228,16 +229,19 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       }),
     };
 
+    const registry = new SocialPublisherRegistry();
+    registry.register(mockFacebookAdapter as any);
+
     const publisherService = new MarketingPublisherServiceImpl({
       marketingRepository: mockRepo,
-      facebookPublisher: mockFacebookAdapter,
+      publisherRegistry: registry,
     });
 
     // Publish approved package
     const record = await publisherService.publishApprovedPackage({
       campaignId: campaign.id,
       packageId: pkg.id,
-      pageId: brief.facebookPageConfigurationId,
+      pageId: brief.facebookPageConfigurationId ?? undefined,
       pageAccessToken: "EAA..."
     });
 

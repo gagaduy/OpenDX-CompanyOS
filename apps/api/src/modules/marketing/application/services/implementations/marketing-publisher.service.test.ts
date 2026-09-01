@@ -3,13 +3,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketingPublisherServiceImpl } from "./marketing-publisher.service";
-import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
+import type {
+  ClaimDueTargetsInput,
+  MarketingRepository,
+  UpdateTargetStatusInput,
+} from "../../repositories/interfaces/marketing.repository";
 import {
-  FacebookPublisherError,
-  type FacebookPublisherPort,
-} from "../../ports/facebook-publisher.port";
-import {
-  type SocialPublicationReceipt,
   type SocialPublisherPort,
 } from "../../ports/social-publisher.port";
 import { SocialPublisherRegistry } from "./social-publisher-registry";
@@ -25,7 +24,6 @@ import type {
   PublicationPackageStatus,
   PublicationRecord,
   PublicationTarget,
-  PublicationTargetStatus,
   VisualAsset,
 } from "../../../domain/entities/marketing-campaign";
 import { calculatePublicationTargetDigest } from "../../../domain/services/marketing-publication-policy";
@@ -116,9 +114,11 @@ class MockMarketingRepository implements MarketingRepository {
     this.packages.set(id, updated);
     return updated;
   }
-  async createPublicationTarget(target: PublicationTarget): Promise<PublicationTarget> {
-    this.targets.set(target.id, target);
-    return target;
+  async createPublicationTargets(targets: readonly PublicationTarget[]): Promise<readonly PublicationTarget[]> {
+    for (const t of targets) {
+      this.targets.set(t.id, t);
+    }
+    return targets;
   }
   async findPublicationTargetById(id: string): Promise<PublicationTarget | null> {
     return this.targets.get(id) ?? null;
@@ -126,14 +126,14 @@ class MockMarketingRepository implements MarketingRepository {
   async findPublicationTargetsByPackageId(packageId: string): Promise<readonly PublicationTarget[]> {
     return [...this.targets.values()].filter((t) => t.packageId === packageId);
   }
-  async updatePublicationTargetStatus(id: string, status: PublicationTargetStatus): Promise<PublicationTarget> {
-    const t = this.targets.get(id);
+  async updatePublicationTargetStatus(input: UpdateTargetStatusInput): Promise<PublicationTarget> {
+    const t = this.targets.get(input.targetId);
     if (!t) throw new Error("Target not found");
-    const updated = { ...t, status, updatedAt: new Date().toISOString() };
-    this.targets.set(id, updated);
+    const updated = { ...t, status: input.status, updatedAt: new Date().toISOString() };
+    this.targets.set(input.targetId, updated);
     return updated;
   }
-  async claimDuePublicationTargets(options: { workerId: string; now: string; leaseSeconds: number; limit: number }): Promise<readonly PublicationTarget[]> {
+  async claimDuePublicationTargets(options: ClaimDueTargetsInput): Promise<readonly PublicationTarget[]> {
     const due = [...this.targets.values()]
       .filter((t) => (t.status === "approved" || t.status === "scheduled") && t.scheduledFor <= options.now)
       .slice(0, options.limit);
@@ -278,8 +278,6 @@ describe("MarketingPublisherService", () => {
       platform: "facebook",
       format: "feed_image",
       accountConfigurationId: "fb-page-1",
-      contentDigest: "c".repeat(64),
-      mediaDigest: "d".repeat(64),
       mediaAssetIds: [visualId],
       caption: "Discover next-gen mobile computing with NovaPhone 15.",
       scheduledFor: fixedNow,
@@ -290,8 +288,6 @@ describe("MarketingPublisherService", () => {
       platform: "instagram",
       format: "story_image",
       accountConfigurationId: "ig-acc-1",
-      contentDigest: "c".repeat(64),
-      mediaDigest: "d".repeat(64),
       mediaAssetIds: [visualId],
       caption: "Discover next-gen mobile computing with NovaPhone 15.",
       scheduledFor: fixedNow,

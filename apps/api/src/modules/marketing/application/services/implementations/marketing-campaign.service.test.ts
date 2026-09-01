@@ -12,6 +12,7 @@ import type {
   PublicationPackage,
   PublicationPackageStatus,
   PublicationRecord,
+  PublicationTarget,
   VisualAsset,
 } from "../../../domain/entities/marketing-campaign";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
@@ -130,6 +131,29 @@ class InMemoryMarketingRepository implements MarketingRepository {
       }
     }
     throw new Error("Not found");
+  }
+
+  async createPublicationTargets(targets: readonly PublicationTarget[]): Promise<readonly PublicationTarget[]> {
+    return targets;
+  }
+  async findPublicationTargetsByPackageId(): Promise<readonly PublicationTarget[]> {
+    return [];
+  }
+  async findPublicationTargetById(): Promise<PublicationTarget | null> {
+    return null;
+  }
+  async claimDuePublicationTargets(): Promise<readonly PublicationTarget[]> {
+    return [];
+  }
+  async updatePublicationTargetStatus(): Promise<PublicationTarget> {
+    throw new Error("Not implemented");
+  }
+  async releasePublicationTargetLease(): Promise<void> {}
+  async findPublicationAttemptsByTargetId(): Promise<readonly PublicationAttempt[]> {
+    return [];
+  }
+  async findPublicationRecordByTargetId(): Promise<PublicationRecord | null> {
+    return null;
   }
 
   async createPublicationAttempt(attempt: PublicationAttempt): Promise<PublicationAttempt> {

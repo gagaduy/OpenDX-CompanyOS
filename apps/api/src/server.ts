@@ -226,6 +226,7 @@ const marketingStorage = new MinioMarketingArtifactStorage(minio, environment.mi
 const marketing = createMarketingModule({
   database: pool,
   staffTokenVerifier,
+  publicationConfig: environment.marketing,
   assetStorageReader: (key) => marketingStorage.read(key),
   storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
   storageReader: (key) => marketingStorage.read(key),

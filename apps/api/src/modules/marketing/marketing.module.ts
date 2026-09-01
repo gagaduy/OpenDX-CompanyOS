@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { Router } from "express";
 import type { Pool } from "pg";
 import type { StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
+import type { MarketingPublicationConfiguration } from "../../shared/config/environment";
 import { PostgresqlMarketingRepository } from "./infrastructure/repositories/implementations/postgresql-marketing.repository";
 import { MarketingCampaignService } from "./application/services/implementations/marketing-campaign.service";
 import { MarketingController } from "./presentation/controllers/marketing.controller";
@@ -16,19 +17,28 @@ import { MarketingPublisherServiceImpl } from "./application/services/implementa
 import type { MarketingArtifactService } from "./application/services/interfaces/marketing-artifact-generator.service";
 import { MarketingArtifactServiceImpl } from "./application/services/implementations/marketing-artifact.service";
 import type { FacebookPublisherPort } from "./application/ports/facebook-publisher.port";
+import type { SocialPublisherPort } from "./application/ports/social-publisher.port";
+import { SocialPublisherRegistry } from "./application/services/implementations/social-publisher-registry";
 import { MetaGraphFacebookPublisherAdapter } from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
+import { MetaGraphInstagramPublisherAdapter } from "./infrastructure/adapters/meta-graph-instagram-publisher.adapter";
+import { FakeInstagramPublisherAdapter } from "./infrastructure/adapters/fake-instagram-publisher.adapter";
 import { MarketingPublisherWorker } from "./infrastructure/workers/marketing-publisher.worker";
 import { create1x1SquarePngBuffer } from "./infrastructure/generators/facebook-visual-png.generator";
 
 export interface MarketingModuleOptions {
   readonly database: Pool;
   readonly staffTokenVerifier: StaffTokenVerifier;
+  readonly publicationConfig?: MarketingPublicationConfiguration;
+  readonly publisherRegistry?: SocialPublisherRegistry;
   readonly facebookPublisher?: FacebookPublisherPort;
   readonly assetStorageReader?: (storageKey: string) => Promise<Buffer>;
   readonly storageWriter?: (key: string, buffer: Buffer, mediaType: string) => Promise<void>;
   readonly storageReader?: (key: string) => Promise<Buffer>;
   readonly generateId?: () => string;
   readonly now?: () => string;
+  readonly workerId?: string;
+  readonly pollIntervalMs?: number;
+  readonly targetLeaseSeconds?: number;
 }
 
 export interface MarketingModule {
@@ -38,6 +48,7 @@ export interface MarketingModule {
   readonly publisherWorker: MarketingPublisherWorker;
   readonly artifactService: MarketingArtifactService;
   readonly repository: MarketingRepository;
+  readonly publisherRegistry: SocialPublisherRegistry;
 }
 
 export function createMarketingModule(options: MarketingModuleOptions): MarketingModule {
@@ -156,24 +167,69 @@ Style & Composition:
           imageDigest: createHash("sha256").update(buffer).digest("hex"),
         };
       };
+
   const campaignService = new MarketingCampaignService({
     repository,
     ...(materializeVisualAsset === undefined ? {} : { materializeVisualAsset }),
     generateId: options.generateId,
     now: options.now,
   });
-  const facebookPublisher = options.facebookPublisher ?? new MetaGraphFacebookPublisherAdapter({ now: options.now });
+
+  const publisherRegistry = options.publisherRegistry ?? new SocialPublisherRegistry();
+  if (!options.publisherRegistry) {
+    if (options.facebookPublisher) {
+      if ("publish" in options.facebookPublisher) {
+        publisherRegistry.register(options.facebookPublisher as unknown as SocialPublisherPort);
+      } else {
+        publisherRegistry.register(new MetaGraphFacebookPublisherAdapter({
+          pageId: options.publicationConfig?.facebook?.pageId,
+          pageAccessToken: options.publicationConfig?.facebook?.pageAccessToken,
+          graphApiBaseUrl: options.publicationConfig?.meta?.graphBaseUrl,
+          requestTimeoutMs: options.publicationConfig?.meta?.requestTimeoutMs,
+          now: options.now,
+        }));
+      }
+    } else {
+      publisherRegistry.register(new MetaGraphFacebookPublisherAdapter({
+        pageId: options.publicationConfig?.facebook?.pageId,
+        pageAccessToken: options.publicationConfig?.facebook?.pageAccessToken,
+        graphApiBaseUrl: options.publicationConfig?.meta?.graphBaseUrl,
+        requestTimeoutMs: options.publicationConfig?.meta?.requestTimeoutMs,
+        now: options.now,
+      }));
+    }
+
+    if (options.publicationConfig?.instagram?.mode === "live") {
+      publisherRegistry.register(new MetaGraphInstagramPublisherAdapter({
+        businessAccountId: options.publicationConfig.instagram.businessAccountId,
+        accessToken: options.publicationConfig.instagram.accessToken,
+        publicMediaBaseUrl: options.publicationConfig.instagram.publicMediaBaseUrl,
+        graphApiBaseUrl: options.publicationConfig.meta.graphBaseUrl,
+        requestTimeoutMs: options.publicationConfig.meta.requestTimeoutMs,
+        now: options.now,
+      }));
+    } else {
+      publisherRegistry.register(new FakeInstagramPublisherAdapter(options.now));
+    }
+  }
+
   const publisherService = new MarketingPublisherServiceImpl({
     marketingRepository: repository,
-    facebookPublisher,
+    publisherRegistry,
     assetStorageReader: options.assetStorageReader,
     now: options.now,
     generateId: options.generateId,
+    defaultWorkerId: options.workerId,
+    leaseSeconds: options.targetLeaseSeconds ?? options.publicationConfig?.targetLeaseSeconds,
   });
+
   const publisherWorker = new MarketingPublisherWorker({
     publisherService,
     marketingRepository: repository,
+    workerId: options.workerId,
+    pollIntervalMs: options.pollIntervalMs ?? options.publicationConfig?.pollIntervalMs,
   });
+
   const artifactService = new MarketingArtifactServiceImpl({
     marketingRepository: repository,
     storageWriter: options.storageWriter,
@@ -181,6 +237,7 @@ Style & Composition:
     now: options.now,
     generateId: options.generateId,
   });
+
   const controller = new MarketingController(campaignService, artifactService, publisherService);
   const adminRouter = createMarketingAdminRouter({
     controller,
@@ -194,5 +251,6 @@ Style & Composition:
     publisherWorker,
     artifactService,
     repository,
+    publisherRegistry,
   };
 }

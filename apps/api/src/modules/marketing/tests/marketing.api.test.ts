@@ -424,6 +424,8 @@ describe("Marketing Admin API", () => {
       qualityFeedback: vi.fn(),
     };
     const mockPublisherService: MarketingPublisherService = {
+      publishTarget: vi.fn(),
+      publishDueTargets: vi.fn(),
       publishApprovedPackage: vi.fn().mockResolvedValue(publicationRecord),
     };
     const app = createTestApp(
@@ -483,6 +485,8 @@ describe("Marketing Admin API", () => {
       qualityFeedback: vi.fn(),
     };
     const mockPublisherService: MarketingPublisherService = {
+      publishTarget: vi.fn(),
+      publishDueTargets: vi.fn(),
       publishApprovedPackage: vi.fn(),
     };
     const app = createTestApp(mockService, undefined, ["agentic_approver"], "staff-approver-1", mockPublisherService);
@@ -508,6 +512,8 @@ describe("Marketing Admin API", () => {
       qualityFeedback: vi.fn(),
     };
     const mockPublisherService: MarketingPublisherService = {
+      publishTarget: vi.fn(),
+      publishDueTargets: vi.fn(),
       publishApprovedPackage: vi.fn(),
     };
     const app = createTestApp(mockService, undefined, ["agentic_operator"], "staff-operator-1", mockPublisherService);
@@ -556,6 +562,8 @@ describe("Marketing Admin API", () => {
       qualityFeedback: vi.fn(),
     };
     const mockPublisherService: MarketingPublisherService = {
+      publishTarget: vi.fn(),
+      publishDueTargets: vi.fn(),
       publishApprovedPackage: vi.fn().mockRejectedValue(
         new FacebookPublisherError("FACEBOOK_TOKEN_INVALID", "Facebook token is invalid", { retryable: false }),
       ),

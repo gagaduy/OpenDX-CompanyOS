@@ -40,7 +40,7 @@ export function generateCampaignBriefDocx(brief: CampaignBrief): {
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Mandatory Message: </w:t></w:r><w:r><w:t>${escapeXml(brief.mandatoryMessage)}</w:t></w:r></w:p>
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Prohibited Claims: </w:t></w:r><w:r><w:t>${escapeXml(prohibitedClaimsText)}</w:t></w:r></w:p>
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Call to Action: </w:t></w:r><w:r><w:t>${escapeXml(brief.callToAction)}</w:t></w:r></w:p>
-    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Facebook Page Configuration: </w:t></w:r><w:r><w:t>${escapeXml(brief.facebookPageConfigurationId)}</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Facebook Page Configuration: </w:t></w:r><w:r><w:t>${escapeXml(brief.facebookPageConfigurationId ?? "N/A")}</w:t></w:r></w:p>
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Scheduled For: </w:t></w:r><w:r><w:t>${escapeXml(brief.scheduledFor)}</w:t></w:r></w:p>
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Deadline: </w:t></w:r><w:r><w:t>${escapeXml(brief.deadline)}</w:t></w:r></w:p>
   </w:body>

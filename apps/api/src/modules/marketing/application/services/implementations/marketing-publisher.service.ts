@@ -2,23 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from "node:crypto";
-import type {
-  MarketingPublisherService,
-  PublishDueTargetsOptions,
-  PublishPackageRequest,
-} from "../interfaces/marketing-publisher.service";
+import type { MarketingPublisherService, PublishDueTargetsOptions } from "../interfaces/marketing-publisher.service";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
+import { FacebookPublisherError } from "../../ports/facebook-publisher.port";
 import {
-  FacebookPublisherError,
-  type FacebookPublisherPort,
-} from "../../ports/facebook-publisher.port";
-import {
-  SocialPublisherError,
+  type SocialPublicationReceipt,
   type SocialPublisherPort,
-  type SocialPublishMediaItem,
+  SocialPublisherError,
 } from "../../ports/social-publisher.port";
 import type { SocialPublisherRegistry } from "./social-publisher-registry";
 import type {
+  MarketingCampaignState,
   PublicationAttempt,
   PublicationRecord,
   PublicationTarget,
@@ -29,7 +23,7 @@ import {
   deriveAggregatePublicationStatus,
 } from "../../../domain/services/marketing-publication-policy";
 import { MarketingApplicationError } from "../../../presentation/middleware/marketing-error.middleware";
-import { canTransitionState } from "../../../domain/services/marketing-campaign-rules";
+import type { PublishPackageRequest } from "../interfaces/marketing-publisher.service";
 
 export interface MarketingPublisherServiceOptions {
   readonly marketingRepository: MarketingRepository;
@@ -63,9 +57,11 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
   async publishDueTargets(options?: PublishDueTargetsOptions): Promise<readonly PublicationRecord[]> {
     const workerId = options?.workerId ?? this.defaultWorkerId;
     const limit = options?.limit ?? 10;
+    const now = this.now();
+
     const claimedTargets = await this.marketingRepository.claimDuePublicationTargets({
       workerId,
-      now: this.now(),
+      now,
       leaseSeconds: this.leaseSeconds,
       limit,
     });
@@ -75,17 +71,22 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       try {
         const record = await this.publishTarget(target.id, workerId);
         records.push(record);
-      } catch (error) {
-        // Continue processing other claimed targets in the batch
+      } catch (err) {
+        console.error(`Failed to publish claimed target ${target.id}:`, err);
       }
     }
+
     return records;
   }
 
   async publishTarget(targetId: string, workerId?: string): Promise<PublicationRecord> {
     const target = await this.marketingRepository.findPublicationTargetById(targetId);
     if (!target) {
-      throw new MarketingApplicationError(404, "TARGET_NOT_FOUND", `Publication target ${targetId} not found`);
+      throw new MarketingApplicationError(
+        404,
+        "PUBLICATION_TARGET_NOT_FOUND",
+        `Publication target '${targetId}' was not found.`,
+      );
     }
 
     const pkg = await this.marketingRepository.findPublicationPackageById(target.packageId);
@@ -98,85 +99,94 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       throw MarketingApplicationError.campaignNotFound(pkg.campaignId);
     }
 
-    // 1. Idempotency: if already verified and recorded, return existing record
-    const existingRecord = await this.marketingRepository.findPublicationRecordByTargetId(targetId);
+    // 1. Idempotency Check: if target already has a publication record, return it
+    const existingRecord = await this.marketingRepository.findPublicationRecordByTargetId(target.id);
     if (existingRecord) {
+      if (workerId) {
+        await this.marketingRepository.releasePublicationTargetLease(target.id, workerId);
+      }
       return existingRecord;
     }
 
-    // 2. Digest invariance check
-    const content = await this.marketingRepository.findContentVersionById(target.contentVersionId);
-    if (!content) {
-      throw new MarketingApplicationError(404, "CONTENT_NOT_FOUND", `Content version ${target.contentVersionId} not found`);
+    // 2. Storage Check
+    if (!this.assetStorageReader) {
+      throw MarketingApplicationError.assetStorageUnavailable();
     }
 
-    const expectedTargetDigest = calculatePublicationTargetDigest({
+    // 3. Digest Validation
+    const computedTargetDigest = calculatePublicationTargetDigest({
       platform: target.platform,
       format: target.format,
       accountConfigurationId: target.accountConfigurationId,
-      contentDigest: target.contentDigest,
-      mediaDigest: target.mediaDigest,
       mediaAssetIds: target.mediaAssetIds,
       caption: target.caption,
       scheduledFor: target.scheduledFor,
       executionMode: target.executionMode,
     });
 
-    if (target.targetDigest !== expectedTargetDigest) {
+    if (computedTargetDigest !== target.targetDigest) {
       throw new MarketingApplicationError(
-        400,
+        409,
         "TARGET_DIGEST_MISMATCH",
-        `Target digest ${target.targetDigest} does not match expected canonical digest ${expectedTargetDigest}`,
+        `Publication target '${target.id}' digest mismatch. Expected ${target.targetDigest}, got ${computedTargetDigest}.`,
       );
     }
 
-    // 3. Asset storage check
-    if (!this.assetStorageReader) {
-      throw MarketingApplicationError.assetStorageUnavailable();
+    // 4. Resolve publisher adapter from registry
+    const publisher = this.publisherRegistry.resolve(target.platform, target.executionMode);
+    if (!publisher) {
+      throw new MarketingApplicationError(
+        500,
+        "PUBLISHER_ADAPTER_NOT_FOUND",
+        `No publisher adapter registered for platform '${target.platform}' in mode '${target.executionMode}'.`,
+      );
     }
 
-    // 4. Fetch media bytes
-    const mediaItems: SocialPublishMediaItem[] = [];
+    // 5. Load Visual Assets
+    const mediaItems: Array<{ id: string; bytes: Buffer; mimeType: "image/png"; fileName: string }> = [];
     for (const assetId of target.mediaAssetIds) {
       const asset = await this.marketingRepository.findVisualAssetById(assetId);
       if (!asset) {
-        throw new MarketingApplicationError(404, "VISUAL_ASSET_NOT_FOUND", `Visual asset ${assetId} not found`);
+        throw new MarketingApplicationError(
+          404,
+          "VISUAL_ASSET_NOT_FOUND",
+          `Visual asset '${assetId}' required by target '${target.id}' was not found.`,
+        );
       }
       const bytes = await this.assetStorageReader(asset.storageKey);
       mediaItems.push({
         id: asset.id,
         bytes,
-        mimeType: "image/png",
-        fileName: `asset_${asset.id}.png`,
+        mimeType: asset.mediaType,
+        fileName: `${asset.id}.png`,
       });
     }
 
-    // 5. Create attempt
+    // 6. Record Publication Attempt (started)
     const attemptId = this.generateId();
     const attempt: PublicationAttempt = {
       id: attemptId,
       packageId: target.packageId,
       targetId: target.id,
-      attemptKey: this.generateId(),
+      attemptKey: `target:${target.id}:${attemptId}`,
       platform: target.platform,
       pageConfigurationId: target.accountConfigurationId,
       executionMode: target.executionMode,
-      simulated: target.executionMode === "simulation",
       status: "started",
+      errorCode: null,
+      errorClass: null,
+      responseDigest: null,
       startedAt: this.now(),
+      finishedAt: null,
     };
     await this.marketingRepository.createPublicationAttempt(attempt);
+    await this.marketingRepository.updatePublicationTargetStatus({
+      targetId: target.id,
+      status: "publishing",
+    });
 
-    // 6. Update target and campaign to publishing
-    await this.marketingRepository.updatePublicationTargetStatus(target.id, "publishing");
-    if (campaign.state !== "publishing" && canTransitionState(campaign.state, "publishing")) {
-      await this.marketingRepository.updateCampaignState(campaign.id, campaign.version, "publishing");
-    }
-
-    // 7. Resolve publisher adapter
-    const publisher = this.publisherRegistry.resolve(target.platform, target.executionMode);
-
-    let receipt;
+    // 7. Execute publication via adapter
+    let receipt: SocialPublicationReceipt;
     try {
       receipt = await publisher.publish({
         target,
@@ -206,7 +216,10 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
         null,
       );
 
-      await this.marketingRepository.updatePublicationTargetStatus(target.id, targetFailedStatus);
+      await this.marketingRepository.updatePublicationTargetStatus({
+        targetId: target.id,
+        status: targetFailedStatus,
+      });
       if (workerId) {
         await this.marketingRepository.releasePublicationTargetLease(target.id, workerId);
       }
@@ -247,7 +260,10 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
     };
 
     await this.marketingRepository.createPublicationRecord(record);
-    await this.marketingRepository.updatePublicationTargetStatus(target.id, "verified");
+    await this.marketingRepository.updatePublicationTargetStatus({
+      targetId: target.id,
+      status: "verified",
+    });
 
     if (workerId) {
       await this.marketingRepository.releasePublicationTargetLease(target.id, workerId);
@@ -301,7 +317,7 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
         createdAt: this.now(),
         updatedAt: this.now(),
       };
-      await this.marketingRepository.createPublicationTarget(legacyTarget);
+      await this.marketingRepository.createPublicationTargets([legacyTarget]);
       targets = [legacyTarget];
     }
 
@@ -315,42 +331,31 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
   }
 
   private async synchronizeCampaignState(campaignId: string): Promise<void> {
-    const latestCampaign = await this.marketingRepository.findCampaignById(campaignId);
-    if (!latestCampaign) return;
+    const campaign = await this.marketingRepository.findCampaignById(campaignId);
+    if (!campaign) return;
 
-    const pkg = await this.marketingRepository.findCurrentPackageByCampaignId(campaignId);
-    if (!pkg) return;
+    const packages = await this.marketingRepository.findPublicationPackagesByCampaignId(campaignId);
+    const currentPackage = packages[packages.length - 1];
+    if (!currentPackage) return;
 
-    const targets = await this.marketingRepository.findPublicationTargetsByPackageId(pkg.id);
+    const targets = await this.marketingRepository.findPublicationTargetsByPackageId(currentPackage.id);
     if (targets.length === 0) return;
 
     const aggregate = deriveAggregatePublicationStatus(targets);
 
-    let currentVersion = latestCampaign.version;
-    let currentState = latestCampaign.state;
-
+    let nextState: MarketingCampaignState = campaign.state;
     if (aggregate === "verified") {
-      if (canTransitionState(currentState, "verifying_publication")) {
-        const step1 = await this.marketingRepository.updateCampaignState(latestCampaign.id, currentVersion, "verifying_publication");
-        currentState = step1.state;
-        currentVersion = step1.version;
-      }
-      if (canTransitionState(currentState, "reporting")) {
-        const step2 = await this.marketingRepository.updateCampaignState(latestCampaign.id, currentVersion, "reporting");
-        currentState = step2.state;
-        currentVersion = step2.version;
-      }
-      if (canTransitionState(currentState, "completed")) {
-        await this.marketingRepository.updateCampaignState(latestCampaign.id, currentVersion, "completed");
-      }
+      nextState = "completed";
     } else if (aggregate === "partial_failure") {
-      if (canTransitionState(currentState, "partial_failure")) {
-        await this.marketingRepository.updateCampaignState(latestCampaign.id, currentVersion, "partial_failure");
-      }
+      nextState = "partial_failure";
     } else if (aggregate === "failed") {
-      if (canTransitionState(currentState, "failed")) {
-        await this.marketingRepository.updateCampaignState(latestCampaign.id, currentVersion, "failed");
-      }
+      nextState = "failed";
+    } else if (aggregate === "publishing") {
+      nextState = "publishing";
+    }
+
+    if (nextState !== campaign.state) {
+      await this.marketingRepository.updateCampaignState(campaign.id, campaign.version, nextState);
     }
   }
 }
