@@ -17,6 +17,7 @@ import { ApplicationError } from "../../../../shared/http/application-error";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { MarketingApplicationError } from "../middleware/marketing-error.middleware";
 import { FacebookPublisherError } from "../../application/ports/facebook-publisher.port";
+import { SocialPublisherError } from "../../application/ports/social-publisher.port";
 
 function getParam(val: unknown): string {
   if (Array.isArray(val)) return String(val[0] ?? "");
@@ -223,8 +224,15 @@ export class MarketingController {
         throw MarketingApplicationError.facebookCredentialsUnavailable();
       }
 
-      const record = await this.publisherService.publishTarget(targetId);
-      res.status(200).json(record);
+      try {
+        const record = await this.publisherService.publishTarget(targetId);
+        res.status(200).json(record);
+      } catch (error) {
+        if (error instanceof FacebookPublisherError || error instanceof SocialPublisherError) {
+          throw new MarketingApplicationError(502, error.code, error.message);
+        }
+        throw error;
+      }
     } catch (error) {
       next(error);
     }

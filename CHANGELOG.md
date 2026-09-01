@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Fix 500 error in marketing campaign creation and revision workflow by adding `assignmentMode` fallback, resolving duplicate publication target insertion with `ON CONFLICT` idempotency, handling `ZodError` as 400 validation responses, and preprocessing flat subject fields.
+- Map `FacebookPublisherError` and `SocialPublisherError` in target retry controller to prevent unhandled 500 responses when Meta Graph API returns upstream errors.
 
 ### Added
 
