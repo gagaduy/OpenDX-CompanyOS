@@ -139,7 +139,16 @@ describe("parseApiEnvironment", () => {
     "https://10.0.0.1/v1/public/marketing/media",
     "https://172.16.0.1/v1/public/marketing/media",
     "https://192.168.1.1/v1/public/marketing/media",
+    "https://0.0.0.0/v1/public/marketing/media",
+    "https://100.64.0.1/v1/public/marketing/media",
+    "https://192.0.2.1/v1/public/marketing/media",
+    "https://198.51.100.1/v1/public/marketing/media",
+    "https://203.0.113.1/v1/public/marketing/media",
+    "https://224.0.0.1/v1/public/marketing/media",
+    "https://255.255.255.255/v1/public/marketing/media",
     "https://[::1]/v1/public/marketing/media",
+    "https://[2001:db8::1]/v1/public/marketing/media",
+    "https://[ff02::1]/v1/public/marketing/media",
     "https://media.novacommerce.local/v1/public/marketing/media",
   ])("rejects non-public media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
     expect(() =>

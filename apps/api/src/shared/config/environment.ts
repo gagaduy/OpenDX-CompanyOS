@@ -42,6 +42,56 @@ function isReservedDocumentationHostname(hostname: string): boolean {
   );
 }
 
+function parseIpv4Literal(hostname: string): number | undefined {
+  const octets = hostname.split(".").map(Number);
+  if (
+    octets.length !== 4 ||
+    !octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
+  ) {
+    return undefined;
+  }
+
+  return octets.reduce((address, octet) => ((address << 8) | octet) >>> 0, 0);
+}
+
+function isIpv4InCidr(address: number, network: string, prefixLength: number): boolean {
+  const networkAddress = parseIpv4Literal(network);
+  if (networkAddress === undefined) return false;
+  const mask = prefixLength === 0 ? 0 : (0xffff_ffff << (32 - prefixLength)) >>> 0;
+  return (address & mask) >>> 0 === (networkAddress & mask) >>> 0;
+}
+
+function parseIpv6Literal(hostname: string): bigint | undefined {
+  if (hostname.includes(".")) return undefined;
+  const halves = hostname.split("::");
+  if (halves.length > 2) return undefined;
+
+  const left = halves[0] === "" ? [] : halves[0]!.split(":");
+  const right = halves.length === 1 || halves[1] === "" ? [] : halves[1]!.split(":");
+  const missingSegmentCount = 8 - left.length - right.length;
+  if (
+    (halves.length === 1 && missingSegmentCount !== 0) ||
+    (halves.length === 2 && missingSegmentCount < 1)
+  ) {
+    return undefined;
+  }
+
+  const segments = [...left, ...Array<string>(missingSegmentCount).fill("0"), ...right];
+  if (segments.some((segment) => !/^[a-f0-9]{1,4}$/i.test(segment))) return undefined;
+
+  return segments.reduce(
+    (address, segment) => (address << 16n) | BigInt(Number.parseInt(segment, 16)),
+    0n,
+  );
+}
+
+function isIpv6InCidr(address: bigint, network: string, prefixLength: number): boolean {
+  const networkAddress = parseIpv6Literal(network);
+  if (networkAddress === undefined) return false;
+  const shift = BigInt(128 - prefixLength);
+  return address >> shift === networkAddress >> shift;
+}
+
 function isPublicMediaHostname(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (
@@ -53,31 +103,52 @@ function isPublicMediaHostname(hostname: string): boolean {
     return false;
   }
 
-  const ipv4Octets = normalizedHostname.split(".").map(Number);
-  if (
-    ipv4Octets.length === 4 &&
-    ipv4Octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
-  ) {
-    const [first, second] = ipv4Octets as [number, number, number, number];
-    return !(
-      first === 10 ||
-      first === 127 ||
-      (first === 169 && second === 254) ||
-      (first === 172 && second >= 16 && second <= 31) ||
-      (first === 192 && second === 168)
+  const ipv4Address = parseIpv4Literal(normalizedHostname);
+  if (ipv4Address !== undefined) {
+    const nonPublicRanges = [
+      ["0.0.0.0", 8],
+      ["10.0.0.0", 8],
+      ["100.64.0.0", 10],
+      ["127.0.0.0", 8],
+      ["169.254.0.0", 16],
+      ["172.16.0.0", 12],
+      ["192.0.0.0", 24],
+      ["192.0.2.0", 24],
+      ["192.88.99.0", 24],
+      ["192.168.0.0", 16],
+      ["198.18.0.0", 15],
+      ["198.51.100.0", 24],
+      ["203.0.113.0", 24],
+      ["224.0.0.0", 4],
+      ["240.0.0.0", 4],
+    ] as const;
+    return !nonPublicRanges.some(([network, prefixLength]) =>
+      isIpv4InCidr(ipv4Address, network, prefixLength),
     );
   }
 
   if (normalizedHostname.includes(":")) {
-    const firstSegment = normalizedHostname.split(":", 1)[0] ?? "";
-    const firstSegmentValue = Number.parseInt(firstSegment, 16);
-    return !(
-      normalizedHostname === "::" ||
-      normalizedHostname === "::1" ||
-      normalizedHostname.startsWith("::ffff:") ||
-      normalizedHostname.startsWith("fc") ||
-      normalizedHostname.startsWith("fd") ||
-      (Number.isFinite(firstSegmentValue) && (firstSegmentValue & 0xffc0) === 0xfe80)
+    const ipv6Address = parseIpv6Literal(normalizedHostname);
+    if (ipv6Address === undefined) return false;
+    const nonPublicRanges = [
+      ["::", 128],
+      ["::1", 128],
+      ["::ffff:0:0", 96],
+      ["64:ff9b::", 96],
+      ["64:ff9b:1::", 48],
+      ["100::", 64],
+      ["2001::", 23],
+      ["2001:db8::", 32],
+      ["2002::", 16],
+      ["3fff::", 20],
+      ["5f00::", 16],
+      ["fc00::", 7],
+      ["fe80::", 10],
+      ["fec0::", 10],
+      ["ff00::", 8],
+    ] as const;
+    return !nonPublicRanges.some(([network, prefixLength]) =>
+      isIpv6InCidr(ipv6Address, network, prefixLength),
     );
   }
 
