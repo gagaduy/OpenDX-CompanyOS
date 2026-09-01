@@ -176,7 +176,7 @@ export class MarketingController {
 
       const detail = await this.service.getCampaign(campaignId);
       const pkg = detail.currentPackage;
-      if (detail.campaign.state !== "failed" || !pkg || pkg.status !== "approved" || detail.publicationRecord) {
+      if ((detail.campaign.state !== "failed" && detail.campaign.state !== "partial_failure") || !pkg || pkg.status !== "approved") {
         throw MarketingApplicationError.publicationRetryNotAllowed();
       }
 
@@ -203,6 +203,28 @@ export class MarketingController {
         throw error;
       }
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  retryTargetPublication = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const targetId = getParam(req.params.targetId);
+      if (!targetId) {
+        throw new ApplicationError(400, "INVALID_TARGET_ID", "Target ID is required.");
+      }
+      if (!this.publisherService) {
+        throw MarketingApplicationError.facebookCredentialsUnavailable();
+      }
+
+      const record = await this.publisherService.publishTarget(targetId);
+      res.status(200).json(record);
     } catch (error) {
       next(error);
     }

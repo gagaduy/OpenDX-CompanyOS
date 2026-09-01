@@ -579,6 +579,47 @@ describe("Marketing Admin API", () => {
     expect(response.body.message).toBe("Facebook token is invalid");
   });
 
+  it("POST /campaigns/:campaignId/targets/:targetId/retry retries specific target", async () => {
+    const targetPublicationRecord: PublicationRecord = {
+      id: "00000000-0000-4000-8000-000000000020",
+      packageId: "00000000-0000-4000-8000-000000000010",
+      targetId: "target-123",
+      platform: "facebook",
+      pageId: "fb-page-1",
+      externalPostId: "fb-page-1_123",
+      postUrl: "https://www.facebook.com/fb-page-1/posts/123",
+      packageDigest: "e".repeat(64),
+      contentDigest: "c".repeat(64),
+      imageDigest: "d".repeat(64),
+      verifiedAt: "2026-08-29T10:01:00.000Z",
+      providerReceiptDigest: "f".repeat(64),
+      createdAt: "2026-08-29T10:01:00.000Z",
+    };
+    const mockService: IMarketingCampaignService = {
+      createCampaign: vi.fn(),
+      getCampaign: vi.fn(),
+      listCampaigns: vi.fn(),
+      markReady: vi.fn(),
+      cancelCampaign: vi.fn(),
+      approveCampaign: vi.fn(),
+      requestRevision: vi.fn(),
+      qualityFeedback: vi.fn(),
+    };
+    const mockPublisherService: MarketingPublisherService = {
+      publishTarget: vi.fn().mockResolvedValue(targetPublicationRecord),
+      publishDueTargets: vi.fn(),
+      publishApprovedPackage: vi.fn(),
+    };
+    const app = createTestApp(mockService, undefined, ["agentic_approver"], "staff-approver-1", mockPublisherService);
+
+    const response = await request(app)
+      .post(`/v1/admin/marketing/campaigns/${sampleCampaignDto.id}/targets/target-123/retry`)
+      .set("Authorization", "Bearer valid-token");
+
+    expect(response.status).toBe(200);
+    expect(mockPublisherService.publishTarget).toHaveBeenCalledWith("target-123");
+  });
+
   it("POST /campaigns/:campaignId/request-revision allows operator to request revision", async () => {
     const revisionDto = { ...sampleCampaignDto, state: "revision_requested" as const, version: 2 };
     const mockService: IMarketingCampaignService = {
