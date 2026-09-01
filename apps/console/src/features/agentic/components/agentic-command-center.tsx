@@ -66,6 +66,7 @@ export function AgenticCommandCenter({
   tasks,
   onTaskCreated,
 }: AgenticCommandCenterProps) {
+  const { signIn } = useAuth();
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"hub" | "orchestration" | "workforce">("hub");
@@ -1234,7 +1235,7 @@ export function AgenticCommandCenter({
             {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
               <button
                 type="button"
-                onClick={() => signIn()}
+                onClick={() => void signIn()}
                 style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
               >
                 Đăng nhập lại
