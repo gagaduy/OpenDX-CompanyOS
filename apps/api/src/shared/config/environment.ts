@@ -22,6 +22,10 @@ const optionalProductionConfirmation = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.string().trim().optional(),
 );
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.url().optional(),
+);
 const forbiddenExampleHostnames = new Set([
   "shop.example.com",
   "console.example.com",
@@ -108,14 +112,14 @@ const apiEnvironmentSchema = z
       z.number().int().min(5).max(300),
     ),
     SEPAY_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
-    SEPAY_CHECKOUT_URL: z.url().optional(),
-    SEPAY_API_BASE_URL: z.url().optional(),
+    SEPAY_CHECKOUT_URL: optionalUrl,
+    SEPAY_API_BASE_URL: optionalUrl,
     SEPAY_MERCHANT_ID: optionalSecret,
     SEPAY_SECRET_KEY: optionalSecret,
     SEPAY_IPN_SECRET: optionalSecret,
-    SEPAY_SUCCESS_URL: z.url().optional(),
-    SEPAY_ERROR_URL: z.url().optional(),
-    SEPAY_CANCEL_URL: z.url().optional(),
+    SEPAY_SUCCESS_URL: optionalUrl,
+    SEPAY_ERROR_URL: optionalUrl,
+    SEPAY_CANCEL_URL: optionalUrl,
     SEPAY_REQUEST_TIMEOUT_MS: positiveInteger.default(5000).pipe(
       z.number().int().min(500).max(30_000),
     ),
@@ -144,7 +148,7 @@ const apiEnvironmentSchema = z
       .default("instagram-local-simulation"),
     INSTAGRAM_BUSINESS_ACCOUNT_ID: optionalSecret,
     INSTAGRAM_ACCESS_TOKEN: optionalSecret,
-    INSTAGRAM_PUBLIC_MEDIA_BASE_URL: z.url().optional(),
+    INSTAGRAM_PUBLIC_MEDIA_BASE_URL: optionalUrl,
     LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
