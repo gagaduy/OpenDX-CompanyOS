@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Refactor Marketing publisher service to execute claimed publication targets independently with deterministic aggregate status derivation.
 - Introduce SocialPublisherPort, SocialPublisherRegistry, Facebook adapter wrapper, and truthful Instagram simulator.
 - Parse typed, fail-closed Marketing publication configuration with Facebook and Instagram simulation/live support.
 - Persist governed Marketing publication targets with forward/downward migration lifecycle, backfill for existing Facebook packages, and target-level leased claims.

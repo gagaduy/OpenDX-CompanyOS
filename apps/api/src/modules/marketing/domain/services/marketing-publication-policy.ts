@@ -15,10 +15,9 @@ export interface PlatformCapability {
   readonly platform: SocialPlatform;
   readonly format: PublicationFormat;
   readonly enabled: boolean;
-  readonly supportedModes: readonly PublicationExecutionMode[];
-  readonly maxMediaCount: number;
+  readonly supportedAspectRatios: readonly string[];
   readonly minMediaCount: number;
-  readonly allowedAspectRatios: readonly string[];
+  readonly maxMediaCount: number;
 }
 
 export const PLATFORM_CAPABILITIES: readonly PlatformCapability[] = [
@@ -26,75 +25,99 @@ export const PLATFORM_CAPABILITIES: readonly PlatformCapability[] = [
     platform: "facebook",
     format: "feed_image",
     enabled: true,
-    supportedModes: ["live", "simulation"],
+    supportedAspectRatios: ["1:1"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["1:1"],
   },
   {
-    platform: "instagram",
-    format: "feed_image",
-    enabled: true,
-    supportedModes: ["simulation", "live"],
-    minMediaCount: 1,
-    maxMediaCount: 1,
-    allowedAspectRatios: ["1:1"],
-  },
-  {
-    platform: "instagram",
+    platform: "facebook",
     format: "story_image",
-    enabled: true,
-    supportedModes: ["simulation", "live"],
+    enabled: false,
+    supportedAspectRatios: ["9:16"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["9:16"],
   },
   {
-    platform: "instagram",
+    platform: "facebook",
     format: "image_carousel",
-    enabled: true,
-    supportedModes: ["simulation", "live"],
+    enabled: false,
+    supportedAspectRatios: ["1:1"],
     minMediaCount: 2,
     maxMediaCount: 10,
-    allowedAspectRatios: ["1:1"],
   },
   {
     platform: "facebook",
     format: "feed_video",
     enabled: false,
-    supportedModes: [],
+    supportedAspectRatios: ["1:1", "16:9"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["1:1", "16:9"],
+  },
+  {
+    platform: "facebook",
+    format: "story_video",
+    enabled: false,
+    supportedAspectRatios: ["9:16"],
+    minMediaCount: 1,
+    maxMediaCount: 1,
+  },
+  {
+    platform: "facebook",
+    format: "reel_video",
+    enabled: false,
+    supportedAspectRatios: ["9:16"],
+    minMediaCount: 1,
+    maxMediaCount: 1,
+  },
+  {
+    platform: "instagram",
+    format: "feed_image",
+    enabled: true,
+    supportedAspectRatios: ["1:1"],
+    minMediaCount: 1,
+    maxMediaCount: 1,
+  },
+  {
+    platform: "instagram",
+    format: "story_image",
+    enabled: true,
+    supportedAspectRatios: ["9:16"],
+    minMediaCount: 1,
+    maxMediaCount: 1,
+  },
+  {
+    platform: "instagram",
+    format: "image_carousel",
+    enabled: true,
+    supportedAspectRatios: ["1:1"],
+    minMediaCount: 2,
+    maxMediaCount: 10,
   },
   {
     platform: "instagram",
     format: "feed_video",
     enabled: false,
-    supportedModes: [],
+    supportedAspectRatios: ["1:1", "16:9"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["1:1", "4:5"],
   },
   {
     platform: "instagram",
     format: "story_video",
     enabled: false,
-    supportedModes: [],
+    supportedAspectRatios: ["9:16"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["9:16"],
   },
   {
     platform: "instagram",
     format: "reel_video",
     enabled: false,
-    supportedModes: [],
+    supportedAspectRatios: ["9:16"],
     minMediaCount: 1,
     maxMediaCount: 1,
-    allowedAspectRatios: ["9:16"],
   },
-] as const;
+];
 
 export function getPlatformCapabilities(): readonly PlatformCapability[] {
   return PLATFORM_CAPABILITIES;
@@ -160,19 +183,27 @@ export function calculatePublicationTargetDigest(target: {
 }
 
 export function calculatePublicationPackageDigest(
-  targets: readonly (PublicationTarget | { readonly targetDigest: string })[],
+  targets: readonly PublicationTarget[],
 ): string {
-  const targetDigests = targets.map((t) => t.targetDigest);
+  const sortedTargetDigests = targets
+    .map((t) => t.targetDigest)
+    .sort();
   return createHash("sha256")
-    .update(canonicalJson(targetDigests))
+    .update(canonicalJson(sortedTargetDigests))
     .digest("hex");
 }
 
 export function isApprovalInvalidatedByPackageChange(
-  approved: PublicationPackage | { readonly packageDigest: string },
-  revised: PublicationPackage | { readonly packageDigest: string },
+  currentPackage: PublicationPackage,
+  candidate: PublicationPackage | readonly PublicationTarget[],
 ): boolean {
-  return approved.packageDigest !== revised.packageDigest;
+  if (currentPackage.status !== "approved" && currentPackage.status !== "submitted_for_approval") {
+    return false;
+  }
+  const candidateDigest = Array.isArray(candidate)
+    ? calculatePublicationPackageDigest(candidate)
+    : candidate.packageDigest ?? (candidate.targets ? calculatePublicationPackageDigest(candidate.targets) : "");
+  return currentPackage.packageDigest !== candidateDigest;
 }
 
 export type AggregatePublicationStatus =
@@ -192,46 +223,54 @@ export function deriveAggregatePublicationStatus(
     return "pending_approval";
   }
 
-  const requiredTargets = targets.filter((t) => t.required);
-  const evaluatedTargets = requiredTargets.length > 0 ? requiredTargets : targets;
+  const allStatuses = targets.map((t) => t.status);
 
-  const statuses = evaluatedTargets.map((t) => t.status);
-
-  if (statuses.includes("publishing") || statuses.includes("claimed")) {
+  // If any target is still executing, the aggregate is publishing
+  if (allStatuses.includes("publishing") || allStatuses.includes("claimed")) {
     return "publishing";
   }
 
-  if (statuses.includes("publication_unknown")) {
+  if (allStatuses.includes("publication_unknown")) {
     return "publication_unknown";
   }
 
-  const verifiedCount = statuses.filter((s) => s === "verified").length;
-  const failedCount = statuses.filter(
+  const verifiedCount = allStatuses.filter((s) => s === "verified").length;
+  const failedCount = allStatuses.filter(
     (s) => s === "failed" || s === "platform_rejected",
   ).length;
 
-  if (verifiedCount === evaluatedTargets.length) {
+  if (verifiedCount === targets.length) {
     return "verified";
   }
 
-  if (failedCount === evaluatedTargets.length) {
+  const requiredTargets = targets.filter((t) => t.required);
+  const requiredFailedCount = requiredTargets.filter(
+    (t) => t.status === "failed" || t.status === "platform_rejected",
+  ).length;
+
+  if (requiredTargets.length > 0 && requiredFailedCount === requiredTargets.length) {
     return "failed";
   }
 
-  if (verifiedCount > 0 && failedCount > 0) {
+  if (failedCount === targets.length) {
+    return "failed";
+  }
+
+  if (failedCount > 0) {
     return "partial_failure";
   }
 
-  if (statuses.every((s) => s === "scheduled")) {
+  if (allStatuses.every((s) => s === "scheduled")) {
     return "scheduled";
   }
 
-  if (statuses.every((s) => s === "approved")) {
+  if (allStatuses.every((s) => s === "approved")) {
     return "approved";
   }
 
-  if (statuses.some((s) => s === "failed" || s === "platform_rejected")) {
-    return "partial_failure";
+  // If some targets are verified and others are still scheduled/approved
+  if (verifiedCount > 0 && allStatuses.some((s) => s === "scheduled" || s === "approved")) {
+    return "publishing";
   }
 
   return "pending_approval";
