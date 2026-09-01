@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
+- Approve development-only live Instagram image publication through a
+  Cloudflare Quick Tunnel, with private deterministic JPEG variants, signed
+  expiring media delivery, typed fail-closed configuration, and no public
+  MinIO access.
+
 - Approve a credential-free, provider-ready Instagram image-publication
   extension for governed Marketing campaigns, with Feed, Story, carousel,
   multi-target approval, target-level retry, truthful local simulation, and
