@@ -41,6 +41,7 @@ import type { CatalogApi, MerchandisingProposal } from "../../catalog/api/catalo
 import type { InventoryApi } from "../../inventory/api/inventory-api";
 import type { SupportOperationsApi } from "../../support/api/support-api";
 import type { AiSupportProposalView } from "../../support/types/support.types";
+import { useAuth } from "../../authentication/hooks/auth-context";
 import { ExecutiveReport } from "./executive-report";
 import "../styles/agentic-command-center.css";
 
@@ -278,7 +279,6 @@ export function AgenticCommandCenter({
 
   const isRunning = activeWorkflowKind === "marketing" ? isMarketingRunning : isOrchestrationRunning;
 
-  // Timer effect
   useEffect(() => {
     if (!isRunning) return;
     const interval = setInterval(() => {
@@ -291,32 +291,37 @@ export function AgenticCommandCenter({
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
     const lower = text.toLowerCase();
 
-    // 1. Check Customer Support & CRM keywords FIRST
-    const supportKeywords = [
-      "cskh",
-      "khách hàng",
-      "khiếu nại",
-      "ticket",
-      "chăm sóc",
-      "phản hồi",
-      "hỗ trợ",
-      "vip",
-      "crm",
-      "đổi trả",
-      "bảo hành",
-      "tư vấn",
-      "sự cố",
-      "hài lòng",
-      "csat",
-      "churn",
+    // 1. Explicit Department Priority Check: Marketing & Media
+    const marketingKeywords = [
+      "phòng marketing",
+      "marketing",
+      "tiếp thị",
+      "quảng bá",
+      "quảng cáo",
+      "truyền thông",
+      "bài viết",
+      "đăng bài",
+      "facebook",
+      "instagram",
+      "fanpage",
+      "poster",
+      "mạng xã hội",
+      "chiến dịch",
+      "content",
+      "visual",
+      "bộ sưu tập",
+      "bst",
+      "hashtag",
+      "social",
     ];
-    if (supportKeywords.some((kw) => lower.includes(kw))) {
-      return "support";
+    if (marketingKeywords.some((kw) => lower.includes(kw))) {
+      return "marketing";
     }
 
-    // 2. Check Operations / Inventory keywords
+    // 2. Explicit Department Priority Check: Operations & Inventory
     const operationsKeywords = [
-      "kho",
+      "phòng vận hành",
+      "phòng kho",
       "tồn kho",
       "nhập kho",
       "kiểm kho",
@@ -324,54 +329,31 @@ export function AgenticCommandCenter({
       "bổ sung kho",
       "hết hàng",
       "thiếu hàng",
-      "an toàn",
       "safety stock",
       "restock",
       "inventory",
-      "vận hành",
       "chuỗi cung ứng",
       "logistics",
       "ngân sách nhập",
       "nhập thêm",
-      "linh kiện",
-      "phụ kiện",
     ];
     if (operationsKeywords.some((kw) => lower.includes(kw))) {
       return "operations";
     }
 
-    // 3. Check Facebook / Marketing keywords
-    const facebookKeywords = ["đăng bài", "facebook", "fanpage", "poster", "mạng xã hội", "quảng cáo"];
-    if (facebookKeywords.some((kw) => lower.includes(kw))) {
-      return "marketing";
-    }
-
-    // 4. Check Merchandising / Catalog & Pricing keywords
+    // 3. Merchandising / Catalog & Pricing keywords
     const merchandisingKeywords = [
-      "giá",
-      "giảm giá",
+      "phòng thương mại",
+      "phòng catalog",
       "định giá",
       "flash sale",
+      "giảm giá",
       "khuyến mãi",
       "tối ưu sản phẩm",
       "mô tả sản phẩm",
       "chuẩn seo",
       "tiêu đề sản phẩm",
       "danh mục",
-      "storefront",
-      "cửa hàng",
-      "laptop",
-      "phone",
-      "điện thoại",
-      "tai nghe",
-      "chuột",
-      "bàn phím",
-      "đồng hồ",
-      "smart watch",
-      "tablet",
-      "card đồ họa",
-      "ổ cứng",
-      "ssd",
       "pricing",
       "catalog",
       "merchandising",
@@ -380,18 +362,23 @@ export function AgenticCommandCenter({
       return "merchandising";
     }
 
-    const marketingKeywords = [
-      "tiếp thị",
-      "quảng bá",
-      "bài viết",
-      "sáng tạo",
-      "hình ảnh",
-      "chiến dịch",
-      "content",
-      "visual",
+    // 4. Customer Support & CRM keywords (Specific phrases only)
+    const supportKeywords = [
+      "cskh",
+      "chăm sóc khách hàng",
+      "khiếu nại",
+      "ticket",
+      "phản hồi ticket",
+      "hỗ trợ khách hàng",
+      "đổi trả",
+      "bảo hành",
+      "tư vấn viên",
+      "sự cố kỹ thuật",
+      "csat",
+      "churn",
     ];
-    if (marketingKeywords.some((kw) => lower.includes(kw))) {
-      return "marketing";
+    if (supportKeywords.some((kw) => lower.includes(kw))) {
+      return "support";
     }
 
     return "orchestration";
@@ -1239,9 +1226,20 @@ export function AgenticCommandCenter({
         <h1 className="ccStrategicTitle">Giao việc chiến lược</h1>
 
         {errorMessage && (
-          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-            <AlertTriangle size={16} />
-            <span>{errorMessage}</span>
+          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <AlertTriangle size={16} />
+              <span>{errorMessage === "Authentication required" ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." : errorMessage}</span>
+            </div>
+            {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
+              <button
+                type="button"
+                onClick={() => signIn()}
+                style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
+              >
+                Đăng nhập lại
+              </button>
+            )}
           </div>
         )}
 
