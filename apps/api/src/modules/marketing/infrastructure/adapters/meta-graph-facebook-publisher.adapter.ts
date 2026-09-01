@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from "node:crypto";
+import type {
+  PublicationExecutionMode,
+  SocialPlatform,
+} from "../../../domain/entities/marketing-campaign";
 import {
   type FacebookPageVerificationResult,
   type FacebookPublishInput,
@@ -9,8 +13,17 @@ import {
   FacebookPublisherError,
   type FacebookPublisherPort,
 } from "../../application/ports/facebook-publisher.port";
+import {
+  type SocialPublicationReceipt,
+  type SocialPublisherPort,
+  type SocialPublishRequest,
+  type SocialReconciliationRequest,
+  type SocialReconciliationResult,
+} from "../../application/ports/social-publisher.port";
 
 export interface MetaGraphFacebookPublisherAdapterOptions {
+  readonly pageId?: string;
+  readonly pageAccessToken?: string;
   readonly graphApiBaseUrl?: string;
   readonly requestTimeoutMs?: number;
   readonly now?: () => string;
@@ -27,17 +40,91 @@ interface GraphApiErrorPayload {
   };
 }
 
-export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort {
+export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort, SocialPublisherPort {
+  readonly platform: SocialPlatform = "facebook";
+  readonly executionMode: PublicationExecutionMode = "live";
+
+  private readonly pageId?: string;
+  private readonly pageAccessToken?: string;
   private readonly graphApiBaseUrl: string;
   private readonly requestTimeoutMs: number;
   private readonly now: () => string;
   private readonly fetcher: typeof fetch;
 
   constructor(options?: MetaGraphFacebookPublisherAdapterOptions) {
+    this.pageId = options?.pageId;
+    this.pageAccessToken = options?.pageAccessToken;
     this.graphApiBaseUrl = (options?.graphApiBaseUrl ?? "https://graph.facebook.com/v20.0").replace(/\/+$/, "");
     this.requestTimeoutMs = options?.requestTimeoutMs ?? 30_000;
     this.now = options?.now ?? (() => new Date().toISOString());
     this.fetcher = options?.fetcher ?? fetch;
+  }
+
+  async publish(request: SocialPublishRequest): Promise<SocialPublicationReceipt> {
+    const pageId = this.pageId ?? request.target.accountConfigurationId;
+    const pageAccessToken = this.pageAccessToken;
+
+    if (!pageId || !pageAccessToken) {
+      throw new FacebookPublisherError(
+        "MISSING_CREDENTIALS",
+        "Facebook pageId and pageAccessToken are required for live publication",
+      );
+    }
+
+    const firstMedia = request.media[0];
+    if (!firstMedia) {
+      throw new FacebookPublisherError("INVALID_INPUT", "At least one visual asset is required for Facebook feed image post");
+    }
+
+    const result = await this.publishImagePost({
+      pageId,
+      pageAccessToken,
+      message: request.caption,
+      imageBuffer: firstMedia.bytes,
+      imageFileName: firstMedia.fileName,
+      mimeType: firstMedia.mimeType,
+    });
+
+    const verificationEvidenceDigest = createHash("sha256")
+      .update(`evidence:${result.postId}:${result.publishedAt}`)
+      .digest("hex");
+
+    return {
+      platform: "facebook",
+      executionMode: "live",
+      simulated: false,
+      externalPublicationId: result.postId,
+      pageId,
+      publicationUrl: result.postUrl,
+      providerReceiptDigest: result.rawResponseDigest,
+      verificationEvidenceDigest,
+      verifiedAt: result.publishedAt,
+      displayMessage: "Published to Facebook",
+    };
+  }
+
+  async reconcile(request: SocialReconciliationRequest): Promise<SocialReconciliationResult> {
+    const pageId = this.pageId ?? request.target.accountConfigurationId;
+    const pageAccessToken = this.pageAccessToken;
+
+    if (!pageId || !pageAccessToken || !request.externalPublicationId) {
+      return { exists: false };
+    }
+
+    try {
+      const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(request.externalPublicationId)}?fields=id&access_token=${encodeURIComponent(pageAccessToken)}`;
+      const response = await this.fetcher(endpoint, { method: "GET" });
+      if (!response.ok) {
+        return { exists: false };
+      }
+      const parsed = await response.json();
+      if (parsed.id) {
+        return { exists: true };
+      }
+      return { exists: false };
+    } catch {
+      return { exists: false };
+    }
   }
 
   async publishImagePost(input: FacebookPublishInput): Promise<FacebookPublishResult> {
