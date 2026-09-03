@@ -90,3 +90,8 @@ export function useCustomerSession(): SessionContextValue {
     throw new Error("CustomerSessionProvider is required");
   return value;
 }
+
+export function useOptionalCustomerSession(): CustomerSession | undefined {
+  const value = useContext(SessionContext);
+  return value?.session;
+}

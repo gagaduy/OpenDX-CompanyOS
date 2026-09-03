@@ -34,6 +34,11 @@ import { SupportEmailPollerWorker } from "./infrastructure/workers/support-email
 import { SupportEmailIngestionService } from "./application/services/implementations/support-email-ingestion.service";
 import type { EmailDispatcherPort } from "./application/ports/email-dispatcher.port";
 import type { EmailReceiverPort } from "./application/ports/email-receiver.port";
+import type { RealtimeBroadcasterPort } from "./application/ports/realtime-broadcaster.port";
+import { InMemoryRealtimeBroadcasterAdapter } from "./infrastructure/adapters/in-memory-realtime-broadcaster.adapter";
+import { AiLivechatAssistantService } from "./application/services/implementations/ai-livechat-assistant.service";
+import { SupportLivechatService } from "./application/services/implementations/support-livechat.service";
+import { createSupportLivechatRouter } from "./presentation/routers/support-livechat.router";
 
 export interface SupportHealthDependencies {
   readonly transactions: TransactionRunner;
@@ -82,7 +87,9 @@ export function createSupportModule(d: {
       : new SimulatedEmailDispatcherAdapter()
   );
 
-  const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now, emailDispatcher);
+  const realtimeBroadcaster = new InMemoryRealtimeBroadcasterAdapter();
+
+  const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now, emailDispatcher, realtimeBroadcaster);
 
   const aiService = d.database
     ? new AiSupportService(
@@ -92,6 +99,18 @@ export function createSupportModule(d: {
         d.now,
         emailDispatcher,
       )
+    : undefined;
+
+  const aiLivechatAssistant = new AiLivechatAssistantService({
+    openRouterApiKey: process.env.OPENROUTER_API_KEY,
+  });
+
+  const livechatService = d.database
+    ? new SupportLivechatService(d.database, realtimeBroadcaster, aiLivechatAssistant, d.generateId, d.now)
+    : undefined;
+
+  const livechatRouter = livechatService
+    ? createSupportLivechatRouter(livechatService, realtimeBroadcaster)
     : undefined;
 
   const emailReceiver = d.emailReceiver ?? (
@@ -109,7 +128,7 @@ export function createSupportModule(d: {
   );
 
   const ingestionService = d.database && aiService
-    ? new SupportEmailIngestionService(d.database, aiService, d.generateId)
+    ? new SupportEmailIngestionService(d.database, aiService, d.generateId, realtimeBroadcaster)
     : undefined;
 
   const emailPollerWorker = ingestionService && (process.env.SUPPORT_IMAP_ENABLED === "true" || d.emailReceiver !== undefined)
@@ -134,10 +153,13 @@ export function createSupportModule(d: {
     authenticateStaff(d.staffTokenVerifier),
     (x) => d.transactions.run((s) => repository.appendDeniedAudit(s, { id: d.generateId(), ...x, occurredAt: d.now() })),
     d.attachmentMaximumBytes,
+    realtimeBroadcaster,
   );
   router.use(supportErrorMiddleware);
   return {
     router,
+    livechatRouter,
+    realtimeBroadcaster,
     inboundEmailRouter,
     operationsSummary: service,
     escalationWorker: new SupportEscalationWorker(d.transactions, repository, d.generateId, d.now, d.escalationIntervalMs),

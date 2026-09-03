@@ -24,6 +24,7 @@ import {
 } from "react-router-dom";
 import { useTheme } from "./theme-provider";
 import type { StorefrontCategory } from "../features/catalog";
+import { LiveChatWidget } from "../features/livechat";
 
 const supportedCatalogParameters = [
   "category",
@@ -291,6 +292,7 @@ export function StorefrontShell({
           <Link to="/cart">Giỏ hàng</Link>
         </nav>
       </footer>
+      <LiveChatWidget />
     </div>
   );
 }

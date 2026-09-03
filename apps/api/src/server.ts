@@ -300,6 +300,9 @@ const app = createApiApp({
   ...(support.inboundEmailRouter === undefined
     ? {}
     : { supportInboundEmailRouter: support.inboundEmailRouter }),
+  ...(support.livechatRouter === undefined
+    ? {}
+    : { supportLivechatRouter: support.livechatRouter }),
   reportingAdminRouter: reporting.router,
   agenticAdminRouter: agentic.adminRouter,
   agenticInternalRouter: agentic.internalRouter,

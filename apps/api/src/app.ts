@@ -44,6 +44,7 @@ export interface CreateApiAppOptions {
   readonly marketingAdminRouter?: Router;
   readonly marketingPublicRouter?: Router;
   readonly supportInboundEmailRouter?: Router;
+  readonly supportLivechatRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -91,6 +92,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
   if (options.supportInboundEmailRouter !== undefined) {
     app.use("/v1/public", options.supportInboundEmailRouter);
+  }
+  if (options.supportLivechatRouter !== undefined) {
+    app.use("/v1/public/support/livechat", storefrontCors, options.supportLivechatRouter);
   }
   app.use(
     createHealthRouter(options.readiness, {

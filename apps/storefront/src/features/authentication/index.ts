@@ -6,6 +6,7 @@ export { CheckoutGate } from "./components/checkout-gate";
 export {
   CustomerSessionProvider,
   useCustomerSession,
+  useOptionalCustomerSession,
 } from "./hooks/customer-session-context";
 export { safeReturnUrl } from "./lib/safe-return-url";
 export { SignInPage } from "./pages/sign-in-page";

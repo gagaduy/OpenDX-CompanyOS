@@ -30,6 +30,7 @@ export interface SupportOperationsApi {
   generateSupportProposal(prompt: string): Promise<AiSupportProposalView>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
+  subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
 }
 export function createSupportOperationsApi(baseUrl:string, accessToken:string):SupportOperationsApi {
   const request=createRequest(baseUrl,accessToken);
@@ -70,6 +71,36 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
         body: JSON.stringify({ items }),
       });
       return envelope.data;
+    },
+    subscribeEvents(id: string, onEvent: (event: any) => void, signal?: AbortSignal) {
+      void (async () => {
+        try {
+          const response = await fetch(`${baseUrl}/v1/admin/support/tickets/${id}/events`, {
+            headers: { authorization: `Bearer ${accessToken}`, Accept: "text/event-stream" },
+            signal,
+          });
+          if (!response.ok || !response.body) return;
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (!signal?.aborted) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith("data: ")) {
+                try {
+                  const event = JSON.parse(trimmed.slice(6));
+                  onEvent(event);
+                } catch {}
+              }
+            }
+          }
+        } catch {}
+      })();
     },
   };
   function requestBlob(path:string){return fetch(`${baseUrl}${path}`,{headers:{authorization:`Bearer ${accessToken}`,"x-correlation-id":crypto.randomUUID()}}).then(async r=>{if(!r.ok)throw new SupportApiError("UNAVAILABLE","Attachment could not be downloaded."); return r.blob();});}

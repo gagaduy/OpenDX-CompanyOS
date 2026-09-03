@@ -23,11 +23,14 @@ export interface IngestInboundEmailResult {
   readonly proposalId?: string;
 }
 
+import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
+
 export class SupportEmailIngestionService {
   constructor(
     private readonly database: Pool,
     private readonly aiSupportService?: AiSupportService,
     private readonly generateId: () => string = randomUUID,
+    private readonly realtimeBroadcaster?: RealtimeBroadcasterPort,
   ) {}
 
   public async ingestEmail(input: IngestInboundEmailInput): Promise<IngestInboundEmailResult> {
@@ -102,6 +105,19 @@ export class SupportEmailIngestionService {
          VALUES ($1, $2, 'customer', $3, NOW())`,
         [messageId, existingTicket.id, cleanBody],
       );
+
+      if (this.realtimeBroadcaster) {
+        this.realtimeBroadcaster.broadcast(existingTicket.id, {
+          type: "message_created",
+          ticketId: existingTicket.id,
+          message: {
+            id: messageId,
+            authorId: "customer",
+            body: cleanBody,
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
 
       let targetStatus = existingTicket.status;
       if (existingTicket.status === "resolved") {

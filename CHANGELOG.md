@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Realtime 2-Way LiveChat with OpenRouter AI Assistant & Server-Sent Events (SSE):
+  - Added `RealtimeBroadcasterPort` inward-facing domain port and `InMemoryRealtimeBroadcasterAdapter` using Node.js event streaming.
+  - Added `AiLivechatAssistantService` connecting to OpenRouter LLM (`google/gemini-2.5-flash`) for instant AI triage, 24/7 automated technical support, and critical issue detection (e.g. overheating, fire hazard, refunds) with automatic urgency escalation.
+  - Implemented `SupportLivechatService` managing live customer sessions, message persistence, and asynchronous AI auto-response generation.
+  - Exposed `/v1/public/support/livechat` router (`/init`, `/:sessionId/messages`, `/:sessionId/events`) with public Storefront CORS.
+  - Added real-time SSE stream endpoint `GET /v1/admin/support/tickets/:ticketId/events` for Console staff ticket detail page with automatic in-memory message appending and instant UI updates.
+  - Created responsive `LiveChatWidget` for Storefront with online status badge, live SSE message streaming, automatic customer profile resolution, and full theme integration.
 - Implement Automated IMAP Email Poller & Inbound Customer Reply Ingestion:
   - Added `EmailReceiverPort` Clean Architecture port with `ImapEmailReceiverAdapter` (using `imapflow` and `mailparser`) and `SimulatedEmailReceiverAdapter`.
   - Implemented `SupportEmailIngestionService` unifying customer reply handling and ticket reopening logic with SLA compliance.

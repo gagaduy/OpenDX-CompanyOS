@@ -11,6 +11,7 @@ import type { SupportRepository } from "../../repositories/interfaces/support.re
 import { SupportApplicationError } from "../support-application.error";
 import type { SupportOperationsSummaryReader, SupportServiceContract } from "../interfaces/support.service";
 import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
+import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
 
 export class SupportService implements SupportServiceContract, SupportOperationsSummaryReader {
   constructor(
@@ -21,6 +22,7 @@ export class SupportService implements SupportServiceContract, SupportOperations
     private readonly generateId: () => string,
     private readonly now: () => string,
     private readonly emailDispatcher?: EmailDispatcherPort,
+    private readonly realtimeBroadcaster?: RealtimeBroadcasterPort,
   ) {}
   async list(query:{page:number;pageSize:number},context:SupportContext) { const scope=this.listScope(context); const result=await this.transactions.runReadOnly(s=>this.repository.list(s,{...query,...scope})); return {...result,items:result.items.map(mapTicket),page:query.page,pageSize:query.pageSize,totalPages:Math.max(1,Math.ceil(result.totalItems/query.pageSize))}; }
   async create(input:{customerId:string;orderId?:string;subject:string;description:string;priority:SupportTicket["priority"]},context:SupportContext) { this.allowCreate(context); if(await this.customers.get(input.customerId)===undefined) throw new SupportApplicationError("CUSTOMER_NOT_FOUND","Customer not found"); if(input.orderId!==undefined && await this.orders.getOwned(input.customerId,input.orderId)===undefined) throw new SupportApplicationError("ORDER_NOT_OWNED_BY_CUSTOMER","Order is not owned by customer"); return this.transactions.run(async s=>{const now=this.now();const ticket:SupportTicket={id:this.generateId(),...input,status:"new",version:1,createdById:context.actorId,slaPausedSeconds:0,slaStoppedSeconds:0,createdAt:now,updatedAt:now};await this.repository.create(s,ticket);await this.audit(s,ticket,context,"support.ticket.created",now);return mapTicket(ticket);}); }
@@ -40,14 +42,22 @@ export class SupportService implements SupportServiceContract, SupportOperations
       return { message: mapMessage(message), ticket };
     });
 
+    if (this.realtimeBroadcaster) {
+      this.realtimeBroadcaster.broadcast(ticket.id, {
+        type: "message_created",
+        ticketId: ticket.id,
+        message,
+      });
+    }
+
     if (this.emailDispatcher && context.actorId !== "customer" && context.actorId !== "customer-email") {
       try {
         const customer = await this.customers.getSupportContext(ticket.customerId);
         if (customer?.email) {
           const shortId = ticket.id.slice(0, 8);
           await this.emailDispatcher.sendSupportResolutionEmail({
+            ticketId: ticket.id,
             to: customer.email,
-            customerName: customer.fullName || "Quý khách",
             subject: `[Ticket #${shortId}] Phản hồi từ CSKH NovaCommerce: ${ticket.subject}`,
             textBody: `Kính gửi ${customer.fullName || "Quý khách"},\n\nĐội ngũ CSKH NovaCommerce vừa gửi phản hồi về yêu cầu hỗ trợ #${shortId}:\n\n"${body}"\n\nQuý khách có thể trả lời trực tiếp email này nếu cần hỗ trợ thêm.\n\nTrân trọng,\nNovaCommerce Support`,
             htmlBody: `
