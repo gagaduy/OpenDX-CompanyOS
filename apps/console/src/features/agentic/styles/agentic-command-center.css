@@ -1505,3 +1505,291 @@
   color: #fbbf24;
   flex-shrink: 0;
 }
+
+/* Light Theme Specific Enhancements for Agentic Command Center */
+.consoleLayout[data-theme="light"] .commandCenterWorkspace {
+  background: var(--canvas, #f8fafc);
+  color: var(--ink, #1e293b);
+}
+
+.consoleLayout[data-theme="light"] .ccHeaderBar {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccBrandTitle {
+  color: #d97706;
+}
+
+.consoleLayout[data-theme="light"] .ccNavTab {
+  color: #475569;
+  font-weight: 600;
+}
+
+.consoleLayout[data-theme="light"] .ccNavTab:hover {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccNavTab.active {
+  color: #d97706;
+  border-bottom-color: #d97706;
+  font-weight: 700;
+}
+
+.consoleLayout[data-theme="light"] .ccStatBadge {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+}
+
+.consoleLayout[data-theme="light"] .ccStatBadge.activeTasks {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.consoleLayout[data-theme="light"] .ccProfilePill {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+}
+
+.consoleLayout[data-theme="light"] .ccAvatar {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccStrategicCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .ccStrategicTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccMainPromptInput {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .ccMainPromptInput::placeholder {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccMainPromptInput:focus {
+  background: #ffffff;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.consoleLayout[data-theme="light"] .ccQuickPill {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-weight: 500;
+}
+
+.consoleLayout[data-theme="light"] .ccQuickPill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.consoleLayout[data-theme="light"] .ccRecentOutcomesContainer {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccRecentOutcomesHeader {
+  color: #334155;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+}
+
+.consoleLayout[data-theme="light"] .ccRecentOutcomeItem {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.consoleLayout[data-theme="light"] .ccRecentOutcomeItem:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .ccPipelineBar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .ccPipelineNode {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccPipelineNode.active {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn.theme-blue {
+  background: #f8fafc;
+  border-color: #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn.theme-cyan {
+  background: #f8fafc;
+  border-color: #a5f3fc;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn.theme-amber {
+  background: #fcfbf7;
+  border-color: #fed7aa;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn.theme-emerald {
+  background: #f8fcf9;
+  border-color: #a7f3d0;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentColumn.theme-purple {
+  background: #faf8fc;
+  border-color: #e9d5ff;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentName {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .ccAgentCard:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.consoleLayout[data-theme="light"] .ccAgentName {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentRoleBadge {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentContentText {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentMiniInput {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentMiniInput:focus {
+  background: #ffffff;
+  border-color: #38bdf8;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptInput {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptInput:focus {
+  background: #ffffff;
+  border-color: #38bdf8;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptSendBtn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .executiveReportCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .erTitle h2 {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .erSummaryBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .erSummaryText {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .erSectionLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .erFilterTab {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .erFilterTab:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .erItemCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .erItemCard:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .erItemStatement {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .erItemCode {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoThinkingBanner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(56, 189, 248, 0.1));
+  border: 1px solid #fed7aa;
+  color: #1e293b;
+}

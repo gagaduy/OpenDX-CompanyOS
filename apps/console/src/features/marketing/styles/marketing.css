@@ -45,7 +45,7 @@
   font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.025em;
-  color: #ffffff;
+  color: var(--ink, #ffffff);
   margin: 0;
   display: flex;
   align-items: center;
@@ -54,7 +54,7 @@
 
 .marketingSubtitle {
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: var(--ink-subtle, #94a3b8);
   margin-top: 0.35rem;
   max-width: 700px;
   line-height: 1.5;
@@ -545,4 +545,121 @@
 .fbActionBtn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #e4e6eb;
+}
+
+/* Light Mode Support for Marketing Workspace */
+.consoleLayout[data-theme="light"] .marketingWorkspace {
+  background: var(--canvas, #f5f6f8);
+  color: var(--ink, #111827);
+}
+
+.consoleLayout[data-theme="light"] .marketingTitle {
+  color: #111827;
+}
+
+.consoleLayout[data-theme="light"] .marketingSubtitle {
+  color: #4b5563;
+}
+
+.consoleLayout[data-theme="light"] .marketingBreadcrumb {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .marketingStatCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .marketingStatCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.consoleLayout[data-theme="light"] .marketingStatVal {
+  color: #111827;
+}
+
+.consoleLayout[data-theme="light"] .marketingStatLabel {
+  color: #4b5563;
+}
+
+.consoleLayout[data-theme="light"] .marketingCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .marketingTable th {
+  background: #f8fafc;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .marketingTable td {
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .marketingTable tr:hover td {
+  background: #f8fafc;
+}
+
+.consoleLayout[data-theme="light"] .marketingBtnSecondary {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .marketingBtnSecondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.consoleLayout[data-theme="light"] .sectionCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .sectionCardTitle {
+  color: #111827;
+}
+
+.consoleLayout[data-theme="light"] .sectionCardHeader {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .infoLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .infoVal {
+  color: #111827;
+}
+
+.consoleLayout[data-theme="light"] .contentCopyBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .deliverableItem {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .deliverableItem:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .deliverableTitle {
+  color: #111827;
+}
+
+.consoleLayout[data-theme="light"] .deliverableSubtitle {
+  color: #64748b;
 }

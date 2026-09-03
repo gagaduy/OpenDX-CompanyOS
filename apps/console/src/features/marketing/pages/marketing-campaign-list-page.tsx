@@ -89,7 +89,7 @@ export function MarketingCampaignListPage({
           <div className="marketingBreadcrumb">
             <span>NOVACOMMERCE</span>
             <span>/</span>
-            <span style={{ color: "#94a3b8" }}>DIGITAL WORKFORCE</span>
+            <span style={{ color: "var(--ink-subtle, #64748b)" }}>DIGITAL WORKFORCE</span>
           </div>
           <h1 className="marketingTitle">
             <span>📢</span> Marketing & Creative Publication
@@ -221,13 +221,13 @@ export function MarketingCampaignListPage({
                         {isAwaiting ? "awaiting human approval" : isLive ? "published live" : camp.state.replace(/_/g, " ")}
                       </span>
                     </td>
-                    <td style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                    <td style={{ color: "var(--ink-muted, #475569)", fontSize: "0.85rem" }}>
                       Direct Marketing Dept
                     </td>
-                    <td style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                    <td style={{ color: "var(--ink-muted, #475569)", fontSize: "0.85rem" }}>
                       {camp.createdBy}
                     </td>
-                    <td style={{ color: "#64748b", fontSize: "0.825rem" }}>
+                    <td style={{ color: "var(--ink-subtle, #64748b)", fontSize: "0.825rem" }}>
                       {new Date(camp.createdAt).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right" }}>
