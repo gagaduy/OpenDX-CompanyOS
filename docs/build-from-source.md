@@ -487,6 +487,59 @@ Normal local development should use `make up`; Compose owns the long-running AI
 Runtime and worker, their readiness, namespace registration, and restart order.
 No OpenRouter key is required through Phase C.
 
+## Development-only live Instagram publication
+
+Instagram live publication from localhost requires Meta to retrieve the
+approved JPEG through a public HTTPS URL. Keep PostgreSQL and MinIO private;
+only tunnel the local API. Start the stack from the repository root, choose the
+same host port used by the API, and keep `INSTAGRAM_PUBLICATION_MODE=simulation`
+during this initial startup. Run the optional external `cloudflared` binary in
+a separate terminal:
+
+```bash
+make up
+API_PORT=4000
+cloudflared tunnel --url "http://localhost:${API_PORT}"
+```
+
+If the API uses a non-default host port, replace `4000` with that port. Set
+only this non-secret shell variable for the tunnel command. Do not source the
+whole `.env` into the shell: doing so would unnecessarily export Meta tokens
+and other application secrets to the `cloudflared` process.
+
+Cloudflare prints a temporary `https://*.trycloudflare.com` origin. Append the
+fixed route prefix `/v1/public/marketing/media` and place the result only in
+the ignored root `.env`, for example as
+`INSTAGRAM_PUBLIC_MEDIA_BASE_URL=https://<current-random-host>.trycloudflare.com/v1/public/marketing/media`.
+Never put a real tunnel hostname, Instagram ID, access token, or signing secret
+in `.env.example` or another tracked file.
+
+Set `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET` in the same ignored root `.env` to
+a separate cryptographically random HMAC secret of at least 32 characters. Use
+a password manager or another trusted local secret generator and paste the
+value directly into the file with an editor; do not reuse the Meta access
+token, print the secret into logs, or commit it. Then set the verified
+Instagram business account ID and Page access token, switch
+`INSTAGRAM_PUBLICATION_MODE` to `live`, and rebuild or restart the API so its
+typed startup configuration reads the new origin and credentials:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml \
+  up -d --build --force-recreate api
+curl -fsS http://localhost:4000/health/ready
+```
+
+The root `Makefile` reads the repository-root `.env` and passes it explicitly
+to Compose. An `infra/docker/.env` file is a different file and is not used by
+root `make up`; do not update it expecting the root workflow to see those
+values. When running Compose manually from the repository root, keep the
+explicit `--env-file .env` shown above to avoid ambiguity.
+
+Quick Tunnel URLs change whenever the tunnel restarts and provide no
+production SLA. After every URL change, update only the ignored root `.env`
+and restart the API again. This workflow is for development acceptance, not a
+deployment endpoint.
+
 ## Configuration
 
 Copy `.env.example` to `.env` for local development if needed. Do not commit `.env` or real credentials.

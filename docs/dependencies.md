@@ -40,6 +40,7 @@ Current major dependencies:
 | `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
 | `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
 | `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
+| `sharp` `0.35.4` | `apps/api` | Bounded Marketing PNG-to-JPEG conversion for private Instagram publication variants (Apache-2.0; Node.js >=20.9) |
 | `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
 | `cookie` | `apps/api` | Standards-based HTTP cookie parsing and serialization for Commerce sessions (MIT) |
 | `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |
@@ -52,7 +53,18 @@ built-in memory store for Google authentication abuse protection. A hosted
 multi-replica deployment must configure a reviewed shared store during Phase 8;
 the in-memory limiter is not treated as a cross-replica quota authority.
 
-Marketing deliverable generators (`campaign_brief_docx`, `facebook_content_docx`, `facebook_visual_png`, `facebook_publication_log_xlsx`, `marketing_final_report_pdf`) are implemented in pure TypeScript using Node standard library utilities (`node:crypto`, `node:buffer`, `node:stream`) without introducing heavy external document or image SDKs.
+Marketing document and spreadsheet deliverable generators
+(`campaign_brief_docx`, `facebook_content_docx`,
+`facebook_publication_log_xlsx`, `marketing_final_report_pdf`) remain
+implemented in pure TypeScript with Node standard library utilities. Marketing
+uses the pinned `sharp` image SDK only at its bounded infrastructure boundary
+to convert an approved private PNG asset into the deterministic private JPEG
+variant required for Instagram publication.
+
+`cloudflared` is an optional, developer-operated external HTTPS tunnel for
+localhost Instagram acceptance. It is not an application runtime dependency,
+is not installed through the workspace lockfile, and is not part of the
+production topology.
 
 ## Python
 

@@ -83,18 +83,24 @@ reported as a successful Instagram publication.
 
 ## Signed Public Media Delivery
 
-The public media route supports only `GET` and `HEAD`. Its signature binds:
+The public media route supports only `GET` and `HEAD` at
+`/v1/public/marketing/media/:assetId`. Its query contains exactly the signed
+claims `v`, `digest`, `policy`, `outputDigest`, `expires`, and `signature`.
+The signature binds:
 
 - the Marketing asset identifier;
-- the exact JPEG variant identifier;
+- the source digest, exact JPEG conversion-policy fingerprint, and exact
+  output digest;
 - the expiry timestamp; and
 - a versioned canonical request representation.
 
 The API calculates an HMAC using a deployment-owned secret and verifies it
 with constant-time comparison. Missing, malformed, modified, or expired
 parameters fail closed. Error responses do not disclose whether an asset or
-variant exists. The route applies a bounded rate limit and safe audit events
-without logging access tokens, signing secrets, or signed query strings.
+variant exists. The route validates the signed claim before applying a bounded
+limiter keyed by the complete validated claim, including its signature. This
+prevents invalid requests from consuming a valid signed URL's quota. Safe audit
+events do not log access tokens, signing secrets, or signed query strings.
 
 After validation, the controller delegates to the Marketing application
 boundary, which resolves the permitted variant and streams it from private
@@ -107,10 +113,14 @@ Live mode requires typed startup configuration for:
 
 - `INSTAGRAM_PUBLICATION_MODE=live`;
 - `INSTAGRAM_BUSINESS_ACCOUNT_ID`;
-- `INSTAGRAM_PAGE_ACCESS_TOKEN`;
+- `INSTAGRAM_ACCESS_TOKEN` (the Page access token used for Instagram
+  publication);
 - `INSTAGRAM_PUBLIC_MEDIA_BASE_URL`;
-- `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET`; and
-- `MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS`.
+- `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET`;
+- `MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS`;
+- `MARKETING_INSTAGRAM_JPEG_QUALITY`;
+- `MARKETING_PUBLIC_MEDIA_RATE_LIMIT`; and
+- `MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS`.
 
 The public base URL must use HTTPS and must not be localhost, an internal IP,
 or a reserved example domain. The signing secret must meet a minimum strength

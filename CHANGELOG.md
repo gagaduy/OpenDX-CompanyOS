@@ -13,11 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
-- Approve development-only live Instagram image publication through a
-  Cloudflare Quick Tunnel, with private deterministic JPEG variants, signed
-  expiring media delivery, typed fail-closed configuration, and no public
-  MinIO access.
-
 - Approve a credential-free, provider-ready Instagram image-publication
   extension for governed Marketing campaigns, with Feed, Story, carousel,
   multi-target approval, target-level retry, truthful local simulation, and
@@ -34,13 +29,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Remove the hard-coded Instagram permalink fallback and bound media
+  preparation failures so provider errors remain truthful and safe to retry.
+
 - Restore the Agentic Command Center session-expiry sign-in action by binding
   it to the Console authentication context.
 
 - Fix 500 error in marketing campaign creation and revision workflow by adding `assignmentMode` fallback, resolving duplicate publication target insertion with `ON CONFLICT` idempotency, handling `ZodError` as 400 validation responses, and preprocessing flat subject fields.
 - Map `FacebookPublisherError` and `SocialPublisherError` in target retry controller to prevent unhandled 500 responses when Meta Graph API returns upstream errors.
 
+### Changed
+
+- Wire live Instagram publication to prepare signed public-media URLs through
+  the Marketing application boundary before submitting approved assets to Meta.
+
 ### Added
+
+- Add deterministic private Instagram JPEG variants using `sharp`, plus a
+  signed, expiring `GET`/`HEAD` Marketing media route that leaves MinIO private.
+- Document development-only live Instagram publication through Cloudflare
+  Quick Tunnel, including safe ignored-environment and restart handling.
 
 - Enhance XLSX publication log and PDF executive report deliverables with multi-channel target audit details.
 - Verify multi-target publication end-to-end integration and resilience under partial channel failure.
