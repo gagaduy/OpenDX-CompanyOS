@@ -24,7 +24,7 @@ interface MigrationReadinessPool {
 }
 
 const minimumMigrationCounts = {
-  catalog: 4,
+  catalog: 5,
   company_core: 1,
   inventory: 2,
   customer: 2,

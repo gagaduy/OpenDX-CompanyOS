@@ -11,16 +11,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
-
-- Ensure `publishApprovedPackage` publishes every target independently so that
-  failure of one channel (such as Instagram or Facebook) does not abort remaining
-  targets, preserving partial publication and retryability.
-- Map `SocialPublisherError` in marketing publication retry controller.
-- Auto-resolve Page Access Token in `MetaGraphFacebookPublisherAdapter` when initial request fails with `FACEBOOK_PERMISSION_DENIED`.
-- Dynamically label Command Center marketing approval and retry buttons for multi-channel publication (Facebook & Instagram).
-- Prevent PostgreSQL trigger version violation on live chat customer messages, expose `GET /v1/public/support/livechat/:sessionId` to restore session message history across page visits, and enable optimistic rendering in `LiveChatWidget`.
-
 ### Added
 
 - Add automated catalog product discovery and image sending in LiveChat:
@@ -33,6 +23,115 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Exposed authenticated endpoint `GET /v1/admin/support/tickets/:ticketId/ai-draft`.
   - Added "✨ Gợi ý trả lời AI" button to `SupportMessageComposer` in Console for one-click contextual draft generation.
   - Enabled automated AI email acknowledgement and guidance in `SupportEmailIngestionService` when inbound customer emails are received.
+- Collapse the Storefront sign-in panel to a focused Google trigger and reveal
+  an accessible modal that closes by button, Escape, or backdrop interaction
+  while restoring keyboard focus.
+- Play the database-managed Catalog presentation as the full-bleed sign-in
+  backdrop with muted inline looping, a product-image poster, media-error
+  fallback, and explicit homepage video suppression.
+- Require Storefront browser acceptance to decode a deterministic VP9 MP4
+  video track with production-aligned chapter timing on tablet and desktop.
+- Add the database- and MinIO-backed Storefront hero video with PostgreSQL
+  product chapters, bounded operator import, replacement-safe no-store HTTP
+  range delivery, synchronized desktop playback and controls, plus image
+  fallbacks for mobile, reduced-motion, media-error, and product-error states.
+- Add validated Storefront hero presentation transport and independently
+  recoverable homepage state for synchronized media chapters and image
+  fallbacks.
+- Add anonymous synchronized Storefront hero presentation metadata and
+  active-only MP4 delivery with single HTTP byte-range streaming, strict
+  completeness fallback to legacy image slides, no-store replacement-safe
+  caching, metadata-only HEAD authorization, and purpose-safe DTOs.
+- Add explicit operator commands, bounded local-file reads, and a validated
+  six-chapter configuration to import or recoverably disable the synchronized
+  Storefront hero video without persisting host file paths or deleting retained
+  MinIO media.
+- Add transactional Storefront hero video imports with digest-addressed MinIO
+  storage, a serialized upload-and-activation critical section, replay
+  convergence, reference-safe cleanup, and recoverable disable behavior.
+- Add dependency-free MP4 duration inspection and deterministic Catalog domain
+  validation for Storefront hero video chapter imports.
+- Add the Catalog PostgreSQL schema, timeline constraints, rollback coverage,
+  and migration-readiness requirement for Storefront hero video presentations
+  and category chapters.
+- Add typed Catalog tables, constraints, idempotent approved seed data, and an
+  anonymous purpose-specific API for Storefront service assurances and trust
+  metrics, with a validated fetch-once Storefront content provider and bounded
+  loading, empty, recoverable error, and populated UI states.
+- Extend responsive Storefront browser acceptance with database-content
+  fixtures and unavailable-content isolation across light and dark themes.
+
+### Fixed
+
+- Ensure `publishApprovedPackage` publishes every target independently so that
+  failure of one channel (such as Instagram or Facebook) does not abort remaining
+  targets, preserving partial publication and retryability.
+- Map `SocialPublisherError` in marketing publication retry controller.
+- Auto-resolve Page Access Token in `MetaGraphFacebookPublisherAdapter` when initial request fails with `FACEBOOK_PERMISSION_DENIED`.
+- Dynamically label Command Center marketing approval and retry buttons for multi-channel publication (Facebook & Instagram).
+- Prevent PostgreSQL trigger version violation on live chat customer messages, expose `GET /v1/public/support/livechat/:sessionId` to restore session message history across page visits, and enable optimistic rendering in `LiveChatWidget`.
+- Deduplicate in-flight customer-session restoration under React Strict Mode
+  so a canceled payment return cannot rotate the same session twice and send
+  an authenticated customer back to sign-in.
+- Reveal the synchronized Storefront hero video behind a translucent copy
+  panel and bounded floating product stage while preserving image-only
+  fallbacks for mobile, reduced-motion, and unavailable media.
+- Keep active Storefront hero metadata, chapter products, and prices on one
+  PostgreSQL statement snapshot during operator replacement, and document the
+  video import with a portable operator-provided host path.
+- Align the final Nova Signal hero chapter with the approved source video's
+  measured 24,750 ms duration while preserving the first five four-second
+  chapters.
+- Make API readiness require both the exact Customer Wishlist migration ledger
+  entry and its PostgreSQL table so a partially migrated runtime fails closed.
+- Scope failed wishlist mutations to the affected product and present one
+  non-overlapping alert instead of repeating the same text across every card.
+- Keep homepage hero product media centered inside a dedicated right-hand panel
+  so square Catalog images are not cut through by the content scrim.
+- Make the Storefront `Danh mục` and `Khám phá` navigation menus interactive
+  with live Catalog categories, increase desktop canvas and typography scale,
+  and extend responsive browser acceptance to cover both menus.
+- Forward Department Agent client secrets to the API in development Docker
+  Compose environments so seed scripts and internal governance checks validate
+  environment configuration cleanly.
+- Prevent executive synthesis from citing provenance attached only to an
+  unavailable Department branch, keeping runtime quality checks aligned with
+  the API's accepted-evidence boundary for partial reports.
+- Reject Advanced tasks before they enter the execution queue when the active
+  configuration lacks the models, fallback authority, budgets, policies, or
+  Department tool grants required by the live AI CEO workforce.
+- Preserve Console task-intake provenance in the AI CEO Task Brief so live
+  planning receives its required governed evidence instead of failing before
+  model execution.
+- Emit OpenAI-compatible typed `const` JSON Schema nodes for AI CEO and
+  Department structured outputs, keep API/runtime schema digests aligned, and
+  retain planning provenance when a provider failure is settled.
+- Resolve the accepted orchestration plan independently from the frozen task
+  revision so a Ready task at version 2 can dispatch the AI CEO's version 1
+  plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
+- Constrain live AI CEO planning to provider-enforced independent Department
+  branches, give the CEO explicit unique-owner guidance, and terminally settle
+  exhausted deferred planning or synthesis results instead of leaving model
+  runs stuck in `running`.
+- Recognize active orchestration execution descriptors as Department task
+  assignments during governed tool authorization so CEO-created live branches
+  can invoke their exact approved tools.
+- Add the `executive_synthesis` state transition from `department_analysis`
+  in workflow run rules so orchestration completes all stages through synthesis.
+- Sanitize department context boundary fields and forward tool summaries into
+  system instructions with explicit quality gate schemas.
+- Increase internal control client response buffer to load full multi-branch
+  department results for AI CEO executive synthesis.
+- Accept partial model settlements and completion states in executive synthesis
+  quality gates and API report acceptance, and provide adequate token budget for
+  AI CEO synthesis generation.
+
+### Removed
+
+- Remove the superseded Three.js Storefront homepage runtime, model assets,
+  obsolete tests, and its dedicated package dependencies after the API-driven
+  commerce homepage replacement reached full test coverage.
+
 - Implement Realtime 2-Way LiveChat with OpenRouter AI Assistant & Server-Sent Events (SSE):
   - Added `RealtimeBroadcasterPort` inward-facing domain port and `InMemoryRealtimeBroadcasterAdapter` using Node.js event streaming.
   - Added `AiLivechatAssistantService` connecting to OpenRouter LLM (`google/gemini-2.5-flash`) for instant AI triage, 24/7 automated technical support, and critical issue detection (e.g. overheating, fire hazard, refunds) with automatic urgency escalation.

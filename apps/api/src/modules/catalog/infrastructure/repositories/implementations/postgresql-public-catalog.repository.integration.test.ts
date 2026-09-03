@@ -4,7 +4,10 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runCatalogMigrations, runCompanyCoreMigrations } from "../../../../../shared/database/run-migrations";
-import { PostgresTransactionRunner } from "../../../../../shared/database/transaction";
+import {
+  PostgresTransactionRunner,
+  type DatabaseSession,
+} from "../../../../../shared/database/transaction";
 import { runCartMigrations } from "../../../../cart/infrastructure/database/run-cart-migrations";
 import { runCheckoutMigrations } from "../../../../checkout/infrastructure/database/run-checkout-migrations";
 import { runCustomerMigrations } from "../../../../customer/infrastructure/database/run-customer-migrations";
@@ -351,6 +354,212 @@ describeWithDatabase("PostgresqlPublicCatalogRepository", () => {
       ["laptops", "e2000000-0000-4000-8000-000000000040"],
       ["phones", "e2000000-0000-4000-8000-000000000030"],
     ]);
+  });
+
+  it("projects an active six-chapter hero using the newest eligible product per configured category", async () => {
+    const presentationId = "e6000000-0000-4000-8000-000000000001";
+    const categorySlugs = [
+      "phones",
+      "laptops",
+      "tablets",
+      "smart-watches",
+      "computer-components",
+      "accessories",
+    ];
+    const categoryIds = categorySlugs.map((_, index) =>
+      index === 0
+        ? ids.category
+        : `e1000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+    );
+    for (let index = 1; index < categorySlugs.length; index += 1) {
+      await pool.query(
+        `INSERT INTO categories
+          (id, name, slug, sort_order, status, created_at, updated_at, version)
+         VALUES ($1, $2, $3, $4, 'active', NOW(), NOW(), 1)`,
+        [categoryIds[index], `Category ${index}`, categorySlugs[index], index],
+      );
+      await insertCompleteProduct(pool, {
+        productId: `e2000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        categoryId: categoryIds[index],
+        variantId: `e3000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        priceId: `e4000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        mediaId: `e5000000-0000-4000-8000-${String(index + 60).padStart(12, "0")}`,
+        name: `Hero Product ${index}`,
+        slug: `hero-product-${index}`,
+        amountMinor: 10_000_000 + index,
+        createdAt: `2026-08-${String(index + 10).padStart(2, "0")}T00:00:00.000Z`,
+      });
+    }
+    await pool.query(
+      "UPDATE products SET created_at = '2026-08-01T00:00:00.000Z' WHERE id = $1",
+      [ids.published],
+    );
+    await insertCompleteProduct(pool, {
+      productId: "e2000000-0000-4000-8000-000000000069",
+      variantId: "e3000000-0000-4000-8000-000000000069",
+      priceId: "e4000000-0000-4000-8000-000000000069",
+      mediaId: "e5000000-0000-4000-8000-000000000069",
+      name: "Newest Hero Phone",
+      slug: "newest-hero-phone",
+      amountMinor: 20_000_000,
+      createdAt: "2026-08-20T00:00:00.000Z",
+    });
+    await pool.query(
+      `INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ($1, 'nova-signal', $2, 'video/mp4', 25000000, 24000, $3, true)`,
+      [
+        presentationId,
+        `storefront/hero/${"a".repeat(64)}.mp4`,
+        "a".repeat(64),
+      ],
+    );
+    for (let index = 0; index < categoryIds.length; index += 1) {
+      await pool.query(
+        `INSERT INTO storefront_hero_chapters
+          (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          presentationId,
+          categoryIds[index],
+          index,
+          index * 4_000,
+          (index + 1) * 4_000,
+          `Chapter ${index}`,
+        ],
+      );
+    }
+
+    const presentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+
+    expect(presentation).toMatchObject({
+      media: {
+        id: presentationId,
+        contentType: "video/mp4",
+        byteSize: 25_000_000,
+        durationMs: 24_000,
+      },
+      configuredChapterCount: 6,
+    });
+    expect(presentation?.slides.map(({ category }) => category.slug)).toEqual(
+      categorySlugs,
+    );
+    expect(presentation?.slides[0]?.product.slug).toBe("newest-hero-phone");
+    await expect(
+      transactions.runReadOnly((session) =>
+        repository.findHeroMediaAuthorization(session, presentationId),
+      ),
+    ).resolves.toMatchObject({
+      mediaId: presentationId,
+      contentType: "video/mp4",
+      byteSize: 25_000_000,
+    });
+
+    await pool.query("UPDATE categories SET status = 'archived' WHERE id = $1", [
+      categoryIds[1],
+    ]);
+    const incompletePresentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+    expect(incompletePresentation?.configuredChapterCount).toBe(6);
+    expect(incompletePresentation?.slides).toHaveLength(5);
+    await pool.query("UPDATE categories SET status = 'active' WHERE id = $1", [
+      categoryIds[1],
+    ]);
+    await pool.query("UPDATE products SET status = 'draft' WHERE category_id = $1", [
+      categoryIds[1],
+    ]);
+    const unpublishedPresentation = await transactions.runReadOnly((session) =>
+      repository.findActiveHeroPresentation(session),
+    );
+    expect(unpublishedPresentation?.configuredChapterCount).toBe(6);
+    expect(unpublishedPresentation?.slides).toHaveLength(5);
+    await pool.query(
+      "UPDATE storefront_hero_presentations SET enabled = false WHERE id = $1",
+      [presentationId],
+    );
+    await expect(
+      transactions.runReadOnly((session) =>
+        repository.findHeroMediaAuthorization(session, presentationId),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("returns one complete hero presentation snapshot during a concurrent replacement", async () => {
+    const presentationId = "e6000000-0000-4000-8000-000000000002";
+    const oldDigest = "c".repeat(64);
+    const newDigest = "d".repeat(64);
+    const oldObjectKey = `storefront/hero/${oldDigest}.mp4`;
+    const newObjectKey = `storefront/hero/${newDigest}.mp4`;
+    await pool.query(
+      `INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ($1, 'snapshot-test', $2, 'video/mp4', 100, 4000, $3, true)`,
+      [presentationId, oldObjectKey, oldDigest],
+    );
+    await pool.query(
+      `INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ($1, $2, 0, 0, 4000, 'Old chapter')`,
+      [presentationId, ids.category],
+    );
+
+    let replacementCommitted = false;
+    const commitReplacement = async (): Promise<void> => {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `UPDATE storefront_hero_presentations
+           SET object_key = $2, byte_size = 200, content_digest = $3
+           WHERE id = $1`,
+          [presentationId, newObjectKey, newDigest],
+        );
+        await client.query(
+          `UPDATE storefront_hero_chapters
+           SET label = 'New chapter'
+           WHERE presentation_id = $1`,
+          [presentationId],
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
+
+    let statementCount = 0;
+    const presentation = await transactions.runReadOnly((session) => {
+      const orchestratedSession: DatabaseSession = {
+        async query<Row extends object>(text: string, values?: readonly unknown[]) {
+          statementCount += 1;
+          const result = await session.query<Row>(text, values);
+          if (!replacementCommitted) {
+            replacementCommitted = true;
+            await commitReplacement();
+          }
+          return result;
+        },
+      };
+      return repository.findActiveHeroPresentation(orchestratedSession);
+    });
+
+    expect(replacementCommitted).toBe(true);
+    expect(statementCount).toBe(1);
+    expect([
+      { objectKey: oldObjectKey, byteSize: 100, label: "Old chapter" },
+      { objectKey: newObjectKey, byteSize: 200, label: "New chapter" },
+    ]).toContainEqual({
+      objectKey: presentation?.media.objectKey,
+      byteSize: presentation?.media.byteSize,
+      label: presentation?.slides[0]?.chapter.label,
+    });
   });
 
   it("orders best-selling products by all-time paid order quantities", async () => {

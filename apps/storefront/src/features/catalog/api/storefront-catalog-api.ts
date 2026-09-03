@@ -4,6 +4,7 @@
 import type { ApiClient } from "../../../shared/http/api-client";
 import {
   categoriesEnvelopeSchema,
+  heroPresentationEnvelopeSchema,
   heroSlidesEnvelopeSchema,
   productEnvelopeSchema,
   productsEnvelopeSchema,
@@ -34,6 +35,14 @@ export class StorefrontCatalogApi {
       await this.client.request(
         "/v1/storefront/hero-slides",
         heroSlidesEnvelopeSchema,
+      )
+    ).data;
+  }
+  async heroPresentation() {
+    return (
+      await this.client.request(
+        "/v1/storefront/hero-presentation",
+        heroPresentationEnvelopeSchema,
       )
     ).data;
   }

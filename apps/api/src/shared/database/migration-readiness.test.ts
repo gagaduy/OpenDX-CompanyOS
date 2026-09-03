@@ -12,7 +12,7 @@ interface ReadinessOverride {
 
 function completeReadinessRow(overrides: ReadinessOverride = {}) {
   return {
-    catalog: "4",
+    catalog: "5",
     company_core: "1",
     inventory: "2",
     customer: "2",
@@ -41,7 +41,7 @@ describe("assertRequiredMigrations", () => {
   it.each([
     [{ wishlist_migration: false }, "missing Wishlist migration ledger"],
     [{ wishlist_table: false }, "missing Wishlist table"],
-    [{ catalog: "3" }, "missing latest Catalog migration"],
+    [{ catalog: "4" }, "missing latest Catalog migration"],
   ] as const)("rejects incomplete schema: %s", async (override, _case) => {
     await expect(
       assertRequiredMigrations(fakePool(completeReadinessRow(override))),

@@ -90,6 +90,25 @@ export interface StorefrontHeroSlideDto {
   readonly product: PublicProductDto;
 }
 
+export interface StorefrontHeroPresentationSlideDto extends StorefrontHeroSlideDto {
+  readonly chapter?: {
+    readonly startMs: number;
+    readonly endMs: number;
+    readonly label: string;
+  };
+}
+
+export interface StorefrontHeroPresentationDto {
+  readonly media?: {
+    readonly id: string;
+    readonly contentUrl: string;
+    readonly contentType: "video/mp4";
+    readonly byteSize: number;
+    readonly durationMs: number;
+  };
+  readonly slides: readonly StorefrontHeroPresentationSlideDto[];
+}
+
 export interface PaginatedPublicProductsDto {
   readonly items: readonly PublicProductDto[];
   readonly page: number;

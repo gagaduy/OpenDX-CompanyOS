@@ -16,6 +16,7 @@ import { CatalogVariantReaderService } from "./application/services/implementati
 import { StorefrontVariantReaderService } from "./application/services/implementations/storefront-variant-reader";
 import { CatalogHealthReaderService } from "./application/services/implementations/catalog-health-reader";
 import type { ProductMediaInspector, ProductMediaStorage } from "./application/storage/product-media.storage";
+import type { StorefrontHeroMediaStorage } from "./application/storage/storefront-hero-media.storage";
 import { PostgresqlCatalogAuditRepository } from "./infrastructure/repositories/implementations/postgresql-catalog-audit.repository";
 import { PostgresqlCategoryRepository } from "./infrastructure/repositories/implementations/postgresql-category.repository";
 import { PostgresqlProductMediaRepository } from "./infrastructure/repositories/implementations/postgresql-product-media.repository";
@@ -43,6 +44,7 @@ export interface CatalogModuleDependencies {
   readonly transactions: TransactionRunner;
   readonly mediaStorage: ProductMediaStorage;
   readonly mediaInspector: ProductMediaInspector;
+  readonly heroMediaStorage: StorefrontHeroMediaStorage;
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly generateId: () => string;
   readonly now: () => string;
@@ -183,7 +185,11 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     ),
   );
   const publicRouter = createPublicCatalogRouter(
-    new PublicCatalogController(publicCatalogService, dependencies.mediaStorage),
+    new PublicCatalogController(
+      publicCatalogService,
+      dependencies.mediaStorage,
+      dependencies.heroMediaStorage,
+    ),
   );
   return {
     adminRouter,

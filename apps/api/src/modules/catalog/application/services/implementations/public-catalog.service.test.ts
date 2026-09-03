@@ -33,6 +33,131 @@ const product = {
 };
 
 describe("PublicCatalogService", () => {
+  it("returns a complete chapter-ordered hero presentation without persistence internals", async () => {
+    const categories = [
+      "laptops",
+      "phones",
+      "tablets",
+      "smart-watches",
+      "computer-components",
+      "accessories",
+    ];
+    const presentationProducts = categories.map((slug, index) => ({
+      ...product,
+      id: `d2000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+      categoryId: `d3000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+      categoryName: slug,
+      name: `Product ${index}`,
+      slug: `product-${index}`,
+      primaryMedia: {
+        id: `d4000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+        altText: `Product ${index}`,
+      },
+      variants: [{
+        ...product.variants[0]!,
+        id: `d1000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+      }],
+    }));
+    const repository = {
+      findActiveHeroPresentation: vi.fn(async () => ({
+        media: {
+          id: "d6000000-0000-4000-8000-000000000001",
+          objectKey: "storefront/hero/private.mp4",
+          contentType: "video/mp4" as const,
+          byteSize: 25_000_000,
+          durationMs: 24_000,
+          contentDigest: "private-digest",
+          createdAt: "2026-08-28T00:00:00.000Z",
+        },
+        configuredChapterCount: 6,
+        slides: categories.map((slug, index) => ({
+          category: {
+            id: presentationProducts[index]!.categoryId,
+            name: slug,
+            slug,
+          },
+          product: presentationProducts[index]!,
+          chapter: {
+            startMs: index * 4_000,
+            endMs: (index + 1) * 4_000,
+            label: `Chapter ${index}`,
+          },
+        })),
+      })),
+    } as unknown as PublicCatalogRepository;
+    const availability: InventoryAvailabilityReader = {
+      getByVariantIds: vi.fn(async (ids: readonly string[]) =>
+        new Map(ids.map((id) => [id, {
+          initialized: true,
+          onHand: 1,
+          reserved: 0,
+          available: 1,
+        }])),
+      ),
+    };
+    const transactions: TransactionRunner = {
+      run: (work) => work({ query: vi.fn() }),
+      runReadOnly: (work) => work({ query: vi.fn() }),
+    };
+    const service = new PublicCatalogService(repository, availability, transactions);
+
+    const result = await service.getHeroPresentation();
+
+    expect(result.media).toEqual({
+      id: "d6000000-0000-4000-8000-000000000001",
+      contentUrl: "/v1/storefront/hero-media/d6000000-0000-4000-8000-000000000001/content",
+      contentType: "video/mp4",
+      byteSize: 25_000_000,
+      durationMs: 24_000,
+    });
+    expect(result.slides.map(({ category }) => category.slug)).toEqual(categories);
+    expect(JSON.stringify(result)).not.toMatch(
+      /objectKey|contentDigest|createdAt|updatedAt/,
+    );
+  });
+
+  it("falls back to normal image slides when an active presentation is incomplete", async () => {
+    const repository = {
+      findActiveHeroPresentation: vi.fn(async () => ({
+        media: {
+          id: "d6000000-0000-4000-8000-000000000001",
+          objectKey: "storefront/hero/private.mp4",
+          contentType: "video/mp4" as const,
+          byteSize: 25_000_000,
+          durationMs: 24_000,
+          contentDigest: "private-digest",
+          createdAt: "2026-08-28T00:00:00.000Z",
+        },
+        configuredChapterCount: 6,
+        slides: [],
+      })),
+      listHeroSlides: vi.fn(async () => [{
+        category: { id: product.categoryId, name: "Phones", slug: "phones" },
+        product,
+      }]),
+    } as unknown as PublicCatalogRepository;
+    const availability: InventoryAvailabilityReader = {
+      getByVariantIds: vi.fn(async () => new Map([[VARIANT_ID, {
+        initialized: true,
+        onHand: 1,
+        reserved: 0,
+        available: 1,
+      }]])),
+    };
+    const transactions: TransactionRunner = {
+      run: (work) => work({ query: vi.fn() }),
+      runReadOnly: (work) => work({ query: vi.fn() }),
+    };
+    const service = new PublicCatalogService(repository, availability, transactions);
+
+    await expect(service.getHeroPresentation()).resolves.toEqual({
+      slides: [expect.objectContaining({
+        category: expect.objectContaining({ slug: "phones" }),
+      })],
+    });
+    expect(repository.listHeroSlides).toHaveBeenCalledOnce();
+  });
+
   it("returns Storefront content through the read-only Catalog boundary", async () => {
     const content = {
       assurances: [

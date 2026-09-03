@@ -5,13 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ProductPage,
   StorefrontCategory,
-  StorefrontHeroSlide,
+  StorefrontHeroPresentation,
   StorefrontProduct,
 } from "../types/catalog.types";
 
 export interface HomepageCatalogReader {
   readonly categories: () => Promise<readonly StorefrontCategory[]>;
-  readonly heroSlides: () => Promise<readonly StorefrontHeroSlide[]>;
+  readonly heroPresentation: () => Promise<StorefrontHeroPresentation>;
   readonly products: (parameters: URLSearchParams) => Promise<ProductPage>;
 }
 
@@ -30,7 +30,7 @@ export type HomepageRailId = "featured" | "bestSelling" | "newest";
 
 export interface HomepageCatalogState {
   readonly categories: HomepageRegion<readonly StorefrontCategory[]>;
-  readonly hero: HomepageRegion<readonly StorefrontHeroSlide[]>;
+  readonly hero: HomepageRegion<StorefrontHeroPresentation>;
   readonly promotions: HomepageRegion<readonly CategoryPromotion[]>;
   readonly rails: Readonly<
     Record<HomepageRailId, HomepageRegion<readonly StorefrontProduct[]>>
@@ -50,6 +50,11 @@ const loadingList = <T,>(): RegionSnapshot<readonly T[]> => ({
   data: [],
 });
 
+const loadingHero = (): RegionSnapshot<StorefrontHeroPresentation> => ({
+  status: "loading",
+  data: { slides: [] },
+});
+
 function settledList<T>(data: readonly T[]): RegionSnapshot<readonly T[]> {
   return { status: data.length === 0 ? "empty" : "ready", data };
 }
@@ -59,8 +64,8 @@ export function useHomepageCatalog(api: HomepageCatalogReader): HomepageCatalogS
   const [categories, setCategories] = useState<RegionSnapshot<readonly StorefrontCategory[]>>(
     loadingList,
   );
-  const [hero, setHero] = useState<RegionSnapshot<readonly StorefrontHeroSlide[]>>(
-    loadingList,
+  const [hero, setHero] = useState<RegionSnapshot<StorefrontHeroPresentation>>(
+    loadingHero,
   );
   const [promotions, setPromotions] = useState<RegionSnapshot<readonly CategoryPromotion[]>>(
     loadingList,
@@ -114,12 +119,17 @@ export function useHomepageCatalog(api: HomepageCatalogReader): HomepageCatalogS
   }, [api]);
 
   const loadHero = useCallback(async () => {
-    if (mounted.current) setHero(loadingList());
+    if (mounted.current) setHero(loadingHero());
     try {
-      const result = await api.heroSlides();
-      if (mounted.current) setHero(settledList(result));
+      const result = await api.heroPresentation();
+      if (mounted.current) {
+        setHero({
+          status: result.slides.length === 0 ? "empty" : "ready",
+          data: result,
+        });
+      }
     } catch {
-      if (mounted.current) setHero({ status: "error", data: [] });
+      if (mounted.current) setHero({ status: "error", data: { slides: [] } });
     }
   }, [api]);
 

@@ -9,6 +9,7 @@ import { createApiApp } from "./app";
 import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
 import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
+import { MinioStorefrontHeroMediaStorage } from "./modules/catalog/infrastructure/storage/minio-storefront-hero-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
 import { parseApiEnvironment } from "./shared/config/environment";
 import { createPostgresPool } from "./shared/database/postgres";
@@ -106,6 +107,10 @@ const inventory = createInventoryModule({
 const catalog = createCatalogModule({
   transactions,
   mediaStorage: new MinioProductMediaStorage(minio, environment.minioBucket),
+  heroMediaStorage: new MinioStorefrontHeroMediaStorage(
+    minio,
+    environment.minioBucket,
+  ),
   mediaInspector: new FileTypeProductMediaInspector(),
   staffTokenVerifier,
   generateId: randomUUID,

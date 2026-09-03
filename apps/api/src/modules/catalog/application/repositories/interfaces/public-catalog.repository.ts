@@ -60,6 +60,31 @@ export interface PublicHeroSlideProjection {
   readonly product: PublicProductProjection;
 }
 
+export interface PublicHeroPresentationProjection {
+  readonly media: {
+    readonly id: string;
+    readonly objectKey: string;
+    readonly contentType: "video/mp4";
+    readonly byteSize: number;
+    readonly durationMs: number;
+  };
+  readonly configuredChapterCount: number;
+  readonly slides: readonly (PublicHeroSlideProjection & {
+    readonly chapter: {
+      readonly startMs: number;
+      readonly endMs: number;
+      readonly label: string;
+    };
+  })[];
+}
+
+export interface PublicHeroMediaAuthorization {
+  readonly mediaId: string;
+  readonly objectKey: string;
+  readonly contentType: "video/mp4";
+  readonly byteSize: number;
+}
+
 export interface PublicMediaAuthorization {
   readonly productId: string;
   readonly mediaId: string;
@@ -92,6 +117,13 @@ export interface PublicCatalogRepository {
   listHeroSlides(
     session: DatabaseSession,
   ): Promise<readonly PublicHeroSlideProjection[]>;
+  findActiveHeroPresentation(
+    session: DatabaseSession,
+  ): Promise<PublicHeroPresentationProjection | undefined>;
+  findHeroMediaAuthorization(
+    session: DatabaseSession,
+    mediaId: string,
+  ): Promise<PublicHeroMediaAuthorization | undefined>;
   listProducts(
     session: DatabaseSession,
     query: PublicProductListQuery,

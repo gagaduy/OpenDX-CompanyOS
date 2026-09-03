@@ -19,6 +19,8 @@ describeWithDatabase("catalog migration", () => {
     "audit_events",
     "storefront_service_assurances",
     "storefront_trust_metrics",
+    "storefront_hero_presentations",
+    "storefront_hero_chapters",
   ] as const;
 
   afterAll(async () => {
@@ -62,9 +64,62 @@ describeWithDatabase("catalog migration", () => {
     await pool.query(
       `INSERT INTO categories
         (id, name, slug, sort_order, status, created_at, updated_at, version)
-       VALUES ('81000000-0000-4000-8000-000000000001', 'Phones', 'phones', 0,
-               'active', NOW(), NOW(), 1)`,
+       VALUES
+         ('81000000-0000-4000-8000-000000000001', 'Phones', 'phones', 0,
+          'active', NOW(), NOW(), 1),
+         ('81000000-0000-4000-8000-000000000002', 'Laptops', 'laptops', 1,
+          'active', NOW(), NOW(), 1)`,
     );
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ('83000000-0000-4000-8000-000000000099', 'invalid-duration',
+               'storefront/hero/${"c".repeat(64)}.mp4', 'video/mp4', 100, 0,
+               '${"c".repeat(64)}', false)`),
+    ).rejects.toThrow();
+    await pool.query(`INSERT INTO storefront_hero_presentations
+      (id, code, object_key, content_type, byte_size, duration_ms,
+       content_digest, enabled)
+     VALUES ('83000000-0000-4000-8000-000000000001', 'nova-signal',
+             'storefront/hero/${"a".repeat(64)}.mp4', 'video/mp4', 100, 24000,
+             '${"a".repeat(64)}', true)`);
+    await pool.query(`INSERT INTO storefront_hero_chapters
+      (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+     VALUES ('83000000-0000-4000-8000-000000000001',
+             '81000000-0000-4000-8000-000000000001', 0, 0, 4000, 'Phone')`);
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ('83000000-0000-4000-8000-000000000001',
+               '81000000-0000-4000-8000-000000000002', 1, 4000, 8000, '  ')`),
+    ).rejects.toThrow();
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ('83000000-0000-4000-8000-000000000001',
+               '81000000-0000-4000-8000-000000000002', 0, 4000, 8000, 'Laptop')`),
+    ).rejects.toThrow();
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ('83000000-0000-4000-8000-000000000001',
+               '81000000-0000-4000-8000-000000000002', 1, 3000, 5000, 'Laptop')`),
+    ).rejects.toThrow();
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_chapters
+        (presentation_id, category_id, sort_order, start_ms, end_ms, label)
+       VALUES ('83000000-0000-4000-8000-000000000001',
+               '81000000-0000-4000-8000-000000000002', 1, 24000, 25000, 'Laptop')`),
+    ).rejects.toThrow();
+    await expect(
+      pool.query(`INSERT INTO storefront_hero_presentations
+        (id, code, object_key, content_type, byte_size, duration_ms,
+         content_digest, enabled)
+       VALUES ('83000000-0000-4000-8000-000000000002', 'second-enabled',
+               'storefront/hero/${"b".repeat(64)}.mp4', 'video/mp4', 200, 24000,
+               '${"b".repeat(64)}', true)`),
+    ).rejects.toThrow();
     await pool.query(
       `INSERT INTO products
         (id, category_id, name, slug, description, status, created_at, updated_at, version)
@@ -85,6 +140,27 @@ describeWithDatabase("catalog migration", () => {
       .toContain("products_health_status_updated_idx");
 
     await runCatalogMigrations(databaseUrl!, "down", 1);
+    const heroTables = await pool.query<{
+      presentation: string | null;
+      chapter: string | null;
+      assurance: string | null;
+      metric: string | null;
+    }>(
+      `SELECT
+         to_regclass('public.storefront_hero_presentations')::text AS presentation,
+         to_regclass('public.storefront_hero_chapters')::text AS chapter,
+         to_regclass('public.storefront_service_assurances')::text AS assurance,
+         to_regclass('public.storefront_trust_metrics')::text AS metric`,
+    );
+    expect(heroTables.rows[0]).toEqual({
+      presentation: null,
+      chapter: null,
+      assurance: "storefront_service_assurances",
+      metric: "storefront_trust_metrics",
+    });
+    await runCatalogMigrations(databaseUrl!, "up");
+
+    await runCatalogMigrations(databaseUrl!, "down", 2);
     const contentTables = await pool.query<{ assurance: string | null; metric: string | null }>(
       `SELECT to_regclass('public.storefront_service_assurances')::text AS assurance,
               to_regclass('public.storefront_trust_metrics')::text AS metric`,
@@ -106,7 +182,7 @@ describeWithDatabase("catalog migration", () => {
       metric: "storefront_trust_metrics",
     });
 
-    await runCatalogMigrations(databaseUrl!, "down", 2);
+    await runCatalogMigrations(databaseUrl!, "down", 3);
     await expect(indexNames(pool)).resolves.not.toContain("products_health_status_updated_idx");
     const product = await pool.query<{ status: string }>(
       "SELECT status FROM products WHERE id = '82000000-0000-4000-8000-000000000001'",
@@ -116,7 +192,7 @@ describeWithDatabase("catalog migration", () => {
     await runCatalogMigrations(databaseUrl!, "up");
     await expect(indexNames(pool)).resolves.toContain("products_health_status_updated_idx");
 
-    await runCatalogMigrations(databaseUrl!, "down", 3);
+    await runCatalogMigrations(databaseUrl!, "down", 4);
     const draft = await pool.query<{ status: string }>(
       "SELECT status FROM products WHERE id = '82000000-0000-4000-8000-000000000001'",
     );

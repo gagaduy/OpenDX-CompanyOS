@@ -9,6 +9,9 @@ export function createPublicCatalogRouter(controller: PublicCatalogController): 
   router.get("/content", controller.content);
   router.get("/categories", controller.categories);
   router.get("/hero-slides", controller.heroSlides);
+  router.get("/hero-presentation", controller.heroPresentation);
+  router.head("/hero-media/:mediaId/content", controller.heroMediaHead);
+  router.get("/hero-media/:mediaId/content", controller.heroMedia);
   router.get("/products", controller.products);
   router.get("/products/:productId/media/:mediaId/content", controller.media);
   router.get("/products/:slug", controller.product);

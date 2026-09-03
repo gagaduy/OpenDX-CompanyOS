@@ -7,7 +7,7 @@ import { useHomepageCatalog } from "../hooks/use-homepage-catalog";
 import type {
   ProductPage,
   StorefrontCategory,
-  StorefrontHeroSlide,
+  StorefrontHeroPresentation,
   StorefrontProduct,
 } from "../types/catalog.types";
 
@@ -16,9 +16,9 @@ describe("homepage Catalog orchestration", () => {
     const categories = [category("phones", "Điện thoại"), category("laptops", "Laptop")];
     const phone = product("phone", "Nova Phone", "Điện thoại");
     const laptop = product("laptop", "Nova Laptop Pro", "Laptop");
-    const heroSlides: readonly StorefrontHeroSlide[] = [
-      { category: categories[0]!, product: phone },
-    ];
+    const heroPresentation: StorefrontHeroPresentation = {
+      slides: [{ category: categories[0]!, product: phone }],
+    };
     const products = vi.fn(async (parameters: URLSearchParams) => {
       const query = parameters.toString();
       if (query.startsWith("category=phones")) return page([phone]);
@@ -27,7 +27,7 @@ describe("homepage Catalog orchestration", () => {
     });
     const api = {
       categories: vi.fn(async () => categories),
-      heroSlides: vi.fn(async () => heroSlides),
+      heroPresentation: vi.fn(async () => heroPresentation),
       products,
     };
 
@@ -53,7 +53,7 @@ describe("homepage Catalog orchestration", () => {
     const phone = product("phone", "Nova Phone", "Điện thoại");
     const api = {
       categories: vi.fn(async () => [category("phones", "Điện thoại")]),
-      heroSlides: vi.fn(async () => {
+      heroPresentation: vi.fn(async () => {
         throw new Error("hero offline");
       }),
       products: vi.fn(async (parameters: URLSearchParams) => {
@@ -76,7 +76,7 @@ describe("homepage Catalog orchestration", () => {
   it("models empty API responses without inventing commerce content", async () => {
     const api = {
       categories: vi.fn(async () => [] as readonly StorefrontCategory[]),
-      heroSlides: vi.fn(async () => [] as readonly StorefrontHeroSlide[]),
+      heroPresentation: vi.fn(async () => ({ slides: [] })),
       products: vi.fn(async () => page([])),
     };
 
@@ -95,7 +95,7 @@ function CatalogProbe({ api }: { readonly api: Parameters<typeof useHomepageCata
   return (
     <output data-testid="catalog-state">
       {state.categories.status}:{state.categories.data.length}|
-      {state.hero.status}:{state.hero.data.length}|
+      {state.hero.status}:{state.hero.data.slides.length}|
       {state.promotions.status}:{state.promotions.data.length}|
       {state.rails.featured.status}:{state.rails.featured.data.length}|
       {state.rails.bestSelling.status}:{state.rails.bestSelling.data.length}|
