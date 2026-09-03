@@ -97,23 +97,6 @@ export function TicketDetailPage({ api }: { readonly api: SupportOperationsApi; 
 
   return (
     <section className="catalogWorkspace operationsWorkspace supportWorkspace customerWorkspace">
-      <Link
-        className="backLink"
-        to="/support"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          marginBottom: "1.25rem",
-          color: "#38bdf8",
-          textDecoration: "none",
-          fontWeight: 600,
-          fontSize: "0.95rem",
-        }}
-      >
-        <ArrowLeft size={18} aria-hidden="true" />
-        <span>Quay lại danh sách yêu cầu hỗ trợ</span>
-      </Link>
       <PageHeader
         eyebrow="Support ticket"
         title={data.ticket.subject}
