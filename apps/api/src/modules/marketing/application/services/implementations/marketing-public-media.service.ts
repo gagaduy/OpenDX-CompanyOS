@@ -33,6 +33,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const MIN_SIGNING_SECRET_LENGTH = 32;
 const MIN_URL_TTL_SECONDS = 60;
 const MAX_URL_TTL_SECONDS = 3_600;
+const JPEG_CONVERSION_POLICY_VERSION = "marketing-jpeg-policy-v1";
 
 function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -45,8 +46,14 @@ function hasJpegMagic(bytes: Buffer): boolean {
     && bytes[2] === 0xff;
 }
 
-function variantKey(assetId: string, sourceDigest: string): string {
-  return `marketing/public-media/${assetId}/${sourceDigest}.jpg`;
+function jpegPolicyFingerprint(quality: number): string {
+  return createHash("sha256")
+    .update(`${JPEG_CONVERSION_POLICY_VERSION}\nquality=${quality}`)
+    .digest("hex");
+}
+
+function variantKey(assetId: string, sourceDigest: string, policy: string): string {
+  return `marketing/public-media/${assetId}/${sourceDigest}/${policy}.jpg`;
 }
 
 function epochSeconds(timestamp: string): number {
@@ -119,12 +126,15 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
         throw new MarketingPublicMediaAccessError();
       }
 
-      const key = variantKey(asset.id, sourceDigest);
+      const policy = jpegPolicyFingerprint(this.jpegQuality);
+      const key = variantKey(asset.id, sourceDigest, policy);
       const existing = await this.storage.readVariant(key);
+      let outputDigest: string;
       if (existing) {
         if (existing.mediaType !== "image/jpeg" || !hasJpegMagic(existing.bytes)) {
           throw new MarketingPublicMediaAccessError();
         }
+        outputDigest = sha256(existing.bytes);
       } else {
         const transformed = await this.transformer.toJpeg(media.bytes, this.jpegQuality);
         if (
@@ -137,7 +147,7 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
         ) {
           throw new MarketingPublicMediaAccessError();
         }
-        const outputDigest = sha256(transformed.bytes);
+        outputDigest = sha256(transformed.bytes);
         await this.storage.writeVariant({
           key,
           bytes: transformed.bytes,
@@ -150,13 +160,21 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
       }
 
       const expires = epochSeconds(this.now()) + this.urlTtlSeconds;
-      const signature = this.sign(asset.id, sourceDigest, expires);
+      const signature = this.sign(
+        asset.id,
+        sourceDigest,
+        policy,
+        outputDigest,
+        expires,
+      );
       const url = new URL(
         `/v1/public/marketing/media/${encodeURIComponent(asset.id)}`,
         this.publicBaseUrl,
       );
       url.searchParams.set("v", "1");
       url.searchParams.set("digest", sourceDigest);
+      url.searchParams.set("policy", policy);
+      url.searchParams.set("outputDigest", outputDigest);
       url.searchParams.set("expires", String(expires));
       url.searchParams.set("signature", signature);
       return url.toString();
@@ -179,16 +197,20 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
       }
 
       const variant = await this.storage.readVariant(
-        variantKey(asset.id, input.sourceDigest),
+        variantKey(asset.id, input.sourceDigest, input.policy),
       );
       if (!variant || variant.mediaType !== "image/jpeg" || !hasJpegMagic(variant.bytes)) {
+        throw new MarketingPublicMediaAccessError();
+      }
+      const outputDigest = sha256(variant.bytes);
+      if (outputDigest !== input.outputDigest) {
         throw new MarketingPublicMediaAccessError();
       }
 
       return {
         bytes: variant.bytes,
         mediaType: "image/jpeg",
-        outputDigest: sha256(variant.bytes),
+        outputDigest,
       };
     } catch (error) {
       throw this.unavailable(error);
@@ -197,7 +219,13 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
 
   private verifyClaim(input: ReadMarketingPublicMediaInput): void {
     const expectedSignature = Buffer.from(
-      this.sign(input.assetId, input.sourceDigest, input.expires),
+      this.sign(
+        input.assetId,
+        input.sourceDigest,
+        input.policy,
+        input.outputDigest,
+        input.expires,
+      ),
       "hex",
     );
     const signatureIsWellFormed = DIGEST_PATTERN.test(input.signature);
@@ -207,17 +235,33 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
     const signatureMatches = timingSafeEqual(expectedSignature, suppliedSignature);
     const claimIsWellFormed = UUID_PATTERN.test(input.assetId)
       && DIGEST_PATTERN.test(input.sourceDigest)
+      && DIGEST_PATTERN.test(input.policy)
+      && DIGEST_PATTERN.test(input.outputDigest)
       && Number.isSafeInteger(input.expires);
-    const isUnexpired = input.expires > epochSeconds(this.now());
+    const now = epochSeconds(this.now());
+    const isUnexpired = input.expires > now;
+    const isWithinConfiguredLifetime = input.expires <= now + this.urlTtlSeconds;
 
-    if (!claimIsWellFormed || !signatureIsWellFormed || !signatureMatches || !isUnexpired) {
+    if (
+      !claimIsWellFormed
+      || !signatureIsWellFormed
+      || !signatureMatches
+      || !isUnexpired
+      || !isWithinConfiguredLifetime
+    ) {
       throw new MarketingPublicMediaAccessError();
     }
   }
 
-  private sign(assetId: string, sourceDigest: string, expires: number): string {
+  private sign(
+    assetId: string,
+    sourceDigest: string,
+    policy: string,
+    outputDigest: string,
+    expires: number,
+  ): string {
     return createHmac("sha256", this.signingSecret)
-      .update(`v1\n${assetId}\n${sourceDigest}\n${expires}`)
+      .update(`v1\n${assetId}\n${sourceDigest}\n${policy}\n${outputDigest}\n${expires}`)
       .digest("hex");
   }
 

@@ -6,6 +6,8 @@ import type { SocialPublishMediaItem } from "../../ports/social-publisher.port";
 export interface ReadMarketingPublicMediaInput {
   readonly assetId: string;
   readonly sourceDigest: string;
+  readonly policy: string;
+  readonly outputDigest: string;
   readonly expires: number;
   readonly signature: string;
 }

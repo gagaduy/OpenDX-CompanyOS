@@ -288,6 +288,8 @@ import type { SocialPublishMediaItem } from "../../ports/social-publisher.port";
 export interface ReadMarketingPublicMediaInput {
   readonly assetId: string;
   readonly sourceDigest: string;
+  readonly policy: string;
+  readonly outputDigest: string;
   readonly expires: number;
   readonly signature: string;
 }
@@ -313,16 +315,21 @@ Create deterministic fakes for repository, storage, transformer, and clock.
 Cover these behaviors one at a time:
 
 1. Source bytes must hash to the persisted `VisualAsset.imageDigest`.
-2. The key is
-   `marketing/public-media/<assetId>/<sourceDigest>.jpg` and never comes from
-   the caller.
+2. A named, versioned JPEG conversion policy fingerprint includes the configured
+   quality. The key is
+   `marketing/public-media/<assetId>/<sourceDigest>/<policy>.jpg` and never
+   comes from the caller. Changing quality or policy must produce a distinct
+   key and variant.
 3. An existing JPEG variant is reused without calling the transformer or
    writer.
 4. A missing variant is transformed once and written with complete metadata.
 5. The returned URL uses the configured HTTPS base and contains only
-   `v=1`, `digest`, `expires`, and `signature` query parameters.
-6. A valid claim returns the exact stored JPEG bytes.
-7. Expired, malformed, tampered, asset-substituted, and digest-substituted
+   `v=1`, `digest`, `policy`, `outputDigest`, `expires`, and `signature` query
+   parameters.
+6. A valid claim returns the exact stored JPEG bytes only when their actual
+   SHA-256 digest matches the signed `outputDigest`.
+7. Expired, excessive-future, malformed, tampered, asset-substituted,
+   source-digest-substituted, policy-substituted, and output-digest-substituted
    claims all throw the same access error.
 8. Signature verification happens before repository or storage lookup.
 9. A missing asset or object does not reveal which resource was absent.
@@ -357,15 +364,17 @@ Constructor dependencies are:
 Use the canonical HMAC input:
 
 ```text
-v1\n<assetId>\n<sourceDigest>\n<expires>
+v1\n<assetId>\n<sourceDigest>\n<policy>\n<outputDigest>\n<expires>
 ```
 
 Create a lowercase hexadecimal SHA-256 HMAC. Before any repository lookup,
-validate expiry and compare the supplied signature to the expected signature
-with `timingSafeEqual`. For malformed signature length, compare against a
-same-sized zero buffer and still return the generic error. Validate JPEG magic
-on both newly transformed and reused bytes. Calculate the output digest when
-serving an existing variant.
+validate expiry (including a configured maximum future lifetime) and compare
+the supplied signature to the expected signature with `timingSafeEqual`. For
+malformed signature length, compare against a same-sized zero buffer and still
+return the generic error. Validate JPEG magic on both newly transformed and
+reused bytes. Calculate the output digest for every variant before signing and
+again on retrieval; deny access when the stored bytes no longer match the
+signed digest.
 
 **Step 5: Verify GREEN and commit**
 
@@ -456,8 +465,9 @@ The API test must inject a fake `MarketingPublicMediaService` and prove:
   output-digest `ETag`, `X-Content-Type-Options: nosniff`, and
   `Cache-Control: private, no-store`;
 - `HEAD /:assetId` returns the same safe headers and no body;
-- malformed UUID, digest, expiry, signature, expired URL, and unknown media
-  all produce the same `404` code and message;
+- malformed UUID, digest, policy, output digest, expiry, signature, expired URL,
+  excessive-future URL, and unknown media all produce the same `404` code and
+  message;
 - no request accepts a bucket name or object key; and
 - exceeding the injected limiter returns `429`.
 
@@ -486,6 +496,8 @@ The validator accepts only:
 assetId: z.uuid(),
 v: z.literal("1"),
 digest: z.string().regex(/^[a-f0-9]{64}$/),
+policy: z.string().regex(/^[a-f0-9]{64}$/),
+outputDigest: z.string().regex(/^[a-f0-9]{64}$/),
 expires: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().safe()),
 signature: z.string().regex(/^[a-f0-9]{64}$/),
 ```

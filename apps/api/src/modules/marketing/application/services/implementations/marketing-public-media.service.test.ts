@@ -27,7 +27,10 @@ const PNG_BYTES = Buffer.from("deterministic-private-png-source");
 const SOURCE_DIGEST = "d714c2654f732d041e6229f04ea9c08ada24578350342dc31330b93b6756e863";
 const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x4a, 0x46, 0x49, 0x46]);
 const OTHER_JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x01, 0x02, 0x03]);
-const VARIANT_KEY = `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}.jpg`;
+const POLICY_85 = "bd0f54974cd5a1d6a5c9de0749da2b7ada2ed380767bf26346a0a94681b3f18d";
+const POLICY_86 = "c04bde095a9865ce15f6100a192c47d4bd6760d51696e09629226a8a091ddf4e";
+const JPEG_DIGEST = "6f18bea31ace0455d61ac9394b95b48b03747c26ba414b8bc1cac0f216187442";
+const VARIANT_KEY = `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}/${POLICY_85}.jpg`;
 
 interface FakeState {
   repositoryLookups: string[];
@@ -89,7 +92,9 @@ function harness(options: HarnessOptions = {}) {
   };
   const variants = new Map<string, MarketingPublicMediaVariant>();
   if (options.existingVariant !== null) {
-    variants.set(VARIANT_KEY, options.existingVariant ?? {
+    const configuredPolicy = options.jpegQuality === 86 ? POLICY_86 : POLICY_85;
+    const configuredKey = `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}/${configuredPolicy}.jpg`;
+    variants.set(configuredKey, options.existingVariant ?? {
       bytes: JPEG_BYTES,
       mediaType: "image/jpeg",
     });
@@ -150,9 +155,15 @@ function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function sign(assetId: string, sourceDigest: string, expires: number): string {
+function sign(
+  assetId: string,
+  sourceDigest: string,
+  policy: string,
+  outputDigest: string,
+  expires: number,
+): string {
   return createHmac("sha256", SECRET)
-    .update(`v1\n${assetId}\n${sourceDigest}\n${expires}`)
+    .update(`v1\n${assetId}\n${sourceDigest}\n${policy}\n${outputDigest}\n${expires}`)
     .digest("hex");
 }
 
@@ -161,8 +172,10 @@ function validReadInput() {
   return {
     assetId: ASSET_ID,
     sourceDigest: SOURCE_DIGEST,
+    policy: POLICY_85,
+    outputDigest: JPEG_DIGEST,
     expires,
-    signature: sign(ASSET_ID, SOURCE_DIGEST, expires),
+    signature: sign(ASSET_ID, SOURCE_DIGEST, POLICY_85, JPEG_DIGEST, expires),
   };
 }
 
@@ -185,12 +198,34 @@ describe("MarketingPublicMediaServiceImpl", () => {
     expect(state.transformCalls).toEqual([]);
   });
 
-  it("derives the private variant key from the persisted asset identity and source digest", async () => {
+  it("derives the private variant key from the asset, source digest, and versioned JPEG policy", async () => {
     const { service, state } = harness();
 
     await service.prepareUrl(media());
 
     expect(state.storageReads).toEqual([VARIANT_KEY]);
+  });
+
+  it("materializes different variants and claims when JPEG quality changes", async () => {
+    const quality85 = harness({ existingVariant: null, jpegQuality: 85 });
+    const quality86 = harness({ existingVariant: null, jpegQuality: 86 });
+
+    const url85 = new URL(await quality85.service.prepareUrl(media()));
+    const url86 = new URL(await quality86.service.prepareUrl(media()));
+
+    expect(quality85.state.storageReads).toEqual([
+      `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}/${POLICY_85}.jpg`,
+    ]);
+    expect(quality86.state.storageReads).toEqual([
+      `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}/${POLICY_86}.jpg`,
+    ]);
+    expect(quality85.state.transformCalls).toEqual([{ source: PNG_BYTES, quality: 85 }]);
+    expect(quality86.state.transformCalls).toEqual([{ source: PNG_BYTES, quality: 86 }]);
+    expect(quality85.state.storageWrites).toHaveLength(1);
+    expect(quality86.state.storageWrites).toHaveLength(1);
+    expect(url85.searchParams.get("policy")).toBe(POLICY_85);
+    expect(url86.searchParams.get("policy")).toBe(POLICY_86);
+    expect(url85.searchParams.get("signature")).not.toBe(url86.searchParams.get("signature"));
   });
 
   it("reuses a valid existing JPEG without transforming or writing it", async () => {
@@ -227,12 +262,21 @@ describe("MarketingPublicMediaServiceImpl", () => {
     expect(`${result.origin}${result.pathname}`).toBe(
       `https://stable-tunnel.trycloudflare.com/v1/public/marketing/media/${ASSET_ID}`,
     );
-    expect([...result.searchParams.keys()].sort()).toEqual(["digest", "expires", "signature", "v"]);
+    expect([...result.searchParams.keys()].sort()).toEqual([
+      "digest",
+      "expires",
+      "outputDigest",
+      "policy",
+      "signature",
+      "v",
+    ]);
     expect(Object.fromEntries(result.searchParams)).toEqual({
       v: "1",
       digest: SOURCE_DIGEST,
+      policy: POLICY_85,
+      outputDigest: JPEG_DIGEST,
       expires: String(NOW_SECONDS + TTL_SECONDS),
-      signature: "d5da8b0b2b081a51985c60f3c8f83242f58c9cb4e7935d6f463bcb783531ac13",
+      signature: "13f2ac892622dbce7ad3fc693c262a3fdb1f2dec72714bf478e99679547e0e4a",
     });
   });
 
@@ -249,11 +293,25 @@ describe("MarketingPublicMediaServiceImpl", () => {
   });
 
   it.each([
-    ["expired", () => ({ ...validReadInput(), expires: NOW_SECONDS - 1, signature: sign(ASSET_ID, SOURCE_DIGEST, NOW_SECONDS - 1) })],
+    ["expired", () => ({
+      ...validReadInput(),
+      expires: NOW_SECONDS - 1,
+      signature: sign(ASSET_ID, SOURCE_DIGEST, POLICY_85, JPEG_DIGEST, NOW_SECONDS - 1),
+    })],
+    ["excessive future expiry", () => {
+      const expires = NOW_SECONDS + TTL_SECONDS + 1;
+      return {
+        ...validReadInput(),
+        expires,
+        signature: sign(ASSET_ID, SOURCE_DIGEST, POLICY_85, JPEG_DIGEST, expires),
+      };
+    }],
     ["malformed", () => ({ ...validReadInput(), signature: "not-hex" })],
     ["tampered signature", () => ({ ...validReadInput(), signature: "0".repeat(64) })],
     ["substituted asset", () => ({ ...validReadInput(), assetId: OTHER_ASSET_ID })],
     ["substituted digest", () => ({ ...validReadInput(), sourceDigest: "a".repeat(64) })],
+    ["substituted policy", () => ({ ...validReadInput(), policy: POLICY_86 })],
+    ["substituted output digest", () => ({ ...validReadInput(), outputDigest: "a".repeat(64) })],
   ])("rejects a %s claim before protected resource lookup with the generic error", async (_name, buildInput) => {
     const { service, state } = harness();
 
@@ -281,6 +339,14 @@ describe("MarketingPublicMediaServiceImpl", () => {
     await expectUnavailable(service.prepareUrl(media()));
 
     expect(state.storageWrites).toEqual([]);
+  });
+
+  it("rejects valid-looking JPEG bytes that differ from the exact signed output digest", async () => {
+    const { service } = harness({
+      existingVariant: { bytes: OTHER_JPEG_BYTES, mediaType: "image/jpeg" },
+    });
+
+    await expectUnavailable(service.read(validReadInput()));
   });
 
   it("calculates the persisted digest from transformed bytes instead of trusting transformer metadata", async () => {
