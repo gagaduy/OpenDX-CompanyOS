@@ -1750,7 +1750,15 @@ export function AgenticCommandCenter({
                     onClick={handleApproveMarketing}
                   >
                     <Check size={16} />
-                    <span>{marketingActionLoading ? "Đang xử lý..." : "Phê duyệt & Đăng ngay lên Facebook"}</span>
+                    <span>
+                      {marketingActionLoading
+                        ? "Đang xử lý..."
+                        : activeCampaignDetail.targets && activeCampaignDetail.targets.length > 1
+                          ? "Phê duyệt & Đăng lên Facebook & Instagram"
+                          : activeCampaignDetail.targets?.[0]?.platform === "instagram"
+                            ? "Phê duyệt & Đăng ngay lên Instagram"
+                            : "Phê duyệt & Đăng ngay lên Facebook"}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -1764,7 +1772,7 @@ export function AgenticCommandCenter({
                 </>
               )}
 
-              {activeCampaignDetail.campaign.state === "failed" && (
+              {(activeCampaignDetail.campaign.state === "failed" || activeCampaignDetail.campaign.state === "partial_failure") && (
                 <button
                   type="button"
                   className="ccMarketingActionBtn approve"
@@ -1772,7 +1780,16 @@ export function AgenticCommandCenter({
                   onClick={handleRetryPublication}
                 >
                   <RotateCcw size={14} />
-                  <span>Thử đăng lại lên Facebook</span>
+                  <span>
+                    {marketingActionLoading
+                      ? "Đang thử lại..."
+                      : activeCampaignDetail.targets?.some((t) => t.platform === "facebook" && t.status !== "verified") &&
+                        activeCampaignDetail.targets?.some((t) => t.platform === "instagram" && t.status !== "verified")
+                        ? "Thử đăng lại Facebook & Instagram"
+                        : activeCampaignDetail.targets?.some((t) => t.platform === "facebook" && t.status !== "verified")
+                          ? "Thử đăng lại lên Facebook"
+                          : "Thử đăng lại lên Instagram"}
+                  </span>
                 </button>
               )}
 

@@ -76,14 +76,35 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
       throw new FacebookPublisherError("INVALID_INPUT", "At least one visual asset is required for Facebook feed image post");
     }
 
-    const result = await this.publishImagePost({
-      pageId,
-      pageAccessToken,
-      message: request.caption,
-      imageBuffer: firstMedia.bytes,
-      imageFileName: firstMedia.fileName,
-      mimeType: firstMedia.mimeType,
-    });
+    let result: FacebookPublishResult;
+    try {
+      result = await this.publishImagePost({
+        pageId,
+        pageAccessToken,
+        message: request.caption,
+        imageBuffer: firstMedia.bytes,
+        imageFileName: firstMedia.fileName,
+        mimeType: firstMedia.mimeType,
+      });
+    } catch (err) {
+      if (err instanceof FacebookPublisherError && err.code === "FACEBOOK_PERMISSION_DENIED") {
+        const pageToken = await this.resolvePageAccessToken(pageId, pageAccessToken);
+        if (pageToken && pageToken !== pageAccessToken) {
+          result = await this.publishImagePost({
+            pageId,
+            pageAccessToken: pageToken,
+            message: request.caption,
+            imageBuffer: firstMedia.bytes,
+            imageFileName: firstMedia.fileName,
+            mimeType: firstMedia.mimeType,
+          });
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
 
     const verificationEvidenceDigest = createHash("sha256")
       .update(`evidence:${result.postId}:${result.publishedAt}`)
@@ -302,6 +323,25 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
 
     const retryable = httpStatus >= 500;
     throw new FacebookPublisherError("FACEBOOK_PUBLISH_FAILED", message, { httpStatus, retryable });
+  }
+
+  private async resolvePageAccessToken(pageId: string, initialToken: string): Promise<string> {
+    if (!initialToken || !pageId) return initialToken;
+    try {
+      const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(pageId)}?fields=access_token&access_token=${encodeURIComponent(initialToken)}`;
+      const response = await this.fetcher(endpoint, {
+        method: "GET",
+      });
+      if (response.ok) {
+        const payload = (await response.json()) as { access_token?: string };
+        if (payload.access_token) {
+          return payload.access_token;
+        }
+      }
+    } catch {
+      // Proceed with initial token if resolution fails
+    }
+    return initialToken;
   }
 
   private sanitize(text: string, token: string): string {

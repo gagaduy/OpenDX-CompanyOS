@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   failure of one channel (such as Instagram or Facebook) does not abort remaining
   targets, preserving partial publication and retryability.
 - Map `SocialPublisherError` in marketing publication retry controller.
+- Auto-resolve Page Access Token in `MetaGraphFacebookPublisherAdapter` when initial request fails with `FACEBOOK_PERMISSION_DENIED`.
+- Dynamically label Command Center marketing approval and retry buttons for multi-channel publication (Facebook & Instagram).
 
 ### Added
 

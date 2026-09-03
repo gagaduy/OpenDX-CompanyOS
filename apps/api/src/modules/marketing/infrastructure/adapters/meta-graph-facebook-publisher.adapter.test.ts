@@ -183,4 +183,53 @@ describe("MetaGraphFacebookPublisherAdapter", () => {
       canPost: true,
     });
   });
+
+  it("auto-resolves Page Access Token if initial publish receives permission denied code 200", async () => {
+    const userToken = "UserTokenWithManagePages";
+    const resolvedPageToken = "PageTokenForPosting";
+
+    // 1st call: POST /photos fails with code 200 (permission denied)
+    // 2nd call: GET /pageId?fields=access_token returns resolvedPageToken
+    // 3rd call: POST /photos with resolvedPageToken succeeds
+    const mockFetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "Permission denied", code: 200 } }),
+          { status: 403 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ access_token: resolvedPageToken, id: fakePageId }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: "998877_112233", post_id: "998877_112233" }),
+          { status: 200 },
+        ),
+      );
+
+    const adapter = new MetaGraphFacebookPublisherAdapter({
+      fetcher: mockFetcher,
+      now: () => fixedNow,
+      pageId: fakePageId,
+      pageAccessToken: userToken,
+    });
+
+    const receipt = await adapter.publish({
+      target: {
+        id: "target-1",
+        platform: "facebook",
+        accountConfigurationId: fakePageId,
+      } as any,
+      caption: "Launch post",
+      media: [{ bytes: fakeImageBuffer, mimeType: "image/png", fileName: "post.png" }],
+    });
+
+    expect(receipt.externalPublicationId).toBe("998877_112233");
+    expect(mockFetcher).toHaveBeenCalledTimes(3);
+  });
 });
