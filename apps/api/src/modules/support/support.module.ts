@@ -63,25 +63,26 @@ export function createSupportModule(d: {
   emailReceiver?: EmailReceiverPort;
 }) {
   const repository = new PostgresqlSupportRepository();
-  const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now);
   const storage = d.attachmentStorage ?? unavailableStorage();
   const scanner = d.attachmentScanner ?? unavailableScanner();
   const attachments = new SupportAttachmentService(repository, storage, d.transactions, d.generateId, d.now);
 
   const emailDispatcher = d.emailDispatcher ?? (
-    process.env.SUPPORT_EMAIL_MODE === "live" && process.env.SUPPORT_SMTP_USER && process.env.SUPPORT_SMTP_PASS
+    ((process.env.SUPPORT_EMAIL_MODE === "live" || (process.env.SUPPORT_SMTP_USER && process.env.SUPPORT_SMTP_PASS && process.env.SUPPORT_EMAIL_MODE !== "simulation")))
       ? new SmtpEmailDispatcherAdapter({
           config: {
             host: process.env.SUPPORT_SMTP_HOST || "smtp.gmail.com",
             port: Number(process.env.SUPPORT_SMTP_PORT) || 587,
             secure: process.env.SUPPORT_SMTP_SECURE === "true",
-            user: process.env.SUPPORT_SMTP_USER,
-            pass: process.env.SUPPORT_SMTP_PASS,
+            user: process.env.SUPPORT_SMTP_USER || "",
+            pass: process.env.SUPPORT_SMTP_PASS || "",
             from: process.env.SUPPORT_EMAIL_FROM || `NovaCommerce Support <${process.env.SUPPORT_SMTP_USER}>`,
           },
         })
       : new SimulatedEmailDispatcherAdapter()
   );
+
+  const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now, emailDispatcher);
 
   const aiService = d.database
     ? new AiSupportService(

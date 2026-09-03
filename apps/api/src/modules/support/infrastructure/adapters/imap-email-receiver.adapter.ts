@@ -94,24 +94,39 @@ export class ImapEmailReceiverAdapter implements EmailReceiverPort {
           const rawText = parsed.text || "";
 
           // Skip system outbound emails
+          if (fromAddress.toLowerCase() === this.config.user.toLowerCase() && !subject.toLowerCase().startsWith("re:")) {
+            continue;
+          }
           if (fromName.toLowerCase().includes("novacommerce") && !subject.toLowerCase().startsWith("re:")) {
             continue;
           }
 
-          const isReply = subject.toLowerCase().startsWith("re:") || subject.toLowerCase().includes("phản hồi");
-          const ticketRef = extractTicketReference(subject) || extractTicketReference(rawText);
-
-          if (!isReply && !ticketRef && !subject.toLowerCase().includes("khiếu nại")) {
+          // Skip known automated system bots / mailer-daemons
+          const lowerFrom = fromAddress.toLowerCase();
+          if (
+            lowerFrom.includes("mailer-daemon") ||
+            lowerFrom.includes("no-reply") ||
+            lowerFrom.includes("noreply") ||
+            lowerFrom.includes("accounts.google.com") ||
+            lowerFrom.includes("facebookmail.com") ||
+            lowerFrom.includes("instagram.com")
+          ) {
             continue;
           }
 
           const cleanBody = extractCleanReplyText(rawText) || rawText;
+          if (!cleanBody.trim() && !subject.trim()) {
+            continue;
+          }
+
+          const ticketRef = extractTicketReference(subject) || extractTicketReference(rawText);
+          const cleanSubject = parsed.subject?.trim() || (cleanBody.trim() ? `[Yêu cầu hỗ trợ] ${cleanBody.trim().slice(0, 50)}...` : "(Không có tiêu đề)");
 
           results.push({
             messageUid: String(message.uid),
             fromEmail: fromAddress,
             fromName,
-            subject,
+            subject: cleanSubject,
             bodyText: cleanBody,
             ticketId: ticketRef,
             receivedAt: parsed.date || new Date(),

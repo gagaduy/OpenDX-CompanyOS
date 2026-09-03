@@ -29,6 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added multiline quote stripping in `extractCleanReplyText` and regex-based ticket reference extraction.
   - Added UID-based and message body idempotency to prevent duplicate ticket replies.
   - Display customer email instead of customer UUID in Support ticket operations table.
+  - Broaden IMAP email ingestion to accept all customer emails regardless of custom/empty subjects.
+  - Dispatch real-time outbound email notifications via SMTP when support staff replies to customer tickets.
+  - Enable live auto-polling in Console Support queues and ticket detail views.
 - Implement Two-Way Governed Email Support Workflow in Support & CRM department:
   - Added `EmailDispatcherPort` Clean Architecture port with `SmtpEmailDispatcherAdapter` (using `nodemailer` with Gmail SMTP) and `SimulatedEmailDispatcherAdapter`.
   - Added branded responsive HTML resolution email template (`renderSupportResolutionEmailHtml`) with ticket details, empathetic apology, actionable resolution steps, and compensation voucher highlight.
