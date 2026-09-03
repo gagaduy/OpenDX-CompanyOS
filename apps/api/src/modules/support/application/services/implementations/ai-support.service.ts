@@ -13,6 +13,8 @@ import type {
   GenerateSupportProposalRequestDto,
 } from "../../dtos/ai-support-response.dto";
 import { generateSupportReportDocx } from "../../../infrastructure/generators/support-report-docx.generator";
+import { renderSupportResolutionEmailHtml } from "../../../infrastructure/templates/support-resolution-email.template";
+import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
 
 export interface AiSupportConfig {
   readonly openRouterApiKey?: string;
@@ -28,6 +30,7 @@ export class AiSupportService {
     private readonly config: AiSupportConfig,
     private readonly generateId: () => string = randomUUID,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly emailDispatcher?: EmailDispatcherPort,
   ) {}
 
   async generateSupportProposal(
@@ -363,6 +366,56 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
 
       if (proposal) {
         (proposal as any).status = "applied";
+      }
+
+      // Outbound email dispatching
+      if (this.emailDispatcher) {
+        for (const item of request.items) {
+          const ticketProposal = proposal?.tickets?.find((t) => t.ticketId === item.ticketId);
+          if (!ticketProposal || !ticketProposal.customerEmail) continue;
+
+          // Find promo code if created
+          const comp = ticketProposal.suggestedCompensation || "";
+          let promoCode: string | undefined;
+          const suffix = item.ticketId.replace(/-/g, "").slice(0, 4).toUpperCase();
+          if (comp && !comp.toLowerCase().includes("không có") && !comp.toLowerCase().includes("không áp dụng")) {
+            const percentMatch = comp.match(/(\d+)\s*%/i) || proposal?.prompt?.match(/(\d+)\s*%/i);
+            const amountMatch = comp.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i) || proposal?.prompt?.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i);
+            if (percentMatch) {
+              const percent = Math.min(100, Math.max(1, parseInt(percentMatch[1], 10)));
+              promoCode = `CSKH${percent}-${suffix}`;
+            } else if (amountMatch) {
+              let amount = parseInt(amountMatch[1].replace(/\./g, ""), 10);
+              if (amount < 1000) amount *= 1000;
+              promoCode = `CSKH${Math.floor(amount / 1000)}K-${suffix}`;
+            } else {
+              promoCode = `CSKH10-${suffix}`;
+            }
+          }
+
+          const responseText = item.responseMessage || ticketProposal.proposedResponse;
+          const htmlBody = renderSupportResolutionEmailHtml({
+            customerName: ticketProposal.customerName,
+            ticketId: item.ticketId,
+            subject: ticketProposal.subject,
+            responseMessage: responseText,
+            voucherCode: promoCode,
+          });
+
+          try {
+            await this.emailDispatcher.sendSupportResolutionEmail({
+              to: ticketProposal.customerEmail,
+              toName: ticketProposal.customerName,
+              subject: `[NovaCommerce] Phản hồi yêu cầu hỗ trợ: ${ticketProposal.subject}`,
+              textBody: responseText,
+              htmlBody,
+              ticketId: item.ticketId,
+              voucherCode: promoCode,
+            });
+          } catch (emailErr) {
+            console.error(`[AiSupportService] Failed to send resolution email to ${ticketProposal.customerEmail}:`, emailErr);
+          }
+        }
       }
 
       return {

@@ -297,6 +297,9 @@ const app = createApiApp({
   paymentAdminRouter: paymentOperations.adminRouter,
   crmAdminRouter: crm.router,
   supportAdminRouter: support.router,
+  ...(support.inboundEmailRouter === undefined
+    ? {}
+    : { supportInboundEmailRouter: support.inboundEmailRouter }),
   reportingAdminRouter: reporting.router,
   agenticAdminRouter: agentic.adminRouter,
   agenticInternalRouter: agentic.internalRouter,

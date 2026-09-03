@@ -24,6 +24,11 @@ import { createSupportRouter } from "./presentation/routes/support.routes";
 import type { SupportOrderContextReader } from "../order";
 import { SupportHealthReaderService } from "./application/services/implementations/support-health-reader";
 import { PostgresqlSupportHealthRepository } from "./infrastructure/repositories/implementations/postgresql-support-health.repository";
+import { SmtpEmailDispatcherAdapter } from "./infrastructure/adapters/smtp-email-dispatcher.adapter";
+import { SimulatedEmailDispatcherAdapter } from "./infrastructure/adapters/simulated-email-dispatcher.adapter";
+import { SupportInboundEmailController } from "./presentation/controllers/support-inbound-email.controller";
+import { createSupportInboundEmailRouter } from "./presentation/routers/support-inbound-email.router";
+import type { EmailDispatcherPort } from "./application/ports/email-dispatcher.port";
 
 export interface SupportHealthDependencies {
   readonly transactions: TransactionRunner;
@@ -49,13 +54,47 @@ export function createSupportModule(d: {
   escalationIntervalMs?: number;
   attachmentScanIntervalMs?: number;
   attachmentRetentionIntervalMs?: number;
+  emailDispatcher?: EmailDispatcherPort;
 }) {
   const repository = new PostgresqlSupportRepository();
   const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now);
   const storage = d.attachmentStorage ?? unavailableStorage();
   const scanner = d.attachmentScanner ?? unavailableScanner();
   const attachments = new SupportAttachmentService(repository, storage, d.transactions, d.generateId, d.now);
-  const aiService = d.database ? new AiSupportService(d.database, { openRouterApiKey: process.env.OPENROUTER_API_KEY }) : undefined;
+
+  const emailDispatcher = d.emailDispatcher ?? (
+    process.env.SUPPORT_EMAIL_MODE === "live" && process.env.SUPPORT_SMTP_USER && process.env.SUPPORT_SMTP_PASS
+      ? new SmtpEmailDispatcherAdapter({
+          config: {
+            host: process.env.SUPPORT_SMTP_HOST || "smtp.gmail.com",
+            port: Number(process.env.SUPPORT_SMTP_PORT) || 587,
+            secure: process.env.SUPPORT_SMTP_SECURE === "true",
+            user: process.env.SUPPORT_SMTP_USER,
+            pass: process.env.SUPPORT_SMTP_PASS,
+            from: process.env.SUPPORT_EMAIL_FROM || `NovaCommerce Support <${process.env.SUPPORT_SMTP_USER}>`,
+          },
+        })
+      : new SimulatedEmailDispatcherAdapter()
+  );
+
+  const aiService = d.database
+    ? new AiSupportService(
+        d.database,
+        { openRouterApiKey: process.env.OPENROUTER_API_KEY },
+        d.generateId,
+        d.now,
+        emailDispatcher,
+      )
+    : undefined;
+
+  const inboundEmailController = d.database && aiService
+    ? new SupportInboundEmailController(d.database, aiService, d.generateId)
+    : undefined;
+
+  const inboundEmailRouter = inboundEmailController
+    ? createSupportInboundEmailRouter(inboundEmailController)
+    : undefined;
+
   const router = createSupportRouter(
     new SupportController(service, attachments, aiService),
     authenticateStaff(d.staffTokenVerifier),
@@ -65,6 +104,7 @@ export function createSupportModule(d: {
   router.use(supportErrorMiddleware);
   return {
     router,
+    inboundEmailRouter,
     operationsSummary: service,
     escalationWorker: new SupportEscalationWorker(d.transactions, repository, d.generateId, d.now, d.escalationIntervalMs),
     attachmentScanWorker: new SupportAttachmentScanWorker(d.transactions, repository, storage, scanner, d.generateId, d.now, d.attachmentScanIntervalMs),
