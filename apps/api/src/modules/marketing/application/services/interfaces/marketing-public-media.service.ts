@@ -20,7 +20,22 @@ export interface MarketingPublicMediaPayload {
 
 export interface MarketingPublicMediaService {
   prepareUrl(media: SocialPublishMediaItem): Promise<string>;
+  assertValidClaim(input: ReadMarketingPublicMediaInput): void;
   read(input: ReadMarketingPublicMediaInput): Promise<MarketingPublicMediaPayload>;
+}
+
+export type MarketingPublicMediaPreparationErrorCode =
+  | "MARKETING_MEDIA_INVALID"
+  | "MARKETING_MEDIA_UNAVAILABLE";
+
+export class MarketingPublicMediaPreparationError extends Error {
+  readonly retryable: boolean;
+
+  constructor(readonly code: MarketingPublicMediaPreparationErrorCode) {
+    super("Marketing media preparation failed");
+    this.name = "MarketingPublicMediaPreparationError";
+    this.retryable = code === "MARKETING_MEDIA_UNAVAILABLE";
+  }
 }
 
 export class MarketingPublicMediaAccessError extends Error {

@@ -312,12 +312,18 @@ export interface MarketingPublicMediaPayload {
 
 export interface MarketingPublicMediaService {
   prepareUrl(media: SocialPublishMediaItem): Promise<string>;
+  assertValidClaim(input: ReadMarketingPublicMediaInput): void;
   read(input: ReadMarketingPublicMediaInput): Promise<MarketingPublicMediaPayload>;
 }
 ```
 
 Add a `MarketingPublicMediaAccessError` whose public message is always
-`Marketing media is unavailable`.
+`Marketing media is unavailable`. Add a bounded
+`MarketingPublicMediaPreparationError` that distinguishes deterministic
+invalid media (`retryable: false`) from repository or storage availability
+failures (`retryable: true`) without carrying provider messages into the
+publication record. Claim validation performs only syntax, HMAC, and expiry
+checks; `read` repeats it for defense in depth before any protected lookup.
 
 **Step 2: Write the service test list**
 
@@ -416,14 +422,15 @@ Replace `publicMediaBaseUrl` in the test fixture with:
 
 ```ts
 preparePublicMediaUrl: vi.fn(async ({ id }) =>
-  `https://random.trycloudflare.com/v1/public/marketing/media/${id}?v=1&digest=${"a".repeat(64)}&expires=1788330000&signature=${"b".repeat(64)}`,
+  `https://random.trycloudflare.com/v1/public/marketing/media/${id}?v=1&digest=${"a".repeat(64)}&policy=${"b".repeat(64)}&outputDigest=${"c".repeat(64)}&expires=1788330000&signature=${"d".repeat(64)}`,
 ),
 ```
 
 For Feed, Story, and every carousel child, parse the submitted form body and
 assert that `image_url` is the exact prepared HTTPS URL, contains no `.png`,
-and never contains the access token. Add a preparation-failure test proving
-that Meta is never called. Change the permalink fallback expectation to
+and never contains the access token. Add preparation-failure tests proving
+that deterministic invalid media is non-retryable, transient media storage is
+retryable, unknown errors are bounded, and Meta is never called. Change the permalink fallback expectation to
 `publicationUrl: null` so no account username or guessed post path is
 hard-coded.
 
@@ -445,6 +452,10 @@ readonly preparePublicMediaUrl: (media: SocialPublishMediaItem) => Promise<strin
 ```
 
 Await this function for each target media item before creating a container.
+Translate typed preparation failures into bounded `SocialPublisherError`
+codes and messages while preserving their retryable flag. Treat unknown
+preparation failures as bounded and retryable without retaining their raw
+class or message.
 Keep all token-bearing Graph calls inside the adapter. Initialize
 `publicationUrl` to `null`, set it only from a successful Meta `permalink`
 response, and return `null` when lookup fails. Do not infer an Instagram
@@ -484,7 +495,11 @@ The API test must inject a fake `MarketingPublicMediaService` and prove:
   excessive-future URL, and unknown media all produce the same `404` code and
   message;
 - no request accepts a bucket name or object key; and
-- exceeding the injected limiter returns `429`.
+- invalid signatures do not consume valid-URL quota;
+- spoofed forwarding headers cannot split quota or trigger proxy warnings;
+- different valid signed URLs have independent quotas;
+- matching `If-None-Match` still returns the exact JPEG with `200`; and
+- exceeding the configured limiter returns `429`.
 
 Add an app mount assertion for:
 
@@ -517,12 +532,17 @@ expires: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().safe(
 signature: z.string().regex(/^[a-f0-9]{64}$/),
 ```
 
-Map every validation or `MarketingPublicMediaAccessError` outcome to the same
+Parse and verify the signed claim in middleware before rate limiting, store the
+typed claim in response locals, then map every validation or
+`MarketingPublicMediaAccessError` outcome to the same
 `ApplicationError(404, "MARKETING_MEDIA_NOT_FOUND", "Marketing media is unavailable")`.
 The controller delegates to the service and owns HTTP headers only. Create
 explicit `GET` and `HEAD` handlers.
 
-Build the router with an injected or configured `express-rate-limit` handler:
+Build the router with an `express-rate-limit` handler after signature
+validation. Its custom key generator hashes the complete validated claim with
+SHA-256; it never uses `request.ip`, forwarding headers, or the raw signature
+as the store key. Do not broadly enable Express `trust proxy`:
 
 ```ts
 rateLimit({
@@ -530,6 +550,7 @@ rateLimit({
   limit: configuration.rateLimit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  keyGenerator: (_request, response) => hashValidatedClaim(response),
 })
 ```
 

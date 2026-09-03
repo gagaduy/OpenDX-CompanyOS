@@ -41,6 +41,7 @@ function createService(
 ): MarketingPublicMediaService {
   return {
     prepareUrl: vi.fn(async () => "https://example.invalid/signed"),
+    assertValidClaim: vi.fn(),
     read,
   };
 }
@@ -97,6 +98,15 @@ describe("Marketing public media API", () => {
     expect(response.headers.etag).toBe(`"${OUTPUT_DIGEST}"`);
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
     expect(response.headers["cache-control"]).toBe("private, no-store");
+  });
+
+  it("always returns the exact JPEG instead of converting a matching ETag into 304", async () => {
+    const response = await request(createTestApp(createService()))
+      .get(path())
+      .set("If-None-Match", `"${OUTPUT_DIGEST}"`)
+      .expect(200);
+
+    expect(Buffer.from(response.body)).toEqual(JPEG);
   });
 
   it.each([
@@ -166,5 +176,59 @@ describe("Marketing public media API", () => {
     const app = createTestApp(createService(), 1);
     await request(app).get(path()).expect(200);
     await request(app).get(path()).expect(429);
+  });
+
+  it("validates the signature before consuming signed URL quota", async () => {
+    const service = createService();
+    service.assertValidClaim = vi.fn((input) => {
+      if (input.signature !== SIGNATURE) throw new MarketingPublicMediaAccessError();
+    });
+    const app = createTestApp(service, 1);
+
+    await request(app).get(path({ signature: "e".repeat(64) })).expect(404);
+    await request(app).get(path()).expect(200);
+  });
+
+  it("shares one signed URL quota across spoofed forwarding headers without limiter warnings", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const app = createTestApp(createService(), 1);
+      await request(app).get(path()).set("X-Forwarded-For", "198.51.100.1").expect(200);
+      await request(app).get(path()).set("X-Forwarded-For", "203.0.113.2").expect(429);
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("keeps independent quotas for different valid signed URLs", async () => {
+    const app = createTestApp(createService(), 1);
+
+    await request(app).get(path()).expect(200);
+    await request(app).get(path({ signature: "e".repeat(64) })).expect(200);
+  });
+
+  it("does not include signed claims in request logs", async () => {
+    const info = vi.fn();
+    const service = createService();
+    const app = createApiApp({
+      logger: {
+        debug: vi.fn(),
+        info,
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      marketingPublicRouter: createMarketingPublicMediaRouter({
+        service,
+        rateLimit: 100,
+        rateWindowMs: 60_000,
+      }),
+    });
+
+    await request(app).get(path()).expect(200);
+
+    expect(info).toHaveBeenCalled();
+    expect(JSON.stringify(info.mock.calls)).not.toContain(SIGNATURE);
+    expect(JSON.stringify(info.mock.calls)).not.toContain("outputDigest");
   });
 });

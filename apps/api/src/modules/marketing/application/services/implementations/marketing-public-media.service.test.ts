@@ -15,6 +15,7 @@ import type { MarketingRepository } from "../../repositories/interfaces/marketin
 import type { VisualAsset } from "../../../domain/entities/marketing-campaign";
 import {
   MarketingPublicMediaAccessError,
+  MarketingPublicMediaPreparationError,
 } from "../interfaces/marketing-public-media.service";
 import { MarketingPublicMediaServiceImpl } from "./marketing-public-media.service";
 
@@ -218,7 +219,13 @@ describe("MarketingPublicMediaServiceImpl", () => {
   it("rejects source bytes whose SHA-256 digest differs from the persisted visual asset", async () => {
     const { service, state } = harness();
 
-    await expectUnavailable(service.prepareUrl(media({ bytes: Buffer.from("tampered") })));
+    await expect(service.prepareUrl(media({ bytes: Buffer.from("tampered") }))).rejects.toEqual(
+      expect.objectContaining({
+        name: "MarketingPublicMediaPreparationError",
+        code: "MARKETING_MEDIA_INVALID",
+        retryable: false,
+      }),
+    );
 
     expect(state.storageReads).toEqual([]);
     expect(state.transformCalls).toEqual([]);
@@ -347,6 +354,15 @@ describe("MarketingPublicMediaServiceImpl", () => {
     });
   });
 
+  it("validates a signed claim without looking up protected resources", () => {
+    const { service, state } = harness();
+
+    service.assertValidClaim(validReadInput());
+
+    expect(state.repositoryLookups).toEqual([]);
+    expect(state.storageReads).toEqual([]);
+  });
+
   it.each([
     ["expired", () => ({
       ...validReadInput(),
@@ -402,7 +418,13 @@ describe("MarketingPublicMediaServiceImpl", () => {
       transformedBytes: Buffer.from("not-jpeg"),
     });
 
-    await expectUnavailable(service.prepareUrl(media()));
+    await expect(service.prepareUrl(media())).rejects.toEqual(
+      expect.objectContaining({
+        name: "MarketingPublicMediaPreparationError",
+        code: "MARKETING_MEDIA_INVALID",
+        retryable: false,
+      }),
+    );
 
     expect(state.storageWrites).toEqual([]);
   });
@@ -450,12 +472,33 @@ describe("MarketingPublicMediaServiceImpl", () => {
   it.each([
     ["repository", { repositoryError: new Error("database unavailable") }],
     ["variant storage read", { storageReadError: new Error("storage unavailable") }],
-    ["transformer", { existingVariant: null, transformerError: new Error("transform failed") }],
     ["variant storage write", { existingVariant: null, storageWriteError: new Error("write failed") }],
-  ] as const)("fails closed when the %s fails", async (_name, options) => {
+  ] as const)("classifies %s availability failure as bounded and retryable", async (_name, options) => {
     const { service } = harness(options);
 
-    await expectUnavailable(service.prepareUrl(media()));
+    await expect(service.prepareUrl(media())).rejects.toEqual(
+      expect.objectContaining({
+        name: "MarketingPublicMediaPreparationError",
+        code: "MARKETING_MEDIA_UNAVAILABLE",
+        retryable: true,
+      }),
+    );
+  });
+
+  it("classifies deterministic transformer rejection as bounded and non-retryable", async () => {
+    const { service } = harness({
+      existingVariant: null,
+      transformerError: new Error("secret decoder detail"),
+    });
+
+    await expect(service.prepareUrl(media())).rejects.toEqual(
+      expect.objectContaining({
+        name: "MarketingPublicMediaPreparationError",
+        code: "MARKETING_MEDIA_INVALID",
+        retryable: false,
+      }),
+    );
+    await expect(service.prepareUrl(media())).rejects.not.toThrow("secret decoder detail");
   });
 
   it.each([
@@ -471,5 +514,11 @@ describe("MarketingPublicMediaServiceImpl", () => {
     const { service } = harness({ asset: null });
 
     await expect(service.read(validReadInput())).rejects.toBeInstanceOf(MarketingPublicMediaAccessError);
+  });
+
+  it("uses the preparation error type only for publication preparation", async () => {
+    const { service } = harness({ repositoryError: new Error("database unavailable") });
+
+    await expect(service.prepareUrl(media())).rejects.toBeInstanceOf(MarketingPublicMediaPreparationError);
   });
 });

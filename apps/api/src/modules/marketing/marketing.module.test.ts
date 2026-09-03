@@ -5,6 +5,7 @@ import type { Pool } from "pg";
 import { describe, expect, it } from "vitest";
 import type { StaffTokenVerifier } from "../../shared/auth/staff-auth.middleware";
 import type { MarketingPublicationConfiguration } from "../../shared/config/environment";
+import type { MarketingPublicMediaStoragePort } from "./application/ports/marketing-public-media-storage.port";
 import { createMarketingModule } from "./marketing.module";
 
 const database = {} as Pool;
@@ -30,6 +31,13 @@ function publicationConfig(
 }
 
 describe("createMarketingModule public media composition", () => {
+  const publicMediaStorage: MarketingPublicMediaStoragePort = {
+    async readVariant() {
+      return null;
+    },
+    async writeVariant() {},
+  };
+
   it("fails closed when live Instagram has no public media storage", () => {
     expect(() => createMarketingModule({
       database,
@@ -60,5 +68,31 @@ describe("createMarketingModule public media composition", () => {
     });
 
     expect(module.publicRouter).toBeUndefined();
+  });
+
+  it("composes the public router and live Instagram adapter from the same live configuration", () => {
+    const module = createMarketingModule({
+      database,
+      staffTokenVerifier,
+      publicMediaStorage,
+      publicationConfig: publicationConfig({
+        mode: "live",
+        accountConfigurationId: "ig-live",
+        businessAccountId: "17841400000000000",
+        accessToken: "page-access-token",
+        publicMediaBaseUrl: "https://stable-tunnel.trycloudflare.com/v1/public/marketing/media",
+        signingSecret: "s".repeat(32),
+        urlTtlSeconds: 900,
+        jpegQuality: 90,
+        rateLimit: 120,
+        rateWindowMs: 60_000,
+      }),
+    });
+
+    expect(module.publicRouter).toBeDefined();
+    expect(module.publisherRegistry.resolve("instagram", "live")).toMatchObject({
+      platform: "instagram",
+      executionMode: "live",
+    });
   });
 });

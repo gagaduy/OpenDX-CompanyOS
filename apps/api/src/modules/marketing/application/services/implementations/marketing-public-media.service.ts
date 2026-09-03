@@ -16,6 +16,7 @@ import type { SocialPublishMediaItem } from "../../ports/social-publisher.port";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
 import {
   MarketingPublicMediaAccessError,
+  MarketingPublicMediaPreparationError,
   type MarketingPublicMediaPayload,
   type MarketingPublicMediaService,
   type ReadMarketingPublicMediaInput,
@@ -119,7 +120,14 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
 
   async prepareUrl(media: SocialPublishMediaItem): Promise<string> {
     try {
-      const asset = await this.repository.findVisualAssetById(media.id);
+      let asset: Awaited<ReturnType<MarketingRepository["findVisualAssetById"]>>;
+      try {
+        asset = await this.repository.findVisualAssetById(media.id);
+      } catch {
+        throw new MarketingPublicMediaPreparationError(
+          "MARKETING_MEDIA_UNAVAILABLE",
+        );
+      }
       const sourceDigest = sha256(media.bytes);
       if (
         !asset
@@ -127,7 +135,9 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
         || asset.imageDigest !== sourceDigest
         || !DIGEST_PATTERN.test(sourceDigest)
       ) {
-        throw new MarketingPublicMediaAccessError();
+        throw new MarketingPublicMediaPreparationError(
+          "MARKETING_MEDIA_INVALID",
+        );
       }
 
       const policy = jpegPolicyFingerprint(this.jpegQuality);
@@ -137,7 +147,9 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
         existing = await this.storage.readVariant(key);
       } catch (error) {
         if (!(error instanceof MarketingPublicMediaIntegrityError)) {
-          throw error;
+          throw new MarketingPublicMediaPreparationError(
+            "MARKETING_MEDIA_UNAVAILABLE",
+          );
         }
         existing = null;
       }
@@ -151,7 +163,14 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
       })) {
         outputDigest = sha256(existing.bytes);
       } else {
-        const transformed = await this.transformer.toJpeg(media.bytes, this.jpegQuality);
+        let transformed: Awaited<ReturnType<MarketingImageTransformerPort["toJpeg"]>>;
+        try {
+          transformed = await this.transformer.toJpeg(media.bytes, this.jpegQuality);
+        } catch {
+          throw new MarketingPublicMediaPreparationError(
+            "MARKETING_MEDIA_INVALID",
+          );
+        }
         if (
           !hasJpegMagic(transformed.bytes)
           || transformed.byteSize !== transformed.bytes.byteLength
@@ -160,19 +179,27 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
           || !Number.isSafeInteger(transformed.height)
           || transformed.height !== asset.height
         ) {
-          throw new MarketingPublicMediaAccessError();
+          throw new MarketingPublicMediaPreparationError(
+            "MARKETING_MEDIA_INVALID",
+          );
         }
         outputDigest = sha256(transformed.bytes);
-        await this.storage.writeVariant({
-          key,
-          bytes: transformed.bytes,
-          sourceAssetId: asset.id,
-          sourceDigest,
-          outputDigest,
-          policyFingerprint: policy,
-          width: transformed.width,
-          height: transformed.height,
-        });
+        try {
+          await this.storage.writeVariant({
+            key,
+            bytes: transformed.bytes,
+            sourceAssetId: asset.id,
+            sourceDigest,
+            outputDigest,
+            policyFingerprint: policy,
+            width: transformed.width,
+            height: transformed.height,
+          });
+        } catch {
+          throw new MarketingPublicMediaPreparationError(
+            "MARKETING_MEDIA_UNAVAILABLE",
+          );
+        }
       }
 
       const expires = epochSeconds(this.now()) + this.urlTtlSeconds;
@@ -195,13 +222,26 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
       url.searchParams.set("signature", signature);
       return url.toString();
     } catch (error) {
+      if (error instanceof MarketingPublicMediaPreparationError) {
+        throw error;
+      }
+      throw new MarketingPublicMediaPreparationError(
+        "MARKETING_MEDIA_UNAVAILABLE",
+      );
+    }
+  }
+
+  assertValidClaim(input: ReadMarketingPublicMediaInput): void {
+    try {
+      this.verifyClaim(input);
+    } catch (error) {
       throw this.unavailable(error);
     }
   }
 
   async read(input: ReadMarketingPublicMediaInput): Promise<MarketingPublicMediaPayload> {
     try {
-      this.verifyClaim(input);
+      this.assertValidClaim(input);
 
       const asset = await this.repository.findVisualAssetById(input.assetId);
       if (

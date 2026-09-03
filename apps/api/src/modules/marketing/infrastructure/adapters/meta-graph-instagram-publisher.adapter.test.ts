@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it, vi } from "vitest";
+import { MarketingPublicMediaPreparationError } from "../../application/services/interfaces/marketing-public-media.service";
 import type { SocialPublishMediaItem } from "../../application/ports/social-publisher.port";
 import type { PublicationTarget } from "../../domain/entities/marketing-campaign";
 import { MetaGraphInstagramPublisherAdapter } from "./meta-graph-instagram-publisher.adapter";
@@ -194,8 +195,18 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
     }
   });
 
-  it("does not call Meta when preparing the public media URL fails", async () => {
-    const preparationError = new Error("Marketing media is unavailable");
+  it.each([
+    ["deterministic invalid media", "MARKETING_MEDIA_INVALID", false, "INSTAGRAM_MEDIA_INVALID"],
+    ["transient media storage", "MARKETING_MEDIA_UNAVAILABLE", true, "INSTAGRAM_MEDIA_UNAVAILABLE"],
+  ] as const)("bounds %s preparation failure before calling Meta", async (
+    _label,
+    preparationCode,
+    retryable,
+    expectedCode,
+  ) => {
+    const preparationError = new MarketingPublicMediaPreparationError(
+      preparationCode,
+    );
     const fetchMock = vi.fn();
     const adapter = new MetaGraphInstagramPublisherAdapter({
       ...defaultOptions,
@@ -209,7 +220,37 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
       target: buildTarget("feed_image"),
       caption: "Unavailable media",
       media: [media()],
-    })).rejects.toBe(preparationError);
+    })).rejects.toEqual(expect.objectContaining({
+      name: "SocialPublisherError",
+      code: expectedCode,
+      message: "Instagram media preparation failed",
+      retryable,
+    }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("bounds unknown preparation failures without retaining raw details", async () => {
+    const fetchMock = vi.fn();
+    const adapter = new MetaGraphInstagramPublisherAdapter({
+      ...defaultOptions,
+      preparePublicMediaUrl: async () => {
+        throw new Error("secret storage class and object key");
+      },
+      fetcher: fetchMock as any,
+    });
+
+    const operation = adapter.publish({
+      target: buildTarget("feed_image"),
+      caption: "Unknown preparation failure",
+      media: [media()],
+    });
+    await expect(operation).rejects.toEqual(expect.objectContaining({
+      name: "SocialPublisherError",
+      code: "INSTAGRAM_MEDIA_PREPARATION_FAILED",
+      message: "Instagram media preparation failed",
+      retryable: true,
+    }));
+    await expect(operation).rejects.not.toThrow("secret storage class and object key");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

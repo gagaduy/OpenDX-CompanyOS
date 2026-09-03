@@ -2,52 +2,43 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { NextFunction, Request, Response } from "express";
-import { ZodError } from "zod";
-import { ApplicationError } from "../../../../shared/http/application-error";
 import type { MarketingPublicMediaPayload, MarketingPublicMediaService } from "../../application/services/interfaces/marketing-public-media.service";
 import { MarketingPublicMediaAccessError } from "../../application/services/interfaces/marketing-public-media.service";
-import { parseMarketingPublicMediaRequest } from "../validators/marketing-public-media.validator";
-
-function mediaNotFound(): ApplicationError {
-  return new ApplicationError(
-    404,
-    "MARKETING_MEDIA_NOT_FOUND",
-    "Marketing media is unavailable",
-  );
-}
+import {
+  getValidatedMarketingPublicMediaClaim,
+  marketingMediaNotFound,
+} from "../middleware/marketing-public-media-claim.middleware";
 
 export class MarketingPublicMediaController {
   constructor(private readonly service: MarketingPublicMediaService) {}
 
-  get = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    await this.respond(request, response, next, true);
+  get = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
+    await this.respond(response, next, true);
   };
 
-  head = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    await this.respond(request, response, next, false);
+  head = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
+    await this.respond(response, next, false);
   };
 
   private async respond(
-    request: Request,
     response: Response,
     next: NextFunction,
     includeBody: boolean,
   ): Promise<void> {
     try {
-      const input = parseMarketingPublicMediaRequest({
-        params: request.params,
-        query: request.query,
-      });
+      const input = getValidatedMarketingPublicMediaClaim(response);
       const payload = await this.service.read(input);
       this.setHeaders(response, payload);
       if (includeBody) {
-        response.status(200).send(payload.bytes);
+        response.status(200);
+        response.write(payload.bytes);
+        response.end();
       } else {
         response.status(200).end();
       }
     } catch (error) {
-      if (error instanceof ZodError || error instanceof MarketingPublicMediaAccessError) {
-        next(mediaNotFound());
+      if (error instanceof MarketingPublicMediaAccessError) {
+        next(marketingMediaNotFound());
         return;
       }
       next(error);

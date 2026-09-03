@@ -8,6 +8,9 @@ import type {
 } from "../../domain/entities/marketing-campaign";
 import { assertFormatEnabled } from "../../domain/services/marketing-publication-policy";
 import {
+  MarketingPublicMediaPreparationError,
+} from "../../application/services/interfaces/marketing-public-media.service";
+import {
   type SocialPublicationReceipt,
   type SocialPublisherPort,
   SocialPublisherError,
@@ -87,18 +90,18 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
     if (request.target.format === "feed_image") {
       const mediaItem = request.media[0]!;
-      const mediaUrl = await this.preparePublicMediaUrl(mediaItem);
+      const mediaUrl = await this.prepareMediaUrl(mediaItem);
       containerId = await this.createImageContainer(accountId, mediaUrl, request.caption);
     } else if (request.target.format === "story_image") {
       const mediaItem = request.media[0]!;
-      const mediaUrl = await this.preparePublicMediaUrl(mediaItem);
+      const mediaUrl = await this.prepareMediaUrl(mediaItem);
       containerId = await this.createStoryContainer(accountId, mediaUrl);
     } else if (request.target.format === "image_carousel") {
       if (request.media.length < 2 || request.media.length > 10) {
         throw new SocialPublisherError("INVALID_MEDIA_COUNT", "Instagram carousel requires between 2 and 10 images");
       }
       const mediaUrls = await Promise.all(
-        request.media.map((item) => this.preparePublicMediaUrl(item)),
+        request.media.map((item) => this.prepareMediaUrl(item)),
       );
       const childContainerIds: string[] = [];
       for (const mediaUrl of mediaUrls) {
@@ -188,6 +191,28 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
       return { exists: false };
     } catch {
       return { exists: false };
+    }
+  }
+
+  private async prepareMediaUrl(media: SocialPublishMediaItem): Promise<string> {
+    try {
+      return await this.preparePublicMediaUrl(media);
+    } catch (error) {
+      if (error instanceof MarketingPublicMediaPreparationError) {
+        const code = error.code === "MARKETING_MEDIA_INVALID"
+          ? "INSTAGRAM_MEDIA_INVALID"
+          : "INSTAGRAM_MEDIA_UNAVAILABLE";
+        throw new SocialPublisherError(
+          code,
+          "Instagram media preparation failed",
+          { retryable: error.retryable },
+        );
+      }
+      throw new SocialPublisherError(
+        "INSTAGRAM_MEDIA_PREPARATION_FAILED",
+        "Instagram media preparation failed",
+        { retryable: true },
+      );
     }
   }
 
