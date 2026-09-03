@@ -7,6 +7,7 @@ export type TicketStatus = "new" | "assigned" | "in_progress" | "waiting_custome
 export interface SupportTicket {
   readonly id: string;
   readonly customerId: string;
+  readonly customerEmail?: string;
   readonly orderId?: string;
   readonly subject: string;
   readonly description: string;

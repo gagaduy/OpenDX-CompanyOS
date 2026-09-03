@@ -6,7 +6,7 @@ import { z } from "zod";
 const timestamp = z.iso.datetime();
 export const ticketPrioritySchema = z.enum(["urgent","high","normal","low"]);
 export const ticketStatusSchema = z.enum(["new","assigned","in_progress","waiting_customer","waiting_internal","escalated","resolved","closed"]);
-const ticket = z.object({ id:z.uuid(), customerId:z.uuid(), orderId:z.uuid().optional(), subject:z.string(), description:z.string(), priority:ticketPrioritySchema, status:ticketStatusSchema, version:z.number().int().positive(), createdById:z.string(), assigneeId:z.string().optional(), createdAt:timestamp, updatedAt:timestamp });
+const ticket = z.object({ id:z.uuid(), customerId:z.uuid(), customerEmail:z.string().optional(), orderId:z.uuid().optional(), subject:z.string(), description:z.string(), priority:ticketPrioritySchema, status:ticketStatusSchema, version:z.number().int().positive(), createdById:z.string(), assigneeId:z.string().optional(), createdAt:timestamp, updatedAt:timestamp });
 const page = z.object({ items:z.array(ticket), page:z.number().int().positive(), pageSize:z.number().int().positive(), totalItems:z.number().int().nonnegative(), totalPages:z.number().int().nonnegative() });
 const message = z.object({ id:z.string(), authorId:z.string(), body:z.string(), createdAt:timestamp });
 const event = z.object({ id:z.string(), actorId:z.string(), fromStatus:ticketStatusSchema, toStatus:ticketStatusSchema, source:z.enum(["manual","automatic"]), occurredAt:timestamp });
