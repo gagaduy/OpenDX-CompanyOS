@@ -101,9 +101,10 @@ export function createSupportModule(d: {
       )
     : undefined;
 
-  const aiLivechatAssistant = new AiLivechatAssistantService({
-    openRouterApiKey: process.env.OPENROUTER_API_KEY,
-  });
+  const aiLivechatAssistant = new AiLivechatAssistantService(
+    { openRouterApiKey: process.env.OPENROUTER_API_KEY },
+    d.database,
+  );
 
   const livechatService = d.database
     ? new SupportLivechatService(d.database, realtimeBroadcaster, aiLivechatAssistant, d.generateId, d.now)

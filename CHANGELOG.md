@@ -23,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add automated catalog product discovery and image sending in LiveChat:
+  - Connected `AiLivechatAssistantService` with catalog PostgreSQL database to feed real-time published products, primary media, prices, and slugs into AI context.
+  - Enabled OpenRouter AI to recognize customer requests for store products, introduce specifications and pricing, and automatically embed product images (`![name](mediaUrl)`) and direct links.
+  - Implemented rich media card rendering in Storefront `LiveChatWidget` with thumbnail image, zoom preview, and direct product CTA button.
+  - Added preview image rendering to Console `TicketTimeline` so support staff can view the exact product images sent to customers.
 - Integrate OpenRouter AI reply copilot and automated email response into Support operations:
   - Added `generateDraftReply(ticketId)` to `AiSupportService` calling OpenRouter LLM (`google/gemini-2.5-flash`) to generate contextual, customer-tailored reply drafts based on ticket subject, description, and message history.
   - Exposed authenticated endpoint `GET /v1/admin/support/tickets/:ticketId/ai-draft`.

@@ -15,7 +15,7 @@ import { useOptionalCustomerSession } from "../../authentication";
 const SESSION_STORAGE_KEY = "novacommerce_livechat_session_id";
 
 export function LiveChatWidget({
-  apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001",
+  apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000",
 }: {
   readonly apiBaseUrl?: string;
 }) {
@@ -328,7 +328,7 @@ export function LiveChatWidget({
                         <div
                           className={`livechat-bubble ${isCustomer ? "customer" : isAi ? "ai" : "staff"}`}
                         >
-                          {m.body}
+                          {renderLivechatMessageContent(m.body, apiBaseUrl)}
                         </div>
                       </div>
                     );
@@ -380,3 +380,98 @@ export function LiveChatWidget({
     </div>
   );
 }
+
+function renderLivechatMessageContent(body: string, apiBaseUrl: string): React.ReactNode {
+  const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = imgRegex.exec(body)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(renderTextWithLinks(body.slice(lastIndex, match.index), `txt-${lastIndex}`));
+    }
+
+    const alt = match[1] || "Hình ảnh sản phẩm";
+    const src = match[2];
+    const fullSrc = src.startsWith("http") ? src : `${apiBaseUrl.replace(/\/+$/, "")}${src}`;
+
+    parts.push(
+      <div key={`img-${match.index}`} className="livechat-media-card">
+        <a
+          href={fullSrc}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="livechat-img-link"
+          title="Bấm để xem ảnh phóng to"
+        >
+          <img
+            src={fullSrc}
+            alt={alt}
+            loading="lazy"
+            className="livechat-product-img"
+          />
+        </a>
+        <div className="livechat-media-caption">
+          <span>{alt}</span>
+          <span style={{ fontSize: "11px", opacity: 0.75 }}>🔍 Phóng to</span>
+        </div>
+      </div>,
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < body.length) {
+    parts.push(renderTextWithLinks(body.slice(lastIndex), `txt-${lastIndex}`));
+  }
+
+  return <>{parts}</>;
+}
+
+function renderTextWithLinks(text: string, keyPrefix: string): React.ReactNode {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = linkRegex.exec(text)) !== null) {
+    if (m.index > last) {
+      nodes.push(text.slice(last, m.index));
+    }
+    const label = m[1];
+    const href = m[2];
+    const isInternal = href.startsWith("/");
+    if (isInternal) {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-link-${m.index}`}
+          href={href}
+          className="livechat-product-cta-btn"
+        >
+          {label} &rarr;
+        </a>,
+      );
+    } else {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-link-${m.index}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#4f46e5", textDecoration: "underline" }}
+        >
+          {label}
+        </a>,
+      );
+    }
+    last = m.index + m[0].length;
+  }
+
+  if (last < text.length) {
+    nodes.push(text.slice(last));
+  }
+
+  return <span key={keyPrefix} style={{ whiteSpace: "pre-wrap" }}>{nodes}</span>;
+}
+
