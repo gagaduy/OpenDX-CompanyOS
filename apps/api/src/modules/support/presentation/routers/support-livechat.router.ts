@@ -12,7 +12,18 @@ export function createSupportLivechatRouter(
 ): Router {
   const router = Router();
 
-  // 1. Initialize customer live chat session
+  // 1. Get live chat session by ID (for restoring on page load/refresh)
+  router.get("/:sessionId", async (req: Request, res: Response) => {
+    try {
+      const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
+      const session = await livechatService.getSession(sessionId);
+      res.status(200).json({ success: true, session });
+    } catch (err: any) {
+      res.status(404).json({ error: err.message || "Session not found" });
+    }
+  });
+
+  // 2. Initialize customer live chat session
   router.post("/init", async (req: Request, res: Response) => {
     try {
       const { email, fullName, message } = req.body || {};

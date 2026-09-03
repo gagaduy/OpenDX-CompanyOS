@@ -109,11 +109,6 @@ export class SupportLivechatService {
       [messageId, ticketId, body],
     );
 
-    await this.database.query(
-      `UPDATE support_tickets SET updated_at = NOW() WHERE id = $1`,
-      [ticketId],
-    );
-
     const messageView: SupportMessageDto = {
       id: messageId,
       authorId: "customer",
@@ -237,12 +232,9 @@ export class SupportLivechatService {
         [aiMessageId, ticketId, aiResult.reply],
       );
 
-      // If critical, escalate ticket priority to urgent
-      if (aiResult.isCritical && ticket?.priority !== "urgent") {
-        await this.database.query(
-          `UPDATE support_tickets SET priority = 'urgent', updated_at = NOW() WHERE id = $1`,
-          [ticketId],
-        );
+      // If critical, log critical event
+      if (aiResult.isCritical) {
+        console.log(`[SupportLivechatService] Critical issue detected for ticket ${ticketId}, category: ${aiResult.category}`);
       }
 
       const aiMessageView: SupportMessageDto = {

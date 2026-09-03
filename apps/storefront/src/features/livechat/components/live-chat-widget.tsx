@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageSquare, X, Send, Bot, Sparkles, User, RefreshCw } from "lucide-react";
 import {
   initLivechatSession,
+  getLivechatSession,
   sendLivechatMessage,
   subscribeLivechatEvents,
   type LivechatMessageItem,
@@ -43,6 +44,31 @@ export function LiveChatWidget({
       }
     }
   }, [session]);
+
+  // Load session message history on mount or when sessionId changes
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let isMounted = true;
+    getLivechatSession(apiBaseUrl, sessionId)
+      .then((data) => {
+        if (isMounted && data?.messages) {
+          setMessages(data.messages);
+        }
+      })
+      .catch((err) => {
+        console.warn("[LiveChatWidget] Failed to load session, clearing stale session:", err);
+        if (isMounted) {
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          setSessionId(null);
+          setMessages([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBaseUrl, sessionId]);
 
   // Connect SSE when sessionId exists
   useEffect(() => {
@@ -104,18 +130,39 @@ export function LiveChatWidget({
     const textToSend = inputText.trim();
     setInputText("");
     setIsSending(true);
+    setError(null);
+
+    // Optimistically show customer message immediately in UI
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: LivechatMessageItem = {
+      id: tempId,
+      authorId: "customer",
+      body: textToSend,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
       const sentMsg = await sendLivechatMessage(apiBaseUrl, sessionId, textToSend);
       setMessages((prev) => {
-        if (prev.some((m) => m.id === sentMsg.id)) return prev;
-        return [...prev, sentMsg];
+        const filtered = prev.filter((m) => m.id !== tempId);
+        if (filtered.some((m) => m.id === sentMsg.id)) return filtered;
+        return [...filtered, sentMsg];
       });
     } catch (err: any) {
       setError(err.message || "Gửi tin nhắn thất bại.");
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setInputText(textToSend);
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleResetSession = () => {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    setSessionId(null);
+    setMessages([]);
+    setError(null);
   };
 
   return (
@@ -138,14 +185,27 @@ export function LiveChatWidget({
                 <p>Trợ lý AI & CSKH trực tuyến 24/7</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="livechat-close-btn"
-              title="Thu nhỏ cửa sổ"
-              aria-label="Thu nhỏ cửa sổ"
-            >
-              <X size={16} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {sessionId && (
+                <button
+                  onClick={handleResetSession}
+                  className="livechat-close-btn"
+                  title="Bắt đầu phiên mới"
+                  aria-label="Bắt đầu phiên mới"
+                  style={{ fontSize: "11px", width: "auto", padding: "0 8px", borderRadius: "12px" }}
+                >
+                  <RefreshCw size={12} style={{ marginRight: "4px" }} /> Mới
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="livechat-close-btn"
+                title="Thu nhỏ cửa sổ"
+                aria-label="Thu nhỏ cửa sổ"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Body */}
@@ -225,6 +285,8 @@ export function LiveChatWidget({
                     Trợ lý AI đang trực tuyến giải đáp mọi câu hỏi. Chuyên viên CSKH sẵn sàng tiếp nhận khi có yêu cầu nâng cao.
                   </span>
                 </div>
+
+                {error && <div className="livechat-error-banner">{error}</div>}
 
                 {/* Message list */}
                 {messages.length === 0 ? (

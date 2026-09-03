@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Map `SocialPublisherError` in marketing publication retry controller.
 - Auto-resolve Page Access Token in `MetaGraphFacebookPublisherAdapter` when initial request fails with `FACEBOOK_PERMISSION_DENIED`.
 - Dynamically label Command Center marketing approval and retry buttons for multi-channel publication (Facebook & Instagram).
+- Prevent PostgreSQL trigger version violation on live chat customer messages, expose `GET /v1/public/support/livechat/:sessionId` to restore session message history across page visits, and enable optimistic rendering in `LiveChatWidget`.
 
 ### Added
 

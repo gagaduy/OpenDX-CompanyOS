@@ -36,6 +36,21 @@ export async function initLivechatSession(
   return json.session;
 }
 
+export async function getLivechatSession(
+  baseUrl: string,
+  sessionId: string,
+): Promise<LivechatSessionData> {
+  const response = await fetch(`${baseUrl}/v1/public/support/livechat/${sessionId}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Không thể tải phiên trò chuyện");
+  }
+
+  const json = await response.json();
+  return json.session;
+}
+
 export async function sendLivechatMessage(
   baseUrl: string,
   sessionId: string,
