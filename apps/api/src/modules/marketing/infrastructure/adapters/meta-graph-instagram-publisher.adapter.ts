@@ -307,6 +307,12 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
       // If IN_PROGRESS, wait and poll again
       await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
     }
+
+    throw new SocialPublisherError(
+      "CONTAINER_PROCESSING_TIMEOUT",
+      "Instagram container did not finish within the configured polling window",
+      { retryable: true },
+    );
   }
 
   private async postJson(endpoint: string, params: Record<string, string>): Promise<{ data: any; rawText: string }> {

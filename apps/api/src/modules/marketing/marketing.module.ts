@@ -251,6 +251,8 @@ Style & Composition:
         preparePublicMediaUrl,
         graphApiBaseUrl: options.publicationConfig.meta.graphBaseUrl,
         requestTimeoutMs: options.publicationConfig.meta.requestTimeoutMs,
+        pollIntervalMs: options.publicationConfig.instagram.containerPollIntervalMs,
+        maxPollAttempts: options.publicationConfig.instagram.containerMaxPollAttempts,
         now: options.now,
       }));
     } else {

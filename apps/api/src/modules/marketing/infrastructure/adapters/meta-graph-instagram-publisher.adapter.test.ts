@@ -289,6 +289,41 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
     expect(pollCount).toBe(3);
   });
 
+  it("does not publish a container before Meta reports FINISHED", async () => {
+    let publishCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/17841400000000000/media") && !urlStr.includes("media_publish")) {
+        return new Response(JSON.stringify({ id: "container-still-processing" }), { status: 200 });
+      }
+      if (urlStr.includes("/container-still-processing")) {
+        return new Response(JSON.stringify({ status_code: "IN_PROGRESS" }), { status: 200 });
+      }
+      if (urlStr.includes("/17841400000000000/media_publish")) {
+        publishCalls++;
+        return new Response(JSON.stringify({ id: "must-not-publish" }), { status: 200 });
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+    const adapter = new MetaGraphInstagramPublisherAdapter({
+      ...defaultOptions,
+      pollIntervalMs: 1,
+      maxPollAttempts: 2,
+      fetcher: fetchMock as any,
+    });
+
+    await expect(adapter.publish({
+      target: buildTarget("feed_image"),
+      caption: "Still processing",
+      media: [media()],
+    })).rejects.toEqual(expect.objectContaining({
+      code: "CONTAINER_PROCESSING_TIMEOUT",
+      retryable: true,
+      outcomeKnown: true,
+    }));
+    expect(publishCalls).toBe(0);
+  });
+
   it("redacts access token on error", async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(

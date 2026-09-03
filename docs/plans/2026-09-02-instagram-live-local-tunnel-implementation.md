@@ -603,9 +603,11 @@ MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS=900
 MARKETING_INSTAGRAM_JPEG_QUALITY=90
 MARKETING_PUBLIC_MEDIA_RATE_LIMIT=120
 MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS=60000
+INSTAGRAM_CONTAINER_POLL_INTERVAL_MS=5000
+INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS=60
 ```
 
-Pass the same five values through the development and production Compose API
+Pass the same seven values through the development and production Compose API
 environments, and document them in both environment examples. Do not add a
 real token, Instagram ID, tunnel hostname, or signing secret to any tracked
 file.

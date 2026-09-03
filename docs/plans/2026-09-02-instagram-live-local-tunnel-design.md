@@ -119,8 +119,10 @@ Live mode requires typed startup configuration for:
 - `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET`;
 - `MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS`;
 - `MARKETING_INSTAGRAM_JPEG_QUALITY`;
-- `MARKETING_PUBLIC_MEDIA_RATE_LIMIT`; and
-- `MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS`.
+- `MARKETING_PUBLIC_MEDIA_RATE_LIMIT`;
+- `MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS`;
+- `INSTAGRAM_CONTAINER_POLL_INTERVAL_MS`; and
+- `INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS`.
 
 The public base URL must use HTTPS and must not be localhost, an internal IP,
 or a reserved example domain. The signing secret must meet a minimum strength

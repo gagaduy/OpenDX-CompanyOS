@@ -53,6 +53,8 @@ describe("createMarketingModule public media composition", () => {
         jpegQuality: 90,
         rateLimit: 120,
         rateWindowMs: 60_000,
+        containerPollIntervalMs: 5_000,
+        containerMaxPollAttempts: 60,
       }),
     })).toThrow("Live Instagram publication requires Marketing public media storage");
   });
@@ -86,6 +88,8 @@ describe("createMarketingModule public media composition", () => {
         jpegQuality: 90,
         rateLimit: 120,
         rateWindowMs: 60_000,
+        containerPollIntervalMs: 5_000,
+        containerMaxPollAttempts: 60,
       }),
     });
 

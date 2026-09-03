@@ -540,6 +540,12 @@ production SLA. After every URL change, update only the ignored root `.env`
 and restart the API again. This workflow is for development acceptance, not a
 deployment endpoint.
 
+The default Instagram container readiness window is five minutes
+(`INSTAGRAM_CONTAINER_POLL_INTERVAL_MS=5000` and
+`INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS=60`). Keep these values in environment
+configuration; publishing fails retryably without calling `media_publish` if
+Meta never reports `FINISHED` within that window.
+
 ## Configuration
 
 Copy `.env.example` to `.env` for local development if needed. Do not commit `.env` or real credentials.

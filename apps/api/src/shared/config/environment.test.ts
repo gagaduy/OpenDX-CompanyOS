@@ -40,6 +40,8 @@ const liveInstagramSource = {
   MARKETING_INSTAGRAM_JPEG_QUALITY: "90",
   MARKETING_PUBLIC_MEDIA_RATE_LIMIT: "120",
   MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: "60000",
+  INSTAGRAM_CONTAINER_POLL_INTERVAL_MS: "5000",
+  INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS: "60",
 } as const;
 
 describe("parseApiEnvironment", () => {
@@ -112,6 +114,8 @@ describe("parseApiEnvironment", () => {
       jpegQuality: 90,
       rateLimit: 120,
       rateWindowMs: 60_000,
+      containerPollIntervalMs: 5_000,
+      containerMaxPollAttempts: 60,
     });
   });
 

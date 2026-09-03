@@ -284,6 +284,12 @@ const apiEnvironmentSchema = z
     MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: positiveInteger
       .pipe(z.number().int().min(1_000).max(3_600_000))
       .default(60_000),
+    INSTAGRAM_CONTAINER_POLL_INTERVAL_MS: positiveInteger
+      .pipe(z.number().int().min(1_000).max(60_000))
+      .default(5_000),
+    INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS: positiveInteger
+      .pipe(z.number().int().min(1).max(300))
+      .default(60),
     LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     METRICS_ENABLED: z.enum(["true", "false"]).transform((value) => value === "true").default(false),
@@ -470,6 +476,8 @@ export type InstagramPublicationConfiguration =
       readonly jpegQuality: number;
       readonly rateLimit: number;
       readonly rateWindowMs: number;
+      readonly containerPollIntervalMs: number;
+      readonly containerMaxPollAttempts: number;
     };
 
 export interface MarketingPublicationConfiguration {
@@ -656,6 +664,8 @@ export function parseApiEnvironment(
                 jpegQuality: value.MARKETING_INSTAGRAM_JPEG_QUALITY,
                 rateLimit: value.MARKETING_PUBLIC_MEDIA_RATE_LIMIT,
                 rateWindowMs: value.MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS,
+                containerPollIntervalMs: value.INSTAGRAM_CONTAINER_POLL_INTERVAL_MS,
+                containerMaxPollAttempts: value.INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS,
               }
             : {
                 mode: "simulation",
