@@ -41,6 +41,7 @@ Current major dependencies:
 | `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
 | `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
 | `sharp` `0.35.4` | `apps/api` | Bounded Marketing PNG-to-JPEG conversion for private Instagram publication variants (Apache-2.0; Node.js >=20.9) |
+| `nodemailer`, `@types/nodemailer` | `apps/api` | Standards-based SMTP email dispatch for Customer Support & CRM department (MIT) |
 | `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
 | `cookie` | `apps/api` | Standards-based HTTP cookie parsing and serialization for Commerce sessions (MIT) |
 | `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |
