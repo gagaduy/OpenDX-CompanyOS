@@ -153,7 +153,19 @@ suite("Marketing publication migration", () => {
     expect(attempt.rows[0]?.target_id).toBe(target.rows[0]?.id);
     expect(record.rows[0]?.target_id).toBe(target.rows[0]?.id);
 
-    // 5. Roll down 1 step
+    // 5. Roll down the latest provider-reference migration first
+    await runMarketingMigrations(databaseUrl!, "down", 1);
+    expect(
+      (await pool.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'marketing_publication_attempts'
+           AND column_name = 'provider_reference'`,
+      )).rows,
+    ).toEqual([]);
+
+    // 6. Roll down the publication-target migration
     await runMarketingMigrations(databaseUrl!, "down", 1);
     expect((await pool.query("SELECT to_regclass('public.marketing_publication_targets') AS name")).rows[0]).toEqual({ name: null });
 
@@ -163,7 +175,7 @@ suite("Marketing publication migration", () => {
     );
     expect(legacyRecordAfterRollback.rows[0]?.package_id).toBe(legacyPackageId);
 
-    // 6. Migrate up again
+    // 7. Migrate up again
     await runMarketingMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.marketing_publication_targets') AS name")).rows[0]).toEqual({ name: "marketing_publication_targets" });
   });

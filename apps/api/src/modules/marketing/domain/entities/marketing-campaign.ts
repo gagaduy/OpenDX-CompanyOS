@@ -189,6 +189,7 @@ export interface PublicationAttempt {
   readonly errorCode?: string | null;
   readonly errorClass?: string | null;
   readonly responseDigest?: string | null;
+  readonly providerReference?: string | null;
   readonly startedAt: string;
   readonly finishedAt?: string | null;
 }

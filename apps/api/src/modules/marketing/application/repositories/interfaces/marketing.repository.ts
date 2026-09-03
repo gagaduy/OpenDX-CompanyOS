@@ -78,6 +78,7 @@ export interface MarketingRepository {
     errorCode?: string | null,
     errorClass?: string | null,
     responseDigest?: string | null,
+    providerReference?: string | null,
   ): Promise<PublicationAttempt>;
   findPublicationAttemptsByPackageId(packageId: string): Promise<readonly PublicationAttempt[]>;
 

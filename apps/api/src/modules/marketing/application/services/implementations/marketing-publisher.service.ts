@@ -198,22 +198,30 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
         error instanceof SocialPublisherError || error instanceof FacebookPublisherError
           ? error.code
           : error.name || "PUBLICATION_FAILED";
+      const outcomeKnown = error instanceof SocialPublisherError
+        ? error.outcomeKnown
+        : true;
       const errorClass =
-        (error instanceof SocialPublisherError || error instanceof FacebookPublisherError) && error.retryable
+        !outcomeKnown
+          ? "unknown"
+          : (error instanceof SocialPublisherError || error instanceof FacebookPublisherError) && error.retryable
           ? "retryable"
           : "fatal";
       const targetFailedStatus: PublicationTargetStatus =
-        errorCode === "FACEBOOK_PERMISSION_DENIED" || errorCode === "FACEBOOK_POLICY_VIOLATION"
+        !outcomeKnown
+          ? "publication_unknown"
+          : errorCode === "FACEBOOK_PERMISSION_DENIED" || errorCode === "FACEBOOK_POLICY_VIOLATION"
           ? "platform_rejected"
           : "failed";
 
       await this.marketingRepository.updatePublicationAttempt(
         attemptId,
-        "failed",
+        outcomeKnown ? "failed" : "unknown",
         this.now(),
         errorCode,
         errorClass,
         null,
+        error instanceof SocialPublisherError ? error.providerReference ?? null : null,
       );
 
       await this.marketingRepository.updatePublicationTargetStatus({
@@ -365,6 +373,8 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
     let nextState: MarketingCampaignState = campaign.state;
     if (aggregate === "verified") {
       nextState = "completed";
+    } else if (aggregate === "publication_unknown") {
+      nextState = "publication_unknown";
     } else if (aggregate === "partial_failure") {
       nextState = "partial_failure";
     } else if (aggregate === "failed") {

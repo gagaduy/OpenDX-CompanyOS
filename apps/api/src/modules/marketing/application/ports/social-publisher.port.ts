@@ -49,6 +49,7 @@ export class SocialPublisherError extends Error {
   public readonly retryable: boolean;
   public readonly outcomeKnown: boolean;
   public readonly httpStatus?: number;
+  public readonly providerReference?: string;
 
   constructor(
     code: string,
@@ -58,6 +59,7 @@ export class SocialPublisherError extends Error {
       retryable?: boolean;
       outcomeKnown?: boolean;
       httpStatus?: number;
+      providerReference?: string;
       cause?: unknown;
     },
   ) {
@@ -68,6 +70,7 @@ export class SocialPublisherError extends Error {
     this.retryable = options?.retryable ?? false;
     this.outcomeKnown = options?.outcomeKnown ?? true;
     this.httpStatus = options?.httpStatus;
+    this.providerReference = options?.providerReference;
     if (options?.cause) {
       this.cause = options.cause;
     }

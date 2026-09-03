@@ -226,6 +226,7 @@ suite("PostgreSQL Marketing Repository Integration", () => {
       executionMode: "simulation",
       simulated: true,
       status: "succeeded",
+      providerReference: "container-initial",
       startedAt: now,
       finishedAt: now,
     };
@@ -234,6 +235,24 @@ suite("PostgreSQL Marketing Repository Integration", () => {
     const targetAttempts = await repository.findPublicationAttemptsByTargetId(igTargetId);
     expect(targetAttempts).toHaveLength(1);
     expect(targetAttempts[0]?.simulated).toBe(true);
+    expect(targetAttempts[0]?.providerReference).toBe("container-initial");
+
+    await repository.updatePublicationAttempt(
+      attempt.id,
+      "unknown",
+      now,
+      "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+      "unknown",
+      null,
+      "container-after-timeout",
+    );
+    const unknownAttempts = await repository.findPublicationAttemptsByTargetId(igTargetId);
+    expect(unknownAttempts[0]).toMatchObject({
+      status: "unknown",
+      errorCode: "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+      errorClass: "unknown",
+      providerReference: "container-after-timeout",
+    });
 
     const uniquePostId = `ig-post-${randomUUID()}`;
     const record: PublicationRecord = {

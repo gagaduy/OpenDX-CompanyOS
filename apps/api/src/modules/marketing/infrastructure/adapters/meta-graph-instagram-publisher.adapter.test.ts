@@ -351,6 +351,37 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
     ).rejects.toThrow("Invalid token [REDACTED] provided");
   });
 
+  it("marks media_publish timeout as an unknown provider outcome", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/17841400000000000/media") && !urlStr.includes("media_publish")) {
+        return new Response(JSON.stringify({ id: "container-timeout" }), { status: 200 });
+      }
+      if (urlStr.includes("/container-timeout")) {
+        return new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 });
+      }
+      if (urlStr.includes("/17841400000000000/media_publish")) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+    const adapter = new MetaGraphInstagramPublisherAdapter({
+      ...defaultOptions,
+      fetcher: fetchMock as any,
+    });
+
+    await expect(adapter.publish({
+      target: buildTarget("feed_image"),
+      caption: "Ambiguous publish",
+      media: [media()],
+    })).rejects.toEqual(expect.objectContaining({
+      code: "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+      retryable: true,
+      outcomeKnown: false,
+      providerReference: "container-timeout",
+    }));
+  });
+
   it.each(["unavailable", "failed"] as const)(
     "keeps publication URL null when permalink lookup is %s",
     async (permalinkOutcome) => {

@@ -1194,6 +1194,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Wait for Meta to report an Instagram media container as `FINISHED` within a
   configurable five-minute default window before calling `media_publish`.
 
+- Preserve Instagram container references and mark publication attempts as
+  `unknown` when `media_publish` times out after Meta may have accepted the
+  request, preventing unsafe blind retries.
+
+- Read actual PNG IHDR dimensions for Agentic Marketing visual assets instead
+  of hard-coding generated asset dimensions.
+
 - Persist the dimensions encoded in generated Marketing image bytes so live
   Instagram media integrity checks do not reject valid provider-sized assets.
 

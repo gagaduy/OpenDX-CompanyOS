@@ -16,7 +16,9 @@ import {
   isApprovalInvalidatedByChange,
   isTerminalState,
   resolveQualityCorrectionOutcome,
+  validatePng1x1Square,
 } from "./marketing-campaign-rules";
+import { create1x1SquarePngBuffer } from "../../infrastructure/generators/facebook-visual-png.generator";
 
 function createCampaign(state: MarketingCampaignState, version = 1): MarketingCampaign {
   return {
@@ -129,6 +131,27 @@ function createAllArtifacts(campaignId: string): MarketingArtifact[] {
 }
 
 describe("Marketing Campaign Rules", () => {
+  describe("PNG square validation", () => {
+    it("returns the actual IHDR dimensions for valid square PNG assets", () => {
+      const result = validatePng1x1Square(create1x1SquarePngBuffer(1024, 1024));
+
+      expect(result).toEqual({
+        valid: true,
+        width: 1024,
+        height: 1024,
+      });
+    });
+
+    it("rejects PNG assets that are not square", () => {
+      const result = validatePng1x1Square(create1x1SquarePngBuffer(1024, 768));
+
+      expect(result).toEqual({
+        valid: false,
+        error: "PNG image must be square",
+      });
+    });
+  });
+
   describe("State Transitions", () => {
     it("allows valid happy-path lifecycle transitions", () => {
       const happyPath: MarketingCampaignState[] = [

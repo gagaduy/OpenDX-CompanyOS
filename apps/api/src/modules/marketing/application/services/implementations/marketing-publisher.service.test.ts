@@ -9,6 +9,7 @@ import type {
   UpdateTargetStatusInput,
 } from "../../repositories/interfaces/marketing.repository";
 import {
+  SocialPublisherError,
   type SocialPublisherPort,
 } from "../../ports/social-publisher.port";
 import { SocialPublisherRegistry } from "./social-publisher-registry";
@@ -161,7 +162,7 @@ class MockMarketingRepository implements MarketingRepository {
     this.attempts.push(attempt);
     return attempt;
   }
-  async updatePublicationAttempt(id: string, status: PublicationAttempt["status"], finishedAt?: string, errorCode?: string | null, errorClass?: string | null, responseDigest?: string | null): Promise<PublicationAttempt> {
+  async updatePublicationAttempt(id: string, status: PublicationAttempt["status"], finishedAt?: string, errorCode?: string | null, errorClass?: string | null, responseDigest?: string | null, providerReference?: string | null): Promise<PublicationAttempt> {
     const idx = this.attempts.findIndex((a) => a.id === id);
     if (idx >= 0) {
       const updated = {
@@ -171,6 +172,7 @@ class MockMarketingRepository implements MarketingRepository {
         errorCode: errorCode ?? null,
         errorClass: errorClass ?? null,
         responseDigest: responseDigest ?? null,
+        providerReference: providerReference ?? null,
       };
       this.attempts[idx] = updated;
       return updated;
@@ -490,5 +492,47 @@ describe("MarketingPublisherService", () => {
     expect(record.platform).toBe("facebook");
     const campaign = await repository.findCampaignById(campaignId);
     expect(campaign?.state).toBe("partial_failure");
+  });
+
+  it("marks a target unknown when the provider may have accepted publication", async () => {
+    const liveIgTarget = {
+      ...repository.targets.get(igTargetId)!,
+      executionMode: "live" as const,
+      targetDigest: calculatePublicationTargetDigest({
+        platform: "instagram",
+        format: "story_image",
+        accountConfigurationId: "ig-acc-1",
+        mediaAssetIds: [visualId],
+        caption: "Discover next-gen mobile computing with NovaPhone 15.",
+        scheduledFor: fixedNow,
+        executionMode: "live",
+      }),
+    };
+    repository.targets.set(igTargetId, liveIgTarget);
+    registry.register({
+      platform: "instagram",
+      executionMode: "live",
+      publish: vi.fn().mockRejectedValue(new SocialPublisherError(
+        "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+        "Instagram publish result is unknown",
+        { retryable: true, outcomeKnown: false, providerReference: "container-123" },
+      )),
+      reconcile: vi.fn().mockResolvedValue({ exists: false }),
+    });
+
+    await expect(service.publishTarget(igTargetId, "test-worker-1")).rejects.toMatchObject({
+      code: "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+      outcomeKnown: false,
+    });
+
+    expect(repository.targets.get(igTargetId)?.status).toBe("publication_unknown");
+    expect(repository.attempts.at(-1)).toMatchObject({
+      status: "unknown",
+      errorCode: "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+      errorClass: "unknown",
+      providerReference: "container-123",
+    });
+    const campaign = await repository.findCampaignById(campaignId);
+    expect(campaign?.state).toBe("publication_unknown");
   });
 });

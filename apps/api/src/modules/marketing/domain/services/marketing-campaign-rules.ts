@@ -261,8 +261,12 @@ export function assertCanCompleteCampaign(params: {
   }
 }
 
-export function validatePng1x1Square(buffer: Buffer): { valid: boolean; error?: string } {
-  if (buffer.length < 8) {
+export type PngSquareValidationResult =
+  | { readonly valid: true; readonly width: number; readonly height: number }
+  | { readonly valid: false; readonly error: string };
+
+export function validatePng1x1Square(buffer: Buffer): PngSquareValidationResult {
+  if (buffer.length < 24) {
     return { valid: false, error: "Buffer is too small to be a valid PNG" };
   }
   const isPng =
@@ -277,5 +281,18 @@ export function validatePng1x1Square(buffer: Buffer): { valid: boolean; error?: 
   if (!isPng) {
     return { valid: false, error: "Buffer header does not match PNG signature" };
   }
-  return { valid: true };
+  const ihdrType = buffer.subarray(12, 16).toString("ascii");
+  if (ihdrType !== "IHDR") {
+    return { valid: false, error: "PNG image is missing IHDR dimensions" };
+  }
+
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  if (width <= 0 || height <= 0) {
+    return { valid: false, error: "PNG image dimensions must be positive" };
+  }
+  if (width !== height) {
+    return { valid: false, error: "PNG image must be square" };
+  }
+  return { valid: true, width, height };
 }

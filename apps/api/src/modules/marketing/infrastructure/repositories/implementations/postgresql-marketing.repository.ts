@@ -152,6 +152,7 @@ interface AttemptRow {
   error_code: string | null;
   error_class: string | null;
   response_digest: string | null;
+  provider_reference: string | null;
   started_at: Date;
   finished_at: Date | null;
 }
@@ -668,8 +669,8 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     const res = await this.pool.query<AttemptRow>(
       `INSERT INTO marketing_publication_attempts
        (id, package_id, target_id, attempt_key, platform, page_configuration_id, execution_mode, simulated,
-        status, error_code, error_class, response_digest, started_at, finished_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        status, error_code, error_class, response_digest, provider_reference, started_at, finished_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         attempt.id,
@@ -684,6 +685,7 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
         attempt.errorCode ?? null,
         attempt.errorClass ?? null,
         attempt.responseDigest ?? null,
+        attempt.providerReference ?? null,
         attempt.startedAt,
         attempt.finishedAt ?? null,
       ],
@@ -698,13 +700,27 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     errorCode?: string | null,
     errorClass?: string | null,
     responseDigest?: string | null,
+    providerReference?: string | null,
   ): Promise<PublicationAttempt> {
     const res = await this.pool.query<AttemptRow>(
       `UPDATE marketing_publication_attempts
-       SET status = $1, finished_at = $2, error_code = $3, error_class = $4, response_digest = $5
-       WHERE id = $6
+       SET status = $1,
+           finished_at = $2,
+           error_code = $3,
+           error_class = $4,
+           response_digest = $5,
+           provider_reference = $6
+       WHERE id = $7
        RETURNING *`,
-      [status, finishedAt ?? null, errorCode ?? null, errorClass ?? null, responseDigest ?? null, id],
+      [
+        status,
+        finishedAt ?? null,
+        errorCode ?? null,
+        errorClass ?? null,
+        responseDigest ?? null,
+        providerReference ?? null,
+        id,
+      ],
     );
     if (res.rows.length === 0) {
       throw new Error(`Publication attempt not found for id '${id}'.`);
@@ -952,6 +968,7 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
       errorCode: row.error_code,
       errorClass: row.error_class,
       responseDigest: row.response_digest,
+      providerReference: row.provider_reference,
       startedAt: row.started_at.toISOString(),
       finishedAt: row.finished_at ? row.finished_at.toISOString() : null,
     };

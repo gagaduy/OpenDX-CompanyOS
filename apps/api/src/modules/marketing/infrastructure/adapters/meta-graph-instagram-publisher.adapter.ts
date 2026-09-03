@@ -118,10 +118,27 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
     // Publish container
     const publishEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media_publish`;
-    const publishResponse = await this.postJson(publishEndpoint, {
-      creation_id: containerId,
-      access_token: this.accessToken,
-    });
+    let publishResponse: { data: any; rawText: string };
+    try {
+      publishResponse = await this.postJson(publishEndpoint, {
+        creation_id: containerId,
+        access_token: this.accessToken,
+      });
+    } catch (error) {
+      if (error instanceof SocialPublisherError && error.code === "TIMEOUT") {
+        throw new SocialPublisherError(
+          "INSTAGRAM_PUBLISH_OUTCOME_UNKNOWN",
+          "Instagram publish request timed out after Meta may have accepted it",
+          {
+            retryable: true,
+            outcomeKnown: false,
+            providerReference: containerId,
+            cause: error,
+          },
+        );
+      }
+      throw error;
+    }
 
     const postId = publishResponse.data.id;
     if (!postId) {

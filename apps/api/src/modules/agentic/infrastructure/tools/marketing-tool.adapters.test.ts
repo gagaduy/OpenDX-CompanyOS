@@ -19,6 +19,7 @@ import type {
 } from "../../../marketing/domain/entities/marketing-campaign";
 import type { DepartmentToolExecutionContext } from "../../application/services/interfaces/department-tool-adapter";
 import { AgenticApplicationError } from "../../application/services/agentic-application.error";
+import { create1x1SquarePngBuffer } from "../../../marketing/infrastructure/generators/facebook-visual-png.generator";
 
 class MockMarketingRepository implements MarketingRepository {
   public campaigns: Map<string, MarketingCampaign> = new Map();
@@ -345,8 +346,7 @@ describe("MarketingDepartmentToolAdapter", () => {
 
   it("marketing.save_visual_asset saves valid PNG and advances campaign state", async () => {
     const context = makeContext("marketing.save_visual_asset", "marketing_visual");
-    // Valid 8-byte PNG header
-    const validPngBase64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]).toString("base64");
+    const validPngBase64 = create1x1SquarePngBuffer(1024, 1024).toString("base64");
 
     repository.campaigns.set(campaignId, { ...sampleCampaign, state: "visual_creation" });
 
@@ -363,6 +363,11 @@ describe("MarketingDepartmentToolAdapter", () => {
       campaign_id: campaignId,
       version_number: 1,
       aspect_ratio: "1:1",
+      dimensions: "1024x1024",
+    });
+    expect(repository.visuals.get(campaignId)?.at(-1)).toMatchObject({
+      width: 1024,
+      height: 1024,
     });
 
     const updated = await repository.findCampaignById(campaignId);
