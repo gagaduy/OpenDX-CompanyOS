@@ -22,6 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Automated IMAP Email Poller & Inbound Customer Reply Ingestion:
+  - Added `EmailReceiverPort` Clean Architecture port with `ImapEmailReceiverAdapter` (using `imapflow` and `mailparser`) and `SimulatedEmailReceiverAdapter`.
+  - Implemented `SupportEmailIngestionService` unifying customer reply handling and ticket reopening logic with SLA compliance.
+  - Implemented `SupportEmailPollerWorker` running background periodic polling (configurable via `SUPPORT_IMAP_*` environment variables) with full start/stop lifecycle.
+  - Added multiline quote stripping in `extractCleanReplyText` and regex-based ticket reference extraction.
+  - Added UID-based and message body idempotency to prevent duplicate ticket replies.
 - Implement Two-Way Governed Email Support Workflow in Support & CRM department:
   - Added `EmailDispatcherPort` Clean Architecture port with `SmtpEmailDispatcherAdapter` (using `nodemailer` with Gmail SMTP) and `SimulatedEmailDispatcherAdapter`.
   - Added branded responsive HTML resolution email template (`renderSupportResolutionEmailHtml`) with ticket details, empathetic apology, actionable resolution steps, and compensation voucher highlight.

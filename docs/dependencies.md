@@ -42,6 +42,8 @@ Current major dependencies:
 | `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
 | `sharp` `0.35.4` | `apps/api` | Bounded Marketing PNG-to-JPEG conversion for private Instagram publication variants (Apache-2.0; Node.js >=20.9) |
 | `nodemailer`, `@types/nodemailer` | `apps/api` | Standards-based SMTP email dispatch for Customer Support & CRM department (MIT) |
+| `imapflow` | `apps/api` | Standards-based IMAP client for automated inbound customer email reply polling in Customer Support & CRM department (MIT) |
+| `mailparser`, `@types/mailparser` | `apps/api` | Standards-based MIME email parser for parsing incoming email headers, text bodies, and attachments (MIT) |
 | `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
 | `cookie` | `apps/api` | Standards-based HTTP cookie parsing and serialization for Commerce sessions (MIT) |
 | `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |

@@ -26,9 +26,14 @@ import { SupportHealthReaderService } from "./application/services/implementatio
 import { PostgresqlSupportHealthRepository } from "./infrastructure/repositories/implementations/postgresql-support-health.repository";
 import { SmtpEmailDispatcherAdapter } from "./infrastructure/adapters/smtp-email-dispatcher.adapter";
 import { SimulatedEmailDispatcherAdapter } from "./infrastructure/adapters/simulated-email-dispatcher.adapter";
+import { ImapEmailReceiverAdapter } from "./infrastructure/adapters/imap-email-receiver.adapter";
+import { SimulatedEmailReceiverAdapter } from "./infrastructure/adapters/simulated-email-receiver.adapter";
 import { SupportInboundEmailController } from "./presentation/controllers/support-inbound-email.controller";
 import { createSupportInboundEmailRouter } from "./presentation/routers/support-inbound-email.router";
+import { SupportEmailPollerWorker } from "./infrastructure/workers/support-email-poller.worker";
+import { SupportEmailIngestionService } from "./application/services/implementations/support-email-ingestion.service";
 import type { EmailDispatcherPort } from "./application/ports/email-dispatcher.port";
+import type { EmailReceiverPort } from "./application/ports/email-receiver.port";
 
 export interface SupportHealthDependencies {
   readonly transactions: TransactionRunner;
@@ -55,6 +60,7 @@ export function createSupportModule(d: {
   attachmentScanIntervalMs?: number;
   attachmentRetentionIntervalMs?: number;
   emailDispatcher?: EmailDispatcherPort;
+  emailReceiver?: EmailReceiverPort;
 }) {
   const repository = new PostgresqlSupportRepository();
   const service = new SupportService(repository, d.customers, d.orders, d.transactions, d.generateId, d.now);
@@ -87,8 +93,35 @@ export function createSupportModule(d: {
       )
     : undefined;
 
-  const inboundEmailController = d.database && aiService
-    ? new SupportInboundEmailController(d.database, aiService, d.generateId)
+  const emailReceiver = d.emailReceiver ?? (
+    process.env.SUPPORT_IMAP_ENABLED === "true" && (process.env.SUPPORT_IMAP_USER || process.env.SUPPORT_SMTP_USER) && (process.env.SUPPORT_IMAP_PASS || process.env.SUPPORT_SMTP_PASS)
+      ? new ImapEmailReceiverAdapter({
+          host: process.env.SUPPORT_IMAP_HOST || "imap.gmail.com",
+          port: Number(process.env.SUPPORT_IMAP_PORT) || 993,
+          secure: process.env.SUPPORT_IMAP_SECURE !== "false",
+          user: process.env.SUPPORT_IMAP_USER || process.env.SUPPORT_SMTP_USER || "",
+          pass: process.env.SUPPORT_IMAP_PASS || process.env.SUPPORT_SMTP_PASS || "",
+          mailbox: process.env.SUPPORT_IMAP_MAILBOX || "INBOX",
+          tlsRejectUnauthorized: process.env.SUPPORT_IMAP_TLS_REJECT_UNAUTHORIZED === "true",
+        })
+      : new SimulatedEmailReceiverAdapter()
+  );
+
+  const ingestionService = d.database && aiService
+    ? new SupportEmailIngestionService(d.database, aiService, d.generateId)
+    : undefined;
+
+  const emailPollerWorker = ingestionService && (process.env.SUPPORT_IMAP_ENABLED === "true" || d.emailReceiver !== undefined)
+    ? new SupportEmailPollerWorker(
+        emailReceiver,
+        ingestionService,
+        Number(process.env.SUPPORT_IMAP_POLL_INTERVAL_MS) || 15_000,
+        (err) => console.error("[SupportEmailPollerWorker] Error during poll:", err),
+      )
+    : undefined;
+
+  const inboundEmailController = d.database && aiService && ingestionService
+    ? new SupportInboundEmailController(d.database, aiService, ingestionService)
     : undefined;
 
   const inboundEmailRouter = inboundEmailController
@@ -109,6 +142,7 @@ export function createSupportModule(d: {
     escalationWorker: new SupportEscalationWorker(d.transactions, repository, d.generateId, d.now, d.escalationIntervalMs),
     attachmentScanWorker: new SupportAttachmentScanWorker(d.transactions, repository, storage, scanner, d.generateId, d.now, d.attachmentScanIntervalMs),
     attachmentRetentionWorker: new SupportAttachmentRetentionWorker(d.transactions, repository, storage, d.generateId, d.now, d.attachmentRetentionIntervalMs),
+    emailPollerWorker,
   };
 }
 

@@ -343,6 +343,7 @@ const server = app.listen(environment.apiPort, () => {
   support.escalationWorker.start();
   support.attachmentScanWorker.start();
   support.attachmentRetentionWorker.start();
+  support.emailPollerWorker?.start();
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
   marketing.publisherWorker.start();
@@ -368,6 +369,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.escalationWorker.stop();
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
+  support.emailPollerWorker?.stop();
   marketing.publisherWorker.stop();
   await agentic.dispatcher.stop();
   agentic.fileLifecycleWorker?.stop();
