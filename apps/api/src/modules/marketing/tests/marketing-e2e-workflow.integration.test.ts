@@ -183,22 +183,26 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     };
 
     // 6. Fail-Closed Publisher Engine execution
-    const mockFacebookAdapter: FacebookPublisherPort = {
-      publishImagePost: vi.fn().mockResolvedValue({
-        externalPostId: "page-novacommerce-official_998877",
-        postUrl: "https://www.facebook.com/page-novacommerce-official/posts/998877",
-        providerReceiptDigest: "receipt-hash-12345",
-      }),
-      verifyPageAccess: vi.fn().mockResolvedValue({
+    const mockFacebookAdapter: SocialPublisherPort = {
+      platform: "facebook",
+      executionMode: "live",
+      publish: vi.fn().mockResolvedValue({
+        platform: "facebook",
         pageId: "page-novacommerce-official",
-        pageName: "NovaCommerce Official",
-        canPostPhotos: true,
-        tokenExpiresAt: null,
+        externalPublicationId: "page-novacommerce-official_998877",
+        publicationUrl: "https://www.facebook.com/page-novacommerce-official/posts/998877",
+        executionMode: "live",
+        simulated: false,
+        displayMessage: "Published to Facebook successfully",
+        providerReceiptDigest: "receipt-hash-12345",
+        verifiedAt: new Date().toISOString(),
       }),
+      reconcile: vi.fn().mockResolvedValue({ exists: true }),
     };
 
     let publicationRecord: PublicationRecord | null = null;
     const publicationAttempts: PublicationAttempt[] = [];
+    let legacyTargets: any[] = [];
 
     const mockRepo: any = {
       findCampaignById: vi.fn().mockImplementation(async () => campaign),
@@ -207,6 +211,20 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       findContentVersionById: vi.fn().mockImplementation(async () => contentVersion),
       findVisualAssetById: vi.fn().mockImplementation(async () => visualAsset),
       findPublicationRecordByPackageId: vi.fn().mockImplementation(async () => publicationRecord),
+      findPublicationTargetsByPackageId: vi.fn().mockImplementation(async () => legacyTargets),
+      createPublicationTargets: vi.fn().mockImplementation(async (tgts: any[]) => {
+        legacyTargets = tgts;
+        return tgts;
+      }),
+      findPublicationTargetById: vi.fn().mockImplementation(async (id: string) => legacyTargets.find((t) => t.id === id) ?? null),
+      findPublicationRecordByTargetId: vi.fn().mockImplementation(async () => publicationRecord),
+      findPublicationPackagesByCampaignId: vi.fn().mockImplementation(async () => [pkg]),
+      updatePublicationTargetStatus: vi.fn().mockImplementation(async ({ targetId, status }: any) => {
+        const t = legacyTargets.find((x) => x.id === targetId);
+        if (t) t.status = status;
+        return t;
+      }),
+      releasePublicationTargetLease: vi.fn().mockResolvedValue(undefined),
       createPublicationAttempt: vi.fn().mockImplementation(async (att) => {
         publicationAttempts.push(att);
         return att;
@@ -241,6 +259,7 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     const publisherService = new MarketingPublisherServiceImpl({
       marketingRepository: mockRepo,
       publisherRegistry: registry,
+      assetStorageReader: async () => Buffer.from("dummy-png-bytes"),
     });
 
     // Publish approved package
@@ -252,7 +271,7 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     });
 
     expect(record).not.toBeNull();
-    expect(mockFacebookAdapter.publishImagePost).toHaveBeenCalled();
+    expect(mockFacebookAdapter.publish).toHaveBeenCalled();
     expect(campaign.state).toBe("completed");
     expect(publicationRecord).not.toBeNull();
     expect(publicationRecord!.postUrl).toContain("https://www.facebook.com");
@@ -515,6 +534,8 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       }),
       releasePublicationTargetLease: vi.fn().mockResolvedValue(undefined),
       findPublicationRecordByPackageId: vi.fn().mockImplementation(async () => publicationRecords[0] ?? null),
+      findPublicationRecordByTargetId: vi.fn().mockImplementation(async (id: string) => publicationRecords.find((r) => r.targetId === id) ?? null),
+      findPublicationPackagesByCampaignId: vi.fn().mockImplementation(async () => [pkg]),
       createPublicationAttempt: vi.fn().mockImplementation(async (att) => {
         publicationAttempts.push(att);
         return att;
@@ -542,18 +563,21 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       }),
     };
 
-    const mockFacebookAdapter: FacebookPublisherPort = {
-      publishImagePost: vi.fn().mockResolvedValue({
-        externalPostId: "fb-post-9988",
-        postUrl: "https://www.facebook.com/fb-page-main/posts/9988",
-        providerReceiptDigest: "fb-receipt-123",
-      }),
-      verifyPageAccess: vi.fn().mockResolvedValue({
+    const mockFacebookAdapter: SocialPublisherPort = {
+      platform: "facebook",
+      executionMode: "live",
+      publish: vi.fn().mockResolvedValue({
+        platform: "facebook",
         pageId: "fb-page-main",
-        pageName: "NovaCommerce FB",
-        canPostPhotos: true,
-        tokenExpiresAt: null,
+        externalPublicationId: "fb-post-9988",
+        publicationUrl: "https://www.facebook.com/fb-page-main/posts/9988",
+        executionMode: "live",
+        simulated: false,
+        displayMessage: "Published to Facebook successfully",
+        providerReceiptDigest: "fb-receipt-123",
+        verifiedAt: now,
       }),
+      reconcile: vi.fn().mockResolvedValue({ exists: true }),
     };
 
     const fakeInstagramAdapter = new FakeInstagramPublisherAdapter();
@@ -565,6 +589,7 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     const publisherService = new MarketingPublisherServiceImpl({
       marketingRepository: mockRepo,
       publisherRegistry: registry,
+      assetStorageReader: async () => Buffer.from("dummy-png-bytes"),
       now: () => now,
     });
 
@@ -754,6 +779,8 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       }),
       releasePublicationTargetLease: vi.fn().mockResolvedValue(undefined),
       findPublicationRecordByPackageId: vi.fn().mockImplementation(async () => publicationRecords[0] ?? null),
+      findPublicationRecordByTargetId: vi.fn().mockImplementation(async (id: string) => publicationRecords.find((r) => r.targetId === id) ?? null),
+      findPublicationPackagesByCampaignId: vi.fn().mockImplementation(async () => [pkg]),
       createPublicationAttempt: vi.fn().mockImplementation(async (att) => {
         publicationAttempts.push(att);
         return att;
@@ -781,23 +808,28 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
       }),
     };
 
-    const mockFacebookAdapter: FacebookPublisherPort = {
-      publishImagePost: vi.fn().mockResolvedValue({
-        externalPostId: "fb-post-9988",
-        postUrl: "https://www.facebook.com/fb-page-main/posts/9988",
-        providerReceiptDigest: "fb-receipt-123",
-      }),
-      verifyPageAccess: vi.fn().mockResolvedValue({
+    const mockFacebookAdapter: SocialPublisherPort = {
+      platform: "facebook",
+      executionMode: "live",
+      publish: vi.fn().mockResolvedValue({
+        platform: "facebook",
         pageId: "fb-page-main",
-        pageName: "NovaCommerce FB",
-        canPostPhotos: true,
-        tokenExpiresAt: null,
+        externalPublicationId: "fb-post-9988",
+        publicationUrl: "https://www.facebook.com/fb-page-main/posts/9988",
+        executionMode: "live",
+        simulated: false,
+        displayMessage: "Published to Facebook successfully",
+        providerReceiptDigest: "fb-receipt-123",
+        verifiedAt: now,
       }),
+      reconcile: vi.fn().mockResolvedValue({ exists: true }),
     };
 
-    const failingInstagramAdapter = {
-      platform: "instagram" as const,
-      publishTarget: vi.fn().mockRejectedValue(new Error("Instagram API network timeout")),
+    const failingInstagramAdapter: SocialPublisherPort = {
+      platform: "instagram",
+      executionMode: "live",
+      publish: vi.fn().mockRejectedValue(new Error("Instagram API network timeout")),
+      reconcile: vi.fn().mockResolvedValue({ exists: false }),
     };
 
     const registry = new SocialPublisherRegistry();
@@ -807,6 +839,7 @@ describe("Marketing Facebook Publication End-to-End Workflow Integration", () =>
     const publisherService = new MarketingPublisherServiceImpl({
       marketingRepository: mockRepo,
       publisherRegistry: registry,
+      assetStorageReader: async () => Buffer.from("dummy-png-bytes"),
       now: () => now,
     });
 

@@ -198,7 +198,7 @@ export class MarketingController {
           pageAccessToken,
         });
       } catch (error) {
-        if (error instanceof FacebookPublisherError) {
+        if (error instanceof FacebookPublisherError || error instanceof SocialPublisherError) {
           throw new MarketingApplicationError(502, error.code, error.message);
         }
         throw error;

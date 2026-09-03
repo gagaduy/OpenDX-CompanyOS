@@ -312,7 +312,15 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
         executionMode: "live",
         contentDigest: pkg.contentDigest,
         mediaDigest: pkg.imageDigest || pkg.contentDigest,
-        targetDigest: pkg.packageDigest,
+        targetDigest: calculatePublicationTargetDigest({
+          platform: "facebook",
+          format: "feed_image",
+          accountConfigurationId: request.pageId || pkg.facebookPageConfigurationId || "facebook-default",
+          mediaAssetIds: pkg.visualAssetId ? [pkg.visualAssetId] : [],
+          caption: "Legacy package publication",
+          scheduledFor: pkg.scheduledFor,
+          executionMode: "live",
+        }),
         status: "approved",
         createdAt: this.now(),
         updatedAt: this.now(),
@@ -322,9 +330,20 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
     }
 
     const records: PublicationRecord[] = [];
+    let firstError: unknown;
     for (const target of targets) {
-      const record = await this.publishTarget(target.id, this.defaultWorkerId);
-      records.push(record);
+      try {
+        const record = await this.publishTarget(target.id, this.defaultWorkerId);
+        records.push(record);
+      } catch (err) {
+        if (!firstError) {
+          firstError = err;
+        }
+      }
+    }
+
+    if (records.length === 0 && firstError) {
+      throw firstError;
     }
 
     return records[0]!;

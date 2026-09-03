@@ -468,4 +468,27 @@ describe("MarketingPublisherService", () => {
     const campaign = await repository.findCampaignById(campaignId);
     expect(campaign?.state).toBe("partial_failure");
   });
+
+  it("executes all targets in publishApprovedPackage even if one target fails", async () => {
+    // Make IG (optional) target fail
+    const fakeFailingIg: SocialPublisherPort = {
+      platform: "instagram",
+      executionMode: "simulation",
+      publish: vi.fn().mockRejectedValue(new Error("Simulation failed")),
+      reconcile: vi.fn().mockResolvedValue({ exists: false }),
+    };
+    registry.register(fakeFailingIg);
+
+    // Call publishApprovedPackage: IG fails, but FB should still be executed and succeed!
+    const record = await service.publishApprovedPackage({
+      campaignId,
+      packageId,
+      pageId: "fb_page_novacommerce_main",
+      pageAccessToken: "test-token",
+    });
+
+    expect(record.platform).toBe("facebook");
+    const campaign = await repository.findCampaignById(campaignId);
+    expect(campaign?.state).toBe("partial_failure");
+  });
 });

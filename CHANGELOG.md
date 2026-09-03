@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Ensure `publishApprovedPackage` publishes every target independently so that
+  failure of one channel (such as Instagram or Facebook) does not abort remaining
+  targets, preserving partial publication and retryability.
+- Map `SocialPublisherError` in marketing publication retry controller.
+
 ### Added
 
 - Add deterministic private Instagram JPEG variants using `sharp`, plus a
