@@ -134,6 +134,7 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: opendx_admin
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-opendx_admin_password}
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "${POSTGRES_PORT:-55432}:5432"
     volumes:
