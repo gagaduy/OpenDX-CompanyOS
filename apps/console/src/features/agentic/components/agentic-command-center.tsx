@@ -2377,8 +2377,15 @@ export function AgenticCommandCenter({
                       <div style={{ color: "#cbd5e1", lineHeight: 1.4, marginBottom: "0.25rem" }}>
                         {t.proposedResponse}
                       </div>
-                      <div style={{ color: "#34d399", fontWeight: 600, fontSize: "0.78rem" }}>
-                        🎁 Đền bù: {t.suggestedCompensation}
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
+                        <span style={{ color: "#34d399", fontWeight: 600, fontSize: "0.78rem" }}>
+                          🎁 Đền bù: {t.suggestedCompensation}
+                        </span>
+                        {supportProposal.status === "applied" && (
+                          <span style={{ padding: "0.1rem 0.4rem", borderRadius: 4, background: "rgba(16, 185, 129, 0.15)", color: "#10b981", fontSize: "0.72rem", fontWeight: 700 }}>
+                            ✉️ Email đã gửi
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -2448,15 +2455,15 @@ export function AgenticCommandCenter({
                 {supportActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
                 <span>
                   {supportActionLoading
-                    ? "Đang gửi phản hồi..."
-                    : `Phê duyệt & Gửi phản hồi ${supportProposal.tickets.length} ticket`}
+                    ? "Đang gửi email & cấp voucher..."
+                    : `✓ Phê duyệt & Gửi Email phản hồi (${supportProposal.tickets.length} ticket kèm Voucher)`}
                 </span>
               </button>
             )}
             {supportProposal.status === "applied" && (
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.95rem" }}>
                 <CheckCircle2 size={20} color="#10b981" />
-                <span>Đã phê duyệt và phản hồi toàn bộ ticket khiếu nại!</span>
+                <span>✉️ Đã phê duyệt, gửi email phản hồi & kích hoạt voucher cho toàn bộ khách hàng!</span>
               </div>
             )}
           </div>
