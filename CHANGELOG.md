@@ -11,38 +11,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Planned
-
-- Approve a credential-free, provider-ready Instagram image-publication
-  extension for governed Marketing campaigns, with Feed, Story, carousel,
-  multi-target approval, target-level retry, truthful local simulation, and
-  disabled fail-closed video capabilities.
-
-- Define one governed Marketing & Creative department with three distinct
-  Digital Employees, direct or AI CEO assignment, human-approved Facebook Page
-  publication, platform-neutral adapters, private report artifacts, and
-  deterministic recovery and acceptance boundaries.
-
-- Define the approved database- and MinIO-backed Storefront hero video design,
-  including chapter-synchronized products, accessible playback, byte-range
-  delivery, and image fallbacks for mobile and reduced-motion clients.
-
-### Fixed
-
-- Remove the hard-coded Instagram permalink fallback and bound media
-  preparation failures so provider errors remain truthful and safe to retry.
-
-- Restore the Agentic Command Center session-expiry sign-in action by binding
-  it to the Console authentication context.
-
-- Fix 500 error in marketing campaign creation and revision workflow by adding `assignmentMode` fallback, resolving duplicate publication target insertion with `ON CONFLICT` idempotency, handling `ZodError` as 400 validation responses, and preprocessing flat subject fields.
-- Map `FacebookPublisherError` and `SocialPublisherError` in target retry controller to prevent unhandled 500 responses when Meta Graph API returns upstream errors.
-
-### Changed
-
-- Wire live Instagram publication to prepare signed public-media URLs through
-  the Marketing application boundary before submitting approved assets to Meta.
-
 ### Added
 
 - Add deterministic private Instagram JPEG variants using `sharp`, plus a
@@ -64,134 +32,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Model governed Marketing publication targets, format capability policy (Feed, Story, Carousel), and canonical target/package digests.
 
 - Implement Governed AI Customer Support & CRM workflow (Phòng CSKH & Trải nghiệm Khách hàng) featuring **Quản gia CSKH (Support Steward)** for CSAT & sentiment analysis, **Chuyên viên CRM (CRM Specialist)** for VIP customer retention & churn risk prediction, live OpenRouter Gemini 2.5 Flash analysis, pure OpenXML Word DOCX audit report export, automated promotion voucher generation in `promotions` table, and one-click human approval with bulk resolution in the Agentic Command Center.
-
-### Fixed
-
-- Reject reserved example domains for live Instagram media delivery so local
-  configuration fails closed instead of reaching Meta with an unreachable
-  placeholder URL.
-
-- Ensure support proposal approvals strictly follow PostgreSQL state machine lifecycle triggers (`new` -> `escalated` -> `resolved`) and enforce CEO-specified discount percentages and compensation voucher creation in database.
-- Gracefully handle undefined payment aggregates during checkout expiration in `PaymentService`.
-
-- Implement Governed AI Merchandising & Pricing workflow (Phòng Danh mục & Định giá) powered by live OpenRouter Gemini 2.5 Flash, generating SEO-optimized product copy, strategic Flash Sale pricing models with profit margin analysis, and interactive Command Center proposal cards enabling one-click live price and product updates on the Storefront database upon human administrator approval.
-
-- Integrate live OpenRouter Google Gemini 2.5 Flash copywriter and Gemini Image poster generation with NovaCommerce brand identity, in-flight Facebook publication concurrency deduplication, authenticated in-console image preview via blob URL, and full prompt history tracking in the AI Command Center.
-
-- Build unified Command Hub (`AgenticCommandCenter`) with intelligent AI CEO Intent Routing (auto-classifying marketing campaigns vs operations audits), dynamic visual pipeline bar, unified 4-department workforce grid (Marketing, Operations, Support/CRM, Finance) with 9 digital employees, direct inline agent card tasking, and in-place Facebook post preview, human approval, revision feedback, and deliverables download.
-
-- Add an approver-only Facebook publication retry action for failed Marketing
-  campaigns, preserving the approved package, exactly-once publication record,
-  and fail-closed credential handling.
-
-- Document Marketing & Creative Facebook Publication architecture, deliverable evidence, zero new external dependencies, and update MVP roadmap status.
-
-- Add Marketing Facebook publication end-to-end integration test suite and CLI demonstration runner (`pnpm demo:marketing`).
-
-- Build Staff Console Marketing control room, brief viewer, copy iterations preview, 1:1 visual canvas, live Facebook feed post mockup modal, approval action bar, and deliverable download panel.
-
-- Expose Staff Admin Marketing APIs for human approval, revision requests, quality feedback, artifact listing, deliverable generation, and binary artifact download.
-
-- Implement 5 required Marketing deliverable artifact generators (campaign brief DOCX, Facebook content DOCX, visual PNG, publication log XLSX, final report PDF) and artifact storage service.
-
-- Implement Marketing Content, Visual, and Publisher Digital Employee prompt templates, Pydantic schemas, and agent orchestration in AI runtime.
-
-- Implement fail-closed exactly-once Marketing Facebook publication engine and asynchronous background worker.
-
-- Implement Meta Graph API Facebook Publisher port, fail-closed adapter with token sanitization, and structured error mapping.
-
-- Add deterministic Marketing Department Tool adapters for campaign brief retrieval, Catalog product summary extraction, content drafting with prohibited claim checks, PNG visual asset validation, publication package assembly, and publication status reporting.
-
-- Govern three Marketing Digital Employees (`marketing_content`, `marketing_visual`, `marketing_publisher`) with isolated Keycloak service credentials, database schema constraints, environment templates, and runtime settings.
-
-- Add governed direct Marketing campaign intake, deterministic scope and cross-department validation, idempotency replay handling, and staff administration API routes.
-
-- Establish Marketing campaign publication domain entities, state machine transitions, quality correction boundaries, approval invalidation rules, PostgreSQL schema migrations, and repository implementation.
-
-- Add typed Catalog tables, constraints, idempotent approved seed data, and an
-  anonymous purpose-specific API for Storefront service assurances and trust
-  metrics, with a validated fetch-once Storefront content provider and bounded
-  loading, empty, recoverable error, and populated UI states.
-
-- Extend responsive Storefront browser acceptance with database-content
-  fixtures and unavailable-content isolation across light and dark themes.
-
-### Fixed
-
-- Persist and load Marketing visual bytes through private MinIO storage so
-  Facebook publication never submits an invalid placeholder PNG header, and
-  materialize revision image metadata from the stored bytes before approval.
-
-- Forward the Facebook Page access token from deployment configuration into the
-  API container so approved Marketing publications do not fall back to an
-  invalid placeholder token.
-
-- Make API readiness require both the exact Customer Wishlist migration ledger
-  entry and its PostgreSQL table so a partially migrated runtime fails closed.
-
-- Scope failed wishlist mutations to the affected product and present one
-  non-overlapping alert instead of repeating the same text across every card.
-
-- Keep homepage hero product media centered inside a dedicated right-hand panel
-  so square Catalog images are not cut through by the content scrim.
-
-- Make the Storefront `Danh mục` and `Khám phá` navigation menus interactive
-  with live Catalog categories, increase desktop canvas and typography scale,
-  and extend responsive browser acceptance to cover both menus.
-
-- Forward Department Agent client secrets to the API in development Docker
-  Compose environments so seed scripts and internal governance checks validate
-  environment configuration cleanly.
-
-- Prevent executive synthesis from citing provenance attached only to an
-  unavailable Department branch, keeping runtime quality checks aligned with
-  the API's accepted-evidence boundary for partial reports.
-
-- Reject Advanced tasks before they enter the execution queue when the active
-  configuration lacks the models, fallback authority, budgets, policies, or
-  Department tool grants required by the live AI CEO workforce.
-
-- Preserve Console task-intake provenance in the AI CEO Task Brief so live
-  planning receives its required governed evidence instead of failing before
-  model execution.
-
-- Emit OpenAI-compatible typed `const` JSON Schema nodes for AI CEO and
-  Department structured outputs, keep API/runtime schema digests aligned, and
-  retain planning provenance when a provider failure is settled.
-
-- Resolve the accepted orchestration plan independently from the frozen task
-  revision so a Ready task at version 2 can dispatch the AI CEO's version 1
-  plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
-
-- Constrain live AI CEO planning to provider-enforced independent Department
-  branches, give the CEO explicit unique-owner guidance, and terminally settle
-  exhausted deferred planning or synthesis results instead of leaving model
-  runs stuck in `running`.
-
-- Recognize active orchestration execution descriptors as Department task
-  assignments during governed tool authorization so CEO-created live branches
-  can invoke their exact approved tools.
-
-- Add the `executive_synthesis` state transition from `department_analysis`
-  in workflow run rules so orchestration completes all stages through synthesis.
-
-- Sanitize department context boundary fields and forward tool summaries into
-  system instructions with explicit quality gate schemas.
-
-- Increase internal control client response buffer to load full multi-branch
-  department results for AI CEO executive synthesis.
-
-- Accept partial model settlements and completion states in executive synthesis
-  quality gates and API report acceptance, and provide adequate token budget for
-  AI CEO synthesis generation.
-
-### Removed
-
-- Remove the superseded Three.js Storefront homepage runtime, model assets,
-  obsolete tests, and its dedicated package dependencies after the API-driven
-  commerce homepage replacement reached full test coverage.
-
-### Added
 
 - Complete the NovaCommerce Storefront redesign across every customer route
   with shared dark/light themes, an API-driven commerce homepage, public
@@ -934,8 +774,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add verified Support PostgreSQL, worker, and HTTP route coverage for role
   boundaries, version races, idempotency, chronological history, and SLA claims.
 
-### Added
-
 - Add the reversible Support PostgreSQL schema for staff-created tickets,
   append-only messages/events/audit history, exact lifecycle/version guards,
   continuous SLA pause/stop state, and quarantined attachment tombstones.
@@ -948,84 +786,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the reversible CRM schema for immutable customer notes, self-claimed
   follow-ups, and CRM audit events, together with deterministic segmentation
   and pure follow-up domain rules.
-
-### Changed
-
-- Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
-  one authenticated IPN event, an authoritative paid transition, and successful
-  reconciliation through a temporary public HTTPS callback without recording
-  credentials or customer data.
-
-### Fixed
-
-- Use the effective SLA breach instant in automatic escalation keys, preserve
-  escalated status while a support operator claims unassigned work, and require
-  Support migrations before API readiness succeeds.
-- Scope Support ticket idempotency keys per ticket, reject closed-ticket
-  messages at service and PostgreSQL boundaries, enforce owned-or-available
-  Support operator access, and route administrator reassignment through the
-  staff ticket PATCH API.
-
-- Make pending-order cancellation converge atomically across Payment, Order,
-  Inventory, Promotion, and Checkout while preserving the winning paid result
-  under concurrent authenticated SePay IPN processing.
-- Permit only one checkout per immutable cart snapshot, keep a cart active when
-  it changes after checkout, and prevent a later payment from finalizing that
-  newer cart version.
-- Require SePay transaction amount and VND currency to match provider order
-  evidence before IPN or reconciliation can confirm payment, and persist a
-  mismatch when the trusted paid transition rejects the provider result.
-- Use bigint intermediate arithmetic for percentage discounts and proportional
-  order-line allocation so valid VND values near JavaScript's safe-integer
-  boundary cannot overflow during calculation.
-- Use a consistent Payment-before-Attempt lock order for reconciliation,
-  notification, expiry, and cancellation paths to prevent financial-state
-  deadlocks under concurrent workers.
-- Remove Customer audit actors while rolling back the Customer schema so the
-  older Company Core actor constraint can be restored on databases containing
-  real checkout and paid-order history.
-- Make `db:rollback:all` remove every migration in every module rather than
-  leaving the first Catalog schema behind, while retaining one-step module
-  rollback commands for focused development.
-- Wait for the payment-return cleanup effect in its test so parallel workspace
-  execution cannot race the local pending-checkout assertion.
-- Pass the optional repository-root `.env` explicitly to Docker Compose so
-  local Google Sign-In configuration reaches API and Storefront containers
-  without changing relative build or bind-mount paths.
-- Make the double-submit CSRF cookie readable from the Storefront document path
-  while keeping guest and customer session cookies API-scoped and `HttpOnly`.
-  Expire the legacy API-path cookie and tolerate both values during migration,
-  restoring real-browser add-to-cart mutations for existing sessions.
-- Isolate credentialed Console and Storefront CORS audiences, clear invalid
-  customer cookies before guest restoration, and revoke newly issued sessions
-  when post-login cart inspection fails.
-- Serialize cart-resolution idempotency keys, preserve them across Storefront
-  retries, and return usable cart media content URLs.
-- Load validated Storefront configuration from the repository-root environment,
-  make database restore atomic while application writes are stopped, and make
-  integration migration runners wait safely for advisory locks.
-- Allow Commerce customers as audited actors in the Phase 5 schema, serialize
-  concurrent first Google login, avoid request-racing session rotation, and
-  reject insecure production customer-cookie configuration.
-- Refuse integration-test execution against non-test PostgreSQL databases or
-  MinIO buckets so cleanup cannot remove local runtime data.
-- Fail cart merge on stale optimistic versions and preserve profile mutation
-  input while surfacing recoverable Storefront errors.
-- Pin both React frontends to the maintained React Router v6 line outside the
-  high-severity unstable-RSC CSRF advisory range.
-- Navigate newly created products to their persistent editor URL so variants,
-  media, publication, and audit controls become available immediately.
-- Serialize reservation references, finalize expiry by complete groups, and
-  reject consumption after the backend-owned TTL. Allow atomic checkout
-  orchestration to supply that same validated expiry to its order reservation.
-- Apply public stock-status filtering before pagination and keep Catalog
-  dependencies on Inventory's exported module contract.
-- Route Inventory Managers to their authorized Inventory workspace after OIDC
-  callback instead of rejecting them at the shared staff route guard.
-- Make the repository governance audit self-contained and portable instead of
-  depending on an absolute path from a contributor workstation.
-
-### Added
 
 - Add Phase 7 CRM, Support, and Executive staff roles plus PostgreSQL-backed
   Customer and Order operations readers with least-privilege public contracts.
@@ -1272,3 +1032,231 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Document frontend design constraints and mandatory AI coding agent guardrails.
 - Document the MVP architecture baseline and phased implementation path.
 - Document the OpenDX CompanyOS product vision, MVP scope, non-goals, and acceptance chain.
+
+### Changed
+
+- Wire live Instagram publication to prepare signed public-media URLs through
+  the Marketing application boundary before submitting approved assets to Meta,
+  and pass its typed media-delivery settings through development and production
+  Compose contracts.
+
+- Complete Phase 6 acceptance with a contributor-owned SePay sandbox checkout,
+  one authenticated IPN event, an authoritative paid transition, and successful
+  reconciliation through a temporary public HTTPS callback without recording
+  credentials or customer data.
+
+### Fixed
+
+- Remove the hard-coded Instagram permalink fallback and bound media
+  preparation failures so provider errors remain truthful and safe to retry.
+
+- Restore the Agentic Command Center session-expiry sign-in action by binding
+  it to the Console authentication context.
+
+- Fix 500 error in marketing campaign creation and revision workflow by adding `assignmentMode` fallback, resolving duplicate publication target insertion with `ON CONFLICT` idempotency, handling `ZodError` as 400 validation responses, and preprocessing flat subject fields.
+- Map `FacebookPublisherError` and `SocialPublisherError` in target retry controller to prevent unhandled 500 responses when Meta Graph API returns upstream errors.
+
+- Reject reserved example domains for live Instagram media delivery so local
+  configuration fails closed instead of reaching Meta with an unreachable
+  placeholder URL.
+
+- Ensure support proposal approvals strictly follow PostgreSQL state machine lifecycle triggers (`new` -> `escalated` -> `resolved`) and enforce CEO-specified discount percentages and compensation voucher creation in database.
+- Gracefully handle undefined payment aggregates during checkout expiration in `PaymentService`.
+
+- Implement Governed AI Merchandising & Pricing workflow (Phòng Danh mục & Định giá) powered by live OpenRouter Gemini 2.5 Flash, generating SEO-optimized product copy, strategic Flash Sale pricing models with profit margin analysis, and interactive Command Center proposal cards enabling one-click live price and product updates on the Storefront database upon human administrator approval.
+
+- Integrate live OpenRouter Google Gemini 2.5 Flash copywriter and Gemini Image poster generation with NovaCommerce brand identity, in-flight Facebook publication concurrency deduplication, authenticated in-console image preview via blob URL, and full prompt history tracking in the AI Command Center.
+
+- Build unified Command Hub (`AgenticCommandCenter`) with intelligent AI CEO Intent Routing (auto-classifying marketing campaigns vs operations audits), dynamic visual pipeline bar, unified 4-department workforce grid (Marketing, Operations, Support/CRM, Finance) with 9 digital employees, direct inline agent card tasking, and in-place Facebook post preview, human approval, revision feedback, and deliverables download.
+
+- Add an approver-only Facebook publication retry action for failed Marketing
+  campaigns, preserving the approved package, exactly-once publication record,
+  and fail-closed credential handling.
+
+- Document Marketing & Creative Facebook Publication architecture, deliverable evidence, zero new external dependencies, and update MVP roadmap status.
+
+- Add Marketing Facebook publication end-to-end integration test suite and CLI demonstration runner (`pnpm demo:marketing`).
+
+- Build Staff Console Marketing control room, brief viewer, copy iterations preview, 1:1 visual canvas, live Facebook feed post mockup modal, approval action bar, and deliverable download panel.
+
+- Expose Staff Admin Marketing APIs for human approval, revision requests, quality feedback, artifact listing, deliverable generation, and binary artifact download.
+
+- Implement 5 required Marketing deliverable artifact generators (campaign brief DOCX, Facebook content DOCX, visual PNG, publication log XLSX, final report PDF) and artifact storage service.
+
+- Implement Marketing Content, Visual, and Publisher Digital Employee prompt templates, Pydantic schemas, and agent orchestration in AI runtime.
+
+- Implement fail-closed exactly-once Marketing Facebook publication engine and asynchronous background worker.
+
+- Implement Meta Graph API Facebook Publisher port, fail-closed adapter with token sanitization, and structured error mapping.
+
+- Add deterministic Marketing Department Tool adapters for campaign brief retrieval, Catalog product summary extraction, content drafting with prohibited claim checks, PNG visual asset validation, publication package assembly, and publication status reporting.
+
+- Govern three Marketing Digital Employees (`marketing_content`, `marketing_visual`, `marketing_publisher`) with isolated Keycloak service credentials, database schema constraints, environment templates, and runtime settings.
+
+- Add governed direct Marketing campaign intake, deterministic scope and cross-department validation, idempotency replay handling, and staff administration API routes.
+
+- Establish Marketing campaign publication domain entities, state machine transitions, quality correction boundaries, approval invalidation rules, PostgreSQL schema migrations, and repository implementation.
+
+- Add typed Catalog tables, constraints, idempotent approved seed data, and an
+  anonymous purpose-specific API for Storefront service assurances and trust
+  metrics, with a validated fetch-once Storefront content provider and bounded
+  loading, empty, recoverable error, and populated UI states.
+
+- Extend responsive Storefront browser acceptance with database-content
+  fixtures and unavailable-content isolation across light and dark themes.
+
+- Persist and load Marketing visual bytes through private MinIO storage so
+  Facebook publication never submits an invalid placeholder PNG header, and
+  materialize revision image metadata from the stored bytes before approval.
+
+- Forward the Facebook Page access token from deployment configuration into the
+  API container so approved Marketing publications do not fall back to an
+  invalid placeholder token.
+
+- Make API readiness require both the exact Customer Wishlist migration ledger
+  entry and its PostgreSQL table so a partially migrated runtime fails closed.
+
+- Scope failed wishlist mutations to the affected product and present one
+  non-overlapping alert instead of repeating the same text across every card.
+
+- Keep homepage hero product media centered inside a dedicated right-hand panel
+  so square Catalog images are not cut through by the content scrim.
+
+- Make the Storefront `Danh mục` and `Khám phá` navigation menus interactive
+  with live Catalog categories, increase desktop canvas and typography scale,
+  and extend responsive browser acceptance to cover both menus.
+
+- Forward Department Agent client secrets to the API in development Docker
+  Compose environments so seed scripts and internal governance checks validate
+  environment configuration cleanly.
+
+- Prevent executive synthesis from citing provenance attached only to an
+  unavailable Department branch, keeping runtime quality checks aligned with
+  the API's accepted-evidence boundary for partial reports.
+
+- Reject Advanced tasks before they enter the execution queue when the active
+  configuration lacks the models, fallback authority, budgets, policies, or
+  Department tool grants required by the live AI CEO workforce.
+
+- Preserve Console task-intake provenance in the AI CEO Task Brief so live
+  planning receives its required governed evidence instead of failing before
+  model execution.
+
+- Emit OpenAI-compatible typed `const` JSON Schema nodes for AI CEO and
+  Department structured outputs, keep API/runtime schema digests aligned, and
+  retain planning provenance when a provider failure is settled.
+
+- Resolve the accepted orchestration plan independently from the frozen task
+  revision so a Ready task at version 2 can dispatch the AI CEO's version 1
+  plan without a false `DISPATCH_PLAN_NOT_FOUND` failure.
+
+- Constrain live AI CEO planning to provider-enforced independent Department
+  branches, give the CEO explicit unique-owner guidance, and terminally settle
+  exhausted deferred planning or synthesis results instead of leaving model
+  runs stuck in `running`.
+
+- Recognize active orchestration execution descriptors as Department task
+  assignments during governed tool authorization so CEO-created live branches
+  can invoke their exact approved tools.
+
+- Add the `executive_synthesis` state transition from `department_analysis`
+  in workflow run rules so orchestration completes all stages through synthesis.
+
+- Sanitize department context boundary fields and forward tool summaries into
+  system instructions with explicit quality gate schemas.
+
+- Increase internal control client response buffer to load full multi-branch
+  department results for AI CEO executive synthesis.
+
+- Accept partial model settlements and completion states in executive synthesis
+  quality gates and API report acceptance, and provide adequate token budget for
+  AI CEO synthesis generation.
+
+- Use the effective SLA breach instant in automatic escalation keys, preserve
+  escalated status while a support operator claims unassigned work, and require
+  Support migrations before API readiness succeeds.
+- Scope Support ticket idempotency keys per ticket, reject closed-ticket
+  messages at service and PostgreSQL boundaries, enforce owned-or-available
+  Support operator access, and route administrator reassignment through the
+  staff ticket PATCH API.
+
+- Make pending-order cancellation converge atomically across Payment, Order,
+  Inventory, Promotion, and Checkout while preserving the winning paid result
+  under concurrent authenticated SePay IPN processing.
+- Permit only one checkout per immutable cart snapshot, keep a cart active when
+  it changes after checkout, and prevent a later payment from finalizing that
+  newer cart version.
+- Require SePay transaction amount and VND currency to match provider order
+  evidence before IPN or reconciliation can confirm payment, and persist a
+  mismatch when the trusted paid transition rejects the provider result.
+- Use bigint intermediate arithmetic for percentage discounts and proportional
+  order-line allocation so valid VND values near JavaScript's safe-integer
+  boundary cannot overflow during calculation.
+- Use a consistent Payment-before-Attempt lock order for reconciliation,
+  notification, expiry, and cancellation paths to prevent financial-state
+  deadlocks under concurrent workers.
+- Remove Customer audit actors while rolling back the Customer schema so the
+  older Company Core actor constraint can be restored on databases containing
+  real checkout and paid-order history.
+- Make `db:rollback:all` remove every migration in every module rather than
+  leaving the first Catalog schema behind, while retaining one-step module
+  rollback commands for focused development.
+- Wait for the payment-return cleanup effect in its test so parallel workspace
+  execution cannot race the local pending-checkout assertion.
+- Pass the optional repository-root `.env` explicitly to Docker Compose so
+  local Google Sign-In configuration reaches API and Storefront containers
+  without changing relative build or bind-mount paths.
+- Make the double-submit CSRF cookie readable from the Storefront document path
+  while keeping guest and customer session cookies API-scoped and `HttpOnly`.
+  Expire the legacy API-path cookie and tolerate both values during migration,
+  restoring real-browser add-to-cart mutations for existing sessions.
+- Isolate credentialed Console and Storefront CORS audiences, clear invalid
+  customer cookies before guest restoration, and revoke newly issued sessions
+  when post-login cart inspection fails.
+- Serialize cart-resolution idempotency keys, preserve them across Storefront
+  retries, and return usable cart media content URLs.
+- Load validated Storefront configuration from the repository-root environment,
+  make database restore atomic while application writes are stopped, and make
+  integration migration runners wait safely for advisory locks.
+- Allow Commerce customers as audited actors in the Phase 5 schema, serialize
+  concurrent first Google login, avoid request-racing session rotation, and
+  reject insecure production customer-cookie configuration.
+- Refuse integration-test execution against non-test PostgreSQL databases or
+  MinIO buckets so cleanup cannot remove local runtime data.
+- Fail cart merge on stale optimistic versions and preserve profile mutation
+  input while surfacing recoverable Storefront errors.
+- Pin both React frontends to the maintained React Router v6 line outside the
+  high-severity unstable-RSC CSRF advisory range.
+- Navigate newly created products to their persistent editor URL so variants,
+  media, publication, and audit controls become available immediately.
+- Serialize reservation references, finalize expiry by complete groups, and
+  reject consumption after the backend-owned TTL. Allow atomic checkout
+  orchestration to supply that same validated expiry to its order reservation.
+- Apply public stock-status filtering before pagination and keep Catalog
+  dependencies on Inventory's exported module contract.
+- Route Inventory Managers to their authorized Inventory workspace after OIDC
+  callback instead of rejecting them at the shared staff route guard.
+- Make the repository governance audit self-contained and portable instead of
+  depending on an absolute path from a contributor workstation.
+
+### Removed
+
+- Remove the superseded Three.js Storefront homepage runtime, model assets,
+  obsolete tests, and its dedicated package dependencies after the API-driven
+  commerce homepage replacement reached full test coverage.
+
+### Planned
+
+- Approve a credential-free, provider-ready Instagram image-publication
+  extension for governed Marketing campaigns, with Feed, Story, carousel,
+  multi-target approval, target-level retry, truthful local simulation, and
+  disabled fail-closed video capabilities.
+
+- Define one governed Marketing & Creative department with three distinct
+  Digital Employees, direct or AI CEO assignment, human-approved Facebook Page
+  publication, platform-neutral adapters, private report artifacts, and
+  deterministic recovery and acceptance boundaries.
+
+- Define the approved database- and MinIO-backed Storefront hero video design,
+  including chapter-synchronized products, accessible playback, byte-range
+  delivery, and image fallbacks for mobile and reduced-motion clients.

@@ -585,6 +585,8 @@ git commit -m "feat(marketing): serve signed JPEG media to Instagram"
 **Files:**
 - Modify: `.env.example`
 - Modify: `infra/docker/docker-compose.yml`
+- Modify: `infra/deploy/.env.production.example`
+- Modify: `infra/deploy/compose.production.yml`
 - Modify: `docs/dependencies.md`
 - Modify: `docs/build-from-source.md`
 - Modify: `docs/plans/2026-09-02-instagram-live-local-tunnel-design.md`
@@ -603,7 +605,8 @@ MARKETING_PUBLIC_MEDIA_RATE_LIMIT=120
 MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS=60000
 ```
 
-Pass the same five values through the Compose API environment. Do not add a
+Pass the same five values through the development and production Compose API
+environments, and document them in both environment examples. Do not add a
 real token, Instagram ID, tunnel hostname, or signing secret to any tracked
 file.
 
@@ -618,13 +621,13 @@ In `docs/build-from-source.md`, add a development-only Instagram section with
 this order:
 
 ```bash
-set -a
-. ./.env
-set +a
+API_PORT=4000
 cloudflared tunnel --url "http://localhost:${API_PORT}"
 ```
 
-Explain that the generated `https://*.trycloudflare.com` origin must be
+Explain that only the non-secret API port is set for `cloudflared`; the whole
+`.env` must not be sourced or exported to the tunnel process. Explain that the
+generated `https://*.trycloudflare.com` origin must be
 combined with `/v1/public/marketing/media`, placed only in ignored `.env`, and
 that the API must be restarted afterward. State that the URL changes after a
 tunnel restart and is not a deployment endpoint. Explain how to generate and
@@ -644,8 +647,10 @@ fallback under Fixed.
 
 ```bash
 docker compose --env-file .env.example -f infra/docker/docker-compose.yml config --quiet
+pnpm check:production-compose
 git diff --check
 pnpm audit:repo
+pnpm audit:secrets
 ```
 
 Expected: all commands exit 0 and no secret audit reports tracked credentials.
@@ -653,7 +658,7 @@ Expected: all commands exit 0 and no secret audit reports tracked credentials.
 **Step 4: Commit**
 
 ```bash
-git add .env.example infra/docker/docker-compose.yml docs/dependencies.md docs/build-from-source.md docs/plans/2026-09-02-instagram-live-local-tunnel-design.md CHANGELOG.md
+git add .env.example infra/docker/docker-compose.yml infra/deploy/.env.production.example infra/deploy/compose.production.yml docs/dependencies.md docs/build-from-source.md docs/plans/2026-09-02-instagram-live-local-tunnel-design.md docs/plans/2026-09-02-instagram-live-local-tunnel-implementation.md CHANGELOG.md
 git commit -m "docs(marketing): document local Instagram live publication"
 ```
 
