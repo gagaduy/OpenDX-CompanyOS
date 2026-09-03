@@ -11,6 +11,7 @@ import {
   type SocialPublicationReceipt,
   type SocialPublisherPort,
   SocialPublisherError,
+  type SocialPublishMediaItem,
   type SocialPublishRequest,
   type SocialReconciliationRequest,
   type SocialReconciliationResult,
@@ -19,7 +20,7 @@ import {
 export interface MetaGraphInstagramPublisherAdapterOptions {
   readonly businessAccountId: string;
   readonly accessToken: string;
-  readonly publicMediaBaseUrl: string;
+  readonly preparePublicMediaUrl: (media: SocialPublishMediaItem) => Promise<string>;
   readonly graphApiBaseUrl?: string;
   readonly requestTimeoutMs?: number;
   readonly pollIntervalMs?: number;
@@ -44,7 +45,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
   private readonly businessAccountId: string;
   private readonly accessToken: string;
-  private readonly publicMediaBaseUrl: string;
+  private readonly preparePublicMediaUrl: (media: SocialPublishMediaItem) => Promise<string>;
   private readonly graphApiBaseUrl: string;
   private readonly requestTimeoutMs: number;
   private readonly pollIntervalMs: number;
@@ -53,15 +54,19 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   private readonly fetcher: typeof fetch;
 
   constructor(options: MetaGraphInstagramPublisherAdapterOptions) {
-    if (!options.businessAccountId || !options.accessToken || !options.publicMediaBaseUrl) {
+    if (
+      !options.businessAccountId
+      || !options.accessToken
+      || typeof options.preparePublicMediaUrl !== "function"
+    ) {
       throw new SocialPublisherError(
         "INVALID_CONFIGURATION",
-        "businessAccountId, accessToken, and publicMediaBaseUrl are required for live Instagram publisher",
+        "businessAccountId, accessToken, and preparePublicMediaUrl are required for live Instagram publisher",
       );
     }
     this.businessAccountId = options.businessAccountId;
     this.accessToken = options.accessToken;
-    this.publicMediaBaseUrl = options.publicMediaBaseUrl.replace(/\/+$/, "");
+    this.preparePublicMediaUrl = options.preparePublicMediaUrl;
     this.graphApiBaseUrl = (options.graphApiBaseUrl ?? "https://graph.facebook.com/v20.0").replace(/\/+$/, "");
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 1_000;
@@ -82,19 +87,21 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
     if (request.target.format === "feed_image") {
       const mediaItem = request.media[0]!;
-      const mediaUrl = `${this.publicMediaBaseUrl}/${encodeURIComponent(mediaItem.id)}.png`;
+      const mediaUrl = await this.preparePublicMediaUrl(mediaItem);
       containerId = await this.createImageContainer(accountId, mediaUrl, request.caption);
     } else if (request.target.format === "story_image") {
       const mediaItem = request.media[0]!;
-      const mediaUrl = `${this.publicMediaBaseUrl}/${encodeURIComponent(mediaItem.id)}.png`;
+      const mediaUrl = await this.preparePublicMediaUrl(mediaItem);
       containerId = await this.createStoryContainer(accountId, mediaUrl);
     } else if (request.target.format === "image_carousel") {
       if (request.media.length < 2 || request.media.length > 10) {
         throw new SocialPublisherError("INVALID_MEDIA_COUNT", "Instagram carousel requires between 2 and 10 images");
       }
+      const mediaUrls = await Promise.all(
+        request.media.map((item) => this.preparePublicMediaUrl(item)),
+      );
       const childContainerIds: string[] = [];
-      for (const item of request.media) {
-        const mediaUrl = `${this.publicMediaBaseUrl}/${encodeURIComponent(item.id)}.png`;
+      for (const mediaUrl of mediaUrls) {
         const childId = await this.createCarouselItemContainer(accountId, mediaUrl);
         childContainerIds.push(childId);
       }
@@ -122,7 +129,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     const providerReceiptDigest = createHash("sha256").update(publishResponse.rawText).digest("hex");
     const verificationEvidenceDigest = createHash("sha256").update(`evidence:${postId}:${verifiedAt}`).digest("hex");
 
-    let publicationUrl = `https://www.instagram.com/novacommerce_350/`;
+    let publicationUrl: string | null = null;
     try {
       const permalinkEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(postId)}?fields=id,permalink&access_token=${encodeURIComponent(this.accessToken)}`;
       const permalinkResp = await this.fetchWithTimeout(permalinkEndpoint, { method: "GET" });
@@ -133,7 +140,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
         }
       }
     } catch {
-      publicationUrl = `https://www.instagram.com/p/${postId}`;
+      // Permalink lookup is best-effort; keep the verified receipt URL unknown.
     }
 
     return {
@@ -171,7 +178,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
             simulated: false,
             externalPublicationId: parsed.id,
             pageId: this.businessAccountId,
-            publicationUrl: parsed.permalink ?? `https://www.instagram.com/p/${parsed.id}`,
+            publicationUrl: parsed.permalink ?? null,
             providerReceiptDigest: createHash("sha256").update(JSON.stringify(parsed)).digest("hex"),
             verifiedAt: this.now(),
             displayMessage: "Reconciled from Instagram",

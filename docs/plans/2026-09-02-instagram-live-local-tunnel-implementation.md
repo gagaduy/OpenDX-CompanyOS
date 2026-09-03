@@ -450,14 +450,12 @@ Keep all token-bearing Graph calls inside the adapter. Initialize
 response, and return `null` when lookup fails. Do not infer an Instagram
 username or permalink.
 
-**Step 4: Verify GREEN and commit**
+**Step 4: Verify GREEN and continue into the atomic integration unit**
 
-Run the focused suite, then:
-
-```bash
-git add apps/api/src/modules/marketing/infrastructure/adapters/meta-graph-instagram-publisher.adapter.ts apps/api/src/modules/marketing/infrastructure/adapters/meta-graph-instagram-publisher.adapter.test.ts
-git commit -m "fix(marketing): submit signed JPEG URLs to Instagram"
-```
+Run the focused suite. Do not commit yet: the required URL-provider option
+cannot typecheck until Task 6 wires the application service into the adapter.
+Tasks 5 and 6 therefore form one atomic integration unit without an optional
+compatibility fallback.
 
 ---
 
@@ -550,13 +548,13 @@ Pass `marketingStorage` into the module and pass `marketing.publicRouter` into
 
 Export only the intended public contracts from `marketing/index.ts`.
 
-**Step 5: Verify GREEN and commit**
+**Step 5: Verify GREEN and commit the combined Task 5/6 unit**
 
 Run the focused tests, then:
 
 ```bash
-git add apps/api/src/modules/marketing/presentation/validators/marketing-public-media.validator.ts apps/api/src/modules/marketing/presentation/controllers/marketing-public-media.controller.ts apps/api/src/modules/marketing/presentation/routes/marketing-public-media.routes.ts apps/api/src/modules/marketing/tests/marketing-public-media.api.test.ts apps/api/src/modules/marketing/marketing.module.ts apps/api/src/modules/marketing/index.ts apps/api/src/app.ts apps/api/src/app.test.ts apps/api/src/server.ts
-git commit -m "feat(marketing): serve signed private Instagram media"
+git add apps/api/src/modules/marketing/infrastructure/adapters/meta-graph-instagram-publisher.adapter.ts apps/api/src/modules/marketing/infrastructure/adapters/meta-graph-instagram-publisher.adapter.test.ts apps/api/src/modules/marketing/presentation/validators/marketing-public-media.validator.ts apps/api/src/modules/marketing/presentation/controllers/marketing-public-media.controller.ts apps/api/src/modules/marketing/presentation/routes/marketing-public-media.routes.ts apps/api/src/modules/marketing/tests/marketing-public-media.api.test.ts apps/api/src/modules/marketing/marketing.module.ts apps/api/src/modules/marketing/marketing.module.test.ts apps/api/src/modules/marketing/index.ts apps/api/src/app.ts apps/api/src/app.test.ts apps/api/src/server.ts docs/plans/2026-09-02-instagram-live-local-tunnel-implementation.md
+git commit -m "feat(marketing): serve signed JPEG media to Instagram"
 ```
 
 ---

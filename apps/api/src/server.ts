@@ -230,6 +230,7 @@ const marketing = createMarketingModule({
   assetStorageReader: (key) => marketingStorage.read(key),
   storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
   storageReader: (key) => marketingStorage.read(key),
+  publicMediaStorage: marketingStorage,
   generateId: randomUUID,
   now: currentTime,
 });
@@ -301,6 +302,9 @@ const app = createApiApp({
   agenticInternalRouter: agentic.internalRouter,
   agenticToolRouter: agentic.toolRouter,
   marketingAdminRouter: marketing.adminRouter,
+  ...(marketing.publicRouter === undefined
+    ? {}
+    : { marketingPublicRouter: marketing.publicRouter }),
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,

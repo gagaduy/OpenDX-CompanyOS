@@ -17,13 +17,20 @@ import { MarketingPublisherServiceImpl } from "./application/services/implementa
 import type { MarketingArtifactService } from "./application/services/interfaces/marketing-artifact-generator.service";
 import { MarketingArtifactServiceImpl } from "./application/services/implementations/marketing-artifact.service";
 import type { FacebookPublisherPort } from "./application/ports/facebook-publisher.port";
-import type { SocialPublisherPort } from "./application/ports/social-publisher.port";
+import type {
+  SocialPublisherPort,
+  SocialPublishMediaItem,
+} from "./application/ports/social-publisher.port";
+import type { MarketingPublicMediaStoragePort } from "./application/ports/marketing-public-media-storage.port";
 import { SocialPublisherRegistry } from "./application/services/implementations/social-publisher-registry";
+import { MarketingPublicMediaServiceImpl } from "./application/services/implementations/marketing-public-media.service";
 import { MetaGraphFacebookPublisherAdapter } from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
 import { MetaGraphInstagramPublisherAdapter } from "./infrastructure/adapters/meta-graph-instagram-publisher.adapter";
 import { FakeInstagramPublisherAdapter } from "./infrastructure/adapters/fake-instagram-publisher.adapter";
+import { SharpMarketingImageTransformerAdapter } from "./infrastructure/adapters/sharp-marketing-image-transformer.adapter";
 import { MarketingPublisherWorker } from "./infrastructure/workers/marketing-publisher.worker";
 import { create1x1SquarePngBuffer } from "./infrastructure/generators/facebook-visual-png.generator";
+import { createMarketingPublicMediaRouter } from "./presentation/routes/marketing-public-media.routes";
 
 export interface MarketingModuleOptions {
   readonly database: Pool;
@@ -34,6 +41,7 @@ export interface MarketingModuleOptions {
   readonly assetStorageReader?: (storageKey: string) => Promise<Buffer>;
   readonly storageWriter?: (key: string, buffer: Buffer, mediaType: string) => Promise<void>;
   readonly storageReader?: (key: string) => Promise<Buffer>;
+  readonly publicMediaStorage?: MarketingPublicMediaStoragePort;
   readonly generateId?: () => string;
   readonly now?: () => string;
   readonly workerId?: string;
@@ -43,6 +51,7 @@ export interface MarketingModuleOptions {
 
 export interface MarketingModule {
   readonly adminRouter: Router;
+  readonly publicRouter?: Router;
   readonly campaignService: IMarketingCampaignService;
   readonly publisherService: MarketingPublisherService;
   readonly publisherWorker: MarketingPublisherWorker;
@@ -182,6 +191,29 @@ Style & Composition:
   });
 
   const publisherRegistry = options.publisherRegistry ?? new SocialPublisherRegistry();
+  let publicRouter: Router | undefined;
+  let preparePublicMediaUrl: ((media: SocialPublishMediaItem) => Promise<string>) | undefined;
+  if (instagramConfiguration?.mode === "live") {
+    if (options.publicMediaStorage === undefined) {
+      throw new Error("Live Instagram publication requires Marketing public media storage");
+    }
+    const publicMediaService = new MarketingPublicMediaServiceImpl({
+      repository,
+      storage: options.publicMediaStorage,
+      transformer: new SharpMarketingImageTransformerAdapter(),
+      publicBaseUrl: instagramConfiguration.publicMediaBaseUrl,
+      signingSecret: instagramConfiguration.signingSecret,
+      urlTtlSeconds: instagramConfiguration.urlTtlSeconds,
+      jpegQuality: instagramConfiguration.jpegQuality,
+      now: options.now,
+    });
+    publicRouter = createMarketingPublicMediaRouter({
+      service: publicMediaService,
+      rateLimit: instagramConfiguration.rateLimit,
+      rateWindowMs: instagramConfiguration.rateWindowMs,
+    });
+    preparePublicMediaUrl = (media) => publicMediaService.prepareUrl(media);
+  }
   if (!options.publisherRegistry) {
     if (options.facebookPublisher) {
       if ("publish" in options.facebookPublisher) {
@@ -206,10 +238,13 @@ Style & Composition:
     }
 
     if (options.publicationConfig?.instagram?.mode === "live") {
+      if (preparePublicMediaUrl === undefined) {
+        throw new Error("Live Instagram publication requires Marketing public media storage");
+      }
       publisherRegistry.register(new MetaGraphInstagramPublisherAdapter({
         businessAccountId: options.publicationConfig.instagram.businessAccountId,
         accessToken: options.publicationConfig.instagram.accessToken,
-        publicMediaBaseUrl: options.publicationConfig.instagram.publicMediaBaseUrl,
+        preparePublicMediaUrl,
         graphApiBaseUrl: options.publicationConfig.meta.graphBaseUrl,
         requestTimeoutMs: options.publicationConfig.meta.requestTimeoutMs,
         now: options.now,
@@ -252,6 +287,7 @@ Style & Composition:
 
   return {
     adminRouter,
+    ...(publicRouter === undefined ? {} : { publicRouter }),
     campaignService,
     publisherService,
     publisherWorker,

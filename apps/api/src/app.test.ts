@@ -141,6 +141,31 @@ describe("API route audiences", () => {
     expect(storefrontRequest.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
+  it("mounts public Marketing media without credentialed browser CORS", async () => {
+    const media = Router().get("/:assetId", (_request, response) =>
+      response.type("image/jpeg").send(Buffer.from([0xff, 0xd8, 0xff])));
+    const publicMediaApp = createApiApp({
+      consoleOrigin,
+      storefrontOrigin,
+      marketingPublicRouter: media,
+    });
+    const mediaPath = "/v1/public/marketing/media/7c1466de-4f31-4598-9552-c84b9e20a7b2";
+
+    const consoleRequest = await request(publicMediaApp)
+      .get(mediaPath)
+      .set("Origin", consoleOrigin)
+      .expect(200);
+    expect(consoleRequest.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(consoleRequest.headers["access-control-allow-credentials"]).toBeUndefined();
+
+    const storefrontRequest = await request(publicMediaApp)
+      .get(mediaPath)
+      .set("Origin", storefrontOrigin)
+      .expect(200);
+    expect(storefrontRequest.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(storefrontRequest.headers["access-control-allow-credentials"]).toBeUndefined();
+  });
+
   it("applies the configured JSON body limit", async () => {
     const limitedApp = createApiApp({ jsonBodyLimit: "10b" });
 

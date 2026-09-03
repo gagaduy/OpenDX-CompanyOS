@@ -42,6 +42,7 @@ export interface CreateApiAppOptions {
   readonly agenticInternalRouter?: Router;
   readonly agenticToolRouter?: Router;
   readonly marketingAdminRouter?: Router;
+  readonly marketingPublicRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -82,6 +83,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       express.json({ limit: "16kb" }),
       options.agenticToolRouter,
     );
+  }
+  if (options.marketingPublicRouter !== undefined) {
+    app.use("/v1/public/marketing/media", options.marketingPublicRouter);
   }
   app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
   app.use(
