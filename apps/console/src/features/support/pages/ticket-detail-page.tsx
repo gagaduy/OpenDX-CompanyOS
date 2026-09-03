@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "../../../shared/components/page-header";
 import { SystemState } from "../../../shared/components/system-state";
 import type { StaffRole } from "../../authentication/api/oidc-manager";
@@ -61,9 +62,104 @@ export function TicketDetailPage({ api }: { readonly api: SupportOperationsApi; 
   if (error) return <SystemState kind="error" title={error} action={<button className="secondaryButton" type="button" onClick={reload}>Retry</button>} />;
   if (!data) return null;
 
-  const actions = <>{data.ticket.status === "assigned" ? <button className="primaryButton" type="button" onClick={() => void transition("in_progress")}>Start progress</button> : null}{data.ticket.status === "in_progress" ? <button className="secondaryButton" type="button" onClick={() => void transition("waiting_customer")}>Wait for customer</button> : null}{data.ticket.status !== "closed" ? <button className="secondaryButton" type="button" onClick={() => void transition("escalated")}>Escalate manually</button> : null}</>;
+  const actions = (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <Link
+        className="secondaryButton"
+        to="/support"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          textDecoration: "none",
+        }}
+      >
+        <ArrowLeft size={16} aria-hidden="true" />
+        <span>Quay lại danh sách</span>
+      </Link>
+      {data.ticket.status === "assigned" ? (
+        <button className="primaryButton" type="button" onClick={() => void transition("in_progress")}>
+          Start progress
+        </button>
+      ) : null}
+      {data.ticket.status === "in_progress" ? (
+        <button className="secondaryButton" type="button" onClick={() => void transition("waiting_customer")}>
+          Wait for customer
+        </button>
+      ) : null}
+      {data.ticket.status !== "closed" ? (
+        <button className="secondaryButton" type="button" onClick={() => void transition("escalated")}>
+          Escalate manually
+        </button>
+      ) : null}
+    </div>
+  );
 
-  return <section className="catalogWorkspace operationsWorkspace supportWorkspace customerWorkspace"><PageHeader eyebrow="Support ticket" title={data.ticket.subject} metadata={<span className="technicalText ticketVersion">{data.ticket.id} · v{data.ticket.version}</span>} breadcrumb={[{ label: "Support", to: "/support" }, { label: data.ticket.id }]} actions={actions} /><div className="ticketStateBar" aria-label="Ticket state"><span className={`ticketState status-${data.ticket.status}`}>{formatState(data.ticket.status)}</span><span className={`ticketPriority priority-${data.ticket.priority}`}>{formatState(data.ticket.priority)} priority</span></div>{mutationError ? <div className="pageState" role="alert"><p>{mutationError}</p><button className="secondaryButton" type="button" onClick={() => lastStatus && void transition(lastStatus)}>Retry update</button></div> : null}{status ? <div className="pageState" role="status">{status}</div> : null}<div className="detailGrid supportDetailGrid"><div className="supportDetailMain"><TicketTimeline detail={data} /><section className="detailCard supportComposerPanel" aria-label="Customer reply"><h2>Reply to customer</h2>{composerError ? <div className="notice errorNotice" role="alert"><span>{composerError}</span>{lastMessage && <button className="secondaryButton" type="button" onClick={() => void sendMessage(lastMessage)}>Retry reply</button>}</div> : null}<SupportMessageComposer pending={messagePending} onSend={sendMessage} /></section></div><aside className="supportDetailSide" aria-label="Ticket context and controls"><TicketContext detail={data} /><AttachmentPanel attachments={data.attachments} onUpload={(file) => void upload(file)} onDownload={(attachment) => void download(attachment)} /><SupportSlaMonitor /></aside></div></section>;
+  return (
+    <section className="catalogWorkspace operationsWorkspace supportWorkspace customerWorkspace">
+      <Link
+        className="backLink"
+        to="/support"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          marginBottom: "1.25rem",
+          color: "#38bdf8",
+          textDecoration: "none",
+          fontWeight: 600,
+          fontSize: "0.95rem",
+        }}
+      >
+        <ArrowLeft size={18} aria-hidden="true" />
+        <span>Quay lại danh sách yêu cầu hỗ trợ</span>
+      </Link>
+      <PageHeader
+        eyebrow="Support ticket"
+        title={data.ticket.subject}
+        metadata={<span className="technicalText ticketVersion">{data.ticket.id} · v{data.ticket.version}</span>}
+        breadcrumb={[{ label: "Support", to: "/support" }, { label: data.ticket.id }]}
+        actions={actions}
+      />
+      <div className="ticketStateBar" aria-label="Ticket state">
+        <span className={`ticketState status-${data.ticket.status}`}>{formatState(data.ticket.status)}</span>
+        <span className={`ticketPriority priority-${data.ticket.priority}`}>{formatState(data.ticket.priority)} priority</span>
+      </div>
+      {mutationError ? (
+        <div className="pageState" role="alert">
+          <p>{mutationError}</p>
+          <button className="secondaryButton" type="button" onClick={() => lastStatus && void transition(lastStatus)}>
+            Retry update
+          </button>
+        </div>
+      ) : null}
+      {status ? <div className="pageState" role="status">{status}</div> : null}
+      <div className="detailGrid supportDetailGrid">
+        <div className="supportDetailMain">
+          <TicketTimeline detail={data} />
+          <section className="detailCard supportComposerPanel" aria-label="Customer reply">
+            <h2>Reply to customer</h2>
+            {composerError ? (
+              <div className="notice errorNotice" role="alert">
+                <span>{composerError}</span>
+                {lastMessage && (
+                  <button className="secondaryButton" type="button" onClick={() => void sendMessage(lastMessage)}>
+                    Retry reply
+                  </button>
+                )}
+              </div>
+            ) : null}
+            <SupportMessageComposer pending={messagePending} onSend={sendMessage} />
+          </section>
+        </div>
+        <aside className="supportDetailSide" aria-label="Ticket context and controls">
+          <TicketContext detail={data} />
+          <AttachmentPanel attachments={data.attachments} onUpload={(file) => void upload(file)} onDownload={(attachment) => void download(attachment)} />
+          <SupportSlaMonitor />
+        </aside>
+      </div>
+    </section>
+  );
 }
 
 function formatState(value: string): string {
