@@ -1047,6 +1047,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Wait for Meta to report an Instagram media container as `FINISHED` within a
+  configurable five-minute default window before calling `media_publish`.
+
 - Persist the dimensions encoded in generated Marketing image bytes so live
   Instagram media integrity checks do not reject valid provider-sized assets.
 
