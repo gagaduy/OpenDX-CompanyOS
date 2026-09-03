@@ -73,6 +73,8 @@ export interface MaterializeMarketingVisualAssetInput {
 export interface MaterializedMarketingVisualAsset {
   readonly byteSize: number;
   readonly imageDigest: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 export class MarketingCampaignService implements IMarketingCampaignService {
@@ -513,8 +515,8 @@ Yêu cầu trả về đúng định dạng JSON không bọc markdown theo cấ
       campaignId,
       versionNumber: newVersionNumber,
       aspectRatio: "1:1",
-      width: 1080,
-      height: 1080,
+      width: materializedVisual.width,
+      height: materializedVisual.height,
       mediaType: "image/png",
       byteSize: materializedVisual.byteSize,
       imageDigest: materializedVisual.imageDigest,

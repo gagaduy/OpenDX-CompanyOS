@@ -426,6 +426,8 @@ describe("MarketingCampaignService", () => {
     const materializeVisualAsset = vi.fn().mockResolvedValue({
       byteSize: 2_048,
       imageDigest: "f".repeat(64),
+      width: 1024,
+      height: 1024,
     });
     const revisionService = new MarketingCampaignService({
       repository,
@@ -448,6 +450,11 @@ describe("MarketingCampaignService", () => {
     }));
 
     const latestPkg = repository.packages.get(created.id)?.at(-1);
+    const latestVisual = repository.visuals.get(created.id)?.at(-1);
+    expect(latestVisual).toMatchObject({
+      width: 1024,
+      height: 1024,
+    });
     expect(latestPkg).toMatchObject({
       imageDigest: "f".repeat(64),
       status: "draft",

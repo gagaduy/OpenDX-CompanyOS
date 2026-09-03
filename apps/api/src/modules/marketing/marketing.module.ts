@@ -62,6 +62,7 @@ export interface MarketingModule {
 
 export function createMarketingModule(options: MarketingModuleOptions): MarketingModule {
   const repository = new PostgresqlMarketingRepository(options.database);
+  const imageTransformer = new SharpMarketingImageTransformerAdapter();
   const materializeVisualAsset = options.storageWriter === undefined
     ? undefined
     : async (input: {
@@ -171,9 +172,12 @@ Style & Composition:
         }
 
         await options.storageWriter!(input.storageKey, buffer, input.mediaType);
+        const dimensions = await imageTransformer.inspect(buffer);
         return {
           byteSize: buffer.byteLength,
           imageDigest: createHash("sha256").update(buffer).digest("hex"),
+          width: dimensions.width,
+          height: dimensions.height,
         };
       };
 
@@ -200,7 +204,7 @@ Style & Composition:
     const publicMediaService = new MarketingPublicMediaServiceImpl({
       repository,
       storage: options.publicMediaStorage,
-      transformer: new SharpMarketingImageTransformerAdapter(),
+      transformer: imageTransformer,
       publicBaseUrl: instagramConfiguration.publicMediaBaseUrl,
       signingSecret: instagramConfiguration.signingSecret,
       urlTtlSeconds: instagramConfiguration.urlTtlSeconds,

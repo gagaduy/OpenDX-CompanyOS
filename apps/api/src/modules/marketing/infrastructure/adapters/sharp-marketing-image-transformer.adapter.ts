@@ -11,6 +11,20 @@ import type {
 export class SharpMarketingImageTransformerAdapter
   implements MarketingImageTransformerPort
 {
+  async inspect(source: Buffer): Promise<{ readonly width: number; readonly height: number }> {
+    const metadata = await sharp(source, { failOn: "error" }).metadata();
+    if (
+      !Number.isSafeInteger(metadata.width)
+      || !Number.isSafeInteger(metadata.height)
+      || metadata.width! <= 0
+      || metadata.height! <= 0
+    ) {
+      throw new Error("Marketing image dimensions must be positive integers");
+    }
+
+    return { width: metadata.width!, height: metadata.height! };
+  }
+
   async toJpeg(source: Buffer, quality: number): Promise<MarketingJpegVariant> {
     if (!Number.isInteger(quality) || quality < 70 || quality > 100) {
       throw new RangeError(

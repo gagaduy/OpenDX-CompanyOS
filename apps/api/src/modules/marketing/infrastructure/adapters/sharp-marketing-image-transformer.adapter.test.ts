@@ -8,6 +8,15 @@ import { SharpMarketingImageTransformerAdapter } from "./sharp-marketing-image-t
 describe("SharpMarketingImageTransformerAdapter", () => {
   const adapter = new SharpMarketingImageTransformerAdapter();
 
+  it("reads the dimensions encoded in generated image bytes", async () => {
+    const source = create1x1SquarePngBuffer(1024, 1024);
+
+    await expect(adapter.inspect(source)).resolves.toEqual({
+      width: 1024,
+      height: 1024,
+    });
+  });
+
   it("transforms the generated Marketing PNG into a valid JPEG variant", async () => {
     const source = create1x1SquarePngBuffer(1080, 1080);
 
