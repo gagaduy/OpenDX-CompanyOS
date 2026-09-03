@@ -235,14 +235,16 @@ export class SupportEmailIngestionService {
     }
 
     // Auto-reply via OpenRouter AI if configured and enabled
+    const emailDispatcher = this.emailDispatcher;
+    const aiSupport = this.aiSupportService;
     if (
-      this.emailDispatcher &&
-      this.aiSupportService &&
+      emailDispatcher &&
+      aiSupport &&
       process.env.SUPPORT_EMAIL_AUTO_REPLY === "true"
     ) {
       void (async () => {
         try {
-          const aiDraft = await this.aiSupportService.generateDraftReply(ticketId);
+          const aiDraft = await aiSupport.generateDraftReply(ticketId);
           if (aiDraft) {
             const aiMsgId = this.generateId();
             await this.database.query(
@@ -265,12 +267,13 @@ export class SupportEmailIngestionService {
             }
 
             const shortId = ticketId.slice(0, 8);
-            await this.emailDispatcher.sendSupportResolutionEmail({
+            await emailDispatcher.sendSupportResolutionEmail({
               ticketId,
               to: cleanEmail,
-              customerName: cleanName,
+              toName: cleanName,
               subject: `[Yêu cầu hỗ trợ #${shortId}] ${cleanSubject}`,
-              resolutionDetails: aiDraft,
+              textBody: aiDraft,
+              htmlBody: `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">${aiDraft.replace(/\n/g, "<br>")}</div>`,
             });
           }
         } catch (err) {

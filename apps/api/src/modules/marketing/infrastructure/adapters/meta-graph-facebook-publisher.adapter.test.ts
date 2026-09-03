@@ -226,7 +226,7 @@ describe("MetaGraphFacebookPublisherAdapter", () => {
         accountConfigurationId: fakePageId,
       } as any,
       caption: "Launch post",
-      media: [{ bytes: fakeImageBuffer, mimeType: "image/png", fileName: "post.png" }],
+      media: [{ id: "media-1", bytes: fakeImageBuffer, mimeType: "image/png", fileName: "post.png" }],
     });
 
     expect(receipt.externalPublicationId).toBe("998877_112233");

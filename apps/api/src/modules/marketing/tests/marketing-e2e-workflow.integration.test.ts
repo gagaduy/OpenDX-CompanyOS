@@ -29,6 +29,7 @@ import { generateFacebookVisualPng } from "../infrastructure/generators/facebook
 import { generateFacebookPublicationLogXlsx } from "../infrastructure/generators/facebook-publication-log-xlsx.generator";
 import { generateMarketingFinalReportPdf } from "../infrastructure/generators/marketing-final-report-pdf.generator";
 import type { FacebookPublisherPort } from "../application/ports/facebook-publisher.port";
+import type { SocialPublisherPort } from "../application/ports/social-publisher.port";
 import { SocialPublisherRegistry } from "../application/services/implementations/social-publisher-registry";
 import { MarketingPublisherServiceImpl } from "../application/services/implementations/marketing-publisher.service";
 import { FakeInstagramPublisherAdapter } from "../infrastructure/adapters/fake-instagram-publisher.adapter";
