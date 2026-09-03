@@ -3,7 +3,26 @@
 
 import { Readable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
+import { MarketingPublicMediaIntegrityError } from "../../application/ports/marketing-public-media-storage.port";
 import { MinioMarketingArtifactStorage } from "./minio-marketing-artifact.storage";
+
+const SOURCE_ASSET_ID = "asset-1";
+const SOURCE_DIGEST = "a".repeat(64);
+const OUTPUT_DIGEST = "b".repeat(64);
+const POLICY_FINGERPRINT = "c".repeat(64);
+
+function variantMetadata(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    "content-type": "image/jpeg",
+    "source-asset-id": SOURCE_ASSET_ID,
+    "source-digest": SOURCE_DIGEST,
+    "output-digest": OUTPUT_DIGEST,
+    "policy-fingerprint": POLICY_FINGERPRINT,
+    width: "1080",
+    height: "1080",
+    ...overrides,
+  };
+}
 
 describe("MinioMarketingArtifactStorage", () => {
   it("writes immutable marketing bytes with their content type", async () => {
@@ -103,7 +122,7 @@ describe("MinioMarketingArtifactStorage", () => {
             size: 12,
             etag: "jpeg-etag",
             lastModified: new Date("2026-09-02T00:00:00.000Z"),
-            metaData: { "content-type": "image/jpeg" },
+            metaData: variantMetadata(),
             versionId: null,
           }),
           getObject: vi.fn().mockRejectedValue(
@@ -131,7 +150,7 @@ describe("MinioMarketingArtifactStorage", () => {
           size: 12,
           etag: "jpeg-etag",
           lastModified: new Date("2026-09-02T00:00:00.000Z"),
-          metaData: { "content-type": "image/jpeg" },
+          metaData: variantMetadata(),
           versionId: null,
         }),
         getObject: vi.fn().mockRejectedValue(transportError),
@@ -160,7 +179,7 @@ describe("MinioMarketingArtifactStorage", () => {
           size: 12,
           etag: "jpeg-etag",
           lastModified: new Date("2026-09-02T00:00:00.000Z"),
-          metaData: { "content-type": "image/jpeg" },
+          metaData: variantMetadata(),
           versionId: null,
         }),
         getObject: vi.fn().mockResolvedValue(stream),
@@ -180,7 +199,15 @@ describe("MinioMarketingArtifactStorage", () => {
       size: 12,
       etag: "jpeg-etag",
       lastModified: new Date("2026-09-02T00:00:00.000Z"),
-      metaData: { "content-type": "image/jpeg" },
+      metaData: {
+        "Content-Type": "image/jpeg",
+        "Source-Asset-Id": SOURCE_ASSET_ID,
+        "SOURCE-DIGEST": SOURCE_DIGEST,
+        "Output-Digest": OUTPUT_DIGEST,
+        "Policy-Fingerprint": POLICY_FINGERPRINT,
+        Width: "1080",
+        HEIGHT: "1080",
+      },
       versionId: null,
     });
     const getObject = vi.fn().mockResolvedValue(
@@ -198,7 +225,64 @@ describe("MinioMarketingArtifactStorage", () => {
     ).resolves.toEqual({
       bytes: Buffer.from("jpeg-bytes"),
       mediaType: "image/jpeg",
+      sourceAssetId: SOURCE_ASSET_ID,
+      sourceDigest: SOURCE_DIGEST,
+      outputDigest: OUTPUT_DIGEST,
+      policyFingerprint: POLICY_FINGERPRINT,
+      width: 1080,
+      height: 1080,
     });
+  });
+
+  it.each([
+    ["missing source asset", { "source-asset-id": undefined }],
+    ["malformed source digest", { "source-digest": "not-a-digest" }],
+    ["malformed output digest", { "output-digest": "not-a-digest" }],
+    ["missing policy fingerprint", { "policy-fingerprint": undefined }],
+    ["fractional width", { width: "1.5" }],
+    ["zero height", { height: "0" }],
+  ])("reports typed integrity failure for %s metadata", async (_name, overrides) => {
+    const getObject = vi.fn();
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        getObject,
+        statObject: vi.fn().mockResolvedValue({
+          size: 12,
+          etag: "jpeg-etag",
+          lastModified: new Date("2026-09-02T00:00:00.000Z"),
+          metaData: variantMetadata(overrides),
+          versionId: null,
+        }),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant("marketing/public-media/asset-1/source-digest/policy.jpg"),
+    ).rejects.toBeInstanceOf(MarketingPublicMediaIntegrityError);
+    expect(getObject).not.toHaveBeenCalled();
+  });
+
+  it("reports typed integrity failure when the metadata map is absent", async () => {
+    const getObject = vi.fn();
+    const storage = new MinioMarketingArtifactStorage(
+      {
+        getObject,
+        statObject: vi.fn().mockResolvedValue({
+          size: 12,
+          etag: "jpeg-etag",
+          lastModified: new Date("2026-09-02T00:00:00.000Z"),
+          metaData: undefined,
+          versionId: null,
+        }),
+      } as never,
+      "product-media",
+    );
+
+    await expect(
+      storage.readVariant("marketing/public-media/asset-1/source-digest/policy.jpg"),
+    ).rejects.toBeInstanceOf(MarketingPublicMediaIntegrityError);
+    expect(getObject).not.toHaveBeenCalled();
   });
 
   it("fails closed when a stored variant is not JPEG", async () => {
@@ -221,7 +305,7 @@ describe("MinioMarketingArtifactStorage", () => {
       storage.readVariant(
         "marketing/public-media/asset-1/source-digest.jpg",
       ),
-    ).rejects.toThrow(/must be image\/jpeg/i);
+    ).rejects.toBeInstanceOf(MarketingPublicMediaIntegrityError);
     expect(getObject).not.toHaveBeenCalled();
   });
 
@@ -239,6 +323,7 @@ describe("MinioMarketingArtifactStorage", () => {
       sourceAssetId: "asset-1",
       sourceDigest: "a".repeat(64),
       outputDigest: "b".repeat(64),
+      policyFingerprint: "c".repeat(64),
       width: 1080,
       height: 1080,
     });
@@ -253,6 +338,7 @@ describe("MinioMarketingArtifactStorage", () => {
         "source-asset-id": "asset-1",
         "source-digest": "a".repeat(64),
         "output-digest": "b".repeat(64),
+        "policy-fingerprint": "c".repeat(64),
         width: "1080",
         height: "1080",
       },
@@ -277,6 +363,7 @@ describe("MinioMarketingArtifactStorage", () => {
         sourceAssetId: "asset-1",
         sourceDigest: "a".repeat(64),
         outputDigest: "b".repeat(64),
+        policyFingerprint: "c".repeat(64),
         width: 1080,
         height: 1080,
       }),

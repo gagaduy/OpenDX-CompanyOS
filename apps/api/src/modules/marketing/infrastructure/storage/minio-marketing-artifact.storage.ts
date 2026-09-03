@@ -7,6 +7,7 @@ import type {
   MarketingPublicMediaVariant,
   WriteMarketingPublicMediaVariant,
 } from "../../application/ports/marketing-public-media-storage.port";
+import { MarketingPublicMediaIntegrityError } from "../../application/ports/marketing-public-media-storage.port";
 
 function assertMarketingStorageKey(key: string): void {
   if (!key.startsWith("marketing/") || key.includes("..") || key.includes("\\")) {
@@ -22,10 +23,64 @@ function isMissingObjectError(error: unknown): boolean {
   return error.code === "NoSuchKey" || error.code === "NotFound";
 }
 
-function getContentType(metadata: Record<string, unknown>): unknown {
+function getMetadataValue(metadata: Record<string, unknown>, name: string): unknown {
   return Object.entries(metadata).find(
-    ([key]) => key.toLowerCase() === "content-type",
+    ([key]) => key.toLowerCase() === name,
   )?.[1];
+}
+
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
+
+function parsePositiveInteger(value: unknown): number | null {
+  if (typeof value !== "string" || !POSITIVE_INTEGER_PATTERN.test(value)) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function parseVariantMetadata(
+  metadata: unknown,
+): Omit<MarketingPublicMediaVariant, "bytes"> {
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    throw new MarketingPublicMediaIntegrityError();
+  }
+  const values = metadata as Record<string, unknown>;
+  const mediaType = getMetadataValue(values, "content-type");
+  const sourceAssetId = getMetadataValue(values, "source-asset-id");
+  const sourceDigest = getMetadataValue(values, "source-digest");
+  const outputDigest = getMetadataValue(values, "output-digest");
+  const policyFingerprint = getMetadataValue(values, "policy-fingerprint");
+  const width = parsePositiveInteger(getMetadataValue(values, "width"));
+  const height = parsePositiveInteger(getMetadataValue(values, "height"));
+
+  if (
+    mediaType !== "image/jpeg"
+    || typeof sourceAssetId !== "string"
+    || sourceAssetId.trim() === ""
+    || sourceAssetId !== sourceAssetId.trim()
+    || typeof sourceDigest !== "string"
+    || !DIGEST_PATTERN.test(sourceDigest)
+    || typeof outputDigest !== "string"
+    || !DIGEST_PATTERN.test(outputDigest)
+    || typeof policyFingerprint !== "string"
+    || !DIGEST_PATTERN.test(policyFingerprint)
+    || width === null
+    || height === null
+  ) {
+    throw new MarketingPublicMediaIntegrityError();
+  }
+
+  return {
+    mediaType: "image/jpeg",
+    sourceAssetId,
+    sourceDigest,
+    outputDigest,
+    policyFingerprint,
+    width,
+    height,
+  };
 }
 
 export class MinioMarketingArtifactStorage
@@ -65,7 +120,7 @@ export class MinioMarketingArtifactStorage
   ): Promise<MarketingPublicMediaVariant | null> {
     assertMarketingStorageKey(key);
 
-    let metadata: Record<string, unknown>;
+    let metadata: unknown;
     try {
       const stat = await this.client.statObject(this.bucket, key);
       metadata = stat.metaData;
@@ -76,9 +131,7 @@ export class MinioMarketingArtifactStorage
       throw error;
     }
 
-    if (getContentType(metadata) !== "image/jpeg") {
-      throw new Error("Stored Marketing public media variant must be image/jpeg");
-    }
+    const provenance = parseVariantMetadata(metadata);
 
     let stream: Awaited<ReturnType<Client["getObject"]>>;
     try {
@@ -97,7 +150,7 @@ export class MinioMarketingArtifactStorage
 
     return {
       bytes: Buffer.concat(chunks),
-      mediaType: "image/jpeg",
+      ...provenance,
     };
   }
 
@@ -113,6 +166,7 @@ export class MinioMarketingArtifactStorage
         "source-asset-id": input.sourceAssetId,
         "source-digest": input.sourceDigest,
         "output-digest": input.outputDigest,
+        "policy-fingerprint": input.policyFingerprint,
         width: String(input.width),
         height: String(input.height),
       },

@@ -219,6 +219,12 @@ git commit -m "feat(marketing): generate private Instagram JPEG variants"
 export interface MarketingPublicMediaVariant {
   readonly bytes: Buffer;
   readonly mediaType: "image/jpeg";
+  readonly sourceAssetId: string;
+  readonly sourceDigest: string;
+  readonly outputDigest: string;
+  readonly policyFingerprint: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface WriteMarketingPublicMediaVariant {
@@ -227,6 +233,7 @@ export interface WriteMarketingPublicMediaVariant {
   readonly sourceAssetId: string;
   readonly sourceDigest: string;
   readonly outputDigest: string;
+  readonly policyFingerprint: string;
   readonly width: number;
   readonly height: number;
 }
@@ -242,8 +249,11 @@ export interface MarketingPublicMediaStoragePort {
 Prove that `readVariant` returns `null` only for MinIO `NoSuchKey` or
 `NotFound`, propagates transport errors, and concatenates an existing stream.
 Prove that `writeVariant` sends `image/jpeg` plus source asset, source digest,
-output digest, width, and height metadata. Keep the existing unsafe-key test
-and add denial for a variant key containing `..` or a non-Marketing prefix.
+output digest, policy fingerprint, width, and height metadata. Prove that
+`readVariant` parses all provenance case-insensitively and reports a typed
+integrity error for missing or malformed metadata without manufacturing
+defaults. Keep the existing unsafe-key test and add denial for a variant key
+containing `..` or a non-Marketing prefix.
 
 **Step 3: Run tests and verify RED**
 
@@ -258,9 +268,9 @@ Expected: FAIL because variant methods and `statObject` support are absent.
 Expand the injected MinIO client type to `Pick<Client,
 "getObject" | "putObject" | "statObject">`. `readVariant` must call
 `statObject` first, accept only a stored `image/jpeg` content type, and then
-read the object. `writeVariant` must call `putObject` with the exact metadata
-from Step 2. Reuse `assertMarketingStorageKey`; do not accept an object key
-from HTTP input.
+parse the complete trusted provenance metadata before reading the object.
+`writeVariant` must call `putObject` with the exact metadata from Step 2. Reuse
+`assertMarketingStorageKey`; do not accept an object key from HTTP input.
 
 **Step 5: Verify GREEN and commit**
 
@@ -321,7 +331,9 @@ Cover these behaviors one at a time:
    comes from the caller. Changing quality or policy must produce a distinct
    key and variant.
 3. An existing JPEG variant is reused without calling the transformer or
-   writer.
+   writer only when its asset, source digest, policy fingerprint, output
+   digest, dimensions, JPEG magic, and actual byte digest all match. Any cache
+   integrity mismatch is regenerated and overwritten before signing.
 4. A missing variant is transformed once and written with complete metadata.
 5. The returned URL uses the configured HTTPS base and contains only
    `v=1`, `digest`, `policy`, `outputDigest`, `expires`, and `signature` query
@@ -333,6 +345,9 @@ Cover these behaviors one at a time:
    claims all throw the same access error.
 8. Signature verification happens before repository or storage lookup.
 9. A missing asset or object does not reveal which resource was absent.
+10. Public retrieval validates stored asset, source, policy, output digest, and
+    dimensions against both the signed claim and `VisualAsset`; it never
+    regenerates during a public request.
 
 Use a fixed clock and assert `expires === nowEpochSeconds + urlTtlSeconds`.
 
@@ -374,7 +389,9 @@ malformed signature length, compare against a same-sized zero buffer and still
 return the generic error. Validate JPEG magic on both newly transformed and
 reused bytes. Calculate the output digest for every variant before signing and
 again on retrieval; deny access when the stored bytes no longer match the
-signed digest.
+signed digest. Treat the storage boundary's typed integrity error as a cache
+miss only during `prepareUrl`, then regenerate and overwrite the deterministic
+variant. All transport errors remain fail-closed, and `read` never regenerates.
 
 **Step 5: Verify GREEN and commit**
 

@@ -9,6 +9,7 @@ import type {
   MarketingPublicMediaVariant,
   WriteMarketingPublicMediaVariant,
 } from "../../ports/marketing-public-media-storage.port";
+import { MarketingPublicMediaIntegrityError } from "../../ports/marketing-public-media-storage.port";
 import type { SocialPublishMediaItem } from "../../ports/social-publisher.port";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
 import type { VisualAsset } from "../../../domain/entities/marketing-campaign";
@@ -83,6 +84,22 @@ function media(overrides: Partial<SocialPublishMediaItem> = {}): SocialPublishMe
   };
 }
 
+function storedVariant(
+  overrides: Partial<MarketingPublicMediaVariant> = {},
+): MarketingPublicMediaVariant {
+  return {
+    bytes: JPEG_BYTES,
+    mediaType: "image/jpeg",
+    sourceAssetId: ASSET_ID,
+    sourceDigest: SOURCE_DIGEST,
+    outputDigest: JPEG_DIGEST,
+    policyFingerprint: POLICY_85,
+    width: 1080,
+    height: 1080,
+    ...overrides,
+  };
+}
+
 function harness(options: HarnessOptions = {}) {
   const state: FakeState = {
     repositoryLookups: [],
@@ -94,10 +111,10 @@ function harness(options: HarnessOptions = {}) {
   if (options.existingVariant !== null) {
     const configuredPolicy = options.jpegQuality === 86 ? POLICY_86 : POLICY_85;
     const configuredKey = `marketing/public-media/${ASSET_ID}/${SOURCE_DIGEST}/${configuredPolicy}.jpg`;
-    variants.set(configuredKey, options.existingVariant ?? {
-      bytes: JPEG_BYTES,
-      mediaType: "image/jpeg",
-    });
+    variants.set(
+      configuredKey,
+      options.existingVariant ?? storedVariant({ policyFingerprint: configuredPolicy }),
+    );
   }
 
   const repository = {
@@ -117,7 +134,16 @@ function harness(options: HarnessOptions = {}) {
     async writeVariant(input: WriteMarketingPublicMediaVariant) {
       if (options.storageWriteError) throw options.storageWriteError;
       state.storageWrites.push({ ...input, bytes: Buffer.from(input.bytes) });
-      variants.set(input.key, { bytes: Buffer.from(input.bytes), mediaType: "image/jpeg" });
+      variants.set(input.key, {
+        bytes: Buffer.from(input.bytes),
+        mediaType: "image/jpeg",
+        sourceAssetId: input.sourceAssetId,
+        sourceDigest: input.sourceDigest,
+        outputDigest: input.outputDigest,
+        policyFingerprint: input.policyFingerprint,
+        width: input.width,
+        height: input.height,
+      });
     },
   };
 
@@ -249,9 +275,38 @@ describe("MarketingPublicMediaServiceImpl", () => {
       sourceAssetId: ASSET_ID,
       sourceDigest: SOURCE_DIGEST,
       outputDigest: sha256(OTHER_JPEG_BYTES),
+      policyFingerprint: POLICY_85,
       width: 1080,
       height: 1080,
     }]);
+  });
+
+  it.each([
+    ["wrong asset", storedVariant({ sourceAssetId: OTHER_ASSET_ID })],
+    ["wrong source digest", storedVariant({ sourceDigest: "a".repeat(64) })],
+    ["wrong policy", storedVariant({ policyFingerprint: POLICY_86 })],
+    ["wrong output digest", storedVariant({ outputDigest: "a".repeat(64) })],
+    ["wrong width", storedVariant({ width: 720 })],
+    ["wrong height", storedVariant({ height: 720 })],
+  ])("regenerates a cached JPEG with %s provenance before signing", async (_name, existingVariant) => {
+    const { service, state } = harness({ existingVariant });
+
+    const url = new URL(await service.prepareUrl(media()));
+
+    expect(state.transformCalls).toEqual([{ source: PNG_BYTES, quality: 85 }]);
+    expect(state.storageWrites).toHaveLength(1);
+    expect(url.searchParams.get("outputDigest")).toBe(sha256(OTHER_JPEG_BYTES));
+  });
+
+  it("regenerates a variant when storage reports missing or malformed provenance", async () => {
+    const { service, state } = harness({
+      storageReadError: new MarketingPublicMediaIntegrityError(),
+    });
+
+    await service.prepareUrl(media());
+
+    expect(state.transformCalls).toEqual([{ source: PNG_BYTES, quality: 85 }]);
+    expect(state.storageWrites).toHaveLength(1);
   });
 
   it("returns the configured HTTPS endpoint with only bounded signed claims", async () => {
@@ -330,11 +385,22 @@ describe("MarketingPublicMediaServiceImpl", () => {
     await expectUnavailable(service.read(validReadInput()));
   });
 
-  it.each([
-    ["reused", { existingVariant: { bytes: Buffer.from("not-jpeg"), mediaType: "image/jpeg" } }],
-    ["new", { existingVariant: null, transformedBytes: Buffer.from("not-jpeg") }],
-  ] as const)("rejects %s bytes without JPEG magic", async (_name, options) => {
-    const { service, state } = harness(options);
+  it("regenerates cached bytes without JPEG magic", async () => {
+    const { service, state } = harness({
+      existingVariant: storedVariant({ bytes: Buffer.from("not-jpeg") }),
+    });
+
+    await service.prepareUrl(media());
+
+    expect(state.transformCalls).toEqual([{ source: PNG_BYTES, quality: 85 }]);
+    expect(state.storageWrites).toHaveLength(1);
+  });
+
+  it("rejects newly transformed bytes without JPEG magic", async () => {
+    const { service, state } = harness({
+      existingVariant: null,
+      transformedBytes: Buffer.from("not-jpeg"),
+    });
 
     await expectUnavailable(service.prepareUrl(media()));
 
@@ -343,10 +409,34 @@ describe("MarketingPublicMediaServiceImpl", () => {
 
   it("rejects valid-looking JPEG bytes that differ from the exact signed output digest", async () => {
     const { service } = harness({
-      existingVariant: { bytes: OTHER_JPEG_BYTES, mediaType: "image/jpeg" },
+      existingVariant: storedVariant({ bytes: OTHER_JPEG_BYTES }),
     });
 
     await expectUnavailable(service.read(validReadInput()));
+  });
+
+  it.each([
+    ["asset", storedVariant({ sourceAssetId: OTHER_ASSET_ID })],
+    ["source digest", storedVariant({ sourceDigest: "a".repeat(64) })],
+    ["policy", storedVariant({ policyFingerprint: POLICY_86 })],
+    ["output digest", storedVariant({ outputDigest: "a".repeat(64) })],
+    ["width", storedVariant({ width: 720 })],
+    ["height", storedVariant({ height: 720 })],
+  ])("denies public retrieval when stored %s provenance changed after URL issuance", async (_name, existingVariant) => {
+    const { service } = harness({ existingVariant });
+
+    await expectUnavailable(service.read(validReadInput()));
+  });
+
+  it("denies malformed stored provenance without regenerating during public retrieval", async () => {
+    const { service, state } = harness({
+      storageReadError: new MarketingPublicMediaIntegrityError(),
+    });
+
+    await expectUnavailable(service.read(validReadInput()));
+
+    expect(state.transformCalls).toEqual([]);
+    expect(state.storageWrites).toEqual([]);
   });
 
   it("calculates the persisted digest from transformed bytes instead of trusting transformer metadata", async () => {

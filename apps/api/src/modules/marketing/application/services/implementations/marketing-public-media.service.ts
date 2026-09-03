@@ -7,7 +7,11 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import type { MarketingImageTransformerPort } from "../../ports/marketing-image-transformer.port";
-import type { MarketingPublicMediaStoragePort } from "../../ports/marketing-public-media-storage.port";
+import type {
+  MarketingPublicMediaStoragePort,
+  MarketingPublicMediaVariant,
+} from "../../ports/marketing-public-media-storage.port";
+import { MarketingPublicMediaIntegrityError } from "../../ports/marketing-public-media-storage.port";
 import type { SocialPublishMediaItem } from "../../ports/social-publisher.port";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
 import {
@@ -128,12 +132,23 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
 
       const policy = jpegPolicyFingerprint(this.jpegQuality);
       const key = variantKey(asset.id, sourceDigest, policy);
-      const existing = await this.storage.readVariant(key);
-      let outputDigest: string;
-      if (existing) {
-        if (existing.mediaType !== "image/jpeg" || !hasJpegMagic(existing.bytes)) {
-          throw new MarketingPublicMediaAccessError();
+      let existing: MarketingPublicMediaVariant | null;
+      try {
+        existing = await this.storage.readVariant(key);
+      } catch (error) {
+        if (!(error instanceof MarketingPublicMediaIntegrityError)) {
+          throw error;
         }
+        existing = null;
+      }
+      let outputDigest: string;
+      if (existing && this.isReusableVariant(existing, {
+        assetId: asset.id,
+        sourceDigest,
+        policy,
+        width: asset.width,
+        height: asset.height,
+      })) {
         outputDigest = sha256(existing.bytes);
       } else {
         const transformed = await this.transformer.toJpeg(media.bytes, this.jpegQuality);
@@ -141,9 +156,9 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
           !hasJpegMagic(transformed.bytes)
           || transformed.byteSize !== transformed.bytes.byteLength
           || !Number.isSafeInteger(transformed.width)
-          || transformed.width <= 0
+          || transformed.width !== asset.width
           || !Number.isSafeInteger(transformed.height)
-          || transformed.height <= 0
+          || transformed.height !== asset.height
         ) {
           throw new MarketingPublicMediaAccessError();
         }
@@ -154,6 +169,7 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
           sourceAssetId: asset.id,
           sourceDigest,
           outputDigest,
+          policyFingerprint: policy,
           width: transformed.width,
           height: transformed.height,
         });
@@ -199,7 +215,17 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
       const variant = await this.storage.readVariant(
         variantKey(asset.id, input.sourceDigest, input.policy),
       );
-      if (!variant || variant.mediaType !== "image/jpeg" || !hasJpegMagic(variant.bytes)) {
+      if (
+        !variant
+        || !this.isReusableVariant(variant, {
+          assetId: asset.id,
+          sourceDigest: input.sourceDigest,
+          policy: input.policy,
+          outputDigest: input.outputDigest,
+          width: asset.width,
+          height: asset.height,
+        })
+      ) {
         throw new MarketingPublicMediaAccessError();
       }
       const outputDigest = sha256(variant.bytes);
@@ -251,6 +277,29 @@ export class MarketingPublicMediaServiceImpl implements MarketingPublicMediaServ
     ) {
       throw new MarketingPublicMediaAccessError();
     }
+  }
+
+  private isReusableVariant(
+    variant: MarketingPublicMediaVariant,
+    expected: {
+      readonly assetId: string;
+      readonly sourceDigest: string;
+      readonly policy: string;
+      readonly outputDigest?: string;
+      readonly width: number;
+      readonly height: number;
+    },
+  ): boolean {
+    const actualOutputDigest = sha256(variant.bytes);
+    return variant.mediaType === "image/jpeg"
+      && hasJpegMagic(variant.bytes)
+      && variant.sourceAssetId === expected.assetId
+      && variant.sourceDigest === expected.sourceDigest
+      && variant.policyFingerprint === expected.policy
+      && variant.outputDigest === actualOutputDigest
+      && (expected.outputDigest === undefined || actualOutputDigest === expected.outputDigest)
+      && variant.width === expected.width
+      && variant.height === expected.height;
   }
 
   private sign(

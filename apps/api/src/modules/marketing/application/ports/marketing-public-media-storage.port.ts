@@ -4,6 +4,12 @@
 export interface MarketingPublicMediaVariant {
   readonly bytes: Buffer;
   readonly mediaType: "image/jpeg";
+  readonly sourceAssetId: string;
+  readonly sourceDigest: string;
+  readonly outputDigest: string;
+  readonly policyFingerprint: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface WriteMarketingPublicMediaVariant {
@@ -12,6 +18,7 @@ export interface WriteMarketingPublicMediaVariant {
   readonly sourceAssetId: string;
   readonly sourceDigest: string;
   readonly outputDigest: string;
+  readonly policyFingerprint: string;
   readonly width: number;
   readonly height: number;
 }
@@ -19,4 +26,11 @@ export interface WriteMarketingPublicMediaVariant {
 export interface MarketingPublicMediaStoragePort {
   readVariant(key: string): Promise<MarketingPublicMediaVariant | null>;
   writeVariant(input: WriteMarketingPublicMediaVariant): Promise<void>;
+}
+
+export class MarketingPublicMediaIntegrityError extends Error {
+  constructor() {
+    super("Stored Marketing public media variant has invalid provenance");
+    this.name = "MarketingPublicMediaIntegrityError";
+  }
 }
