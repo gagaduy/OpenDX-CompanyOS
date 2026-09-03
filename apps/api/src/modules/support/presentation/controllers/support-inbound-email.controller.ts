@@ -58,10 +58,19 @@ export class SupportInboundEmailController {
       } else {
         customerId = this.generateId();
         await this.database.query(
-          `INSERT INTO customers (id, full_name, email, status, version, created_at, updated_at)
-           VALUES ($1, $2, $3, 'active', 1, NOW(), NOW())`,
+          `INSERT INTO customers (id, full_name, email, email_verified_at, status, version, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), 'active', 1, NOW(), NOW())`,
           [customerId, cleanName, cleanEmail],
         );
+      }
+
+      // Verify orderId if provided
+      let verifiedOrderId: string | null = null;
+      if (cleanOrderId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanOrderId)) {
+        const orderExists = await this.database.query(`SELECT id FROM orders WHERE id = $1 LIMIT 1`, [cleanOrderId]);
+        if (orderExists.rows.length > 0) {
+          verifiedOrderId = cleanOrderId;
+        }
       }
 
       // 2. Insert support ticket
@@ -70,16 +79,16 @@ export class SupportInboundEmailController {
         `INSERT INTO support_tickets (
            id, customer_id, order_id, subject, description, priority, status, version, created_by_id, created_at, updated_at
          ) VALUES ($1, $2, $3, $4, $5, $6, 'new', 1, 'email-inbound', NOW(), NOW())`,
-        [ticketId, customerId, cleanOrderId, cleanSubject, cleanBody, priority],
+        [ticketId, customerId, verifiedOrderId, cleanSubject, cleanBody, priority],
       );
 
       // 3. Record event
       const eventId = this.generateId();
       await this.database.query(
         `INSERT INTO support_ticket_events (
-           id, ticket_id, actor_id, from_status, to_status, source, occurred_at
-         ) VALUES ($1, $2, 'email-inbound', NULL, 'new', 'manual', NOW())`,
-        [eventId, ticketId],
+           id, ticket_id, actor_id, from_status, to_status, source, idempotency_key, occurred_at
+         ) VALUES ($1, $2, 'email-inbound', 'new', 'new', 'manual', $3, NOW())`,
+        [eventId, ticketId, `email_inbound:${ticketId}`],
       );
 
       // 4. Trigger AI draft proposal

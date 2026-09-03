@@ -88,10 +88,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   if (options.marketingPublicRouter !== undefined) {
     app.use("/v1/public/marketing/media", options.marketingPublicRouter);
   }
+  app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
   if (options.supportInboundEmailRouter !== undefined) {
     app.use("/v1/public", options.supportInboundEmailRouter);
   }
-  app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
   app.use(
     createHealthRouter(options.readiness, {
       timeoutMs: options.readinessTimeoutMs ?? 2_000,

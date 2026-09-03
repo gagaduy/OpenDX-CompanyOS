@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Implement Two-Way Governed Email Support Workflow in Support & CRM department:
+  - Added `EmailDispatcherPort` Clean Architecture port with `SmtpEmailDispatcherAdapter` (using `nodemailer` with Gmail SMTP) and `SimulatedEmailDispatcherAdapter`.
+  - Added branded responsive HTML resolution email template (`renderSupportResolutionEmailHtml`) with ticket details, empathetic apology, actionable resolution steps, and compensation voucher highlight.
+  - Implemented public inbound email webhook endpoint (`POST /v1/public/support/email/inbound`) that resolves/creates customers, creates new tickets, and automatically triggers AI proposal drafting via Gemini 2.5 Flash.
+  - Wired `emailDispatcher` into `AiSupportService.applySupportProposal` to automatically dispatch real emails and activate auto-generated discount compensation vouchers (`CSKH%` / `CSKHK`) upon director approval.
+  - Updated Agentic Command Center UI to display email status badges and reflect the "Phê duyệt & Gửi Email phản hồi (kèm Voucher)" action button.
+  - Configured live SMTP environment variables in Docker Compose runtime.
 - Add deterministic private Instagram JPEG variants using `sharp`, plus a
   signed, expiring `GET`/`HEAD` Marketing media route that leaves MinIO private.
 - Document development-only live Instagram publication through Cloudflare
