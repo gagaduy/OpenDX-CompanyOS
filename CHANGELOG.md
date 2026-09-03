@@ -23,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Integrate OpenRouter AI reply copilot and automated email response into Support operations:
+  - Added `generateDraftReply(ticketId)` to `AiSupportService` calling OpenRouter LLM (`google/gemini-2.5-flash`) to generate contextual, customer-tailored reply drafts based on ticket subject, description, and message history.
+  - Exposed authenticated endpoint `GET /v1/admin/support/tickets/:ticketId/ai-draft`.
+  - Added "✨ Gợi ý trả lời AI" button to `SupportMessageComposer` in Console for one-click contextual draft generation.
+  - Enabled automated AI email acknowledgement and guidance in `SupportEmailIngestionService` when inbound customer emails are received.
 - Implement Realtime 2-Way LiveChat with OpenRouter AI Assistant & Server-Sent Events (SSE):
   - Added `RealtimeBroadcasterPort` inward-facing domain port and `InMemoryRealtimeBroadcasterAdapter` using Node.js event streaming.
   - Added `AiLivechatAssistantService` connecting to OpenRouter LLM (`google/gemini-2.5-flash`) for instant AI triage, 24/7 automated technical support, and critical issue detection (e.g. overheating, fire hazard, refunds) with automatic urgency escalation.

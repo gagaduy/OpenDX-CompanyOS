@@ -30,6 +30,7 @@ export interface SupportOperationsApi {
   generateSupportProposal(prompt: string): Promise<AiSupportProposalView>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
+  draftAiReply?(id: string, signal?: AbortSignal): Promise<string>;
   subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
 }
 export function createSupportOperationsApi(baseUrl:string, accessToken:string):SupportOperationsApi {
@@ -71,6 +72,10 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
         body: JSON.stringify({ items }),
       });
       return envelope.data;
+    },
+    async draftAiReply(id: string, signal?: AbortSignal): Promise<string> {
+      const envelope: any = await request(`/v1/admin/support/tickets/${id}/ai-draft`, { signal });
+      return envelope?.data?.draft || "";
     },
     subscribeEvents(id: string, onEvent: (event: any) => void, signal?: AbortSignal) {
       void (async () => {

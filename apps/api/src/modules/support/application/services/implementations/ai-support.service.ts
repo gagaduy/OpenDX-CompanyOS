@@ -220,6 +220,98 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     return generateSupportReportDocx(proposal);
   }
 
+  async generateDraftReply(ticketId: string): Promise<string> {
+    const ticketRes = await this.database.query<{
+      id: string;
+      subject: string;
+      description: string;
+      customer_id: string;
+      full_name: string | null;
+      email: string | null;
+    }>(
+      `SELECT t.id, t.subject, t.description, t.customer_id, c.full_name, c.email
+       FROM support_tickets t
+       LEFT JOIN customers c ON c.id = t.customer_id
+       WHERE t.id = $1 LIMIT 1`,
+      [ticketId],
+    );
+
+    if (ticketRes.rows.length === 0) {
+      throw new Error(`Ticket ${ticketId} not found`);
+    }
+
+    const ticket = ticketRes.rows[0];
+    const customerName = ticket.full_name || "Quý khách";
+
+    const messagesRes = await this.database.query<{
+      author_id: string;
+      body: string;
+    }>(
+      `SELECT author_id, body FROM support_ticket_messages
+       WHERE ticket_id = $1
+       ORDER BY created_at ASC
+       LIMIT 10`,
+      [ticketId],
+    );
+
+    const historyFormatted = messagesRes.rows
+      .map((m) => `${m.author_id === "customer" ? "Khách hàng" : "CSKH"}: ${m.body}`)
+      .join("\n");
+
+    const apiKey = this.config.openRouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (apiKey) {
+      try {
+        const systemPrompt = `Bạn là Chuyên viên CSKH cao cấp của NovaCommerce (OpenDX CompanyOS).
+Nhiệm vụ của bạn là soạn thảo một bức thư hoặc tin nhắn phản hồi chuẩn mực, ân cần, giải quyết trúng nhu cầu của khách hàng.
+Quy tắc:
+1. Chào hỏi theo tên khách hàng (${customerName}).
+2. Lắng nghe, đồng cảm và đưa ra giải pháp rõ ràng (hướng dẫn kỹ thuật, chính sách bảo hành, hoặc thông tin đơn hàng).
+3. Văn phong: Lịch thiệp, chuẩn mực tiếng Việt, chân thành.
+4. Trả về DUY NHẤT nội dung bức thư/tin nhắn phản hồi, không bọc trong JSON, không thêm các ghi chú ngoài lề.`;
+
+        const userPrompt = `Thông tin yêu cầu:
+- Tiêu đề: "${ticket.subject}"
+- Mô tả ban đầu: "${ticket.description}"
+- Lịch sử trao đổi gần nhất:
+${historyFormatted || "(Chưa có tin nhắn nào)"}
+
+Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerName}.`;
+
+        const response = await fetch(
+          this.config.openRouterBaseUrl || "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: this.config.openRouterModel || process.env.MARKETING_CONTENT_MODELS || "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.3,
+            }),
+          },
+        );
+
+        if (response.ok) {
+          const json = (await response.json()) as any;
+          const content = json.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            return content.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/i, "");
+          }
+        }
+      } catch (err) {
+        console.error("[AiSupportService] Failed to generate AI draft reply via OpenRouter:", err);
+      }
+    }
+
+    // Fallback template if OpenRouter is offline
+    return `Kính chào ${customerName},\n\nNovaCommerce xin chân thành cảm ơn Quý khách đã liên hệ về vấn đề "${ticket.subject}". Chúng tôi đã tiếp nhận thông tin và đang tiến hành kiểm tra xử lý để có phương án hỗ trợ tốt nhất cho Quý khách.\n\nNếu cần cung cấp thêm thông tin hoặc hình ảnh chi tiết, Quý khách vui lòng gửi lại tin nhắn/email này nhé.\n\nTrân trọng,\nĐội ngũ Chăm sóc Khách hàng NovaCommerce.`;
+  }
+
   async applySupportProposal(
     proposalId: string,
     request: ApplySupportRequestDto,

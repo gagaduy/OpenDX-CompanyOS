@@ -128,7 +128,7 @@ export function createSupportModule(d: {
   );
 
   const ingestionService = d.database && aiService
-    ? new SupportEmailIngestionService(d.database, aiService, d.generateId, realtimeBroadcaster)
+    ? new SupportEmailIngestionService(d.database, aiService, d.generateId, realtimeBroadcaster, emailDispatcher)
     : undefined;
 
   const emailPollerWorker = ingestionService && (process.env.SUPPORT_IMAP_ENABLED === "true" || d.emailReceiver !== undefined)

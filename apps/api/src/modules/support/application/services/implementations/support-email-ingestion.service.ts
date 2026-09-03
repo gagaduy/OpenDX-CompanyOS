@@ -24,6 +24,7 @@ export interface IngestInboundEmailResult {
 }
 
 import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
+import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
 
 export class SupportEmailIngestionService {
   constructor(
@@ -31,6 +32,7 @@ export class SupportEmailIngestionService {
     private readonly aiSupportService?: AiSupportService,
     private readonly generateId: () => string = randomUUID,
     private readonly realtimeBroadcaster?: RealtimeBroadcasterPort,
+    private readonly emailDispatcher?: EmailDispatcherPort,
   ) {}
 
   public async ingestEmail(input: IngestInboundEmailInput): Promise<IngestInboundEmailResult> {
@@ -230,6 +232,51 @@ export class SupportEmailIngestionService {
       } catch (aiErr) {
         console.error("[SupportEmailIngestionService] AI Proposal generation error on new ticket:", aiErr);
       }
+    }
+
+    // Auto-reply via OpenRouter AI if configured and enabled
+    if (
+      this.emailDispatcher &&
+      this.aiSupportService &&
+      process.env.SUPPORT_EMAIL_AUTO_REPLY === "true"
+    ) {
+      void (async () => {
+        try {
+          const aiDraft = await this.aiSupportService.generateDraftReply(ticketId);
+          if (aiDraft) {
+            const aiMsgId = this.generateId();
+            await this.database.query(
+              `INSERT INTO support_ticket_messages (id, ticket_id, author_id, body, created_at)
+               VALUES ($1, $2, 'support-ai-steward', $3, NOW())`,
+              [aiMsgId, ticketId, aiDraft],
+            );
+
+            if (this.realtimeBroadcaster) {
+              this.realtimeBroadcaster.broadcast(ticketId, {
+                type: "message_created",
+                ticketId,
+                message: {
+                  id: aiMsgId,
+                  authorId: "support-ai-steward",
+                  body: aiDraft,
+                  createdAt: new Date().toISOString(),
+                },
+              });
+            }
+
+            const shortId = ticketId.slice(0, 8);
+            await this.emailDispatcher.sendSupportResolutionEmail({
+              ticketId,
+              to: cleanEmail,
+              customerName: cleanName,
+              subject: `[Yêu cầu hỗ trợ #${shortId}] ${cleanSubject}`,
+              resolutionDetails: aiDraft,
+            });
+          }
+        } catch (err) {
+          console.error("[SupportEmailIngestionService] Failed to send AI auto-reply email:", err);
+        }
+      })();
     }
 
     return {

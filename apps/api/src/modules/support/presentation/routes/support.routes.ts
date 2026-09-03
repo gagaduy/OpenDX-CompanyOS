@@ -44,6 +44,7 @@ export function createSupportRouter(
   r.get("/", guard, c.list);
   r.post("/", guard, c.create);
   r.get("/:ticketId", guard, c.detail);
+  r.get("/:ticketId/ai-draft", guard, c.generateAiDraftReply);
   r.post("/:ticketId/claim", guard, c.claim);
   r.patch("/:ticketId", guard, c.transition);
   r.post("/:ticketId/messages", guard, c.message);

@@ -144,6 +144,17 @@ export class SupportController {
       n(e);
     }
   };
+
+  readonly generateAiDraftReply: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
+      const ticketId = parseTicketId(q.params.ticketId);
+      const draft = await this.aiService.generateDraftReply(ticketId);
+      r.json(successResponse("AI draft reply generated", { draft }));
+    } catch (e) {
+      n(e);
+    }
+  };
 }
 
 function ctx(l: Record<string, unknown>): SupportContext {

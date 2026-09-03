@@ -150,7 +150,11 @@ export function TicketDetailPage({ api }: { readonly api: SupportOperationsApi; 
                 )}
               </div>
             ) : null}
-            <SupportMessageComposer pending={messagePending} onSend={sendMessage} />
+            <SupportMessageComposer
+              pending={messagePending}
+              onSend={sendMessage}
+              onDraftAi={api.draftAiReply ? () => api.draftAiReply!(data.ticket.id) : undefined}
+            />
           </section>
         </div>
         <aside className="supportDetailSide" aria-label="Ticket context and controls">
