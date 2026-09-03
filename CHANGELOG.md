@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Exposed `/v1/public/support/livechat` router (`/init`, `/:sessionId/messages`, `/:sessionId/events`) with public Storefront CORS.
   - Added real-time SSE stream endpoint `GET /v1/admin/support/tickets/:ticketId/events` for Console staff ticket detail page with automatic in-memory message appending and instant UI updates.
   - Created responsive `LiveChatWidget` for Storefront with online status badge, live SSE message streaming, automatic customer profile resolution, and full theme integration.
+  - Polished and redesigned Storefront LiveChat Widget with dedicated design-system styling in `globals.css`, pulsing online badge, gradient header, responsive mobile modal, and high-contrast bubble layout.
 - Implement Automated IMAP Email Poller & Inbound Customer Reply Ingestion:
   - Added `EmailReceiverPort` Clean Architecture port with `ImapEmailReceiverAdapter` (using `imapflow` and `mailparser`) and `SimulatedEmailReceiverAdapter`.
   - Implemented `SupportEmailIngestionService` unifying customer reply handling and ticket reopening logic with SLA compliance.

@@ -119,109 +119,96 @@ export function LiveChatWidget({
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="livechat-container">
       {/* Chat Window */}
       {isOpen && (
-        <div className="mb-3 w-96 max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-6rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-200">
+        <div className="livechat-window" role="dialog" aria-label="Khung trò chuyện trực tuyến">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                  <Bot className="w-5 h-5 text-white" />
-                </div>
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white dark:border-slate-900 rounded-full animate-pulse" />
+          <div className="livechat-header">
+            <div className="livechat-header-info">
+              <div className="livechat-avatar-wrapper">
+                <Bot size={20} />
+                <span className="livechat-avatar-badge" />
               </div>
-              <div>
-                <h3 className="font-semibold text-sm leading-tight flex items-center gap-1.5">
+              <div className="livechat-header-titles">
+                <h3>
                   NovaCommerce LiveChat
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles size={14} color="#fcd34d" />
                 </h3>
-                <p className="text-xs text-blue-100 flex items-center gap-1">
-                  Trợ lý AI & CSKH trực tuyến 24/7
-                </p>
+                <p>Trợ lý AI & CSKH trực tuyến 24/7</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              title="Đóng cửa sổ"
-              aria-label="Đóng cửa sổ"
+              className="livechat-close-btn"
+              title="Thu nhỏ cửa sổ"
+              aria-label="Thu nhỏ cửa sổ"
             >
-              <X className="w-5 h-5" />
+              <X size={16} />
             </button>
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-950">
+          <div className="livechat-body">
             {!sessionId ? (
-              <form onSubmit={handleStartChat} className="space-y-4 my-auto py-2">
-                <div className="text-center mb-4">
-                  <div className="inline-flex p-3 bg-blue-50 dark:bg-blue-950/50 rounded-full text-blue-600 dark:text-blue-400 mb-2">
-                    <MessageSquare className="w-6 h-6" />
+              <form onSubmit={handleStartChat} className="livechat-intro-card">
+                <div className="livechat-intro-header">
+                  <div className="livechat-intro-icon-box">
+                    <MessageSquare size={24} />
                   </div>
-                  <h4 className="font-medium text-slate-800 dark:text-slate-200 text-sm">
-                    Bắt đầu cuộc trò chuyện
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Nhập thông tin để nhận phản hồi ngay từ Trợ lý AI và đội ngũ CSKH NovaCommerce.
+                  <h4>Bắt đầu cuộc trò chuyện</h4>
+                  <p>
+                    Nhập thông tin để nhận hỗ trợ tức thì từ Trợ lý AI và chuyên viên CSKH NovaCommerce.
                   </p>
                 </div>
 
-                {error && (
-                  <div className="p-2.5 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-200 dark:border-red-900">
-                    {error}
-                  </div>
-                )}
+                {error && <div className="livechat-error-banner">{error}</div>}
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Email của bạn *
-                  </label>
+                <div className="livechat-field">
+                  <label htmlFor="livechat-email">Email của bạn *</label>
                   <input
+                    id="livechat-email"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tenban@gmail.com"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="livechat-input"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Họ và tên
-                  </label>
+                <div className="livechat-field">
+                  <label htmlFor="livechat-fullname">Họ và tên</label>
                   <input
+                    id="livechat-fullname"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Nguyễn Văn A"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="livechat-input"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Bạn cần hỗ trợ gì?
-                  </label>
+                <div className="livechat-field">
+                  <label htmlFor="livechat-message">Bạn cần hỗ trợ gì?</label>
                   <textarea
+                    id="livechat-message"
                     rows={2}
                     value={initialQuery}
                     onChange={(e) => setInitialQuery(e.target.value)}
-                    placeholder="Ví dụ: Tư vấn bảo hành máy chơi game, tra cứu đơn hàng..."
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Ví dụ: Hướng dẫn cắm dây HDMI, thông tin bảo hành máy..."
+                    className="livechat-textarea"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isInitializing}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+                  className="livechat-submit-btn"
                 >
                   {isInitializing ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <RefreshCw size={15} className="livechat-spin" />
                       Đang kết nối...
                     </>
                   ) : (
@@ -232,16 +219,16 @@ export function LiveChatWidget({
             ) : (
               <>
                 {/* Notice banner */}
-                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl p-2.5 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 flex-shrink-0 text-blue-500 mt-0.5" />
+                <div className="livechat-notice-banner">
+                  <Sparkles size={16} />
                   <span>
-                    Trợ lý AI đang sẵn sàng trả lời ngay. Nhân viên CSKH sẽ hỗ trợ khi cần thiết.
+                    Trợ lý AI đang trực tuyến giải đáp mọi câu hỏi. Chuyên viên CSKH sẵn sàng tiếp nhận khi có yêu cầu nâng cao.
                   </span>
                 </div>
 
                 {/* Message list */}
                 {messages.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400">
+                  <div className="livechat-empty-state">
                     Chưa có tin nhắn nào. Hãy gửi lời chào nhé!
                   </div>
                 ) : (
@@ -252,28 +239,21 @@ export function LiveChatWidget({
                     return (
                       <div
                         key={m.id}
-                        className={`flex flex-col ${isCustomer ? "items-end" : "items-start"}`}
+                        className={`livechat-msg-row ${isCustomer ? "customer" : isAi ? "ai" : "staff"}`}
                       >
-                        <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400 px-1">
+                        <div className="livechat-msg-meta">
                           {isCustomer ? (
-                            <>
-                              <span>Bạn</span>
-                              <User className="w-3 h-3" />
-                            </>
+                            <span className="livechat-author-badge customer">
+                              Bạn <User size={11} />
+                            </span>
                           ) : isAi ? (
-                            <>
-                              <Bot className="w-3 h-3 text-indigo-500" />
-                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                                Trợ lý AI
-                              </span>
-                            </>
+                            <span className="livechat-author-badge ai">
+                              <Bot size={12} /> Trợ lý AI
+                            </span>
                           ) : (
-                            <>
-                              <MessageSquare className="w-3 h-3 text-blue-500" />
-                              <span className="text-blue-600 dark:text-blue-400 font-medium">
-                                CSKH NovaCommerce
-                              </span>
-                            </>
+                            <span className="livechat-author-badge staff">
+                              <MessageSquare size={12} /> CSKH NovaCommerce
+                            </span>
                           )}
                           <span>·</span>
                           <span>
@@ -284,13 +264,7 @@ export function LiveChatWidget({
                           </span>
                         </div>
                         <div
-                          className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                            isCustomer
-                              ? "bg-blue-600 text-white rounded-br-none"
-                              : isAi
-                              ? "bg-indigo-50 dark:bg-indigo-950/60 text-slate-800 dark:text-slate-100 border border-indigo-200 dark:border-indigo-900/60 rounded-bl-none shadow-sm"
-                              : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none shadow-sm"
-                          }`}
+                          className={`livechat-bubble ${isCustomer ? "customer" : isAi ? "ai" : "staff"}`}
                         >
                           {m.body}
                         </div>
@@ -305,25 +279,23 @@ export function LiveChatWidget({
 
           {/* Footer Input */}
           {sessionId && (
-            <form
-              onSubmit={handleSendMessage}
-              className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2"
-            >
+            <form onSubmit={handleSendMessage} className="livechat-footer">
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Nhập tin nhắn..."
                 disabled={isSending}
-                className="flex-1 px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                className="livechat-footer-input"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim() || isSending}
-                className="p-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl transition-colors flex-shrink-0"
+                className="livechat-footer-send-btn"
+                title="Gửi tin nhắn"
                 aria-label="Gửi tin nhắn"
               >
-                <Send className="w-4 h-4" />
+                <Send size={15} />
               </button>
             </form>
           )}
@@ -333,15 +305,15 @@ export function LiveChatWidget({
       {/* Floating Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="group relative flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
+        className="livechat-trigger"
         aria-label="Mở khung chat hỗ trợ trực tuyến"
       >
-        <span className="relative flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400" />
+        <span className="livechat-pulse-indicator">
+          <span className="livechat-pulse-ping" />
+          <span className="livechat-pulse-dot" />
         </span>
-        <MessageSquare className="w-5 h-5" />
-        <span className="text-sm font-medium pr-1">Hỗ trợ trực tuyến</span>
+        <MessageSquare size={18} />
+        <span>Hỗ trợ trực tuyến</span>
       </button>
     </div>
   );
