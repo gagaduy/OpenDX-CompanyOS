@@ -26,6 +26,19 @@ export function TicketDetailPage({ api }: { readonly api: SupportOperationsApi; 
   const [lastMessage, setLastMessage] = useState<string>();
   const [messagePending, setMessagePending] = useState(false);
 
+  const claim = async () => {
+    if (!data) return;
+    setMutationError(undefined);
+    setStatus(undefined);
+    try {
+      const updated = await api.claim(data.ticket.id, data.ticket.version);
+      replace({ ...data, ticket: updated });
+      setStatus("Ticket claimed");
+    } catch (reason) {
+      setMutationError(reason instanceof Error ? reason.message : "Ticket could not be claimed.");
+    }
+  };
+
   const transition = async (target: TicketStatus) => {
     if (!data) return;
     setMutationError(undefined);
@@ -77,6 +90,11 @@ export function TicketDetailPage({ api }: { readonly api: SupportOperationsApi; 
         <ArrowLeft size={16} aria-hidden="true" />
         <span>Quay lại danh sách</span>
       </Link>
+      {data.ticket.status === "new" ? (
+        <button className="primaryButton" type="button" onClick={() => void claim()}>
+          Claim ticket
+        </button>
+      ) : null}
       {data.ticket.status === "assigned" ? (
         <button className="primaryButton" type="button" onClick={() => void transition("in_progress")}>
           Start progress

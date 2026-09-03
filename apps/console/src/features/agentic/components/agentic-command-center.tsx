@@ -1753,9 +1753,9 @@ export function AgenticCommandCenter({
                     <span>
                       {marketingActionLoading
                         ? "Đang xử lý..."
-                        : activeCampaignDetail.targets && activeCampaignDetail.targets.length > 1
+                        : (activeCampaignDetail.currentPackage?.targets?.length ?? 0) > 1
                           ? "Phê duyệt & Đăng lên Facebook & Instagram"
-                          : activeCampaignDetail.targets?.[0]?.platform === "instagram"
+                          : activeCampaignDetail.currentPackage?.targets?.[0]?.platform === "instagram"
                             ? "Phê duyệt & Đăng ngay lên Instagram"
                             : "Phê duyệt & Đăng ngay lên Facebook"}
                     </span>
@@ -1783,10 +1783,10 @@ export function AgenticCommandCenter({
                   <span>
                     {marketingActionLoading
                       ? "Đang thử lại..."
-                      : activeCampaignDetail.targets?.some((t) => t.platform === "facebook" && t.status !== "verified") &&
-                        activeCampaignDetail.targets?.some((t) => t.platform === "instagram" && t.status !== "verified")
+                      : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified") &&
+                        activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "instagram" && t.status !== "verified")
                         ? "Thử đăng lại Facebook & Instagram"
-                        : activeCampaignDetail.targets?.some((t) => t.platform === "facebook" && t.status !== "verified")
+                        : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified")
                           ? "Thử đăng lại lên Facebook"
                           : "Thử đăng lại lên Instagram"}
                   </span>
