@@ -12,6 +12,7 @@ import { SupportApplicationError } from "../support-application.error";
 import type { SupportOperationsSummaryReader, SupportServiceContract } from "../interfaces/support.service";
 import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
 import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
+import { renderSupportResolutionEmailHtml } from "../../../infrastructure/templates/support-resolution-email.template";
 
 export class SupportService implements SupportServiceContract, SupportOperationsSummaryReader {
   constructor(
@@ -55,24 +56,18 @@ export class SupportService implements SupportServiceContract, SupportOperations
         const customer = await this.customers.getSupportContext(ticket.customerId);
         if (customer?.email) {
           const shortId = ticket.id.slice(0, 8);
+          const htmlBody = renderSupportResolutionEmailHtml({
+            customerName: customer.fullName || "Quý khách",
+            ticketId: ticket.id,
+            subject: ticket.subject,
+            responseMessage: body,
+          });
           await this.emailDispatcher.sendSupportResolutionEmail({
             ticketId: ticket.id,
             to: customer.email,
-            subject: `[Ticket #${shortId}] Phản hồi từ CSKH NovaCommerce: ${ticket.subject}`,
+            subject: `[NovaCommerce] Phản hồi yêu cầu hỗ trợ #${shortId}: ${ticket.subject}`,
             textBody: `Kính gửi ${customer.fullName || "Quý khách"},\n\nĐội ngũ CSKH NovaCommerce vừa gửi phản hồi về yêu cầu hỗ trợ #${shortId}:\n\n"${body}"\n\nQuý khách có thể trả lời trực tiếp email này nếu cần hỗ trợ thêm.\n\nTrân trọng,\nNovaCommerce Support`,
-            htmlBody: `
-              <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <h2 style="color: #2563eb; margin-top: 0;">NovaCommerce CSKH</h2>
-                <p>Kính gửi <strong>${customer.fullName || "Quý khách"}</strong>,</p>
-                <p>Đội ngũ CSKH xin gửi phản hồi về yêu cầu hỗ trợ <strong>#${shortId}</strong> (<em>${ticket.subject}</em>):</p>
-                <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; font-size: 15px;">
-                  ${body.replace(/\n/g, "<br>")}
-                </div>
-                <p style="color: #64748b; font-size: 13px;">Quý khách chỉ cần bấm <strong>Trả lời (Reply)</strong> trực tiếp email này nếu cần phản hồi thêm.</p>
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-                <p style="font-size: 12px; color: #94a3b8; text-align: center;">Mã Ticket: #${ticket.id} · NovaCommerce Support Care</p>
-              </div>
-            `,
+            htmlBody,
           });
         }
       } catch (emailErr) {

@@ -92,7 +92,13 @@ export class AiSupportService {
 Nhiệm vụ của bạn là phân tích danh sách Ticket khiếu nại thực tế và danh sách Khách hàng VIP để:
 1. Đánh giá tâm lý khách hàng (angry, frustrated, neutral, satisfied).
 2. Phân loại nguy cơ rời bỏ churnRisk (high, medium, low).
-3. Soạn kịch bản phản hồi đồng cảm chuẩn mực 5 sao (proposedResponse).
+3. Soạn thảo kịch bản phản hồi (proposedResponse) theo chuẩn CSKH doanh nghiệp 5 sao: Chuyên nghiệp, Tinh gọn, Trọng tâm hành động và có tính thuyết phục cao:
+   - Cá nhân hóa: Kính chào đúng tên khách hàng.
+   - Thấu cảm & Tạ lỗi: Thừa nhận thẳng thắn và lịch thiệp sự bất tiện mà khách hàng đang trải qua, không vòng vo.
+   - Trọng tâm hành động: Nêu rõ nguyên nhân ngắn gọn và giải pháp xử lý dứt điểm cụ thể (hành động từ NovaCommerce và hướng dẫn rõ ràng nếu khách cần phối hợp).
+   - Cam kết thời gian (SLA): Đưa ra mốc thời gian hoàn tất chính xác (ví dụ: giao bù trong 24h, kiểm tra kỹ thuật trong 2 giờ làm việc).
+   - Quyền lợi & Tri ân: Đề cập quyền lợi đền bù/voucher (nếu có) như lời tri ân chân thành đối với sự kiên nhẫn của khách hàng.
+   - Trình bày rõ ràng, ngắt đoạn mạch lạc, dễ đọc.
 4. Đề xuất phương án đền bù (suggestedCompensation): BẮT BUỘC tuân thủ chính xác mức giảm giá hoặc giá trị voucher mà Ban Giám đốc chỉ đạo trong Yêu cầu chỉ đạo (ví dụ: nếu Ban Giám đốc yêu cầu voucher 25% thì BẮT BUỘC phải đề xuất đúng voucher 25% trong cả suggestedCompensation và proposedResponse, TUYỆT ĐỐI không tự ý hạ thấp xuống 5% hay 10%).
 5. Phân khúc khách hàng VIP và đưa ra giải pháp chăm sóc riêng biệt.
 
@@ -118,7 +124,7 @@ BẮT BUỘC trả về duy nhất định dạng JSON thuần túy (không mark
       "engagementRecommendation": "string"
     }
   ]
-}`;
+};`;
 
         const promptUser = `Yêu cầu chỉ đạo: "${request.prompt}"
 Dữ liệu Ticket: ${JSON.stringify(rawTickets)}
@@ -165,7 +171,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
         sentiment: ai?.sentiment || (t.priority === "high" || t.priority === "urgent" ? "frustrated" : "neutral"),
         churnRisk: ai?.churnRisk || (t.priority === "urgent" ? "high" : "low"),
         issueCategory: ai?.issueCategory || (t.subject.toLowerCase().includes("trễ") || t.subject.toLowerCase().includes("chậm") ? "shipping_delay" : "general_inquiry"),
-        proposedResponse: ai?.proposedResponse || `Kính chào quý khách ${t.full_name}, OpenDX CompanyOS xin chân thành cáo lỗi về sự bất tiện quý khách gặp phải với vấn đề "${t.subject}". Đội ngũ CSKH đang khẩn trương xử lý và sẽ phản hồi quý khách trong 2 giờ làm việc.`,
+        proposedResponse: ai?.proposedResponse || `Kính chào Quý khách ${t.full_name},\n\nNovaCommerce xin chân thành cáo lỗi về sự bất tiện Quý khách gặp phải liên quan đến: "${t.subject}".\n\nĐội ngũ CSKH đã tiếp nhận và đang ưu tiên xử lý dứt điểm vấn đề này. Chúng tôi cam kết sẽ có phương án giải quyết thỏa đáng và cập nhật kết quả đến Quý khách trong vòng 2 giờ làm việc.\n\nTrân trọng cảm ơn sự thông cảm và kiên nhẫn của Quý khách,\nĐội ngũ CSKH NovaCommerce.`,
         suggestedCompensation: ai?.suggestedCompensation || (t.priority === "urgent" ? "Tặng Voucher giảm 10% cho đơn hàng kế tiếp" : "Miễn phí vận chuyển đơn hàng tiếp theo"),
         priority: (t.priority as any) || "normal",
       };
@@ -262,12 +268,14 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     if (apiKey) {
       try {
         const systemPrompt = `Bạn là Chuyên viên CSKH cao cấp của NovaCommerce (OpenDX CompanyOS).
-Nhiệm vụ của bạn là soạn thảo một bức thư hoặc tin nhắn phản hồi chuẩn mực, ân cần, giải quyết trúng nhu cầu của khách hàng.
-Quy tắc:
-1. Chào hỏi theo tên khách hàng (${customerName}).
-2. Lắng nghe, đồng cảm và đưa ra giải pháp rõ ràng (hướng dẫn kỹ thuật, chính sách bảo hành, hoặc thông tin đơn hàng).
-3. Văn phong: Lịch thiệp, chuẩn mực tiếng Việt, chân thành.
-4. Trả về DUY NHẤT nội dung bức thư/tin nhắn phản hồi, không bọc trong JSON, không thêm các ghi chú ngoài lề.`;
+Nhiệm vụ của bạn là soạn thảo một bức thư hoặc tin nhắn phản hồi chuẩn mực, thuyết phục, tinh gọn và trọng tâm hành động để giải quyết triệt để nhu cầu của khách hàng.
+Nguyên tắc vàng:
+1. Cá nhân hóa: Chào hỏi trang trọng theo tên khách hàng (${customerName}).
+2. Lắng nghe & Đồng cảm: Thừa nhận sự việc một cách chân thành, lịch thiệp, không trốn tránh trách nhiệm.
+3. Trọng tâm giải pháp & Hành động: Trình bày giải pháp xử lý cụ thể, rõ ràng từng bước; nếu khách hàng cần cung cấp thêm thông tin thì hướng dẫn đơn giản, dễ hiểu.
+4. Cam kết thời hạn (SLA): Đưa ra mốc thời gian phản hồi hoặc xử lý dứt điểm cụ thể để khách hàng yên tâm.
+5. Văn phong: Chuyên nghiệp, ấm áp, chuẩn mực tiếng Việt, ngắt dòng thành các đoạn văn ngắn gọn, dễ nắm bắt thông tin.
+6. Trả về DUY NHẤT nội dung bức thư/tin nhắn phản hồi, không bọc trong JSON, không thêm các ghi chú ngoài lề.`;
 
         const userPrompt = `Thông tin yêu cầu:
 - Tiêu đề: "${ticket.subject}"
@@ -275,7 +283,7 @@ Quy tắc:
 - Lịch sử trao đổi gần nhất:
 ${historyFormatted || "(Chưa có tin nhắn nào)"}
 
-Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerName}.`;
+Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng trọng tâm hành động cho khách hàng ${customerName}.`;
 
         const response = await fetch(
           this.config.openRouterBaseUrl || "https://openrouter.ai/api/v1/chat/completions",
@@ -309,7 +317,8 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerNa
     }
 
     // Fallback template if OpenRouter is offline
-    return `Kính chào ${customerName},\n\nNovaCommerce xin chân thành cảm ơn Quý khách đã liên hệ về vấn đề "${ticket.subject}". Chúng tôi đã tiếp nhận thông tin và đang tiến hành kiểm tra xử lý để có phương án hỗ trợ tốt nhất cho Quý khách.\n\nNếu cần cung cấp thêm thông tin hoặc hình ảnh chi tiết, Quý khách vui lòng gửi lại tin nhắn/email này nhé.\n\nTrân trọng,\nĐội ngũ Chăm sóc Khách hàng NovaCommerce.`;
+    const hotline = process.env.SUPPORT_HOTLINE || "1900 6868";
+    return `Kính chào Quý khách ${customerName},\n\nNovaCommerce xin chân thành cảm ơn Quý khách đã liên hệ và phản ánh về vấn đề: "${ticket.subject}".\n\nChúng tôi rất lấy làm tiếc về trải nghiệm chưa trọn vẹn này và đã chuyển ngay yêu cầu đến bộ phận chuyên trách để ưu tiên xử lý dứt điểm cho Quý khách trong vòng 2-4 giờ làm việc.\n\nChuyên viên hỗ trợ sẽ liên hệ trực tiếp hoặc cập nhật tiến độ xử lý ngay khi hoàn tất. Nếu Quý khách cần hỗ trợ gấp, xin vui lòng phản hồi email này hoặc gọi đến Hotline ${hotline}.\n\nTrân trọng,\nĐội ngũ Chăm sóc Khách hàng NovaCommerce.`;
   }
 
   async applySupportProposal(
@@ -469,6 +478,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerNa
           // Find promo code if created
           const comp = ticketProposal.suggestedCompensation || "";
           let promoCode: string | undefined;
+          let voucherDiscountText: string | undefined;
           const suffix = item.ticketId.replace(/-/g, "").slice(0, 4).toUpperCase();
           if (comp && !comp.toLowerCase().includes("không có") && !comp.toLowerCase().includes("không áp dụng")) {
             const percentMatch = comp.match(/(\d+)\s*%/i) || proposal?.prompt?.match(/(\d+)\s*%/i);
@@ -476,12 +486,15 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerNa
             if (percentMatch) {
               const percent = Math.min(100, Math.max(1, parseInt(percentMatch[1], 10)));
               promoCode = `CSKH${percent}-${suffix}`;
+              voucherDiscountText = `Giảm ngay ${percent}% cho đơn hàng kế tiếp`;
             } else if (amountMatch) {
               let amount = parseInt(amountMatch[1].replace(/\./g, ""), 10);
               if (amount < 1000) amount *= 1000;
               promoCode = `CSKH${Math.floor(amount / 1000)}K-${suffix}`;
+              voucherDiscountText = `Voucher giảm trực tiếp ${amountMatch[1].toUpperCase()} VND`;
             } else {
               promoCode = `CSKH10-${suffix}`;
+              voucherDiscountText = "Voucher giảm 10% tri ân khách hàng thân thiết";
             }
           }
 
@@ -492,6 +505,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh cho khách hàng ${customerNa
             subject: ticketProposal.subject,
             responseMessage: responseText,
             voucherCode: promoCode,
+            voucherDiscountText,
           });
 
           try {

@@ -32,4 +32,37 @@ describe("renderSupportResolutionEmailHtml", () => {
     expect(html).toContain("Trần Thị B");
     expect(html).not.toContain("CSKH10-ABCD");
   });
+
+  it("renders action steps and custom contact info dynamically without hardcoded values", () => {
+    const html = renderSupportResolutionEmailHtml({
+      customerName: "Lê Văn C",
+      ticketId: "33333333-4444-5555-6666-777777777777",
+      subject: "Bảo hành thiết bị",
+      responseMessage: "Kỹ thuật viên đã tiếp nhận thông tin bảo hành của Quý khách.",
+      voucherCode: "VIP-25PERCENT",
+      voucherDiscountText: "Giảm ngay 25% cho đơn hàng kế tiếp",
+      actionSteps: [
+        "Đóng gói thiết bị cẩn thận kèm hóa đơn gốc.",
+        "Shipper NovaCommerce sẽ qua lấy hàng tận nơi trong 24h.",
+      ],
+      storefrontUrl: "https://shop.example.com",
+      supportHotline: "1800 9999",
+      supportEmail: "cskh@example.com",
+      brandName: "NovaCommerce Premium",
+    });
+
+    expect(html).toContain("Lê Văn C");
+    expect(html).toContain("33333333");
+    expect(html).toContain("Bảo hành thiết bị");
+    expect(html).toContain("VIP-25PERCENT");
+    expect(html).toContain("Giảm ngay 25% cho đơn hàng kế tiếp");
+    expect(html).toContain("Đóng gói thiết bị cẩn thận kèm hóa đơn gốc.");
+    expect(html).toContain("Shipper NovaCommerce sẽ qua lấy hàng tận nơi trong 24h.");
+    expect(html).toContain("https://shop.example.com");
+    expect(html).toContain("1800 9999");
+    expect(html).toContain("cskh@example.com");
+    expect(html).toContain("NovaCommerce Premium");
+    expect(html).not.toContain("undefined");
+    expect(html).not.toContain("null");
+  });
 });

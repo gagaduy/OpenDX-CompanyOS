@@ -25,6 +25,7 @@ export interface IngestInboundEmailResult {
 
 import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
 import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
+import { renderSupportResolutionEmailHtml } from "../../../infrastructure/templates/support-resolution-email.template";
 
 export class SupportEmailIngestionService {
   constructor(
@@ -267,13 +268,19 @@ export class SupportEmailIngestionService {
             }
 
             const shortId = ticketId.slice(0, 8);
+            const htmlBody = renderSupportResolutionEmailHtml({
+              customerName: cleanName,
+              ticketId,
+              subject: cleanSubject,
+              responseMessage: aiDraft,
+            });
             await emailDispatcher.sendSupportResolutionEmail({
               ticketId,
               to: cleanEmail,
               toName: cleanName,
-              subject: `[Yêu cầu hỗ trợ #${shortId}] ${cleanSubject}`,
+              subject: `[NovaCommerce] Tiếp nhận & Phản hồi yêu cầu #${shortId}: ${cleanSubject}`,
               textBody: aiDraft,
-              htmlBody: `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">${aiDraft.replace(/\n/g, "<br>")}</div>`,
+              htmlBody,
             });
           }
         } catch (err) {

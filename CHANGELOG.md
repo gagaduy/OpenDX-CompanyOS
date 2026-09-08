@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Enhance customer support email resolution template and AI reply generation:
+  - Redesigned `renderSupportResolutionEmailHtml` with modern responsive layout, brand identity, structured callout boxes, dynamic action steps, elegant voucher gift card, and store CTA buttons without hardcoded values.
+  - Upgraded AI Support system prompts and draft reply generator to adhere to action-oriented, professional, empathetic 5-star customer service standards.
+  - Unified all email resolution dispatchers (`AiSupportService`, `SupportEmailIngestionService`, `SupportService`) to use the standardized responsive HTML template.
 - Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
 
 ### Added
