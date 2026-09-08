@@ -91,12 +91,18 @@ describe("AiSupportService", () => {
       }),
     };
 
+    const mockRealtimeBroadcaster = {
+      broadcast: vi.fn(),
+      subscribe: vi.fn(),
+    };
+
     const service = new AiSupportService(
       mockPool,
       {},
       () => "id-123",
       () => new Date().toISOString(),
       mockEmailDispatcher,
+      mockRealtimeBroadcaster,
     );
 
     // Seed cached proposal
@@ -140,6 +146,18 @@ describe("AiSupportService", () => {
         to: "nguyenphuongdmx2450@gmail.com",
         subject: "[NovaCommerce] Phản hồi yêu cầu hỗ trợ: Máy PS5 giao trễ",
         voucherCode: expect.stringMatching(/^CSKH15-/),
+      }),
+    );
+    expect(mockRealtimeBroadcaster.broadcast).toHaveBeenCalledTimes(1);
+    expect(mockRealtimeBroadcaster.broadcast).toHaveBeenCalledWith(
+      "tick-123",
+      expect.objectContaining({
+        type: "message_created",
+        ticketId: "tick-123",
+        message: expect.objectContaining({
+          authorId: "support-ai-steward",
+          body: expect.stringContaining("CSKH15-"),
+        }),
       }),
     );
   });

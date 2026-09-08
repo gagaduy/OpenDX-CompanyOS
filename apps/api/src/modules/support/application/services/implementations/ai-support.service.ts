@@ -15,6 +15,7 @@ import type {
 import { generateSupportReportDocx } from "../../../infrastructure/generators/support-report-docx.generator";
 import { renderSupportResolutionEmailHtml } from "../../../infrastructure/templates/support-resolution-email.template";
 import type { EmailDispatcherPort } from "../../ports/email-dispatcher.port";
+import type { RealtimeBroadcasterPort } from "../../ports/realtime-broadcaster.port";
 
 export interface AiSupportConfig {
   readonly openRouterApiKey?: string;
@@ -31,6 +32,7 @@ export class AiSupportService {
     private readonly generateId: () => string = randomUUID,
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly emailDispatcher?: EmailDispatcherPort,
+    private readonly realtimeBroadcaster?: RealtimeBroadcasterPort,
   ) {}
 
   async generateSupportProposal(
@@ -327,6 +329,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
   ): Promise<ApplySupportResultDto> {
     const proposal = this.proposalsCache.get(proposalId);
     const updatedTicketIds: string[] = [];
+    const itemMessages = new Map<string, { msgId: string; cleanBody: string; promoCode?: string; voucherDiscountText?: string }>();
 
     const client = await this.database.connect();
     try {
@@ -389,7 +392,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
         const comp = ticketProposal?.suggestedCompensation || "";
         const promptText = proposal?.prompt || "";
         const targetText = `${comp} ${item.responseMessage || ""} ${promptText}`;
-        let promoCode: string | null = null;
+        let promoCode: string | undefined = undefined;
 
         if (
           comp &&
@@ -434,10 +437,24 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
           }
         }
 
+        let voucherDiscountText: string | undefined;
+        if (promoCode) {
+          const percentMatch = comp.match(/(\d+)\s*%/i) || promptText.match(/(\d+)\s*%/i);
+          const amountMatch = comp.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i) || promptText.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i);
+          if (percentMatch) {
+            voucherDiscountText = `Giảm ngay ${percentMatch[1]}% cho đơn hàng kế tiếp`;
+          } else if (amountMatch) {
+            voucherDiscountText = `Voucher giảm trực tiếp ${amountMatch[1].toUpperCase()} VND`;
+          } else {
+            voucherDiscountText = "Voucher giảm 10% tri ân khách hàng thân thiết";
+          }
+        }
+
         // Add trimmed response message with voucher code if provided and ticket is not closed
-        let cleanBody = (item.responseMessage || "").trim();
+        const baseResponse = (item.responseMessage || ticketProposal?.proposedResponse || "").trim();
+        let cleanBody = baseResponse;
         if (promoCode && !cleanBody.includes(promoCode)) {
-          cleanBody = `${cleanBody}\n\n🎁 Mã voucher đền bù kích hoạt tự động: ${promoCode}`;
+          cleanBody = `${cleanBody}\n\n🎁 [VOUCHER:${promoCode}:${voucherDiscountText || "Ưu đãi tri ân khách hàng"}]`;
         }
         cleanBody = cleanBody.slice(0, 4000);
 
@@ -449,6 +466,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
              ) VALUES ($1, $2, 'support-ai-steward', $3, NOW())`,
             [msgId, item.ticketId, cleanBody],
           );
+          itemMessages.set(item.ticketId, { msgId, cleanBody, promoCode, voucherDiscountText });
         }
 
         const eventId = this.generateId();
@@ -456,7 +474,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
         await client.query(
           `INSERT INTO support_ticket_events (
              id, ticket_id, actor_id, from_status, to_status, source, idempotency_key, occurred_at
-           ) VALUES ($1, $2, 'support-ai-steward', $3, $4, 'manual', $5, NOW())`,
+          ) VALUES ($1, $2, 'support-ai-steward', $3, $4, 'manual', $5, NOW())`,
           [eventId, item.ticketId, currentStatus, nextStatus, idempotencyKey],
         );
 
@@ -469,34 +487,34 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
         (proposal as any).status = "applied";
       }
 
-      // Outbound email dispatching
+      // Parallel Realtime SSE Broadcast to Storefront LiveChat
+      if (this.realtimeBroadcaster) {
+        for (const item of request.items) {
+          const entry = itemMessages.get(item.ticketId);
+          if (entry && entry.cleanBody) {
+            this.realtimeBroadcaster.broadcast(item.ticketId, {
+              type: "message_created",
+              ticketId: item.ticketId,
+              message: {
+                id: entry.msgId,
+                authorId: "support-ai-steward",
+                body: entry.cleanBody,
+                createdAt: this.now(),
+              },
+            });
+          }
+        }
+      }
+
+      // Parallel Outbound email dispatching
       if (this.emailDispatcher) {
         for (const item of request.items) {
           const ticketProposal = proposal?.tickets?.find((t) => t.ticketId === item.ticketId);
           if (!ticketProposal || !ticketProposal.customerEmail) continue;
 
-          // Find promo code if created
-          const comp = ticketProposal.suggestedCompensation || "";
-          let promoCode: string | undefined;
-          let voucherDiscountText: string | undefined;
-          const suffix = item.ticketId.replace(/-/g, "").slice(0, 4).toUpperCase();
-          if (comp && !comp.toLowerCase().includes("không có") && !comp.toLowerCase().includes("không áp dụng")) {
-            const percentMatch = comp.match(/(\d+)\s*%/i) || proposal?.prompt?.match(/(\d+)\s*%/i);
-            const amountMatch = comp.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i) || proposal?.prompt?.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i);
-            if (percentMatch) {
-              const percent = Math.min(100, Math.max(1, parseInt(percentMatch[1], 10)));
-              promoCode = `CSKH${percent}-${suffix}`;
-              voucherDiscountText = `Giảm ngay ${percent}% cho đơn hàng kế tiếp`;
-            } else if (amountMatch) {
-              let amount = parseInt(amountMatch[1].replace(/\./g, ""), 10);
-              if (amount < 1000) amount *= 1000;
-              promoCode = `CSKH${Math.floor(amount / 1000)}K-${suffix}`;
-              voucherDiscountText = `Voucher giảm trực tiếp ${amountMatch[1].toUpperCase()} VND`;
-            } else {
-              promoCode = `CSKH10-${suffix}`;
-              voucherDiscountText = "Voucher giảm 10% tri ân khách hàng thân thiết";
-            }
-          }
+          const entry = itemMessages.get(item.ticketId);
+          const promoCode = entry?.promoCode;
+          const voucherDiscountText = entry?.voucherDiscountText;
 
           const responseText = item.responseMessage || ticketProposal.proposedResponse;
           const htmlBody = renderSupportResolutionEmailHtml({

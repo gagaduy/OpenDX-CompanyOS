@@ -17,9 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Redesigned `renderSupportResolutionEmailHtml` with modern responsive layout, brand identity, structured callout boxes, dynamic action steps, elegant voucher gift card, and store CTA buttons without hardcoded values.
   - Upgraded AI Support system prompts and draft reply generator to adhere to action-oriented, professional, empathetic 5-star customer service standards.
   - Unified all email resolution dispatchers (`AiSupportService`, `SupportEmailIngestionService`, `SupportService`) to use the standardized responsive HTML template.
+- Unified customer support ticket association in `SupportLivechatService.initSession`:
+  - Customer livechat sessions now automatically attach to the customer's most recent active or recently resolved support ticket (within 24 hours), enabling seamless synchronisation of resolution messages and compensation vouchers across both email and livechat without fragmentation.
 - Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
 
 ### Added
+
+- Parallel multi-channel support resolution dispatch across Email and Storefront Realtime LiveChat:
+  - Added parallel realtime SSE broadcast via `RealtimeBroadcasterPort` alongside outbound resolution emails in `AiSupportService.applySupportProposal`.
+  - Added interactive Gift Voucher Card component in Storefront `LiveChatWidget` that parses `[VOUCHER:CODE:DESC]` syntax, displays voucher details, and includes a one-click copy button.
+  - Added unit test suite for Storefront `LiveChatWidget` verifying interactive voucher rendering and clipboard copy actions.
 
 - Add automated catalog product discovery and image sending in LiveChat:
   - Connected `AiLivechatAssistantService` with catalog PostgreSQL database to feed real-time published products, primary media, prices, and slugs into AI context.

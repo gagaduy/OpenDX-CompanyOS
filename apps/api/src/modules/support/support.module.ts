@@ -98,6 +98,7 @@ export function createSupportModule(d: {
         d.generateId,
         d.now,
         emailDispatcher,
+        realtimeBroadcaster,
       )
     : undefined;
 

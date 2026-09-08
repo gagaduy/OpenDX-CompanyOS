@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import { MessageSquare, X, Send, Bot, Sparkles, User, RefreshCw } from "lucide-react";
 import {
   initLivechatSession,
@@ -91,7 +91,7 @@ export function LiveChatWidget({
   // Auto-scroll to bottom on new message
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
 
@@ -381,6 +381,50 @@ export function LiveChatWidget({
   );
 }
 
+function LivechatVoucherCard({
+  code,
+  description,
+}: {
+  readonly code: string;
+  readonly description?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard
+        .writeText(code)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        })
+        .catch(() => {});
+    }
+  };
+
+  return (
+    <div className="livechat-voucher-card">
+      <div className="livechat-voucher-header">
+        <span className="livechat-voucher-icon">🎁</span>
+        <span className="livechat-voucher-badge">Mã ưu đãi đặc biệt</span>
+      </div>
+      <div className="livechat-voucher-body">
+        <span className="livechat-voucher-code">{code}</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={`livechat-voucher-copy-btn ${copied ? "copied" : ""}`}
+          title="Sao chép mã giảm giá"
+        >
+          {copied ? "✓ Đã chép" : "Sao chép mã"}
+        </button>
+      </div>
+      {description && <div className="livechat-voucher-desc">{description}</div>}
+      <div className="livechat-voucher-hint">Áp dụng ngay tại bước thanh toán</div>
+    </div>
+  );
+}
+
 function renderLivechatMessageContent(body: string, apiBaseUrl: string): React.ReactNode {
   const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
   const parts: React.ReactNode[] = [];
@@ -389,7 +433,7 @@ function renderLivechatMessageContent(body: string, apiBaseUrl: string): React.R
 
   while ((match = imgRegex.exec(body)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderTextWithLinks(body.slice(lastIndex, match.index), `txt-${lastIndex}`));
+      parts.push(renderTextWithVouchers(body.slice(lastIndex, match.index), `txt-${lastIndex}`));
     }
 
     const alt = match[1] || "Hình ảnh sản phẩm";
@@ -423,10 +467,39 @@ function renderLivechatMessageContent(body: string, apiBaseUrl: string): React.R
   }
 
   if (lastIndex < body.length) {
-    parts.push(renderTextWithLinks(body.slice(lastIndex), `txt-${lastIndex}`));
+    parts.push(renderTextWithVouchers(body.slice(lastIndex), `txt-${lastIndex}`));
   }
 
   return <>{parts}</>;
+}
+
+function renderTextWithVouchers(text: string, keyPrefix: string): React.ReactNode {
+  const voucherRegex = /(?:🎁\s*)?\[VOUCHER:([^:]+?)(?::([^\]]+))?\]/g;
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = voucherRegex.exec(text)) !== null) {
+    if (m.index > last) {
+      nodes.push(renderTextWithLinks(text.slice(last, m.index), `${keyPrefix}-pre-${m.index}`));
+    }
+    const code = m[1].trim();
+    const desc = m[2]?.trim();
+    nodes.push(
+      <LivechatVoucherCard
+        key={`${keyPrefix}-voucher-${m.index}`}
+        code={code}
+        description={desc}
+      />,
+    );
+    last = m.index + m[0].length;
+  }
+
+  if (last < text.length) {
+    nodes.push(renderTextWithLinks(text.slice(last), `${keyPrefix}-post-${last}`));
+  }
+
+  return <Fragment key={keyPrefix}>{nodes}</Fragment>;
 }
 
 function renderTextWithLinks(text: string, keyPrefix: string): React.ReactNode {

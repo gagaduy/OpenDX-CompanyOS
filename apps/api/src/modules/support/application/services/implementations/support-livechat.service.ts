@@ -54,11 +54,11 @@ export class SupportLivechatService {
       );
     }
 
-    // 2. Check if customer already has an active livechat ticket (status not closed/resolved)
+    // 2. Check if customer already has an active support ticket (prioritizing recent open ticket or resolved within 24h so resolutions & vouchers sync across email & livechat)
     let ticketId: string;
     const activeTicket = await this.database.query<{ id: string }>(
       `SELECT id FROM support_tickets 
-       WHERE customer_id = $1 AND status NOT IN ('closed', 'resolved') AND subject LIKE '[LiveChat]%' 
+       WHERE customer_id = $1 AND (status NOT IN ('closed', 'resolved') OR updated_at >= NOW() - INTERVAL '24 hours')
        ORDER BY updated_at DESC LIMIT 1`,
       [customerId],
     );

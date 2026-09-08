@@ -4661,4 +4661,113 @@ img {
   transform: translateX(2px);
 }
 
+/* LiveChat Voucher / Gift Card Component */
+.livechat-voucher-card {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.9) 0%, rgba(220, 252, 231, 0.7) 100%);
+  border: 1px dashed #16a34a;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(22, 163, 74, 0.08);
+  max-width: 290px;
+}
+
+:root[data-theme="dark"] .livechat-voucher-card {
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.35) 0%, rgba(6, 78, 59, 0.25) 100%);
+  border-color: #22c55e;
+}
+
+.livechat-voucher-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.livechat-voucher-icon {
+  font-size: 15px;
+}
+
+.livechat-voucher-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #15803d;
+}
+
+:root[data-theme="dark"] .livechat-voucher-badge {
+  color: #4ade80;
+}
+
+.livechat-voucher-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #16a34a;
+}
+
+:root[data-theme="dark"] .livechat-voucher-body {
+  background: #0f172a;
+  border-color: #22c55e;
+}
+
+.livechat-voucher-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 800;
+  color: #15803d;
+  letter-spacing: 1.5px;
+  user-select: all;
+}
+
+:root[data-theme="dark"] .livechat-voucher-code {
+  color: #4ade80;
+}
+
+.livechat-voucher-copy-btn {
+  padding: 4px 10px;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.livechat-voucher-copy-btn:hover {
+  background: #15803d;
+}
+
+.livechat-voucher-copy-btn.copied {
+  background: #059669;
+}
+
+.livechat-voucher-desc {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .livechat-voucher-desc {
+  color: #86efac;
+}
+
+.livechat-voucher-hint {
+  margin-top: 5px;
+  font-size: 10.5px;
+  color: #64748b;
+  font-style: italic;
+}
+
 
