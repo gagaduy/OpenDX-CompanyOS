@@ -12,7 +12,13 @@ import {
 } from "../api/livechat-api";
 import { useOptionalCustomerSession } from "../../authentication";
 
-const SESSION_STORAGE_KEY = "novacommerce_livechat_session_id";
+const SESSION_STORAGE_PREFIX = "novacommerce_livechat_session_id";
+
+function getLivechatStorageKey(customerId?: string): string {
+  return customerId
+    ? `${SESSION_STORAGE_PREFIX}_${customerId}`
+    : `${SESSION_STORAGE_PREFIX}_anonymous`;
+}
 
 export function LiveChatWidget({
   apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000",
@@ -20,30 +26,46 @@ export function LiveChatWidget({
   readonly apiBaseUrl?: string;
 }) {
   const session = useOptionalCustomerSession();
+  const customerId = session?.kind === "customer" ? session.customerId : undefined;
+  const customerEmail = session?.kind === "customer" ? session.email : undefined;
+  const storageKey = getLivechatStorageKey(customerId);
+
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(() => {
-    return sessionStorage.getItem(SESSION_STORAGE_KEY);
+    return typeof sessionStorage !== "undefined" ? sessionStorage.getItem(storageKey) : null;
   });
   const [messages, setMessages] = useState<readonly LivechatMessageItem[]>([]);
   const [inputText, setInputText] = useState("");
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState(() => customerEmail || "");
+  const [fullName, setFullName] = useState(() => (customerEmail ? customerEmail.split("@")[0] : ""));
   const [initialQuery, setInitialQuery] = useState("");
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevCustomerIdRef = useRef<string | undefined>(customerId);
 
-  // Pre-fill user profile if authenticated
+  // Synchronize when customer identity changes or on logout
   useEffect(() => {
-    if (session && session.kind === "customer") {
-      if (session.email) {
-        setEmail(session.email);
-        setFullName((prev) => prev || session.email.split("@")[0]);
+    if (prevCustomerIdRef.current !== customerId) {
+      prevCustomerIdRef.current = customerId;
+      const nextSessionId = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(storageKey) : null;
+      setSessionId(nextSessionId);
+      setMessages([]);
+      setError(null);
+      if (customerEmail) {
+        setEmail(customerEmail);
+        setFullName(customerEmail.split("@")[0]);
+      } else {
+        setEmail("");
+        setFullName("");
       }
+    } else if (customerEmail && !email) {
+      setEmail(customerEmail);
+      setFullName((prev) => prev || customerEmail.split("@")[0]);
     }
-  }, [session]);
+  }, [customerId, customerEmail, email, storageKey]);
 
   // Load session message history on mount or when sessionId changes
   useEffect(() => {
@@ -52,14 +74,31 @@ export function LiveChatWidget({
     let isMounted = true;
     getLivechatSession(apiBaseUrl, sessionId)
       .then((data) => {
-        if (isMounted && data?.messages) {
+        if (!isMounted) return;
+        // Verify that the loaded session matches the active customer if logged in
+        if (
+          customerEmail &&
+          data?.customerEmail &&
+          data.customerEmail.toLowerCase() !== customerEmail.toLowerCase()
+        ) {
+          console.warn("[LiveChatWidget] Discarding stale session from another account");
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.removeItem(storageKey);
+          }
+          setSessionId(null);
+          setMessages([]);
+          return;
+        }
+        if (data?.messages) {
           setMessages(data.messages);
         }
       })
       .catch((err) => {
         console.warn("[LiveChatWidget] Failed to load session, clearing stale session:", err);
         if (isMounted) {
-          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.removeItem(storageKey);
+          }
           setSessionId(null);
           setMessages([]);
         }
@@ -68,7 +107,7 @@ export function LiveChatWidget({
     return () => {
       isMounted = false;
     };
-  }, [apiBaseUrl, sessionId]);
+  }, [apiBaseUrl, sessionId, customerEmail, storageKey]);
 
   // Connect SSE when sessionId exists
   useEffect(() => {
@@ -113,7 +152,9 @@ export function LiveChatWidget({
       });
 
       setSessionId(data.sessionId);
-      sessionStorage.setItem(SESSION_STORAGE_KEY, data.sessionId);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(storageKey, data.sessionId);
+      }
       setMessages(data.messages);
       setInitialQuery("");
     } catch (err: any) {
@@ -159,7 +200,9 @@ export function LiveChatWidget({
   };
 
   const handleResetSession = () => {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(storageKey);
+    }
     setSessionId(null);
     setMessages([]);
     setError(null);

@@ -64,6 +64,8 @@ export function WishlistProvider({
   const [error, setError] = useState<string>();
   const [errorProductId, setErrorProductId] = useState<string>();
 
+  const customerId = session.kind === "customer" ? session.customerId : undefined;
+
   const refresh = useCallback(
     async (page = 1) => {
       if (session.kind !== "customer") return;
@@ -87,7 +89,7 @@ export function WishlistProvider({
         setLoading(false);
       }
     },
-    [api, session.kind],
+    [api, session.kind, customerId],
   );
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function WishlistProvider({
     setMeta({ page: 1, pageSize: 24, totalItems: 0, totalPages: 0 });
     setError(undefined);
     setErrorProductId(undefined);
-  }, [refresh, session.kind, sessionLoading]);
+  }, [refresh, session.kind, customerId, sessionLoading]);
 
   const setWished = useCallback(
     async (productId: string, wished: boolean) => {

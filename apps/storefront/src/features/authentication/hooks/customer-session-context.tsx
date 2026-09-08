@@ -68,6 +68,12 @@ export function CustomerSessionProvider({
   const login = useCallback(
     async (credential: string) => {
       setLoading(true);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.clear();
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("novacommerce.pending-checkout");
+      }
       try {
         const next = await api.login(credential);
         setSession(next);
@@ -80,6 +86,12 @@ export function CustomerSessionProvider({
     [api],
   );
   const logout = useCallback(async () => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.clear();
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("novacommerce.pending-checkout");
+    }
     await api.logout();
     setSession({ kind: "anonymous" });
   }, [api]);
@@ -108,4 +120,15 @@ export function useCustomerSession(): SessionContextValue {
 export function useOptionalCustomerSession(): CustomerSession | undefined {
   const value = useContext(SessionContext);
   return value?.session;
+}
+
+export function useOptionalCustomerSessionState(): {
+  readonly session?: CustomerSession;
+  readonly sessionLoading: boolean;
+} {
+  const value = useContext(SessionContext);
+  return {
+    session: value?.session,
+    sessionLoading: value?.loading ?? false,
+  };
 }

@@ -8,6 +8,7 @@ import type {
   CustomerProfile,
   ProfileInput,
 } from "../types/customer-account.types";
+import { useOptionalCustomerSessionState } from "../../authentication";
 
 interface CustomerAccountState {
   readonly loading: boolean;
@@ -17,11 +18,19 @@ interface CustomerAccountState {
 }
 
 export function useCustomerAccount(api: CustomerAccountApi) {
+  const { session, sessionLoading } = useOptionalCustomerSessionState();
+  const customerId = session?.kind === "customer" ? session.customerId : undefined;
+
   const [state, setState] = useState<CustomerAccountState>({
     loading: true,
     addresses: [],
   });
   const load = useCallback(async () => {
+    if (sessionLoading) return;
+    if (session && session.kind !== "customer") {
+      setState({ loading: false, addresses: [] });
+      return;
+    }
     setState((value) => ({ ...value, loading: true, error: undefined }));
     try {
       const [profile, addresses] = await Promise.all([
@@ -36,7 +45,7 @@ export function useCustomerAccount(api: CustomerAccountApi) {
         error: "Không thể tải tài khoản.",
       }));
     }
-  }, [api]);
+  }, [api, session, sessionLoading, customerId]);
 
   const saveProfile = useCallback(
     async (input: ProfileInput): Promise<void> => {

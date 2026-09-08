@@ -149,6 +149,7 @@ export class CustomerAuthController {
       const raw = readCookie(req, this.cookies.customerName);
       if (raw !== undefined) await this.auth.logout(raw);
       clearCookie(res, this.cookies.customerName, this.cookies);
+      clearCookie(res, this.cookies.guestName, this.cookies);
       clearCookie(res, this.cookies.csrfName, this.cookies);
       res.json(successResponse("Customer signed out", {}));
     } catch (error) {

@@ -7,6 +7,7 @@ export {
   CustomerSessionProvider,
   useCustomerSession,
   useOptionalCustomerSession,
+  useOptionalCustomerSessionState,
 } from "./hooks/customer-session-context";
 export { safeReturnUrl } from "./lib/safe-return-url";
 export { SignInPage } from "./pages/sign-in-page";

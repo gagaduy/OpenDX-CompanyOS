@@ -21,6 +21,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Customer livechat sessions now automatically attach to the customer's most recent active or recently resolved support ticket (within 24 hours), enabling seamless synchronisation of resolution messages and compensation vouchers across both email and livechat without fragmentation.
 - Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
 
+### Fixed
+
+- Fix cross-account data leakage and stale session persistence in Storefront:
+  - Keyed `CartProvider` and `WishlistProvider` by active customer session identity (`sessionKey`) in `StorefrontSessionBoundary` to eliminate stale cart and wishlist retention across account switches.
+  - Updated `useCustomerAccount` and `useOrders` hooks to track `customerId` and `sessionLoading`, immediately refreshing profile, addresses, and order history when switching accounts while clearing data on logout.
+  - Scoped `LiveChatWidget` sessionStorage keys per customer ID (`novacommerce_livechat_session_id_${customerId}`), resetting chat state on customer change and validating loaded sessions against the active customer email.
+  - Added storage purge (`sessionStorage.clear()` and removal of pending checkout keys) in `CustomerSessionProvider` on login and logout.
+  - Added `maxAge: 0` to storefront cookie deletion and cleared the guest cookie upon customer sign-out on the API.
+
 ### Added
 
 - Parallel multi-channel support resolution dispatch across Email and Storefront Realtime LiveChat:

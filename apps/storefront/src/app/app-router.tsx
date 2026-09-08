@@ -57,12 +57,11 @@ export function createAppRouter(dependencies: {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
           <StorefrontContentProvider api={dependencies.catalogApi}>
-            <WishlistProvider api={dependencies.wishlistApi}>
-              <StorefrontSessionBoundary
-                cartApi={dependencies.cartApi}
-                catalogApi={dependencies.catalogApi}
-              />
-            </WishlistProvider>
+            <StorefrontSessionBoundary
+              cartApi={dependencies.cartApi}
+              catalogApi={dependencies.catalogApi}
+              wishlistApi={dependencies.wishlistApi}
+            />
           </StorefrontContentProvider>
         </CustomerSessionProvider>
       ),
@@ -181,11 +180,13 @@ export function createAppRouter(dependencies: {
 function StorefrontSessionBoundary({
   cartApi,
   catalogApi,
+  wishlistApi,
 }: {
   readonly cartApi: CartApi;
   readonly catalogApi: StorefrontCatalogApi;
+  readonly wishlistApi: WishlistApi;
 }) {
-  const { loading } = useCustomerSession();
+  const { session, loading } = useCustomerSession();
   if (loading) {
     return (
       <StorefrontShell cartCount={0}>
@@ -197,10 +198,19 @@ function StorefrontSessionBoundary({
       </StorefrontShell>
     );
   }
+
+  const sessionKey = session.kind === "customer"
+    ? `customer:${session.customerId}`
+    : session.kind === "guest"
+      ? `guest:${session.expiresAt}`
+      : "anonymous";
+
   return (
-    <CartProvider api={cartApi}>
-      <ShellWithCart catalogApi={catalogApi} />
-    </CartProvider>
+    <WishlistProvider key={`wishlist:${sessionKey}`} api={wishlistApi}>
+      <CartProvider key={`cart:${sessionKey}`} api={cartApi}>
+        <ShellWithCart catalogApi={catalogApi} />
+      </CartProvider>
+    </WishlistProvider>
   );
 }
 
