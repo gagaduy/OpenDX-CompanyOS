@@ -63,6 +63,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Fix light mode contrast and hardcoded dark styling in Console:
+  - Fix faint, washed-out text in Campaign Brief card (`briefSubjectText`, `briefObjectiveText`, `briefAudienceText`, `briefCtaText`, `briefMandatoryBox`) under `.consoleLayout[data-theme="light"]`.
+  - Fix hardcoded dark containers and styling in Multi-Platform Publication Targets card under light theme.
+  - Fix AI CEO Strategic Decomposition Plan (`ccCeoPlanCard`), running agent cards (`activeThinking`), and department deliverable cards (Merchandising, Operations, Support) retaining dark-mode backgrounds and illegible text in light mode.
+  - Fix generated proposal data tables (inventory restock items, customer support tickets, VIP segmentation) retaining pitch-dark backgrounds (`rgba(10, 15, 25, 0.6)`) in light mode by replacing inline dark backgrounds with responsive semantic styles.
 - Ensure `publishApprovedPackage` publishes every target independently so that
   failure of one channel (such as Instagram or Facebook) does not abort remaining
   targets, preserving partial publication and retryability.

@@ -193,7 +193,7 @@ export function CampaignApprovalActionBar({
               onClick={onApprove}
               className="marketingBtnSuccess"
             >
-              {loading ? "Đang xử lý..." : "✓ Approve & Publish to Facebook"}
+              {loading ? "Đang xử lý..." : "✓ Approve & Publish to Facebook & Instagram"}
             </button>
           </>
         )}
@@ -205,7 +205,7 @@ export function CampaignApprovalActionBar({
             onClick={onRetryPublication}
             className="marketingBtnPrimary"
           >
-            {loading ? "Đang đăng lại..." : "↻ Đăng lại lên Facebook"}
+            {loading ? "Đang đăng lại..." : "↻ Đăng lại lên Facebook & Instagram"}
           </button>
         )}
       </div>

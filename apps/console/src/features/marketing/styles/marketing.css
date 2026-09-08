@@ -663,3 +663,161 @@
 .consoleLayout[data-theme="light"] .deliverableSubtitle {
   color: #64748b;
 }
+
+/* Campaign Brief Card Styling */
+.briefSubtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0;
+}
+
+.briefSubjectText {
+  color: #cbd5e1;
+}
+
+.briefSectionLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.briefSectionLabel.mandatory {
+  color: #10b981;
+}
+
+.briefObjectiveText {
+  margin: 0;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.briefMandatoryBox {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  color: #34d399;
+  font-weight: 600;
+}
+
+.briefAudienceText {
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.briefCtaText {
+  margin: 0;
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+/* Multi-Platform Targets Card Styling */
+.marketingTargetsContainer {
+  background: rgba(18, 22, 31, 0.85);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.25rem;
+}
+
+.marketingTargetItemCard {
+  background: #1f2937;
+  border-radius: 0.75rem;
+  border: 1px solid #374151;
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.marketingTargetItemCard.verified {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.marketingTargetItemCard.failed {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.marketingTargetTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #f9fafb;
+}
+
+.marketingTargetSubtext {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.marketingTargetSubtext strong {
+  color: #e5e7eb;
+}
+
+/* Light Mode Overrides for Brief & Targets */
+.consoleLayout[data-theme="light"] .briefSubtitle {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .briefSubjectText {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .briefSectionLabel {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .briefObjectiveText {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.consoleLayout[data-theme="light"] .briefMandatoryBox {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.consoleLayout[data-theme="light"] .briefAudienceText {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .briefCtaText {
+  color: #2563eb;
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetsContainer {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetItemCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetItemCard.verified {
+  background: #f0fdf4;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetItemCard.failed {
+  background: #fef2f2;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetSubtext {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .marketingTargetSubtext strong {
+  color: #0f172a;
+}

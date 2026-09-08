@@ -20,8 +20,8 @@ export function CampaignBriefCard({ brief }: { readonly brief: CampaignBrief | n
           <h3 className="sectionCardTitle">
             <span>📋</span> {brief.campaignName}
           </h3>
-          <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.25rem 0 0" }}>
-            Sản phẩm mục tiêu: <strong style={{ color: "#cbd5e1" }}>{brief.subjectKind} ({brief.subjectReference})</strong>
+          <p className="briefSubtitle">
+            Sản phẩm mục tiêu: <strong className="briefSubjectText">{brief.subjectKind} ({brief.subjectReference})</strong>
           </p>
         </div>
         <span className="statusBadge drafting" style={{ fontSize: "0.8rem" }}>
@@ -31,35 +31,35 @@ export function CampaignBriefCard({ brief }: { readonly brief: CampaignBrief | n
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem", fontSize: "0.875rem" }}>
         <div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+          <span className="briefSectionLabel">
             🎯 Mục tiêu chiến dịch
           </span>
-          <p style={{ margin: 0, color: "#e2e8f0", lineHeight: 1.5 }}>{brief.objective}</p>
+          <p className="briefObjectiveText">{brief.objective}</p>
         </div>
 
         <div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+          <span className="briefSectionLabel mandatory">
             ✅ Thông điệp bắt buộc
           </span>
-          <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: "0.65rem", padding: "0.65rem 0.85rem", color: "#34d399", fontWeight: 600 }}>
+          <div className="briefMandatoryBox">
             {brief.mandatoryMessage}
           </div>
         </div>
 
         <div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+          <span className="briefSectionLabel">
             👥 Đối tượng & Giọng điệu
           </span>
-          <p style={{ margin: 0, color: "#e2e8f0" }}>
+          <p className="briefAudienceText">
             {brief.audience ?? "Đại chúng"} • {brief.tone ?? "Chuyên nghiệp"} ({brief.language.toUpperCase()})
           </p>
         </div>
 
         <div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
+          <span className="briefSectionLabel">
             👉 Lời kêu gọi hành động (CTA)
           </span>
-          <p style={{ margin: 0, color: "#60a5fa", fontWeight: 700 }}>
+          <p className="briefCtaText">
             {brief.callToAction}
           </p>
         </div>

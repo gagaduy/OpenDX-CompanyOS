@@ -272,8 +272,8 @@ export function MarketingCampaignDetailPage({
 
       {/* Multi-Platform Publication Targets Card */}
       {targets.length > 0 && (
-        <div style={{ background: "#111827", borderRadius: "1rem", border: "1px solid #1f2937", padding: "1.25rem", marginBottom: "1.5rem" }}>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: 700, color: "#f3f4f6", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="sectionCard marketingTargetsContainer" style={{ marginBottom: "1.5rem" }}>
+          <h3 className="sectionCardTitle" style={{ marginBottom: "1rem" }}>
             <span>🎯</span> Kênh Xuất Bản Đa Nền Tảng (Multi-Platform Targets)
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
@@ -287,15 +287,10 @@ export function MarketingCampaignDetailPage({
               return (
                 <div
                   key={target.id}
-                  style={{
-                    background: "#1f2937",
-                    borderRadius: "0.75rem",
-                    border: `1px solid ${isTargetVerified ? "rgba(34, 197, 94, 0.4)" : isTargetFailed ? "rgba(239, 68, 68, 0.4)" : "#374151"}`,
-                    padding: "1rem",
-                  }}
+                  className={`marketingTargetItemCard ${isTargetVerified ? "verified" : isTargetFailed ? "failed" : ""}`}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 700, color: "#f9fafb" }}>
+                    <div className="marketingTargetTitle">
                       <span>{platformIcon}</span> {platformLabel} • {formatLabel}
                     </div>
                     <span
@@ -311,8 +306,8 @@ export function MarketingCampaignDetailPage({
                       {target.status}
                     </span>
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: "#9ca3af", marginBottom: "0.5rem" }}>
-                    Chế độ: <strong style={{ color: "#e5e7eb" }}>{target.executionMode}</strong> {target.required ? "• Bắt buộc" : "• Tùy chọn"}
+                  <div className="marketingTargetSubtext">
+                    Chế độ: <strong>{target.executionMode}</strong> {target.required ? "• Bắt buộc" : "• Tùy chọn"}
                   </div>
                   {isTargetFailed && (
                     <button

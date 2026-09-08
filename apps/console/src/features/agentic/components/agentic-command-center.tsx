@@ -1870,12 +1870,12 @@ export function AgenticCommandCenter({
 
           {/* Revision Form Collapse */}
           {showRevisionForm && (
-            <div style={{ marginTop: "1rem", padding: "1rem", background: "#161c28", borderRadius: 8, border: "1px solid rgba(245, 158, 11, 0.3)" }}>
+            <div className="ccMarketingRevisionBox">
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#fbbf24", marginBottom: "0.5rem" }}>
                 Ghi chú yêu cầu chỉnh sửa cho 3 nhân sự số Marketing:
               </label>
               <textarea
-                style={{ width: "100%", background: "#10141d", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: 6, padding: "0.6rem 0.8rem", color: "#f8fafc", fontSize: "0.85rem", minHeight: 60 }}
+                className="ccMarketingRevisionTextarea"
                 placeholder="Ví dụ: Đổi màu nền ảnh sang tông đỏ cam và nhấn mạnh thêm ưu đãi tặng tai nghe..."
                 value={revisionInput}
                 onChange={(e) => setRevisionInput(e.target.value)}
@@ -1904,7 +1904,7 @@ export function AgenticCommandCenter({
 
       {/* 4b. In-Place Active Catalog & Pricing Merchandising Proposal Card */}
       {merchandisingProposal && (
-        <div className="ccMarketingLiveCard" style={{ borderColor: "rgba(56, 189, 248, 0.4)", background: "rgba(14, 25, 45, 0.7)" }}>
+        <div className="ccMarketingLiveCard ccMerchProposalCard">
           <div className="ccMarketingLiveHeader">
             <div className="ccMarketingLiveTitle">
               <Package size={18} color="#38bdf8" />
@@ -1954,19 +1954,19 @@ export function AgenticCommandCenter({
 
           {/* Strategy Rationale & Sales Projection Header */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
-            <div style={{ background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.25)", padding: "0.75rem 1rem", borderRadius: 8 }}>
+            <div className="ccProposalRationaleBox amber">
               <strong style={{ color: "#fbbf24", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
                 💡 Lý do chiến lược định giá:
               </strong>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p>
                 {merchandisingProposal.pricingRationale}
               </p>
             </div>
-            <div style={{ background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", padding: "0.75rem 1rem", borderRadius: 8 }}>
+            <div className="ccProposalRationaleBox cyan">
               <strong style={{ color: "#38bdf8", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
                 📈 Dự báo lượng bán:
               </strong>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p>
                 {merchandisingProposal.salesProjection}
               </p>
             </div>
@@ -1977,16 +1977,7 @@ export function AgenticCommandCenter({
             {(merchandisingProposal.items || []).map((item, idx) => (
               <div
                 key={item.targetProductId || idx}
-                style={{
-                  background: "#101522",
-                  padding: "1rem 1.15rem",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  display: "grid",
-                  gridTemplateColumns: "1.4fr 1fr",
-                  gap: "1.25rem",
-                  alignItems: "start",
-                }}
+                className="ccMerchProductCard"
               >
                 {/* Left: Product SEO Title & Description */}
                 <div>
@@ -1998,16 +1989,16 @@ export function AgenticCommandCenter({
                       {item.badge}
                     </span>
                   </div>
-                  <h4 style={{ margin: "0 0 0.4rem 0", color: "#ffffff", fontSize: "1rem", fontWeight: 700 }}>
+                  <h4 className="ccMerchProductTitle">
                     {item.optimizedTitle}
                   </h4>
-                  <div style={{ background: "#0b0f17", padding: "0.65rem 0.8rem", borderRadius: 6, fontSize: "0.82rem", color: "#cbd5e1", lineHeight: 1.5, whiteSpace: "pre-line" }}>
+                  <div className="ccMerchDescBox">
                     {item.optimizedDescription}
                   </div>
                 </div>
 
                 {/* Right: Pricing comparison */}
-                <div style={{ background: "#0b0f17", padding: "0.85rem 1rem", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.05)", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div className="ccMerchPriceBox">
                   <div>
                     <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.4rem" }}>
                       Định giá Flash Sale
@@ -2072,7 +2063,7 @@ export function AgenticCommandCenter({
 
       {/* 4c. In-Place Active Operations & Inventory Restock Proposal Card */}
       {operationsProposal && (
-        <div className="ccMarketingLiveCard" style={{ borderColor: "rgba(245, 158, 11, 0.4)", background: "rgba(30, 24, 14, 0.8)" }}>
+        <div className="ccMarketingLiveCard ccOperationsProposalCard">
           <div className="ccMarketingLiveHeader">
             <div className="ccMarketingLiveTitle">
               <Boxes size={18} color="#fbbf24" />
@@ -2099,7 +2090,7 @@ export function AgenticCommandCenter({
               <button
                 type="button"
                 className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
+                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
                 onClick={() => setOperationsProposal(null)}
                 title="Đóng bảng đề xuất"
               >
@@ -2109,97 +2100,80 @@ export function AgenticCommandCenter({
           </div>
 
           {/* Health Summary & Risk Assessment Callouts */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
-            <div style={{ background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", padding: "0.75rem 1rem", borderRadius: 8 }}>
-              <strong style={{ color: "#38bdf8", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+          <div className="ccProposalSummaryGrid">
+            <div className="ccProposalSummaryBox info">
+              <strong className="ccProposalSummaryTitle info">
                 📊 Tổng quan sức khỏe kho:
               </strong>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p className="ccProposalSummaryText">
                 {operationsProposal.inventoryHealthSummary}
               </p>
             </div>
-            <div style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.25)", padding: "0.75rem 1rem", borderRadius: 8 }}>
-              <strong style={{ color: "#f87171", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+            <div className="ccProposalSummaryBox danger">
+              <strong className="ccProposalSummaryTitle danger">
                 ⚠️ Phân tích rủi ro chuỗi cung ứng:
               </strong>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p className="ccProposalSummaryText">
                 {operationsProposal.riskAssessment}
               </p>
             </div>
           </div>
 
           {/* Table of Inventory & Restock Items */}
-          <div style={{ overflowX: "auto", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: 8, background: "rgba(10, 15, 25, 0.6)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", textAlign: "left" }}>
+          <div className="ccProposalTableContainer">
+            <table className="ccProposalTable">
               <thead>
-                <tr style={{ background: "rgba(255, 255, 255, 0.04)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", color: "#94a3b8" }}>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>SKU</th>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>Sản phẩm</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>Tồn thực tế</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>Đang giữ chỗ</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>Khả dụng</th>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>Đề xuất nhập</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "right" }}>Dự toán chi phí</th>
+                <tr className="ccProposalTableThRow">
+                  <th>SKU</th>
+                  <th>Sản phẩm</th>
+                  <th style={{ textAlign: "center" }}>Tồn thực tế</th>
+                  <th style={{ textAlign: "center" }}>Đang giữ chỗ</th>
+                  <th style={{ textAlign: "center" }}>Khả dụng</th>
+                  <th>Đề xuất nhập</th>
+                  <th style={{ textAlign: "right" }}>Dự toán chi phí</th>
                 </tr>
               </thead>
               <tbody>
                 {operationsProposal.items?.map((item: any) => (
-                  <tr key={item.variantId || item.sku} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <td style={{ padding: "0.6rem 0.75rem", fontFamily: "monospace", color: "#38bdf8" }}>{item.sku}</td>
-                    <td style={{ padding: "0.6rem 0.75rem", color: "#f8fafc", fontWeight: 500 }}>
-                      <div>{item.productName}</div>
-                      <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{item.actionRationale}</div>
+                  <tr key={item.variantId || item.sku} className="ccProposalTableTr">
+                    <td className="ccProposalSkuCell">{item.sku}</td>
+                    <td>
+                      <div className="ccProposalItemName">{item.productName}</div>
+                      <div className="ccProposalItemSubtext">{item.actionRationale}</div>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center", color: "#e2e8f0" }}>{item.currentOnHand}</td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center", color: "#fbbf24" }}>{item.currentReserved}</td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>
+                    <td style={{ textAlign: "center" }} className="ccProposalItemCount">{item.currentOnHand}</td>
+                    <td style={{ textAlign: "center" }} className="ccProposalItemReserved">{item.currentReserved}</td>
+                    <td style={{ textAlign: "center" }}>
                       <span
-                        style={{
-                          padding: "0.15rem 0.45rem",
-                          borderRadius: 4,
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          background:
-                            item.stockStatus === "critical_low"
-                              ? "rgba(239, 68, 68, 0.2)"
-                              : item.stockStatus === "slow_moving"
-                                ? "rgba(245, 158, 11, 0.2)"
-                                : "rgba(16, 185, 129, 0.2)",
-                          color:
-                            item.stockStatus === "critical_low"
-                              ? "#f87171"
-                              : item.stockStatus === "slow_moving"
-                                ? "#fbbf24"
-                                : "#34d399",
-                        }}
+                        className={`ccStockBadge ${item.stockStatus}`}
                       >
                         {item.availableQuantity}
                       </span>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem" }}>
+                    <td>
                       {item.recommendedRestockQuantity > 0 ? (
-                        <span style={{ color: "#38bdf8", fontWeight: 700 }}>
+                        <span className="ccRestockRecommended">
                           +{item.recommendedRestockQuantity} đơn vị
                         </span>
                       ) : (
-                        <span style={{ color: "#64748b" }}>Đã đủ an toàn</span>
+                        <span className="ccRestockSafe">Đã đủ an toàn</span>
                       )}
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", color: "#34d399", fontWeight: 600 }}>
+                    <td style={{ textAlign: "right" }} className="ccRestockCost">
                       {item.estimatedTotalCostVnd > 0 ? `${item.estimatedTotalCostVnd.toLocaleString("vi-VN")} đ` : "—"}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ background: "rgba(255, 255, 255, 0.03)", fontWeight: 700, borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>
-                  <td colSpan={5} style={{ padding: "0.6rem 0.75rem", color: "#f8fafc" }}>
+                <tr className="ccProposalTableTfootRow">
+                  <td colSpan={5} className="ccProposalTfootTitle">
                     Tổng cộng {operationsProposal.items?.length || 0} SKU
                   </td>
-                  <td style={{ padding: "0.6rem 0.75rem", color: "#38bdf8" }}>
+                  <td className="ccProposalTfootQty">
                     +{operationsProposal.totalRestockUnits} đơn vị
                   </td>
-                  <td style={{ padding: "0.6rem 0.75rem", textAlign: "right", color: "#34d399" }}>
+                  <td style={{ textAlign: "right" }} className="ccProposalTfootCost">
                     {operationsProposal.totalEstimatedBudgetVnd?.toLocaleString("vi-VN")} đ
                   </td>
                 </tr>
@@ -2213,7 +2187,7 @@ export function AgenticCommandCenter({
               <button
                 type="button"
                 className="ccMarketingActionBtn livePost"
-                style={{ background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)", display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
                 disabled={isDownloadingDocx}
                 onClick={handleDownloadOperationsDocx}
               >
@@ -2250,18 +2224,18 @@ export function AgenticCommandCenter({
 
       {/* 4d. Customer Support & CRM Live Proposal Card (Emerald Theme) */}
       {supportProposal && (
-        <div className="ccProposalCard" style={{ borderColor: "rgba(16, 185, 129, 0.4)", background: "rgba(6, 78, 59, 0.15)", marginTop: "1.5rem" }}>
+        <div className="ccMarketingLiveCard ccSupportProposalCard">
           {/* Card Header */}
-          <div className="ccProposalHeader">
+          <div className="ccMarketingLiveHeader">
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <div className="ccDeptIconBadge" style={{ background: "rgba(16, 185, 129, 0.2)", color: "#34d399" }}>
+              <div className="ccDeptIconBadge emerald">
                 <Headphones size={18} />
               </div>
               <div>
-                <div style={{ color: "#34d399", fontWeight: 700, fontSize: "1rem" }}>
+                <div className="ccSupportHeaderTitle">
                   Bảng Đề Xuất Xử Lý Khiếu Nại &amp; Chăm Sóc Khách Hàng (Support &amp; CRM)
                 </div>
-                <div style={{ color: "#94a3b8", fontSize: "0.78rem" }}>
+                <div className="ccSupportHeaderSubtitle">
                   Được đồng lập bởi <strong>Quản gia CSKH</strong> (Phân tích CSAT) &amp; <strong>Chuyên viên CRM</strong> (Phân khúc VIP &amp; Churn Risk)
                 </div>
               </div>
@@ -2269,13 +2243,13 @@ export function AgenticCommandCenter({
 
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <span className="ccDeptCountBadge emerald">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#10b981" }} />
+                <span className="ccPillDot emerald" />
                 <span>{supportProposal.status === "applied" ? "Đã duyệt xử lý" : "Chờ Giám đốc duyệt"}</span>
               </span>
               <button
                 type="button"
                 className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
+                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
                 onClick={() => setSupportProposal(null)}
                 title="Đóng bảng đề xuất"
               >
@@ -2285,104 +2259,81 @@ export function AgenticCommandCenter({
           </div>
 
           {/* Overall Sentiment & Churn Assessment */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "1rem", marginBottom: "1rem" }}>
-            <div style={{ padding: "0.75rem 1rem", borderRadius: 8, background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#34d399", fontWeight: 600, fontSize: "0.85rem", marginBottom: "0.25rem" }}>
+          <div className="ccProposalSummaryGrid">
+            <div className="ccProposalSummaryBox emerald">
+              <div className="ccProposalSummaryHeader emerald">
                 <HeartHandshake size={15} />
                 <span>Tổng quan Tâm lý CSAT</span>
               </div>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p className="ccProposalSummaryText">
                 {supportProposal.overallSentimentSummary}
               </p>
             </div>
 
-            <div style={{ padding: "0.75rem 1rem", borderRadius: 8, background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#f87171", fontWeight: 600, fontSize: "0.85rem", marginBottom: "0.25rem" }}>
+            <div className="ccProposalSummaryBox danger">
+              <div className="ccProposalSummaryHeader danger">
                 <AlertTriangle size={15} />
                 <span>Đánh giá Nguy cơ Rời bỏ (Churn Risk)</span>
               </div>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+              <p className="ccProposalSummaryText">
                 {supportProposal.churnRiskAssessment}
               </p>
             </div>
           </div>
 
           {/* Table of Support Tickets */}
-          <div style={{ overflowX: "auto", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: 8, background: "rgba(10, 15, 25, 0.6)", marginBottom: "1rem" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", textAlign: "left" }}>
+          <div className="ccProposalTableContainer" style={{ marginBottom: "1rem" }}>
+            <table className="ccProposalTable">
               <thead>
-                <tr style={{ background: "rgba(255, 255, 255, 0.04)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", color: "#94a3b8" }}>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>Khách hàng</th>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>Sự cố &amp; Phân loại</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>Tâm lý</th>
-                  <th style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>Rủi ro Churn</th>
-                  <th style={{ padding: "0.6rem 0.75rem" }}>Kịch bản phản hồi 5 sao &amp; Đề xuất đền bù</th>
+                <tr className="ccProposalTableThRow">
+                  <th>Khách hàng</th>
+                  <th>Sự cố &amp; Phân loại</th>
+                  <th style={{ textAlign: "center" }}>Tâm lý</th>
+                  <th style={{ textAlign: "center" }}>Rủi ro Churn</th>
+                  <th>Kịch bản phản hồi 5 sao &amp; Đề xuất đền bù</th>
                 </tr>
               </thead>
               <tbody>
                 {supportProposal.tickets.map((t) => (
-                  <tr key={t.ticketId} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <td style={{ padding: "0.6rem 0.75rem", color: "#38bdf8", fontWeight: 600 }}>
-                      <div>{t.customerName}</div>
-                      <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{t.customerEmail}</div>
+                  <tr key={t.ticketId} className="ccProposalTableTr">
+                    <td>
+                      <div className="ccProposalCustomerName">{t.customerName}</div>
+                      <div className="ccProposalItemSubtext">{t.customerEmail}</div>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", color: "#f8fafc" }}>
-                      <div style={{ fontWeight: 500 }}>{t.subject}</div>
-                      <span style={{ fontSize: "0.72rem", padding: "0.1rem 0.35rem", borderRadius: 4, background: "rgba(245, 158, 11, 0.15)", color: "#fbbf24" }}>
+                    <td>
+                      <div className="ccProposalItemName">{t.subject}</div>
+                      <span className="ccIssueCategoryBadge">
                         {t.issueCategory}
                       </span>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>
+                    <td style={{ textAlign: "center" }}>
                       <span
-                        style={{
-                          padding: "0.15rem 0.45rem",
-                          borderRadius: 4,
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          background:
-                            t.sentiment === "angry" || t.sentiment === "frustrated"
-                              ? "rgba(239, 68, 68, 0.2)"
-                              : "rgba(16, 185, 129, 0.2)",
-                          color: t.sentiment === "angry" || t.sentiment === "frustrated" ? "#f87171" : "#34d399",
-                        }}
+                        className={`ccSentimentBadge ${
+                          t.sentiment === "angry" || t.sentiment === "frustrated" ? "danger" : "safe"
+                        }`}
                       >
                         {t.sentiment.toUpperCase()}
                       </span>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>
+                    <td style={{ textAlign: "center" }}>
                       <span
-                        style={{
-                          padding: "0.15rem 0.45rem",
-                          borderRadius: 4,
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          background:
-                            t.churnRisk === "high"
-                              ? "rgba(239, 68, 68, 0.2)"
-                              : t.churnRisk === "medium"
-                                ? "rgba(245, 158, 11, 0.2)"
-                                : "rgba(16, 185, 129, 0.2)",
-                          color:
-                            t.churnRisk === "high"
-                              ? "#f87171"
-                              : t.churnRisk === "medium"
-                                ? "#fbbf24"
-                                : "#34d399",
-                        }}
+                        className={`ccSentimentBadge ${
+                          t.churnRisk === "high" ? "danger" : t.churnRisk === "medium" ? "amber" : "safe"
+                        }`}
                       >
                         {t.churnRisk.toUpperCase()}
                       </span>
                     </td>
-                    <td style={{ padding: "0.6rem 0.75rem" }}>
-                      <div style={{ color: "#cbd5e1", lineHeight: 1.4, marginBottom: "0.25rem" }}>
+                    <td>
+                      <div className="ccProposalResponseText">
                         {t.proposedResponse}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
-                        <span style={{ color: "#34d399", fontWeight: 600, fontSize: "0.78rem" }}>
+                        <span className="ccCompensationBadge">
                           🎁 Đền bù: {t.suggestedCompensation}
                         </span>
                         {supportProposal.status === "applied" && (
-                          <span style={{ padding: "0.1rem 0.4rem", borderRadius: 4, background: "rgba(16, 185, 129, 0.15)", color: "#10b981", fontSize: "0.72rem", fontWeight: 700 }}>
+                          <span className="ccSentBadge">
                             ✉️ Email đã gửi
                           </span>
                         )}
@@ -2396,32 +2347,32 @@ export function AgenticCommandCenter({
 
           {/* Table of VIP & Loyal Customers */}
           {supportProposal.vipCustomers && supportProposal.vipCustomers.length > 0 && (
-            <div style={{ overflowX: "auto", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: 8, background: "rgba(10, 15, 25, 0.6)" }}>
-              <div style={{ padding: "0.5rem 0.75rem", background: "rgba(255, 255, 255, 0.03)", color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem" }}>
+            <div className="ccProposalTableContainer">
+              <div className="ccProposalTableSectionHeader">
                 💎 Phân Khúc Khách Hàng VIP &amp; Chiến Lược Giữ Chân
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", textAlign: "left" }}>
+              <table className="ccProposalTable">
                 <thead>
-                  <tr style={{ background: "rgba(255, 255, 255, 0.02)", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", color: "#94a3b8" }}>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Khách hàng</th>
-                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Phân khúc</th>
-                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>Tổng chi tiêu</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Chiến lược chăm sóc riêng biệt</th>
+                  <tr className="ccProposalTableThRow">
+                    <th>Khách hàng</th>
+                    <th style={{ textAlign: "center" }}>Phân khúc</th>
+                    <th style={{ textAlign: "right" }}>Tổng chi tiêu</th>
+                    <th>Chiến lược chăm sóc riêng biệt</th>
                   </tr>
                 </thead>
                 <tbody>
                   {supportProposal.vipCustomers.map((vip) => (
-                    <tr key={vip.customerId} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.04)" }}>
-                      <td style={{ padding: "0.5rem 0.75rem", color: "#f8fafc", fontWeight: 600 }}>{vip.customerName}</td>
-                      <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                        <span style={{ padding: "0.1rem 0.4rem", borderRadius: 4, background: "rgba(245, 158, 11, 0.15)", color: "#fbbf24", fontWeight: 700, fontSize: "0.75rem" }}>
+                    <tr key={vip.customerId} className="ccProposalTableTr">
+                      <td className="ccProposalCustomerName">{vip.customerName}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <span className="ccVipSegmentBadge">
                           {vip.segment}
                         </span>
                       </td>
-                      <td style={{ padding: "0.5rem 0.75rem", textAlign: "right", color: "#34d399", fontWeight: 600 }}>
+                      <td style={{ textAlign: "right" }} className="ccRestockCost">
                         {vip.totalSpentVnd.toLocaleString("vi-VN")} đ
                       </td>
-                      <td style={{ padding: "0.5rem 0.75rem", color: "#94a3b8" }}>{vip.engagementRecommendation}</td>
+                      <td className="ccProposalItemSubtext">{vip.engagementRecommendation}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2435,7 +2386,7 @@ export function AgenticCommandCenter({
               <button
                 type="button"
                 className="ccMarketingActionBtn livePost"
-                style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", borderColor: "rgba(16, 185, 129, 0.4)", display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
                 disabled={isDownloadingSupportDocx}
                 onClick={handleDownloadSupportDocx}
               >

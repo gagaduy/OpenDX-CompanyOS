@@ -1506,6 +1506,472 @@
   flex-shrink: 0;
 }
 
+/* 8. Proposals, Deliverable Tables & Detail Cards (Base Dark Styles) */
+.ccMerchProposalCard {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.ccOperationsProposalCard {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(30, 24, 14, 0.85);
+}
+
+.ccSupportProposalCard {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(6, 78, 59, 0.2);
+}
+
+.ccSupportHeaderTitle {
+  color: #34d399;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.ccSupportHeaderSubtitle {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.ccProposalRationaleBox {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 0.85rem 1.15rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.ccProposalRationaleTitle {
+  color: #38bdf8;
+  font-size: 0.85rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.ccProposalRationaleText {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.ccMerchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.ccMerchProductCard {
+  background: #161c28;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ccMerchProductHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.ccMerchProductTitle {
+  color: #f8fafc;
+  font-size: 0.95rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.ccMerchCategoryBadge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ccMerchDescBox {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid #38bdf8;
+}
+
+.ccMerchDescLabel {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.ccMerchDescText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.ccMerchPriceBox {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ccMerchPriceLabel {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.ccMerchPriceValues {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ccMerchOriginalPrice {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.ccMerchProposedPrice {
+  font-size: 1rem;
+  color: #34d399;
+  font-weight: 700;
+}
+
+.ccMerchDiscountPill {
+  font-size: 0.72rem;
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+  color: #ffffff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.ccMerchTagPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.25rem 0.6rem;
+  border-radius: 5px;
+  color: #34d399;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-top: 0.4rem;
+}
+
+.ccProposalSummaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .ccProposalSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ccProposalSummaryBox {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.ccProposalSummaryBox.info {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.ccProposalSummaryBox.danger {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.ccProposalSummaryBox.emerald {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.ccProposalSummaryTitle.info,
+.ccProposalSummaryHeader.info {
+  color: #38bdf8;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.ccProposalSummaryTitle.danger,
+.ccProposalSummaryHeader.danger {
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.ccProposalSummaryTitle.emerald,
+.ccProposalSummaryHeader.emerald {
+  color: #34d399;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.ccProposalSummaryText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+}
+
+.ccProposalTableContainer {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(10, 15, 25, 0.6);
+}
+
+.ccProposalTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.ccProposalTableThRow {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.ccProposalTableThRow th {
+  padding: 0.6rem 0.75rem;
+}
+
+.ccProposalTableTr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ccProposalTableTr td {
+  padding: 0.6rem 0.75rem;
+}
+
+.ccProposalSkuCell {
+  font-family: monospace;
+  color: #38bdf8;
+}
+
+.ccProposalItemName,
+.ccProposalCustomerName {
+  color: #f8fafc;
+  font-weight: 500;
+}
+
+.ccProposalItemSubtext {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.ccProposalItemCount {
+  color: #e2e8f0;
+}
+
+.ccProposalItemReserved {
+  color: #fbbf24;
+}
+
+.ccStockBadge {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ccStockBadge.critical_low {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.ccStockBadge.slow_moving {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.ccStockBadge.normal,
+.ccStockBadge.healthy {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ccRestockRecommended {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.ccRestockSafe {
+  color: #64748b;
+}
+
+.ccRestockCost {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.ccProposalTableTfootRow {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ccProposalTableTfootRow td {
+  padding: 0.6rem 0.75rem;
+}
+
+.ccProposalTfootTitle {
+  color: #f8fafc;
+}
+
+.ccProposalTfootQty {
+  color: #38bdf8;
+}
+
+.ccProposalTfootCost {
+  color: #34d399;
+}
+
+.ccIssueCategoryBadge {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  display: inline-block;
+  margin-top: 0.2rem;
+}
+
+.ccSentimentBadge {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.ccSentimentBadge.danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.ccSentimentBadge.amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.ccSentimentBadge.safe {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ccProposalResponseText {
+  color: #cbd5e1;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
+.ccCompensationBadge {
+  color: #34d399;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.ccSentBadge {
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.ccProposalTableSectionHeader {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ccVipSegmentBadge {
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.ccDeptIconBadge.emerald {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ccDeptCountBadge.emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.ccPillDot.emerald {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.ccMarketingRevisionBox {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #19202e;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+}
+
+.ccMarketingRevisionTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #121620;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  outline: none;
+}
+
 /* Light Theme Specific Enhancements for Agentic Command Center */
 .consoleLayout[data-theme="light"] .commandCenterWorkspace {
   background: var(--canvas, #f8fafc);
@@ -1792,4 +2258,427 @@
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(56, 189, 248, 0.1));
   border: 1px solid #fed7aa;
   color: #1e293b;
+}
+
+/* Light Theme Overrides for Proposals, Deliverables & AI Workforce Cards */
+.consoleLayout[data-theme="light"] .ccCeoPlanCard {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanHeader {
+  border-bottom: 1px solid #fed7aa;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanTitle {
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanGoal {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #d97706;
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanStepItem {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanStepItem.running {
+  background: #f0f9ff;
+  border-color: #7dd3fc;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+.consoleLayout[data-theme="light"] .ccCeoPlanStepItem.done {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepRole {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepTask {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepStatus {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepStatus.running {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepStatus.done {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStepStatus.pending {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+/* Agent Thinking Cards in Light Mode */
+.consoleLayout[data-theme="light"] .ccAgentCard.activeThinking {
+  background: #ffffff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentCard.activeThinking .ccAgentName {
+  color: #0f172a !important;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentCard.activeThinking .ccAgentContentText.activeCalc {
+  color: #d97706 !important;
+  font-weight: 600;
+}
+
+.consoleLayout[data-theme="light"] .ccProgressBarContainer {
+  background: #e2e8f0;
+}
+
+/* Deliverable Live Cards in Light Mode */
+.consoleLayout[data-theme="light"] .ccMarketingLiveCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingLiveHeader {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingLiveTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingContentBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingHeadline {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingBody {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingHashtags {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingVisualBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingVisualPreview {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingRevisionBox {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingRevisionTextarea {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingActionBtn.livePost {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingActionBtn.livePost:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* Merchandising Proposal in Light Mode */
+.consoleLayout[data-theme="light"] .ccMerchProposalCard {
+  border-color: #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalRationaleBox {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalRationaleTitle {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalRationaleText {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchProductCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .ccMerchProductTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchCategoryBadge {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchDescBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchDescLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchDescText {
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchPriceBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchPriceLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchProposedPrice {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccMerchTagPill {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+/* Operations & Support Proposals in Light Mode */
+.consoleLayout[data-theme="light"] .ccOperationsProposalCard {
+  border-color: #fed7aa;
+  background: #ffffff;
+}
+
+.consoleLayout[data-theme="light"] .ccSupportProposalCard {
+  border-color: #a7f3d0;
+  background: #ffffff;
+}
+
+.consoleLayout[data-theme="light"] .ccSupportHeaderTitle {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccSupportHeaderSubtitle {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryBox.info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryBox.danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryBox.emerald {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryTitle.info,
+.consoleLayout[data-theme="light"] .ccProposalSummaryHeader.info {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryTitle.danger,
+.consoleLayout[data-theme="light"] .ccProposalSummaryHeader.danger {
+  color: #dc2626;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryTitle.emerald,
+.consoleLayout[data-theme="light"] .ccProposalSummaryHeader.emerald {
+  color: #16a34a;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSummaryText {
+  color: #1e293b;
+}
+
+/* Proposal Data Tables in Light Mode */
+.consoleLayout[data-theme="light"] .ccProposalTableContainer {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTableThRow {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTableTr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTableTr:hover {
+  background: #f8fafc;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalSkuCell {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalItemName,
+.consoleLayout[data-theme="light"] .ccProposalCustomerName {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalItemSubtext {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalItemCount {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalItemReserved {
+  color: #d97706;
+}
+
+.consoleLayout[data-theme="light"] .ccStockBadge.critical_low {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.consoleLayout[data-theme="light"] .ccStockBadge.slow_moving {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.consoleLayout[data-theme="light"] .ccStockBadge.normal,
+.consoleLayout[data-theme="light"] .ccStockBadge.healthy {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.consoleLayout[data-theme="light"] .ccRestockRecommended {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccRestockSafe {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccRestockCost {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTableTfootRow {
+  background: #f8fafc;
+  border-top: 2px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTfootTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTfootQty {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTfootCost {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccIssueCategoryBadge {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.consoleLayout[data-theme="light"] .ccSentimentBadge.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.consoleLayout[data-theme="light"] .ccSentimentBadge.amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccSentimentBadge.safe {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalResponseText {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccCompensationBadge {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccSentBadge {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.consoleLayout[data-theme="light"] .ccProposalTableSectionHeader {
+  background: #f8fafc;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccVipSegmentBadge {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptIconBadge.emerald {
+  background: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptCountBadge.emerald {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
 }
