@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Settle exhausted AI CEO planning model runs, prevent sensitive field reflection in AI runtime validation errors, and scope Phase C tool verification to Phase C departments.
 - Fix cross-account data leakage and stale session persistence in Storefront:
   - Keyed `CartProvider` and `WishlistProvider` by active customer session identity (`sessionKey`) in `StorefrontSessionBoundary` to eliminate stale cart and wishlist retention across account switches.
   - Updated `useCustomerAccount` and `useOrders` hooks to track `customerId` and `sessionLoading`, immediately refreshing profile, addresses, and order history when switching accounts while clearing data on logout.

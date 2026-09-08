@@ -34,7 +34,6 @@ def create_app(
         _request: object, _error: RequestValidationError
     ) -> JSONResponse:
         import logging
-        logging.getLogger("uvicorn.error").error("Validation error: %s", _error.errors())
-        return JSONResponse(status_code=422, content={"detail": "REQUEST_INVALID", "errors": str(_error.errors())})
+        return JSONResponse(status_code=422, content={"detail": "REQUEST_INVALID"})
 
     return application
