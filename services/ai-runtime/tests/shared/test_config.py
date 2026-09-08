@@ -32,8 +32,8 @@ def test_development_accepts_private_plaintext_temporal() -> None:
     assert settings.temporal.namespace == "opendx"
     assert settings.temporal.task_queue == "store-health-v1"
     assert settings.temporal.tls is None
-    assert settings.activity.start_to_close_seconds == 30
-    assert settings.activity.schedule_to_close_seconds == 180
+    assert settings.activity.start_to_close_seconds == 120
+    assert settings.activity.schedule_to_close_seconds == 300
     assert settings.activity.fake_delay_ms == 0
     assert settings.openrouter == OpenRouterSettings(
         execution_enabled=False,

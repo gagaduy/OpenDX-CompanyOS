@@ -102,10 +102,10 @@ class RuntimeSettings:
     def from_mapping(cls, values: Mapping[str, str]) -> RuntimeSettings:
         environment = _environment(values)
         start_to_close = _positive_integer(
-            values, "ACTIVITY_START_TO_CLOSE_SECONDS", 30, maximum=86_400
+            values, "ACTIVITY_START_TO_CLOSE_SECONDS", 120, maximum=86_400
         )
         schedule_to_close = _positive_integer(
-            values, "ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS", 180, maximum=86_400
+            values, "ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS", 300, maximum=86_400
         )
         if schedule_to_close < start_to_close:
             raise ConfigurationError(

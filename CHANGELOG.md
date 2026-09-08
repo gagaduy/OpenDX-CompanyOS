@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Keep the AI CEO planning schema synchronized between the API and Python runtime after adding Marketing owners, and allow live LLM activities enough time to finish, so valid CEO-to-department tasks are not rejected or canceled prematurely.
 - Synchronize Facebook and Instagram publication preview images with the generated campaign visual, including version changes, loading, and retryable errors.
 - Stop Marketing image generation from saving a gradient placeholder on provider failure; request explicit image output, use the complete campaign brief, validate PNG bytes, and expose configurable model selection and timeout.
 - Display the actual Marketing-rendered visual from authenticated private storage in the campaign preview, with asset-derived dimensions, version updates, and retryable errors instead of a hardcoded placeholder.
