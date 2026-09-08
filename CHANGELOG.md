@@ -63,6 +63,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Lock Console left sidebar into fixed viewport height (`100vh`) with dedicated scrolling workspace (`.consoleWorkspace`), preventing sidebar displacement on vertical page scroll.
+- Add pagination (5 items per page), compact cell padding, and expandable response script previews to AI CEO Command Center proposal tables (Support tickets, VIP customers, and inventory restock items).
 - Fix light mode contrast and hardcoded dark styling in Console:
   - Fix faint, washed-out text in Campaign Brief card (`briefSubjectText`, `briefObjectiveText`, `briefAudienceText`, `briefCtaText`, `briefMandatoryBox`) under `.consoleLayout[data-theme="light"]`.
   - Fix hardcoded dark containers and styling in Multi-Platform Publication Targets card under light theme.

@@ -115,11 +115,14 @@ export function AgenticCommandCenter({
   const [operationsProposal, setOperationsProposal] = useState<any | null>(null);
   const [operationsActionLoading, setOperationsActionLoading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
+  const [operationsPage, setOperationsPage] = useState(1);
 
   // Customer Support & CRM State
   const [supportProposal, setSupportProposal] = useState<AiSupportProposalView | null>(null);
   const [supportActionLoading, setSupportActionLoading] = useState(false);
   const [isDownloadingSupportDocx, setIsDownloadingSupportDocx] = useState(false);
+  const [supportTicketsPage, setSupportTicketsPage] = useState(1);
+  const [supportVipPage, setSupportVipPage] = useState(1);
 
   // Stepped Visual Progression & CEO Planning
   const [ceoPlan, setCeoPlan] = useState<{
@@ -461,6 +464,8 @@ export function AgenticCommandCenter({
 
         const proposal = await supportApi.generateSupportProposal(goalText);
         setSupportProposal(proposal);
+        setSupportTicketsPage(1);
+        setSupportVipPage(1);
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
         setCeoPlan((prev) =>
@@ -542,6 +547,7 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(goalText);
         setOperationsProposal(proposal);
+        setOperationsPage(1);
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
         setCeoPlan((prev) =>
@@ -2134,36 +2140,38 @@ export function AgenticCommandCenter({
                 </tr>
               </thead>
               <tbody>
-                {operationsProposal.items?.map((item: any) => (
-                  <tr key={item.variantId || item.sku} className="ccProposalTableTr">
-                    <td className="ccProposalSkuCell">{item.sku}</td>
-                    <td>
-                      <div className="ccProposalItemName">{item.productName}</div>
-                      <div className="ccProposalItemSubtext">{item.actionRationale}</div>
-                    </td>
-                    <td style={{ textAlign: "center" }} className="ccProposalItemCount">{item.currentOnHand}</td>
-                    <td style={{ textAlign: "center" }} className="ccProposalItemReserved">{item.currentReserved}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`ccStockBadge ${item.stockStatus}`}
-                      >
-                        {item.availableQuantity}
-                      </span>
-                    </td>
-                    <td>
-                      {item.recommendedRestockQuantity > 0 ? (
-                        <span className="ccRestockRecommended">
-                          +{item.recommendedRestockQuantity} đơn vị
+                {operationsProposal.items
+                  ?.slice((operationsPage - 1) * 5, operationsPage * 5)
+                  .map((item: any) => (
+                    <tr key={item.variantId || item.sku} className="ccProposalTableTr">
+                      <td className="ccProposalSkuCell">{item.sku}</td>
+                      <td>
+                        <div className="ccProposalItemName">{item.productName}</div>
+                        <div className="ccProposalItemSubtext">{item.actionRationale}</div>
+                      </td>
+                      <td style={{ textAlign: "center" }} className="ccProposalItemCount">{item.currentOnHand}</td>
+                      <td style={{ textAlign: "center" }} className="ccProposalItemReserved">{item.currentReserved}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          className={`ccStockBadge ${item.stockStatus}`}
+                        >
+                          {item.availableQuantity}
                         </span>
-                      ) : (
-                        <span className="ccRestockSafe">Đã đủ an toàn</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "right" }} className="ccRestockCost">
-                      {item.estimatedTotalCostVnd > 0 ? `${item.estimatedTotalCostVnd.toLocaleString("vi-VN")} đ` : "—"}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        {item.recommendedRestockQuantity > 0 ? (
+                          <span className="ccRestockRecommended">
+                            +{item.recommendedRestockQuantity} đơn vị
+                          </span>
+                        ) : (
+                          <span className="ccRestockSafe">Đã đủ an toàn</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right" }} className="ccRestockCost">
+                        {item.estimatedTotalCostVnd > 0 ? `${item.estimatedTotalCostVnd.toLocaleString("vi-VN")} đ` : "—"}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
               <tfoot>
                 <tr className="ccProposalTableTfootRow">
@@ -2179,6 +2187,14 @@ export function AgenticCommandCenter({
                 </tr>
               </tfoot>
             </table>
+            <ProposalPagination
+              currentPage={operationsPage}
+              totalPages={Math.max(1, Math.ceil((operationsProposal.items?.length || 0) / 5))}
+              totalItems={operationsProposal.items?.length || 0}
+              pageSize={5}
+              itemName="mặt hàng"
+              onPageChange={setOperationsPage}
+            />
           </div>
 
           {/* Action Row */}
@@ -2294,55 +2310,63 @@ export function AgenticCommandCenter({
                 </tr>
               </thead>
               <tbody>
-                {supportProposal.tickets.map((t) => (
-                  <tr key={t.ticketId} className="ccProposalTableTr">
-                    <td>
-                      <div className="ccProposalCustomerName">{t.customerName}</div>
-                      <div className="ccProposalItemSubtext">{t.customerEmail}</div>
-                    </td>
-                    <td>
-                      <div className="ccProposalItemName">{t.subject}</div>
-                      <span className="ccIssueCategoryBadge">
-                        {t.issueCategory}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`ccSentimentBadge ${
-                          t.sentiment === "angry" || t.sentiment === "frustrated" ? "danger" : "safe"
-                        }`}
-                      >
-                        {t.sentiment.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`ccSentimentBadge ${
-                          t.churnRisk === "high" ? "danger" : t.churnRisk === "medium" ? "amber" : "safe"
-                        }`}
-                      >
-                        {t.churnRisk.toUpperCase()}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="ccProposalResponseText">
-                        {t.proposedResponse}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
-                        <span className="ccCompensationBadge">
-                          🎁 Đền bù: {t.suggestedCompensation}
+                {supportProposal.tickets
+                  .slice((supportTicketsPage - 1) * 5, supportTicketsPage * 5)
+                  .map((t) => (
+                    <tr key={t.ticketId} className="ccProposalTableTr">
+                      <td>
+                        <div className="ccProposalCustomerName">{t.customerName}</div>
+                        <div className="ccProposalItemSubtext">{t.customerEmail}</div>
+                      </td>
+                      <td>
+                        <div className="ccProposalItemName">{t.subject}</div>
+                        <span className="ccIssueCategoryBadge">
+                          {t.issueCategory}
                         </span>
-                        {supportProposal.status === "applied" && (
-                          <span className="ccSentBadge">
-                            ✉️ Email đã gửi
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          className={`ccSentimentBadge ${
+                            t.sentiment === "angry" || t.sentiment === "frustrated" ? "danger" : "safe"
+                          }`}
+                        >
+                          {t.sentiment.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          className={`ccSentimentBadge ${
+                            t.churnRisk === "high" ? "danger" : t.churnRisk === "medium" ? "amber" : "safe"
+                          }`}
+                        >
+                          {t.churnRisk.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <CompactProposedResponse text={t.proposedResponse} />
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
+                          <span className="ccCompensationBadge">
+                            🎁 Đền bù: {t.suggestedCompensation}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {supportProposal.status === "applied" && (
+                            <span className="ccSentBadge">
+                              ✉️ Email đã gửi
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
+            <ProposalPagination
+              currentPage={supportTicketsPage}
+              totalPages={Math.max(1, Math.ceil(supportProposal.tickets.length / 5))}
+              totalItems={supportProposal.tickets.length}
+              pageSize={5}
+              itemName="khiếu nại"
+              onPageChange={setSupportTicketsPage}
+            />
           </div>
 
           {/* Table of VIP & Loyal Customers */}
@@ -2361,22 +2385,32 @@ export function AgenticCommandCenter({
                   </tr>
                 </thead>
                 <tbody>
-                  {supportProposal.vipCustomers.map((vip) => (
-                    <tr key={vip.customerId} className="ccProposalTableTr">
-                      <td className="ccProposalCustomerName">{vip.customerName}</td>
-                      <td style={{ textAlign: "center" }}>
-                        <span className="ccVipSegmentBadge">
-                          {vip.segment}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }} className="ccRestockCost">
-                        {vip.totalSpentVnd.toLocaleString("vi-VN")} đ
-                      </td>
-                      <td className="ccProposalItemSubtext">{vip.engagementRecommendation}</td>
-                    </tr>
-                  ))}
+                  {supportProposal.vipCustomers
+                    .slice((supportVipPage - 1) * 5, supportVipPage * 5)
+                    .map((vip) => (
+                      <tr key={vip.customerId} className="ccProposalTableTr">
+                        <td className="ccProposalCustomerName">{vip.customerName}</td>
+                        <td style={{ textAlign: "center" }}>
+                          <span className="ccVipSegmentBadge">
+                            {vip.segment}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }} className="ccRestockCost">
+                          {vip.totalSpentVnd.toLocaleString("vi-VN")} đ
+                        </td>
+                        <td className="ccProposalItemSubtext">{vip.engagementRecommendation}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
+              <ProposalPagination
+                currentPage={supportVipPage}
+                totalPages={Math.max(1, Math.ceil((supportProposal.vipCustomers?.length || 0) / 5))}
+                totalItems={supportProposal.vipCustomers?.length || 0}
+                pageSize={5}
+                itemName="khách hàng VIP"
+                onPageChange={setSupportVipPage}
+              />
             </div>
           )}
 
@@ -2818,6 +2852,91 @@ function AgentCard({
         <div className="ccProgressBarContainer">
           <div className="ccProgressBarFill" />
         </div>
+      )}
+    </div>
+  );
+}
+
+interface ProposalPaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  itemName: string;
+  onPageChange: (page: number) => void;
+}
+
+function ProposalPagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  itemName,
+  onPageChange,
+}: ProposalPaginationProps) {
+  if (totalItems <= pageSize) return null;
+
+  const startIdx = (currentPage - 1) * pageSize + 1;
+  const endIdx = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="ccProposalPagination">
+      <div className="ccProposalPaginationInfo">
+        Hiển thị <strong>{startIdx}–{endIdx}</strong> / <strong>{totalItems}</strong> {itemName}
+      </div>
+      <div className="ccProposalPaginationActions">
+        <button
+          type="button"
+          className="ccProposalPaginationBtn"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          aria-label="Trang trước"
+        >
+          ◀ Trước
+        </button>
+        <div className="ccProposalPaginationPages">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`ccProposalPaginationPageNum ${p === currentPage ? "active" : ""}`}
+              onClick={() => onPageChange(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="ccProposalPaginationBtn"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          aria-label="Trang sau"
+        >
+          Sau ▶
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompactProposedResponse({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 140;
+
+  return (
+    <div>
+      <div className={`ccProposalResponseText ${isLong && !expanded ? "clamped" : ""}`}>
+        {text}
+      </div>
+      {isLong && (
+        <button
+          type="button"
+          className="ccProposalExpandToggle"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? "Thu gọn ▲" : "Xem toàn bộ kịch bản ▼"}
+        </button>
       )}
     </div>
   );
