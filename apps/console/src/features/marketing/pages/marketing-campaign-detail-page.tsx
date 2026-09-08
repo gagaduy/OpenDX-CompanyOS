@@ -20,6 +20,27 @@ export function MarketingCampaignDetailPage({
 }) {
   const { campaignId } = useParams();
   const [detail, setDetail] = useState<MarketingCampaignDetail | null>(null);
+  const visualId = detail && detail.campaign.id === campaignId ? detail.visualAssets.at(-1)?.id : undefined;
+  const [preview, setPreview] = useState<{ id: string; url?: string; error: boolean }>();
+  const [previewRetry, setPreviewRetry] = useState(0);
+
+  useEffect(() => {
+    setPreview(undefined);
+    if (!visualId) return;
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+    void api.fetchVisualAssetBlob(visualId, controller.signal).then((blob) => {
+      if (controller.signal.aborted) return;
+      objectUrl = URL.createObjectURL(blob);
+      setPreview({ id: visualId, url: objectUrl, error: false });
+    }).catch(() => {
+      if (!controller.signal.aborted) setPreview({ id: visualId, error: true });
+    });
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [api, visualId, previewRetry]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +387,11 @@ export function MarketingCampaignDetailPage({
       {/* Creative Split: Content Draft & Visual Asset */}
       <div className="marketingDetailGrid">
         <ContentDraftPreview contents={contentVersions} />
-        <VisualAssetPreview visuals={visualAssets} />
+        <VisualAssetPreview visuals={visualAssets}
+          imageUrl={preview?.id === visualId ? preview?.url : undefined}
+          loading={Boolean(visualId) && preview?.id !== visualId}
+          error={preview?.id === visualId && preview?.error === true}
+          onRetry={() => setPreviewRetry((value) => value + 1)} />
       </div>
 
       {/* Deliverables Panel */}
@@ -382,6 +407,10 @@ export function MarketingCampaignDetailPage({
         brief={brief}
         content={latestContent}
         visual={latestVisual}
+        imageUrl={preview?.id === visualId ? preview?.url : undefined}
+        imageLoading={Boolean(visualId) && preview?.id !== visualId}
+        imageError={preview?.id === visualId && preview?.error === true}
+        onImageRetry={() => setPreviewRetry((value) => value + 1)}
         targets={targets}
       />
     </div>

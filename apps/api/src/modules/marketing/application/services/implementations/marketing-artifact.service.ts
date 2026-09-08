@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type {
   GeneratedArtifactPayload,
   MarketingArtifactService,
+  VisualAssetPayload,
 } from "../interfaces/marketing-artifact-generator.service";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
 import type {
@@ -136,6 +137,27 @@ export class MarketingArtifactServiceImpl implements MarketingArtifactService {
     }
 
     return results;
+  }
+
+  async getVisualAssetPayload(assetId: string): Promise<VisualAssetPayload | null> {
+    const asset = await this.marketingRepository.findVisualAssetById(assetId);
+    if (!asset) return null;
+    if (!this.storageReader) throw MarketingApplicationError.assetStorageUnavailable();
+
+    let buffer: Buffer;
+    try {
+      buffer = await this.storageReader(asset.storageKey);
+    } catch {
+      throw MarketingApplicationError.assetStorageUnavailable();
+    }
+    if (
+      buffer.length === 0
+      || buffer.length !== asset.byteSize
+      || createHash("sha256").update(buffer).digest("hex") !== asset.imageDigest
+    ) {
+      throw MarketingApplicationError.assetStorageUnavailable();
+    }
+    return { asset, buffer };
   }
 
   async getArtifactById(artifactId: string): Promise<MarketingArtifact | null> {

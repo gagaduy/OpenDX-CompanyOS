@@ -12,6 +12,7 @@ import {
   approveMarketingCampaignSchema,
   requestRevisionMarketingCampaignSchema,
   qualityFeedbackMarketingCampaignSchema,
+  visualAssetParamsSchema,
 } from "../validators/marketing.validator";
 import { ApplicationError } from "../../../../shared/http/application-error";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
@@ -307,6 +308,26 @@ export class MarketingController {
 
       const items = await this.artifactService.listArtifactsByCampaignId(campaignId);
       res.status(200).json({ items, total: items.length });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  previewVisualAsset = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { assetId } = visualAssetParamsSchema.parse(req.params);
+      if (!this.artifactService) {
+        throw MarketingApplicationError.assetStorageUnavailable();
+      }
+      const payload = await this.artifactService.getVisualAssetPayload(assetId);
+      if (!payload) {
+        throw new ApplicationError(404, "VISUAL_ASSET_NOT_FOUND", "Visual asset not found.");
+      }
+      res.setHeader("Content-Type", payload.asset.mediaType);
+      res.setHeader("Content-Length", payload.buffer.length);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.status(200).send(payload.buffer);
     } catch (error) {
       next(error);
     }

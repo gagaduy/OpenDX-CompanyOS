@@ -47,6 +47,7 @@ export function createMarketingAdminRouter(options: CreateMarketingRouterOptions
   router.post("/campaigns/:campaignId/generate-deliverables", requireStaffRole(...operatorRoles), controller.generateDeliverables);
   router.get("/campaigns/:campaignId/artifacts", requireStaffRole(...viewerRoles), controller.listArtifacts);
   router.get("/artifacts/:artifactId/download", requireStaffRole(...viewerRoles), controller.downloadArtifact);
+  router.get("/visual-assets/:assetId/preview", requireStaffRole(...viewerRoles), controller.previewVisualAsset);
 
   return router;
 }

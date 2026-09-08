@@ -369,6 +369,19 @@ describe("MarketingCampaignService", () => {
     expect(detail.contentVersions).toEqual([]);
   });
 
+  it("does not advance to review or create a visual when generation fails", async () => {
+    const created = await service.createCampaign("operator-1", validBriefInput);
+    repository.campaigns.set(created.id, { ...repository.campaigns.get(created.id)!, state: "campaign_review" });
+    const revisionService = new MarketingCampaignService({
+      repository,
+      materializeVisualAsset: vi.fn().mockRejectedValue(new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", "No valid image")),
+    });
+    await expect(revisionService.requestRevision("operator-1", created.id, { feedback: "Regenerate image", targetVersion: "visual" })).rejects.toMatchObject({ errorCode: "MARKETING_VISUAL_GENERATION_FAILED" });
+    expect(repository.campaigns.get(created.id)?.state).toBe("failed");
+    expect(await repository.findVisualAssetsByCampaignId(created.id)).toEqual([]);
+    expect(await repository.findPublicationPackagesByCampaignId(created.id)).toEqual([]);
+  });
+
   it("materializes revised PNG bytes, creates multi-platform targets, and enables approval", async () => {
     const created = await service.createCampaign("operator-1", validBriefInput);
     repository.campaigns.set(created.id, {
@@ -450,6 +463,8 @@ describe("MarketingCampaignService", () => {
     }));
 
     const latestPkg = repository.packages.get(created.id)?.at(-1);
+    expect(materializeVisualAsset.mock.calls[0]![0].prompt).toContain(validBriefInput.mandatoryMessage);
+    expect(materializeVisualAsset.mock.calls[0]![0].prompt).toContain("Use a brighter visual");
     const latestVisual = repository.visuals.get(created.id)?.at(-1);
     expect(latestVisual).toMatchObject({
       width: 1024,

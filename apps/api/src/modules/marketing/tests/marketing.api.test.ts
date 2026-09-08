@@ -136,6 +136,37 @@ describe("Marketing Admin API", () => {
     provenance: [],
   };
 
+  it("serves private visual bytes only to authorized staff and validates the asset ID", async () => {
+    const service: IMarketingCampaignService = {
+      createCampaign: vi.fn(), getCampaign: vi.fn(), listCampaigns: vi.fn(),
+      markReady: vi.fn(), cancelCampaign: vi.fn(), approveCampaign: vi.fn(),
+      requestRevision: vi.fn(), qualityFeedback: vi.fn(),
+    };
+    const buffer = Buffer.from("rendered-png");
+    const artifactService: MarketingArtifactService = {
+      getVisualAssetPayload: vi.fn().mockResolvedValue({ asset: { mediaType: "image/png" }, buffer }),
+      generateAllDeliverables: vi.fn(), getArtifactById: vi.fn(),
+      getArtifactPayload: vi.fn(), listArtifactsByCampaignId: vi.fn(),
+    };
+    const path = `/v1/admin/marketing/visual-assets/${sampleArtifact.id}/preview`;
+    const app = createTestApp(service, artifactService, ["agentic_auditor"]);
+    expect((await request(app).get(path)).status).toBe(401);
+    expect((await request(createTestApp(service, artifactService, [])).get(path)
+      .set("Authorization", "Bearer valid-token")).status).toBe(403);
+    expect(artifactService.getVisualAssetPayload).not.toHaveBeenCalled();
+    expect((await request(app).get("/v1/admin/marketing/visual-assets/not-a-uuid/preview")
+      .set("Authorization", "Bearer valid-token")).status).toBe(400);
+    expect(artifactService.getVisualAssetPayload).not.toHaveBeenCalled();
+    const response = await request(app).get(path).set("Authorization", "Bearer valid-token");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(buffer);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.headers["content-type"]).toContain("image/png");
+    expect(artifactService.getVisualAssetPayload).toHaveBeenCalledWith(sampleArtifact.id);
+    vi.mocked(artifactService.getVisualAssetPayload).mockResolvedValue(null);
+    expect((await request(app).get(path).set("Authorization", "Bearer valid-token")).status).toBe(404);
+  });
+
   it("POST /campaigns returns 201 when authenticated as operator with valid payload and idempotency key", async () => {
     const mockService: IMarketingCampaignService = {
       createCampaign: vi.fn().mockResolvedValue(sampleCampaignDto),
@@ -659,6 +690,7 @@ describe("Marketing Admin API", () => {
       qualityFeedback: vi.fn(),
     };
     const mockArtifactService: MarketingArtifactService = {
+      getVisualAssetPayload: vi.fn(),
       generateAllDeliverables: vi.fn().mockResolvedValue([sampleArtifact]),
       getArtifactById: vi.fn(),
       getArtifactPayload: vi.fn(),
@@ -689,6 +721,7 @@ describe("Marketing Admin API", () => {
     };
     const sampleBuffer = Buffer.from("PK\x03\x04test_docx");
     const mockArtifactService: MarketingArtifactService = {
+      getVisualAssetPayload: vi.fn(),
       generateAllDeliverables: vi.fn(),
       getArtifactById: vi.fn(),
       getArtifactPayload: vi.fn().mockResolvedValue({

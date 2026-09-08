@@ -355,21 +355,26 @@
   font-weight: 600;
 }
 
-/* Visual 1:1 Frame */
+/* Rendered visual preview */
 .visualPreviewFrame {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  background: var(--surface-1, #0f1011);
   border: 2px dashed rgba(255, 255, 255, 0.12);
-  border-radius: 1rem;
+  border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
   text-align: center;
+}
+
+.visualPreviewFrame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .visualFrameBadge {
@@ -507,6 +512,25 @@
   line-height: 1.5;
   white-space: pre-wrap;
   color: #e4e6eb;
+}
+
+.publicationPreviewTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.publicationPreviewTabs button {
+  min-width: 0;
+  justify-content: center;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .publicationPreviewTabs button {
+    padding: 0.65rem 0.25rem !important;
+    font-size: 0.75rem !important;
+    flex-direction: column;
+  }
 }
 
 .fbImageSection {

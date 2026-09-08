@@ -10,6 +10,7 @@ import type {
 } from "../types";
 
 export interface MarketingApi {
+  fetchVisualAssetBlob(assetId: string, signal?: AbortSignal): Promise<Blob>;
   listCampaigns(params?: { limit?: number; offset?: number }, signal?: AbortSignal): Promise<{ items: readonly MarketingCampaign[]; total: number }>;
   getCampaign(id: string, signal?: AbortSignal): Promise<MarketingCampaignDetail>;
   createCampaign(input: CreateMarketingCampaignInput, idempotencyKey: string): Promise<MarketingCampaign>;
@@ -47,6 +48,17 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
   };
 
   return {
+    async fetchVisualAssetBlob(assetId, signal) {
+      const response = await fetch(`${baseUrl}/v1/admin/marketing/visual-assets/${encodeURIComponent(assetId)}/preview`, {
+        signal,
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "x-correlation-id": crypto.randomUUID(),
+        },
+      });
+      if (!response.ok) throw new Error(`Failed to fetch visual asset: ${response.status}`);
+      return response.blob();
+    },
     async listCampaigns(params, signal) {
       const query = new URLSearchParams();
       if (params?.limit) query.set("limit", String(params.limit));

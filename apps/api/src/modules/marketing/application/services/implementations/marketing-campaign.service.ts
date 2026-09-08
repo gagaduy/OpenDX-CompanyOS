@@ -68,6 +68,7 @@ export interface MaterializeMarketingVisualAssetInput {
   readonly width: number;
   readonly height: number;
   readonly altText: string;
+  readonly prompt?: string;
 }
 
 export interface MaterializedMarketingVisualAsset {
@@ -500,15 +501,28 @@ Yêu cầu trả về đúng định dạng JSON không bọc markdown theo cấ
     }
     const storageKey = `marketing/${campaignId}/visual_v${newVersionNumber}.png`;
     const altText = `Hình ảnh chiến dịch v${newVersionNumber} - ${brief?.campaignName ?? "NovaCommerce"}`;
-    const materializedVisual = await this.materializeVisualAsset({
-      campaignId,
-      versionNumber: newVersionNumber,
-      storageKey,
-      mediaType: "image/png",
-      width: 1080,
-      height: 1080,
-      altText,
-    });
+    let materializedVisual: MaterializedMarketingVisualAsset;
+    try {
+      materializedVisual = await this.materializeVisualAsset({
+        campaignId,
+        versionNumber: newVersionNumber,
+        storageKey,
+        mediaType: "image/png",
+        width: 1080,
+        height: 1080,
+        altText,
+        prompt: [
+          brief?.campaignName,
+          brief?.subjectReference,
+          brief?.mandatoryMessage,
+          brief?.objective,
+          feedbackNote,
+        ].filter(Boolean).join("\n"),
+      });
+    } catch (error) {
+      await this.repository.updateCampaignState(campaignId, step3.version, "failed");
+      throw error;
+    }
 
     const newVisual: VisualAsset = {
       id: newVisualId,

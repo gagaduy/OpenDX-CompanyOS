@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketingArtifactServiceImpl } from "./marketing-artifact.service";
 import type { MarketingRepository } from "../../repositories/interfaces/marketing.repository";
 import {
@@ -255,6 +256,24 @@ describe("MarketingArtifactService", () => {
       marketingRepository: repository,
       now: () => fixedNow,
     });
+  });
+
+  it("reads the exact rendered visual from its stored key before deliverables exist", async () => {
+    const buffer = Buffer.from("rendered-image-bytes");
+    const asset = { ...repository.visuals.get(campaignId)![0]!, byteSize: buffer.length,
+      imageDigest: createHash("sha256").update(buffer).digest("hex") };
+    repository.visuals.set(campaignId, [asset]);
+    const storageReader = vi.fn().mockResolvedValue(buffer);
+    const reader = new MarketingArtifactServiceImpl({ marketingRepository: repository, storageReader });
+    expect(await reader.getVisualAssetPayload(visualId)).toEqual({ asset, buffer });
+    expect(storageReader).toHaveBeenCalledWith(asset.storageKey);
+    expect(await reader.getVisualAssetPayload("missing")).toBeNull();
+    storageReader.mockResolvedValue(Buffer.from("wrong-image"));
+    await expect(reader.getVisualAssetPayload(visualId)).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it("does not substitute a placeholder when visual storage is unavailable", async () => {
+    await expect(service.getVisualAssetPayload(visualId)).rejects.toMatchObject({ statusCode: 503 });
   });
 
   it("generates all 5 required marketing deliverables with non-empty bytes and valid digests", async () => {

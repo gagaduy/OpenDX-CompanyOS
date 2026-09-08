@@ -4,13 +4,20 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MarketingApi } from "../api/marketing-api";
 import type { MarketingCampaign, MarketingCampaignDetail } from "../types";
 import { MarketingCampaignListPage } from "../pages/marketing-campaign-list-page";
 import { MarketingCampaignDetailPage } from "../pages/marketing-campaign-detail-page";
 
 describe("Marketing Console Pages", () => {
+  beforeEach(() => {
+    vi.stubGlobal("URL", class extends URL {
+      static createObjectURL = vi.fn(() => "blob:marketing-visual");
+      static revokeObjectURL = vi.fn();
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
   const sampleCampaign: MarketingCampaign = {
     id: "00000000-0000-4000-8000-000000000001",
     state: "awaiting_human_approval",
@@ -173,6 +180,7 @@ describe("Marketing Console Pages", () => {
 
   it("renders MarketingCampaignListPage with campaign items", async () => {
     const mockApi: MarketingApi = {
+      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
       listCampaigns: vi.fn().mockResolvedValue({ items: [sampleCampaign], total: 1 }),
       getCampaign: vi.fn(),
       createCampaign: vi.fn(),
@@ -201,6 +209,7 @@ describe("Marketing Console Pages", () => {
 
   it("renders MarketingCampaignDetailPage with full control room details", async () => {
     const mockApi: MarketingApi = {
+      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
       listCampaigns: vi.fn(),
       getCampaign: vi.fn().mockResolvedValue(sampleDetail),
       createCampaign: vi.fn(),
@@ -230,6 +239,8 @@ describe("Marketing Console Pages", () => {
     expect(await screen.findAllByText(/NovaPhone 15 Launch Campaign/i)).toHaveLength(2);
     expect(screen.getAllByText(/Tặng tai nghe không dây khi đặt trước/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Siêu phẩm NovaPhone 15/i)).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "NovaPhone 15 Studio Render" })).toHaveAttribute("src", "blob:marketing-visual");
+    expect(mockApi.fetchVisualAssetBlob).toHaveBeenCalledWith("visual-1", expect.any(AbortSignal));
     expect(screen.getByText(/Xem bài trên Facebook/i)).toBeInTheDocument();
 
     // Verify multi-target cards rendered
@@ -238,16 +249,25 @@ describe("Marketing Console Pages", () => {
     expect(screen.getByText(/Instagram • Feed Image \(1:1\)/i)).toBeInTheDocument();
 
     // Click Approve button
+    vi.mocked(URL.createObjectURL).mockReturnValueOnce("blob:revised-visual");
+    vi.mocked(mockApi.getCampaign).mockResolvedValueOnce({
+      ...sampleDetail,
+      visualAssets: [{ ...sampleDetail.visualAssets[0]!, id: "visual-2", versionNumber: 2 }],
+    });
     const approveBtn = screen.getByRole("button", { name: /Approve & Publish to Facebook/i });
     await userEvent.click(approveBtn);
 
     await waitFor(() => {
       expect(mockApi.approveCampaign).toHaveBeenCalledWith(sampleCampaign.id, { decision: "approve" });
     });
+    await waitFor(() => expect(screen.getByRole("img", { name: "NovaPhone 15 Studio Render" })).toHaveAttribute("src", "blob:revised-visual"));
+    expect(mockApi.fetchVisualAssetBlob).toHaveBeenCalledWith("visual-2", expect.any(AbortSignal));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:marketing-visual");
   });
 
   it("opens multi-platform live post preview modal", async () => {
     const mockApi: MarketingApi = {
+      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
       listCampaigns: vi.fn(),
       getCampaign: vi.fn().mockResolvedValue(sampleDetail),
       createCampaign: vi.fn(),
@@ -312,6 +332,7 @@ describe("Marketing Console Pages", () => {
     };
     const retryPublication = vi.fn().mockResolvedValue({});
     const mockApi = {
+      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
       listCampaigns: vi.fn(),
       getCampaign: vi.fn().mockResolvedValue(failedDetail),
       createCampaign: vi.fn(),

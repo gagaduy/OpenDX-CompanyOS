@@ -23,6 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Synchronize Facebook and Instagram publication preview images with the generated campaign visual, including version changes, loading, and retryable errors.
+- Stop Marketing image generation from saving a gradient placeholder on provider failure; request explicit image output, use the complete campaign brief, validate PNG bytes, and expose configurable model selection and timeout.
+- Display the actual Marketing-rendered visual from authenticated private storage in the campaign preview, with asset-derived dimensions, version updates, and retryable errors instead of a hardcoded placeholder.
 - Settle exhausted AI CEO planning model runs, prevent sensitive field reflection in AI runtime validation errors, and scope Phase C tool verification to Phase C departments.
 - Fix cross-account data leakage and stale session persistence in Storefront:
   - Keyed `CartProvider` and `WishlistProvider` by active customer session identity (`sessionKey`) in `StorefrontSessionBoundary` to eliminate stale cart and wishlist retention across account switches.

@@ -3,6 +3,8 @@
 
 import { z } from "zod";
 
+export const visualAssetParamsSchema = z.object({ assetId: z.uuid() });
+
 export const provenanceItemSchema = z.object({
   sourceType: z.string().trim().min(1).max(255),
   sourceId: z.string().trim().min(1).max(255),

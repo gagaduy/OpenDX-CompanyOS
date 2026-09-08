@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { CampaignBrief, ContentVersion, PublicationTarget, VisualAsset } from "../types";
 import "../styles/marketing.css";
@@ -13,6 +14,10 @@ export function FacebookPostPreviewModal({
   content,
   visual,
   targets,
+  imageUrl,
+  imageLoading = false,
+  imageError = false,
+  onImageRetry,
 }: {
   readonly isOpen: boolean;
   readonly onClose: () => void;
@@ -20,8 +25,13 @@ export function FacebookPostPreviewModal({
   readonly content: ContentVersion | null;
   readonly visual: VisualAsset | null;
   readonly targets?: readonly PublicationTarget[];
+  readonly imageUrl?: string;
+  readonly imageLoading?: boolean;
+  readonly imageError?: boolean;
+  readonly onImageRetry?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<"facebook_feed" | "instagram_feed" | "instagram_story">("facebook_feed");
+  const [failedUrl, setFailedUrl] = useState<string>();
 
   if (!isOpen) return null;
   if (typeof document === "undefined") return null;
@@ -29,6 +39,15 @@ export function FacebookPostPreviewModal({
   const bodyText = content?.primaryText ?? content?.body ?? "Chưa có nội dung bài viết.";
   const headline = content?.headline;
   const hashtags = content?.hashtags ?? [];
+  const imagePreview = imageLoading ? <p role="status">Đang tải hình ảnh...</p>
+    : imageError || (imageUrl && failedUrl === imageUrl) ? <div role="alert">
+      <p>Không tải được hình ảnh.</p>
+      {onImageRetry && <button type="button" onClick={onImageRetry} className="marketingBtnSecondary" title="Tải lại hình ảnh" aria-label="Tải lại hình ảnh"><RefreshCw size={16} /></button>}
+    </div>
+    : imageUrl ? <img src={imageUrl} alt={visual?.altText || "Hình ảnh chiến dịch"}
+      width={visual?.width} height={visual?.height} onError={() => setFailedUrl(imageUrl)}
+      style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }} />
+    : <p role="status">Chưa có hình ảnh.</p>;
 
   return createPortal(
     <div className="fbModalBackdrop" onClick={onClose}>
@@ -51,7 +70,7 @@ export function FacebookPostPreviewModal({
         </div>
 
         {/* Platform Selection Tabs */}
-        <div style={{ display: "flex", background: "#1e1f20", borderBottom: "1px solid #3a3b3c", padding: "0 1.25rem" }}>
+        <div className="publicationPreviewTabs" style={{ background: "#1e1f20", borderBottom: "1px solid #3a3b3c" }}>
           <button
             type="button"
             onClick={() => setActiveTab("facebook_feed")}
@@ -142,18 +161,7 @@ export function FacebookPostPreviewModal({
                 )}
               </div>
 
-              {/* 1:1 Image Preview Frame */}
-              <div className="fbImageSection">
-                <div style={{ width: "100%", height: "100%", background: "radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem", textAlign: "center" }}>
-                  <span style={{ fontSize: "4rem", marginBottom: "0.75rem", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }}>✨ 📱 ✨</span>
-                  <span style={{ fontSize: "1.05rem", fontWeight: 700, color: "#fff" }}>
-                    {visual?.altText ?? brief?.campaignName ?? "Ấn Phẩm NovaCommerce"}
-                  </span>
-                  <span style={{ fontSize: "0.8rem", color: "#38bdf8", marginTop: "0.35rem", fontWeight: 600 }}>
-                    1:1 Square PNG Graphic ({visual?.width ?? 1080} × {visual?.height ?? 1080})
-                  </span>
-                </div>
-              </div>
+              <div className="fbImageSection">{imagePreview}</div>
 
               {/* FB Engagement Bar */}
               <div style={{ padding: "0.5rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.8rem", color: "#b0b3b8", borderBottom: "1px solid #3a3b3c" }}>
@@ -188,16 +196,7 @@ export function FacebookPostPreviewModal({
                 <span style={{ color: "#fff" }}>•••</span>
               </div>
 
-              {/* IG 1:1 Image */}
-              <div style={{ width: "100%", aspectRatio: "1/1", background: "radial-gradient(circle at center, #1e1b4b 0%, #030712 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem", textAlign: "center" }}>
-                <span style={{ fontSize: "3.5rem", marginBottom: "0.5rem" }}>📸</span>
-                <span style={{ fontSize: "1rem", fontWeight: 700, color: "#fff" }}>
-                  {visual?.altText ?? brief?.campaignName ?? "NovaCommerce Instagram"}
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#f472b6", marginTop: "0.25rem", fontWeight: 600 }}>
-                  Instagram Feed (1:1 Square)
-                </span>
-              </div>
+              <div className="fbImageSection">{imagePreview}</div>
 
               {/* IG Actions */}
               <div style={{ padding: "0.75rem 1rem", display: "flex", gap: "1rem", color: "#fff", fontSize: "1.2rem" }}>
@@ -235,16 +234,7 @@ export function FacebookPostPreviewModal({
                 <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem" }}>Sponsored</span>
               </div>
 
-              {/* Story Fullscreen Content */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.5rem", textAlign: "center", background: "linear-gradient(180deg, #1e1b4b 0%, #4c0519 100%)" }}>
-                <span style={{ fontSize: "4rem", marginBottom: "1rem" }}>⚡ 🛍️ ⚡</span>
-                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
-                  {brief?.campaignName ?? "NovaCommerce Story"}
-                </span>
-                <div style={{ marginTop: "1rem", background: "rgba(0,0,0,0.6)", padding: "0.6rem 0.8rem", borderRadius: "0.5rem", color: "#fff", fontSize: "0.8rem", maxWidth: "90%" }}>
-                  {bodyText.slice(0, 120)}...
-                </div>
-              </div>
+              <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>{imagePreview}</div>
 
               {/* Swipe Up Button */}
               <div style={{ padding: "1rem", textAlign: "center" }}>
