@@ -153,7 +153,7 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
     ["out_of_scope", new Set<MarketingCampaignState>()],
     ["cross_department_coordination_required", new Set<MarketingCampaignState>()],
     ["completed", new Set<MarketingCampaignState>()],
-    ["failed", new Set<MarketingCampaignState>(["publishing"])],
+    ["failed", new Set<MarketingCampaignState>(["publishing", "revision_requested"])],
     ["canceled", new Set<MarketingCampaignState>()],
   ]);
 

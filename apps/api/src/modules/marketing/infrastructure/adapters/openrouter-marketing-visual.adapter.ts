@@ -33,41 +33,47 @@ export function createMarketingVisualMaterializer(options: VisualMaterializerOpt
     if (!options.enabled || !options.apiKey?.trim()) {
       throw new MarketingApplicationError(503, "MARKETING_VISUAL_GENERATION_UNAVAILABLE", "Image generation is not configured or enabled.");
     }
-    let buffer: Buffer;
-    let width: number;
-    let height: number;
+    let materialized: { buffer: Buffer; width: number; height: number } | undefined;
     try {
-      const response = await fetcher("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${options.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          models,
-          modalities: ["image", "text"],
-          image_config: { aspect_ratio: "1:1" },
-          messages: [{ role: "user", content: `Generate a finished commercial product image for this campaign. Follow the supplied product and revision requirements; do not substitute a different product or return a plain background. Use clear product details and a balanced square composition. Do not invent promotional claims or prices.\n\n${input.prompt || input.altText}` }],
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!response.ok) {
-        throw new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", `Image provider returned HTTP ${response.status}. No image was saved.`);
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetcher("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${options.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            models,
+            modalities: ["image", "text"],
+            image_config: { aspect_ratio: "1:1" },
+            messages: [{ role: "user", content: `Generate a finished commercial product image for this campaign. Follow the supplied product and revision requirements; do not substitute a different product or return a plain background. Use clear product details and a balanced square composition. Do not invent promotional claims or prices.\n\n${input.prompt || input.altText}` }],
+          }),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (!response.ok) {
+          throw new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", `Image provider returned HTTP ${response.status}. No image was saved.`);
+        }
+        try {
+          const data = responseSchema.parse(await response.json());
+          const first = data.choices[0]!.message.images?.[0];
+          const url = typeof first === "string" ? first : first?.image_url?.url ?? first?.url;
+          const match = url?.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/);
+          if (!match || match[1]!.length > 28_000_000) throw new Error("No supported image returned");
+          const decoded = Buffer.from(match[1]!.replace(/\s/g, ""), "base64");
+          const result = await sharp(decoded, { failOn: "error", limitInputPixels: 20_000_000 })
+            .rotate().png().toBuffer({ resolveWithObject: true });
+          materialized = { buffer: result.data, width: result.info.width, height: result.info.height };
+          break;
+        } catch (error) {
+          if (attempt === 1) throw error;
+        }
       }
-      const data = responseSchema.parse(await response.json());
-      const first = data.choices[0]!.message.images?.[0];
-      const url = typeof first === "string" ? first : first?.image_url?.url ?? first?.url;
-      const match = url?.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/);
-      if (!match || match[1]!.length > 28_000_000) throw new Error("No supported image returned");
-      const decoded = Buffer.from(match[1]!.replace(/\s/g, ""), "base64");
-      const result = await sharp(decoded, { failOn: "error", limitInputPixels: 20_000_000 })
-        .rotate().png().toBuffer({ resolveWithObject: true });
-      buffer = result.data;
-      width = result.info.width;
-      height = result.info.height;
     } catch (error) {
       if (error instanceof MarketingApplicationError) throw error;
       throw new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", "Image generation timed out or returned no valid image. No image was saved.");
     }
+    if (!materialized) {
+      throw new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", "Image generation returned no valid image. No image was saved.");
+    }
 
-    await options.storageWriter(input.storageKey, buffer, "image/png");
-    return { width, height, byteSize: buffer.length, imageDigest: createHash("sha256").update(buffer).digest("hex") };
+    await options.storageWriter(input.storageKey, materialized.buffer, "image/png");
+    return { width: materialized.width, height: materialized.height, byteSize: materialized.buffer.length, imageDigest: createHash("sha256").update(materialized.buffer).digest("hex") };
   };
 }

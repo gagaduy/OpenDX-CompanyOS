@@ -188,9 +188,10 @@ describe("Marketing Campaign Rules", () => {
       expect(canTransitionState("publication_unknown", "failed")).toBe(true);
     });
 
-    it("allows only publication retry recovery from failed", () => {
+    it("allows publication retry or governed revision recovery from failed", () => {
       expect(isTerminalState("failed")).toBe(false);
       expect(canTransitionState("failed", "publishing")).toBe(true);
+      expect(canTransitionState("failed", "revision_requested")).toBe(true);
       expect(canTransitionState("failed", "campaign_review")).toBe(false);
       expect(canTransitionState("failed", "awaiting_human_approval")).toBe(false);
     });

@@ -28,6 +28,20 @@ describe("Marketing image materialization", () => {
     expect(result).toMatchObject({ width: 32, height: 32, byteSize: stored.length, imageDigest: createHash("sha256").update(stored).digest("hex") });
   });
 
+  it("retries once when the provider returns success without a valid image", async () => {
+    const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: "blue" } }).png().toBuffer();
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "No image available" } }] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { images: [{ image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }] } }] })));
+    const storageWriter = vi.fn();
+    const materialize = createMarketingVisualMaterializer({ enabled: true, apiKey: "test-key", models: "test/image-model", timeoutMs: 120000, fetcher, storageWriter });
+
+    await expect(materialize(input)).resolves.toMatchObject({ width: 32, height: 32 });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(storageWriter).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     new Response(JSON.stringify({ error: { message: "private provider details" } }), { status: 429 }),
     new Response(JSON.stringify({ choices: [{ message: { content: "No image available" } }] })),
