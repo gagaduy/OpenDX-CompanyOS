@@ -69,6 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Fix AI CEO Strategic Decomposition Plan (`ccCeoPlanCard`), running agent cards (`activeThinking`), and department deliverable cards (Merchandising, Operations, Support) retaining dark-mode backgrounds and illegible text in light mode.
   - Fix generated proposal data tables (inventory restock items, customer support tickets, VIP segmentation) retaining pitch-dark backgrounds (`rgba(10, 15, 25, 0.6)`) in light mode by replacing inline dark backgrounds with responsive semantic styles.
 - Return HTTP 404 instead of HTTP 500 when product media content is missing from storage (`ProductMediaService`).
+- Enable AI worker orchestration descriptor execution by default in Docker Compose (`ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED: true`) so AI CEO tasks execute live instead of failing with `LIVE_EXECUTION_UNAVAILABLE`.
 - Ensure `publishApprovedPackage` publishes every target independently so that
   failure of one channel (such as Instagram or Facebook) does not abort remaining
   targets, preserving partial publication and retryability.

@@ -417,7 +417,7 @@ services:
     command: ["python", "-m", "app.agentic.worker"]
     environment:
       <<: *ai-environment
-      ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED: ${ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED:-false}
+      ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED: ${ORCHESTRATION_DESCRIPTOR_EXECUTION_ENABLED:-true}
       DEPARTMENT_TOOL_API_BASE_URL: http://api:4000/v1/internal/agentic
       AGENT_AI_CEO_CLIENT_ID: agent-ai-ceo
       AGENT_AI_CEO_CLIENT_SECRET: ${AGENT_AI_CEO_CLIENT_SECRET:-opendx_agent_ai_ceo_change_me}
