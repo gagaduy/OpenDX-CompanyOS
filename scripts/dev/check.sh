@@ -9,6 +9,7 @@ pnpm --filter @opendx/console build
 pnpm --filter @opendx/storefront build
 pnpm test:py
 pnpm test:make-database-backup
+pnpm test:instagram-quick-tunnel
 pnpm test:temporal-compose
 pnpm test:agentic-production-compose
 pnpm test:agentic-phase-b-exit

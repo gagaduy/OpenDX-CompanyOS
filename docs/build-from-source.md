@@ -525,28 +525,33 @@ No OpenRouter key is required through Phase C.
 
 Instagram live publication from localhost requires Meta to retrieve the
 approved JPEG through a public HTTPS URL. Keep PostgreSQL and MinIO private;
-only tunnel the local API. Start the stack from the repository root, choose the
-same host port used by the API, and keep `INSTAGRAM_PUBLICATION_MODE=simulation`
-during this initial startup. Run the optional external `cloudflared` binary in
-a separate terminal:
+only tunnel the local API. Start a development-only Quick Tunnel in a named
+external container so the local lifecycle helper can read its current random
+hostname without mounting the Docker socket into an application container:
 
 ```bash
-make up
 API_PORT=4000
-cloudflared tunnel --url "http://localhost:${API_PORT}"
+docker run -d --name opendx-instagram-quick-tunnel \
+  --network host --restart unless-stopped \
+  cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339 \
+  tunnel --no-autoupdate --url "http://localhost:${API_PORT}"
 ```
 
-If the API uses a non-default host port, replace `4000` with that port. Set
-only this non-secret shell variable for the tunnel command. Do not source the
-whole `.env` into the shell: doing so would unnecessarily export Meta tokens
-and other application secrets to the `cloudflared` process.
+If the named container already exists, start it with
+`docker start opendx-instagram-quick-tunnel`. If the API uses a non-default
+host port, replace `4000` with that port. Set only this non-secret shell
+variable for the tunnel command. Do not source the whole `.env` into the
+shell: doing so would unnecessarily export Meta tokens and other application
+secrets to the `cloudflared` process.
 
-Cloudflare prints a temporary `https://*.trycloudflare.com` origin. Append the
-fixed route prefix `/v1/public/marketing/media` and place the result only in
-the ignored root `.env`, for example as
-`INSTAGRAM_PUBLIC_MEDIA_BASE_URL=https://<current-random-host>.trycloudflare.com/v1/public/marketing/media`.
-Never put a real tunnel hostname, Instagram ID, access token, or signing secret
-in `.env.example` or another tracked file.
+Cloudflare assigns a temporary `https://*.trycloudflare.com` origin. Keep
+`INSTAGRAM_PUBLIC_MEDIA_BASE_URL` in the ignored root `.env`; never put a real
+tunnel hostname, Instagram ID, access token, or signing secret in
+`.env.example` or another tracked file. With `INSTAGRAM_PUBLICATION_MODE=live`,
+`make up` verifies the current tunnel, updates only this URL in `.env`, and
+recreates the API when the hostname changed. Run
+`OPENDX_ENV_FILE="$PWD/.env" node scripts/dev/sync-instagram-quick-tunnel.mjs`
+to perform the same synchronization without rebuilding the full stack.
 
 Set `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET` in the same ignored root `.env` to
 a separate cryptographically random HMAC secret of at least 32 characters. Use
@@ -554,12 +559,11 @@ a password manager or another trusted local secret generator and paste the
 value directly into the file with an editor; do not reuse the Meta access
 token, print the secret into logs, or commit it. Then set the verified
 Instagram business account ID and Page access token, switch
-`INSTAGRAM_PUBLICATION_MODE` to `live`, and rebuild or restart the API so its
-typed startup configuration reads the new origin and credentials:
+`INSTAGRAM_PUBLICATION_MODE` to `live`, and start the stack. Its typed startup
+configuration reads the synchronized origin and credentials:
 
 ```bash
-docker compose --env-file .env -f infra/docker/docker-compose.yml \
-  up -d --build --force-recreate api
+make up
 curl -fsS http://localhost:4000/health/ready
 ```
 
@@ -570,9 +574,9 @@ values. When running Compose manually from the repository root, keep the
 explicit `--env-file .env` shown above to avoid ambiguity.
 
 Quick Tunnel URLs change whenever the tunnel restarts and provide no
-production SLA. After every URL change, update only the ignored root `.env`
-and restart the API again. This workflow is for development acceptance, not a
-deployment endpoint.
+production SLA. The lifecycle helper performs the local URL refresh; it does
+not turn a Quick Tunnel into a deployment endpoint. Use a reviewed stable
+public origin for production.
 
 The default Instagram container readiness window is five minutes
 (`INSTAGRAM_CONTAINER_POLL_INTERVAL_MS=5000` and
