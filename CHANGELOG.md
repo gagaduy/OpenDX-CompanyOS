@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
+
 ### Added
 
 - Add automated catalog product discovery and image sending in LiveChat:

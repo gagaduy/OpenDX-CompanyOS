@@ -2455,7 +2455,7 @@ export function AgenticCommandCenter({
         </div>
       )}
 
-      {/* 5. Unified Department Workforce Grid (5 Distinct Functional Departments) */}
+      {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
       <div className="ccDepartmentGrid" style={{ marginTop: "2rem" }}>
         {/* Column 1: Tiếp thị & Sáng tạo (Blue Theme) */}
         <div id="dept-column-marketing" className="ccDepartmentColumn theme-blue">
@@ -2715,41 +2715,6 @@ export function AgenticCommandCenter({
             theme="emerald"
             disabled={isSubmitting}
             onSend={(text) => handleDepartmentDirectTask("support", text)}
-          />
-        </div>
-
-        {/* Column 5: Tài chính (Purple Theme) */}
-        <div id="dept-column-finance" className="ccDepartmentColumn theme-purple">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <DollarSign size={16} />
-              </div>
-              <span>Tài chính</span>
-            </div>
-            <span className="ccDeptCountBadge">
-              <span className="ccPillDot" style={{ width: 6, height: 6, background: "#c084fc" }} />
-              <span>1 Nhân sự</span>
-            </span>
-          </div>
-
-          <AgentCard
-            name="Kiểm soát viên Tài chính"
-            roleTag="SKILL"
-            theme="purple"
-            status={getBranchState("finance") === "completed" ? "completed" : getBranchState("finance")}
-            statusText={
-              getBranchState("finance") === "running"
-                ? "Đang đối soát giao dịch và cổng thanh toán..."
-                : undefined
-            }
-          />
-
-          <DepartmentInput
-            placeholder="Giao việc cho Tài chính..."
-            theme="purple"
-            disabled={isSubmitting}
-            onSend={(text) => handleDepartmentDirectTask("operations", text)}
           />
         </div>
       </div>
