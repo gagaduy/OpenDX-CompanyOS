@@ -170,4 +170,18 @@ describe("ProductMediaService", () => {
     expect(repository.delete).toHaveBeenCalledWith(session, media.id);
     expect(storage.delete).toHaveBeenCalledWith(media.objectKey);
   });
+
+  it("translates storage NoSuchKey or NotFound errors to NOT_FOUND CatalogApplicationError", async () => {
+    const error: any = new Error("The specified key does not exist.");
+    error.name = "NoSuchKey";
+    const { service, storage } = fixture();
+    storage.get = vi.fn(async () => {
+      throw error;
+    });
+    await expect(service.getContent(product.id, media.id)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Product media content not found in storage",
+    });
+  });
 });
+
