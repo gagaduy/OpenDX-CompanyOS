@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Preserve Support SLA invariants when an approved AI proposal resolves a ticket that is paused while waiting for the customer, allowing the transaction to commit before voucher email dispatch.
 - Retry Marketing visual generation once when an image-capable provider returns HTTP 200 without a valid image, and allow a failed campaign to re-enter the governed revision flow without bypassing review or approval.
 - Synchronize a restarted development Instagram Quick Tunnel with the ignored root `.env` and recreate the API, preventing Meta from fetching media through an expired tunnel hostname after `make up`.
 - Keep the AI CEO planning schema synchronized between the API and Python runtime after adding Marketing owners, and allow live LLM activities enough time to finish, so valid CEO-to-department tasks are not rejected or canceled prematurely.

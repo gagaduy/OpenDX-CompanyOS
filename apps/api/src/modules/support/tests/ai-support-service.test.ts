@@ -161,4 +161,39 @@ describe("AiSupportService", () => {
       }),
     );
   });
+
+  it("clears an active SLA pause before resolving a waiting_customer ticket", async () => {
+    const mockClient = {
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql.includes("SELECT status FROM support_tickets")) {
+          return { rows: [{ status: "waiting_customer" }] };
+        }
+        if (
+          sql.includes("SET status = 'resolved'")
+          && !sql.includes("sla_pause_started_at = NULL")
+        ) {
+          throw new Error("Support ticket SLA state is invalid");
+        }
+        return { rows: [] };
+      }),
+      release: vi.fn(),
+    };
+    const service = new AiSupportService({
+      query: vi.fn(),
+      connect: vi.fn().mockResolvedValue(mockClient),
+    } as any, {});
+
+    await expect(service.applySupportProposal("proposal-1", {
+      items: [{
+        ticketId: "ticket-1",
+        responseMessage: "Đã xử lý yêu cầu.",
+        resolutionStatus: "resolved",
+      }],
+    })).resolves.toMatchObject({ appliedCount: 1 });
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.stringContaining("sla_pause_started_at = NULL"),
+      ["ticket-1"],
+    );
+  });
 });

@@ -380,7 +380,13 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
             // in_progress, waiting_customer, waiting_internal, escalated -> resolved
             await client.query(
               `UPDATE support_tickets 
-               SET status = 'resolved', sla_stopped_at = NOW(), updated_at = NOW(), version = version + 1 
+               SET status = 'resolved',
+                   sla_paused_seconds = sla_paused_seconds + CASE
+                     WHEN sla_pause_started_at IS NULL THEN 0
+                     ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - sla_pause_started_at)))::integer)
+                   END,
+                   sla_pause_started_at = NULL,
+                   sla_stopped_at = NOW(), updated_at = NOW(), version = version + 1
                WHERE id = $1`,
               [item.ticketId],
             );
