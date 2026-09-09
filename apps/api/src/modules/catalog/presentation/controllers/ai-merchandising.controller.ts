@@ -76,4 +76,95 @@ export class AiMerchandisingController {
       next(error);
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // CAMPAIGN ENGINE CONTROLLER METHODS
+  // ---------------------------------------------------------------------------
+
+  generateCampaignProposal = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Cần đăng nhập nhân sự để thực hiện tác vụ này.");
+      }
+
+      const { prompt, durationDays, discountPercent, themeKey } = req.body ?? {};
+      if (!prompt || typeof prompt !== "string") {
+        throw new ApplicationError(400, "INVALID_INPUT", "Nội dung yêu cầu prompt là bắt buộc.");
+      }
+
+      const proposal = await this.service.generateCampaignProposal(
+        {
+          prompt,
+          durationDays: typeof durationDays === "number" ? durationDays : undefined,
+          discountPercent: typeof discountPercent === "number" ? discountPercent : undefined,
+          themeKey: typeof themeKey === "string" ? themeKey : undefined,
+        },
+        { actorId: principal.subject },
+      );
+
+      res.status(200).json(proposal);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  activateCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Cần đăng nhập nhân sự để thực hiện tác vụ này.");
+      }
+
+      const campaignId = String(req.params.campaignId);
+      const { endDate, excludedItemIds } = req.body ?? {};
+      const correlationId = String(req.headers["x-correlation-id"] || `campaign-activate-${Date.now()}`);
+
+      const result = await this.service.activateCampaign(
+        campaignId,
+        {
+          actorId: principal.subject,
+          correlationId,
+        },
+        {
+          endDate: typeof endDate === "string" ? endDate : undefined,
+          excludedItemIds: Array.isArray(excludedItemIds) ? excludedItemIds : undefined,
+        },
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  revertCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Cần đăng nhập nhân sự để thực hiện tác vụ này.");
+      }
+
+      const campaignId = String(req.params.campaignId);
+      const correlationId = String(req.headers["x-correlation-id"] || `campaign-revert-${Date.now()}`);
+
+      const result = await this.service.revertCampaign(campaignId, {
+        actorId: principal.subject,
+        correlationId,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getActiveCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const active = await this.service.getActiveCampaign();
+      res.status(200).json(active);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
