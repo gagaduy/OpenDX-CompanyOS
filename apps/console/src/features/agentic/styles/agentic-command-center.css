@@ -564,6 +564,9 @@
 .ccAgentCard.activeBorder-blue {
   border-left: 4px solid #38bdf8;
 }
+.ccAgentCard.activeBorder-cyan {
+  border-left: 4px solid #06b6d4;
+}
 .ccAgentCard.activeBorder-amber {
   border-left: 4px solid #f59e0b;
 }
@@ -575,8 +578,142 @@
 }
 
 .ccAgentCard.activeThinking {
-  border-color: rgba(56, 189, 248, 0.5);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.6);
+  animation: ccAgentPulseBlue 2s infinite ease-in-out;
+  position: relative;
+}
+
+.ccAgentCard.activeThinking.activeBorder-cyan {
+  border-color: rgba(6, 182, 212, 0.6);
+  animation: ccAgentPulseCyan 2s infinite ease-in-out;
+}
+
+.ccAgentCard.activeThinking.activeBorder-amber {
+  border-color: rgba(245, 158, 11, 0.6);
+  animation: ccAgentPulseAmber 2s infinite ease-in-out;
+}
+
+.ccAgentCard.activeThinking.activeBorder-emerald {
+  border-color: rgba(16, 185, 129, 0.6);
+  animation: ccAgentPulseEmerald 2s infinite ease-in-out;
+}
+
+.ccAgentCard.activeThinking.activeBorder-purple {
+  border-color: rgba(168, 85, 247, 0.6);
+  animation: ccAgentPulsePurple 2s infinite ease-in-out;
+}
+
+/* Cross-Department Collaboration Active Effect */
+.ccAgentCard.ccAgentCollaborating {
+  border-color: #818cf8 !important;
+  border-left: 4px solid #a855f7 !important;
+  animation: ccAgentPulseCollab 1.8s infinite ease-in-out !important;
+}
+
+@keyframes ccAgentPulseBlue {
+  0% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(56, 189, 248, 0.5), 0 6px 22px rgba(0, 0, 0, 0.3);
+    border-color: rgba(56, 189, 248, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+}
+
+@keyframes ccAgentPulseCyan {
+  0% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(6, 182, 212, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(6, 182, 212, 0.5), 0 6px 22px rgba(0, 0, 0, 0.3);
+    border-color: rgba(6, 182, 212, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(6, 182, 212, 0.4);
+  }
+}
+
+@keyframes ccAgentPulseAmber {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(245, 158, 11, 0.5), 0 6px 22px rgba(0, 0, 0, 0.3);
+    border-color: rgba(245, 158, 11, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+}
+
+@keyframes ccAgentPulseEmerald {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(16, 185, 129, 0.5), 0 6px 22px rgba(0, 0, 0, 0.3);
+    border-color: rgba(16, 185, 129, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+}
+
+@keyframes ccAgentPulsePurple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(168, 85, 247, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(168, 85, 247, 0.5), 0 6px 22px rgba(0, 0, 0, 0.3);
+    border-color: rgba(168, 85, 247, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.25), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(168, 85, 247, 0.4);
+  }
+}
+
+@keyframes ccAgentPulseCollab {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.3), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(129, 140, 248, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 26px 6px rgba(168, 85, 247, 0.55), 0 0 14px rgba(99, 102, 241, 0.4);
+    border-color: rgba(192, 132, 252, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.3), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-color: rgba(129, 140, 248, 0.5);
+  }
+}
+
+.ccCollabPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  animation: pulse 1.8s infinite ease-in-out;
 }
 
 .ccAgentCardHeader {
@@ -604,6 +741,10 @@
   background: #38bdf8;
   box-shadow: 0 0 8px #38bdf8;
 }
+.ccStatusIndicatorDot.cyan {
+  background: #06b6d4;
+  box-shadow: 0 0 8px #06b6d4;
+}
 .ccStatusIndicatorDot.amber {
   background: #f59e0b;
   box-shadow: 0 0 8px #f59e0b;
@@ -612,8 +753,33 @@
   background: #10b981;
   box-shadow: 0 0 8px #10b981;
 }
+.ccStatusIndicatorDot.purple {
+  background: #c084fc;
+  box-shadow: 0 0 8px #c084fc;
+}
 .ccStatusIndicatorDot.gray {
   background: #64748b;
+}
+
+/* Pulsing / Blinking indicator dot when running */
+.ccStatusIndicatorDot.running {
+  animation: ccDotBlink 1.2s infinite ease-in-out;
+}
+
+@keyframes ccDotBlink {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
 }
 
 .ccStatusIndicatorIcon {
@@ -656,6 +822,9 @@
 }
 .theme-blue .ccProgressBarFill {
   background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+.theme-cyan .ccProgressBarFill {
+  background: linear-gradient(90deg, #0891b2, #06b6d4);
 }
 .theme-amber .ccProgressBarFill {
   background: linear-gradient(90deg, #d97706, #f59e0b);
@@ -2451,6 +2620,20 @@
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.25), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 
+.consoleLayout[data-theme="light"] .ccAgentCard.ccAgentCollaborating,
+[data-theme="light"] .ccAgentCard.ccAgentCollaborating {
+  background: #fbfbfe !important;
+  border-color: #818cf8 !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+.consoleLayout[data-theme="light"] .ccCollabPill,
+[data-theme="light"] .ccCollabPill {
+  background: #f3e8ff;
+  border: 1px solid #c084fc;
+  color: #7e22ce;
+}
+
 .consoleLayout[data-theme="light"] .ccAgentCard.activeThinking .ccAgentName {
   color: #0f172a !important;
 }
@@ -2841,4 +3024,1878 @@
 
 .consoleLayout[data-theme="light"] .ccProposalExpandToggle:hover {
   color: #0369a1;
+}
+
+/* ==========================================================================
+   CAMPAIGN PROPOSAL MODAL & ACTIVE CAMPAIGN WIDGET STYLES (Linear Canvas)
+   ========================================================================== */
+
+.ccCampaignModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(1, 1, 2, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  animation: ccModalFadeIn 0.2s ease-out;
+}
+
+@keyframes ccModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ccCampaignModalDialog {
+  width: min(1060px, 95vw);
+  max-height: 90vh;
+  background: #0b0e14;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f1f5f9;
+  animation: ccModalScaleIn 0.2s ease-out;
+}
+
+@keyframes ccModalScaleIn {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.ccCampaignModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: #0f141f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 1rem;
+}
+
+.ccCampaignModalHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ccCampaignModalIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  flex-shrink: 0;
+}
+
+.ccCampaignModalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ccCampaignModalTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.ccCampaignBadgePill {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ccCampaignDiscountPill {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ccCampaignModalSubtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0;
+}
+
+.ccCampaignModalClose {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignModalClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ccCampaignModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.ccCampaignSummaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.ccCampaignSummaryCard {
+  background: #121824;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.ccCampaignSummaryLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.ccCampaignSummaryLabel.pricing {
+  color: #818cf8;
+}
+
+.ccCampaignSummaryLabel.sales {
+  color: #34d399;
+}
+
+.ccCampaignSummaryText {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.ccCampaignDurationBar {
+  background: #101626;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 10px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ccCampaignDurationLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.ccCampaignDurationControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ccCampaignDatetimeInput {
+  background: #0b0e14;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #f1f5f9;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.65rem;
+  outline: none;
+}
+
+.ccCampaignPresetBtn {
+  background: #1e2538;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignPresetBtn:hover {
+  background: #2d374d;
+  color: #ffffff;
+}
+
+.ccCampaignListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ccCampaignListTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.ccCampaignSelectAllBtn {
+  background: transparent;
+  border: none;
+  color: #818cf8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-left: 0.75rem;
+}
+
+.ccCampaignPaginationControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.ccCampaignPageBtn {
+  background: #1e2538;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignPageBtn:hover:not(:disabled) {
+  background: #2d374d;
+  color: #ffffff;
+}
+
+.ccCampaignPageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ccCampaignProductsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ccCampaignProductRow {
+  background: #121722;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 1.25rem;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignProductRow.selected {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: #141b2b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.ccCampaignProductRow.unselected {
+  opacity: 0.55;
+}
+
+.ccCampaignCheckbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+/* Visual Compare Box: Original vs Gemini AI */
+.ccCampaignVisualCompare {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ccCampaignThumbWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ccCampaignThumb {
+  width: 82px;
+  height: 82px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0b0e14;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.ccCampaignThumb.aiGenerated {
+  border: 1.5px solid rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.35);
+}
+
+.ccCampaignThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ccCampaignThumbLabel {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.ccCampaignThumbLabel.aiGenerated {
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.ccCampaignCompareArrow {
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ccCampaignProductInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ccCampaignProductTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ccCampaignProductName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccCampaignItemBadge {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.ccCampaignSeoTitle {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccCampaignSeoDesc {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.ccCampaignProductPriceBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ccCampaignOrigPrice {
+  font-size: 0.8rem;
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.ccCampaignNewPrice {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #10b981;
+}
+
+.ccCampaignSavingPill {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #f43f5e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ccCampaignModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: #0f141f;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ccCampaignFooterSummary {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.ccCampaignFooterSummary strong {
+  color: #f1f5f9;
+}
+
+.ccCampaignFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ccCampaignCancelBtn {
+  background: #1e2538;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignCancelBtn:hover:not(:disabled) {
+  background: #2d374d;
+  color: #ffffff;
+}
+
+.ccCampaignApproveBtn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.15s ease;
+}
+
+.ccCampaignApproveBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.ccCampaignApproveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Active Campaign Banner at Top of Command Center */
+.ccActiveCampaignBanner {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.12), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  border-radius: 14px;
+  padding: 1.1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.ccActiveCampaignTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.ccActiveCampaignBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ccActiveCampaignIconBox {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  color: #f43f5e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccActiveCampaignTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.75rem;
+}
+
+.ccActiveCampaignProgressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.ccActiveCampaignProgressBar {
+  height: 6px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.ccActiveCampaignProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #f59e0b, #f43f5e);
+  transition: width 1s linear;
+}
+
+.ccActiveCampaignProgressLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.ccActiveCampaignRevertBtn {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccActiveCampaignRevertBtn:hover {
+  background: rgba(244, 63, 94, 0.25);
+  color: #ffffff;
+}
+
+/* Active Campaign Banner Countdown & Confirmation */
+.ccActiveCampaignCountdownBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #080b11;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+}
+
+.ccActiveCampaignCountdownLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.ccActiveCampaignCountdownIcon {
+  color: #f43f5e;
+}
+
+.ccActiveCampaignCountdownDigits {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
+}
+
+.ccActiveCampaignStatusText {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fda4af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ccActiveCampaignProductCount {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.ccActiveCampaignConfirmBox {
+  background: #1c0a0e;
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  border-radius: 8px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ccActiveCampaignConfirmText {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #fecdd3;
+}
+
+.ccActiveCampaignConfirmIcon {
+  color: #f43f5e;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Merchandising Proposal Compact Overview Card */
+.ccCampaignOverviewCard {
+  background: #101626;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ccCampaignDurationText {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.ccCampaignPreviewHeading {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.ccCampaignPreviewMiniThumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(99, 102, 241, 0.4);
+  background: #080b11;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ccCampaignOpenModalBtn {
+  width: 100%;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.ccCampaignOpenModalBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.5);
+}
+
+/* ==========================================================================
+   Light Mode Harmonization for Campaign Modal & Active Campaign Banner
+   ========================================================================== */
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignBanner,
+[data-theme="light"] .ccActiveCampaignBanner {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffffff 60%, #fef2f2 100%);
+  border: 1px solid #fecdd3;
+  box-shadow: 0 8px 30px rgba(244, 63, 94, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignIconBox,
+[data-theme="light"] .ccActiveCampaignIconBox {
+  background: #ffe4e6;
+  border: 1px solid #fda4af;
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignStatusText,
+[data-theme="light"] .ccActiveCampaignStatusText {
+  color: #be123c;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignProductCount,
+[data-theme="light"] .ccActiveCampaignProductCount {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignTitle,
+[data-theme="light"] .ccActiveCampaignTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignCountdownBox,
+[data-theme="light"] .ccActiveCampaignCountdownBox {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.06);
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignCountdownLeft,
+[data-theme="light"] .ccActiveCampaignCountdownLeft {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignCountdownDigits,
+[data-theme="light"] .ccActiveCampaignCountdownDigits {
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignProgressBar,
+[data-theme="light"] .ccActiveCampaignProgressBar {
+  background: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignProgressLabels,
+[data-theme="light"] .ccActiveCampaignProgressLabels {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignRevertBtn,
+[data-theme="light"] .ccActiveCampaignRevertBtn {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignRevertBtn:hover,
+[data-theme="light"] .ccActiveCampaignRevertBtn:hover {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignConfirmBox,
+[data-theme="light"] .ccActiveCampaignConfirmBox {
+  background: #fff1f2;
+  border: 1px solid #fda4af;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.08);
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignConfirmText,
+[data-theme="light"] .ccActiveCampaignConfirmText {
+  color: #9f1239;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignOverviewCard,
+[data-theme="light"] .ccCampaignOverviewCard {
+  background: #ffffff;
+  border: 1px solid #c7d2fe;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.06);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignDurationText,
+[data-theme="light"] .ccCampaignDurationText {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPreviewHeading,
+[data-theme="light"] .ccCampaignPreviewHeading {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPreviewMiniThumb,
+[data-theme="light"] .ccCampaignPreviewMiniThumb {
+  background: #f8fafc;
+  border: 1.5px solid #c7d2fe;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignBadgePill,
+[data-theme="light"] .ccCampaignBadgePill {
+  background: #ffe4e6;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignDiscountPill,
+[data-theme="light"] .ccCampaignDiscountPill {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalOverlay,
+[data-theme="light"] .ccCampaignModalOverlay {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalDialog,
+[data-theme="light"] .ccCampaignModalDialog {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalHeader,
+[data-theme="light"] .ccCampaignModalHeader {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalTitle,
+[data-theme="light"] .ccCampaignModalTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalSubtitle,
+[data-theme="light"] .ccCampaignModalSubtitle {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalClose,
+[data-theme="light"] .ccCampaignModalClose {
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalClose:hover,
+[data-theme="light"] .ccCampaignModalClose:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalBody,
+[data-theme="light"] .ccCampaignModalBody {
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSummaryCard,
+[data-theme="light"] .ccCampaignSummaryCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSummaryLabel.pricing,
+[data-theme="light"] .ccCampaignSummaryLabel.pricing {
+  color: #4f46e5;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSummaryLabel.sales,
+[data-theme="light"] .ccCampaignSummaryLabel.sales {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSummaryText,
+[data-theme="light"] .ccCampaignSummaryText {
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignDurationBar,
+[data-theme="light"] .ccCampaignDurationBar {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignDurationLeft,
+[data-theme="light"] .ccCampaignDurationLeft {
+  color: #3730a3;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignDatetimeInput,
+[data-theme="light"] .ccCampaignDatetimeInput {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPresetBtn,
+[data-theme="light"] .ccCampaignPresetBtn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #4338ca;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPresetBtn:hover,
+[data-theme="light"] .ccCampaignPresetBtn:hover {
+  background: #e0e7ff;
+  color: #312e81;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignListHeader,
+[data-theme="light"] .ccCampaignListHeader {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignListTitle,
+[data-theme="light"] .ccCampaignListTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSelectAllBtn,
+[data-theme="light"] .ccCampaignSelectAllBtn {
+  color: #4f46e5;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPaginationControls,
+[data-theme="light"] .ccCampaignPaginationControls {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPageBtn,
+[data-theme="light"] .ccCampaignPageBtn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignPageBtn:hover:not(:disabled),
+[data-theme="light"] .ccCampaignPageBtn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignProductRow,
+[data-theme="light"] .ccCampaignProductRow {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignProductRow.selected,
+[data-theme="light"] .ccCampaignProductRow.selected {
+  border-color: #818cf8;
+  background: #fbfbfe;
+  box-shadow: 0 3px 12px rgba(99, 102, 241, 0.06);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignThumb,
+[data-theme="light"] .ccCampaignThumb {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignThumb.aiGenerated,
+[data-theme="light"] .ccCampaignThumb.aiGenerated {
+  border: 1.5px solid #6366f1;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignThumbLabel,
+[data-theme="light"] .ccCampaignThumbLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignThumbLabel.aiGenerated,
+[data-theme="light"] .ccCampaignThumbLabel.aiGenerated {
+  color: #4f46e5;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignCompareArrow,
+[data-theme="light"] .ccCampaignCompareArrow {
+  color: #94a3b8;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignProductName,
+[data-theme="light"] .ccCampaignProductName {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignItemBadge,
+[data-theme="light"] .ccCampaignItemBadge {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSeoTitle,
+[data-theme="light"] .ccCampaignSeoTitle {
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSeoDesc,
+[data-theme="light"] .ccCampaignSeoDesc {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignOrigPrice,
+[data-theme="light"] .ccCampaignOrigPrice {
+  color: #94a3b8;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignNewPrice,
+[data-theme="light"] .ccCampaignNewPrice {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignSavingPill,
+[data-theme="light"] .ccCampaignSavingPill {
+  background: #ffe4e6;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignModalFooter,
+[data-theme="light"] .ccCampaignModalFooter {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignFooterSummary,
+[data-theme="light"] .ccCampaignFooterSummary {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignFooterSummary strong,
+[data-theme="light"] .ccCampaignFooterSummary strong {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignCancelBtn,
+[data-theme="light"] .ccCampaignCancelBtn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCampaignCancelBtn:hover:not(:disabled),
+[data-theme="light"] .ccCampaignCancelBtn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* ==========================================================================
+   OPERATIONS PROPOSAL MODAL (Amber Linear Canvas)
+   ========================================================================== */
+
+.ccModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(1, 1, 2, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  animation: ccModalFadeIn 0.2s ease-out;
+}
+
+.ccOperationsModalContainer {
+  width: min(1080px, 95vw);
+  max-height: 90vh;
+  background: #0b0f17;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f1f5f9;
+  animation: ccModalScaleIn 0.2s ease-out;
+}
+
+.ccOperationsModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.75rem;
+  background: #0f1523;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 1rem;
+}
+
+.ccOperationsModalHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ccOperationsIconBadge {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+  flex-shrink: 0;
+}
+
+.ccOperationsModalHeading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.ccOperationsModalSubheading {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0 0;
+}
+
+.ccOperationsModalCloseBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsModalCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ccOperationsSummaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1.25rem 1.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ccOperationsSummaryBox {
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.ccOperationsSummaryBox.info {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.ccOperationsSummaryBox.danger {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.ccOperationsSummaryHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.ccOperationsSummaryHeader.info {
+  color: #38bdf8;
+}
+
+.ccOperationsSummaryHeader.danger {
+  color: #fbbf24;
+}
+
+.ccOperationsSummaryText {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.ccOperationsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.75rem;
+  background: #0c111c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ccOperationsFilterTabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ccOperationsFilterTab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsFilterTab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ccOperationsFilterTab.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.ccOperationsQuickActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ccOperationsQuickBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsQuickBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.ccOperationsTableWrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1.75rem;
+  min-height: 200px;
+}
+
+.ccOperationsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+
+.ccOperationsTable th {
+  color: #94a3b8;
+  font-weight: 600;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ccOperationsTable tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.ccOperationsTable tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ccOperationsTable td {
+  padding: 0.85rem 0.5rem;
+  vertical-align: middle;
+}
+
+.ccOperationsSkuCell {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.ccOperationsProductName {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 0.88rem;
+}
+
+.ccOperationsActionRationale {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+.ccOperationsCountCell {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.ccOperationsStockBadge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.ccOperationsStockBadge.critical_low {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ccOperationsStockBadge.slow_moving {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ccOperationsStockBadge.balanced {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ccOperationsStatusPill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ccOperationsStatusPill.critical_low {
+  background: #ef4444;
+  color: #fff;
+}
+
+.ccOperationsStatusPill.slow_moving {
+  background: #f59e0b;
+  color: #000;
+}
+
+.ccOperationsStatusPill.balanced {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ccOperationsQtyControl {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ccOperationsQtyBtn {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ccOperationsQtyBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.ccOperationsQtyBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ccOperationsQtyInput {
+  width: 54px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  text-align: center;
+  font-weight: 700;
+  color: #fbbf24;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.ccOperationsCostCell {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ccOperationsTotalCostCell {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ccOperationsTable tfoot {
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ccOperationsFooterTotalLabel {
+  padding: 0.85rem 0.5rem;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.ccOperationsFooterQty {
+  color: #fbbf24;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ccOperationsFooterBudget {
+  color: #34d399;
+  font-size: 1rem;
+  padding-right: 0.5rem;
+  font-weight: 700;
+}
+
+.ccOperationsSuccessBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.75rem 1.75rem 0 1.75rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  color: #34d399;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.ccOperationsModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.75rem;
+  background: #0f1523;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.ccOperationsFooterLeft,
+.ccOperationsFooterRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ccOperationsSecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsSecondaryBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.ccOperationsClearanceBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsClearanceBtn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #fbbf24;
+  color: #fde68a;
+}
+
+.ccOperationsCancelBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ccOperationsCancelBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.ccOperationsApproveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  color: #000000;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+}
+
+.ccOperationsApproveBtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+}
+
+.ccOperationsApproveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Light Theme Overrides for Operations Modal */
+.consoleLayout[data-theme="light"] .ccOperationsModalContainer,
+[data-theme="light"] .ccOperationsModalContainer {
+  background: #ffffff;
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 30px rgba(245, 158, 11, 0.12);
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsModalHeader,
+[data-theme="light"] .ccOperationsModalHeader {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsModalHeading,
+[data-theme="light"] .ccOperationsModalHeading {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryGrid,
+[data-theme="light"] .ccOperationsSummaryGrid {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryBox.info,
+[data-theme="light"] .ccOperationsSummaryBox.info {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryBox.danger,
+[data-theme="light"] .ccOperationsSummaryBox.danger {
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryHeader.info,
+[data-theme="light"] .ccOperationsSummaryHeader.info {
+  color: #0284c7;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryHeader.danger,
+[data-theme="light"] .ccOperationsSummaryHeader.danger {
+  color: #d97706;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSummaryText,
+[data-theme="light"] .ccOperationsSummaryText {
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsToolbar,
+[data-theme="light"] .ccOperationsToolbar {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFilterTab,
+[data-theme="light"] .ccOperationsFilterTab {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFilterTab:hover,
+[data-theme="light"] .ccOperationsFilterTab:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFilterTab.active,
+[data-theme="light"] .ccOperationsFilterTab.active {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQuickBtn,
+[data-theme="light"] .ccOperationsQuickBtn {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQuickBtn:hover,
+[data-theme="light"] .ccOperationsQuickBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsTable th,
+[data-theme="light"] .ccOperationsTable th {
+  color: #64748b;
+  border-bottom-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsTable tbody tr,
+[data-theme="light"] .ccOperationsTable tbody tr {
+  border-bottom-color: #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsTable tbody tr:hover,
+[data-theme="light"] .ccOperationsTable tbody tr:hover {
+  background: #f8fafc;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsProductName,
+[data-theme="light"] .ccOperationsProductName {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsActionRationale,
+[data-theme="light"] .ccOperationsActionRationale {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsCountCell,
+[data-theme="light"] .ccOperationsCountCell {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQtyControl,
+[data-theme="light"] .ccOperationsQtyControl {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQtyBtn,
+[data-theme="light"] .ccOperationsQtyBtn {
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQtyBtn:hover:not(:disabled),
+[data-theme="light"] .ccOperationsQtyBtn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsQtyInput,
+[data-theme="light"] .ccOperationsQtyInput {
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsTotalCostCell,
+[data-theme="light"] .ccOperationsTotalCostCell {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsTable tfoot,
+[data-theme="light"] .ccOperationsTable tfoot {
+  background: #f8fafc;
+  border-top-color: #cbd5e1;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFooterTotalLabel,
+[data-theme="light"] .ccOperationsFooterTotalLabel {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFooterQty,
+[data-theme="light"] .ccOperationsFooterQty {
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsFooterBudget,
+[data-theme="light"] .ccOperationsFooterBudget {
+  color: #059669;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSuccessBanner,
+[data-theme="light"] .ccOperationsSuccessBanner {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsModalFooter,
+[data-theme="light"] .ccOperationsModalFooter {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSecondaryBtn,
+[data-theme="light"] .ccOperationsSecondaryBtn {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsSecondaryBtn:hover:not(:disabled),
+[data-theme="light"] .ccOperationsSecondaryBtn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsClearanceBtn,
+[data-theme="light"] .ccOperationsClearanceBtn {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsClearanceBtn:hover,
+[data-theme="light"] .ccOperationsClearanceBtn:hover {
+  background: #fde68a;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsCancelBtn,
+[data-theme="light"] .ccOperationsCancelBtn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsCancelBtn:hover,
+[data-theme="light"] .ccOperationsCancelBtn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
 }
