@@ -37,7 +37,9 @@ import type { AgenticOperationsApi } from "../api/agentic-api";
 import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
 import type { MarketingApi } from "../../marketing/api/marketing-api";
 import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
-import type { CatalogApi, MerchandisingProposal } from "../../catalog/api/catalog-api";
+import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
+import { CampaignProposalModal } from "../../catalog/components/campaign-proposal-modal";
+import { ActiveCampaignWidget } from "../../catalog/components/active-campaign-widget";
 import type { InventoryApi } from "../../inventory/api/inventory-api";
 import type { SupportOperationsApi } from "../../support/api/support-api";
 import type { AiSupportProposalView } from "../../support/types/support.types";
@@ -110,6 +112,17 @@ export function AgenticCommandCenter({
   // Merchandising / Catalog & Pricing State
   const [merchandisingProposal, setMerchandisingProposal] = useState<MerchandisingProposal | null>(null);
   const [merchandisingLoading, setMerchandisingLoading] = useState(false);
+  const [activeCampaign, setActiveCampaign] = useState<ActiveCampaign | null>(null);
+  const [campaignProposal, setCampaignProposal] = useState<CampaignProposal | null>(null);
+  const [campaignProposalModalOpen, setCampaignProposalModalOpen] = useState(false);
+  const [isActivatingCampaign, setIsActivatingCampaign] = useState(false);
+  const [isRevertingCampaign, setIsRevertingCampaign] = useState(false);
+
+  useEffect(() => {
+    if (catalogApi) {
+      void catalogApi.getActiveCampaign().then(setActiveCampaign).catch(console.error);
+    }
+  }, [catalogApi]);
 
   // Operations / Inventory Restock State
   const [operationsProposal, setOperationsProposal] = useState<any | null>(null);
@@ -609,10 +622,38 @@ export function AgenticCommandCenter({
 
         // Stage 2: Digital Employees Execution via OpenRouter Gemini 2.5 Flash
         setMarketingActiveAgent("pricing_strategist");
-        setMarketingAgentMessage("✍️ Đang gọi OpenRouter (Gemini 2.5 Flash) để tối ưu mô tả SEO và tính toán mức giá Flash Sale tối ưu...");
+        setMarketingAgentMessage("✍️ Đang gọi OpenRouter (Gemini 2.5 Flash) & Sharp Graphics để tổng hợp ảnh đồ họa AI và tính toán giá chiến dịch...");
 
-        const proposal = await catalogApi.generateMerchandisingProposal({ prompt: goalText });
-        setMerchandisingProposal(proposal);
+        try {
+          const cProposal = await catalogApi.generateCampaignProposal({ prompt: goalText });
+          setCampaignProposal(cProposal);
+          setCampaignProposalModalOpen(true);
+          setMerchandisingProposal({
+            id: cProposal.id,
+            prompt: cProposal.prompt,
+            items: cProposal.items.map((it) => ({
+              targetProductId: it.productId,
+              targetVariantId: it.variantId,
+              productName: it.productName,
+              productSlug: it.productSlug,
+              categoryName: "Danh mục",
+              optimizedTitle: it.optimizedTitle,
+              optimizedDescription: it.optimizedDescription,
+              badge: it.badge,
+              originalPriceVnd: it.originalPriceVnd,
+              proposedPriceVnd: it.campaignPriceVnd,
+              discountPercent: it.discountPercent,
+              savingAmountVnd: it.savingAmountVnd,
+            })),
+            pricingRationale: cProposal.pricingRationale,
+            salesProjection: cProposal.salesProjection,
+            status: "pending_approval",
+            createdAt: cProposal.startTime,
+          });
+        } catch {
+          const proposal = await catalogApi.generateMerchandisingProposal({ prompt: goalText });
+          setMerchandisingProposal(proposal);
+        }
 
         // Transition steps: 1 & 2 done, 3 waiting approval
         setCeoPlan((prev) =>
@@ -1059,6 +1100,55 @@ export function AgenticCommandCenter({
       setErrorMessage(err.message || "Không thể áp dụng đề xuất lên Storefront.");
     } finally {
       setMerchandisingLoading(false);
+    }
+  };
+
+  const handleApproveCampaign = async (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => {
+    if (!catalogApi || !campaignProposal) return;
+    try {
+      setIsActivatingCampaign(true);
+      setErrorMessage(null);
+      await catalogApi.activateCampaign(campaignProposal.id, {
+        endDate: options.endDate,
+        excludedItemIds: options.excludedItemIds,
+      });
+      setCampaignProposalModalOpen(false);
+      setCampaignProposal(null);
+      const active = await catalogApi.getActiveCampaign();
+      setActiveCampaign(active);
+
+      // Complete steps in CEO Plan
+      setCeoPlan((prev) =>
+        prev
+          ? {
+              ...prev,
+              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+            }
+          : null,
+      );
+
+      setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+    } catch (err: any) {
+      console.error("Activate campaign failed:", err);
+      setErrorMessage(err.message || "Kích hoạt chiến dịch thất bại.");
+    } finally {
+      setIsActivatingCampaign(false);
+    }
+  };
+
+  const handleEmergencyRevertCampaign = async (campaignId: string) => {
+    if (!catalogApi) return;
+    try {
+      setIsRevertingCampaign(true);
+      setErrorMessage(null);
+      await catalogApi.revertCampaign(campaignId);
+      setActiveCampaign(null);
+      setSuccessMessage("Đã hoàn nguyên chiến dịch thành công! Toàn bộ giá sản phẩm đã tự động quay về mức ban đầu.");
+    } catch (err: any) {
+      console.error("Revert campaign failed:", err);
+      setErrorMessage(err.message || "Hoàn nguyên chiến dịch thất bại.");
+    } finally {
+      setIsRevertingCampaign(false);
     }
   };
 
@@ -2037,6 +2127,29 @@ export function AgenticCommandCenter({
 
           {/* Action Row */}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.25rem" }}>
+            {campaignProposal && (
+              <button
+                type="button"
+                className="ccMarketingActionBtn"
+                style={{
+                  background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                  color: "#fff",
+                  border: "none",
+                  padding: "0.75rem 1.25rem",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
+                onClick={() => setCampaignProposalModalOpen(true)}
+              >
+                <Sparkles size={16} />
+                <span>Xem Đồ họa AI & Phân trang ({campaignProposal.items.length} SP)</span>
+              </button>
+            )}
             {merchandisingProposal.status === "pending_approval" && (
               <button
                 type="button"
@@ -2547,6 +2660,17 @@ export function AgenticCommandCenter({
             </span>
           </div>
 
+          {/* Active Merchandising Campaign Live Monitor Widget */}
+          {activeCampaign && (
+            <div style={{ marginBottom: "1rem" }}>
+              <ActiveCampaignWidget
+                campaign={activeCampaign}
+                onRevert={handleEmergencyRevertCampaign}
+                isReverting={isRevertingCampaign}
+              />
+            </div>
+          )}
+
           <AgentCard
             name="Cây bút Sản phẩm"
             roleTag="SKILL"
@@ -2724,6 +2848,16 @@ export function AgenticCommandCenter({
         <div style={{ marginTop: "2rem" }}>
           <ExecutiveReport report={executiveReportData} workflowState={currentOrchestrationState} />
         </div>
+      )}
+
+      {/* 7. Multi-Modal Campaign Proposal Review Modal with Pagination */}
+      {campaignProposalModalOpen && campaignProposal && (
+        <CampaignProposalModal
+          proposal={campaignProposal}
+          onClose={() => setCampaignProposalModalOpen(false)}
+          onApprove={handleApproveCampaign}
+          isActivating={isActivatingCampaign}
+        />
       )}
     </section>
   );

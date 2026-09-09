@@ -75,6 +75,52 @@ export interface ApplyMerchandisingResult {
   readonly badge?: string;
 }
 
+export interface CampaignItem {
+  readonly id: string;
+  readonly productId: string;
+  readonly variantId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly originalPriceVnd: number;
+  readonly campaignPriceVnd: number;
+  readonly discountPercent: number;
+  readonly savingAmountVnd: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
+  readonly optimizedTitle: string;
+  readonly optimizedDescription: string;
+  readonly badge: string;
+}
+
+export interface CampaignProposal {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly prompt: string;
+  readonly themeKey: string;
+  readonly badgeText: string;
+  readonly discountPercent: number;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly durationDays: number;
+  readonly status: "draft" | "active" | "completed" | "reverted";
+  readonly items: readonly CampaignItem[];
+  readonly totalProducts: number;
+  readonly pricingRationale: string;
+  readonly salesProjection: string;
+}
+
+export interface ActiveCampaign {
+  readonly id: string;
+  readonly name: string;
+  readonly badgeText: string;
+  readonly discountPercent: number;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly totalProducts: number;
+  readonly remainingMs: number;
+}
+
 export interface CatalogApi {
   listProducts(query: ProductQuery): Promise<ProductPage>;
   getProduct(id: string): Promise<Product>;
@@ -99,6 +145,10 @@ export interface CatalogApi {
   unpublishProduct(productId: string, version: number): Promise<Product>;
   generateMerchandisingProposal(input: { readonly prompt: string; readonly targetProductId?: string }): Promise<MerchandisingProposal>;
   applyMerchandisingProposal(input: { readonly proposalId: string; readonly customTitle?: string; readonly customDescription?: string; readonly customPriceVnd?: number }): Promise<ApplyMerchandisingResult>;
+  generateCampaignProposal(input: { readonly prompt: string; readonly durationDays?: number; readonly discountPercent?: number; readonly themeKey?: string }): Promise<CampaignProposal>;
+  activateCampaign(campaignId: string, input?: { readonly endDate?: string; readonly excludedItemIds?: readonly string[] }): Promise<{ readonly success: boolean; readonly campaignId: string; readonly activatedAt: string }>;
+  revertCampaign(campaignId: string): Promise<{ readonly success: boolean; readonly campaignId: string; readonly revertedAt: string }>;
+  getActiveCampaign(): Promise<ActiveCampaign | null>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -156,6 +206,18 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     },
     async applyMerchandisingProposal(input) {
       return (await request("/v1/admin/catalog/ai-merchandising/apply-proposal", write("POST", input))) as ApplyMerchandisingResult;
+    },
+    async generateCampaignProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/campaigns/generate-proposal", write("POST", input))) as CampaignProposal;
+    },
+    async activateCampaign(campaignId, input) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/activate`, write("POST", input ?? {}))) as { readonly success: boolean; readonly campaignId: string; readonly activatedAt: string };
+    },
+    async revertCampaign(campaignId) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/revert`, write("POST", {}))) as { readonly success: boolean; readonly campaignId: string; readonly revertedAt: string };
+    },
+    async getActiveCampaign() {
+      return (await request("/v1/admin/catalog/ai-merchandising/campaigns/active")) as ActiveCampaign | null;
     },
   };
 }
