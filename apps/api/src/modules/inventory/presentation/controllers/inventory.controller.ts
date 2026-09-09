@@ -22,7 +22,11 @@ export class InventoryController {
     private readonly service: InventoryServiceContract,
     private readonly aiOperations?: {
       generateOperationsProposal: (req: { prompt: string }) => Promise<any>;
-      getProposalDocx: (id: string) => { buffer: Buffer; filename: string; mediaType: string };
+      getProposalDocx: (
+        id: string,
+      ) =>
+        | Promise<{ buffer: Buffer; filename: string; mediaType: string }>
+        | { buffer: Buffer; filename: string; mediaType: string };
       applyOperationsProposal: (id: string, req: { items: any[] }) => Promise<any>;
     },
   ) {}
@@ -87,7 +91,7 @@ export class InventoryController {
         throw new ApplicationError(500, "AI_OPERATIONS_UNAVAILABLE", "AI Operations service is not configured");
       }
       const proposalId = request.params.proposalId as string;
-      const file = this.aiOperations.getProposalDocx(proposalId);
+      const file = await this.aiOperations.getProposalDocx(proposalId);
       response.setHeader("Content-Type", file.mediaType);
       response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
       response.setHeader("Content-Length", file.buffer.length);

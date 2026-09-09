@@ -179,4 +179,30 @@ describe("OperationsProposalModal", () => {
       expect.objectContaining({ variantId: "v-slow" }),
     ]);
   });
+
+  it("renders clearance campaign button for stocked items even when no items are slow_moving", async () => {
+    const user = userEvent.setup();
+    const handleClearance = vi.fn();
+    const noSlowProposal: OperationsProposal = {
+      ...mockProposal,
+      items: mockProposal.items.filter((it) => it.stockStatus !== "slow_moving"),
+    };
+
+    render(
+      <OperationsProposalModal
+        isOpen={true}
+        proposal={noSlowProposal}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+        onDownloadDocx={vi.fn()}
+        onTriggerClearanceCampaign={handleClearance}
+      />,
+    );
+
+    const clearanceBtn = screen.getByRole("button", { name: /Đề xuất Chiến dịch Xả hàng Tồn kho/i });
+    expect(clearanceBtn).toBeInTheDocument();
+
+    await user.click(clearanceBtn);
+    expect(handleClearance).toHaveBeenCalled();
+  });
 });

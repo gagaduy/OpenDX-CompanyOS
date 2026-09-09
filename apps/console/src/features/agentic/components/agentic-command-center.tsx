@@ -1297,8 +1297,28 @@ export function AgenticCommandCenter({
             variantId: i.variantId,
             restockQuantity: i.recommendedRestockQuantity,
           }));
-      await inventoryApi.applyOperationsProposal(operationsProposal.id, payload);
-      setOperationsProposal((prev) => (prev ? { ...prev, status: "applied" } : null));
+      const res: any = await inventoryApi.applyOperationsProposal(operationsProposal.id, payload);
+      setOperationsProposal((prev) => {
+        if (!prev) return null;
+        const updatedItemsMap = new Map<string, number>(
+          (res?.updatedItems ?? []).map((u: any) => [u.variantId, u.newOnHand]),
+        );
+        return {
+          ...prev,
+          status: "applied",
+          items: prev.items.map((it) => {
+            const newOnHand = updatedItemsMap.get(it.variantId);
+            if (newOnHand !== undefined) {
+              return {
+                ...it,
+                currentOnHand: newOnHand,
+                availableQuantity: Math.max(0, newOnHand - it.currentReserved),
+              };
+            }
+            return it;
+          }),
+        };
+      });
 
       // Complete all steps in CEO Plan
       setCeoPlan((prev) =>

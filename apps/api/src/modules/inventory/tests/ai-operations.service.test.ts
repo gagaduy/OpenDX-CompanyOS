@@ -107,5 +107,37 @@ describe("AiOperationsService", () => {
     expect(mockClient.query).toHaveBeenCalledWith("COMMIT");
     expect(mockClient.release).toHaveBeenCalled();
   });
+
+  it("resiliently generates docx report even when proposal is evicted from cache", async () => {
+    const mockDb = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            variantId: "v1",
+            productId: "p1",
+            productName: "Bàn phím cơ Nova (Tactile)",
+            productSlug: "ban-phim-co-nova",
+            sku: "NOVA-009-1",
+            categoryName: "Linh kiện & Phụ kiện",
+            onHand: 12,
+            reserved: 0,
+            priceMinor: 1500000,
+          },
+        ],
+      }),
+      connect: vi.fn(),
+    } as any;
+
+    const service = new AiOperationsService(mockDb, () => "2026-09-09T00:00:00.000Z", () => "test-id");
+    const docxResult = await service.getProposalDocx("non-existent-id");
+
+    expect(docxResult).toBeDefined();
+    expect(docxResult.buffer).toBeInstanceOf(Buffer);
+    expect(docxResult.buffer.length).toBeGreaterThan(1000);
+    expect(docxResult.filename).toContain("bao_cao_kiem_toan_kho_van_non-exis.docx");
+    expect(mockDb.query).toHaveBeenCalled();
+    const querySql = mockDb.query.mock.calls[0][0];
+    expect(querySql).toContain("p.status = 'published'");
+  });
 });
 

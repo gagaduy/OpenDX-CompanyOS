@@ -22,10 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Automated end-to-end verification script `scripts/dev/catalog-campaign-e2e-check.mjs` and `pnpm check:catalog-campaign` gate.
 - Upgrade Operations & Inventory workforce department and implement interactive replenishment copilot:
   - Refined `AiOperationsService` stock risk classification logic (`critical_low`, `slow_moving`, `balanced`) to ensure non-critical items default to 0 restock quantities while critical items calculate safety stock replenishment buffers.
+  - Excluded draft products from inventory audit queries (`p.status = 'published'`) and appended variant titles to product names for clear SKU identification.
+  - Resiliently generate DOCX audit reports on the fly even if cached proposal instances are evicted across server reloads.
   - Implemented `OperationsProposalModal` with amber theme styling, risk classification filter tabs (`Tất cả`, `Cạn kiệt`, `Tồn đọng`, `An toàn`), and quick actions (`⚡ Nhập theo mức an toàn`, `🔄 Đặt tất cả về 0`).
   - Added inline editable restock quantity inputs with live recalculation of line-item costs and total procurement budget.
-  - Added post-approval screen inside the modal confirming stock updates with links to download updated DOCX audit reports.
-  - Introduced cross-department clearance collaboration: staff can click `⚡ Đề xuất Chiến dịch Xả hàng Tồn kho` on slow-moving inventory to seamlessly trigger a coordinated workflow with Pricing and Creative Graphic Design to formulate a clearance sale.
+  - Added post-approval screen inside the modal confirming stock updates with dynamic on-hand balance synchronization and links to download updated DOCX audit reports.
+  - Introduced cross-department clearance collaboration: staff can click `⚡ Đề xuất Chiến dịch Xả hàng Tồn kho` on slow-moving or stocked inventory to seamlessly trigger a coordinated workflow with Pricing and Creative Graphic Design to formulate a clearance sale.
 
 ### Changed
 

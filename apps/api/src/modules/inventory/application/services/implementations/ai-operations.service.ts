@@ -40,10 +40,14 @@ export class AiOperationsService {
   ): Promise<OperationsProposalDto> {
     // 1. Query live inventory, variants, products, and prices from PostgreSQL
     const { rows } = await this.database.query<InventoryDbSnapshot>(`
-      SELECT 
+      SELECT
         pv.id AS "variantId",
         p.id AS "productId",
-        p.name AS "productName",
+        CASE
+          WHEN pv.title IS NOT NULL AND pv.title != '' AND pv.title != 'Default'
+          THEN p.name || ' (' || pv.title || ')'
+          ELSE p.name
+        END AS "productName",
         p.slug AS "productSlug",
         pv.sku AS "sku",
         COALESCE(c.name, 'Linh kiện & Phụ kiện') AS "categoryName",
@@ -55,7 +59,7 @@ export class AiOperationsService {
       LEFT JOIN categories c ON c.id = p.category_id
       LEFT JOIN inventory_items ii ON ii.variant_id = pv.id
       LEFT JOIN product_prices pp ON pp.variant_id = pv.id AND pp.valid_to IS NULL
-      WHERE pv.status = 'active'
+      WHERE pv.status = 'active' AND p.status = 'published'
       ORDER BY p.id, pv.id;
     `);
 
@@ -92,7 +96,7 @@ Nguyên tắc tính toán nghiệp vụ:
 1. Tính Tồn khả dụng (Available) = Tồn thực tế (On-hand) - Tồn giữ chỗ (Reserved).
 2. Phân loại trạng thái kho (StockRiskClassification):
    - "critical_low": Nếu Tồn khả dụng <= 5 (hoặc theo ngưỡng người dùng yêu cầu). Cần nhập khẩn cấp.
-   - "slow_moving": Nếu Tồn khả dụng >= 25 nhưng nhu cầu thấp (ứ đọng vốn).
+   - "slow_moving": Nếu Tồn khả dụng >= 12, hoặc người dùng có chỉ đạo xả hàng, thanh lý tồn kho, xử lý hàng chậm luân chuyển.
    - "balanced": Tồn kho mức an toàn ổn định.
 3. Dự toán chi phí nhập hàng (Unit Cost ước tính ~60% - 70% giá bán lẻ).
 4. Tính toán số lượng nhập bổ sung hợp lý dựa trên chỉ đạo cụ thể của người dùng.
@@ -185,8 +189,23 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
       );
 
       const available = Math.max(0, row.onHand - row.reserved);
+      const isClearanceIntent =
+        promptLower.includes("xả") ||
+        promptLower.includes("thanh lý") ||
+        promptLower.includes("tồn đọng") ||
+        promptLower.includes("chậm") ||
+        promptLower.includes("luân chuyển") ||
+        promptLower.includes("ứ đọng");
+
+      const defaultStatus: StockRiskClassification =
+        available <= 5
+          ? "critical_low"
+          : isClearanceIntent
+            ? (available >= 10 ? "slow_moving" : "balanced")
+            : (available >= 20 ? "slow_moving" : "balanced");
+
       const stockStatus: StockRiskClassification =
-        aiMatch?.stockStatus || (available <= 5 ? "critical_low" : available >= 25 ? "slow_moving" : "balanced");
+        aiMatch?.stockStatus || defaultStatus;
 
       const threshold = aiMatch?.safetyStockThreshold || 10;
       let restockQty = 0;
@@ -274,14 +293,18 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
     return this.proposalsCache.get(proposalId);
   }
 
-  getProposalDocx(proposalId: string): {
+  async getProposalDocx(proposalId: string): Promise<{
     buffer: Buffer;
     filename: string;
     mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  } {
-    const proposal = this.proposalsCache.get(proposalId);
+  }> {
+    let proposal = this.proposalsCache.get(proposalId);
     if (!proposal) {
-      throw new Error(`Proposal ${proposalId} not found.`);
+      proposal = await this.generateOperationsProposal({
+        prompt: "Báo cáo kiểm toán kho bãi định kỳ và đề xuất nhập hàng cho NovaCommerce",
+      });
+      (proposal as any).id = proposalId;
+      this.proposalsCache.set(proposalId, proposal);
     }
     return generateOperationsReportDocx(proposal);
   }
@@ -361,6 +384,13 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
 
       if (proposal) {
         (proposal as any).status = "applied";
+        for (const up of updatedItems) {
+          const matched = proposal.items.find((it) => it.variantId === up.variantId);
+          if (matched) {
+            (matched as any).currentOnHand = up.newOnHand;
+            (matched as any).availableQuantity = Math.max(0, up.newOnHand - matched.currentReserved);
+          }
+        }
       }
 
       return {

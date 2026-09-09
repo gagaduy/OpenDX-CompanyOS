@@ -88,8 +88,12 @@ export function createInventoryApi(baseUrl: string, accessToken: string): Invent
       a.download = filename || `bao_cao_kho_van_${proposalId.slice(0, 8)}.docx`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        if (a.parentNode) {
+          a.parentNode.removeChild(a);
+        }
+      }, 1000);
     },
     async applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]) {
       const envelope: any = await request(`/v1/admin/inventory/ai-proposal/${proposalId}/apply`, write({ items }));

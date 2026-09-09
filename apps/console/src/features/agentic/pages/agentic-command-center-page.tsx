@@ -18,6 +18,7 @@ export function AgenticCommandCenterPage({
   inventoryApi,
   supportApi,
   roles,
+  apiBaseUrl,
 }: {
   readonly api: AgenticOperationsApi;
   readonly marketingApi?: MarketingApi;
@@ -25,6 +26,7 @@ export function AgenticCommandCenterPage({
   readonly inventoryApi?: InventoryApi;
   readonly supportApi?: SupportOperationsApi;
   readonly roles?: readonly StaffRole[];
+  readonly apiBaseUrl?: string;
 }) {
   const filter = useMemo(() => ({ page: 1, pageSize: 10 }), []);
   const { data, overview, reload } = useAgenticTasks(api, filter);
@@ -39,6 +41,7 @@ export function AgenticCommandCenterPage({
       overview={overview}
       tasks={data}
       onTaskCreated={reload}
+      apiBaseUrl={apiBaseUrl}
     />
   );
 }

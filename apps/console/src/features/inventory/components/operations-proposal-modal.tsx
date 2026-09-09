@@ -60,10 +60,19 @@ export function OperationsProposalModal({
   const [appliedSuccess, setAppliedSuccess] = useState(
     proposal.status === "applied",
   );
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
 
   const slowMovingItems = useMemo(
     () => proposal.items.filter((it) => it.stockStatus === "slow_moving"),
     [proposal.items],
+  );
+
+  const clearanceCandidates = useMemo(
+    () =>
+      slowMovingItems.length > 0
+        ? slowMovingItems
+        : proposal.items.filter((it) => it.availableQuantity > 0),
+    [slowMovingItems, proposal.items],
   );
 
   const criticalItems = useMemo(
@@ -269,7 +278,12 @@ export function OperationsProposalModal({
                       <div className="ccOperationsActionRationale">{item.actionRationale}</div>
                     </td>
                     <td style={{ textAlign: "center" }} className="ccOperationsCountCell">
-                      {item.currentOnHand}
+                      <strong>{item.currentOnHand}</strong>
+                      {appliedSuccess && qty > 0 && (
+                        <div style={{ fontSize: "0.72rem", color: "#10b981", fontWeight: 600 }}>
+                          +{qty} đã nhập
+                        </div>
+                      )}
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <span className={`ccOperationsStockBadge ${item.stockStatus}`}>
@@ -301,14 +315,18 @@ export function OperationsProposalModal({
                           data-testid={`qty-input-${item.variantId}`}
                           className="ccOperationsQtyInput"
                           min={0}
-                          value={qty}
+                          value={qty === 0 ? "" : qty}
+                          placeholder="0"
                           disabled={appliedSuccess}
-                          onChange={(e) =>
-                            handleQuantityChange(
-                              item.variantId,
-                              parseInt(e.target.value, 10),
-                            )
-                          }
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              handleQuantityChange(item.variantId, 0);
+                            } else {
+                              const parsed = parseInt(raw, 10);
+                              handleQuantityChange(item.variantId, isNaN(parsed) ? 0 : parsed);
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -357,6 +375,31 @@ export function OperationsProposalModal({
           </div>
         )}
 
+        {/* Download & Action Notice */}
+        {downloadNotice && (
+          <div
+            style={{
+              padding: "0.6rem 1.75rem",
+              fontSize: "0.82rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: downloadNotice.startsWith("Lỗi")
+                ? "rgba(239, 68, 68, 0.12)"
+                : "rgba(16, 185, 129, 0.12)",
+              color: downloadNotice.startsWith("Lỗi") ? "#ef4444" : "#10b981",
+              borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+            }}
+          >
+            {downloadNotice.startsWith("Lỗi") ? (
+              <AlertTriangle size={15} />
+            ) : (
+              <CheckCircle2 size={15} />
+            )}
+            <span>{downloadNotice}</span>
+          </div>
+        )}
+
         {/* Modal Actions Footer */}
         <div className="ccOperationsModalFooter">
           <div className="ccOperationsFooterLeft">
@@ -364,21 +407,32 @@ export function OperationsProposalModal({
               type="button"
               className="ccOperationsSecondaryBtn"
               disabled={isDownloadingDocx}
-              onClick={onDownloadDocx}
+              onClick={async () => {
+                try {
+                  setDownloadNotice(null);
+                  await onDownloadDocx();
+                  setDownloadNotice("Đã tải xuống file Word (.docx) thành công!");
+                } catch (err) {
+                  setDownloadNotice(
+                    "Lỗi khi tải file Word: " +
+                      (err instanceof Error ? err.message : String(err)),
+                  );
+                }
+              }}
             >
               <FileText size={15} />
               <span>{isDownloadingDocx ? "Đang tạo file..." : "📥 Tải Báo Cáo Word (.docx)"}</span>
             </button>
 
-            {slowMovingItems.length > 0 && onTriggerClearanceCampaign && !appliedSuccess && (
+            {clearanceCandidates.length > 0 && onTriggerClearanceCampaign && !appliedSuccess && (
               <button
                 type="button"
                 className="ccOperationsClearanceBtn"
-                onClick={() => onTriggerClearanceCampaign(slowMovingItems)}
+                onClick={() => onTriggerClearanceCampaign(clearanceCandidates)}
                 title="Chuyển sang phòng Danh mục để xây dựng chương trình Flash Sale xả kho"
               >
                 <Sparkles size={15} color="#f59e0b" />
-                <span>⚡ Đề xuất Chiến dịch Xả hàng Tồn kho ({slowMovingItems.length} SKU)</span>
+                <span>⚡ Đề xuất Chiến dịch Xả hàng Tồn kho ({clearanceCandidates.length} SKU)</span>
               </button>
             )}
           </div>
