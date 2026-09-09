@@ -35,7 +35,8 @@ import { createProductMediaRouter } from "./presentation/routes/product-media.ro
 import { createProductRouter } from "./presentation/routes/product.routes";
 import { createProductPublicationRouter } from "./presentation/routes/product-publication.routes";
 import { createPublicCatalogRouter } from "./presentation/routes/public-catalog.routes";
-import { createVariantRouter } from "./presentation/routes/variant.routes";
+import { SharpCampaignVisualAdapter } from "./infrastructure/adapters/sharp-campaign-visual.adapter";
+import { PostgresqlCampaignRepository } from "./infrastructure/repositories/implementations/postgresql-campaign.repository";
 import { AiMerchandisingService } from "./application/services/implementations/ai-merchandising.service";
 import { AiMerchandisingController } from "./presentation/controllers/ai-merchandising.controller";
 import { createAiMerchandisingRouter } from "./presentation/routes/ai-merchandising.routes";
@@ -156,9 +157,14 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     metadata: {},
     occurredAt: dependencies.now(),
   }));
+  const campaignVisualGenerator = new SharpCampaignVisualAdapter();
+  const campaignRepository = new PostgresqlCampaignRepository();
   const aiMerchandisingService = new AiMerchandisingService(
     dependencies.transactions,
     audit,
+    campaignVisualGenerator,
+    dependencies.mediaStorage,
+    campaignRepository,
     dependencies.generateId,
     dependencies.now,
   );
