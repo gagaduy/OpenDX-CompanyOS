@@ -207,6 +207,10 @@ Nhiệm vụ: Tạo chiến dịch bán hàng động theo yêu cầu của Ban 
 Danh mục sản phẩm hiện có:
 ${catalogContext}
 
+Quy tắc lựa chọn sản phẩm:
+- Nếu yêu cầu chỉ định sản phẩm hoặc danh mục cụ thể (ví dụ: chỉ laptop, chỉ Nova Phone Pro, chuột, bàn phím, phụ kiện...), CHỈ đưa đúng các sản phẩm đó vào mảng "items".
+- Nếu yêu cầu là chung chung (toàn bộ, tất cả, tri ân, xả kho...), hãy đưa toàn bộ sản phẩm vào mảng "items".
+
 Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
 {
   "campaignName": "Tên chiến dịch hấp dẫn (ví dụ: Đại Tiệc Mừng Tết Trung Thu)",
@@ -272,15 +276,56 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
     const endTime = new Date(startTime.getTime() + durationDays * 24 * 3600 * 1000);
 
     // Filter products matching prompt or take target products
-    const promptLower = request.prompt.toLowerCase();
-    let selectedSnapshots = catalogSnapshots.filter(
-      (s) =>
-        promptLower.includes(s.name.toLowerCase()) ||
-        promptLower.includes(s.slug.toLowerCase()) ||
-        promptLower.includes(s.categoryName.toLowerCase()),
-    );
+    let selectedSnapshots: CatalogProductSnapshot[] = [];
+
+    // 1. If LLM returned specific items matching prompt intent, prioritize LLM selection
+    if (rawAiResult?.items && rawAiResult.items.length > 0) {
+      const aiProductIds = new Set(rawAiResult.items.map((it) => it.productId));
+      const matchedFromAi = catalogSnapshots.filter((s) => aiProductIds.has(s.productId));
+      if (matchedFromAi.length > 0 && matchedFromAi.length < catalogSnapshots.length) {
+        selectedSnapshots = matchedFromAi;
+      }
+    }
+
+    // 2. Keyword & semantic matching across name, slug, category, and Vietnamese aliases
     if (selectedSnapshots.length === 0) {
-      selectedSnapshots = catalogSnapshots;
+      const promptLower = request.prompt.toLowerCase();
+
+      const SYNONYM_MAP: Record<string, string[]> = {
+        laptop: ["laptop", "máy tính xách tay"],
+        phone: ["phone", "điện thoại", "smartphone"],
+        tablet: ["tablet", "máy tính bảng", "ipad"],
+        watch: ["watch", "đồng hồ", "smart watch"],
+        mouse: ["mouse", "chuột"],
+        keyboard: ["keyboard", "bàn phím"],
+        "solid-state": ["ssd", "ổ cứng", "solid-state"],
+        graphics: ["vga", "card", "đồ họa", "graphics"],
+        accessories: ["phụ kiện", "accessories"],
+        components: ["linh kiện", "components"],
+      };
+
+      const matchedSnapshots = catalogSnapshots.filter((s) => {
+        const nameLower = s.name.toLowerCase();
+        const slugLower = s.slug.toLowerCase();
+        const catLower = s.categoryName.toLowerCase();
+
+        // Exact substring in prompt (e.g. "nova laptop pro" or "laptop pro")
+        if (promptLower.includes(nameLower) || promptLower.includes(slugLower) || promptLower.includes(catLower)) {
+          return true;
+        }
+
+        // Check if prompt mentions a keyword or synonym from product
+        for (const [key, synonyms] of Object.entries(SYNONYM_MAP)) {
+          const productMatchesKey = nameLower.includes(key) || slugLower.includes(key) || catLower.includes(key);
+          if (productMatchesKey && synonyms.some((syn) => promptLower.includes(syn))) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+
+      selectedSnapshots = matchedSnapshots.length > 0 ? matchedSnapshots : catalogSnapshots;
     }
 
     // Deduplicate by productId to take primary variant

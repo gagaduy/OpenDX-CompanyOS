@@ -180,4 +180,62 @@ describe("AiMerchandisingService Campaign Engine", () => {
     expect(active?.id).toBe("camp-active");
     expect(active?.discountPercent).toBe(20);
   });
+
+  it("filters specific products matching user prompt keywords or synonyms", async () => {
+    const mockTx = {
+      runReadOnly: vi.fn().mockImplementation(async (cb) => cb({
+        query: vi.fn().mockResolvedValue({
+          rows: [
+            {
+              product_id: "p-1",
+              name: "Nova Laptop Pro",
+              slug: "laptop-pro",
+              description: "Desc",
+              category_name: "Laptops",
+              variant_id: "v-1",
+              sku: "SKU-1",
+              price_minor: "30000000",
+              storage_key: null,
+            },
+            {
+              product_id: "p-2",
+              name: "Nova Wireless Mouse",
+              slug: "wireless-mouse",
+              description: "Desc",
+              category_name: "Accessories",
+              variant_id: "v-2",
+              sku: "SKU-2",
+              price_minor: "1000000",
+              storage_key: null,
+            },
+          ],
+        }),
+      })),
+      run: vi.fn().mockImplementation(async (cb) => cb({ query: vi.fn().mockResolvedValue({ rows: [] }) })),
+    };
+
+    const mockRepo = {
+      createCampaign: vi.fn().mockResolvedValue(undefined),
+      getById: vi.fn(),
+      findActive: vi.fn(),
+      updateStatus: vi.fn(),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn().mockResolvedValue(undefined) } as any,
+      { generateBadgeOverlay: vi.fn() } as any,
+      { get: vi.fn(), upload: vi.fn() } as any,
+      mockRepo as any,
+    );
+
+    // Prompt specifically mentions "chuột" (mouse)
+    const proposal = await service.generateCampaignProposal({
+      prompt: "Giảm giá 30% cho chuột máy tính trong 3 ngày",
+    });
+
+    expect(proposal.items).toHaveLength(1);
+    expect(proposal.items[0]?.productId).toBe("p-2");
+    expect(proposal.items[0]?.campaignPriceVnd).toBe(700000);
+  });
 });
