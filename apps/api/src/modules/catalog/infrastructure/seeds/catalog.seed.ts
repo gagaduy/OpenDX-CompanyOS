@@ -153,5 +153,47 @@ export async function seedCatalog(
         [media[productIndex]!.id, productId, media[productIndex]!.objectKey, media[productIndex]!.byteSize, `${product.name} product image`],
       );
     }
+
+    // Re-apply any currently active campaign so re-seeding doesn't wipe running campaigns
+    const activeCamp = await session.query<{ id: string; end_time: Date }>(
+      `SELECT id, end_time FROM merchandising_campaigns WHERE status = 'active' AND end_time > NOW() LIMIT 1`,
+    );
+    if (activeCamp.rows[0]) {
+      const campId = activeCamp.rows[0].id;
+      const targetEndTime = activeCamp.rows[0].end_time;
+      const items = await session.query<{
+        product_id: string;
+        variant_id: string;
+        campaign_price_minor: number;
+        campaign_media_storage_key: string | null;
+        badge: string;
+      }>(
+        `SELECT product_id, variant_id, campaign_price_minor, campaign_media_storage_key, badge
+         FROM merchandising_campaign_items WHERE campaign_id = $1`,
+        [campId],
+      );
+      for (const item of items.rows) {
+        await session.query(
+          `INSERT INTO product_prices
+            (id, variant_id, amount_minor, currency, tax_inclusive, valid_from, valid_to, created_by)
+           VALUES (gen_random_uuid(), $1, $2, 'VND', true, NOW(), $3, 'system:campaign-seed-reapply')`,
+          [item.variant_id, item.campaign_price_minor, targetEndTime],
+        );
+        await session.query(
+          `UPDATE products
+           SET attributes = attributes || $1::jsonb, updated_at = NOW(), version = version + 1
+           WHERE id = $2`,
+          [JSON.stringify({ badge: item.badge, campaignId: campId }), item.product_id],
+        );
+        if (item.campaign_media_storage_key) {
+          await session.query(
+            `UPDATE product_media
+             SET object_key = $1, content_type = 'image/webp'
+             WHERE product_id = $2 AND is_primary = true`,
+            [item.campaign_media_storage_key, item.product_id],
+          );
+        }
+      }
+    }
   });
 }

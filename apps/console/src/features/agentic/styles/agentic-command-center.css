@@ -330,6 +330,12 @@
   color: #38bdf8;
 }
 
+.ccPipelineNode.completed {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
 .ccPipelineArrow {
   color: #64748b;
   font-size: 0.85rem;
@@ -3355,7 +3361,7 @@
   accent-color: #6366f1;
 }
 
-/* Visual Compare Box: Original vs Gemini AI */
+/* Visual Compare Box: Original vs Campaign Creative */
 .ccCampaignVisualCompare {
   display: flex;
   align-items: center;

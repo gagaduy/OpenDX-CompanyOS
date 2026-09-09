@@ -6,6 +6,8 @@ export interface CampaignVisualOverlayInput {
   readonly themeKey: string;
   readonly badgeText: string;
   readonly discountPercent: number;
+  readonly productName?: string;
+  readonly campaignName?: string;
 }
 
 export interface CampaignVisualGenerator {

@@ -160,6 +160,45 @@ export class PublicCatalogController {
       response.type(authorization.contentType).send(Buffer.from(bytes));
     } catch (error) { next(toHttpError(error)); }
   };
+
+  readonly mediaContent: RequestHandler = async (request, response, next) => {
+    try {
+      const rawKey = request.query.key;
+      if (!rawKey || typeof rawKey !== "string") {
+        throw new ApplicationError(400, "INVALID_INPUT", "Key is required");
+      }
+      const key = decodeURIComponent(rawKey).trim();
+      if (key.includes("..") || key.startsWith("/") || key.includes("\\")) {
+        throw new ApplicationError(400, "INVALID_INPUT", "Invalid key format");
+      }
+      const isAllowedPrefix =
+        key.startsWith("products/") ||
+        key.startsWith("campaigns/") ||
+        key.startsWith("seed/") ||
+        key.startsWith("marketing/");
+      const isAllowedExt = /\.(webp|png|jpg|jpeg|avif)$/i.test(key);
+      if (!isAllowedPrefix || !isAllowedExt) {
+        throw new ApplicationError(400, "INVALID_INPUT", "Key not permitted");
+      }
+      let bytes: Uint8Array;
+      try {
+        bytes = await this.storage.get(key);
+      } catch {
+        throw new ApplicationError(404, "NOT_FOUND", "Media file not found");
+      }
+      const ext = key.split(".").pop()?.toLowerCase() ?? "webp";
+      const mimeTypes: Record<string, string> = {
+        webp: "image/webp",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        avif: "image/avif",
+      };
+      response.type(mimeTypes[ext] ?? "image/webp")
+        .set("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600")
+        .send(Buffer.from(bytes));
+    } catch (error) { next(toHttpError(error)); }
+  };
 }
 
 function toHttpError(error: unknown): unknown {

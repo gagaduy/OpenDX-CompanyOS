@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Link } from "react-router-dom";
 import {
   Sparkles,
@@ -508,9 +508,9 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        // Stage 2: Chuyên viên CRM & OpenRouter Gemini
+        // Stage 2: Chuyên viên CRM phân tích dữ liệu khách hàng
         setMarketingActiveAgent("crm_specialist");
-        setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích OpenRouter (Gemini 2.5 Flash) để phân khúc VIP, Churn Risk & soạn Báo cáo Word...");
+        setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
         const proposal = await supportApi.generateSupportProposal(goalText);
         setSupportProposal(proposal);
@@ -591,9 +591,9 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        // Stage 2: Điều phối Đơn hàng & OpenRouter Gemini
+        // Stage 2: Điều phối Đơn hàng rà soát định mức tồn kho
         setMarketingActiveAgent("order_coordinator");
-        setMarketingAgentMessage("📦 Điều phối Đơn hàng đang phân tích OpenRouter (Gemini 2.5 Flash), tính toán định mức an toàn & lập Báo cáo Word...");
+        setMarketingAgentMessage("📦 Điều phối Đơn hàng đang rà soát dữ liệu tồn kho, tính toán định mức an toàn & lập Báo cáo Kho vận...");
 
         const proposal = await inventoryApi.generateOperationsProposal(goalText);
         setOperationsProposal(proposal);
@@ -642,7 +642,7 @@ export function AgenticCommandCenter({
             },
             {
               role: "Thiết kế Đồ họa (Phòng Tiếp thị - Phối hợp)",
-              task: `Phối hợp liên phòng: Tạo visual Gemini AI, thiết kế banner và huy hiệu 3D cho các sản phẩm chiến dịch`,
+              task: `Phối hợp liên phòng: Thiết kế poster, dựng banner và huy hiệu 3D cho các sản phẩm chiến dịch`,
               status: "pending",
             },
             {
@@ -679,9 +679,9 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        // Stage 2: Thiết kế Đồ họa (Phòng Tiếp thị & Sáng tạo) phối hợp thiết kế visual Gemini AI
+        // Stage 2: Thiết kế Đồ họa (Phòng Tiếp thị & Sáng tạo) phối hợp thiết kế ấn phẩm poster & banner
         setMarketingActiveAgent("merchandising_visual_collab");
-        setMarketingAgentMessage("🎨 [Phối hợp cùng Danh mục] Thiết kế Đồ họa đang gọi Gemini AI & Sharp để dựng visual sản phẩm và huy hiệu 3D chiến dịch...");
+        setMarketingAgentMessage("🎨 [Phối hợp cùng Danh mục] Thiết kế Đồ họa đang vẽ poster quảng bá, thiết kế banner và huy hiệu 3D chiến dịch...");
 
         let cProposal: any = null;
         try {
@@ -1344,29 +1344,31 @@ export function AgenticCommandCenter({
     slowMovingItems: readonly OperationsProposalItem[],
   ) => {
     setIsOperationsModalOpen(false);
-    scrollToDepartment("dept-column-merchandising");
-    setActiveWorkflowKind("merchandising");
-    setMarketingActiveAgent("pricing_specialist");
+
+    // STAGE 1: Bắt đầu tại Phòng Vận hành & Kho vận - Kỹ sư Tồn kho tổng hợp SKU
+    scrollToDepartment("dept-column-operations");
+    setActiveWorkflowKind("operations");
+    setMarketingActiveAgent("inventory_clearance_handoff");
     setMarketingAgentMessage(
-      `⚡ Kỹ sư Tồn kho đã bàn giao ${slowMovingItems.length} SKU tồn đọng cho Chuyên gia Định giá & Thiết kế đồ họa để lập Chiến dịch Xả hàng...`,
+      `📦 Kỹ sư Tồn kho đang rà soát dữ liệu ${slowMovingItems.length} SKU tồn đọng vốn và chuẩn bị hồ sơ bàn giao sang Phòng Danh mục & Định giá...`,
     );
 
     setCeoPlan({
       goal: `Xả hàng tồn kho thanh lý cho ${slowMovingItems.length} sản phẩm tồn đọng`,
-      targetDept: "Phòng Danh mục & Định giá ➔ Tiếp thị & Sáng tạo",
+      targetDept: "Kho vận ➔ Danh mục & Định giá ➔ Tiếp thị & Sáng tạo",
       steps: [
         {
-          role: "Kỹ sư Tồn kho (Inventory)",
-          task: `Bàn giao ${slowMovingItems.length} SKU tồn đọng vốn cần giải phóng thanh khoản`,
-          status: "done",
-        },
-        {
-          role: "Chuyên gia Định giá (Pricing)",
-          task: `Định giá thanh lý chiết khấu -25% đến -35% và thiết lập biên lợi nhuận xả hàng`,
+          role: "Kỹ sư Tồn kho (Phòng Kho vận)",
+          task: `Rà soát ${slowMovingItems.length} SKU tồn đọng vốn và bàn giao hồ sơ số liệu`,
           status: "running",
         },
         {
-          role: "Thiết kế Đồ họa (Creative)",
+          role: "Chuyên gia Định giá (Phòng Định giá)",
+          task: `Định giá thanh lý chiết khấu -25% đến -35% và thiết lập biên lợi nhuận xả hàng`,
+          status: "pending",
+        },
+        {
+          role: "Thiết kế Đồ họa (Phòng Tiếp thị)",
           task: `Thiết kế Poster & Banner sản phẩm với nhãn 'CLEARANCE SALE'`,
           status: "pending",
         },
@@ -1378,23 +1380,87 @@ export function AgenticCommandCenter({
       ],
     });
 
+    // Pacing animation for Stage 1 so user perceives the inventory engineer working with animation
+    await new Promise((r) => setTimeout(r, 1400));
+
+    // STAGE 2: Chuyển giao sang Phòng Danh mục & Định giá - Chuyên gia Định giá tính toán chiết khấu
+    scrollToDepartment("dept-column-merchandising");
+    setActiveWorkflowKind("merchandising");
+    setMarketingActiveAgent("merchandising_clearance_calc");
+    setMarketingAgentMessage(
+      `📊 Chuyên gia Định giá đã tiếp nhận hồ sơ từ Kho vận, đang tính toán giá thanh lý chiết khấu và thiết lập biên lợi nhuận xả hàng...`,
+    );
+
+    setCeoPlan((prev) =>
+      prev
+        ? {
+            ...prev,
+            steps: prev.steps.map((s, idx) =>
+              idx === 0
+                ? { ...s, status: "done" }
+                : idx === 1
+                  ? { ...s, status: "running" }
+                  : s,
+            ),
+          }
+        : null,
+    );
+
+    // Pacing animation for Stage 2 so user perceives the pricing specialist calculating
+    await new Promise((r) => setTimeout(r, 1400));
+
+    // STAGE 3: Chuyển giao sang Phòng Tiếp thị & Sáng tạo - Thiết kế Đồ họa vẽ poster & banner
+    scrollToDepartment("dept-column-marketing");
+    setActiveWorkflowKind("marketing");
+    setMarketingActiveAgent("merchandising_visual_collab");
+    setMarketingAgentMessage(
+      `🎨 Thiết kế Đồ họa đang vẽ poster quảng bá, thiết kế banner và gắn huy hiệu 3D CLEARANCE SALE cho các sản phẩm...`,
+    );
+
+    setCeoPlan((prev) =>
+      prev
+        ? {
+            ...prev,
+            steps: prev.steps.map((s, idx) =>
+              idx <= 1
+                ? { ...s, status: "done" }
+                : idx === 2
+                  ? { ...s, status: "running" }
+                  : s,
+            ),
+          }
+        : null,
+    );
+
     if (catalogApi) {
       const itemNames = slowMovingItems.map((i) => i.productName).slice(0, 3).join(", ");
       const clearancePrompt = `Chiến dịch xả kho thanh lý giảm giá 30% cho các sản phẩm tồn đọng: ${itemNames}`;
       try {
-        const campaign = await catalogApi.generateCampaignProposal({ prompt: clearancePrompt });
+        const [campaign] = await Promise.all([
+          catalogApi.generateCampaignProposal({ prompt: clearancePrompt }),
+          new Promise((r) => setTimeout(r, 1600)), // Guarantee visual duration so poster drawing animation is clearly visible
+        ]);
+
         setCampaignProposal(campaign);
-        setCampaignProposalModalOpen(true);
+
+        // STAGE 4: Hoàn thành phối hợp liên phòng, sẵn sàng phê duyệt
         setCeoPlan((prev) =>
           prev
             ? {
                 ...prev,
                 steps: prev.steps.map((s, idx) =>
-                  idx <= 2 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                  idx <= 2
+                    ? { ...s, status: "done" }
+                    : idx === 3
+                      ? { ...s, status: "running" }
+                      : s,
                 ),
               }
             : null,
         );
+
+        setCampaignProposalModalOpen(true);
+        setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho! Sẵn sàng để bạn phê duyệt.");
       } catch (err: any) {
         setErrorMessage("Không thể tạo chiến dịch xả kho tự động: " + (err.message || String(err)));
       } finally {
@@ -1800,7 +1866,34 @@ export function AgenticCommandCenter({
 
       {/* 3. Dynamic Pipeline Flow Bar */}
       <div className="ccPipelineBar">
-        {activeWorkflowKind === "merchandising" ? (
+        {ceoPlan?.steps ? (
+          /* Dynamic Multi-Agent / Multi-Department CEO Plan Pipeline */
+          <div className="ccPipelineSteps">
+            {ceoPlan.steps.map((step, idx) => {
+              const isRunning = step.status === "running";
+              const isDone = step.status === "done";
+              return (
+                <Fragment key={idx}>
+                  {idx > 0 && <ArrowRight className="ccPipelineArrow" size={14} />}
+                  <div
+                    className={`ccPipelineNode ${
+                      isRunning ? "active" : isDone ? "completed" : ""
+                    }`}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 size={14} color="#10b981" />
+                    ) : isRunning ? (
+                      <Loader2 size={14} className="ccSpin" color="#38bdf8" />
+                    ) : (
+                      <Bot size={14} />
+                    )}
+                    <span>{step.role.replace(/\s*\([^)]*\)/, "")}</span>
+                  </div>
+                </Fragment>
+              );
+            })}
+          </div>
+        ) : activeWorkflowKind === "merchandising" ? (
           /* Merchandising / Catalog & Pricing Pipeline Flow */
           <div className="ccPipelineSteps">
             <div
@@ -2356,7 +2449,7 @@ export function AgenticCommandCenter({
                 onClick={() => setCampaignProposalModalOpen(true)}
               >
                 <Sparkles size={16} />
-                <span>Xem Đồ Họa Gemini AI & Duyệt ({campaignProposal.items.length} SP)</span>
+                <span>Xem Thiết Kế Poster & Phê Duyệt ({campaignProposal.items.length} SP)</span>
               </button>
             </div>
           ) : (
@@ -2731,7 +2824,8 @@ export function AgenticCommandCenter({
               currentMarketingState === "visual_creation"
                 ? "running"
                 : (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp"))
+                  (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp")) ||
+                  campaignProposal
                 ? "completed"
                 : activeCampaignDetail
                 ? "completed"
@@ -2739,11 +2833,13 @@ export function AgenticCommandCenter({
             }
             statusText={
               marketingActiveAgent === "merchandising_visual_collab"
-                ? marketingAgentMessage ?? "Đang thiết kế visual Gemini AI cho Danh mục..."
+                ? marketingAgentMessage ?? "Đang thiết kế poster & banner cho Danh mục..."
                 : marketingActiveAgent === "marketing_visual"
                 ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
                 : (marketingActiveAgent === "pricing_strategist" || merchandisingProposal) && ceoPlan?.targetDept?.includes("Phối hợp")
-                ? "Đã hoàn thành thiết kế visual chiến dịch cho Danh mục"
+                ? "Đã hoàn thành thiết kế poster chiến dịch cho Danh mục"
+                : campaignProposal
+                ? "Đã hoàn tất thiết kế poster & banner xả hàng"
                 : undefined
             }
             showProgress={
@@ -2801,7 +2897,9 @@ export function AgenticCommandCenter({
                 ? "running"
                 : marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
-                  merchandisingProposal
+                  marketingActiveAgent === "merchandising_clearance_calc" ||
+                  merchandisingProposal ||
+                  campaignProposal
                 ? "completed"
                 : "idle"
             }
@@ -2810,7 +2908,9 @@ export function AgenticCommandCenter({
                 ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
                 : marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
-                  merchandisingProposal
+                  marketingActiveAgent === "merchandising_clearance_calc" ||
+                  merchandisingProposal ||
+                  campaignProposal
                 ? "Đã hoàn tất tối ưu tên & mô tả SEO"
                 : undefined
             }
@@ -2820,23 +2920,33 @@ export function AgenticCommandCenter({
             name="Chuyên gia Định giá"
             roleTag="TRỢ LÝ"
             theme="cyan"
+            isCollaborating={marketingActiveAgent === "merchandising_clearance_calc"}
+            collabTag="Tiếp nhận từ Kho vận"
             status={
-              marketingActiveAgent === "pricing_strategist"
+              marketingActiveAgent === "pricing_strategist" ||
+              marketingActiveAgent === "merchandising_clearance_calc"
                 ? "running"
-                : merchandisingProposal
+                : marketingActiveAgent === "merchandising_visual_collab" ||
+                  merchandisingProposal ||
+                  campaignProposal
                 ? "completed"
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "merchandising_visual_collab"
-                ? "⏳ Đang chờ Thiết kế Đồ họa hoàn tất visual Gemini AI..."
+              marketingActiveAgent === "merchandising_clearance_calc"
+                ? marketingAgentMessage ?? "Đang tiếp nhận SKU tồn kho, tính toán giá xả hàng & biên lợi nhuận..."
+                : marketingActiveAgent === "merchandising_visual_collab"
+                ? "⏳ Đang chuyển giao sang Thiết kế Đồ họa vẽ poster..."
                 : marketingActiveAgent === "pricing_strategist"
                 ? marketingAgentMessage ?? "Đang tính toán giá Flash Sale & biên lợi nhuận..."
-                : merchandisingProposal
+                : merchandisingProposal || campaignProposal
                 ? "Đã hoàn tất tính toán giá Flash Sale & biên lợi nhuận"
                 : undefined
             }
-            showProgress={marketingActiveAgent === "pricing_strategist"}
+            showProgress={
+              marketingActiveAgent === "pricing_strategist" ||
+              marketingActiveAgent === "merchandising_clearance_calc"
+            }
           />
 
           <DepartmentInput
@@ -2866,19 +2976,35 @@ export function AgenticCommandCenter({
             name="Kỹ sư Tồn kho"
             roleTag="SKILL"
             theme="amber"
+            isCollaborating={marketingActiveAgent === "inventory_clearance_handoff"}
+            collabTag="Bàn giao liên phòng"
             status={
-              marketingActiveAgent === "inventory_specialist"
+              marketingActiveAgent === "inventory_specialist" ||
+              marketingActiveAgent === "inventory_clearance_handoff"
                 ? "running"
-                : marketingActiveAgent === "order_coordinator" || operationsProposal
+                : marketingActiveAgent === "order_coordinator" ||
+                  operationsProposal ||
+                  marketingActiveAgent === "merchandising_clearance_calc" ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
+                  campaignProposal
                 ? "completed"
                 : getBranchState("inventory")
             }
             statusText={
-              marketingActiveAgent === "inventory_specialist"
+              marketingActiveAgent === "inventory_clearance_handoff"
+                ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
+                : marketingActiveAgent === "inventory_specialist"
                 ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
+                : marketingActiveAgent === "merchandising_clearance_calc" ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
+                  campaignProposal
+                ? "Đã bàn giao danh sách SKU tồn đọng sang Phòng Danh mục & Định giá"
                 : undefined
             }
-            showProgress={marketingActiveAgent === "inventory_specialist"}
+            showProgress={
+              marketingActiveAgent === "inventory_specialist" ||
+              marketingActiveAgent === "inventory_clearance_handoff"
+            }
           />
           <AgentCard
             name="Điều phối Đơn hàng"

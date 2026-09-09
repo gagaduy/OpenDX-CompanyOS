@@ -94,9 +94,65 @@ function cleanBadgeText(rawText: string): string {
     .trim();
 }
 
+export interface SharpCampaignVisualAdapterOptions {
+  readonly apiKey?: string;
+  readonly enabled?: boolean;
+  readonly models?: string;
+  readonly timeoutMs?: number;
+}
+
 export class SharpCampaignVisualAdapter implements CampaignVisualGenerator {
+  constructor(private readonly options?: SharpCampaignVisualAdapterOptions) {}
+
   async generateBadgeOverlay(input: CampaignVisualOverlayInput): Promise<Buffer> {
-    const meta = await sharp(input.sourceBuffer, { failOn: "error" }).metadata();
+    let baseBuffer = input.sourceBuffer;
+
+    if (this.options?.enabled && this.options.apiKey?.trim()) {
+      try {
+        const themeAtmospheres: Record<string, string> = {
+          back_to_school: "vibrant back-to-school promotional atmosphere, modern academic study setting",
+          mid_autumn: "festive Mid-Autumn festival atmosphere with warm moonlight and lantern glow",
+          flash_sale: "high-energy flash sale atmosphere with bold dramatic studio lighting",
+          black_friday: "premium Black Friday atmosphere with sleek dark backdrop and elegant highlights",
+          general: "clean modern commercial e-commerce advertising studio setting",
+        };
+        const atmosphere = themeAtmospheres[input.themeKey] || themeAtmospheres.general;
+        const prompt = `Professional commercial product advertising photograph for e-commerce campaign: "${input.campaignName || "Khuyến Mãi Đặc Biệt"}". Featured Product: "${input.productName || "Sản phẩm công nghệ"}". Visual style: ${atmosphere}, crisp studio lighting, realistic e-commerce product photograph, balanced 1:1 square composition, commercial high-resolution quality. Clean background suitable for promotional badges. No blurry text.`;
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.options.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            models: [this.options.models || "google/gemini-2.5-flash-image"],
+            modalities: ["image", "text"],
+            image_config: { aspect_ratio: "1:1" },
+            messages: [{ role: "user", content: prompt }],
+          }),
+          signal: AbortSignal.timeout(this.options.timeoutMs || 25000),
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as any;
+          const choice = data?.choices?.[0]?.message?.images?.[0];
+          const url = typeof choice === "string" ? choice : choice?.image_url?.url ?? choice?.url;
+          const match = url?.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/);
+          if (match) {
+            const rawDecoded = Buffer.from(match[1].replace(/\s/g, ""), "base64");
+            baseBuffer = await sharp(rawDecoded)
+              .resize(800, 800, { fit: "cover" })
+              .png()
+              .toBuffer();
+          }
+        }
+      } catch (geminiError) {
+        console.warn("[SharpCampaignVisualAdapter] Gemini image generation fallback:", (geminiError as Error).message);
+      }
+    }
+
+    const meta = await sharp(baseBuffer, { failOn: "error" }).metadata();
     const width = meta.width ?? 600;
     const height = meta.height ?? 600;
 
@@ -205,7 +261,7 @@ export class SharpCampaignVisualAdapter implements CampaignVisualGenerator {
 </svg>
     `.trim();
 
-    const compositeResult = await sharp(input.sourceBuffer, { failOn: "error" })
+    const compositeResult = await sharp(baseBuffer, { failOn: "error" })
       .composite([{ input: Buffer.from(svg, "utf-8"), top: 0, left: 0 }])
       .webp({ quality: 90 })
       .toBuffer();

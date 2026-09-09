@@ -6,6 +6,7 @@ import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
 import { CatalogApplicationError } from "../../application/services/catalog-application.error";
 import type { AiMerchandisingService } from "../../application/services/implementations/ai-merchandising.service";
+import type { ProductMediaStorage } from "../../application/storage/product-media.storage";
 
 function toHttpError(error: unknown): unknown {
   if (!(error instanceof CatalogApplicationError)) return error;
@@ -14,7 +15,10 @@ function toHttpError(error: unknown): unknown {
 }
 
 export class AiMerchandisingController {
-  constructor(private readonly service: AiMerchandisingService) {}
+  constructor(
+    private readonly service: AiMerchandisingService,
+    private readonly mediaStorage?: ProductMediaStorage,
+  ) {}
 
   generateProposal = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -170,6 +174,52 @@ export class AiMerchandisingController {
     try {
       const active = await this.service.getActiveCampaign();
       res.status(200).json(active);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
+  getMediaContent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const rawKey = req.query.key;
+      if (!rawKey || typeof rawKey !== "string") {
+        throw new ApplicationError(400, "INVALID_INPUT", "Tham số storage key là bắt buộc.");
+      }
+      const key = decodeURIComponent(rawKey).trim();
+      if (key.includes("..") || key.startsWith("/") || key.includes("\\")) {
+        throw new ApplicationError(400, "INVALID_INPUT", "Định dạng storage key không hợp lệ.");
+      }
+      const isAllowedPrefix =
+        key.startsWith("products/") ||
+        key.startsWith("campaigns/") ||
+        key.startsWith("seed/") ||
+        key.startsWith("marketing/");
+      const isAllowedExt = /\.(webp|png|jpg|jpeg|avif)$/i.test(key);
+      if (!isAllowedPrefix || !isAllowedExt) {
+        throw new ApplicationError(400, "INVALID_INPUT", "Storage key không được phép truy cập.");
+      }
+
+      if (!this.mediaStorage) {
+        throw new ApplicationError(503, "STORAGE_UNAVAILABLE", "Hệ thống lưu trữ hình ảnh chưa được cấu hình.");
+      }
+
+      let bytes: Uint8Array;
+      try {
+        bytes = await this.mediaStorage.get(key);
+      } catch {
+        throw new ApplicationError(404, "NOT_FOUND", "Hình ảnh không tồn tại trên hệ thống lưu trữ.");
+      }
+      const ext = key.split(".").pop()?.toLowerCase() ?? "webp";
+      const mimeTypes: Record<string, string> = {
+        webp: "image/webp",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        avif: "image/avif",
+      };
+      res.setHeader("Content-Type", mimeTypes[ext] ?? "image/webp");
+      res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
+      res.status(200).send(Buffer.from(bytes));
     } catch (error) {
       next(toHttpError(error));
     }

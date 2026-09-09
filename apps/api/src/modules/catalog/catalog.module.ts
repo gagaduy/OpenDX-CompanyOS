@@ -158,7 +158,12 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     metadata: {},
     occurredAt: dependencies.now(),
   }));
-  const campaignVisualGenerator = new SharpCampaignVisualAdapter();
+  const campaignVisualGenerator = new SharpCampaignVisualAdapter({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    enabled: process.env.OPENROUTER_EXECUTION_ENABLED === "true",
+    models: process.env.MARKETING_VISUAL_MODELS || "google/gemini-2.5-flash-image",
+    timeoutMs: Number(process.env.MARKETING_VISUAL_TIMEOUT_MS ?? 25000),
+  });
   const campaignRepository = new PostgresqlCampaignRepository();
   const aiMerchandisingService = new AiMerchandisingService(
     dependencies.transactions,
@@ -187,7 +192,7 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
   ));
   adminRouter.use(
     createAiMerchandisingRouter(
-      new AiMerchandisingController(aiMerchandisingService),
+      new AiMerchandisingController(aiMerchandisingService, dependencies.mediaStorage),
       authenticate,
     ),
   );

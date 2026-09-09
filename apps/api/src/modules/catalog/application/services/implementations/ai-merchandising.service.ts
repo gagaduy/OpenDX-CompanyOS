@@ -376,6 +376,8 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
             themeKey,
             badgeText: itemBadge,
             discountPercent,
+            productName: snap.name,
+            campaignName,
           });
 
           const derivedKey = `campaigns/${campaignId}/${snap.variantId}.webp`;
@@ -664,7 +666,56 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
         return null;
       }
 
-      return this.campaignRepository.findActive(session);
+      const activeCampaign = await this.campaignRepository.findActive(session);
+      if (activeCampaign) {
+        // Self-heal: ensure product_media and product_prices remain synchronized while campaign is active
+        await session.query(
+          `UPDATE product_media pm
+           SET object_key = mci.campaign_media_storage_key, content_type = 'image/webp'
+           FROM merchandising_campaign_items mci
+           WHERE pm.product_id = mci.product_id
+             AND mci.campaign_id = $1
+             AND mci.campaign_media_storage_key IS NOT NULL
+             AND pm.is_primary = true
+             AND pm.object_key != mci.campaign_media_storage_key`,
+          [activeCampaign.id],
+        );
+
+        await session.query(
+          `UPDATE products p
+           SET attributes = p.attributes || jsonb_build_object('badge', mci.badge, 'campaignId', mci.campaign_id),
+               updated_at = NOW(), version = version + 1
+           FROM merchandising_campaign_items mci
+           WHERE p.id = mci.product_id
+             AND mci.campaign_id = $1
+             AND (p.attributes->>'campaignId' IS NULL OR p.attributes->>'campaignId' != $1::text)`,
+          [activeCampaign.id],
+        );
+
+        const missingPrices = await session.query<{
+          variant_id: string;
+          campaign_price_minor: number;
+        }>(
+          `SELECT mci.variant_id, mci.campaign_price_minor
+           FROM merchandising_campaign_items mci
+           LEFT JOIN product_prices pp ON pp.variant_id = mci.variant_id
+             AND pp.amount_minor = mci.campaign_price_minor
+             AND (pp.valid_to IS NULL OR pp.valid_to > NOW())
+           WHERE mci.campaign_id = $1 AND pp.id IS NULL`,
+          [activeCampaign.id],
+        );
+
+        for (const mp of missingPrices.rows) {
+          await session.query(
+            `INSERT INTO product_prices
+              (id, variant_id, amount_minor, currency, tax_inclusive, valid_from, valid_to, created_by)
+             VALUES (gen_random_uuid(), $1, $2, 'VND', true, NOW(), $3, 'system:campaign-selfheal')`,
+            [mp.variant_id, mp.campaign_price_minor, activeCampaign.endTime],
+          );
+        }
+      }
+
+      return activeCampaign;
     });
   }
 

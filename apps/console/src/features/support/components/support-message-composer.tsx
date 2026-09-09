@@ -63,7 +63,7 @@ export function SupportMessageComposer({
                 padding: "3px 10px",
                 cursor: drafting ? "not-allowed" : "pointer",
               }}
-              title="Sử dụng OpenRouter AI để tự động soạn câu trả lời mẫu theo ngữ cảnh"
+              title="Sử dụng Trợ lý CSKH để tự động soạn câu trả lời mẫu theo ngữ cảnh"
             >
               {drafting ? (
                 <>

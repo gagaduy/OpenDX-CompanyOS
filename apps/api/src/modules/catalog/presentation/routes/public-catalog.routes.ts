@@ -15,5 +15,6 @@ export function createPublicCatalogRouter(controller: PublicCatalogController): 
   router.get("/products", controller.products);
   router.get("/products/:productId/media/:mediaId/content", controller.media);
   router.get("/products/:slug", controller.product);
+  router.get("/media-content", controller.mediaContent);
   return router;
 }

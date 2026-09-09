@@ -147,7 +147,7 @@ function AgenticRoute({ apiBaseUrl, intake = false, detail = false, table = fals
   if (intake) return <StaffRoleRoute allowed={["administrator", "agentic_operator", "agentic_governance_admin"]}><AgenticTaskIntakePage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
   if (detail && taskId !== undefined) return <StaffRoleRoute allowed={readers}><AgenticTaskDetailPage api={api} taskId={taskId} roles={session?.roles ?? []} /></StaffRoleRoute>;
   if (table) return <StaffRoleRoute allowed={readers}><AgenticTasksPage api={api} roles={session?.roles ?? []} /></StaffRoleRoute>;
-  return <StaffRoleRoute allowed={readers}><AgenticCommandCenterPage api={api} marketingApi={marketingApi} catalogApi={catalogApi} inventoryApi={inventoryApi} supportApi={supportApi} roles={session?.roles ?? []} /></StaffRoleRoute>;
+  return <StaffRoleRoute allowed={readers}><AgenticCommandCenterPage api={api} marketingApi={marketingApi} catalogApi={catalogApi} inventoryApi={inventoryApi} supportApi={supportApi} roles={session?.roles ?? []} apiBaseUrl={apiBaseUrl} /></StaffRoleRoute>;
 }
 
 function InventoryRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {

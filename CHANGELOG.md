@@ -45,6 +45,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Implement live cross-department collaboration visual indicators and active employee blinking animations:
   - Added smooth pulsing/breathing glow keyframes (`ccAgentPulseBlue`, `ccAgentPulseCyan`, `ccAgentPulseAmber`, `ccAgentPulseEmerald`, `ccAgentPulseCollab`) and blinking status indicator dots (`ccDotBlink`) for active digital employees across all departments.
   - Integrated cross-department execution flow between Merchandising ("Danh mục & Định giá") and Marketing ("Tiếp thị & Sáng tạo"): during campaign asset generation, "Thiết kế Đồ họa" in Marketing actively blinks with a dedicated `⚡ Phối hợp cùng Danh mục` pill and progress bar while Merchandising waits and coordinates, clearly communicating cross-functional teamwork while preserving strict department ownership and role boundaries.
+  - Implemented multi-department staged clearance animation flow when triggering "Đề xuất chiến dịch Xả hàng Tồn kho": smoothly navigates between departments via `scrollToDepartment`, pulsing glowing borders, and progress indicators across Operations (Kỹ sư Tồn kho), Merchandising (Chuyên gia Định giá), and Marketing (Thiết kế Đồ họa) with paced visual transitions so operators clearly observe the handoff.
+  - Dynamically synchronized the top AI CEO Pipeline Flow Bar to reflect active steps and transitions directly from the CEO Strategic Plan.
+  - Sanitized user-facing UI copy and labels across Console: eliminated all occurrences of internal model names (OpenRouter, Gemini 2.5 Flash, Sharp) in favor of professional digital employee and enterprise team terminology ("Thiết kế bởi Đội Tiếp thị & Sáng tạo", "Nhân sự Thiết kế Đồ họa đang vẽ poster", "Chuyên viên CRM đang phân tích hành vi khách hàng", "Điều phối Đơn hàng đang rà soát dữ liệu tồn kho").
 
 ### Fixed
 
