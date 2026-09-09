@@ -132,9 +132,22 @@ async function main() {
   }
 
   const container = process.env.INSTAGRAM_QUICK_TUNNEL_CONTAINER ?? DEFAULT_CONTAINER;
-  const logs = run("docker", ["logs", "--tail", "200", container], { capture: true });
-  const origin = selectLatestQuickTunnelOrigin(logs);
-  await waitForTunnelReady(origin);
+  let logs = run("docker", ["logs", "--tail", "200", container], { capture: true });
+  let origin = selectLatestQuickTunnelOrigin(logs);
+  try {
+    await waitForTunnelReady(origin, { attempts: 4, delayMs: 2_000 });
+  } catch (initialError) {
+    process.stdout.write(`Current quick tunnel origin (${origin}) not ready, attempting container restart: ${initialError.message}\n`);
+    try {
+      run("docker", ["restart", container], { capture: true });
+      await new Promise((resolveSleep) => setTimeout(resolveSleep, 5_000));
+      logs = run("docker", ["logs", "--tail", "200", container], { capture: true });
+      origin = selectLatestQuickTunnelOrigin(logs);
+      await waitForTunnelReady(origin);
+    } catch {
+      throw initialError;
+    }
+  }
 
   const updated = updateEnvironmentValue(
     contents,
