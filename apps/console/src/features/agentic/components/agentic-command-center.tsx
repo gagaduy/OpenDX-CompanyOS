@@ -308,7 +308,61 @@ export function AgenticCommandCenter({
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
     const lower = text.toLowerCase();
 
-    // 1. Explicit Department Priority Check: Marketing & Media
+    // 0. Explicit Department Direct Prefix Check (from direct department inputs)
+    if (lower.includes("[phòng danh mục") || lower.includes("[phòng catalog") || lower.includes("[phòng thương mại")) {
+      return "merchandising";
+    }
+    if (lower.includes("[phòng tiếp thị") || lower.includes("[phòng marketing")) {
+      return "marketing";
+    }
+    if (lower.includes("[phòng vận hành") || lower.includes("[phòng kho")) {
+      return "operations";
+    }
+    if (lower.includes("[phòng cskh") || lower.includes("[phòng chăm sóc")) {
+      return "support";
+    }
+
+    // 1. Merchandising / Catalog & Pricing keywords (Prioritize pricing, discounts, promotions)
+    const merchandisingKeywords = [
+      "phòng thương mại",
+      "phòng catalog",
+      "định giá",
+      "flash sale",
+      "giảm giá",
+      "khuyến mãi",
+      "chiết khấu",
+      "ưu đãi",
+      "tối ưu sản phẩm",
+      "mô tả sản phẩm",
+      "chuẩn seo",
+      "tiêu đề sản phẩm",
+      "danh mục",
+      "pricing",
+      "catalog",
+      "merchandising",
+      "bảng giá",
+      "hạ giá",
+    ];
+
+    const isExplicitSocialPublishing =
+      lower.includes("đăng bài") ||
+      lower.includes("lên facebook") ||
+      lower.includes("lên instagram") ||
+      lower.includes("lên fanpage") ||
+      lower.includes("fanpage") ||
+      lower.includes("mạng xã hội") ||
+      lower.includes("viết bài") ||
+      lower.includes("poster");
+
+    if (!isExplicitSocialPublishing && (
+      merchandisingKeywords.some((kw) => lower.includes(kw)) ||
+      (/\b(?:giảm|sale)\s*\d+\s*%/i.test(lower)) ||
+      (/\b\d+\s*%\b/.test(lower) && (lower.includes("laptop") || lower.includes("phone") || lower.includes("sản phẩm") || lower.includes("chuột") || lower.includes("bàn phím") || lower.includes("toàn bộ")))
+    )) {
+      return "merchandising";
+    }
+
+    // 2. Marketing & Media keywords (without ambiguous 'chiến dịch')
     const marketingKeywords = [
       "phòng marketing",
       "marketing",
@@ -323,7 +377,6 @@ export function AgenticCommandCenter({
       "fanpage",
       "poster",
       "mạng xã hội",
-      "chiến dịch",
       "content",
       "visual",
       "bộ sưu tập",
@@ -335,7 +388,7 @@ export function AgenticCommandCenter({
       return "marketing";
     }
 
-    // 2. Explicit Department Priority Check: Operations & Inventory
+    // 3. Explicit Department Priority Check: Operations & Inventory
     const operationsKeywords = [
       "phòng vận hành",
       "phòng kho",
@@ -356,27 +409,6 @@ export function AgenticCommandCenter({
     ];
     if (operationsKeywords.some((kw) => lower.includes(kw))) {
       return "operations";
-    }
-
-    // 3. Merchandising / Catalog & Pricing keywords
-    const merchandisingKeywords = [
-      "phòng thương mại",
-      "phòng catalog",
-      "định giá",
-      "flash sale",
-      "giảm giá",
-      "khuyến mãi",
-      "tối ưu sản phẩm",
-      "mô tả sản phẩm",
-      "chuẩn seo",
-      "tiêu đề sản phẩm",
-      "danh mục",
-      "pricing",
-      "catalog",
-      "merchandising",
-    ];
-    if (merchandisingKeywords.some((kw) => lower.includes(kw))) {
-      return "merchandising";
     }
 
     // 4. Customer Support & CRM keywords (Specific phrases only)
@@ -625,7 +657,8 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage("✍️ Đang gọi OpenRouter (Gemini 2.5 Flash) & Sharp Graphics để tổng hợp ảnh đồ họa AI và tính toán giá chiến dịch...");
 
         try {
-          const cProposal = await catalogApi.generateCampaignProposal({ prompt: goalText });
+          const cleanPromptForApi = goalText.replace(/^\[phòng[^\]]+\]\s*/i, "");
+          const cProposal = await catalogApi.generateCampaignProposal({ prompt: cleanPromptForApi });
           setCampaignProposal(cProposal);
           setCampaignProposalModalOpen(true);
           setMerchandisingProposal({
