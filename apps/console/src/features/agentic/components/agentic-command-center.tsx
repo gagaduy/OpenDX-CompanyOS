@@ -38,9 +38,11 @@ import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from
 import type { MarketingApi } from "../../marketing/api/marketing-api";
 import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
 import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
-import { CampaignProposalModal } from "../../catalog/components/campaign-proposal-modal";
+import { CampaignProposalModal, resolveMediaUrl } from "../../catalog/components/campaign-proposal-modal";
 import { ActiveCampaignWidget } from "../../catalog/components/active-campaign-widget";
 import type { InventoryApi } from "../../inventory/api/inventory-api";
+import { OperationsProposalModal } from "../../inventory/components/operations-proposal-modal";
+import type { OperationsProposal, OperationsProposalItem } from "../../inventory/types/inventory.types";
 import type { SupportOperationsApi } from "../../support/api/support-api";
 import type { AiSupportProposalView } from "../../support/types/support.types";
 import { useAuth } from "../../authentication/hooks/auth-context";
@@ -56,6 +58,7 @@ interface AgenticCommandCenterProps {
   readonly overview?: AgenticTaskOverview;
   readonly tasks?: AgenticTaskPage;
   readonly onTaskCreated?: () => void;
+  readonly apiBaseUrl?: string;
 }
 
 export function AgenticCommandCenter({
@@ -67,6 +70,7 @@ export function AgenticCommandCenter({
   overview,
   tasks,
   onTaskCreated,
+  apiBaseUrl,
 }: AgenticCommandCenterProps) {
   const { signIn } = useAuth();
   const [prompt, setPrompt] = useState("");
@@ -125,7 +129,8 @@ export function AgenticCommandCenter({
   }, [catalogApi]);
 
   // Operations / Inventory Restock State
-  const [operationsProposal, setOperationsProposal] = useState<any | null>(null);
+  const [operationsProposal, setOperationsProposal] = useState<OperationsProposal | null>(null);
+  const [isOperationsModalOpen, setIsOperationsModalOpen] = useState(false);
   const [operationsActionLoading, setOperationsActionLoading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [operationsPage, setOperationsPage] = useState(1);
@@ -592,6 +597,7 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(goalText);
         setOperationsProposal(proposal);
+        setIsOperationsModalOpen(true);
         setOperationsPage(1);
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
@@ -627,44 +633,92 @@ export function AgenticCommandCenter({
 
         setCeoPlan({
           goal: goalText,
-          targetDept: "Phòng Catalog & Định giá",
+          targetDept: "Phòng Danh mục & Định giá (Phối hợp Tiếp thị)",
           steps: [
             {
-              role: "Cây bút Sản phẩm (Catalog Copywriter)",
+              role: "Cây bút Sản phẩm (Phòng Danh mục)",
               task: `Tối ưu tên sản phẩm chuẩn SEO, viết lại mô tả tính năng nổi bật & nhãn ưu đãi cho: "${cleanName}"`,
               status: "running",
             },
             {
-              role: "Chuyên gia Định giá (Pricing Strategist)",
+              role: "Thiết kế Đồ họa (Phòng Tiếp thị - Phối hợp)",
+              task: `Phối hợp liên phòng: Tạo visual Gemini AI, thiết kế banner và huy hiệu 3D cho các sản phẩm chiến dịch`,
+              status: "pending",
+            },
+            {
+              role: "Chuyên gia Định giá (Phòng Định giá)",
               task: `Phân tích biên lợi nhuận, tính toán mức giảm giá Flash Sale và dự báo lượng bán`,
               status: "pending",
             },
             {
               role: "Chủ tịch / Ban Giám đốc",
-              task: `Phê duyệt bảng đề xuất & cập nhật trực tiếp giá mới lên Cửa hàng Storefront`,
+              task: `Xem trước trực quan, phê duyệt & kích hoạt chiến dịch lên Storefront`,
               status: "pending",
             },
           ],
         });
 
-        // Stage 1: AI CEO Intake & Dispatch
+        // Stage 1: Cây bút Sản phẩm (Catalog Copywriter) tối ưu SEO & mô tả
         setMarketingActiveAgent("catalog_copywriter");
-        setMarketingAgentMessage("👑 AI CEO đang phân tích yêu cầu, phân bổ Cây bút Sản phẩm & Chuyên gia Định giá...");
-        await new Promise((r) => setTimeout(r, 600));
+        setMarketingAgentMessage("✍️ Cây bút Sản phẩm đang nghiên cứu danh mục, tối ưu tiêu đề chuẩn SEO & viết mô tả ưu đãi...");
+        await new Promise((r) => setTimeout(r, 1200));
 
-        // Stage 2: Digital Employees Execution via OpenRouter Gemini 2.5 Flash
-        setMarketingActiveAgent("pricing_strategist");
-        setMarketingAgentMessage("✍️ Đang gọi OpenRouter (Gemini 2.5 Flash) & Sharp Graphics để tổng hợp ảnh đồ họa AI và tính toán giá chiến dịch...");
+        // Transition: Cây bút Sản phẩm done -> Thiết kế Đồ họa (Phòng Tiếp thị) running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0
+                    ? { ...s, status: "done" }
+                    : idx === 1
+                      ? { ...s, status: "running" }
+                      : s,
+                ),
+              }
+            : null,
+        );
 
+        // Stage 2: Thiết kế Đồ họa (Phòng Tiếp thị & Sáng tạo) phối hợp thiết kế visual Gemini AI
+        setMarketingActiveAgent("merchandising_visual_collab");
+        setMarketingAgentMessage("🎨 [Phối hợp cùng Danh mục] Thiết kế Đồ họa đang gọi Gemini AI & Sharp để dựng visual sản phẩm và huy hiệu 3D chiến dịch...");
+
+        let cProposal: any = null;
         try {
           const cleanPromptForApi = goalText.replace(/^\[phòng[^\]]+\]\s*/i, "");
-          const cProposal = await catalogApi.generateCampaignProposal({ prompt: cleanPromptForApi });
+          cProposal = await catalogApi.generateCampaignProposal({ prompt: cleanPromptForApi });
+        } catch {
+          cProposal = null;
+        }
+
+        // Transition: Thiết kế Đồ họa done -> Chuyên gia Định giá running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 || idx === 1
+                    ? { ...s, status: "done" }
+                    : idx === 2
+                      ? { ...s, status: "running" }
+                      : s,
+                ),
+              }
+            : null,
+        );
+
+        // Stage 3: Chuyên gia Định giá tính toán giá Flash Sale & biên lợi nhuận
+        setMarketingActiveAgent("pricing_strategist");
+        setMarketingAgentMessage("📊 Chuyên gia Định giá đang phân tích biên lợi nhuận, chiết khấu và thiết lập bảng giá Flash Sale...");
+        await new Promise((r) => setTimeout(r, 1200));
+
+        if (cProposal) {
           setCampaignProposal(cProposal);
           setCampaignProposalModalOpen(true);
           setMerchandisingProposal({
             id: cProposal.id,
             prompt: cProposal.prompt,
-            items: cProposal.items.map((it) => ({
+            items: cProposal.items.map((it: any) => ({
               targetProductId: it.productId,
               targetVariantId: it.variantId,
               productName: it.productName,
@@ -687,20 +741,24 @@ export function AgenticCommandCenter({
             status: "pending_approval",
             createdAt: cProposal.startTime,
           });
-        } catch {
-          const proposal = await catalogApi.generateMerchandisingProposal({ prompt: goalText });
-          setMerchandisingProposal(proposal);
+        } else {
+          try {
+            const proposal = await catalogApi.generateMerchandisingProposal({ prompt: goalText });
+            setMerchandisingProposal(proposal);
+          } catch {
+            // fallback
+          }
         }
 
-        // Transition steps: 1 & 2 done, 3 waiting approval
+        // Transition: Step 3 done -> Step 4 waiting approval
         setCeoPlan((prev) =>
           prev
             ? {
                 ...prev,
                 steps: prev.steps.map((s, idx) =>
-                  idx === 0 || idx === 1
+                  idx <= 2
                     ? { ...s, status: "done" }
-                    : idx === 2
+                    : idx === 3
                       ? { ...s, status: "running" }
                       : s,
                 ),
@@ -710,7 +768,7 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("AI CEO đã hoàn tất đề xuất tối ưu sản phẩm & giá Flash Sale! Sẵn sàng để bạn duyệt áp dụng lên Storefront.");
+        setSuccessMessage("AI CEO và các phòng ban đã hoàn tất phối hợp! Sẵn sàng để bạn xem trước và duyệt chiến dịch.");
         setIsSubmitting(false);
         return;
       }
@@ -1226,19 +1284,21 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleApplyOperations = async () => {
+  const handleApplyOperations = async (
+    items?: readonly { variantId: string; restockQuantity: number }[],
+  ) => {
     if (!operationsProposal?.id || !inventoryApi || operationsActionLoading) return;
     try {
       setOperationsActionLoading(true);
       setErrorMessage(null);
-      await inventoryApi.applyOperationsProposal(
-        operationsProposal.id,
-        operationsProposal.items.map((i: any) => ({
-          variantId: i.variantId,
-          restockQuantity: i.recommendedRestockQuantity,
-        })),
-      );
-      setOperationsProposal((prev: any) => (prev ? { ...prev, status: "applied" } : null));
+      const payload = items && items.length > 0
+        ? items
+        : operationsProposal.items.map((i) => ({
+            variantId: i.variantId,
+            restockQuantity: i.recommendedRestockQuantity,
+          }));
+      await inventoryApi.applyOperationsProposal(operationsProposal.id, payload);
+      setOperationsProposal((prev) => (prev ? { ...prev, status: "applied" } : null));
 
       // Complete all steps in CEO Plan
       setCeoPlan((prev) =>
@@ -1250,12 +1310,77 @@ export function AgenticCommandCenter({
           : null,
       );
 
-      setSuccessMessage(`✅ Đã phê duyệt và nhập kho thành công +${operationsProposal.totalRestockUnits} đơn vị hàng vào cơ sở dữ liệu PostgreSQL!`);
+      const totalRestocked = payload.reduce((acc, it) => acc + it.restockQuantity, 0);
+      setSuccessMessage(`✅ Đã phê duyệt và nhập kho thành công +${totalRestocked} đơn vị hàng vào cơ sở dữ liệu PostgreSQL!`);
     } catch (err) {
       console.error("Failed to apply operations proposal:", err);
       setErrorMessage(err instanceof Error ? err.message : "Không thể nhập kho vào hệ thống.");
     } finally {
       setOperationsActionLoading(false);
+    }
+  };
+
+  const handleTriggerClearanceCampaign = async (
+    slowMovingItems: readonly OperationsProposalItem[],
+  ) => {
+    setIsOperationsModalOpen(false);
+    scrollToDepartment("dept-column-merchandising");
+    setActiveWorkflowKind("merchandising");
+    setMarketingActiveAgent("pricing_specialist");
+    setMarketingAgentMessage(
+      `⚡ Kỹ sư Tồn kho đã bàn giao ${slowMovingItems.length} SKU tồn đọng cho Chuyên gia Định giá & Thiết kế đồ họa để lập Chiến dịch Xả hàng...`,
+    );
+
+    setCeoPlan({
+      goal: `Xả hàng tồn kho thanh lý cho ${slowMovingItems.length} sản phẩm tồn đọng`,
+      targetDept: "Phòng Danh mục & Định giá ➔ Tiếp thị & Sáng tạo",
+      steps: [
+        {
+          role: "Kỹ sư Tồn kho (Inventory)",
+          task: `Bàn giao ${slowMovingItems.length} SKU tồn đọng vốn cần giải phóng thanh khoản`,
+          status: "done",
+        },
+        {
+          role: "Chuyên gia Định giá (Pricing)",
+          task: `Định giá thanh lý chiết khấu -25% đến -35% và thiết lập biên lợi nhuận xả hàng`,
+          status: "running",
+        },
+        {
+          role: "Thiết kế Đồ họa (Creative)",
+          task: `Thiết kế Poster & Banner sản phẩm với nhãn 'CLEARANCE SALE'`,
+          status: "pending",
+        },
+        {
+          role: "Chủ tịch / Ban Giám đốc",
+          task: `Phê duyệt và kích hoạt chiến dịch Xả kho lên Storefront`,
+          status: "pending",
+        },
+      ],
+    });
+
+    if (catalogApi) {
+      const itemNames = slowMovingItems.map((i) => i.productName).slice(0, 3).join(", ");
+      const clearancePrompt = `Chiến dịch xả kho thanh lý giảm giá 30% cho các sản phẩm tồn đọng: ${itemNames}`;
+      try {
+        const campaign = await catalogApi.generateCampaignProposal(clearancePrompt);
+        setCampaignProposal(campaign);
+        setIsCampaignModalOpen(true);
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 2 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+      } catch (err: any) {
+        setErrorMessage("Không thể tạo chiến dịch xả kho tự động: " + (err.message || String(err)));
+      } finally {
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+      }
     }
   };
 
@@ -2163,343 +2288,153 @@ export function AgenticCommandCenter({
             </div>
           </div>
 
-          {/* Products List (Single or Multi-product) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-            {(merchandisingProposal.items || []).map((item, idx) => (
-              <div
-                key={item.targetProductId || idx}
-                className="ccMerchProductCard"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "130px 1fr auto",
-                  gap: "1.25rem",
-                  alignItems: "center",
-                }}
-              >
-                {/* Column 1: Redesigned Product Visual Preview */}
-                <div style={{
-                  position: "relative",
-                  width: 130,
-                  height: 130,
-                  borderRadius: 10,
-                  overflow: "hidden",
-                  border: "1px solid rgba(56, 189, 248, 0.25)",
-                  background: "#0b0f19",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-                  flexShrink: 0,
-                }}>
-                  {item.campaignMediaUrl || item.originalMediaUrl ? (
-                    <img
-                      src={item.campaignMediaUrl || item.originalMediaUrl}
-                      alt={item.optimizedTitle}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.25rem", color: "#64748b" }}>
-                      <Sparkles size={22} color="#818cf8" />
-                      <span style={{ fontSize: "0.62rem", fontWeight: 600 }}>Đồ họa AI</span>
-                    </div>
-                  )}
-                  <span style={{
-                    position: "absolute",
-                    bottom: 4,
-                    left: 4,
-                    right: 4,
-                    background: "rgba(15, 23, 42, 0.9)",
-                    backdropFilter: "blur(4px)",
-                    color: "#38bdf8",
-                    fontSize: "0.6rem",
-                    fontWeight: 700,
-                    padding: "0.15rem 0.25rem",
-                    borderRadius: 4,
-                    textAlign: "center",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 3,
-                    border: "1px solid rgba(56, 189, 248, 0.3)"
-                  }}>
-                    <Sparkles size={9} color="#38bdf8" />
-                    Thiết kế Marketing
-                  </span>
-                </div>
+          {campaignProposal ? (
+            /* Multi-product Campaign Proposal Card */
+            <div className="ccCampaignOverviewCard">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                <span className="ccCampaignBadgePill">{campaignProposal.badgeText}</span>
+                <span className="ccCampaignDiscountPill">-{campaignProposal.discountPercent}%</span>
+                <span className="ccCampaignDurationText">
+                  Thời hạn: {campaignProposal.durationDays} ngày
+                </span>
+              </div>
 
-                {/* Column 2: Product SEO Title & Description */}
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Sản phẩm #{idx + 1} ({item.categoryName})
-                    </span>
-                    <span style={{ background: "linear-gradient(90deg, #f59e0b, #ea580c)", color: "#ffffff", padding: "0.15rem 0.5rem", borderRadius: 4, fontSize: "0.72rem", fontWeight: 700 }}>
-                      {item.badge}
-                    </span>
-                  </div>
-                  <h4 className="ccMerchProductTitle">
-                    {item.optimizedTitle}
-                  </h4>
-                  <div className="ccMerchDescBox">
-                    {item.optimizedDescription}
-                  </div>
-                </div>
-
-                {/* Column 3: Pricing comparison */}
-                <div className="ccMerchPriceBox">
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.4rem" }}>
-                      Định giá Flash Sale
-                    </span>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: "0.75rem", marginBottom: "0.4rem" }}>
-                      <div>
-                        <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>Giá gốc:</span>
-                        <del style={{ fontSize: "0.95rem", color: "#94a3b8", fontWeight: 600 }}>
-                          {item.originalPriceVnd.toLocaleString("vi-VN")} đ
-                        </del>
+              {/* Thumbnails preview strip */}
+              <div>
+                <span className="ccCampaignPreviewHeading">
+                  Xem trước {campaignProposal.items.length} sản phẩm áp dụng:
+                </span>
+                <div style={{ display: "flex", gap: "0.6rem", overflowX: "auto", paddingBottom: "0.4rem" }}>
+                  {campaignProposal.items.map((it) => {
+                    const imgUrl = resolveMediaUrl(it.campaignMediaUrl || it.originalMediaUrl, apiBaseUrl);
+                    return (
+                      <div
+                        key={it.id}
+                        title={`${it.productName} (${it.campaignPriceVnd.toLocaleString("vi-VN")} ₫)`}
+                        className="ccCampaignPreviewMiniThumb"
+                      >
+                        {imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={it.productName}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}
+                          />
+                        ) : (
+                          <Sparkles size={18} color="#818cf8" style={{ position: "absolute", inset: "50%", transform: "translate(-50%, -50%)" }} />
+                        )}
                       </div>
-                      <ArrowRight size={15} color="#64748b" />
-                      <div>
-                        <span style={{ fontSize: "0.75rem", color: "#34d399", display: "block", fontWeight: 600 }}>Giá mới:</span>
-                        <span style={{ fontSize: "1.25rem", color: "#10b981", fontWeight: 800 }}>
-                          {item.proposedPriceVnd.toLocaleString("vi-VN")} đ
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "0.25rem 0.6rem", borderRadius: 5, color: "#34d399", fontSize: "0.78rem", fontWeight: 700, marginTop: "0.4rem" }}>
-                    <span>Giảm -{item.discountPercent}%</span>
-                    <span>•</span>
-                    <span>Tiết kiệm {item.savingAmountVnd.toLocaleString("vi-VN")} đ</span>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
-          </div>
 
-          {/* Action Row */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.25rem" }}>
-            {campaignProposal && (
+              {/* Action Button to Open Fullscreen Modal */}
               <button
                 type="button"
-                className="ccMarketingActionBtn"
-                style={{
-                  background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                  color: "#fff",
-                  border: "none",
-                  padding: "0.75rem 1.25rem",
-                  fontSize: "0.9rem",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
+                className="ccCampaignOpenModalBtn"
                 onClick={() => setCampaignProposalModalOpen(true)}
               >
                 <Sparkles size={16} />
-                <span>Xem Đồ họa AI & Phân trang ({campaignProposal.items.length} SP)</span>
+                <span>Xem Đồ Họa Gemini AI & Duyệt ({campaignProposal.items.length} SP)</span>
               </button>
-            )}
-            {merchandisingProposal.status === "pending_approval" && (
+            </div>
+          ) : (
+            /* Single Product Proposal */
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              {(merchandisingProposal.items || []).map((item, idx) => {
+                const imgUrl = resolveMediaUrl(item.campaignMediaUrl || item.originalMediaUrl, apiBaseUrl);
+                return (
+                  <div
+                    key={item.targetProductId || idx}
+                    className="ccMerchProductCard"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "90px 1fr",
+                      gap: "1rem",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{
+                      width: 90,
+                      height: 90,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                      background: "#0b0f19",
+                    }}>
+                      {imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={item.optimizedTitle}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <Sparkles size={20} color="#818cf8" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="ccMerchProductTitle" style={{ fontSize: "0.85rem", marginBottom: "0.2rem" }}>
+                        {item.optimizedTitle}
+                      </h4>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", fontSize: "0.8rem" }}>
+                        <del style={{ color: "#64748b" }}>{item.originalPriceVnd.toLocaleString("vi-VN")} đ</del>
+                        <span style={{ color: "#10b981", fontWeight: 700 }}>{item.proposedPriceVnd.toLocaleString("vi-VN")} đ</span>
+                        <span style={{ color: "#f43f5e", fontWeight: 600 }}>(-{item.discountPercent}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Action Row */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
+            {merchandisingProposal.status === "pending_approval" && !campaignProposal && (
               <button
                 type="button"
                 className="ccMarketingActionBtn approve"
                 disabled={merchandisingLoading}
                 onClick={handleApplyMerchandisingProposal}
-                style={{ padding: "0.75rem 1.75rem", fontSize: "0.95rem" }}
+                style={{ padding: "0.65rem 1.25rem", fontSize: "0.85rem" }}
               >
                 {merchandisingLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>
-                  {campaignProposal
-                    ? `Kích hoạt Toàn bộ Chiến dịch (${campaignProposal.items.length} SP) lên Storefront`
-                    : merchandisingProposal.items && merchandisingProposal.items.length > 1
-                      ? `Duyệt & Áp dụng toàn bộ (${merchandisingProposal.items.length} sản phẩm) lên Storefront`
-                      : "Duyệt & Áp dụng ngay lên Storefront"}
-                </span>
+                <span>Duyệt & Áp dụng ngay lên Storefront</span>
               </button>
             )}
             {merchandisingProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.95rem" }}>
-                <CheckCircle2 size={20} color="#10b981" />
-                <span>
-                  {merchandisingProposal.items && merchandisingProposal.items.length > 1
-                    ? `Đã cập nhật giá mới & mô tả cho cả ${merchandisingProposal.items.length} sản phẩm trực tiếp lên Storefront!`
-                    : "Đã cập nhật giá mới & mô tả trực tiếp lên Cửa hàng Storefront!"}
-                </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.85rem" }}>
+                  <CheckCircle2 size={18} color="#10b981" />
+                  <span>Đã áp dụng thành công lên Storefront!</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setMerchandisingProposal(null); setCampaignProposal(null); }}
+                  className="ccCampaignCancelBtn"
+                  style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
+                >
+                  Thu gọn
+                </button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* 4c. In-Place Active Operations & Inventory Restock Proposal Card */}
+      {/* 4c. Interactive Operations & Inventory Restock Proposal Modal */}
       {operationsProposal && (
-        <div className="ccMarketingLiveCard ccOperationsProposalCard">
-          <div className="ccMarketingLiveHeader">
-            <div className="ccMarketingLiveTitle">
-              <Boxes size={18} color="#fbbf24" />
-              <span>
-                {`Đề xuất Kiểm toán Tồn kho & Bổ sung ${operationsProposal.totalRestockUnits} Đơn vị (${operationsProposal.items?.length || 0} SKU)`}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <span
-                className={`ccMarketingStatusBadge ${
-                  operationsProposal.status === "pending_approval"
-                    ? "awaiting"
-                    : operationsProposal.status === "applied"
-                      ? "live"
-                      : "draft"
-                }`}
-              >
-                {operationsProposal.status === "pending_approval"
-                  ? "⏳ Chờ Phê Duyệt Nhập Kho"
-                  : operationsProposal.status === "applied"
-                    ? "✅ Đã Cập Nhật Kho Database"
-                    : operationsProposal.status}
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
-                onClick={() => setOperationsProposal(null)}
-                title="Đóng bảng đề xuất"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Health Summary & Risk Assessment Callouts */}
-          <div className="ccProposalSummaryGrid">
-            <div className="ccProposalSummaryBox info">
-              <strong className="ccProposalSummaryTitle info">
-                📊 Tổng quan sức khỏe kho:
-              </strong>
-              <p className="ccProposalSummaryText">
-                {operationsProposal.inventoryHealthSummary}
-              </p>
-            </div>
-            <div className="ccProposalSummaryBox danger">
-              <strong className="ccProposalSummaryTitle danger">
-                ⚠️ Phân tích rủi ro chuỗi cung ứng:
-              </strong>
-              <p className="ccProposalSummaryText">
-                {operationsProposal.riskAssessment}
-              </p>
-            </div>
-          </div>
-
-          {/* Table of Inventory & Restock Items */}
-          <div className="ccProposalTableContainer">
-            <table className="ccProposalTable">
-              <thead>
-                <tr className="ccProposalTableThRow">
-                  <th>SKU</th>
-                  <th>Sản phẩm</th>
-                  <th style={{ textAlign: "center" }}>Tồn thực tế</th>
-                  <th style={{ textAlign: "center" }}>Đang giữ chỗ</th>
-                  <th style={{ textAlign: "center" }}>Khả dụng</th>
-                  <th>Đề xuất nhập</th>
-                  <th style={{ textAlign: "right" }}>Dự toán chi phí</th>
-                </tr>
-              </thead>
-              <tbody>
-                {operationsProposal.items
-                  ?.slice((operationsPage - 1) * 5, operationsPage * 5)
-                  .map((item: any) => (
-                    <tr key={item.variantId || item.sku} className="ccProposalTableTr">
-                      <td className="ccProposalSkuCell">{item.sku}</td>
-                      <td>
-                        <div className="ccProposalItemName">{item.productName}</div>
-                        <div className="ccProposalItemSubtext">{item.actionRationale}</div>
-                      </td>
-                      <td style={{ textAlign: "center" }} className="ccProposalItemCount">{item.currentOnHand}</td>
-                      <td style={{ textAlign: "center" }} className="ccProposalItemReserved">{item.currentReserved}</td>
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`ccStockBadge ${item.stockStatus}`}
-                        >
-                          {item.availableQuantity}
-                        </span>
-                      </td>
-                      <td>
-                        {item.recommendedRestockQuantity > 0 ? (
-                          <span className="ccRestockRecommended">
-                            +{item.recommendedRestockQuantity} đơn vị
-                          </span>
-                        ) : (
-                          <span className="ccRestockSafe">Đã đủ an toàn</span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "right" }} className="ccRestockCost">
-                        {item.estimatedTotalCostVnd > 0 ? `${item.estimatedTotalCostVnd.toLocaleString("vi-VN")} đ` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-              <tfoot>
-                <tr className="ccProposalTableTfootRow">
-                  <td colSpan={5} className="ccProposalTfootTitle">
-                    Tổng cộng {operationsProposal.items?.length || 0} SKU
-                  </td>
-                  <td className="ccProposalTfootQty">
-                    +{operationsProposal.totalRestockUnits} đơn vị
-                  </td>
-                  <td style={{ textAlign: "right" }} className="ccProposalTfootCost">
-                    {operationsProposal.totalEstimatedBudgetVnd?.toLocaleString("vi-VN")} đ
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-            <ProposalPagination
-              currentPage={operationsPage}
-              totalPages={Math.max(1, Math.ceil((operationsProposal.items?.length || 0) / 5))}
-              totalItems={operationsProposal.items?.length || 0}
-              pageSize={5}
-              itemName="mặt hàng"
-              onPageChange={setOperationsPage}
-            />
-          </div>
-
-          {/* Action Row */}
-          <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button
-                type="button"
-                className="ccMarketingActionBtn livePost"
-                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
-                disabled={isDownloadingDocx}
-                onClick={handleDownloadOperationsDocx}
-              >
-                <FileText size={15} />
-                <span>{isDownloadingDocx ? "Đang tạo file..." : "📥 Tải Báo Cáo Word (.docx)"}</span>
-              </button>
-            </div>
-
-            {operationsProposal.status === "pending_approval" && (
-              <button
-                type="button"
-                className="ccMarketingActionBtn approve"
-                style={{ padding: "0.75rem 1.75rem", fontSize: "0.95rem" }}
-                disabled={operationsActionLoading}
-                onClick={handleApplyOperations}
-              >
-                {operationsActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>
-                  {operationsActionLoading
-                    ? "Đang nhập kho..."
-                    : `Phê duyệt & Nhập kho +${operationsProposal.totalRestockUnits} đơn vị`}
-                </span>
-              </button>
-            )}
-            {operationsProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.95rem" }}>
-                <CheckCircle2 size={20} color="#10b981" />
-                <span>Đã nhập kho thành công và cập nhật số lượng tồn vào PostgreSQL!</span>
-              </div>
-            )}
-          </div>
-        </div>
+        <OperationsProposalModal
+          isOpen={isOperationsModalOpen}
+          proposal={operationsProposal}
+          onClose={() => setIsOperationsModalOpen(false)}
+          onApply={handleApplyOperations}
+          onDownloadDocx={handleDownloadOperationsDocx}
+          onTriggerClearanceCampaign={handleTriggerClearanceCampaign}
+          isApplying={operationsActionLoading}
+          isDownloadingDocx={isDownloadingDocx}
+        />
       )}
 
       {/* 4d. Customer Support & CRM Live Proposal Card (Emerald Theme) */}
@@ -2768,17 +2703,32 @@ export function AgenticCommandCenter({
             name="Thiết kế Đồ họa"
             roleTag="SKILL"
             theme="blue"
+            isCollaborating={marketingActiveAgent === "merchandising_visual_collab"}
+            collabTag="Phối hợp cùng Danh mục"
             status={
-              marketingActiveAgent === "marketing_visual" || currentMarketingState === "visual_creation"
+              marketingActiveAgent === "marketing_visual" ||
+              marketingActiveAgent === "merchandising_visual_collab" ||
+              currentMarketingState === "visual_creation"
                 ? "running"
+                : (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
+                  (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp"))
+                ? "completed"
                 : activeCampaignDetail
                 ? "completed"
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "marketing_visual"
+              marketingActiveAgent === "merchandising_visual_collab"
+                ? marketingAgentMessage ?? "Đang thiết kế visual Gemini AI cho Danh mục..."
+                : marketingActiveAgent === "marketing_visual"
                 ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
+                : (marketingActiveAgent === "pricing_strategist" || merchandisingProposal) && ceoPlan?.targetDept?.includes("Phối hợp")
+                ? "Đã hoàn thành thiết kế visual chiến dịch cho Danh mục"
                 : undefined
+            }
+            showProgress={
+              marketingActiveAgent === "marketing_visual" ||
+              marketingActiveAgent === "merchandising_visual_collab"
             }
           />
           <AgentCard
@@ -2825,17 +2775,23 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Cây bút Sản phẩm"
             roleTag="SKILL"
-            theme="blue"
+            theme="cyan"
             status={
               marketingActiveAgent === "catalog_copywriter"
                 ? "running"
-                : marketingActiveAgent === "pricing_strategist" || merchandisingProposal
+                : marketingActiveAgent === "merchandising_visual_collab" ||
+                  marketingActiveAgent === "pricing_strategist" ||
+                  merchandisingProposal
                 ? "completed"
                 : "idle"
             }
             statusText={
               marketingActiveAgent === "catalog_copywriter"
                 ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
+                : marketingActiveAgent === "merchandising_visual_collab" ||
+                  marketingActiveAgent === "pricing_strategist" ||
+                  merchandisingProposal
+                ? "Đã hoàn tất tối ưu tên & mô tả SEO"
                 : undefined
             }
             showProgress={marketingActiveAgent === "catalog_copywriter"}
@@ -2843,7 +2799,7 @@ export function AgenticCommandCenter({
           <AgentCard
             name="Chuyên gia Định giá"
             roleTag="TRỢ LÝ"
-            theme="blue"
+            theme="cyan"
             status={
               marketingActiveAgent === "pricing_strategist"
                 ? "running"
@@ -2852,8 +2808,12 @@ export function AgenticCommandCenter({
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "pricing_strategist"
+              marketingActiveAgent === "merchandising_visual_collab"
+                ? "⏳ Đang chờ Thiết kế Đồ họa hoàn tất visual Gemini AI..."
+                : marketingActiveAgent === "pricing_strategist"
                 ? marketingAgentMessage ?? "Đang tính toán giá Flash Sale & biên lợi nhuận..."
+                : merchandisingProposal
+                ? "Đã hoàn tất tính toán giá Flash Sale & biên lợi nhuận"
                 : undefined
             }
             showProgress={marketingActiveAgent === "pricing_strategist"}
@@ -2920,6 +2880,18 @@ export function AgenticCommandCenter({
             }
             showProgress={marketingActiveAgent === "order_coordinator"}
           />
+
+          {operationsProposal && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem" }}
+              onClick={() => setIsOperationsModalOpen(true)}
+            >
+              <Boxes size={14} color="#fbbf24" />
+              <span>Xem Phiếu Đề Xuất ({operationsProposal.totalRestockUnits} đơn vị)</span>
+            </button>
+          )}
 
           <DepartmentInput
             placeholder="Giao việc cho Vận hành & Kho..."
@@ -3008,6 +2980,7 @@ export function AgenticCommandCenter({
           onClose={() => setCampaignProposalModalOpen(false)}
           onApprove={handleApproveCampaign}
           isActivating={isActivatingCampaign}
+          apiBaseUrl={apiBaseUrl}
         />
       )}
     </section>
@@ -3050,11 +3023,13 @@ function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInp
 
 interface AgentCardProps {
   readonly name: string;
-  readonly roleTag: "SKILL" | "TRỢ LÝ" | "ĐỘI";
+  readonly roleTag: string;
   readonly status: "idle" | "running" | "completed" | "failed";
   readonly statusText?: string;
   readonly showProgress?: boolean;
-  readonly theme?: "blue" | "amber" | "emerald" | "purple";
+  readonly theme?: "blue" | "cyan" | "amber" | "emerald" | "purple";
+  readonly isCollaborating?: boolean;
+  readonly collabTag?: string;
 }
 
 function AgentCard({
@@ -3064,18 +3039,29 @@ function AgentCard({
   statusText,
   showProgress,
   theme = "blue",
+  isCollaborating = false,
+  collabTag,
 }: AgentCardProps) {
+  const isRunning = status === "running";
+
   return (
     <div
-      className={`ccAgentCard ${status === "running" ? "activeThinking" : ""} ${
-        status === "running" ? `activeBorder-${theme}` : ""
-      }`}
+      className={`ccAgentCard ${isRunning ? "activeThinking" : ""} ${
+        isRunning ? `activeBorder-${theme}` : ""
+      } ${isCollaborating && isRunning ? "ccAgentCollaborating" : ""}`}
     >
       <div className="ccAgentCardHeader">
-        <span className="ccAgentRoleBadge">{roleTag}</span>
-        {status === "running" ? (
-          <span className="ccStatusIndicatorIcon" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <span className={`ccStatusIndicatorDot ${theme}`} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+          <span className="ccAgentRoleBadge">{roleTag}</span>
+          {isCollaborating && (
+            <span className="ccCollabPill">
+              ⚡ {collabTag || "Phối hợp liên phòng"}
+            </span>
+          )}
+        </div>
+        {isRunning ? (
+          <span className="ccStatusIndicatorIcon" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+            <span className={`ccStatusIndicatorDot running ${theme}`} />
           </span>
         ) : status === "completed" ? (
           <span className="ccStatusIndicatorIcon">
@@ -3093,13 +3079,13 @@ function AgentCard({
       <h3 className="ccAgentName">{name}</h3>
 
       {statusText && (
-        <p className={`ccAgentContentText ${status === "running" ? "activeCalc" : ""}`}>
+        <p className={`ccAgentContentText ${isRunning ? "activeCalc" : ""}`}>
           {statusText}
         </p>
       )}
 
-      {(showProgress || (status === "running" && theme === "amber")) && (
-        <div className="ccProgressBarContainer">
+      {(showProgress || isRunning) && (
+        <div className={`ccProgressBarContainer theme-${theme}`}>
           <div className="ccProgressBarFill" />
         </div>
       )}
