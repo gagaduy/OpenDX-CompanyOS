@@ -9,7 +9,7 @@ import {
   inventoryListEnvelopeSchema,
   movementListEnvelopeSchema,
 } from "../schemas/inventory-api.schema";
-import type { InventoryItemView, InventoryMovementView, InventoryPageView, InventoryQuery } from "../types/inventory.types";
+import type { InventoryItemView, InventoryMovementView, InventoryPageView, InventoryQuery, OperationsProposal } from "../types/inventory.types";
 
 export type InventoryErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "CONFLICT" | "STALE_VERSION" | "VALIDATION_ERROR" | "INVENTORY_ITEM_NOT_FOUND" | "INVALID_STOCK_ADJUSTMENT" | "INVALID_RESPONSE" | "UNAVAILABLE";
 
@@ -23,7 +23,7 @@ export interface InventoryApi {
   receive(input: { readonly variantId: string; readonly quantity: number; readonly idempotencyKey: string }): Promise<InventoryItemView>;
   adjust(id: string, input: { readonly delta: number; readonly reasonCode: string; readonly reasonNote?: string; readonly version: number }): Promise<InventoryItemView>;
   listMovements(id: string, page: number, pageSize: number, signal?: AbortSignal): Promise<InventoryPageView<InventoryMovementView>>;
-  generateOperationsProposal(prompt: string): Promise<any>;
+  generateOperationsProposal(prompt: string): Promise<OperationsProposal>;
   downloadOperationsDocx(proposalId: string, filename: string): Promise<void>;
   applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]): Promise<any>;
 }
