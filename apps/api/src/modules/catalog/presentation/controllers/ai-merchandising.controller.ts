@@ -4,7 +4,14 @@
 import type { NextFunction, Request, Response } from "express";
 import type { StaffPrincipal } from "../../../../shared/auth/staff-principal";
 import { ApplicationError } from "../../../../shared/http/application-error";
+import { CatalogApplicationError } from "../../application/services/catalog-application.error";
 import type { AiMerchandisingService } from "../../application/services/implementations/ai-merchandising.service";
+
+function toHttpError(error: unknown): unknown {
+  if (!(error instanceof CatalogApplicationError)) return error;
+  const status = error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : 400;
+  return new ApplicationError(status, error.code, error.message);
+}
 
 export class AiMerchandisingController {
   constructor(private readonly service: AiMerchandisingService) {}
@@ -28,7 +35,7 @@ export class AiMerchandisingController {
 
       res.status(200).json(proposal);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -41,7 +48,7 @@ export class AiMerchandisingController {
       }
       res.status(200).json(proposal);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -73,7 +80,7 @@ export class AiMerchandisingController {
 
       res.status(200).json(result);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -105,7 +112,7 @@ export class AiMerchandisingController {
 
       res.status(200).json(proposal);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -134,7 +141,7 @@ export class AiMerchandisingController {
 
       res.status(200).json(result);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -155,7 +162,7 @@ export class AiMerchandisingController {
 
       res.status(200).json(result);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 
@@ -164,7 +171,7 @@ export class AiMerchandisingController {
       const active = await this.service.getActiveCampaign();
       res.status(200).json(active);
     } catch (error) {
-      next(error);
+      next(toHttpError(error));
     }
   };
 }

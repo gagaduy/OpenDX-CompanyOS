@@ -932,6 +932,28 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
   ): Promise<ApplyMerchandisingResultDto> {
     const proposal = this.proposals.get(request.proposalId);
     if (!proposal) {
+      if (this.campaignRepository) {
+        const campaign = await this.transactions.runReadOnly(async (session) => {
+          return this.campaignRepository.getById(session, request.proposalId);
+        });
+        if (campaign) {
+          await this.activateCampaign(campaign.id, context);
+          return {
+            success: true,
+            proposalId: campaign.id,
+            updatedCount: campaign.items.length,
+            items: campaign.items.map((it) => ({
+              productId: it.productId,
+              productName: it.optimizedTitle,
+              originalPriceVnd: it.originalPriceVnd,
+              newPriceVnd: it.campaignPriceVnd,
+              discountPercent: campaign.discountPercent,
+              badge: it.badge,
+            })),
+            appliedAt: this.now(),
+          };
+        }
+      }
       throw new CatalogApplicationError("NOT_FOUND", `Không tìm thấy bản đề xuất ID: ${request.proposalId}`);
     }
 

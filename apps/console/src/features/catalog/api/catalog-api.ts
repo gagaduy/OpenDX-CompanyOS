@@ -164,7 +164,8 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     if (!response.ok) {
       const parsed = errorEnvelopeSchema.safeParse(body);
       const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(response.status);
-      throw new CatalogApiError(code, publicMessage(code));
+      const message = parsed.success && parsed.data.message ? parsed.data.message : publicMessage(code);
+      throw new CatalogApiError(code, message);
     }
     return body;
   };
@@ -230,7 +231,7 @@ function uploadMedia(baseUrl: string, accessToken: string, productId: string, in
     xhr.onerror = () => reject(new CatalogApiError("UNAVAILABLE", "Media upload failed."));
     xhr.onload = () => {
       let body: unknown; try { body = JSON.parse(xhr.responseText); } catch { reject(new CatalogApiError("INVALID_RESPONSE", "Invalid media response.")); return; }
-      if (xhr.status < 200 || xhr.status >= 300) { const parsed = errorEnvelopeSchema.safeParse(body); const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(xhr.status); reject(new CatalogApiError(code, publicMessage(code))); return; }
+      if (xhr.status < 200 || xhr.status >= 300) { const parsed = errorEnvelopeSchema.safeParse(body); const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(xhr.status); const message = parsed.success && parsed.data.message ? parsed.data.message : publicMessage(code); reject(new CatalogApiError(code, message)); return; }
       try { resolve(parse(mediaEnvelopeSchema, body).data); } catch (error) { reject(error); }
     };
     xhr.send(form);

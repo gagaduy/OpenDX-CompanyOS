@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Route promotional discount campaigns to Merchandising department and fix dynamic campaign activation from Proposal Card:
+  - Fixed AI CEO intent classifier to direct pricing, discount, and percentage campaigns to Merchandising instead of Marketing social publishing.
+  - Fixed proposal approval flow to activate dynamic campaigns directly from both the review modal and the in-place proposal card.
+  - Added HTTP status and message mapping (`toHttpError`) in `AiMerchandisingController` and preserved descriptive backend error messages in Console `CatalogApi`.
 - Preserve Support SLA invariants when an approved AI proposal resolves a ticket that is paused while waiting for the customer, allowing the transaction to commit before voucher email dispatch.
 - Retry Marketing visual generation once when an image-capable provider returns HTTP 200 without a valid image, and allow a failed campaign to re-enter the governed revision flow without bypassing review or approval.
 - Synchronize a restarted development Instagram Quick Tunnel with the ignored root `.env` and recreate the API, preventing Meta from fetching media through an expired tunnel hostname after `make up`.

@@ -1100,9 +1100,38 @@ export function AgenticCommandCenter({
       setMerchandisingLoading(true);
       setErrorMessage(null);
 
+      if (campaignProposal) {
+        await catalogApi.activateCampaign(campaignProposal.id);
+        const active = await catalogApi.getActiveCampaign();
+        setActiveCampaign(active);
+        setCampaignProposalModalOpen(false);
+        setCampaignProposal(null);
+        setMerchandisingProposal((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "applied",
+              }
+            : null,
+        );
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+        return;
+      }
+
       const result = await catalogApi.applyMerchandisingProposal({
         proposalId: merchandisingProposal.id,
       });
+
+      const active = await catalogApi.getActiveCampaign();
+      setActiveCampaign(active);
 
       setMerchandisingProposal((prev) =>
         prev
@@ -1147,6 +1176,14 @@ export function AgenticCommandCenter({
       });
       setCampaignProposalModalOpen(false);
       setCampaignProposal(null);
+      setMerchandisingProposal((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "applied",
+            }
+          : null,
+      );
       const active = await catalogApi.getActiveCampaign();
       setActiveCampaign(active);
 
@@ -2193,9 +2230,11 @@ export function AgenticCommandCenter({
               >
                 {merchandisingLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
                 <span>
-                  {merchandisingProposal.items && merchandisingProposal.items.length > 1
-                    ? `Duyệt & Áp dụng toàn bộ (${merchandisingProposal.items.length} sản phẩm) lên Storefront`
-                    : "Duyệt & Áp dụng ngay lên Storefront"}
+                  {campaignProposal
+                    ? `Kích hoạt Toàn bộ Chiến dịch (${campaignProposal.items.length} SP) lên Storefront`
+                    : merchandisingProposal.items && merchandisingProposal.items.length > 1
+                      ? `Duyệt & Áp dụng toàn bộ (${merchandisingProposal.items.length} sản phẩm) lên Storefront`
+                      : "Duyệt & Áp dụng ngay lên Storefront"}
                 </span>
               </button>
             )}

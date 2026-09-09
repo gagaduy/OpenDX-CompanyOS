@@ -238,4 +238,68 @@ describe("AiMerchandisingService Campaign Engine", () => {
     expect(proposal.items[0]?.productId).toBe("p-2");
     expect(proposal.items[0]?.campaignPriceVnd).toBe(700000);
   });
+
+  it("applies campaign proposal seamlessly when proposalId points to a campaign record", async () => {
+    const mockTx = {
+      runReadOnly: vi.fn().mockImplementation(async (cb) => cb({
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+      })),
+      run: vi.fn().mockImplementation(async (cb) => cb({
+        query: vi.fn().mockResolvedValue({
+          rows: [{
+            id: "camp-legacy-1",
+            name: "Test Camp",
+            status: "draft",
+            start_time: new Date(),
+            end_time: new Date(Date.now() + 86400000),
+          }],
+        }),
+      })),
+    };
+
+    const mockRepo = {
+      createCampaign: vi.fn(),
+      getById: vi.fn().mockResolvedValue({
+        id: "camp-legacy-1",
+        status: "draft",
+        name: "Test Camp",
+        slug: "test-camp",
+        discountPercent: 18,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 86400000).toISOString(),
+        items: [{
+          id: "item-1",
+          productId: "p-1",
+          variantId: "v-1",
+          originalPriceVnd: 30000000,
+          campaignPriceVnd: 24600000,
+          optimizedTitle: "Laptop Nova Back to School",
+          optimizedDescription: "Desc",
+          badge: "SALE -18%",
+        }],
+      }),
+      findActive: vi.fn(),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn().mockResolvedValue(undefined) } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const result = await service.applyProposal(
+      { proposalId: "camp-legacy-1" },
+      { actorId: "staff-test", correlationId: "corr-legacy" },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.proposalId).toBe("camp-legacy-1");
+    expect(result.updatedCount).toBe(1);
+    expect(result.items[0]?.newPriceVnd).toBe(24600000);
+    expect(result.items[0]?.discountPercent).toBe(18);
+    expect(mockRepo.updateStatus).toHaveBeenCalledWith(expect.anything(), "camp-legacy-1", "active");
+  });
 });
