@@ -1362,9 +1362,9 @@ export function AgenticCommandCenter({
       const itemNames = slowMovingItems.map((i) => i.productName).slice(0, 3).join(", ");
       const clearancePrompt = `Chiến dịch xả kho thanh lý giảm giá 30% cho các sản phẩm tồn đọng: ${itemNames}`;
       try {
-        const campaign = await catalogApi.generateCampaignProposal(clearancePrompt);
+        const campaign = await catalogApi.generateCampaignProposal({ prompt: clearancePrompt });
         setCampaignProposal(campaign);
-        setIsCampaignModalOpen(true);
+        setCampaignProposalModalOpen(true);
         setCeoPlan((prev) =>
           prev
             ? {

@@ -20,6 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Staff Console multi-modal UX: 4 items/page paginated review modal with cross-page selection retention, before/after visual preview, duration picker presets, active campaign monitor with real-time countdown (`DD:HH:MM:SS`), and emergency 1-click revert button.
   - Database schema migrations for `merchandising_campaigns` and `merchandising_campaign_items` tables with audit tracking.
   - Automated end-to-end verification script `scripts/dev/catalog-campaign-e2e-check.mjs` and `pnpm check:catalog-campaign` gate.
+- Upgrade Operations & Inventory workforce department and implement interactive replenishment copilot:
+  - Refined `AiOperationsService` stock risk classification logic (`critical_low`, `slow_moving`, `balanced`) to ensure non-critical items default to 0 restock quantities while critical items calculate safety stock replenishment buffers.
+  - Implemented `OperationsProposalModal` with amber theme styling, risk classification filter tabs (`Tất cả`, `Cạn kiệt`, `Tồn đọng`, `An toàn`), and quick actions (`⚡ Nhập theo mức an toàn`, `🔄 Đặt tất cả về 0`).
+  - Added inline editable restock quantity inputs with live recalculation of line-item costs and total procurement budget.
+  - Added post-approval screen inside the modal confirming stock updates with links to download updated DOCX audit reports.
+  - Introduced cross-department clearance collaboration: staff can click `⚡ Đề xuất Chiến dịch Xả hàng Tồn kho` on slow-moving inventory to seamlessly trigger a coordinated workflow with Pricing and Creative Graphic Design to formulate a clearance sale.
 
 ### Changed
 
@@ -34,9 +40,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Relocated `ActiveCampaignWidget` from inside the Merchandising column to a prominent, full-width Global Active Campaign Bar above the 4 department columns, keeping individual department workspaces clean and unencumbered.
   - Added dedicated redesigned product visual preview column directly onto the Merchandising proposal card with cross-department collaboration metadata, allowing immediate visual review before approval.
 - Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
+- Implement live cross-department collaboration visual indicators and active employee blinking animations:
+  - Added smooth pulsing/breathing glow keyframes (`ccAgentPulseBlue`, `ccAgentPulseCyan`, `ccAgentPulseAmber`, `ccAgentPulseEmerald`, `ccAgentPulseCollab`) and blinking status indicator dots (`ccDotBlink`) for active digital employees across all departments.
+  - Integrated cross-department execution flow between Merchandising ("Danh mục & Định giá") and Marketing ("Tiếp thị & Sáng tạo"): during campaign asset generation, "Thiết kế Đồ họa" in Marketing actively blinks with a dedicated `⚡ Phối hợp cùng Danh mục` pill and progress bar while Merchandising waits and coordinates, clearly communicating cross-functional teamwork while preserving strict department ownership and role boundaries.
 
 ### Fixed
 
+- Preserve active campaign media and discounted prices across container rebuilds and database seed runs:
+  - Updated `catalog.seed.ts` to inspect and re-apply any currently active merchandising campaign at the end of seed execution, preventing `db:seed:all` from clobbering active campaign promotional media keys and time-bounded pricing.
+  - Added self-healing synchronization in `AiMerchandisingService.getActiveCampaign`: whenever active campaign status is polled or queried, it automatically verifies and restores missing `product_media.object_key` and active campaign prices in `product_prices`, ensuring Storefront always renders the Gemini AI designed graphics and sale prices throughout the campaign's lifespan.
+- Fix product and campaign image display in Staff Console and enable multi-modal Google Gemini Image generation:
+  - Added dedicated authenticated media streaming endpoints (`GET /v1/admin/catalog/media-content` and `GET /v1/storefront/media-content`) with support for `seed/`, `products/`, `campaigns/`, and `marketing/` storage prefixes, resolving image loading failures across both Console and Storefront.
+  - Implemented `resolveMediaUrl` in Console to route relative media storage URLs directly to the authoritative backend API server (`http://localhost:4000`), resolving Vite HTML fallback errors.
+  - Upgraded `SharpCampaignVisualAdapter` to utilize Google Gemini 2.5 Flash Image (`google/gemini-2.5-flash-image`) via OpenRouter with dynamic prompt atmosphere generation based on campaign theme, compositing sharp high-contrast vector badges and ribbon typography onto high-resolution 800x800 e-commerce imagery.
+  - Replaced uncompiled Tailwind utility classes in `CampaignProposalModal` and `ActiveCampaignWidget` with scoped Linear Product Canvas CSS (`.ccCampaignModalOverlay`, `.ccCampaignModalDialog`, `.ccCampaignProductRow`, `.ccCampaignVisualCompare`, `.ccActiveCampaignBanner`), providing full bidirectional support for both Dark and Light themes (`[data-theme="light"]`), including crisp light-mode borders, soft rose/indigo contrast surfaces, readable countdown timers, and responsive side-by-side visual comparisons.
+  - Synchronized AI CEO Strategic Decomposition Plan step transitions with live digital employee cards in Merchandising workflow, ensuring "Cây bút Sản phẩm" marks completed and "Chuyên gia Định giá" displays active processing simultaneously across both views.
 - Route promotional discount campaigns to Merchandising department and fix dynamic campaign activation from Proposal Card:
   - Fixed AI CEO intent classifier to direct pricing, discount, and percentage campaigns to Merchandising instead of Marketing social publishing.
   - Fixed proposal approval flow to activate dynamic campaigns directly from both the review modal and the in-place proposal card.
