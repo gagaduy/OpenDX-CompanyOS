@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
-import type { CampaignProposalDto, CampaignItemDto, ActiveCampaignDto } from "../../application/dtos/campaign-merchandising.dto";
+import type { CampaignProposalDto, CampaignItemDto, ActiveCampaignDto } from "../../../application/dtos/campaign-merchandising.dto";
 
 export interface CreateCampaignRecordInput {
   readonly id: string;
@@ -66,8 +66,8 @@ export class PostgresqlCampaignRepository {
           input.id,
           item.productId,
           item.variantId,
-          item.originalPriceMinor,
-          item.campaignPriceMinor,
+          item.originalPriceMinor.toString(),
+          item.campaignPriceMinor.toString(),
           item.originalMediaStorageKey ?? null,
           item.campaignMediaStorageKey ?? null,
           item.optimizedTitle,

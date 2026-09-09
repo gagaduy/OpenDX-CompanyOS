@@ -11,6 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Add autonomous, governed Dynamic Campaign Engine to Catalog & Pricing department:
+  - Dynamic LLM campaign extraction (title, duration, discount percentage, theme key, badge text, SEO rationale) with zero static mock fallbacks.
+  - Real server-side visual compositing using `sharp@0.35.4` creating high-contrast 3D pill badges and accent frames rendered to WebP in private storage.
+  - PostgreSQL SCD Type 2 time-bounded campaign pricing (`valid_from = NOW()`, `valid_to = campaign.end_time`) with automated baseline price fallback upon expiration or revert.
+  - Staff Console multi-modal UX: 4 items/page paginated review modal with cross-page selection retention, before/after visual preview, duration picker presets, active campaign monitor with real-time countdown (`DD:HH:MM:SS`), and emergency 1-click revert button.
+  - Database schema migrations for `merchandising_campaigns` and `merchandising_campaign_items` tables with audit tracking.
+  - Automated end-to-end verification script `scripts/dev/catalog-campaign-e2e-check.mjs` and `pnpm check:catalog-campaign` gate.
+
 ### Changed
 
 - Enhance customer support email resolution template and AI reply generation:

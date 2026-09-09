@@ -20,6 +20,7 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
     uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(async () => []),
     checkPublicationReadiness: vi.fn(async () => ({ ready: true, missing: [] })), publishProduct: vi.fn(async () => ({ ...product, status: "published" as const, version: 4 })), unpublishProduct: vi.fn(async () => product),
     generateMerchandisingProposal: vi.fn(), applyMerchandisingProposal: vi.fn(),
+    generateCampaignProposal: vi.fn(), activateCampaign: vi.fn(), revertCampaign: vi.fn(), getActiveCampaign: vi.fn(),
   };
 }
 

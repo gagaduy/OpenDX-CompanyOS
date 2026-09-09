@@ -153,24 +153,27 @@ export class AiMerchandisingService {
           COALESCE(pr.amount_minor, 0) as price_minor,
           pm.object_key as storage_key
         FROM products p
+        JOIN product_variants v ON v.product_id = p.id AND v.status = 'active'
+        JOIN product_prices pr ON pr.variant_id = v.id AND pr.valid_from <= NOW() AND (pr.valid_to IS NULL OR pr.valid_to > NOW())
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN product_variants v ON v.product_id = p.id AND v.status = 'active'
-        LEFT JOIN product_prices pr ON pr.variant_id = v.id AND pr.valid_from <= NOW() AND (pr.valid_to IS NULL OR pr.valid_to > NOW())
         LEFT JOIN product_media pm ON pm.product_id = p.id AND pm.is_primary = true
+        WHERE p.status = 'published'
         ORDER BY p.created_at ASC
       `);
 
-      return result.rows.map((r): CatalogProductSnapshot => ({
-        productId: r.product_id,
-        name: r.name,
-        slug: r.slug,
-        description: r.description,
-        categoryName: r.category_name,
-        variantId: r.variant_id,
-        sku: r.sku,
-        priceMinor: Number(r.price_minor),
-        storageKey: r.storage_key ?? undefined,
-      }));
+      return result.rows
+        .filter((r) => r.variant_id && Number(r.price_minor) > 0)
+        .map((r): CatalogProductSnapshot => ({
+          productId: r.product_id,
+          name: r.name,
+          slug: r.slug,
+          description: r.description,
+          categoryName: r.category_name,
+          variantId: r.variant_id,
+          sku: r.sku,
+          priceMinor: Number(r.price_minor),
+          storageKey: r.storage_key ?? undefined,
+        }));
     });
 
     if (catalogSnapshots.length === 0) {
