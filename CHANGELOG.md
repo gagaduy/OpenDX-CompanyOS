@@ -29,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Unified all email resolution dispatchers (`AiSupportService`, `SupportEmailIngestionService`, `SupportService`) to use the standardized responsive HTML template.
 - Unified customer support ticket association in `SupportLivechatService.initSession`:
   - Customer livechat sessions now automatically attach to the customer's most recent active or recently resolved support ticket (within 24 hours), enabling seamless synchronisation of resolution messages and compensation vouchers across both email and livechat without fragmentation.
+- Elevate campaign visual design and streamline workforce command center layout:
+  - Upgraded Sharp campaign visual adapter with high-impact commercial e-commerce staging, vector SVG theme icons, safe font stacks (`DejaVu Sans, Arial, sans-serif`), and full-width bottom promotional ribbon bars, eliminating tofu font box artifacts (`▯▯▯`) on Linux/Docker.
+  - Relocated `ActiveCampaignWidget` from inside the Merchandising column to a prominent, full-width Global Active Campaign Bar above the 4 department columns, keeping individual department workspaces clean and unencumbered.
+  - Added dedicated redesigned product visual preview column directly onto the Merchandising proposal card with cross-department collaboration metadata, allowing immediate visual review before approval.
 - Remove Finance department column from AI CEO Command Center dashboard grid, aligning the workforce layout to 4 functional departments (Marketing, Merchandising, Operations, Support) and 9 AI employees.
 
 ### Fixed

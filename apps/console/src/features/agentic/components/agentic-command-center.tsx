@@ -677,7 +677,11 @@ export function AgenticCommandCenter({
               proposedPriceVnd: it.campaignPriceVnd,
               discountPercent: it.discountPercent,
               savingAmountVnd: it.savingAmountVnd,
+              originalMediaUrl: it.originalMediaUrl,
+              campaignMediaUrl: it.campaignMediaUrl,
             })),
+            originalMediaUrl: cProposal.items[0]?.originalMediaUrl,
+            campaignMediaUrl: cProposal.items[0]?.campaignMediaUrl,
             pricingRationale: cProposal.pricingRationale,
             salesProjection: cProposal.salesProjection,
             status: "pending_approval",
@@ -2118,6 +2122,27 @@ export function AgenticCommandCenter({
             </div>
           </div>
 
+          {/* Cross-Department Collaboration Banner */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            padding: "0.65rem 1rem",
+            marginBottom: "1rem",
+            borderRadius: "8px",
+            background: "linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15))",
+            border: "1px solid rgba(99, 102, 241, 0.35)",
+            fontSize: "0.82rem",
+            color: "#e2e8f0"
+          }}>
+            <Sparkles size={16} color="#818cf8" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Phối hợp liên phòng ban:</strong>{" "}
+              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>Phòng Tiếp thị & Sáng tạo</span> (Thiết kế Visual & Đồ họa AI) 🤝{" "}
+              <span style={{ color: "#38bdf8", fontWeight: 600 }}>Phòng Danh mục & Định giá</span> (Định giá chiết khấu SCD Type 2 & SEO)
+            </span>
+          </div>
+
           {/* Strategy Rationale & Sales Projection Header */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
             <div className="ccProposalRationaleBox amber">
@@ -2144,8 +2169,62 @@ export function AgenticCommandCenter({
               <div
                 key={item.targetProductId || idx}
                 className="ccMerchProductCard"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "130px 1fr auto",
+                  gap: "1.25rem",
+                  alignItems: "center",
+                }}
               >
-                {/* Left: Product SEO Title & Description */}
+                {/* Column 1: Redesigned Product Visual Preview */}
+                <div style={{
+                  position: "relative",
+                  width: 130,
+                  height: 130,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(56, 189, 248, 0.25)",
+                  background: "#0b0f19",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                  flexShrink: 0,
+                }}>
+                  {item.campaignMediaUrl || item.originalMediaUrl ? (
+                    <img
+                      src={item.campaignMediaUrl || item.originalMediaUrl}
+                      alt={item.optimizedTitle}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.25rem", color: "#64748b" }}>
+                      <Sparkles size={22} color="#818cf8" />
+                      <span style={{ fontSize: "0.62rem", fontWeight: 600 }}>Đồ họa AI</span>
+                    </div>
+                  )}
+                  <span style={{
+                    position: "absolute",
+                    bottom: 4,
+                    left: 4,
+                    right: 4,
+                    background: "rgba(15, 23, 42, 0.9)",
+                    backdropFilter: "blur(4px)",
+                    color: "#38bdf8",
+                    fontSize: "0.6rem",
+                    fontWeight: 700,
+                    padding: "0.15rem 0.25rem",
+                    borderRadius: 4,
+                    textAlign: "center",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 3,
+                    border: "1px solid rgba(56, 189, 248, 0.3)"
+                  }}>
+                    <Sparkles size={9} color="#38bdf8" />
+                    Thiết kế Marketing
+                  </span>
+                </div>
+
+                {/* Column 2: Product SEO Title & Description */}
                 <div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
                     <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -2163,7 +2242,7 @@ export function AgenticCommandCenter({
                   </div>
                 </div>
 
-                {/* Right: Pricing comparison */}
+                {/* Column 3: Pricing comparison */}
                 <div className="ccMerchPriceBox">
                   <div>
                     <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.4rem" }}>
@@ -2640,8 +2719,19 @@ export function AgenticCommandCenter({
         </div>
       )}
 
+      {/* 4e. Global Active Merchandising Campaign Live Monitor Banner */}
+      {activeCampaign && (
+        <div style={{ marginTop: "2rem", marginBottom: "0.5rem" }}>
+          <ActiveCampaignWidget
+            campaign={activeCampaign}
+            onRevert={handleEmergencyRevertCampaign}
+            isReverting={isRevertingCampaign}
+          />
+        </div>
+      )}
+
       {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
-      <div className="ccDepartmentGrid" style={{ marginTop: "2rem" }}>
+      <div className="ccDepartmentGrid" style={{ marginTop: activeCampaign ? "1rem" : "2rem" }}>
         {/* Column 1: Tiếp thị & Sáng tạo (Blue Theme) */}
         <div id="dept-column-marketing" className="ccDepartmentColumn theme-blue">
           <div className="ccDepartmentHeader">
@@ -2731,17 +2821,6 @@ export function AgenticCommandCenter({
               <span>2 Nhân sự</span>
             </span>
           </div>
-
-          {/* Active Merchandising Campaign Live Monitor Widget */}
-          {activeCampaign && (
-            <div style={{ marginBottom: "1rem" }}>
-              <ActiveCampaignWidget
-                campaign={activeCampaign}
-                onRevert={handleEmergencyRevertCampaign}
-                isReverting={isRevertingCampaign}
-              />
-            </div>
-          )}
 
           <AgentCard
             name="Cây bút Sản phẩm"

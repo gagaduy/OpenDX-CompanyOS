@@ -30,6 +30,8 @@ export interface MerchandisingItem {
   readonly proposedPriceVnd: number;
   readonly discountPercent: number;
   readonly savingAmountVnd: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
 }
 
 export interface MerchandisingProposal {
@@ -48,6 +50,8 @@ export interface MerchandisingProposal {
   readonly proposedPriceVnd?: number;
   readonly discountPercent?: number;
   readonly savingAmountVnd?: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
   readonly pricingRationale: string;
   readonly salesProjection: string;
   readonly status: "pending_approval" | "applied" | "rejected";
