@@ -35,6 +35,7 @@ import { createProductMediaRouter } from "./presentation/routes/product-media.ro
 import { createProductRouter } from "./presentation/routes/product.routes";
 import { createProductPublicationRouter } from "./presentation/routes/product-publication.routes";
 import { createPublicCatalogRouter } from "./presentation/routes/public-catalog.routes";
+import { createVariantRouter } from "./presentation/routes/variant.routes";
 import { SharpCampaignVisualAdapter } from "./infrastructure/adapters/sharp-campaign-visual.adapter";
 import { PostgresqlCampaignRepository } from "./infrastructure/repositories/implementations/postgresql-campaign.repository";
 import { AiMerchandisingService } from "./application/services/implementations/ai-merchandising.service";
