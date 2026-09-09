@@ -189,16 +189,20 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
         aiMatch?.stockStatus || (available <= 5 ? "critical_low" : available >= 25 ? "slow_moving" : "balanced");
 
       const threshold = aiMatch?.safetyStockThreshold || 10;
-      let restockQty = explicitRestockQty !== undefined
-        ? (stockStatus === "critical_low" || available < threshold ? explicitRestockQty : 0)
-        : (aiMatch?.recommendedRestockQuantity !== undefined
+      let restockQty = 0;
+      if (explicitRestockQty !== undefined) {
+        restockQty = (stockStatus === "critical_low" || available < threshold) ? explicitRestockQty : 0;
+      } else if (stockStatus === "critical_low" || available < threshold) {
+        restockQty =
+          aiMatch?.recommendedRestockQuantity !== undefined && Number(aiMatch.recommendedRestockQuantity) > 0
             ? Number(aiMatch.recommendedRestockQuantity)
-            : available < threshold
-              ? Math.max(10, threshold * 2 - available)
-              : 0);
+            : Math.max(10, threshold * 2 - available);
+      } else {
+        restockQty = 0;
+      }
 
-      // If user prompted to restock all items in scope
-      if (explicitRestockQty !== undefined && restockQty === 0 && relevantRows.length <= 4) {
+      // If user explicitly prompted to restock and matched specific items
+      if (explicitRestockQty !== undefined && restockQty === 0 && relevantRows.length <= 4 && promptLower.includes("nhập")) {
         restockQty = explicitRestockQty;
       }
 
