@@ -111,8 +111,8 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     socialAccountRepository,
     inspector: metaTokenAdapter,
     refresher: metaTokenAdapter,
-    appId: options.metaAppId ?? process.env.META_APP_ID,
-    appSecret: options.metaAppSecret ?? process.env.META_APP_SECRET,
+    appId: options.metaAppId ?? options.publicationConfig?.meta?.appId ?? process.env.META_APP_ID,
+    appSecret: options.metaAppSecret ?? options.publicationConfig?.meta?.appSecret ?? process.env.META_APP_SECRET,
     defaultFacebookPageId: options.publicationConfig?.facebook?.pageId,
     defaultFacebookToken: options.publicationConfig?.facebook?.pageAccessToken,
     defaultInstagramAccountId: options.publicationConfig?.instagram?.mode === "live"

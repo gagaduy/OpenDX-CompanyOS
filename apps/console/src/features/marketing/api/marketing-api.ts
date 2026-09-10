@@ -31,6 +31,8 @@ export interface SocialTokensSummaryView {
   readonly hasExpiringOrInvalid: boolean;
   readonly urgentActionRequired: boolean;
   readonly checkedAt: string;
+  readonly metaAppId?: string | null;
+  readonly oauthConfigured?: boolean;
 }
 
 export interface MarketingApi {
@@ -51,7 +53,8 @@ export interface MarketingApi {
   fetchArtifactBlob?(artifactId: string): Promise<Blob>;
   getSocialTokensStatus(signal?: AbortSignal): Promise<SocialTokensSummaryView>;
   refreshSocialToken(params: { platform: string; accountId: string }): Promise<SocialTokenHealthView>;
-  exchangeSocialOAuthCode(params: { code: string; redirectUri: string; platform?: string }): Promise<SocialTokensSummaryView>;
+  exchangeSocialOAuthCode(params: { code: string; redirectUri: string; platform?: string; targetPageId?: string; appId?: string; appSecret?: string }): Promise<SocialTokensSummaryView>;
+  configureMetaApp(params: { appId: string; appSecret: string }): Promise<SocialTokensSummaryView>;
   checkSocialTokens(): Promise<SocialTokensSummaryView>;
   updateSocialToken(params: { platform: string; accessToken: string; accountId?: string }): Promise<SocialTokenHealthView>;
   syncSocialTokensFromEnv(): Promise<SocialTokensSummaryView>;
@@ -231,6 +234,14 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
       });
       return mapBackendSocialTokensSummary(res);
     },
+
+    async configureMetaApp(params) {
+      const res: any = await request("/v1/admin/marketing/social-tokens/meta-app-config", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+      return mapBackendSocialTokensSummary(res);
+    },
   };
 }
 
@@ -268,7 +279,12 @@ function mapBackendSocialToken(dto: any): SocialTokenHealthView {
 }
 
 function mapBackendSocialTokensSummary(raw: any): SocialTokensSummaryView {
-  const accounts = (raw.accounts || []).map(mapBackendSocialToken);
+  const rawAccounts = Array.isArray(raw.accounts)
+    ? raw.accounts
+    : raw.platform && raw.accountId
+    ? [raw]
+    : [];
+  const accounts = rawAccounts.map(mapBackendSocialToken);
   const hasExpiringOrInvalid =
     raw.hasExpiringOrInvalid ??
     (raw.overallStatus === "warning" ||
@@ -284,6 +300,8 @@ function mapBackendSocialTokensSummary(raw: any): SocialTokensSummaryView {
     hasExpiringOrInvalid,
     urgentActionRequired,
     checkedAt: raw.checkedAt ?? new Date().toISOString(),
+    ...(raw.metaAppId !== undefined ? { metaAppId: raw.metaAppId } : {}),
+    ...(raw.oauthConfigured !== undefined ? { oauthConfigured: raw.oauthConfigured } : {}),
   };
 }
 

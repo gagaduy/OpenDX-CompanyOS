@@ -29,6 +29,7 @@ export interface SocialTokenManagerModalProps {
   readonly onUpdateToken?: (platform: "facebook" | "instagram", token: string, accountId?: string) => Promise<void>;
   readonly onSyncEnv?: () => Promise<void>;
   readonly onOAuthReconnect?: (platform: "facebook" | "instagram") => void;
+  readonly onConfigureMetaApp?: (appId: string, appSecret: string) => Promise<void>;
   readonly isActionLoading?: boolean;
   readonly actionFeedback?: string | null;
 }
@@ -42,15 +43,28 @@ export function SocialTokenManagerModal({
   onUpdateToken,
   onSyncEnv,
   onOAuthReconnect,
+  onConfigureMetaApp,
   isActionLoading = false,
   actionFeedback,
 }: SocialTokenManagerModalProps) {
   const [refreshingAccountKey, setRefreshingAccountKey] = useState<string | null>(null);
   const [quickInputOpen, setQuickInputOpen] = useState(false);
+  const [metaAppConfigOpen, setMetaAppConfigOpen] = useState(false);
+  const [appIdInput, setAppIdInput] = useState("");
+  const [appSecretInput, setAppSecretInput] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<"facebook" | "instagram">("facebook");
   const [tokenInput, setTokenInput] = useState("");
   const [editingCardKey, setEditingCardKey] = useState<string | null>(null);
   const [cardTokenInput, setCardTokenInput] = useState("");
+
+  useEffect(() => {
+    if (summary?.metaAppId) {
+      setAppIdInput(summary.metaAppId);
+    } else if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("opendx_meta_app_id");
+      if (stored) setAppIdInput(stored);
+    }
+  }, [summary?.metaAppId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,6 +99,17 @@ export function SocialTokenManagerModal({
     await onUpdateToken(account.platform, cardTokenInput.trim(), account.accountId);
     setCardTokenInput("");
     setEditingCardKey(null);
+  };
+
+  const handleSaveMetaAppConfig = async () => {
+    if (!appIdInput.trim() || !appSecretInput.trim()) return;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("opendx_meta_app_id", appIdInput.trim());
+    }
+    if (onConfigureMetaApp) {
+      await onConfigureMetaApp(appIdInput.trim(), appSecretInput.trim());
+    }
+    setMetaAppConfigOpen(false);
   };
 
   const getStatusBadge = (account: SocialTokenHealthView) => {
@@ -197,6 +222,15 @@ export function SocialTokenManagerModal({
             <button
               type="button"
               className="socialTokenRefreshAllBtn"
+              style={{ background: metaAppConfigOpen ? "#475569" : "#4338ca", color: "#ffffff", borderColor: "#3730a3" }}
+              onClick={() => setMetaAppConfigOpen(!metaAppConfigOpen)}
+              title="Cấu hình Meta App ID và App Secret để mở tính năng 1-Click Facebook OAuth Login"
+            >
+              <span>{metaAppConfigOpen ? "Đóng cài đặt App" : "⚙️ Cấu hình Meta App"}</span>
+            </button>
+            <button
+              type="button"
+              className="socialTokenRefreshAllBtn"
               style={{ background: quickInputOpen ? "#475569" : "#059669", color: "#ffffff", borderColor: "#047857" }}
               onClick={() => setQuickInputOpen(!quickInputOpen)}
             >
@@ -204,6 +238,66 @@ export function SocialTokenManagerModal({
             </button>
           </div>
         </div>
+
+        {/* Meta App Configuration Form */}
+        {metaAppConfigOpen && (
+          <div className="socialTokenQuickInputCard" style={{ borderColor: "#6366f1" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+              <h4 className="socialTokenQuickInputTitle" style={{ color: "#a5b4fc" }}>
+                <KeyRound size={15} />
+                <span>Cấu hình Meta App (1-Click Facebook OAuth Login)</span>
+              </h4>
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "9999px",
+                  background: summary?.oauthConfigured ? "rgba(16, 185, 129, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                  color: summary?.oauthConfigured ? "#34d399" : "#fbbf24",
+                  fontWeight: 600,
+                }}
+              >
+                {summary?.oauthConfigured ? "✓ Đã sẵn sàng OAuth" : "⚠️ Chưa hoàn tất cấu hình"}
+              </span>
+            </div>
+            <p className="socialTokenQuickInputDesc">
+              Để kích hoạt nút <strong>[1-Click Kết nối lại]</strong> tự động lấy Page Token vĩnh viễn không cần dán thủ công:
+              <br />
+              1. Vào <strong>developers.facebook.com/apps</strong> &rarr; Chọn App của bạn.
+              <br />
+              2. Facebook Login &rarr; Cài đặt &rarr; Thêm URI chuyển hướng: <code>{typeof window !== "undefined" ? `${window.location.origin}/auth/oauth-callback` : "http://localhost:3000/auth/oauth-callback"}</code>
+              <br />
+              3. Điền Meta App ID và App Secret (trong Cài đặt &rarr; Cơ bản) rồi ấn <strong>Lưu cấu hình</strong>:
+            </p>
+            <div className="socialTokenQuickInputRow" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+              <input
+                type="text"
+                placeholder="Meta App ID (ví dụ: 123456789012345)..."
+                value={appIdInput}
+                onChange={(e) => setAppIdInput(e.target.value)}
+                className="socialTokenInput"
+                style={{ flex: "1 1 200px" }}
+              />
+              <input
+                type="password"
+                placeholder="Meta App Secret..."
+                value={appSecretInput}
+                onChange={(e) => setAppSecretInput(e.target.value)}
+                className="socialTokenInput"
+                style={{ flex: "1 1 240px" }}
+              />
+              <button
+                type="button"
+                className="socialTokenActionBtn autoRenewBtn"
+                onClick={handleSaveMetaAppConfig}
+                disabled={isActionLoading || !appIdInput.trim() || !appSecretInput.trim()}
+              >
+                {isActionLoading ? <Loader2 size={13} className="ccSpinSlow" /> : <CheckCircle2 size={13} />}
+                <span>Lưu cấu hình</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Quick Token Apply Form */}
         {quickInputOpen && (
@@ -361,9 +455,15 @@ export function SocialTokenManagerModal({
                       <button
                         type="button"
                         className="socialTokenActionBtn reconnectBtn"
-                        onClick={() => onOAuthReconnect?.(account.platform)}
+                        onClick={() => {
+                          const hasAppId = Boolean(summary?.metaAppId || (typeof window !== "undefined" && localStorage.getItem("opendx_meta_app_id")));
+                          if (!hasAppId) {
+                            setMetaAppConfigOpen(true);
+                          }
+                          onOAuthReconnect?.(account.platform);
+                        }}
                         disabled={isActionLoading}
-                        title="Bấm để kết nối lại hoặc cập nhật token mới"
+                        title="Bấm để đăng nhập Facebook OAuth và cấp Page Token vĩnh viễn"
                       >
                         <ExternalLink size={13} />
                         <span>1-Click Kết nối lại</span>

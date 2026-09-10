@@ -18,7 +18,10 @@ export interface SocialTokenManagerService {
     code: string,
     redirectUri: string,
     targetPageId?: string,
+    appId?: string,
+    appSecret?: string,
   ): Promise<SocialTokenHealthView>;
+  configureMetaApp(appId: string, appSecret: string): Promise<void>;
   updateAccountToken(
     platform: "facebook" | "instagram",
     accessToken: string,

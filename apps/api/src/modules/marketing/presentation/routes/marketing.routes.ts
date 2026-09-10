@@ -56,6 +56,7 @@ export function createMarketingAdminRouter(options: CreateMarketingRouterOptions
   router.post("/social-tokens/check", requireStaffRole(...operatorRoles), controller.triggerSocialTokensCheck);
   router.post("/social-tokens/update", requireStaffRole(...operatorRoles), controller.updateSocialToken);
   router.post("/social-tokens/sync-env", requireStaffRole(...operatorRoles), controller.syncSocialTokensFromEnv);
+  router.post("/social-tokens/meta-app-config", requireStaffRole(...operatorRoles), controller.configureMetaApp);
 
   return router;
 }

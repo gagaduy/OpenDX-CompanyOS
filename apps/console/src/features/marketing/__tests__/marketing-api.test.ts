@@ -162,5 +162,34 @@ describe("Marketing visual API", () => {
         }),
       );
     });
+
+    it("configures meta app credentials", async () => {
+      const configResult = {
+        accounts: [],
+        hasExpiringOrInvalid: false,
+        urgentActionRequired: false,
+        checkedAt: "2026-09-10T00:00:00.000Z",
+        metaAppId: "app-id-999",
+        oauthConfigured: true,
+      };
+
+      const fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => configResult,
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const api = createMarketingApi("https://api.example.test", "test-token");
+      const result = await api.configureMetaApp({ appId: "app-id-999", appSecret: "secret-123" });
+
+      expect(result).toEqual(configResult);
+      expect(fetch).toHaveBeenCalledWith(
+        "https://api.example.test/v1/admin/marketing/social-tokens/meta-app-config",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ appId: "app-id-999", appSecret: "secret-123" }),
+        }),
+      );
+    });
   });
 });

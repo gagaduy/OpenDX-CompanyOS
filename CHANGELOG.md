@@ -56,6 +56,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - Added real-time header badges on Marketing column: 🟢 `Social Token: OK`, 🟡 `⚡ Token FB hết hạn sau X ngày`, 🔴 `🚨 Token FB lỗi / hết hạn`.
     - Relocated proactive alert cards out of the Marketing department column into the global top system notice bar, preserving perfect vertical baseline alignment across all 4 department columns.
     - Implemented and styled `SocialTokenManagerModal` with backdrop blur, responsive dark/light theme support, monospaced token preview chips, quick token application form, and on-demand health inspections.
+  - 1-Click Facebook OAuth Login & Dialog Flow:
+    - Added `/auth/oauth-callback` route and `SocialOAuthCallbackPage` component in `@opendx/console` to handle popup callbacks from Meta OAuth Dialog (`https://www.facebook.com/v20.0/dialog/oauth`), securely post authorization codes back to the parent window, and auto-close.
+    - Added endpoint `POST /v1/admin/marketing/social-tokens/meta-app-config` in `MarketingController` to dynamically configure Meta App ID and Secret at runtime.
+    - Extended `SocialTokensSummaryView` with `metaAppId` and `oauthConfigured` properties.
+    - Added interactive `⚙️ Cấu hình Meta App` form panel and upgraded `1-Click Kết nối lại` button in `SocialTokenManagerModal` and `AgenticCommandCenter` for seamless authorization code exchange into permanent Page Access Tokens.
 
 - Implement Autonomous Proactive Inventory Replenishment Loop (Tiểu dự án A):
   - Database schema & migrations: Added `inventory_replenishment_proposals` and `inventory_replenishment_items` tables with audit fields (`trigger_source`, `status`, `summary`, `total_restock_units`, `total_estimated_budget_vnd`, `applied_at`, `dismissed_at`, `reviewed_by`) and partial unique index `idx_replenishment_pending_status` ensuring at most one active pending proposal.

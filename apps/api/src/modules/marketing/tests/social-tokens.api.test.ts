@@ -187,4 +187,28 @@ describe("Social Tokens Admin API", () => {
     expect(res.status).toBe(200);
     expect(mockManager.syncFromEnvironment).toHaveBeenCalledOnce();
   });
+
+  it("POST /v1/admin/marketing/social-tokens/meta-app-config configures app credentials", async () => {
+    const mockManager = {
+      configureMetaApp: vi.fn().mockResolvedValue(undefined),
+      getTokensSummary: vi.fn().mockResolvedValue({
+        overallStatus: "healthy",
+        activeAlertCount: 0,
+        accounts: [],
+        metaAppId: "app-12345",
+        oauthConfigured: true,
+      }),
+    };
+
+    const app = createTestApp(mockManager);
+    const res = await request(app)
+      .post("/v1/admin/marketing/social-tokens/meta-app-config")
+      .set("Authorization", "Bearer valid-token")
+      .send({ appId: "app-12345", appSecret: "secret-67890" });
+
+    expect(res.status).toBe(200);
+    expect(mockManager.configureMetaApp).toHaveBeenCalledWith("app-12345", "secret-67890");
+    expect(res.body.metaAppId).toBe("app-12345");
+    expect(res.body.oauthConfigured).toBe(true);
+  });
 });

@@ -421,8 +421,42 @@ export class MarketingController {
       if (!platform || !code || !redirectUri) {
         throw new ApplicationError(400, "INVALID_INPUT", "platform, code, and redirectUri are required");
       }
-      const result = await this.socialTokenManager.handleOAuthCallback(platform, code, redirectUri, targetPageId);
+      const appId = req.body.appId as string | undefined;
+      const appSecret = req.body.appSecret as string | undefined;
+      const result = appId || appSecret
+        ? await this.socialTokenManager.handleOAuthCallback(
+            platform,
+            code,
+            redirectUri,
+            targetPageId,
+            appId,
+            appSecret,
+          )
+        : await this.socialTokenManager.handleOAuthCallback(
+            platform,
+            code,
+            redirectUri,
+            targetPageId,
+          );
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  configureMetaApp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const appId = req.body.appId as string;
+      const appSecret = req.body.appSecret as string;
+      if (!appId || !appSecret) {
+        throw new ApplicationError(400, "INVALID_INPUT", "appId and appSecret are required");
+      }
+      await this.socialTokenManager.configureMetaApp(appId, appSecret);
+      const summary = await this.socialTokenManager.getTokensSummary();
+      res.status(200).json(summary);
     } catch (error) {
       next(error);
     }

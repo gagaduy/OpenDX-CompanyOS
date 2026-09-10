@@ -258,6 +258,8 @@ const apiEnvironmentSchema = z
     META_GRAPH_TIMEOUT_MS: positiveInteger
       .pipe(z.number().int().min(500).max(30_000))
       .default(10_000),
+    META_APP_ID: optionalSecret,
+    META_APP_SECRET: optionalSecret,
     FACEBOOK_PAGE_ID: optionalSecret,
     FACEBOOK_PAGE_ACCESS_TOKEN: optionalSecret,
     INSTAGRAM_PUBLICATION_MODE: z
@@ -486,6 +488,8 @@ export interface MarketingPublicationConfiguration {
   readonly meta: {
     readonly graphBaseUrl: string;
     readonly requestTimeoutMs: number;
+    readonly appId?: string;
+    readonly appSecret?: string;
   };
   readonly facebook: FacebookPublicationConfiguration;
   readonly instagram: InstagramPublicationConfiguration;
@@ -642,6 +646,8 @@ export function parseApiEnvironment(
       meta: {
         graphBaseUrl: value.META_GRAPH_BASE_URL,
         requestTimeoutMs: value.META_GRAPH_TIMEOUT_MS,
+        ...(value.META_APP_ID !== undefined ? { appId: value.META_APP_ID } : {}),
+        ...(value.META_APP_SECRET !== undefined ? { appSecret: value.META_APP_SECRET } : {}),
       },
       facebook: {
         ...(value.FACEBOOK_PAGE_ID !== undefined ? { pageId: value.FACEBOOK_PAGE_ID } : {}),

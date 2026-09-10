@@ -12,3 +12,4 @@ export * from "./components/campaign-approval-action-bar";
 export * from "./components/marketing-deliverables-panel";
 export * from "./pages/marketing-campaign-list-page";
 export * from "./pages/marketing-campaign-detail-page";
+export * from "./pages/social-oauth-callback-page";

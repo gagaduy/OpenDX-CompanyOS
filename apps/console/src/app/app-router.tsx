@@ -25,7 +25,7 @@ import { PaymentDetailPage } from "../features/payments/pages/payment-detail-pag
 import { PaymentOperationsPage } from "../features/payments/pages/payment-operations-page";
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
 import { AgenticApprovalsPage, AgenticAuditPage, AgenticCommandCenterPage, AgenticEmployeeDetailPage, AgenticEmployeesPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi, type AgentKind } from "../features/agentic";
-import { createMarketingApi, MarketingCampaignListPage, MarketingCampaignDetailPage } from "../features/marketing";
+import { createMarketingApi, MarketingCampaignListPage, MarketingCampaignDetailPage, SocialOAuthCallbackPage } from "../features/marketing";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -33,6 +33,7 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
     <Routes>
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/auth/oauth-callback" element={<SocialOAuthCallbackPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<ConsoleShell />}>
           <Route index element={<HomeRedirect />} />

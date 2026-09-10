@@ -214,11 +214,15 @@ export function AgenticCommandCenter({
   const [dismissedSocialTokenAlerts, setDismissedSocialTokenAlerts] = useState(false);
 
   const handleOAuthReconnect = (platform: "facebook" | "instagram") => {
-    const metaAppId = (import.meta as any).env?.VITE_META_APP_ID;
+    const metaAppId =
+      socialTokensSummary?.metaAppId ||
+      (import.meta as any).env?.VITE_META_APP_ID ||
+      (typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_id") : null);
+
     if (!metaAppId || metaAppId === "123456789") {
       setSocialTokenModalOpen(true);
       setSocialTokenFeedback(
-        "Chưa cấu hình VITE_META_APP_ID hợp lệ. Bạn có thể sử dụng mục '⚡ Nhập Token trực tiếp' hoặc 'Đồng bộ từ .env' trong cửa sổ quản lý để áp dụng ngay.",
+        "Chưa cấu hình Meta App ID. Vui lòng nhấn vào nút '⚙️ Cấu hình Meta App' để nhập Meta App ID & App Secret của bạn.",
       );
       return;
     }
@@ -231,18 +235,25 @@ export function AgenticCommandCenter({
 
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "META_OAUTH_ERROR") {
+        window.removeEventListener("message", handleMessage);
+        setSocialTokenFeedback(`Lỗi xác thực Meta: ${event.data.error || "Người dùng đã hủy hoặc từ chối cấp quyền"}`);
+        return;
+      }
       if (event.data?.type === "META_OAUTH_CODE" && event.data?.code) {
         window.removeEventListener("message", handleMessage);
         if (marketingApi?.exchangeSocialOAuthCode) {
           setSocialTokenActionLoading(true);
+          setSocialTokenFeedback("Đang trao đổi mã ủy quyền với Meta để cấp Page Access Token vĩnh viễn...");
           try {
             const updated = await marketingApi.exchangeSocialOAuthCode({
               code: event.data.code,
               redirectUri,
               platform,
+              targetPageId: "1321445584378490",
             });
             setSocialTokensSummary(updated);
-            setSocialTokenFeedback("Đã kết nối lại và cấp Page Access Token mới thành công! Không cần dán token.");
+            setSocialTokenFeedback("Đã kết nối lại và cấp Page Access Token vĩnh viễn thành công! Hệ thống đã sẵn sàng đăng bài.");
           } catch (err: any) {
             setSocialTokenFeedback(`Lỗi khi đổi OAuth code: ${err?.message || "Không xác định"}`);
           } finally {
@@ -253,10 +264,25 @@ export function AgenticCommandCenter({
     };
     window.addEventListener("message", handleMessage);
 
-    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(
+    const oauthUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${encodeURIComponent(
       metaAppId
-    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_manage_posts`;
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish&response_type=code`;
     window.open(oauthUrl, "MetaOAuth", `width=${popupWidth},height=${popupHeight},left=${left},top=${top}`);
+  };
+
+  const handleConfigureMetaApp = async (appId: string, appSecret: string) => {
+    if (!marketingApi?.configureMetaApp) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const updated = await marketingApi.configureMetaApp({ appId, appSecret });
+      setSocialTokensSummary(updated);
+      setSocialTokenFeedback("Đã lưu cấu hình Meta App ID và App Secret thành công! Bạn có thể ấn '1-Click Kết nối lại' ngay bây giờ.");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi lưu cấu hình Meta App: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
   };
 
   const handleUpdateSocialToken = async (platform: "facebook" | "instagram", token: string, accountId?: string) => {
@@ -4406,6 +4432,7 @@ export function AgenticCommandCenter({
         onUpdateToken={handleUpdateSocialToken}
         onSyncEnv={handleSyncSocialTokensEnv}
         onOAuthReconnect={handleOAuthReconnect}
+        onConfigureMetaApp={handleConfigureMetaApp}
         isActionLoading={socialTokenActionLoading}
         actionFeedback={socialTokenFeedback}
       />

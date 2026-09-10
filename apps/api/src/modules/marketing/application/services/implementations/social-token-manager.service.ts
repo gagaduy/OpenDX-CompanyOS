@@ -107,8 +107,8 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
   private readonly repository: SocialAccountRepository;
   private readonly inspector: SocialTokenInspectorPort;
   private readonly refresher: SocialTokenRefresherPort;
-  private readonly appId?: string;
-  private readonly appSecret?: string;
+  private appId?: string;
+  private appSecret?: string;
   private readonly defaultFacebookPageId?: string;
   private readonly defaultFacebookToken?: string;
   private readonly defaultInstagramAccountId?: string;
@@ -294,6 +294,8 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       overallStatus,
       activeAlertCount,
       alertMessage,
+      metaAppId: this.appId ?? null,
+      oauthConfigured: Boolean(this.appId && this.appSecret),
     };
   }
 
@@ -391,18 +393,30 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     code: string,
     redirectUri: string,
     targetPageId?: string,
+    appId?: string,
+    appSecret?: string,
   ): Promise<SocialTokenHealthView> {
-    if (!this.appId || !this.appSecret) {
-      throw new Error("Meta App ID and App Secret are required for OAuth code exchange");
+    const effectiveAppId = appId?.trim() || this.appId;
+    const effectiveAppSecret = appSecret?.trim() || this.appSecret;
+
+    if (!effectiveAppId || !effectiveAppSecret) {
+      throw new Error("Meta App ID and App Secret are required for OAuth code exchange. Please configure them in the Social Token Manager modal or .env.");
     }
+
+    if (appId && appSecret) {
+      this.appId = effectiveAppId;
+      this.appSecret = effectiveAppSecret;
+    }
+
+    const effectivePageId = targetPageId || (platform === "facebook" ? this.defaultFacebookPageId : this.defaultInstagramAccountId);
 
     const exchangeResult = await this.refresher.exchangeOAuthCode(
       platform,
       code,
       redirectUri,
-      this.appId,
-      this.appSecret,
-      targetPageId,
+      effectiveAppId,
+      effectiveAppSecret,
+      effectivePageId,
     );
 
     const currentDate = this.now();
@@ -443,6 +457,16 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       lastCheckedAt: currentIso,
       requiresAction: false,
     };
+  }
+
+  async configureMetaApp(appId: string, appSecret: string): Promise<void> {
+    const trimmedId = appId?.trim();
+    const trimmedSecret = appSecret?.trim();
+    if (!trimmedId || !trimmedSecret) {
+      throw new Error("Meta App ID and App Secret must not be empty");
+    }
+    this.appId = trimmedId;
+    this.appSecret = trimmedSecret;
   }
 
   async updateAccountToken(

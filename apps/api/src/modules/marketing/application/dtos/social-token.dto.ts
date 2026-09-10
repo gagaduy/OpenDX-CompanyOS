@@ -61,5 +61,7 @@ export interface SocialTokensSummaryView {
   readonly overallStatus: "healthy" | "warning" | "critical";
   readonly activeAlertCount: number;
   readonly alertMessage?: string | null;
+  readonly metaAppId?: string | null;
+  readonly oauthConfigured?: boolean;
 }
 

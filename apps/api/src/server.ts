@@ -238,6 +238,8 @@ const marketing = createMarketingModule({
   database: pool,
   staffTokenVerifier,
   publicationConfig: environment.marketing,
+  metaAppId: environment.marketing.meta.appId,
+  metaAppSecret: environment.marketing.meta.appSecret,
   assetStorageReader: (key) => marketingStorage.read(key),
   storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
   storageReader: (key) => marketingStorage.read(key),
