@@ -3536,36 +3536,109 @@ export function AgenticCommandCenter({
 
       {/* 4f. Global Social Tokens System Notice Bar (Slim full-width notice strip) */}
       {socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts && (
-        <div className="ccSocialTokenGlobalBanner" role="alert">
-          <div className="ccSocialTokenGlobalBannerLeft">
-            {socialTokensSummary.urgentActionRequired ? (
-              <ShieldAlert size={16} color="#ef4444" />
-            ) : (
-              <Zap size={16} color="#f59e0b" />
-            )}
-            <span className="ccSocialTokenGlobalBannerText">
-              {socialTokensSummary.urgentActionRequired
-                ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Cần cập nhật token mới để đảm bảo chiến dịch xuất bản tự động."
-                : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn trong vòng 7 ngày tới."}
-            </span>
+        <div className={`ccSocialTokenGlobalBanner ${socialTokensSummary.urgentActionRequired ? "urgent" : "warning"}`}>
+          <div className="ccSocialTokenGlobalBannerHeader">
+            <div className="ccSocialTokenGlobalBannerLeft">
+              {socialTokensSummary.urgentActionRequired ? (
+                <ShieldAlert size={16} color="#ef4444" />
+              ) : (
+                <Zap size={16} color="#f59e0b" />
+              )}
+              <span className="ccSocialTokenGlobalBannerText">
+                {socialTokensSummary.urgentActionRequired
+                  ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Cần cập nhật token mới để đảm bảo chiến dịch xuất bản tự động."
+                  : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn trong vòng 7 ngày tới."}
+              </span>
+            </div>
+            <div className="ccSocialTokenGlobalBannerRight">
+              <button
+                type="button"
+                className="ccSocialTokenActionBtn detail"
+                onClick={() => setSocialTokenModalOpen(true)}
+              >
+                <span>⚡ Quản lý & Cập nhật Token</span>
+              </button>
+              <button
+                type="button"
+                className="ccSocialTokenDismissBtn"
+                onClick={() => setDismissedSocialTokenAlerts(true)}
+                title="Thu gọn cảnh báo"
+                aria-label="Thu gọn cảnh báo"
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
-          <div className="ccSocialTokenGlobalBannerRight">
-            <button
-              type="button"
-              className="ccSocialTokenActionBtn detail"
-              onClick={() => setSocialTokenModalOpen(true)}
-            >
-              <span>⚡ Quản lý & Cập nhật Token</span>
-            </button>
-            <button
-              type="button"
-              className="ccSocialTokenDismissBtn"
-              onClick={() => setDismissedSocialTokenAlerts(true)}
-              title="Thu gọn cảnh báo"
-              aria-label="Thu gọn cảnh báo"
-            >
-              <X size={14} />
-            </button>
+
+          <div className="ccSocialTokenGlobalAccountsList">
+            {socialTokensSummary.accounts
+              ?.filter(
+                (acc) =>
+                  acc.requiresAction ||
+                  acc.status === "expiring_soon" ||
+                  acc.status === "expired" ||
+                  acc.status === "invalid"
+              )
+              .map((acc) => {
+                const isDanger = acc.status === "expired" || acc.status === "invalid";
+                const title = isDanger
+                  ? `🚨 Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} đã hết hạn / lỗi`
+                  : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${acc.daysRemaining ?? 0} ngày)`;
+
+                return (
+                  <div
+                    key={`global-alert-${acc.platform}-${acc.accountId}`}
+                    className={`ccSocialTokenGlobalItem ${isDanger ? "danger" : "warning"}`}
+                    role="alert"
+                  >
+                    <div className="ccSocialTokenGlobalItemInfo">
+                      <span className="ccSocialTokenAlertTitle">{title}</span>
+                      <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
+                      <span className="ccSocialTokenItemMsg">
+                        {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${acc.daysRemaining} ngày. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
+                      </span>
+                    </div>
+
+                    <div className="ccSocialTokenAlertActions">
+                      {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon") && (
+                        <button
+                          type="button"
+                          className="ccSocialTokenActionBtn renew"
+                          onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
+                          disabled={socialTokenActionLoading}
+                        >
+                          {socialTokenActionLoading ? (
+                            <Loader2 size={12} className="ccSpinSlow" />
+                          ) : (
+                            <Zap size={12} />
+                          )}
+                          <span>Tự động Gia hạn ngay</span>
+                        </button>
+                      )}
+
+                      {(acc.actionType === "oauth_reconnect" || isDanger) && (
+                        <button
+                          type="button"
+                          className="ccSocialTokenActionBtn reconnect"
+                          onClick={() => handleOAuthReconnect(acc.platform)}
+                          disabled={socialTokenActionLoading}
+                        >
+                          <ExternalLink size={12} />
+                          <span>1-Click Kết nối lại</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="ccSocialTokenActionBtn detail"
+                        onClick={() => setSocialTokenModalOpen(true)}
+                      >
+                        <span>Chi tiết</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
@@ -3641,85 +3714,6 @@ export function AgenticCommandCenter({
               </span>
             </div>
           </div>
-
-          {/* Social Token Proactive Alert Card (Compact & Dismissable) */}
-          {!dismissedSocialTokenAlerts && socialTokensSummary?.accounts?.filter(
-            (acc) => acc.requiresAction || acc.status === "expiring_soon" || acc.status === "expired" || acc.status === "invalid"
-          ).map((acc) => {
-            const isDanger = acc.status === "expired" || acc.status === "invalid";
-            const title = isDanger
-              ? `🚨 Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} đã hết hạn / lỗi`
-              : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${acc.daysRemaining ?? 0} ngày)`;
-
-            return (
-              <div
-                key={`alert-${acc.platform}-${acc.accountId}`}
-                className={`ccSocialTokenAlertCard compact ${isDanger ? "danger" : ""}`}
-                role="alert"
-              >
-                <div className="ccSocialTokenAlertHeader">
-                  <div className="ccSocialTokenAlertTitleGroup">
-                    {isDanger ? <ShieldAlert size={13} /> : <Zap size={13} />}
-                    <span className="ccSocialTokenAlertTitle">{title}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                    <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
-                    <button
-                      type="button"
-                      className="ccSocialTokenDismissBtn"
-                      onClick={() => setDismissedSocialTokenAlerts(true)}
-                      title="Thu gọn cảnh báo này"
-                      aria-label="Thu gọn cảnh báo"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                <p className="ccSocialTokenAlertMeta">
-                  {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${acc.daysRemaining} ngày. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
-                </p>
-
-                <div className="ccSocialTokenAlertActions">
-                  {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon") && (
-                    <button
-                      type="button"
-                      className="ccSocialTokenActionBtn renew"
-                      onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
-                      disabled={socialTokenActionLoading}
-                    >
-                      {socialTokenActionLoading ? (
-                        <Loader2 size={12} className="ccSpinSlow" />
-                      ) : (
-                        <Zap size={12} />
-                      )}
-                      <span>Tự động Gia hạn ngay</span>
-                    </button>
-                  )}
-
-                  {(acc.actionType === "oauth_reconnect" || isDanger) && (
-                    <button
-                      type="button"
-                      className="ccSocialTokenActionBtn reconnect"
-                      onClick={() => handleOAuthReconnect(acc.platform)}
-                      disabled={socialTokenActionLoading}
-                    >
-                      <ExternalLink size={12} />
-                      <span>1-Click Kết nối lại</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    className="ccSocialTokenActionBtn detail"
-                    onClick={() => setSocialTokenModalOpen(true)}
-                  >
-                    <span>Chi tiết</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
 
           <AgentCard
             name="Cây bút Tiếp thị"

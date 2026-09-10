@@ -21,8 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Admin REST API endpoints: Added authenticated admin routes `/v1/admin/marketing/social-tokens/status`, `/refresh`, `/oauth-exchange`, and `/check` in `MarketingController`.
   - Staff Console & Command Center UX:
     - Added real-time header badges on Marketing column: 🟢 `Social Token: OK`, 🟡 `⚡ Token FB hết hạn sau X ngày`, 🔴 `🚨 Token FB lỗi / hết hạn`.
-    - Added proactive alert cards with 1-click action buttons `[⚡ Tự động Gia hạn ngay]` and `[🔗 1-Click Kết nối lại Facebook]`.
-    - Implemented `SocialTokenManagerModal` for viewing token details and triggering instant renewal with zero manual copy-pasting.
+    - Relocated proactive alert cards out of the Marketing department column into the global top system notice bar, preserving perfect vertical baseline alignment across all 4 department columns.
+    - Implemented and styled `SocialTokenManagerModal` with backdrop blur, responsive dark/light theme support, monospaced token preview chips, quick token application form, and on-demand health inspections.
 
 - Implement Autonomous Proactive Inventory Replenishment Loop (Tiểu dự án A):
   - Database schema & migrations: Added `inventory_replenishment_proposals` and `inventory_replenishment_items` tables with audit fields (`trigger_source`, `status`, `summary`, `total_restock_units`, `total_estimated_budget_vnd`, `applied_at`, `dismissed_at`, `reviewed_by`) and partial unique index `idx_replenishment_pending_status` ensuring at most one active pending proposal.

@@ -207,19 +207,19 @@ export function SocialTokenManagerModal({
 
         {/* Quick Token Apply Form */}
         {quickInputOpen && (
-          <div className="socialTokenQuickInputCard" style={{ margin: "0.5rem 1.5rem", padding: "1rem", background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: "8px" }}>
-            <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.9rem", color: "#60a5fa", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <div className="socialTokenQuickInputCard">
+            <h4 className="socialTokenQuickInputTitle">
               <Zap size={15} />
               <span>Cập nhật Access Token trực tiếp từ Graph API Explorer (Không cần khởi động lại)</span>
             </h4>
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#94a3b8" }}>
+            <p className="socialTokenQuickInputDesc">
               Khi phiên đăng nhập bị Facebook hủy (User logged out), hãy copy mã Access Token từ Graph API Explorer, chọn nền tảng và bấm Áp dụng:
             </p>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div className="socialTokenQuickInputRow">
               <select
                 value={selectedPlatform}
                 onChange={(e) => setSelectedPlatform(e.target.value as any)}
-                style={{ padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #475569", background: "#1e293b", color: "#f8fafc", fontSize: "0.82rem" }}
+                className="socialTokenSelect"
               >
                 <option value="facebook">Facebook Fanpage</option>
                 <option value="instagram">Instagram Business</option>
@@ -229,7 +229,7 @@ export function SocialTokenManagerModal({
                 placeholder="Dán token mới (EAA...)..."
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                style={{ flex: 1, minWidth: "250px", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #475569", background: "#1e293b", color: "#f8fafc", fontSize: "0.82rem" }}
+                className="socialTokenInput"
               />
               <button
                 type="button"
@@ -301,13 +301,13 @@ export function SocialTokenManagerModal({
                       )}
 
                       {isEditingThis && (
-                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        <div className="socialTokenCardEditRow">
                           <input
                             type="text"
                             placeholder="Dán token mới vào đây..."
                             value={cardTokenInput}
                             onChange={(e) => setCardTokenInput(e.target.value)}
-                            style={{ flex: 1, padding: "0.4rem 0.6rem", borderRadius: "4px", border: "1px solid #475569", background: "#0f172a", color: "#f8fafc", fontSize: "0.8rem" }}
+                            className="socialTokenInput"
                           />
                           <button
                             type="button"
@@ -319,8 +319,7 @@ export function SocialTokenManagerModal({
                           </button>
                           <button
                             type="button"
-                            className="socialTokenActionBtn"
-                            style={{ background: "#475569", color: "#fff" }}
+                            className="socialTokenActionBtn cancelBtn"
                             onClick={() => { setEditingCardKey(null); setCardTokenInput(""); }}
                           >
                             <span>Hủy</span>
