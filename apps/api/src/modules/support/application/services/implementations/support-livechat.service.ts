@@ -109,6 +109,70 @@ export class SupportLivechatService {
       [messageId, ticketId, body],
     );
 
+    // If ticket was resolved or waiting for customer, reopen to in_progress so staff and AI CEO see active customer inquiry
+    try {
+      const ticketRes = await this.database.query<{
+        status: string;
+        sla_stopped_at: Date | null;
+        sla_pause_started_at: Date | null;
+        version: number;
+      }>(
+        `SELECT status, sla_stopped_at, sla_pause_started_at, version FROM support_tickets WHERE id = $1`,
+        [ticketId],
+      );
+      if (ticketRes.rows.length > 0) {
+        const tRow = ticketRes.rows[0];
+        if (tRow.status === "resolved") {
+          await this.database.query(
+            `UPDATE support_tickets 
+             SET status = 'in_progress',
+                 version = version + 1,
+                 updated_at = NOW(),
+                 sla_stopped_seconds = sla_stopped_seconds + CASE
+                   WHEN sla_stopped_at IS NULL THEN 0
+                   ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - sla_stopped_at)))::integer)
+                 END,
+                 sla_stopped_at = NULL
+             WHERE id = $1`,
+            [ticketId],
+          );
+          await this.database.query(
+            `INSERT INTO support_ticket_events (
+               id, ticket_id, actor_id, from_status, to_status, source, idempotency_key, occurred_at
+             ) VALUES ($1, $2, 'customer', 'resolved', 'in_progress', 'manual', $3, NOW())`,
+            [this.generateId(), ticketId, `reopen_customer:${this.generateId()}`],
+          );
+        } else if (tRow.status === "waiting_customer") {
+          await this.database.query(
+            `UPDATE support_tickets 
+             SET status = 'in_progress',
+                 version = version + 1,
+                 sla_paused_seconds = sla_paused_seconds + CASE
+                   WHEN sla_pause_started_at IS NULL THEN 0
+                   ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - sla_pause_started_at)))::integer)
+                 END,
+                 sla_pause_started_at = NULL,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [ticketId],
+          );
+          await this.database.query(
+            `INSERT INTO support_ticket_events (
+               id, ticket_id, actor_id, from_status, to_status, source, idempotency_key, occurred_at
+             ) VALUES ($1, $2, 'customer', 'waiting_customer', 'in_progress', 'manual', $3, NOW())`,
+            [this.generateId(), ticketId, `resume_customer:${this.generateId()}`],
+          );
+        } else {
+          await this.database.query(
+            `UPDATE support_tickets SET updated_at = NOW() WHERE id = $1`,
+            [ticketId],
+          );
+        }
+      }
+    } catch (ticketUpdateErr) {
+      console.warn("[SupportLivechatService] Could not update ticket lifecycle on customer message:", ticketUpdateErr);
+    }
+
     const messageView: SupportMessageDto = {
       id: messageId,
       authorId: "customer",

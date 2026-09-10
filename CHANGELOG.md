@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix AI Support Proposal Conversation Awareness & Ticket Subject Alignment:
+  - Dynamic Conversation Context Ingestion: Updated `AiSupportService.generateSupportProposal` to batch-query `support_ticket_messages` for every ticket, extracting recent customer inquiry details and chat history into the LLM prompt.
+  - Contextual Complaint Subject Updating: Prompted OpenRouter Gemini to evaluate recent customer messages and produce dynamic `updatedSubject` reflecting current issues (e.g. headphone delay and missing accessories instead of older phone tickets).
+  - Lifecycle Auto-Reopening: Updated `SupportLivechatService.appendCustomerMessage` to automatically reopen resolved or waiting tickets to `in_progress` with valid SLA calculations, ensuring new customer messages are surfaced immediately to staff and the AI CEO.
+  - Preserved Database Immutability Trigger: Kept `support_tickets.subject` immutable in PostgreSQL per lifecycle trigger constraints while propagating the dynamically resolved subject to outbound emails, livechat messages, and proposal views.
+
 - Fix AI Support Proposal Approval & Email Dispatching:
   - Fixed PostgreSQL Parameter Binding Mismatch: Replaced hardcoded literal in default 10% voucher query with `$4` parameter placeholder in `AiSupportService`, eliminating `bind message supplies 4 parameters, but prepared statement requires 3` 500 error during proposal application.
   - Resilient Customer Fallback: Added database fallback query for customer name, email, and subject in outbound email dispatching when proposals are restored across restarts.

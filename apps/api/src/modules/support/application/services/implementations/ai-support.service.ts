@@ -44,7 +44,7 @@ export class AiSupportService {
     // 1. Ensure sample seed tickets exist if empty
     await this.ensureSeedTickets();
 
-    // 2. Query open support tickets joined with customers
+    // 2. Query open support tickets joined with customers (ordered by latest activity)
     const ticketResult = await this.database.query<{
       id: string;
       customer_id: string;
@@ -55,15 +55,45 @@ export class AiSupportService {
       priority: string;
       status: string;
       created_at: Date;
+      updated_at: Date;
     }>(
       `SELECT st.id, st.customer_id, COALESCE(c.full_name, 'Khách vãng lai') as full_name, 
               COALESCE(c.email, 'customer@example.com') as email, 
-              st.subject, st.description, st.priority, st.status, st.created_at
+              st.subject, st.description, st.priority, st.status, st.created_at, st.updated_at
        FROM support_tickets st
        LEFT JOIN customers c ON c.id = st.customer_id
-       ORDER BY CASE WHEN st.status IN ('resolved', 'closed') THEN 1 ELSE 0 END, st.created_at DESC
+       ORDER BY CASE WHEN st.status IN ('resolved', 'closed') THEN 1 ELSE 0 END, 
+                GREATEST(st.created_at, st.updated_at) DESC
        LIMIT 10`,
     );
+
+    // 2b. Fetch recent messages for all tickets to provide actual conversation context
+    const ticketIds = ticketResult.rows.map((t) => t.id);
+    const messagesByTicket = new Map<string, Array<{ author_id: string; body: string; created_at: Date }>>();
+
+    if (ticketIds.length > 0) {
+      const messagesRes = await this.database.query<{
+        ticket_id: string;
+        author_id: string;
+        body: string;
+        created_at: Date;
+      }>(
+        `SELECT ticket_id, author_id, body, created_at
+         FROM support_ticket_messages
+         WHERE ticket_id = ANY($1)
+         ORDER BY created_at ASC`,
+        [ticketIds],
+      );
+
+      for (const m of messagesRes.rows) {
+        let list = messagesByTicket.get(m.ticket_id);
+        if (!list) {
+          list = [];
+          messagesByTicket.set(m.ticket_id, list);
+        }
+        list.push({ author_id: m.author_id, body: m.body, created_at: m.created_at });
+      }
+    }
 
     // 3. Query top spending customers for VIP analysis
     const vipResult = await this.database.query<{
@@ -83,7 +113,27 @@ export class AiSupportService {
        LIMIT 5`,
     );
 
-    const rawTickets = ticketResult.rows;
+    const rawTickets = ticketResult.rows.map((t) => {
+      const msgs = messagesByTicket.get(t.id) || [];
+      const customerMsgs = msgs.filter((m) => m.author_id === "customer");
+      const latestCustomerMsg = customerMsgs[customerMsgs.length - 1]?.body || t.description;
+      const historyText = msgs
+        .slice(-5)
+        .map((m) => `${m.author_id === "customer" ? "Khách hàng" : m.author_id === "support-ai" ? "Trợ lý AI" : "Nhân viên CSKH"}: ${m.body}`)
+        .join("\n---\n");
+
+      return {
+        ticketId: t.id,
+        customerName: t.full_name,
+        customerEmail: t.email,
+        originalSubject: t.subject,
+        initialDescription: t.description,
+        latestCustomerMessage: latestCustomerMsg,
+        conversationHistory: historyText,
+        priority: t.priority,
+        status: t.status,
+      };
+    });
     const rawVips = vipResult.rows;
 
     // 4. Call OpenRouter Gemini 2.5 Flash for Sentiment & Churn Analysis
@@ -92,18 +142,20 @@ export class AiSupportService {
     if (apiKey) {
       try {
         const promptSystem = `Bạn là Quản gia CSKH & Chuyên viên CRM cao cấp của OpenDX CompanyOS.
-Nhiệm vụ của bạn là phân tích danh sách Ticket khiếu nại thực tế và danh sách Khách hàng VIP để:
+Nhiệm vụ của bạn là phân tích danh sách Ticket khiếu nại thực tế (chú ý ĐẶC BIỆT đến latestCustomerMessage và conversationHistory để nắm bắt chính xác sự cố MỚI NHẤT của khách hàng) và danh sách Khách hàng VIP để:
 1. Đánh giá tâm lý khách hàng (angry, frustrated, neutral, satisfied).
 2. Phân loại nguy cơ rời bỏ churnRisk (high, medium, low).
-3. Soạn thảo kịch bản phản hồi (proposedResponse) theo chuẩn CSKH doanh nghiệp 5 sao: Chuyên nghiệp, Tinh gọn, Trọng tâm hành động và có tính thuyết phục cao:
+3. Đặt lại tiêu đề chuẩn xác (updatedSubject): Nếu khách hàng đang phản ánh vấn đề mới, sản phẩm mới (ví dụ: tai nghe Nova Sound Max, thiếu phụ kiện, giao trễ mới...) khác với originalSubject thì tóm tắt lại tiêu đề rõ ràng (ví dụ: "Khiếu nại tai nghe Nova Sound Max giao trễ và thiếu phụ kiện"). Nếu vẫn là sự cố cũ thì giữ nguyên hoặc làm gọn lại.
+4. Soạn thảo kịch bản phản hồi (proposedResponse) theo chuẩn CSKH doanh nghiệp 5 sao: Chuyên nghiệp, Tinh gọn, Trọng tâm hành động và có tính thuyết phục cao:
+   - BẮT BUỘC phản hồi CHÍNH XÁC theo tin nhắn mới nhất (latestCustomerMessage), nêu đúng tên sản phẩm, đúng lỗi cụ thể khách phàn nàn và cam kết giải quyết dứt điểm. TUYỆT ĐỐI KHÔNG lặp lại sự cố cũ đã giải quyết.
    - Cá nhân hóa: Kính chào đúng tên khách hàng.
    - Thấu cảm & Tạ lỗi: Thừa nhận thẳng thắn và lịch thiệp sự bất tiện mà khách hàng đang trải qua, không vòng vo.
    - Trọng tâm hành động: Nêu rõ nguyên nhân ngắn gọn và giải pháp xử lý dứt điểm cụ thể (hành động từ NovaCommerce và hướng dẫn rõ ràng nếu khách cần phối hợp).
-   - Cam kết thời gian (SLA): Đưa ra mốc thời gian hoàn tất chính xác (ví dụ: giao bù trong 24h, kiểm tra kỹ thuật trong 2 giờ làm việc).
+   - Cam kết thời gian (SLA): Đưa ra mốc thời gian hoàn tất chính xác (ví dụ: gửi bù trong 24h, kiểm tra kỹ thuật trong 2 giờ làm việc).
    - Quyền lợi & Tri ân: Đề cập quyền lợi đền bù/voucher (nếu có) như lời tri ân chân thành đối với sự kiên nhẫn của khách hàng.
    - Trình bày rõ ràng, ngắt đoạn mạch lạc, dễ đọc.
-4. Đề xuất phương án đền bù (suggestedCompensation): BẮT BUỘC tuân thủ chính xác mức giảm giá hoặc giá trị voucher mà Ban Giám đốc chỉ đạo trong Yêu cầu chỉ đạo (ví dụ: nếu Ban Giám đốc yêu cầu voucher 25% thì BẮT BUỘC phải đề xuất đúng voucher 25% trong cả suggestedCompensation và proposedResponse, TUYỆT ĐỐI không tự ý hạ thấp xuống 5% hay 10%).
-5. Phân khúc khách hàng VIP và đưa ra giải pháp chăm sóc riêng biệt.
+5. Đề xuất phương án đền bù (suggestedCompensation): BẮT BUỘC tuân thủ chính xác mức giảm giá hoặc giá trị voucher mà Ban Giám đốc chỉ đạo trong Yêu cầu chỉ đạo (ví dụ: nếu Ban Giám đốc yêu cầu voucher 20% thì BẮT BUỘC phải đề xuất đúng voucher 20% trong cả suggestedCompensation và proposedResponse, với khách thắc mắc/bảo hành thông thường không có sự cố thì ghi "Không áp dụng").
+6. Phân khúc khách hàng VIP và đưa ra giải pháp chăm sóc riêng biệt.
 
 BẮT BUỘC trả về duy nhất định dạng JSON thuần túy (không markdown, không code block) theo schema:
 {
@@ -113,6 +165,7 @@ BẮT BUỘC trả về duy nhất định dạng JSON thuần túy (không mark
   "tickets": [
     {
       "ticketId": "string",
+      "updatedSubject": "string",
       "sentiment": "angry" | "frustrated" | "neutral" | "satisfied",
       "churnRisk": "high" | "medium" | "low",
       "issueCategory": "shipping_delay" | "product_defect" | "warranty_inquiry" | "order_cancellation" | "general_inquiry",
@@ -165,16 +218,17 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
 
     // 5. Construct ticket items
     const tickets: AiSupportTicketItemDto[] = rawTickets.map((t) => {
-      const ai = rawAiResult?.tickets?.find((x: any) => x.ticketId === t.id);
+      const ai = rawAiResult?.tickets?.find((x: any) => x.ticketId === t.ticketId);
+      const chosenSubject = (ai?.updatedSubject || t.originalSubject).trim();
       return {
-        ticketId: t.id,
-        customerName: t.full_name,
-        customerEmail: t.email,
-        subject: t.subject,
+        ticketId: t.ticketId,
+        customerName: t.customerName,
+        customerEmail: t.customerEmail,
+        subject: chosenSubject,
         sentiment: ai?.sentiment || (t.priority === "high" || t.priority === "urgent" ? "frustrated" : "neutral"),
         churnRisk: ai?.churnRisk || (t.priority === "urgent" ? "high" : "low"),
-        issueCategory: ai?.issueCategory || (t.subject.toLowerCase().includes("trễ") || t.subject.toLowerCase().includes("chậm") ? "shipping_delay" : "general_inquiry"),
-        proposedResponse: ai?.proposedResponse || `Kính chào Quý khách ${t.full_name},\n\nNovaCommerce xin chân thành cáo lỗi về sự bất tiện Quý khách gặp phải liên quan đến: "${t.subject}".\n\nĐội ngũ CSKH đã tiếp nhận và đang ưu tiên xử lý dứt điểm vấn đề này. Chúng tôi cam kết sẽ có phương án giải quyết thỏa đáng và cập nhật kết quả đến Quý khách trong vòng 2 giờ làm việc.\n\nTrân trọng cảm ơn sự thông cảm và kiên nhẫn của Quý khách,\nĐội ngũ CSKH NovaCommerce.`,
+        issueCategory: ai?.issueCategory || (chosenSubject.toLowerCase().includes("trễ") || chosenSubject.toLowerCase().includes("chậm") ? "shipping_delay" : "general_inquiry"),
+        proposedResponse: ai?.proposedResponse || `Kính chào Quý khách ${t.customerName},\n\nNovaCommerce xin chân thành cáo lỗi về sự bất tiện Quý khách gặp phải liên quan đến: "${chosenSubject}".\n\nĐội ngũ CSKH đã tiếp nhận và đang ưu tiên xử lý dứt điểm vấn đề này. Chúng tôi cam kết sẽ có phương án giải quyết thỏa đáng và cập nhật kết quả đến Quý khách trong vòng 2 giờ làm việc.\n\nTrân trọng cảm ơn sự thông cảm và kiên nhẫn của Quý khách,\nĐội ngũ CSKH NovaCommerce.`,
         suggestedCompensation: ai?.suggestedCompensation || (t.priority === "urgent" ? "Tặng Voucher giảm 10% cho đơn hàng kế tiếp" : "Miễn phí vận chuyển đơn hàng tiếp theo"),
         priority: (t.priority as any) || "normal",
       };
@@ -345,6 +399,8 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
 
         const currentStatus = currentTicket.rows[0].status;
         const nextStatus = item.resolutionStatus || "resolved";
+        const ticketProposal = proposal?.tickets?.find((t) => t.ticketId === item.ticketId);
+        const resolvedSubject = ticketProposal?.subject;
 
         if (currentStatus !== nextStatus && currentStatus !== "closed") {
           if (currentStatus === "new") {
@@ -395,7 +451,6 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
         }
 
         // 1. Create real voucher in promotions table if compensation is suggested
-        const ticketProposal = proposal?.tickets?.find((t) => t.ticketId === item.ticketId);
         const comp = ticketProposal?.suggestedCompensation || "";
         const promptText = proposal?.prompt || "";
         const targetText = `${comp} ${item.responseMessage || ""} ${promptText}`;
