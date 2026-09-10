@@ -463,7 +463,12 @@ export function AgenticCommandCenter({
         setActiveWorkflowKind("support");
 
         const cleanName =
-          goalText.length > 50 ? `${goalText.slice(0, 48)}...` : goalText.replace(/^(hãy|yêu cầu|triển khai|rà soát|kiểm tra|chăm sóc)\s*/i, "");
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|rà soát|kiểm tra|chăm sóc)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
 
         setCeoPlan({
           goal: goalText,
@@ -546,7 +551,12 @@ export function AgenticCommandCenter({
         setActiveWorkflowKind("operations");
 
         const cleanName =
-          goalText.length > 50 ? `${goalText.slice(0, 48)}...` : goalText.replace(/^(hãy|yêu cầu|triển khai|rà soát|kiểm tra|nhập thêm)\s*/i, "");
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|rà soát|kiểm tra|nhập thêm)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
 
         setCeoPlan({
           goal: goalText,
@@ -629,7 +639,12 @@ export function AgenticCommandCenter({
         setActiveWorkflowKind("merchandising");
 
         const cleanName =
-          goalText.length > 50 ? `${goalText.slice(0, 48)}...` : goalText.replace(/^(hãy|yêu cầu|triển khai|tối ưu|giảm giá)\s*/i, "");
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|tối ưu|giảm giá)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
 
         setCeoPlan({
           goal: goalText,
@@ -813,7 +828,12 @@ export function AgenticCommandCenter({
 
         // Extract a clean campaign name
         const cleanName =
-          goalText.length > 50 ? `${goalText.slice(0, 48)}...` : goalText.replace(/^(hãy|yêu cầu|triển khai|lên bài|đăng bài)\s*/i, "");
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|lên bài|đăng bài)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
 
         // Setup AI CEO Strategic Decomposition Plan
         setCeoPlan({
@@ -1345,50 +1365,53 @@ export function AgenticCommandCenter({
   ) => {
     setIsOperationsModalOpen(false);
 
-    // STAGE 1: Bắt đầu tại Phòng Vận hành & Kho vận - Kỹ sư Tồn kho tổng hợp SKU
-    scrollToDepartment("dept-column-operations");
+    // GIAI ĐOẠN 0: AI CEO Ban hành Chỉ đạo Chiến lược từ trên giao xuống
     setActiveWorkflowKind("operations");
-    setMarketingActiveAgent("inventory_clearance_handoff");
+    setMarketingActiveAgent("ceo");
     setMarketingAgentMessage(
-      `📦 Kỹ sư Tồn kho đang rà soát dữ liệu ${slowMovingItems.length} SKU tồn đọng vốn và chuẩn bị hồ sơ bàn giao sang Phòng Danh mục & Định giá...`,
+      `👑 AI CEO ban hành Chỉ thị Chiến lược: Phê duyệt đề xuất xả hàng, giao liên phòng Kho vận ➔ Định giá ➔ Tiếp thị khẩn trương phối hợp giải phóng thanh khoản ${slowMovingItems.length} SKU tồn đọng...`,
     );
 
     setCeoPlan({
-      goal: `Xả hàng tồn kho thanh lý cho ${slowMovingItems.length} sản phẩm tồn đọng`,
-      targetDept: "Kho vận ➔ Danh mục & Định giá ➔ Tiếp thị & Sáng tạo",
+      goal: `Chỉ thị từ AI CEO: Phối hợp liên phòng giải phóng thanh khoản cho ${slowMovingItems.length} sản phẩm tồn đọng vốn`,
+      targetDept: "AI CEO ➔ Kho vận ➔ Danh mục & Định giá ➔ Tiếp thị",
       steps: [
         {
-          role: "Kỹ sư Tồn kho (Phòng Kho vận)",
-          task: `Rà soát ${slowMovingItems.length} SKU tồn đọng vốn và bàn giao hồ sơ số liệu`,
+          role: "AI CEO (Ban Giám đốc)",
+          task: `Ban hành Chỉ thị Chiến lược: Điều phối liên phòng giải phóng thanh khoản ${slowMovingItems.length} SKU tồn đọng vốn`,
           status: "running",
         },
         {
+          role: "Kỹ sư Tồn kho (Phòng Kho vận)",
+          task: `Tiếp nhận chỉ thị, rà soát đối soát ${slowMovingItems.length} SKU tồn đọng và bàn giao hồ sơ số liệu`,
+          status: "pending",
+        },
+        {
           role: "Chuyên gia Định giá (Phòng Định giá)",
-          task: `Định giá thanh lý chiết khấu -25% đến -35% và thiết lập biên lợi nhuận xả hàng`,
+          task: `Thiết lập bảng giá thanh lý chiết khấu -25% đến -35% và bảo toàn biên lợi nhuận`,
           status: "pending",
         },
         {
           role: "Thiết kế Đồ họa (Phòng Tiếp thị)",
-          task: `Thiết kế Poster & Banner sản phẩm với nhãn 'CLEARANCE SALE'`,
+          task: `Thiết kế Poster & Banner sản phẩm với nhận diện 'CLEARANCE SALE'`,
           status: "pending",
         },
         {
           role: "Chủ tịch / Ban Giám đốc",
-          task: `Phê duyệt và kích hoạt chiến dịch Xả kho lên Storefront`,
+          task: `Phê duyệt nghiệm thu và kích hoạt chiến dịch Xả kho lên Storefront`,
           status: "pending",
         },
       ],
     });
 
-    // Pacing animation for Stage 1 so user perceives the inventory engineer working with animation
-    await new Promise((r) => setTimeout(r, 1400));
+    // Pacing for CEO Directive initiation (1.2s)
+    await new Promise((r) => setTimeout(r, 1200));
 
-    // STAGE 2: Chuyển giao sang Phòng Danh mục & Định giá - Chuyên gia Định giá tính toán chiết khấu
-    scrollToDepartment("dept-column-merchandising");
-    setActiveWorkflowKind("merchandising");
-    setMarketingActiveAgent("merchandising_clearance_calc");
+    // GIAI ĐOẠN 1: Bàn giao xuống Phòng Vận hành & Kho vận - Kỹ sư Tồn kho tiếp nhận
+    scrollToDepartment("dept-column-operations");
+    setMarketingActiveAgent("inventory_clearance_handoff");
     setMarketingAgentMessage(
-      `📊 Chuyên gia Định giá đã tiếp nhận hồ sơ từ Kho vận, đang tính toán giá thanh lý chiết khấu và thiết lập biên lợi nhuận xả hàng...`,
+      `📦 Kỹ sư Tồn kho tiếp nhận Chỉ thị từ CEO, đang rà soát dữ liệu đối soát ${slowMovingItems.length} SKU tồn đọng và chuẩn bị bàn giao sang Phòng Danh mục...`,
     );
 
     setCeoPlan((prev) =>
@@ -1406,10 +1429,36 @@ export function AgenticCommandCenter({
         : null,
     );
 
+    // Pacing animation for Stage 1 so user perceives the inventory engineer working
+    await new Promise((r) => setTimeout(r, 1400));
+
+    // GIAI ĐOẠN 2: Chuyển giao sang Phòng Danh mục & Định giá - Chuyên gia Định giá tính toán chiết khấu
+    scrollToDepartment("dept-column-merchandising");
+    setActiveWorkflowKind("merchandising");
+    setMarketingActiveAgent("merchandising_clearance_calc");
+    setMarketingAgentMessage(
+      `📊 Chuyên gia Định giá đã tiếp nhận hồ sơ từ Kho vận, đang tính toán giá thanh lý chiết khấu và thiết lập biên lợi nhuận xả hàng...`,
+    );
+
+    setCeoPlan((prev) =>
+      prev
+        ? {
+            ...prev,
+            steps: prev.steps.map((s, idx) =>
+              idx <= 1
+                ? { ...s, status: "done" }
+                : idx === 2
+                  ? { ...s, status: "running" }
+                  : s,
+            ),
+          }
+        : null,
+    );
+
     // Pacing animation for Stage 2 so user perceives the pricing specialist calculating
     await new Promise((r) => setTimeout(r, 1400));
 
-    // STAGE 3: Chuyển giao sang Phòng Tiếp thị & Sáng tạo - Thiết kế Đồ họa vẽ poster & banner
+    // GIAI ĐOẠN 3: Chuyển giao sang Phòng Tiếp thị & Sáng tạo - Thiết kế Đồ họa vẽ poster & banner
     scrollToDepartment("dept-column-marketing");
     setActiveWorkflowKind("marketing");
     setMarketingActiveAgent("merchandising_visual_collab");
@@ -1422,9 +1471,9 @@ export function AgenticCommandCenter({
         ? {
             ...prev,
             steps: prev.steps.map((s, idx) =>
-              idx <= 1
+              idx <= 2
                 ? { ...s, status: "done" }
-                : idx === 2
+                : idx === 3
                   ? { ...s, status: "running" }
                   : s,
             ),
@@ -1443,15 +1492,15 @@ export function AgenticCommandCenter({
 
         setCampaignProposal(campaign);
 
-        // STAGE 4: Hoàn thành phối hợp liên phòng, sẵn sàng phê duyệt
+        // GIAI ĐOẠN 4: Hoàn thành phối hợp liên phòng, sẵn sàng cho Ban Giám đốc phê duyệt
         setCeoPlan((prev) =>
           prev
             ? {
                 ...prev,
                 steps: prev.steps.map((s, idx) =>
-                  idx <= 2
+                  idx <= 3
                     ? { ...s, status: "done" }
-                    : idx === 3
+                    : idx === 4
                       ? { ...s, status: "running" }
                       : s,
                 ),
@@ -1460,7 +1509,7 @@ export function AgenticCommandCenter({
         );
 
         setCampaignProposalModalOpen(true);
-        setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho! Sẵn sàng để bạn phê duyệt.");
+        setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho theo Chỉ thị của CEO! Sẵn sàng để bạn phê duyệt.");
       } catch (err: any) {
         setErrorMessage("Không thể tạo chiến dịch xả kho tự động: " + (err.message || String(err)));
       } finally {
