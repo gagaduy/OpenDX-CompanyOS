@@ -11,6 +11,7 @@ export function createCustomerAuthRouter(
   const r = Router();
   r.post("/guest-sessions", origin, c.guest);
   r.post("/auth/google", origin, rate, c.google);
+  r.post("/auth/email", origin, rate, c.email);
   r.get("/session", c.session);
   r.post("/logout", origin, csrf, c.logout);
   return r;

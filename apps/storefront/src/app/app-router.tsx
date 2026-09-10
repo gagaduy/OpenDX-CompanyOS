@@ -103,6 +103,7 @@ export function createAppRouter(dependencies: {
           path: "/sign-in",
           element: (
             <SignInPage
+              initialOpen={true}
               googleClientId={dependencies.googleClientId}
               catalogApi={dependencies.catalogApi}
               apiBaseUrl={dependencies.apiBaseUrl}
@@ -228,6 +229,7 @@ function ShellWithCart({
       cartCount={cart.itemCount}
       wishlistCount={totalItems}
       authenticated={session.kind === "customer"}
+      customerEmail={session.kind === "customer" ? session.email : undefined}
       categories={navigation.categories}
     />
   );

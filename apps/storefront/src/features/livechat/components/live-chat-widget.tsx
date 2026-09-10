@@ -136,7 +136,8 @@ export function LiveChatWidget({
 
   const handleStartChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes("@")) {
+    const effectiveEmail = (customerEmail || email).trim();
+    if (!effectiveEmail || !effectiveEmail.includes("@")) {
       setError("Vui lòng nhập địa chỉ email hợp lệ.");
       return;
     }
@@ -146,9 +147,9 @@ export function LiveChatWidget({
 
     try {
       const data = await initLivechatSession(apiBaseUrl, {
-        email,
-        fullName: fullName || email.split("@")[0],
-        message: initialQuery || undefined,
+        email: effectiveEmail,
+        fullName: (fullName || effectiveEmail.split("@")[0]).trim(),
+        message: initialQuery.trim() || undefined,
       });
 
       setSessionId(data.sessionId);
@@ -225,7 +226,7 @@ export function LiveChatWidget({
                   NovaCommerce LiveChat
                   <Sparkles size={14} color="#fcd34d" />
                 </h3>
-                <p>Trợ lý AI & CSKH trực tuyến 24/7</p>
+                <p>{customerEmail ? `CSKH • ${customerEmail}` : "Trợ lý AI & CSKH trực tuyến 24/7"}</p>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -259,20 +260,47 @@ export function LiveChatWidget({
                   <div className="livechat-intro-icon-box">
                     <MessageSquare size={24} />
                   </div>
-                  <h4>Bắt đầu cuộc trò chuyện</h4>
+                  <h4>{customerEmail ? "Hỗ trợ & Tiếp nhận khiếu nại" : "Bắt đầu cuộc trò chuyện"}</h4>
                   <p>
-                    Nhập thông tin để nhận hỗ trợ tức thì từ Trợ lý AI và chuyên viên CSKH NovaCommerce.
+                    {customerEmail
+                      ? `Đang kết nối tài khoản ${customerEmail}. Phản hồi và tiến trình giải quyết sẽ đồng bộ trực tiếp tới email của bạn.`
+                      : "Nhập thông tin để nhận hỗ trợ tức thì từ Trợ lý AI và chuyên viên CSKH NovaCommerce."}
                   </p>
                 </div>
 
                 {error && <div className="livechat-error-banner">{error}</div>}
 
-                <div className="livechat-field">
+                {customerEmail ? (
+                  <div
+                    style={{
+                      background: "rgba(59, 130, 246, 0.08)",
+                      border: "1px solid rgba(59, 130, 246, 0.25)",
+                      borderRadius: "8px",
+                      padding: "10px 14px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <User size={18} color="#3b82f6" />
+                    <div style={{ textAlign: "left" }}>
+                      <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--ink, #fff)" }}>
+                        {fullName || customerEmail.split("@")[0]}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--muted, #94a3b8)" }}>
+                        {customerEmail}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="livechat-field" style={customerEmail ? { display: "none" } : undefined}>
                   <label htmlFor="livechat-email">Email của bạn *</label>
                   <input
                     id="livechat-email"
                     type="email"
-                    required
+                    required={!customerEmail}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tenban@gmail.com"
@@ -280,7 +308,7 @@ export function LiveChatWidget({
                   />
                 </div>
 
-                <div className="livechat-field">
+                <div className="livechat-field" style={customerEmail ? { display: "none" } : undefined}>
                   <label htmlFor="livechat-fullname">Họ và tên</label>
                   <input
                     id="livechat-fullname"
@@ -293,14 +321,21 @@ export function LiveChatWidget({
                 </div>
 
                 <div className="livechat-field">
-                  <label htmlFor="livechat-message">Bạn cần hỗ trợ gì?</label>
+                  <label htmlFor="livechat-message">
+                    {customerEmail ? "Nội dung cần hỗ trợ hoặc khiếu nại (tuỳ chọn):" : "Bạn cần hỗ trợ gì?"}
+                  </label>
                   <textarea
                     id="livechat-message"
-                    rows={2}
+                    rows={customerEmail ? 3 : 2}
                     value={initialQuery}
                     onChange={(e) => setInitialQuery(e.target.value)}
-                    placeholder="Ví dụ: Hướng dẫn cắm dây HDMI, thông tin bảo hành máy..."
+                    placeholder={
+                      customerEmail
+                        ? "Ví dụ: Đơn hàng giao trễ, khiếu nại chất lượng sản phẩm..."
+                        : "Ví dụ: Hướng dẫn cắm dây HDMI, thông tin bảo hành máy..."
+                    }
                     className="livechat-textarea"
+                    autoFocus={!!customerEmail}
                   />
                 </div>
 
@@ -314,6 +349,8 @@ export function LiveChatWidget({
                       <RefreshCw size={15} className="livechat-spin" />
                       Đang kết nối...
                     </>
+                  ) : customerEmail ? (
+                    "Bắt đầu trò chuyện ngay"
                   ) : (
                     "Bắt đầu trò chuyện"
                   )}

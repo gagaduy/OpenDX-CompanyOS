@@ -14,7 +14,7 @@ import {
   setSessionCookie,
   type StorefrontCookieConfig,
 } from "../middleware/storefront-cookies";
-import { googleSchema, parseBody } from "../validators/customer.validator";
+import { emailLoginSchema, googleSchema, parseBody } from "../validators/customer.validator";
 
 export class CustomerAuthController {
   constructor(
@@ -50,6 +50,65 @@ export class CustomerAuthController {
     try {
       const issued = await this.auth.loginWithGoogle(
         parseBody(googleSchema, req.body).credential,
+      );
+      let guest;
+      const guestToken = readCookie(req, this.cookies.guestName);
+      if (guestToken !== undefined) {
+        try {
+          guest = await this.sessions.resolveGuest(guestToken);
+        } catch {
+          clearCookie(res, this.cookies.guestName, this.cookies);
+        }
+      }
+      let cartResolution = "not_required";
+      if (this.cartResolver !== undefined) {
+        try {
+          cartResolution = (
+            await this.cartResolver.inspect(
+              issued.principal.customerId,
+              issued.principal.expiresAt,
+              guest?.guestSessionId,
+              guest?.expiresAt,
+              true,
+            )
+          ).status;
+        } catch (error) {
+          await this.auth.logout(issued.rawToken);
+          throw error;
+        }
+      }
+      setSessionCookie(
+        res,
+        this.cookies.customerName,
+        issued.rawToken,
+        issued.principal.expiresAt,
+        this.cookies,
+      );
+      this.setCsrf(res);
+      res.json(
+        successResponse("Customer signed in", {
+          kind: "customer",
+          customerId: issued.principal.customerId,
+          email: issued.principal.email,
+          expiresAt: issued.principal.expiresAt,
+          cartResolution,
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  email: RequestHandler = async (req, res, next) => {
+    try {
+      const parsed = parseBody(emailLoginSchema, req.body);
+      if (!this.auth.loginWithEmail) {
+        res.status(501).json({ error: "NOT_IMPLEMENTED", message: "Email login is not supported" });
+        return;
+      }
+      const issued = await this.auth.loginWithEmail(
+        parsed.email,
+        parsed.fullName,
       );
       let guest;
       const guestToken = readCookie(req, this.cookies.guestName);

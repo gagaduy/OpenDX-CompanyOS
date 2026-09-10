@@ -20,6 +20,7 @@ interface SessionContextValue {
   readonly error?: string;
   readonly restore: () => Promise<void>;
   readonly login: (credential: string) => Promise<CustomerSession>;
+  readonly loginWithEmail: (email: string, fullName?: string) => Promise<CustomerSession>;
   readonly logout: () => Promise<void>;
 }
 const SessionContext = createContext<SessionContextValue | undefined>(
@@ -85,6 +86,26 @@ export function CustomerSessionProvider({
     },
     [api],
   );
+  const loginWithEmail = useCallback(
+    async (email: string, fullName?: string) => {
+      setLoading(true);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.clear();
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("novacommerce.pending-checkout");
+      }
+      try {
+        const next = await api.loginWithEmail(email, fullName);
+        setSession(next);
+        setError(undefined);
+        return next;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api],
+  );
   const logout = useCallback(async () => {
     if (typeof sessionStorage !== "undefined") {
       sessionStorage.clear();
@@ -102,9 +123,10 @@ export function CustomerSessionProvider({
       ...(error === undefined ? {} : { error }),
       restore,
       login,
+      loginWithEmail,
       logout,
     }),
-    [session, loading, error, restore, login, logout],
+    [session, loading, error, restore, login, loginWithEmail, logout],
   );
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

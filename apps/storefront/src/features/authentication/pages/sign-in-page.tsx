@@ -14,19 +14,24 @@ import { useCustomerSession } from "../hooks/customer-session-context";
 import { safeReturnUrl } from "../lib/safe-return-url";
 
 export function SignInPage({
+  initialOpen = false,
   googleClientId,
   catalogApi,
   apiBaseUrl,
 }: {
+  readonly initialOpen?: boolean;
   readonly googleClientId?: string;
   readonly catalogApi?: SignInCatalogReader;
   readonly apiBaseUrl?: string;
 }) {
-  const { session, login } = useCustomerSession();
+  const { session, login, loginWithEmail } = useCustomerSession();
   const navigate = useNavigate();
   const [parameters] = useSearchParams();
   const [error, setError] = useState<string>();
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(initialOpen);
+  const [emailInput, setEmailInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [submittingEmail, setSubmittingEmail] = useState(false);
   const [backdrop, setBackdrop] = useState({
     src: "/sign-in-product.png",
     alt: "Máy tính NovaCommerce trong không gian làm việc",
@@ -52,6 +57,31 @@ export function SignInPage({
       }
     },
     [login, navigate, returnTo],
+  );
+
+  const submitEmailLogin = useCallback(
+    async (targetEmail: string, targetName?: string) => {
+      if (!targetEmail.trim() || !targetEmail.includes("@")) {
+        setError("Vui lòng nhập email hợp lệ.");
+        return;
+      }
+      setSubmittingEmail(true);
+      setError(undefined);
+      try {
+        const next = await loginWithEmail(targetEmail.trim(), targetName?.trim() || undefined);
+        navigate(
+          next.kind === "customer" && next.cartResolution === "required"
+            ? "/cart?resolution=required"
+            : returnTo,
+          { replace: true },
+        );
+      } catch (err: any) {
+        setError(err.message || "Đăng nhập bằng email không thành công. Vui lòng thử lại.");
+      } finally {
+        setSubmittingEmail(false);
+      }
+    },
+    [loginWithEmail, navigate, returnTo],
   );
   useEffect(() => {
     if (catalogApi === undefined || apiBaseUrl === undefined) return;
@@ -193,6 +223,107 @@ export function SignInPage({
               clientId={googleClientId}
               onCredential={(value) => void credential(value)}
             />
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                margin: "24px 0 18px",
+                color: "var(--auth-muted, #888)",
+                fontSize: "13px",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ flex: 1, height: "1px", background: "var(--auth-border, rgba(255,255,255,0.15))" }} />
+              <span style={{ padding: "0 12px" }}>hoặc đăng nhập bằng email</span>
+              <span style={{ flex: 1, height: "1px", background: "var(--auth-border, rgba(255,255,255,0.15))" }} />
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitEmailLogin(emailInput, nameInput);
+              }}
+              style={{ display: "flex", flexDirection: "column", gap: "14px" }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label
+                  htmlFor="sign-in-email-input"
+                  style={{ fontSize: "13px", fontWeight: 500, color: "var(--auth-ink)" }}
+                >
+                  Email *
+                </label>
+                <input
+                  id="sign-in-email-input"
+                  type="email"
+                  required
+                  placeholder="nhap-email@gmail.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--auth-border, rgba(255,255,255,0.2))",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "inherit",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label
+                  htmlFor="sign-in-name-input"
+                  style={{ fontSize: "13px", fontWeight: 500, color: "var(--auth-ink)" }}
+                >
+                  Họ và tên (tuỳ chọn)
+                </label>
+                <input
+                  id="sign-in-name-input"
+                  type="text"
+                  placeholder="Phan Dương Quốc Nhật"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--auth-border, rgba(255,255,255,0.2))",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "inherit",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingEmail}
+                className="button primary"
+                style={{ width: "100%", justifyContent: "center", padding: "12px", marginTop: "4px" }}
+              >
+                {submittingEmail ? "Đang xử lý..." : "Tiếp tục với Email"}
+              </button>
+
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  setEmailInput("pdqnshichi2005@gmail.com");
+                  setNameInput("Phan Dương Quốc Nhật");
+                  void submitEmailLogin("pdqnshichi2005@gmail.com", "Phan Dương Quốc Nhật");
+                }}
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  fontSize: "12px",
+                  padding: "8px",
+                  borderStyle: "dashed",
+                }}
+              >
+                ⚡ Đăng nhập nhanh pdqnshichi2005@gmail.com
+              </button>
+            </form>
+
             <Link className="auth-return" to="/">
               <ArrowLeft /> Quay lại cửa hàng
             </Link>

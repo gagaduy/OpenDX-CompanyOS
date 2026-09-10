@@ -52,12 +52,14 @@ export function StorefrontShell({
   cartCount = 0,
   wishlistCount = 0,
   authenticated = false,
+  customerEmail,
   categories = [],
   children,
 }: {
   readonly cartCount?: number;
   readonly wishlistCount?: number;
   readonly authenticated?: boolean;
+  readonly customerEmail?: string;
   readonly categories?: readonly StorefrontCategory[];
   readonly children?: ReactNode;
 }) {
@@ -190,7 +192,7 @@ export function StorefrontShell({
               to={authenticated ? "/account" : "/sign-in"}
             >
               <UserRound aria-hidden="true" />
-              <span>{authenticated ? "Tài khoản" : "Đăng nhập"}</span>
+              <span>{customerEmail ? customerEmail.split("@")[0] : (authenticated ? "Tài khoản" : "Đăng nhập")}</span>
             </Link>
             <Link
               className="header-action wishlist-header-button"

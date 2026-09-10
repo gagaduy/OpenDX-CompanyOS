@@ -11,6 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Customer Authentication & Unified LiveChat Integration:
+  - Fixed Google Identity Conflict: Resolved `GOOGLE_IDENTITY_CONFLICT` when a Google identity email matches an existing customer account (e.g. from guest orders or support inquiries), linking the Google identity rather than rejecting login.
+  - Email-based Customer Authentication: Added `POST /v1/storefront/auth/email` endpoint, customer session issuing, guest session migration, and CSRF token handling.
+  - Development OAuth Fallback: Added `dev-google:` prefix verifier in `GoogleJoseIdentityVerifier` for seamless local testing without Google Cloud Console origin restrictions.
+  - Storefront Sign-In Experience: Rebuilt `/sign-in` page with immediate open dialog layout, dual Google and Email login options, and quick-fill test button.
+  - Seamless Customer LiveChat Experience: Auto-binds customer sessions to `LiveChatWidget`, bypassing manual email and name inputs, displaying customer account indicators, and preserving support complaint history continuity.
+  - Header Account Identification: Updated `StorefrontShell` topbar to display the logged-in customer's username handle.
+  - Test Suite Timeout Stabilization: Added `testTimeout: 30000` to `apps/storefront/vite.config.ts`.
+
 - Implement Social Token Expiration & Health Monitor with Zero Copy-Paste Renewal (Tiểu dự án B):
   - Database schema & migrations: Added `marketing_social_accounts` table with unique constraint on `(platform, account_id)`, indexing on `(status, expires_at)`, and comprehensive audit fields (`platform`, `account_id`, `account_name`, `encrypted_access_token`, `token_preview`, `token_type`, `scopes`, `expires_at`, `days_remaining`, `status`, `last_checked_at`, `last_error`, `requires_action`, `action_type`).
   - Repository layer: Created `SocialAccountRepository` port and `PostgresqlSocialAccountRepository` implementation with atomic upsert, status updates, and dynamic token querying.

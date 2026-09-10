@@ -5,5 +5,9 @@ export interface CustomerAuthenticationServiceContract {
   loginWithGoogle(
     credential: string,
   ): Promise<IssuedSession<CustomerPrincipal>>;
+  loginWithEmail?(
+    email: string,
+    fullName?: string,
+  ): Promise<IssuedSession<CustomerPrincipal>>;
   logout(rawToken: string): Promise<void>;
 }
