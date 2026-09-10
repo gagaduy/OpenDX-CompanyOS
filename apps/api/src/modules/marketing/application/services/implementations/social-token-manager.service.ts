@@ -376,7 +376,7 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     });
 
     try {
-      const inspection = await this.inspector.inspectToken(platform, trimmedToken);
+      const inspection = await this.inspector.inspectToken(platform, trimmedToken, targetId);
       let status: SocialTokenStatus = inspection.isValid ? "healthy" : "invalid";
       let expiresAt: string | null = null;
       let daysRemaining: number | null = null;

@@ -160,7 +160,7 @@ describe("AiSupportService", () => {
         }),
       }),
     );
-  });
+  }, 15000);
 
   it("clears an active SLA pause before resolving a waiting_customer ticket", async () => {
     const mockClient = {

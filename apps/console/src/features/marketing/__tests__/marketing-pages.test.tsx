@@ -198,6 +198,8 @@ describe("Marketing Console Pages", () => {
       refreshSocialToken: vi.fn(),
       exchangeSocialOAuthCode: vi.fn(),
       checkSocialTokens: vi.fn(),
+      updateSocialToken: vi.fn(),
+      syncSocialTokensFromEnv: vi.fn(),
       ...overrides,
     };
   }
