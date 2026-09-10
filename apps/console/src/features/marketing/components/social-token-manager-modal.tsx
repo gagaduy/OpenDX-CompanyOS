@@ -1,0 +1,281 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Zap,
+  RefreshCw,
+  ExternalLink,
+  CheckCircle2,
+  AlertTriangle,
+  X,
+  Loader2,
+  Clock,
+  KeyRound,
+} from "lucide-react";
+import type { SocialTokensSummaryView, SocialTokenHealthView } from "../api/marketing-api";
+import "../styles/marketing.css";
+
+export interface SocialTokenManagerModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly summary: SocialTokensSummaryView | null;
+  readonly onRefreshAccount: (platform: "facebook" | "instagram", accountId: string) => Promise<void>;
+  readonly onCheckTokens: () => Promise<void>;
+  readonly onOAuthReconnect?: (platform: "facebook" | "instagram") => void;
+  readonly isActionLoading?: boolean;
+  readonly actionFeedback?: string | null;
+}
+
+export function SocialTokenManagerModal({
+  isOpen,
+  onClose,
+  summary,
+  onRefreshAccount,
+  onCheckTokens,
+  onOAuthReconnect,
+  isActionLoading = false,
+  actionFeedback,
+}: SocialTokenManagerModalProps) {
+  const [refreshingAccountKey, setRefreshingAccountKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || typeof document === "undefined") return null;
+
+  const handleRefresh = async (account: SocialTokenHealthView) => {
+    const key = `${account.platform}:${account.accountId}`;
+    try {
+      setRefreshingAccountKey(key);
+      await onRefreshAccount(account.platform, account.accountId);
+    } finally {
+      setRefreshingAccountKey(null);
+    }
+  };
+
+  const getStatusBadge = (account: SocialTokenHealthView) => {
+    switch (account.status) {
+      case "valid":
+        return (
+          <span className="socialTokenBadge valid" role="status">
+            <ShieldCheck size={13} />
+            <span>{account.daysRemaining !== null ? `Còn ${account.daysRemaining} ngày` : "Vĩnh viễn (Never expires)"}</span>
+          </span>
+        );
+      case "expiring_soon":
+        return (
+          <span className="socialTokenBadge warning" role="status">
+            <Clock size={13} />
+            <span>Sắp hết hạn ({account.daysRemaining ?? 0} ngày)</span>
+          </span>
+        );
+      case "expired":
+        return (
+          <span className="socialTokenBadge danger" role="status">
+            <ShieldAlert size={13} />
+            <span>Đã hết hạn</span>
+          </span>
+        );
+      case "invalid":
+        return (
+          <span className="socialTokenBadge danger" role="status">
+            <ShieldAlert size={13} />
+            <span>Không hợp lệ (Lỗi Meta API)</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="socialTokenBadge neutral" role="status">
+            <Shield size={13} />
+            <span>Chưa kích hoạt</span>
+          </span>
+        );
+    }
+  };
+
+  return createPortal(
+    <div className="fbModalBackdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="social-token-modal-title">
+      <div className="fbModalContainer socialTokenModalContainer" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="socialTokenModalHeader">
+          <div className="socialTokenModalTitleGroup">
+            <div className="socialTokenModalIconWrap">
+              <KeyRound size={20} className="socialTokenKeyIcon" />
+            </div>
+            <div>
+              <h3 id="social-token-modal-title" className="socialTokenModalTitle">
+                Giám sát & Tự động Quản lý Social Tokens
+              </h3>
+              <p className="socialTokenModalSubtitle">
+                Theo dõi thời hạn Access Token của Facebook Page & Instagram Business. Tự động gia hạn trước 7 ngày, quy trình 1-click không cần dán thủ công.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="socialTokenModalCloseBtn"
+            onClick={onClose}
+            aria-label="Đóng cửa sổ"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Action feedback message */}
+        {actionFeedback && (
+          <div className="socialTokenFeedbackBanner" role="alert">
+            <CheckCircle2 size={16} />
+            <span>{actionFeedback}</span>
+          </div>
+        )}
+
+        {/* Global Toolbar */}
+        <div className="socialTokenToolbar">
+          <div className="socialTokenCheckedInfo">
+            <Clock size={13} />
+            <span>
+              Kiểm tra lần cuối: {summary?.checkedAt ? new Date(summary.checkedAt).toLocaleTimeString("vi-VN") : "Chưa có"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="socialTokenRefreshAllBtn"
+            onClick={onCheckTokens}
+            disabled={isActionLoading}
+          >
+            <RefreshCw size={14} className={isActionLoading ? "ccSpinSlow" : ""} />
+            <span>{isActionLoading ? "Đang kiểm tra..." : "Kiểm tra sức khỏe ngay"}</span>
+          </button>
+        </div>
+
+        {/* Account Cards / List */}
+        <div className="socialTokenList">
+          {(!summary?.accounts || summary.accounts.length === 0) ? (
+            <div className="socialTokenEmptyState">
+              <Shield size={32} />
+              <p>Chưa có tài khoản mạng xã hội nào được kết nối.</p>
+            </div>
+          ) : (
+            summary.accounts.map((account) => {
+              const key = `${account.platform}:${account.accountId}`;
+              const isItemRefreshing = refreshingAccountKey === key;
+              const isWarningOrExpired = account.status === "expiring_soon" || account.status === "expired" || account.status === "invalid";
+
+              return (
+                <div key={key} className={`socialTokenAccountCard ${isWarningOrExpired ? "hasAlert" : ""}`}>
+                  <div className="socialTokenAccountMain">
+                    <div className="socialTokenPlatformBadge">
+                      <span className="platformIcon">
+                        {account.platform === "facebook" ? "📘" : "📸"}
+                      </span>
+                      <span className="platformLabel">
+                        {account.platform === "facebook" ? "Facebook Fanpage" : "Instagram Business"}
+                      </span>
+                    </div>
+
+                    <div className="socialTokenAccountInfo">
+                      <div className="accountNameRow">
+                        <span className="accountName">{account.accountName || account.accountId}</span>
+                        <span className="accountIdTag">ID: {account.accountId}</span>
+                        {getStatusBadge(account)}
+                      </div>
+
+                      <div className="accountTokenPreviewRow">
+                        <span className="tokenLabel">Token Preview:</span>
+                        <code className="tokenPreviewCode">{account.tokenPreview || "••••••••"}</code>
+                        {account.expiresAt ? (
+                          <span className="tokenExpiryDate">
+                            (Hết hạn: {new Date(account.expiresAt).toLocaleDateString("vi-VN")})
+                          </span>
+                        ) : (
+                          <span className="tokenExpiryDate">(Không thời hạn)</span>
+                        )}
+                      </div>
+
+                      {account.lastError && (
+                        <div className="socialTokenErrorNotice" role="alert">
+                          <AlertTriangle size={13} />
+                          <span>{account.lastError}</span>
+                        </div>
+                      )}
+
+                      {account.message && !account.lastError && (
+                        <p className="socialTokenMessageHint">{account.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions Column */}
+                  <div className="socialTokenAccountActions">
+                    {account.actionType === "auto_refresh" || account.status === "expiring_soon" || account.status === "valid" ? (
+                      <button
+                        type="button"
+                        className="socialTokenActionBtn autoRenewBtn"
+                        onClick={() => handleRefresh(account)}
+                        disabled={isItemRefreshing || isActionLoading}
+                        title="Tự động gia hạn và lưu token mới vào hệ thống mà không cần dán thủ công"
+                      >
+                        {isItemRefreshing ? (
+                          <>
+                            <Loader2 size={13} className="ccSpinSlow" />
+                            <span>Đang gia hạn...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap size={13} />
+                            <span>{account.status === "expiring_soon" ? "Gia hạn ngay (1-Click)" : "Làm mới Token"}</span>
+                          </>
+                        )}
+                      </button>
+                    ) : null}
+
+                    {account.actionType === "oauth_reconnect" || account.status === "expired" || account.status === "invalid" ? (
+                      <button
+                        type="button"
+                        className="socialTokenActionBtn reconnectBtn"
+                        onClick={() => onOAuthReconnect?.(account.platform)}
+                        disabled={isActionLoading}
+                        title="Phiên đăng nhập đã hết hạn, bấm để xác thực lại một chạm với Facebook"
+                      >
+                        <ExternalLink size={13} />
+                        <span>1-Click Kết nối lại</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Security & Automation Notice Footer */}
+        <div className="socialTokenModalFooter">
+          <div className="socialTokenSecurityTip">
+            <span className="tipIcon">🛡️</span>
+            <div>
+              <strong>Bảo mật & Tự động hóa hoàn toàn:</strong>
+              <p>
+                Access Token được che mờ và chỉ phục vụ xuất bản bài viết tự động. Cơ chế tự động gia hạn (Autonomous Monitor) quét định kỳ mỗi 6 giờ và gia hạn trước 7 ngày để đảm bảo chiến dịch không bao giờ bị đình trệ.
+              </p>
+            </div>
+          </div>
+          <button type="button" className="socialTokenCloseFooterBtn" onClick={onClose}>
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

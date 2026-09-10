@@ -33,11 +33,17 @@ import {
   Brain,
   HeartHandshake,
   Zap,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
 import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
-import type { MarketingApi } from "../../marketing/api/marketing-api";
+import type {
+  MarketingApi,
+  SocialTokensSummaryView,
+} from "../../marketing/api/marketing-api";
 import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
+import { SocialTokenManagerModal } from "../../marketing/components/social-token-manager-modal";
 import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
 import { CampaignProposalModal, resolveMediaUrl } from "../../catalog/components/campaign-proposal-modal";
 import { ActiveCampaignWidget } from "../../catalog/components/active-campaign-widget";
@@ -149,6 +155,97 @@ export function AgenticCommandCenter({
   const [marketingActionLoading, setMarketingActionLoading] = useState(false);
   const [revisionInput, setRevisionInput] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+
+  // Social Tokens State & 1-Click Operations
+  const [socialTokensSummary, setSocialTokensSummary] = useState<SocialTokensSummaryView | null>(null);
+  const [socialTokenModalOpen, setSocialTokenModalOpen] = useState(false);
+  const [socialTokenActionLoading, setSocialTokenActionLoading] = useState(false);
+  const [socialTokenFeedback, setSocialTokenFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!marketingApi?.getSocialTokensStatus) return;
+    const controller = new AbortController();
+    marketingApi
+      .getSocialTokensStatus(controller.signal)
+      .then(setSocialTokensSummary)
+      .catch(() => {
+        // Silently ignore if unconfigured or error
+      });
+    return () => controller.abort();
+  }, [marketingApi]);
+
+  const handleRefreshSocialAccount = async (platform: "facebook" | "instagram", accountId: string) => {
+    if (!marketingApi?.refreshSocialToken) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const refreshed = await marketingApi.refreshSocialToken({ platform, accountId });
+      setSocialTokenFeedback(
+        `Đã tự động gia hạn token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} (${refreshed.accountName || accountId}) thành công! Không cần copy-paste.`,
+      );
+      if (marketingApi.getSocialTokensStatus) {
+        const updated = await marketingApi.getSocialTokensStatus();
+        setSocialTokensSummary(updated);
+      }
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi gia hạn token: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleCheckSocialTokens = async () => {
+    if (!marketingApi?.checkSocialTokens) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const checked = await marketingApi.checkSocialTokens();
+      setSocialTokensSummary(checked);
+      setSocialTokenFeedback("Đã kiểm tra sức khỏe và hạn dùng của tất cả Social Tokens thành công.");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi kiểm tra token: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleOAuthReconnect = (platform: "facebook" | "instagram") => {
+    const redirectUri = `${window.location.origin}/auth/oauth-callback`;
+    const popupWidth = 600;
+    const popupHeight = 700;
+    const left = window.screenX + (window.outerWidth - popupWidth) / 2;
+    const top = window.screenY + (window.outerHeight - popupHeight) / 2;
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "META_OAUTH_CODE" && event.data?.code) {
+        window.removeEventListener("message", handleMessage);
+        if (marketingApi?.exchangeSocialOAuthCode) {
+          setSocialTokenActionLoading(true);
+          try {
+            const updated = await marketingApi.exchangeSocialOAuthCode({
+              code: event.data.code,
+              redirectUri,
+              platform,
+            });
+            setSocialTokensSummary(updated);
+            setSocialTokenFeedback("Đã kết nối lại và cấp Page Access Token mới thành công! Không cần dán token.");
+          } catch (err: any) {
+            setSocialTokenFeedback(`Lỗi khi đổi OAuth code: ${err?.message || "Không xác định"}`);
+          } finally {
+            setSocialTokenActionLoading(false);
+          }
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+
+    const metaAppId = (import.meta as any).env?.VITE_META_APP_ID || "123456789";
+    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(
+      metaAppId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_manage_posts`;
+    window.open(oauthUrl, "MetaOAuth", `width=${popupWidth},height=${popupHeight},left=${left},top=${top}`);
+  };
 
   // Merchandising / Catalog & Pricing State
   const [merchandisingProposal, setMerchandisingProposal] = useState<MerchandisingProposal | null>(null);
@@ -349,7 +446,7 @@ export function AgenticCommandCenter({
 
   // Load initial marketing campaigns list for History without forcing auto-open on clean mount
   useEffect(() => {
-    if (!marketingApi) return;
+    if (!marketingApi?.listCampaigns) return;
     let isMounted = true;
 
     marketingApi
@@ -3413,6 +3510,44 @@ export function AgenticCommandCenter({
               <span>Tiếp thị & Sáng tạo</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {socialTokensSummary && (
+                (() => {
+                  const hasExpiringOrInvalid = socialTokensSummary.hasExpiringOrInvalid;
+                  const urgent = socialTokensSummary.urgentActionRequired;
+                  const expiringAccount = socialTokensSummary.accounts.find(
+                    (a) => a.status === "expiring_soon" || a.status === "expired" || a.status === "invalid"
+                  );
+                  const days = expiringAccount?.daysRemaining;
+
+                  let badgeClass = "valid";
+                  let badgeText = "Social Token: OK";
+                  let icon = <ShieldCheck size={12} />;
+
+                  if (urgent || expiringAccount?.status === "expired" || expiringAccount?.status === "invalid") {
+                    badgeClass = "danger";
+                    badgeText = "🚨 Token FB lỗi / hết hạn";
+                    icon = <ShieldAlert size={12} />;
+                  } else if (hasExpiringOrInvalid || expiringAccount?.status === "expiring_soon") {
+                    badgeClass = "warning";
+                    badgeText = `⚡ Token FB hết hạn sau ${days ?? 7} ngày`;
+                    icon = <Zap size={12} />;
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      className={`ccSocialTokenHeaderBadge ${badgeClass}`}
+                      onClick={() => setSocialTokenModalOpen(true)}
+                      title="Bấm để mở Trung tâm Quản lý Social Tokens"
+                      aria-label="Social Token Health Status"
+                    >
+                      {icon}
+                      <span>{badgeText}</span>
+                    </button>
+                  );
+                })()
+              )}
+
               {departmentQueues.marketing.length > 0 && (
                 <span className="ccDeptQueueBadge">
                   <Clock size={11} className="ccSpinSlow" />
@@ -3425,6 +3560,74 @@ export function AgenticCommandCenter({
               </span>
             </div>
           </div>
+
+          {/* Social Token Proactive Alert Card */}
+          {socialTokensSummary?.accounts?.filter(
+            (acc) => acc.requiresAction || acc.status === "expiring_soon" || acc.status === "expired" || acc.status === "invalid"
+          ).map((acc) => {
+            const isDanger = acc.status === "expired" || acc.status === "invalid";
+            const title = isDanger
+              ? `🚨 Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} đã hết hạn / lỗi`
+              : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${acc.daysRemaining ?? 0} ngày)`;
+
+            return (
+              <div
+                key={`alert-${acc.platform}-${acc.accountId}`}
+                className={`ccSocialTokenAlertCard ${isDanger ? "danger" : ""}`}
+                role="alert"
+              >
+                <div className="ccSocialTokenAlertHeader">
+                  <div className="ccSocialTokenAlertTitleGroup">
+                    {isDanger ? <ShieldAlert size={14} /> : <Zap size={14} />}
+                    <span className="ccSocialTokenAlertTitle">{title}</span>
+                  </div>
+                  <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
+                </div>
+
+                <p className="ccSocialTokenAlertMeta">
+                  {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${acc.daysRemaining} ngày. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
+                </p>
+
+                <div className="ccSocialTokenAlertActions">
+                  {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon") && (
+                    <button
+                      type="button"
+                      className="ccSocialTokenActionBtn renew"
+                      onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
+                      disabled={socialTokenActionLoading}
+                    >
+                      {socialTokenActionLoading ? (
+                        <Loader2 size={12} className="ccSpinSlow" />
+                      ) : (
+                        <Zap size={12} />
+                      )}
+                      <span>Tự động Gia hạn ngay</span>
+                    </button>
+                  )}
+
+                  {(acc.actionType === "oauth_reconnect" || isDanger) && (
+                    <button
+                      type="button"
+                      className="ccSocialTokenActionBtn reconnect"
+                      onClick={() => handleOAuthReconnect(acc.platform)}
+                      disabled={socialTokenActionLoading}
+                    >
+                      <ExternalLink size={12} />
+                      <span>1-Click Kết nối lại</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="ccSocialTokenActionBtn detail"
+                    onClick={() => setSocialTokenModalOpen(true)}
+                  >
+                    <span>Chi tiết</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
 
           <AgentCard
             name="Cây bút Tiếp thị"
@@ -4099,6 +4302,18 @@ export function AgenticCommandCenter({
           apiBaseUrl={apiBaseUrl}
         />
       )}
+
+      {/* 8. Social Token Health & Manager Modal */}
+      <SocialTokenManagerModal
+        isOpen={socialTokenModalOpen}
+        onClose={() => setSocialTokenModalOpen(false)}
+        summary={socialTokensSummary}
+        onRefreshAccount={handleRefreshSocialAccount}
+        onCheckTokens={handleCheckSocialTokens}
+        onOAuthReconnect={handleOAuthReconnect}
+        isActionLoading={socialTokenActionLoading}
+        actionFeedback={socialTokenFeedback}
+      />
     </section>
   );
 }
