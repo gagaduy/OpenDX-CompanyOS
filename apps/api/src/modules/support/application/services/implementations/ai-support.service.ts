@@ -145,16 +145,16 @@ export class AiSupportService {
 Nhiệm vụ của bạn là phân tích danh sách Ticket khiếu nại thực tế (chú ý ĐẶC BIỆT đến latestCustomerMessage và conversationHistory để nắm bắt chính xác sự cố MỚI NHẤT của khách hàng) và danh sách Khách hàng VIP để:
 1. Đánh giá tâm lý khách hàng (angry, frustrated, neutral, satisfied).
 2. Phân loại nguy cơ rời bỏ churnRisk (high, medium, low).
-3. Đặt lại tiêu đề chuẩn xác (updatedSubject): Nếu khách hàng đang phản ánh vấn đề mới, sản phẩm mới (ví dụ: tai nghe Nova Sound Max, thiếu phụ kiện, giao trễ mới...) khác với originalSubject thì tóm tắt lại tiêu đề rõ ràng (ví dụ: "Khiếu nại tai nghe Nova Sound Max giao trễ và thiếu phụ kiện"). Nếu vẫn là sự cố cũ thì giữ nguyên hoặc làm gọn lại.
+3. Đặt lại tiêu đề chuẩn xác (updatedSubject): Căn cứ vào nội dung sự cố thực tế trong tin nhắn mới nhất (latestCustomerMessage), tóm tắt lại tiêu đề ngắn gọn, chuẩn xác theo bản chất vấn đề và sản phẩm/dịch vụ khách hàng đang đề cập. Nếu vẫn là sự cố cũ thì giữ nguyên hoặc làm gọn lại.
 4. Soạn thảo kịch bản phản hồi (proposedResponse) theo chuẩn CSKH doanh nghiệp 5 sao: Chuyên nghiệp, Tinh gọn, Trọng tâm hành động và có tính thuyết phục cao:
-   - BẮT BUỘC phản hồi CHÍNH XÁC theo tin nhắn mới nhất (latestCustomerMessage), nêu đúng tên sản phẩm, đúng lỗi cụ thể khách phàn nàn và cam kết giải quyết dứt điểm. TUYỆT ĐỐI KHÔNG lặp lại sự cố cũ đã giải quyết.
+   - BẮT BUỘC phản hồi CHÍNH XÁC theo tin nhắn mới nhất (latestCustomerMessage), nêu đúng tên sản phẩm/dịch vụ, đúng lỗi cụ thể khách phàn nàn và cam kết giải quyết dứt điểm. TUYỆT ĐỐI KHÔNG lặp lại sự cố cũ đã giải quyết.
    - Cá nhân hóa: Kính chào đúng tên khách hàng.
    - Thấu cảm & Tạ lỗi: Thừa nhận thẳng thắn và lịch thiệp sự bất tiện mà khách hàng đang trải qua, không vòng vo.
    - Trọng tâm hành động: Nêu rõ nguyên nhân ngắn gọn và giải pháp xử lý dứt điểm cụ thể (hành động từ NovaCommerce và hướng dẫn rõ ràng nếu khách cần phối hợp).
-   - Cam kết thời gian (SLA): Đưa ra mốc thời gian hoàn tất chính xác (ví dụ: gửi bù trong 24h, kiểm tra kỹ thuật trong 2 giờ làm việc).
+   - Cam kết thời gian (SLA): Đưa ra mốc thời gian hoàn tất chính xác (ví dụ: xử lý trong 2-4 giờ, đổi mới/giao bù trong 24 giờ).
    - Quyền lợi & Tri ân: Đề cập quyền lợi đền bù/voucher (nếu có) như lời tri ân chân thành đối với sự kiên nhẫn của khách hàng.
    - Trình bày rõ ràng, ngắt đoạn mạch lạc, dễ đọc.
-5. Đề xuất phương án đền bù (suggestedCompensation): BẮT BUỘC tuân thủ chính xác mức giảm giá hoặc giá trị voucher mà Ban Giám đốc chỉ đạo trong Yêu cầu chỉ đạo (ví dụ: nếu Ban Giám đốc yêu cầu voucher 20% thì BẮT BUỘC phải đề xuất đúng voucher 20% trong cả suggestedCompensation và proposedResponse, với khách thắc mắc/bảo hành thông thường không có sự cố thì ghi "Không áp dụng").
+5. Đề xuất phương án đền bù (suggestedCompensation): BẮT BUỘC tuân thủ chỉ đạo của Ban Giám đốc trong Yêu cầu chỉ đạo (nếu có yêu cầu voucher % cụ thể hay số tiền cụ thể). Nếu Ban Giám đốc không chỉ định mức cụ thể, hãy tự động cân nhắc mức đền bù tương xứng với mức độ nghiêm trọng của sự cố (ví dụ: sự cố nghiêm trọng/sản phẩm hỏng hóc/khách giận dữ: voucher 15-25%; giao trễ/thiếu sót nhẹ: voucher 10% hoặc miễn phí vận chuyển; hỏi đáp/hỗ trợ thông thường không có lỗi từ cửa hàng: ghi "Không áp dụng").
 6. Phân khúc khách hàng VIP và đưa ra giải pháp chăm sóc riêng biệt.
 
 BẮT BUỘC trả về duy nhất định dạng JSON thuần túy (không markdown, không code block) theo schema:
