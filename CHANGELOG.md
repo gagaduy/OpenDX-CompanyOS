@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add design specification for Department Direct Task Dispatcher and Collaborative Resource Queue in Staff Console (`docs/superpowers/specs/2026-09-10-department-task-queue-design.md`).
+
 - Add autonomous, governed Dynamic Campaign Engine to Catalog & Pricing department:
   - Dynamic LLM campaign extraction (title, duration, discount percentage, theme key, badge text, SEO rationale) with zero static mock fallbacks.
   - Real server-side visual compositing using `sharp@0.35.4` creating high-contrast 3D pill badges and accent frames rendered to WebP in private storage.
