@@ -49,6 +49,10 @@ function api(overrides: Partial<InventoryApi> = {}): InventoryApi {
     })),
     downloadOperationsDocx: vi.fn(async () => undefined),
     applyOperationsProposal: vi.fn(async () => ({ proposalId: "prop-1", appliedCount: 1, updatedItems: [] })),
+    getPendingReplenishment: vi.fn(async () => null),
+    triggerReplenishmentScan: vi.fn(async () => null),
+    applyReplenishmentProposal: vi.fn(async () => ({ proposalId: "prop-1", appliedCount: 1, updatedItems: [] })),
+    dismissReplenishmentProposal: vi.fn(async () => undefined),
     ...overrides,
   };
 }

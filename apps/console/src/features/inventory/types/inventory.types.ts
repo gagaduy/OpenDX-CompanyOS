@@ -64,20 +64,23 @@ export interface OperationsProposalItem {
   readonly estimatedUnitCostVnd: number;
   readonly estimatedTotalCostVnd: number;
   readonly actionRationale: string;
+  readonly recentUnitsSold7d?: number;
 }
 
 export interface OperationsProposal {
   readonly id: string;
-  readonly prompt: string;
+  readonly prompt?: string;
+  readonly summary?: string;
+  readonly triggerSource?: "scheduled_cron" | "post_order_event" | "manual";
   readonly items: readonly OperationsProposalItem[];
-  readonly totalItems: number;
+  readonly totalItems?: number;
   readonly totalRestockUnits: number;
   readonly totalEstimatedBudgetVnd: number;
-  readonly inventoryHealthSummary: string;
-  readonly riskAssessment: string;
-  readonly recommendedAction: string;
-  readonly status: "pending_approval" | "applied";
+  readonly inventoryHealthSummary?: string;
+  readonly riskAssessment?: string;
+  readonly recommendedAction?: string;
+  readonly status: "pending_approval" | "pending_review" | "applied" | "approved" | "dismissed";
   readonly createdAt: string;
-  readonly docxFilename: string;
+  readonly docxFilename?: string;
 }
 

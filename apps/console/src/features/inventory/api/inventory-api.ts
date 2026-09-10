@@ -26,6 +26,10 @@ export interface InventoryApi {
   generateOperationsProposal(prompt: string): Promise<OperationsProposal>;
   downloadOperationsDocx(proposalId: string, filename: string): Promise<void>;
   applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]): Promise<any>;
+  getPendingReplenishment(signal?: AbortSignal): Promise<OperationsProposal | null>;
+  triggerReplenishmentScan(): Promise<OperationsProposal | null>;
+  applyReplenishmentProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]): Promise<any>;
+  dismissReplenishmentProposal(proposalId: string): Promise<void>;
 }
 
 export function createInventoryApi(baseUrl: string, accessToken: string): InventoryApi {
@@ -98,6 +102,21 @@ export function createInventoryApi(baseUrl: string, accessToken: string): Invent
     async applyOperationsProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]) {
       const envelope: any = await request(`/v1/admin/inventory/ai-proposal/${proposalId}/apply`, write({ items }));
       return envelope.data;
+    },
+    async getPendingReplenishment(signal) {
+      const envelope: any = await request("/v1/admin/inventory/replenishment/pending", { signal });
+      return envelope?.data ?? null;
+    },
+    async triggerReplenishmentScan() {
+      const envelope: any = await request("/v1/admin/inventory/replenishment/trigger-scan", { method: "POST" });
+      return envelope?.data ?? null;
+    },
+    async applyReplenishmentProposal(proposalId: string, items: readonly { variantId: string; restockQuantity: number }[]) {
+      const envelope: any = await request(`/v1/admin/inventory/replenishment/${proposalId}/apply`, write({ items }));
+      return envelope?.data;
+    },
+    async dismissReplenishmentProposal(proposalId: string) {
+      await request(`/v1/admin/inventory/replenishment/${proposalId}/dismiss`, { method: "POST" });
     },
   };
 }
