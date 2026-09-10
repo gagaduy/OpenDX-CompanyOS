@@ -65,7 +65,7 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       </AuthProvider>,
     );
 
-    // 1. Marketing initiates a task which locks marketing_visual
+    // 1. Marketing initiates a task which locks marketing_copywriter
     const mktInput = screen.getByPlaceholderText("Giao việc cho Tiếp thị & Sáng tạo...");
     fireEvent.change(mktInput, { target: { value: "Soạn bài viết và vẽ poster mới" } });
     fireEvent.submit(mktInput.closest("form")!);
@@ -75,22 +75,21 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 2. While Marketing is busy, submit a Merchandising task that requires marketing_visual
-    const merchInput = screen.getByPlaceholderText("Giao việc cho Danh mục & Định giá...");
-    fireEvent.change(merchInput, { target: { value: "Chiến dịch Tết Trung Thu giảm giá 20%" } });
-    fireEvent.submit(merchInput.closest("form")!);
+    // 2. While Marketing is busy with task 1, submit another Marketing task
+    fireEvent.change(mktInput, { target: { value: "Viết thêm bài Flash Sale cuối tuần" } });
+    fireEvent.submit(mktInput.closest("form")!);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });
 
-    // 3. Merchandising should now show a queue badge in the header and a waiting card
+    // 3. Marketing should now show a queue badge in the header and a waiting card
     expect(screen.getByText(/Hàng chờ: 1/)).toBeInTheDocument();
     expect(screen.getByText("Nhiệm vụ đang xếp hàng")).toBeInTheDocument();
-    expect(screen.getByText(/"Chiến dịch Tết Trung Thu giảm giá 20%"/)).toBeInTheDocument();
+    expect(screen.getByText(/"Viết thêm bài Flash Sale cuối tuần"/)).toBeInTheDocument();
 
-    // 4. Locked/required agents indicate 1 waiting task
-    expect(screen.getAllByText("1 nhiệm vụ đang chờ nhân sự này")).toHaveLength(3);
+    // 4. Only the locked initial agent indicates 1 waiting task (other agents in dept do not)
+    expect(screen.getAllByText("1 nhiệm vụ đang chờ nhân sự này")).toHaveLength(1);
 
     // 5. Operator clicks "Hủy" on the waiting card
     const cancelBtn = screen.getByTitle("Hủy nhiệm vụ khỏi hàng chờ");
@@ -165,7 +164,7 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       </AuthProvider>,
     );
 
-    // 1. Marketing starts a task locking marketing_visual
+    // 1. Marketing starts task 1 locking marketing_copywriter
     const mktInput = screen.getByPlaceholderText("Giao việc cho Tiếp thị & Sáng tạo...");
     fireEvent.change(mktInput, { target: { value: "Soạn bài viết và vẽ poster mới" } });
     fireEvent.submit(mktInput.closest("form")!);
@@ -174,7 +173,62 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       await vi.advanceTimersByTimeAsync(100);
     });
 
-    // 2. Queue Merchandising task that needs marketing_visual
+    // 2. Queue 2nd task to Marketing (conflicts on marketing_copywriter)
+    fireEvent.change(mktInput, { target: { value: "Bài viết số 2 về Flash Sale" } });
+    fireEvent.submit(mktInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(screen.getByText(/Hàng chờ: 1/)).toBeInTheDocument();
+
+    // 3. Fast-forward until Marketing task 1 completes and releases its locks
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3500);
+    });
+
+    // 4. Queued task auto-dequeues and finishes!
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3500);
+    });
+
+    // Marketing createCampaign called for both tasks
+    expect(marketingApi.createCampaign).toHaveBeenCalledTimes(2);
+
+    // Queue badge should be gone
+    expect(screen.queryByText(/Hàng chờ: 1/)).not.toBeInTheDocument();
+  });
+
+  it("executes local step 1 immediately and pauses at mid-step handoff when external resource is busy", async () => {
+    vi.useFakeTimers();
+    const authClient = fakeAuthClient();
+    const api = fakeAgenticApi();
+    const marketingApi = fakeMarketingApi();
+    const catalogApi = fakeCatalogApi();
+
+    render(
+      <AuthProvider client={authClient}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={api}
+            marketingApi={marketingApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    // 1. Marketing initiates a task which will lock marketing_visual
+    const mktInput = screen.getByPlaceholderText("Giao việc cho Tiếp thị & Sáng tạo...");
+    fireEvent.change(mktInput, { target: { value: "Bài viết ra mắt điện thoại flagship" } });
+    fireEvent.submit(mktInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    // 2. While Marketing is running, submit a Merchandising campaign task that needs marketing_visual
     const merchInput = screen.getByPlaceholderText("Giao việc cho Danh mục & Định giá...");
     fireEvent.change(merchInput, { target: { value: "Chiến dịch Tết Trung Thu giảm giá 20%" } });
     fireEvent.submit(merchInput.closest("form")!);
@@ -183,25 +237,21 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       await vi.advanceTimersByTimeAsync(50);
     });
 
-    expect(screen.getByText(/Hàng chờ: 1/)).toBeInTheDocument();
+    // Merchandising is NOT queued at the front door!
+    // Cây bút Sản phẩm (Catalog Copywriter) is running immediately!
+    expect(screen.getByText(/Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "Chiến dịch Tết Trung Thu/)).toBeInTheDocument();
 
-    // 3. Fast-forward until Marketing completes and releases its locks
+    // 3. Step 1 completes (800ms). Merchandising now reaches Step 2 (needs marketing_visual).
+    // Because marketing_visual is locked by Marketing, Merchandising pauses in mid-step handoff waiting!
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(850);
     });
 
-    // 4. Queued task auto-dequeues and starts executing!
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
-    });
-
-    // Merchandising campaign proposal should have been generated!
-    expect(catalogApi.generateCampaignProposal).toHaveBeenCalledWith({
-      prompt: "Chiến dịch Tết Trung Thu giảm giá 20%",
-    });
-
-    // Queue badge should be gone
-    expect(screen.queryByText(/Hàng chờ: 1/)).not.toBeInTheDocument();
+    // Catalog copywriter is completed
+    expect(screen.getByText("Đã hoàn tất tối ưu tên & mô tả SEO")).toBeInTheDocument();
+    // Mid-step handoff card is displayed with waiting badge
+    expect(screen.getByText("Chờ bàn giao liên phòng")).toBeInTheDocument();
+    expect(screen.getByText(/Đã xong bước 1. Đang đợi Thiết kế Đồ họa/)).toBeInTheDocument();
   });
 
   it("executes employees sequentially within a department instead of flashing simultaneously", async () => {
@@ -249,7 +299,7 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(screen.getByText("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...")).toBeInTheDocument();
   });
 
-  it("renders animated connecting beam ('Sợi dây kết nối') across departments during collaborative handoff", async () => {
+  it("renders animated connecting beam ('Sợi dây kết nối') across departments during collaborative handoff (both outgoing and return)", async () => {
     vi.useFakeTimers();
     const authClient = fakeAuthClient();
     const api = fakeAgenticApi();
@@ -273,18 +323,25 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     });
     expect(screen.queryByTestId("cross-dept-connector")).not.toBeInTheDocument();
 
-    // Step 2: Visual cross-department handoff occurs -> Connecting Wire renders!
+    // Step 2: Visual cross-department handoff occurs -> Chiều đi Connecting Wire renders!
     await act(async () => {
       await vi.advanceTimersByTimeAsync(850);
     });
 
     const connector = screen.getByTestId("cross-dept-connector");
     expect(connector).toBeInTheDocument();
-    expect(screen.getByText("Bàn giao: Thiết kế Poster & Banner 3D")).toBeInTheDocument();
+    expect(screen.getByText("⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D")).toBeInTheDocument();
 
-    // Step 3: Fast forward through visual handoff -> Connecting Wire unmounts
+    // Step 2b: Visual completes and hands back -> Chiều về Connecting Wire renders!
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1100);
+      await vi.advanceTimersByTimeAsync(1050);
+    });
+
+    expect(screen.getByText("⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục")).toBeInTheDocument();
+
+    // Step 3: Fast forward through return handoff -> Connecting Wire unmounts
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1050);
     });
     expect(screen.queryByTestId("cross-dept-connector")).not.toBeInTheDocument();
   });

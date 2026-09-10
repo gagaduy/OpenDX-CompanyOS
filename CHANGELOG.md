@@ -11,7 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Implement Sequential Digital Employee Execution Pipeline and Animated Cross-Department Collaboration Wire:
+- Implement Granular Step-Level Execution and Two-Way Collaboration Wire:
+  - Granular Step-Level Task Execution: Department workflows now start Step 1 immediately if the department's initial digital employee is free, processing local work without blocking the entire pipeline upfront. The workflow only enters a waiting state (`Pending Handoff`) at the exact sub-step requiring an external busy employee (e.g., Graphic Designer in Marketing), automatically resuming once the dependency is resolved.
+  - Two-Way Connection Wire (Bàn giao đi & Bàn giao về): Enhanced animated SVG collaboration wire to visualize both stages of cross-department collaboration: outgoing delegation (originating department -> collaborating department) and return handoff (collaborating department -> originating department) with dynamic department-specific neon beam gradients and traveling photon pulses.
+  - Local Employee Status Isolation: Digital employee cards now only display waiting indicators when that specific employee is the active bottleneck, ensuring idle colleagues in the same department remain unencumbered.
+
   - Enforced strict sequential workflow execution for digital employees within each department (Step 1 -> Step 2 -> Step 3), completely eliminating simultaneous flashing of multiple employee cards and progress bars. Finished employees display green checkmarks and specific completion badges while only the currently executing employee pulses.
   - Decoupled resource reservation locks from visual execution state: reservation locks hold scheduler queue integrity while `deptStatus.activeAgent` cleanly drives the active employee display.
   - Added engaging dynamic SVG "Sợi dây kết nối" (animated collaboration wire / beam) bridging collaborating departments during handoffs (e.g. Merchandising -> Marketing creative asset handoff or Operations -> Merchandising clearance formulation), featuring cubic Bezier paths, multi-stop neon glowing gradient, flowing dashed light beams (`ccBeamFlow`), pulsing terminal rings, traveling light packet (`<animateMotion>`), and floating handoff badge (`⚡ Bàn giao: ...`).

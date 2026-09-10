@@ -11,6 +11,7 @@ import {
   acquireLocks,
   releaseLocks,
   getNextEligibleTask,
+  getInitialAgentForDepartment,
 } from "../utils/department-task-scheduler";
 import type {
   DepartmentQueueMap,
@@ -148,5 +149,12 @@ describe("Department Task Scheduler & Resource Lock Matrix", () => {
     expect(candidateAfterRelease).not.toBeNull();
     expect(candidateAfterRelease?.task.id).toBe("task-merch-waiting");
     expect(candidateAfterRelease?.dept).toBe("merchandising");
+  });
+
+  it("identifies the primary lead Digital Employee for each department", () => {
+    expect(getInitialAgentForDepartment("marketing")).toBe("marketing_copywriter");
+    expect(getInitialAgentForDepartment("merchandising")).toBe("catalog_copywriter");
+    expect(getInitialAgentForDepartment("operations")).toBe("inventory_specialist");
+    expect(getInitialAgentForDepartment("support")).toBe("support_steward");
   });
 });

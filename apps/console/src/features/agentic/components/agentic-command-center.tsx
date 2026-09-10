@@ -59,6 +59,7 @@ import {
   acquireLocks,
   analyzeTaskRequirements,
   checkLockConflicts,
+  getInitialAgentForDepartment,
   getNextEligibleTask,
   releaseLocks,
 } from "../utils/department-task-scheduler";
@@ -68,6 +69,15 @@ export interface ActiveCollaboration {
   fromDept: DepartmentType;
   toDept: DepartmentType;
   label: string;
+}
+
+export interface PendingHandoff {
+  dept: DepartmentType;
+  taskId: string;
+  prompt: string;
+  waitingForAgent: string;
+  waitingForDept: DepartmentType;
+  stepName: string;
 }
 
 export interface DepartmentAgentStatus {
@@ -184,15 +194,45 @@ export function AgenticCommandCenter({
   const activeLocksRef = useRef(activeLocks);
   activeLocksRef.current = activeLocks;
 
+  // Mid-Pipeline Cross-Department Handoff Waiting State
+  const [pendingHandoff, setPendingHandoff] = useState<PendingHandoff | null>(null);
+  const handoffWaitersRef = useRef<
+    Map<string, { taskId: string; resolve: () => void; reject: (err: Error) => void }[]>
+  >(new Map());
+
+  const waitForResource = (agentId: string, taskId: string): Promise<void> => {
+    if (!activeLocksRef.current[agentId]) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve, reject) => {
+      const current = handoffWaitersRef.current.get(agentId) || [];
+      current.push({ taskId, resolve, reject });
+      handoffWaitersRef.current.set(agentId, current);
+    });
+  };
+
+  const notifyResourceWaiters = (releasedAgents: string[]) => {
+    for (const ag of releasedAgents) {
+      const waiters = handoffWaitersRef.current.get(ag);
+      if (waiters && waiters.length > 0) {
+        const next = waiters.shift();
+        next?.resolve();
+      }
+    }
+  };
+
   const getAgentWaitingTasksCount = (agentId: string): number => {
     let count = 0;
     const depts: DepartmentType[] = ["marketing", "merchandising", "operations", "support"];
     for (const d of depts) {
       for (const t of departmentQueues[d]) {
-        if (t.status === "queued" && t.requiredAgents.includes(agentId)) {
+        if (t.status === "queued" && t.waitingForResource?.agentId === agentId) {
           count++;
         }
       }
+    }
+    if (pendingHandoff?.waitingForAgent === agentId) {
+      count++;
     }
     return count;
   };
@@ -203,6 +243,29 @@ export function AgenticCommandCenter({
       [dept]: prev[dept].filter((t) => t.id !== taskId),
     }));
     setSuccessMessage("Đã hủy nhiệm vụ khỏi hàng chờ.");
+  };
+
+  const handleCancelPendingHandoff = (dept: DepartmentType) => {
+    if (pendingHandoff && pendingHandoff.dept === dept) {
+      const waiters = handoffWaitersRef.current.get(pendingHandoff.waitingForAgent);
+      if (waiters) {
+        const remaining = waiters.filter((w) => {
+          if (w.taskId === pendingHandoff.taskId) {
+            w.reject(new Error("Handoff cancelled by user"));
+            return false;
+          }
+          return true;
+        });
+        handoffWaitersRef.current.set(pendingHandoff.waitingForAgent, remaining);
+      }
+      setPendingHandoff(null);
+      setDeptStatus((prev) => ({
+        ...prev,
+        [dept]: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      }));
+      setActiveLocks((prev) => releaseLocks(["catalog_copywriter", "pricing_strategist"], prev));
+      setSuccessMessage("Đã hủy bàn giao nhiệm vụ.");
+    }
   };
 
   // Stepped Visual Progression & CEO Planning
@@ -813,7 +876,14 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        // Stage 2: Thiết kế Đồ họa (Phòng Tiếp thị & Sáng tạo) phối hợp thiết kế ấn phẩm poster & banner
+        // Stage 2: Chiều đi (Bàn giao: Danh mục -> Tiếp thị)
+        setActiveCollaboration({
+          fromDept: "merchandising",
+          toDept: "marketing",
+          label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
+        });
+        setDeptActiveAgent("merchandising", null, "Đang phối hợp cùng Thiết kế Đồ họa bên Tiếp thị...", "catalog_copywriter");
+        setDeptActiveAgent("marketing", "marketing_visual", "Phối hợp cùng Danh mục: Đang vẽ poster ưu đãi & badge 3D...");
         setMarketingActiveAgent("merchandising_visual_collab");
         setMarketingAgentMessage("🎨 [Phối hợp cùng Danh mục] Thiết kế Đồ họa đang vẽ poster quảng bá, thiết kế banner và huy hiệu 3D chiến dịch...");
 
@@ -824,6 +894,17 @@ export function AgenticCommandCenter({
         } catch {
           cProposal = null;
         }
+
+        // Stage 2 hoàn tất -> Chiều về (Bàn giao lại: Tiếp thị -> Danh mục)
+        setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
+        setActiveCollaboration({
+          fromDept: "marketing",
+          toDept: "merchandising",
+          label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
+        });
+        await new Promise((r) => setTimeout(r, 1000));
+        setActiveCollaboration(null);
+        setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
         // Transition: Thiết kế Đồ họa done -> Chuyên gia Định giá running
         setCeoPlan((prev) =>
@@ -1130,6 +1211,7 @@ export function AgenticCommandCenter({
       setIsSubmitting(false);
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(strategicAgents, prevLocks);
+        notifyResourceWaiters(strategicAgents);
         setTimeout(() => processNextQueuedTask(remaining), 50);
         return remaining;
       });
@@ -1240,20 +1322,65 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(`Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 1 complete
+        setDeptActiveAgent("merchandising", null, "Đã hoàn thành tối ưu SEO và mô tả danh mục", "catalog_copywriter");
+
         // Step 2: Cross-department visual collab if required
         if (reqAgents.includes("marketing_visual")) {
+          // Check if marketing_visual is locked by another task/department
+          if (activeLocksRef.current["marketing_visual"]) {
+            const heldLock = activeLocksRef.current["marketing_visual"];
+            setPendingHandoff({
+              dept: "merchandising",
+              taskId,
+              prompt: taskPrompt,
+              waitingForAgent: "marketing_visual",
+              waitingForDept: heldLock.lockedByDepartment,
+              stepName: "Thiết kế Poster & Banner 3D",
+            });
+            try {
+              await waitForResource("marketing_visual", taskId);
+            } catch (e: any) {
+              if (e?.message === "Handoff cancelled by user") return;
+              throw e;
+            }
+            setPendingHandoff(null);
+          }
+
+          // Acquire lock for marketing_visual
+          setActiveLocks((active) =>
+            acquireLocks(taskId, "merchandising", ["marketing_visual"], taskPrompt, active),
+          );
+
+          // Chiều đi: Merchandising -> Marketing
           setActiveCollaboration({
             fromDept: "merchandising",
             toDept: "marketing",
-            label: "Bàn giao: Thiết kế Poster & Banner 3D",
+            label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
           });
-          setDeptActiveAgent("merchandising", null, "Đang phối hợp cùng Thiết kế Đồ họa bên Tiếp thị...", "catalog_copywriter");
+          setDeptActiveAgent("merchandising", null, "Đang bàn giao yêu cầu sang Thiết kế Đồ họa (Tiếp thị)...", "catalog_copywriter");
           setDeptActiveAgent("marketing", "marketing_visual", "Phối hợp cùng Danh mục: Đang vẽ poster ưu đãi & badge 3D...");
           setMarketingActiveAgent("merchandising_visual_collab");
           setMarketingAgentMessage("Phối hợp Thiết kế Đồ họa đang vẽ poster ưu đãi & badge 3D...");
           await new Promise((r) => setTimeout(r, 1000));
+
+          // Chiều về: Marketing -> Merchandising
+          setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
+          setActiveCollaboration({
+            fromDept: "marketing",
+            toDept: "merchandising",
+            label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
+          });
+          await new Promise((r) => setTimeout(r, 1000));
           setActiveCollaboration(null);
           setDeptActiveAgent("marketing", null, null, "marketing_visual");
+
+          // Release marketing_visual lock and notify waiters
+          setActiveLocks((active) => {
+            const remaining = releaseLocks(["marketing_visual"], active);
+            notifyResourceWaiters(["marketing_visual"]);
+            return remaining;
+          });
         }
 
         // Step 3: Pricing Strategist
@@ -1354,6 +1481,7 @@ export function AgenticCommandCenter({
       // Guaranteed lock release and auto-dequeue check
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(reqAgents, prevLocks);
+        notifyResourceWaiters(reqAgents);
         setTimeout(() => processNextQueuedTask(remaining), 50);
         return remaining;
       });
@@ -1368,10 +1496,10 @@ export function AgenticCommandCenter({
     if (!directPrompt.trim()) return;
 
     const reqAgents = analyzeTaskRequirements(departmentType, directPrompt);
-    const conflicts = checkLockConflicts(reqAgents, activeLocks);
+    const initialAgent = getInitialAgentForDepartment(departmentType);
+    const initialConflict = activeLocksRef.current[initialAgent];
 
-    if (conflicts.length > 0) {
-      const conflicting = conflicts[0];
+    if (initialConflict) {
       const newTask: DepartmentTask = {
         id: crypto.randomUUID(),
         department: departmentType,
@@ -1379,10 +1507,10 @@ export function AgenticCommandCenter({
         requiredAgents: reqAgents,
         status: "queued",
         waitingForResource: {
-          agentId: conflicting.agentId,
-          agentName: DIGITAL_EMPLOYEES[conflicting.agentId]?.name || conflicting.agentId,
-          heldByDepartment: conflicting.lockedByDepartment,
-          taskPromptSnippet: conflicting.taskPromptSnippet,
+          agentId: initialConflict.agentId,
+          agentName: DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId,
+          heldByDepartment: initialConflict.lockedByDepartment,
+          taskPromptSnippet: initialConflict.taskPromptSnippet,
         },
         queuedAt: Date.now(),
       };
@@ -1394,15 +1522,20 @@ export function AgenticCommandCenter({
 
       setSuccessMessage(
         `Nhiệm vụ đã được thêm vào hàng chờ (đang đợi nhân sự ${
-          DIGITAL_EMPLOYEES[conflicting.agentId]?.name || conflicting.agentId
+          DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId
         } hoàn tất công việc).`,
       );
       return;
     }
 
-    // No conflict: acquire locks and execute immediately
+    // Initial agent is free: execute immediately!
     const taskId = crypto.randomUUID();
-    setActiveLocks((prev) => acquireLocks(taskId, departmentType, reqAgents, directPrompt, prev));
+    const localAgents = reqAgents.filter(
+      (ag) => DIGITAL_EMPLOYEES[ag]?.department === departmentType,
+    );
+    setActiveLocks((prev) =>
+      acquireLocks(taskId, departmentType, localAgents.length > 0 ? localAgents : [initialAgent], directPrompt, prev),
+    );
     await executeDepartmentWorkflow(departmentType, directPrompt, reqAgents, taskId);
   };
 
@@ -1883,7 +2016,14 @@ export function AgenticCommandCenter({
 
         setCampaignProposal(campaign);
 
-        // GIAI ĐOẠN 4: Hoàn thành phối hợp liên phòng, sẵn sàng cho Ban Giám đốc phê duyệt
+        // GIAI ĐOẠN 4: Chiều về: Tiếp thị hoàn tất poster, bàn giao kết quả về lại Kho vận
+        setDeptActiveAgent("marketing", null, "Đã hoàn thành bộ poster và gói xả hàng, đang bàn giao lại...", "marketing_visual");
+        setActiveCollaboration({
+          fromDept: "marketing",
+          toDept: "operations",
+          label: "⚡ Bàn giao lại: Hoàn tất Kế hoạch & Poster Xả kho ➔ Kho vận",
+        });
+        await new Promise((r) => setTimeout(r, 1200));
         setActiveCollaboration(null);
         setDeptActiveAgent("marketing", null, null, "marketing_visual");
         setCeoPlan((prev) =>
@@ -3428,12 +3568,17 @@ export function AgenticCommandCenter({
               <span>Danh mục & Định giá</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {departmentQueues.merchandising.length > 0 && (
+              {pendingHandoff?.dept === "merchandising" ? (
+                <span className="ccDeptQueueBadge" style={{ borderColor: "rgba(6, 182, 212, 0.5)", color: "#22d3ee" }}>
+                  <Clock size={11} className="ccSpinSlow" />
+                  <span>Chờ bàn giao: 1</span>
+                </span>
+              ) : departmentQueues.merchandising.length > 0 ? (
                 <span className="ccDeptQueueBadge">
                   <Clock size={11} className="ccSpinSlow" />
                   <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
                 </span>
-              )}
+              ) : null}
               <span className="ccDeptCountBadge">
                 <span className="ccPillDot" style={{ width: 6, height: 6, background: "#06b6d4" }} />
                 <span>2 Nhân sự</span>
@@ -3480,7 +3625,7 @@ export function AgenticCommandCenter({
           />
           <AgentCard
             name="Chuyên gia Định giá"
-            roleTag="TRỢ LÝ"
+            roleTag="ASSISTANT"
             theme="cyan"
             isCollaborating={
               activeCollaboration?.toDept === "merchandising" ||
@@ -3520,6 +3665,33 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
           />
+
+          {pendingHandoff?.dept === "merchandising" && (
+            <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
+              <div className="ccWaitingCardHeader">
+                <div className="ccWaitingCardTitle" style={{ color: "#22d3ee" }}>
+                  <Clock size={12} className="ccSpinSlow" />
+                  <span>Chờ bàn giao liên phòng</span>
+                </div>
+                <button
+                  type="button"
+                  className="ccWaitingCancelBtn"
+                  onClick={() => handleCancelPendingHandoff("merchandising")}
+                  title="Hủy bàn giao nhiệm vụ"
+                >
+                  <X size={11} />
+                  <span>Hủy</span>
+                </button>
+              </div>
+              <p className="ccWaitingCardPrompt">"{pendingHandoff.prompt}"</p>
+              <div className="ccWaitingCardResource">
+                <span className="ccWaitingDot" style={{ background: "#22d3ee" }} />
+                <span>
+                  Đã xong bước 1. Đang đợi {DIGITAL_EMPLOYEES[pendingHandoff.waitingForAgent]?.name || "nhân sự phối hợp"} ({pendingHandoff.waitingForDept === "marketing" ? "Phòng Tiếp thị" : "Phòng khác"}) hoàn tất việc...
+                </span>
+              </div>
+            </div>
+          )}
 
           {departmentQueues.merchandising.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
@@ -3871,19 +4043,13 @@ interface DepartmentInputProps {
 
 function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInputProps) {
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || disabled || isSending) return;
+    if (!input.trim() || disabled) return;
     const text = input;
     setInput("");
-    try {
-      setIsSending(true);
-      await onSend(text);
-    } finally {
-      setIsSending(false);
-    }
+    void onSend(text);
   };
 
   return (
@@ -3893,14 +4059,14 @@ function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInp
         className="ccDeptInput"
         placeholder={placeholder}
         value={input}
-        disabled={disabled || isSending}
+        disabled={disabled}
         onChange={(e) => setInput(e.target.value)}
       />
       <button
         type="submit"
         className={`ccDeptSendBtn theme-${theme}`}
         title="Giao việc cho phòng ban"
-        disabled={disabled || isSending || !input.trim()}
+        disabled={disabled || !input.trim()}
       >
         <Send size={14} />
       </button>
@@ -4171,14 +4337,24 @@ export function CrossDepartmentConnector({
 
   if (!activeCollaboration || !coords) return null;
 
+  const deptColorMap: Record<DepartmentType, { main: string; mid: string }> = {
+    marketing: { main: "#38bdf8", mid: "#818cf8" },
+    merchandising: { main: "#06b6d4", mid: "#3b82f6" },
+    operations: { main: "#f59e0b", mid: "#ec4899" },
+    support: { main: "#10b981", mid: "#06b6d4" },
+  };
+
+  const origin = deptColorMap[activeCollaboration.fromDept] || { main: "#38bdf8", mid: "#818cf8" };
+  const target = deptColorMap[activeCollaboration.toDept] || { main: "#a855f7", mid: "#818cf8" };
+
   return (
     <div className="ccCollabConnectorWrapper ccFadeIn" data-testid="cross-dept-connector">
       <svg className="ccCollabConnectorSvg">
         <defs>
           <linearGradient id="collabWireGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#38bdf8" />
-            <stop offset="50%" stopColor="#818cf8" />
-            <stop offset="100%" stopColor="#a855f7" />
+            <stop offset="0%" stopColor={origin.main} />
+            <stop offset="50%" stopColor={target.mid} />
+            <stop offset="100%" stopColor={target.main} />
           </linearGradient>
           <filter id="collabGlow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -4187,7 +4363,7 @@ export function CrossDepartmentConnector({
         </defs>
 
         {/* Outer Glow Path */}
-        <path d={coords.d} className="ccCollabWireBase" />
+        <path d={coords.d} className="ccCollabWireBase" style={{ stroke: `${origin.main}33` }} />
 
         {/* Main Solid Gradient Wire */}
         <path d={coords.d} stroke="url(#collabWireGradient)" className="ccCollabWireGradient" />
@@ -4196,8 +4372,8 @@ export function CrossDepartmentConnector({
         <path d={coords.d} className="ccFlowingBeam" />
 
         {/* Anchor Rings at Origin and Target */}
-        <circle cx={coords.x1} cy={coords.y1} r="7" className="ccConnectorAnchorRing" />
-        <circle cx={coords.x2} cy={coords.y2} r="7" className="ccConnectorAnchorTarget" />
+        <circle cx={coords.x1} cy={coords.y1} r="7" className="ccConnectorAnchorRing" style={{ fill: `${origin.main}44`, stroke: origin.main }} />
+        <circle cx={coords.x2} cy={coords.y2} r="7" className="ccConnectorAnchorTarget" style={{ fill: `${target.main}44`, stroke: target.main }} />
 
         {/* Traveling Light Pulse */}
         <circle r="4" fill="#f8fafc" filter="url(#collabGlow)">
@@ -4206,8 +4382,16 @@ export function CrossDepartmentConnector({
       </svg>
 
       {/* Floating Center Handoff Badge */}
-      <div className="ccCollabFloatingBadge" style={{ left: coords.midX, top: coords.midY }}>
-        <Zap size={12} className="ccPulseZap" />
+      <div
+        className="ccCollabFloatingBadge"
+        style={{
+          left: coords.midX,
+          top: coords.midY,
+          borderColor: `${target.main}aa`,
+          boxShadow: `0 4px 20px ${target.main}55, 0 0 12px ${origin.main}44`,
+        }}
+      >
+        <Zap size={12} className="ccPulseZap" style={{ color: target.main }} />
         <span>{activeCollaboration.label}</span>
       </div>
     </div>

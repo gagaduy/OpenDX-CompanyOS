@@ -56,6 +56,24 @@ export function analyzeTaskRequirements(dept: DepartmentType, prompt: string): s
 }
 
 /**
+ * Returns the primary lead Digital Employee that initiates work for a department.
+ */
+export function getInitialAgentForDepartment(dept: DepartmentType): string {
+  switch (dept) {
+    case "marketing":
+      return "marketing_copywriter";
+    case "merchandising":
+      return "catalog_copywriter";
+    case "operations":
+      return "inventory_specialist";
+    case "support":
+      return "support_steward";
+    default:
+      return "";
+  }
+}
+
+/**
  * Find conflicting active locks for the required agents.
  */
 export function checkLockConflicts(
@@ -132,7 +150,13 @@ export function getNextEligibleTask(
     if (!queue || queue.length === 0) continue;
 
     for (const task of queue) {
-      if (task.status === "queued" && canAcquireLocks(task.requiredAgents, activeLocks)) {
+      if (task.status !== "queued") continue;
+
+      if (task.waitingForResource) {
+        if (!activeLocks[task.waitingForResource.agentId]) {
+          return { dept, task };
+        }
+      } else if (canAcquireLocks(task.requiredAgents, activeLocks)) {
         return { dept, task };
       }
     }
