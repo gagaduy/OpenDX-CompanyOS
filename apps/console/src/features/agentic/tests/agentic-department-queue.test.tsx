@@ -203,6 +203,91 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     // Queue badge should be gone
     expect(screen.queryByText(/Hàng chờ: 1/)).not.toBeInTheDocument();
   });
+
+  it("executes employees sequentially within a department instead of flashing simultaneously", async () => {
+    vi.useFakeTimers();
+    const authClient = fakeAuthClient();
+    const api = fakeAgenticApi();
+    const marketingApi = fakeMarketingApi();
+
+    render(
+      <AuthProvider client={authClient}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={api} marketingApi={marketingApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const mktInput = screen.getByPlaceholderText("Giao việc cho Tiếp thị & Sáng tạo...");
+    fireEvent.change(mktInput, { target: { value: "Viết bài truyền thông sản phẩm mới" } });
+    fireEvent.submit(mktInput.closest("form")!);
+
+    // Step 1: Copywriter is running, Visual and Publisher are idle
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(screen.getByText(/Cây bút Sáng tạo đang soạn nội dung/)).toBeInTheDocument();
+    expect(screen.queryByText(/Thiết kế Đồ họa đang dựng poster/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Điều phối Đăng bài đang chuẩn bị/)).not.toBeInTheDocument();
+
+    // Step 2: Advance timer by 850ms -> Copywriter completes, Visual Designer runs
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(850);
+    });
+
+    expect(screen.getByText("Đã hoàn thành soạn thảo bài viết và bộ hashtag")).toBeInTheDocument();
+    expect(screen.getByText("Thiết kế Đồ họa đang dựng poster và banner...")).toBeInTheDocument();
+    expect(screen.queryByText(/Điều phối Đăng bài đang chuẩn bị/)).not.toBeInTheDocument();
+
+    // Step 3: Advance timer by 850ms -> Visual completes, Publisher runs
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(850);
+    });
+
+    expect(screen.getByText("Đã hoàn thành thiết kế poster & banner chiến dịch")).toBeInTheDocument();
+    expect(screen.getByText("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...")).toBeInTheDocument();
+  });
+
+  it("renders animated connecting beam ('Sợi dây kết nối') across departments during collaborative handoff", async () => {
+    vi.useFakeTimers();
+    const authClient = fakeAuthClient();
+    const api = fakeAgenticApi();
+    const catalogApi = fakeCatalogApi();
+
+    render(
+      <AuthProvider client={authClient}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={api} catalogApi={catalogApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const merchInput = screen.getByPlaceholderText("Giao việc cho Danh mục & Định giá...");
+    fireEvent.change(merchInput, { target: { value: "Chiến dịch Tết Sale 30% kèm poster" } });
+    fireEvent.submit(merchInput.closest("form")!);
+
+    // Step 1: Catalog copywriter is running
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(screen.queryByTestId("cross-dept-connector")).not.toBeInTheDocument();
+
+    // Step 2: Visual cross-department handoff occurs -> Connecting Wire renders!
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(850);
+    });
+
+    const connector = screen.getByTestId("cross-dept-connector");
+    expect(connector).toBeInTheDocument();
+    expect(screen.getByText("Bàn giao: Thiết kế Poster & Banner 3D")).toBeInTheDocument();
+
+    // Step 3: Fast forward through visual handoff -> Connecting Wire unmounts
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+    expect(screen.queryByTestId("cross-dept-connector")).not.toBeInTheDocument();
+  });
 });
 
 function fakeAuthClient(): AuthClient {

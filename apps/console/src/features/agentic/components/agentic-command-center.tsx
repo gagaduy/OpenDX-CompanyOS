@@ -32,6 +32,7 @@ import {
   Boxes,
   Brain,
   HeartHandshake,
+  Zap,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
 import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
@@ -62,6 +63,18 @@ import {
   releaseLocks,
 } from "../utils/department-task-scheduler";
 import "../styles/agentic-command-center.css";
+
+export interface ActiveCollaboration {
+  fromDept: DepartmentType;
+  toDept: DepartmentType;
+  label: string;
+}
+
+export interface DepartmentAgentStatus {
+  activeAgent: string | null;
+  agentMessage: string | null;
+  completedAgents: string[];
+}
 
 interface AgenticCommandCenterProps {
   readonly api: AgenticOperationsApi;
@@ -200,6 +213,40 @@ export function AgenticCommandCenter({
   } | null>(null);
   const [marketingActiveAgent, setMarketingActiveAgent] = useState<string | null>(null);
   const [marketingAgentMessage, setMarketingAgentMessage] = useState<string | null>(null);
+
+  // Active Cross-Department Collaboration Bridge ("Sợi dây kết nối")
+  const [activeCollaboration, setActiveCollaboration] = useState<ActiveCollaboration | null>(null);
+  const departmentsGridRef = useRef<HTMLDivElement | null>(null);
+
+  // Department-level Sequential Execution State Machine
+  const [deptStatus, setDeptStatus] = useState<Record<DepartmentType, DepartmentAgentStatus>>({
+    marketing: { activeAgent: null, agentMessage: null, completedAgents: [] },
+    merchandising: { activeAgent: null, agentMessage: null, completedAgents: [] },
+    operations: { activeAgent: null, agentMessage: null, completedAgents: [] },
+    support: { activeAgent: null, agentMessage: null, completedAgents: [] },
+  });
+
+  const setDeptActiveAgent = (
+    dept: DepartmentType,
+    agentId: string | null,
+    message: string | null = null,
+    previousDoneAgentId?: string,
+  ) => {
+    setDeptStatus((prev) => {
+      const current = prev[dept];
+      const newCompleted = previousDoneAgentId
+        ? Array.from(new Set([...current.completedAgents, previousDoneAgentId]))
+        : current.completedAgents;
+      return {
+        ...prev,
+        [dept]: {
+          activeAgent: agentId,
+          agentMessage: message,
+          completedAgents: newCompleted,
+        },
+      };
+    });
+  };
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -962,6 +1009,7 @@ export function AgenticCommandCenter({
         await new Promise((r) => setTimeout(r, 1200));
 
         // Stage 2: Copywriter drafting
+        setDeptActiveAgent("marketing", "marketing_copywriter", `✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
         setMarketingActiveAgent("marketing_content");
         setMarketingAgentMessage(`✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
         setCeoPlan((prev) =>
@@ -977,6 +1025,7 @@ export function AgenticCommandCenter({
         await new Promise((r) => setTimeout(r, 1400));
 
         // Stage 3: Visual Designer generating creative
+        setDeptActiveAgent("marketing", "marketing_visual", `🎨 Thiết kế Đồ họa đang dựng đồ họa sản phẩm vuông 1:1 ánh sáng studio cho "${cleanName}"...`, "marketing_copywriter");
         setMarketingActiveAgent("marketing_visual");
         setMarketingAgentMessage(`🎨 Thiết kế Đồ họa đang dựng đồ họa sản phẩm vuông 1:1 ánh sáng studio cho "${cleanName}"...`);
         setCeoPlan((prev) =>
@@ -996,6 +1045,7 @@ export function AgenticCommandCenter({
         await new Promise((r) => setTimeout(r, 1400));
 
         // Stage 4: Publisher packaging
+        setDeptActiveAgent("marketing", "marketing_publisher", `📦 Điều phối Xuất bản đang kiểm tra checklist an toàn và đóng gói bản thảo...`, "marketing_visual");
         setMarketingActiveAgent("marketing_publisher");
         setMarketingAgentMessage(`📦 Điều phối Xuất bản đang kiểm tra checklist an toàn và đóng gói bản thảo...`);
         setCeoPlan((prev) =>
@@ -1011,6 +1061,14 @@ export function AgenticCommandCenter({
         await new Promise((r) => setTimeout(r, 1000));
 
         // Stage 5: Ready for Human Approval
+        setDeptStatus((prev) => ({
+          ...prev,
+          marketing: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["marketing_copywriter", "marketing_visual", "marketing_publisher"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setCeoPlan((prev) =>
@@ -1107,16 +1165,24 @@ export function AgenticCommandCenter({
       if (dept === "marketing" && marketingApi) {
         scrollToDepartment("dept-column-marketing");
         setActiveWorkflowKind("marketing");
+
+        // Step 1: Copywriter
+        setDeptActiveAgent("marketing", "marketing_copywriter", `Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("marketing_copywriter");
         setMarketingAgentMessage(`Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 2: Visual Designer
+        setDeptActiveAgent("marketing", "marketing_visual", "Thiết kế Đồ họa đang dựng poster và banner...", "marketing_copywriter");
         setMarketingActiveAgent("marketing_visual");
         setMarketingAgentMessage("Thiết kế Đồ họa đang dựng poster và banner...");
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 3: Publisher
+        setDeptActiveAgent("marketing", "marketing_publisher", "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...", "marketing_visual");
         setMarketingActiveAgent("marketing_publisher");
         setMarketingAgentMessage("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...");
+        await new Promise((r) => setTimeout(r, 800));
 
         const scheduledTime = new Date(Date.now() + 3600 * 1000).toISOString();
         const deadlineTime = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
@@ -1152,62 +1218,126 @@ export function AgenticCommandCenter({
         }
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
+
+        setDeptStatus((prev) => ({
+          ...prev,
+          marketing: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["marketing_copywriter", "marketing_visual", "marketing_publisher"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
         setActiveWorkflowKind("merchandising");
+
+        // Step 1: Catalog Copywriter
+        setDeptActiveAgent("merchandising", "catalog_copywriter", `Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("catalog_copywriter");
         setMarketingAgentMessage(`Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 2: Cross-department visual collab if required
         if (reqAgents.includes("marketing_visual")) {
+          setActiveCollaboration({
+            fromDept: "merchandising",
+            toDept: "marketing",
+            label: "Bàn giao: Thiết kế Poster & Banner 3D",
+          });
+          setDeptActiveAgent("merchandising", null, "Đang phối hợp cùng Thiết kế Đồ họa bên Tiếp thị...", "catalog_copywriter");
+          setDeptActiveAgent("marketing", "marketing_visual", "Phối hợp cùng Danh mục: Đang vẽ poster ưu đãi & badge 3D...");
           setMarketingActiveAgent("merchandising_visual_collab");
           setMarketingAgentMessage("Phối hợp Thiết kế Đồ họa đang vẽ poster ưu đãi & badge 3D...");
-          await new Promise((r) => setTimeout(r, 800));
+          await new Promise((r) => setTimeout(r, 1000));
+          setActiveCollaboration(null);
+          setDeptActiveAgent("marketing", null, null, "marketing_visual");
         }
 
+        // Step 3: Pricing Strategist
+        setDeptActiveAgent("merchandising", "pricing_strategist", "Chuyên gia Định giá đang tính toán chiết khấu & biên lợi nhuận...", "catalog_copywriter");
         setMarketingActiveAgent("pricing_strategist");
         setMarketingAgentMessage("Chuyên gia Định giá đang tính toán chiết khấu & biên lợi nhuận...");
+        await new Promise((r) => setTimeout(r, 800));
 
         const cProposal = await catalogApi.generateCampaignProposal({ prompt: taskPrompt });
         setCampaignProposal(cProposal);
         setCampaignProposalModalOpen(true);
+
+        setDeptStatus((prev) => ({
+          ...prev,
+          merchandising: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["catalog_copywriter", "pricing_strategist"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
       } else if (dept === "operations" && inventoryApi) {
         scrollToDepartment("dept-column-operations");
         setActiveWorkflowKind("operations");
+
+        // Step 1: Inventory Specialist
+        setDeptActiveAgent("operations", "inventory_specialist", `Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("inventory_specialist");
         setMarketingAgentMessage(`Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 2: Order Coordinator
+        setDeptActiveAgent("operations", "order_coordinator", "Điều phối Đơn hàng đang lập phiếu đề xuất nhập kho...", "inventory_specialist");
         setMarketingActiveAgent("order_coordinator");
         setMarketingAgentMessage("Điều phối Đơn hàng đang lập phiếu đề xuất nhập kho...");
+        await new Promise((r) => setTimeout(r, 800));
 
         const proposal = await inventoryApi.generateOperationsProposal(taskPrompt);
         setOperationsProposal(proposal);
         setIsOperationsModalOpen(true);
         setOperationsPage(1);
+
+        setDeptStatus((prev) => ({
+          ...prev,
+          operations: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["inventory_specialist", "order_coordinator"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setSuccessMessage("Đã lập xong Phiếu Đề Xuất Nhập Kho!");
       } else if (dept === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
         setActiveWorkflowKind("support");
+
+        // Step 1: Support Steward
+        setDeptActiveAgent("support", "support_steward", `Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("support_steward");
         setMarketingAgentMessage(`Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        // Step 2: CRM Specialist
+        setDeptActiveAgent("support", "crm_specialist", "Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...", "support_steward");
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
+        await new Promise((r) => setTimeout(r, 800));
 
         const proposal = await supportApi.generateSupportProposal(taskPrompt);
         setSupportProposal(proposal);
         setSupportTicketsPage(1);
         setSupportVipPage(1);
+
+        setDeptStatus((prev) => ({
+          ...prev,
+          support: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["support_steward", "crm_specialist"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setSuccessMessage("Đã lập xong Đề xuất Xử lý CSKH & CRM!");
@@ -1215,9 +1345,12 @@ export function AgenticCommandCenter({
     } catch (err: any) {
       console.error(`Execution error in ${dept}:`, err);
       setErrorMessage(err?.message || `Thực thi nhiệm vụ cho phòng ban ${dept} thất bại.`);
+      setActiveCollaboration(null);
+      setDeptActiveAgent(dept, null);
       setMarketingActiveAgent(null);
       setMarketingAgentMessage(null);
     } finally {
+      setActiveCollaboration(null);
       // Guaranteed lock release and auto-dequeue check
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(reqAgents, prevLocks);
@@ -1651,6 +1784,7 @@ export function AgenticCommandCenter({
 
     // GIAI ĐOẠN 1: Bàn giao xuống Phòng Vận hành & Kho vận - Kỹ sư Tồn kho tiếp nhận
     scrollToDepartment("dept-column-operations");
+    setDeptActiveAgent("operations", "inventory_specialist", `📦 Kỹ sư Tồn kho tiếp nhận Chỉ thị từ CEO, đang rà soát dữ liệu đối soát ${slowMovingItems.length} SKU tồn đọng...`);
     setMarketingActiveAgent("inventory_clearance_handoff");
     setMarketingAgentMessage(
       `📦 Kỹ sư Tồn kho tiếp nhận Chỉ thị từ CEO, đang rà soát dữ liệu đối soát ${slowMovingItems.length} SKU tồn đọng và chuẩn bị bàn giao sang Phòng Danh mục...`,
@@ -1677,6 +1811,13 @@ export function AgenticCommandCenter({
     // GIAI ĐOẠN 2: Chuyển giao sang Phòng Danh mục & Định giá - Chuyên gia Định giá tính toán chiết khấu
     scrollToDepartment("dept-column-merchandising");
     setActiveWorkflowKind("merchandising");
+    setActiveCollaboration({
+      fromDept: "operations",
+      toDept: "merchandising",
+      label: "Bàn giao: Dữ liệu SKU Xả kho",
+    });
+    setDeptActiveAgent("operations", null, null, "inventory_specialist");
+    setDeptActiveAgent("merchandising", "pricing_strategist", "📊 Chuyên gia Định giá đã tiếp nhận hồ sơ từ Kho vận, đang tính toán giá thanh lý chiết khấu...");
     setMarketingActiveAgent("merchandising_clearance_calc");
     setMarketingAgentMessage(
       `📊 Chuyên gia Định giá đã tiếp nhận hồ sơ từ Kho vận, đang tính toán giá thanh lý chiết khấu và thiết lập biên lợi nhuận xả hàng...`,
@@ -1699,10 +1840,18 @@ export function AgenticCommandCenter({
 
     // Pacing animation for Stage 2 so user perceives the pricing specialist calculating
     await new Promise((r) => setTimeout(r, 1400));
+    setActiveCollaboration(null);
 
     // GIAI ĐOẠN 3: Chuyển giao sang Phòng Tiếp thị & Sáng tạo - Thiết kế Đồ họa vẽ poster & banner
     scrollToDepartment("dept-column-marketing");
     setActiveWorkflowKind("marketing");
+    setActiveCollaboration({
+      fromDept: "merchandising",
+      toDept: "marketing",
+      label: "Bàn giao: Thiết kế Poster & Huy hiệu 3D Xả hàng",
+    });
+    setDeptActiveAgent("merchandising", null, null, "pricing_strategist");
+    setDeptActiveAgent("marketing", "marketing_visual", "🎨 Thiết kế Đồ họa đang vẽ poster quảng bá, thiết kế banner và gắn huy hiệu 3D CLEARANCE SALE...");
     setMarketingActiveAgent("merchandising_visual_collab");
     setMarketingAgentMessage(
       `🎨 Thiết kế Đồ họa đang vẽ poster quảng bá, thiết kế banner và gắn huy hiệu 3D CLEARANCE SALE cho các sản phẩm...`,
@@ -1735,6 +1884,8 @@ export function AgenticCommandCenter({
         setCampaignProposal(campaign);
 
         // GIAI ĐOẠN 4: Hoàn thành phối hợp liên phòng, sẵn sàng cho Ban Giám đốc phê duyệt
+        setActiveCollaboration(null);
+        setDeptActiveAgent("marketing", null, null, "marketing_visual");
         setCeoPlan((prev) =>
           prev
             ? {
@@ -1753,8 +1904,10 @@ export function AgenticCommandCenter({
         setCampaignProposalModalOpen(true);
         setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho theo Chỉ thị của CEO! Sẵn sàng để bạn phê duyệt.");
       } catch (err: any) {
+        setActiveCollaboration(null);
         setErrorMessage("Không thể tạo chiến dịch xả kho tự động: " + (err.message || String(err)));
       } finally {
+        setActiveCollaboration(null);
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
       }
@@ -3070,7 +3223,16 @@ export function AgenticCommandCenter({
       )}
 
       {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
-      <div className="ccDepartmentGrid" style={{ marginTop: activeCampaign ? "1rem" : "2rem" }}>
+      <div
+        ref={departmentsGridRef}
+        className="ccDepartmentGrid"
+        style={{ marginTop: activeCampaign ? "1rem" : "2rem", position: "relative" }}
+      >
+        <CrossDepartmentConnector
+          activeCollaboration={activeCollaboration}
+          containerRef={departmentsGridRef}
+        />
+
         {/* Column 1: Tiếp thị & Sáng tạo (Blue Theme) */}
         <div id="dept-column-marketing" className="ccDepartmentColumn theme-blue">
           <div className="ccDepartmentHeader">
@@ -3099,20 +3261,29 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="blue"
             status={
-              Boolean(activeLocks.marketing_copywriter) ||
-              marketingActiveAgent === "marketing_content" ||
-              currentMarketingState === "content_drafting"
+              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
+              marketingActiveAgent === "marketing_content"
                 ? "running"
-                : activeCampaignDetail
+                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
+                  activeCampaignDetail ||
+                  ceoPlan?.steps[0]?.status === "done"
                 ? "completed"
                 : "idle"
             }
             statusText={
-              activeLocks.marketing_copywriter
-                ? `Đang soạn nội dung: "${activeLocks.marketing_copywriter.taskPromptSnippet}"`
+              deptStatus.marketing.activeAgent === "marketing_copywriter"
+                ? deptStatus.marketing.agentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
                 : marketingActiveAgent === "marketing_content"
                 ? marketingAgentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
+                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
+                  activeCampaignDetail ||
+                  ceoPlan?.steps[0]?.status === "done"
+                ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
                 : undefined
+            }
+            showProgress={
+              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
+              marketingActiveAgent === "marketing_content"
             }
             waitingTasksCount={getAgentWaitingTasksCount("marketing_copywriter")}
           />
@@ -3120,29 +3291,35 @@ export function AgenticCommandCenter({
             name="Thiết kế Đồ họa"
             roleTag="SKILL"
             theme="blue"
-            isCollaborating={marketingActiveAgent === "merchandising_visual_collab"}
-            collabTag="Phối hợp cùng Danh mục"
+            isCollaborating={
+              activeCollaboration?.toDept === "marketing" ||
+              marketingActiveAgent === "merchandising_visual_collab"
+            }
+            collabTag={activeCollaboration?.toDept === "marketing" ? "Phối hợp liên phòng" : "Phối hợp cùng Danh mục"}
             status={
-              Boolean(activeLocks.marketing_visual) ||
+              deptStatus.marketing.activeAgent === "marketing_visual" ||
               marketingActiveAgent === "marketing_visual" ||
               marketingActiveAgent === "merchandising_visual_collab" ||
               currentMarketingState === "visual_creation"
                 ? "running"
-                : (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
+                : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
+                  (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
                   (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  campaignProposal
-                ? "completed"
-                : activeCampaignDetail
+                  campaignProposal ||
+                  activeCampaignDetail ||
+                  ceoPlan?.steps[1]?.status === "done"
                 ? "completed"
                 : "idle"
             }
             statusText={
-              activeLocks.marketing_visual
-                ? `Đang dựng poster: "${activeLocks.marketing_visual.taskPromptSnippet}"`
+              deptStatus.marketing.activeAgent === "marketing_visual"
+                ? deptStatus.marketing.agentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
                 : marketingActiveAgent === "merchandising_visual_collab"
                 ? marketingAgentMessage ?? "Đang thiết kế poster & banner cho Danh mục..."
                 : marketingActiveAgent === "marketing_visual"
                 ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
+                : deptStatus.marketing.completedAgents.includes("marketing_visual")
+                ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
                 : (marketingActiveAgent === "pricing_strategist" || merchandisingProposal) && ceoPlan?.targetDept?.includes("Phối hợp")
                 ? "Đã hoàn thành thiết kế poster chiến dịch cho Danh mục"
                 : campaignProposal
@@ -3150,7 +3327,7 @@ export function AgenticCommandCenter({
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.marketing_visual) ||
+              deptStatus.marketing.activeAgent === "marketing_visual" ||
               marketingActiveAgent === "marketing_visual" ||
               marketingActiveAgent === "merchandising_visual_collab"
             }
@@ -3161,21 +3338,33 @@ export function AgenticCommandCenter({
             roleTag="ĐỘI"
             theme="blue"
             status={
-              Boolean(activeLocks.marketing_publisher) ||
-              marketingActiveAgent === "marketing_publisher" ||
-              currentMarketingState === "campaign_review" ||
-              currentMarketingState === "awaiting_human_approval"
+              deptStatus.marketing.activeAgent === "marketing_publisher" ||
+              marketingActiveAgent === "marketing_publisher"
                 ? "running"
-                : activeCampaignDetail?.campaign.state === "completed"
+                : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
+                  currentMarketingState === "campaign_review" ||
+                  currentMarketingState === "awaiting_human_approval" ||
+                  activeCampaignDetail?.campaign.state === "completed" ||
+                  activeCampaignDetail !== null
                 ? "completed"
                 : "idle"
             }
             statusText={
-              activeLocks.marketing_publisher
-                ? `Đang xuất bản: "${activeLocks.marketing_publisher.taskPromptSnippet}"`
+              deptStatus.marketing.activeAgent === "marketing_publisher"
+                ? deptStatus.marketing.agentMessage ?? "Đang chuẩn bị gói xuất bản Fanpage..."
                 : marketingActiveAgent === "marketing_publisher"
                 ? marketingAgentMessage ?? "Đang đóng gói và điều phối đăng bài Fanpage..."
+                : currentMarketingState === "awaiting_human_approval"
+                ? "Đã đóng gói và sẵn sàng xuất bản (đang chờ phê duyệt)"
+                : activeCampaignDetail?.campaign.state === "completed"
+                ? "Đã xuất bản thành công lên Facebook & Instagram"
+                : deptStatus.marketing.completedAgents.includes("marketing_publisher")
+                ? "Đã hoàn tất điều phối xuất bản"
                 : undefined
+            }
+            showProgress={
+              deptStatus.marketing.activeAgent === "marketing_publisher" ||
+              marketingActiveAgent === "marketing_publisher"
             }
             waitingTasksCount={getAgentWaitingTasksCount("marketing_publisher")}
           />
@@ -3257,10 +3446,11 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="cyan"
             status={
-              Boolean(activeLocks.catalog_copywriter) ||
+              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
               marketingActiveAgent === "catalog_copywriter"
                 ? "running"
-                : marketingActiveAgent === "merchandising_visual_collab" ||
+                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
                   marketingActiveAgent === "merchandising_clearance_calc" ||
                   merchandisingProposal ||
@@ -3269,11 +3459,12 @@ export function AgenticCommandCenter({
                 : "idle"
             }
             statusText={
-              activeLocks.catalog_copywriter
-                ? `Đang tối ưu: "${activeLocks.catalog_copywriter.taskPromptSnippet}"`
+              deptStatus.merchandising.activeAgent === "catalog_copywriter"
+                ? deptStatus.merchandising.agentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
                 : marketingActiveAgent === "catalog_copywriter"
                 ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
-                : marketingActiveAgent === "merchandising_visual_collab" ||
+                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
                   marketingActiveAgent === "merchandising_clearance_calc" ||
                   merchandisingProposal ||
@@ -3282,7 +3473,7 @@ export function AgenticCommandCenter({
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.catalog_copywriter) ||
+              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
               marketingActiveAgent === "catalog_copywriter"
             }
             waitingTasksCount={getAgentWaitingTasksCount("catalog_copywriter")}
@@ -3291,34 +3482,39 @@ export function AgenticCommandCenter({
             name="Chuyên gia Định giá"
             roleTag="TRỢ LÝ"
             theme="cyan"
-            isCollaborating={marketingActiveAgent === "merchandising_clearance_calc"}
+            isCollaborating={
+              activeCollaboration?.toDept === "merchandising" ||
+              marketingActiveAgent === "merchandising_clearance_calc"
+            }
             collabTag="Tiếp nhận từ Kho vận"
             status={
-              Boolean(activeLocks.pricing_strategist) ||
+              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
               marketingActiveAgent === "pricing_strategist" ||
               marketingActiveAgent === "merchandising_clearance_calc"
                 ? "running"
-                : marketingActiveAgent === "merchandising_visual_collab" ||
+                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
                   merchandisingProposal ||
                   campaignProposal
                 ? "completed"
                 : "idle"
             }
             statusText={
-              activeLocks.pricing_strategist
-                ? `Đang định giá: "${activeLocks.pricing_strategist.taskPromptSnippet}"`
+              deptStatus.merchandising.activeAgent === "pricing_strategist"
+                ? deptStatus.merchandising.agentMessage ?? "Đang tính toán chiết khấu và giá khuyến mãi..."
                 : marketingActiveAgent === "merchandising_clearance_calc"
                 ? marketingAgentMessage ?? "Đang tiếp nhận SKU tồn kho, tính toán giá xả hàng & biên lợi nhuận..."
                 : marketingActiveAgent === "merchandising_visual_collab"
                 ? "⏳ Đang chuyển giao sang Thiết kế Đồ họa vẽ poster..."
                 : marketingActiveAgent === "pricing_strategist"
                 ? marketingAgentMessage ?? "Đang tính toán giá Flash Sale & biên lợi nhuận..."
-                : merchandisingProposal || campaignProposal
+                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
+                  merchandisingProposal ||
+                  campaignProposal
                 ? "Đã hoàn tất tính toán giá Flash Sale & biên lợi nhuận"
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.pricing_strategist) ||
+              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
               marketingActiveAgent === "pricing_strategist" ||
               marketingActiveAgent === "merchandising_clearance_calc"
             }
@@ -3398,14 +3594,18 @@ export function AgenticCommandCenter({
             name="Kỹ sư Tồn kho"
             roleTag="SKILL"
             theme="amber"
-            isCollaborating={marketingActiveAgent === "inventory_clearance_handoff"}
+            isCollaborating={
+              (activeCollaboration?.fromDept === "operations" && activeCollaboration.toDept === "merchandising") ||
+              marketingActiveAgent === "inventory_clearance_handoff"
+            }
             collabTag="Bàn giao liên phòng"
             status={
-              Boolean(activeLocks.inventory_specialist) ||
+              deptStatus.operations.activeAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_clearance_handoff"
                 ? "running"
-                : marketingActiveAgent === "order_coordinator" ||
+                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
+                  marketingActiveAgent === "order_coordinator" ||
                   operationsProposal ||
                   marketingActiveAgent === "merchandising_clearance_calc" ||
                   marketingActiveAgent === "merchandising_visual_collab" ||
@@ -3414,20 +3614,22 @@ export function AgenticCommandCenter({
                 : getBranchState("inventory")
             }
             statusText={
-              activeLocks.inventory_specialist
-                ? `Đang kiểm toán: "${activeLocks.inventory_specialist.taskPromptSnippet}"`
+              deptStatus.operations.activeAgent === "inventory_specialist"
+                ? deptStatus.operations.agentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
                 : marketingActiveAgent === "inventory_clearance_handoff"
                 ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
                 : marketingActiveAgent === "inventory_specialist"
                 ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
-                : marketingActiveAgent === "merchandising_clearance_calc" ||
+                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
+                  operationsProposal ||
+                  marketingActiveAgent === "merchandising_clearance_calc" ||
                   marketingActiveAgent === "merchandising_visual_collab" ||
                   campaignProposal
-                ? "Đã bàn giao danh sách SKU tồn đọng sang Phòng Danh mục & Định giá"
+                ? "Đã kiểm toán dữ liệu SKU và phân loại rủi ro tồn kho"
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.inventory_specialist) ||
+              deptStatus.operations.activeAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_clearance_handoff"
             }
@@ -3438,24 +3640,26 @@ export function AgenticCommandCenter({
             roleTag="ĐỘI"
             theme="amber"
             status={
-              Boolean(activeLocks.order_coordinator) ||
+              deptStatus.operations.activeAgent === "order_coordinator" ||
               marketingActiveAgent === "order_coordinator"
                 ? "running"
-                : operationsProposal
-                ? "completed"
-                : getBranchState("order") === "completed"
+                : deptStatus.operations.completedAgents.includes("order_coordinator") ||
+                  operationsProposal ||
+                  getBranchState("order") === "completed"
                 ? "completed"
                 : getBranchState("order")
             }
             statusText={
-              activeLocks.order_coordinator
-                ? `Đang điều phối: "${activeLocks.order_coordinator.taskPromptSnippet}"`
+              deptStatus.operations.activeAgent === "order_coordinator"
+                ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
                 : marketingActiveAgent === "order_coordinator"
                 ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
+                : deptStatus.operations.completedAgents.includes("order_coordinator") || operationsProposal
+                ? "Đã lập phiếu đề xuất nhập kho và ngân sách dự toán"
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.order_coordinator) ||
+              deptStatus.operations.activeAgent === "order_coordinator" ||
               marketingActiveAgent === "order_coordinator"
             }
             waitingTasksCount={getAgentWaitingTasksCount("order_coordinator")}
@@ -3535,24 +3739,27 @@ export function AgenticCommandCenter({
             roleTag="TRỢ LÝ"
             theme="emerald"
             status={
-              Boolean(activeLocks.support_steward) ||
+              deptStatus.support.activeAgent === "support_steward" ||
               marketingActiveAgent === "support_steward"
                 ? "running"
-                : marketingActiveAgent === "crm_specialist" || supportProposal
-                ? "completed"
-                : getBranchState("support") === "completed"
+                : deptStatus.support.completedAgents.includes("support_steward") ||
+                  marketingActiveAgent === "crm_specialist" ||
+                  supportProposal ||
+                  getBranchState("support") === "completed"
                 ? "completed"
                 : getBranchState("support")
             }
             statusText={
-              activeLocks.support_steward
-                ? `Đang rà soát: "${activeLocks.support_steward.taskPromptSnippet}"`
+              deptStatus.support.activeAgent === "support_steward"
+                ? deptStatus.support.agentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
                 : marketingActiveAgent === "support_steward"
                 ? marketingAgentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
+                : deptStatus.support.completedAgents.includes("support_steward") || supportProposal
+                ? "Đã rà soát và đánh giá mức độ khẩn cấp ticket CSKH"
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.support_steward) ||
+              deptStatus.support.activeAgent === "support_steward" ||
               marketingActiveAgent === "support_steward"
             }
             waitingTasksCount={getAgentWaitingTasksCount("support_steward")}
@@ -3562,24 +3769,26 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="emerald"
             status={
-              Boolean(activeLocks.crm_specialist) ||
+              deptStatus.support.activeAgent === "crm_specialist" ||
               marketingActiveAgent === "crm_specialist"
                 ? "running"
-                : supportProposal
-                ? "completed"
-                : getBranchState("crm") === "completed"
+                : deptStatus.support.completedAgents.includes("crm_specialist") ||
+                  supportProposal ||
+                  getBranchState("crm") === "completed"
                 ? "completed"
                 : getBranchState("crm")
             }
             statusText={
-              activeLocks.crm_specialist
-                ? `Đang phân tích: "${activeLocks.crm_specialist.taskPromptSnippet}"`
+              deptStatus.support.activeAgent === "crm_specialist"
+                ? deptStatus.support.agentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
                 : marketingActiveAgent === "crm_specialist"
                 ? marketingAgentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
+                : deptStatus.support.completedAgents.includes("crm_specialist") || supportProposal
+                ? "Đã phân khúc VIP và đề xuất giải pháp xử lý"
                 : undefined
             }
             showProgress={
-              Boolean(activeLocks.crm_specialist) ||
+              deptStatus.support.activeAgent === "crm_specialist" ||
               marketingActiveAgent === "crm_specialist"
             }
             waitingTasksCount={getAgentWaitingTasksCount("crm_specialist")}
@@ -3861,6 +4070,146 @@ function CompactProposedResponse({ text }: { text: string }) {
           {expanded ? "Thu gọn ▲" : "Xem toàn bộ kịch bản ▼"}
         </button>
       )}
+    </div>
+  );
+}
+
+interface CrossDepartmentConnectorProps {
+  readonly activeCollaboration: ActiveCollaboration | null;
+  readonly containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+export function CrossDepartmentConnector({
+  activeCollaboration,
+  containerRef,
+}: CrossDepartmentConnectorProps) {
+  const [coords, setCoords] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    cx1: number;
+    cy1: number;
+    cx2: number;
+    cy2: number;
+    midX: number;
+    midY: number;
+    d: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeCollaboration) {
+      setCoords(null);
+      return;
+    }
+
+    const calculateCoords = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const fromEl = document.getElementById(`dept-column-${activeCollaboration.fromDept}`);
+      const toEl = document.getElementById(`dept-column-${activeCollaboration.toDept}`);
+
+      const deptIndexMap: Record<DepartmentType, number> = {
+        marketing: 0,
+        merchandising: 1,
+        operations: 2,
+        support: 3,
+      };
+
+      const fallbackColWidth = containerRect.width > 0 ? containerRect.width / 4 : 280;
+
+      let x1 = 0;
+      let y1 = 30;
+      let x2 = 0;
+      let y2 = 30;
+
+      if (fromEl && containerRect.width > 0) {
+        const r = fromEl.getBoundingClientRect();
+        x1 = r.left - containerRect.left + r.width / 2;
+        y1 = Math.max(20, r.top - containerRect.top + 30);
+      } else {
+        const idx = deptIndexMap[activeCollaboration.fromDept] ?? 0;
+        x1 = idx * fallbackColWidth + fallbackColWidth / 2;
+      }
+
+      if (toEl && containerRect.width > 0) {
+        const r = toEl.getBoundingClientRect();
+        x2 = r.left - containerRect.left + r.width / 2;
+        y2 = Math.max(20, r.top - containerRect.top + 30);
+      } else {
+        const idx = deptIndexMap[activeCollaboration.toDept] ?? 1;
+        x2 = idx * fallbackColWidth + fallbackColWidth / 2;
+      }
+
+      const dx = x2 - x1;
+      const dist = Math.abs(dx);
+      // Arc curves upwards above the department headers
+      const arc = Math.max(35, Math.min(65, dist * 0.22));
+
+      const cy = Math.min(y1, y2) - arc;
+      const cx1 = x1 + dx * 0.25;
+      const cy1 = cy;
+      const cx2 = x1 + dx * 0.75;
+      const cy2 = cy;
+
+      const midX = (x1 + x2) / 2;
+      const midY = cy - 6;
+
+      const d = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+      setCoords({ x1, y1, x2, y2, cx1, cy1, cx2, cy2, midX, midY, d });
+    };
+
+    calculateCoords();
+    window.addEventListener("resize", calculateCoords);
+    return () => {
+      window.removeEventListener("resize", calculateCoords);
+    };
+  }, [activeCollaboration, containerRef]);
+
+  if (!activeCollaboration || !coords) return null;
+
+  return (
+    <div className="ccCollabConnectorWrapper ccFadeIn" data-testid="cross-dept-connector">
+      <svg className="ccCollabConnectorSvg">
+        <defs>
+          <linearGradient id="collabWireGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="50%" stopColor="#818cf8" />
+            <stop offset="100%" stopColor="#a855f7" />
+          </linearGradient>
+          <filter id="collabGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {/* Outer Glow Path */}
+        <path d={coords.d} className="ccCollabWireBase" />
+
+        {/* Main Solid Gradient Wire */}
+        <path d={coords.d} stroke="url(#collabWireGradient)" className="ccCollabWireGradient" />
+
+        {/* Animated Flowing Light Beam */}
+        <path d={coords.d} className="ccFlowingBeam" />
+
+        {/* Anchor Rings at Origin and Target */}
+        <circle cx={coords.x1} cy={coords.y1} r="7" className="ccConnectorAnchorRing" />
+        <circle cx={coords.x2} cy={coords.y2} r="7" className="ccConnectorAnchorTarget" />
+
+        {/* Traveling Light Pulse */}
+        <circle r="4" fill="#f8fafc" filter="url(#collabGlow)">
+          <animateMotion dur="1.3s" repeatCount="indefinite" path={coords.d} />
+        </circle>
+      </svg>
+
+      {/* Floating Center Handoff Badge */}
+      <div className="ccCollabFloatingBadge" style={{ left: coords.midX, top: coords.midY }}>
+        <Zap size={12} className="ccPulseZap" />
+        <span>{activeCollaboration.label}</span>
+      </div>
     </div>
   );
 }

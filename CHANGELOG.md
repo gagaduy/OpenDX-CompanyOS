@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Implement Sequential Digital Employee Execution Pipeline and Animated Cross-Department Collaboration Wire:
+  - Enforced strict sequential workflow execution for digital employees within each department (Step 1 -> Step 2 -> Step 3), completely eliminating simultaneous flashing of multiple employee cards and progress bars. Finished employees display green checkmarks and specific completion badges while only the currently executing employee pulses.
+  - Decoupled resource reservation locks from visual execution state: reservation locks hold scheduler queue integrity while `deptStatus.activeAgent` cleanly drives the active employee display.
+  - Added engaging dynamic SVG "Sợi dây kết nối" (animated collaboration wire / beam) bridging collaborating departments during handoffs (e.g. Merchandising -> Marketing creative asset handoff or Operations -> Merchandising clearance formulation), featuring cubic Bezier paths, multi-stop neon glowing gradient, flowing dashed light beams (`ccBeamFlow`), pulsing terminal rings, traveling light packet (`<animateMotion>`), and floating handoff badge (`⚡ Bàn giao: ...`).
+  - Added comprehensive automated unit and integration tests in `agentic-department-queue.test.tsx` verifying sequential state machine transitions and SVG connecting beam geometry.
+
 - Implement Department Direct Task Dispatcher and Collaborative Resource Queue in Staff Console:
   - Permanently unblocked all department prompt inputs (`DepartmentInput`), enabling operators to dispatch tasks directly to any department at any time without waiting for other department workflows or CEO tasks to complete.
   - Built a resource lock scheduler (`department-task-scheduler.ts`) with pure state transitions (`analyzeTaskRequirements`, `checkLockConflicts`, `canAcquireLocks`, `acquireLocks`, `releaseLocks`, `getNextEligibleTask`) tracking digital employee assignments across single-department and cross-department collaboration tasks.
