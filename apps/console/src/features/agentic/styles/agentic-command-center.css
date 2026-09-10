@@ -4910,3 +4910,165 @@
   background: #f1f5f9;
   color: #0f172a;
 }
+
+/* ==========================================================================
+   Department Task Queue & Waiting State Styles (Linear Operational Canvas)
+   ========================================================================== */
+
+/* Department Header Queue Badge */
+.ccDeptQueueBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  animation: ccPulseBadge 2.5s infinite ease-in-out;
+}
+
+@keyframes ccPulseBadge {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; border-color: rgba(245, 158, 11, 0.5); }
+}
+
+/* Agent Card Queue Notice Box */
+.ccAgentQueueNotice {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+/* Department Waiting State Card */
+.ccDepartmentWaitingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease-in-out;
+}
+
+.ccWaitingCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ccWaitingCardTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fbbf24;
+}
+
+.ccWaitingCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccWaitingCancelBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.ccWaitingCardPrompt {
+  margin: 0;
+  font-size: 12px;
+  color: #e2e8f0;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ccWaitingCardResource {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.ccWaitingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fbbf24;
+  animation: ccPulseBadge 1.5s infinite ease-in-out;
+}
+
+/* Auto-started Task Transition Animation */
+.ccTaskAutoStarted {
+  animation: ccHighlightStart 1.5s ease-out;
+}
+
+@keyframes ccHighlightStart {
+  0% {
+    background: rgba(94, 106, 210, 0.28);
+    box-shadow: 0 0 12px rgba(94, 106, 210, 0.4);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.consoleLayout[data-theme="light"] .ccDeptQueueBadge,
+[data-theme="light"] .ccDeptQueueBadge {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccDepartmentWaitingCard,
+[data-theme="light"] .ccDepartmentWaitingCard {
+  background: #fffbeb;
+  border-color: #fde68a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.consoleLayout[data-theme="light"] .ccWaitingCardPrompt,
+[data-theme="light"] .ccWaitingCardPrompt {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccAgentQueueNotice,
+[data-theme="light"] .ccAgentQueueNotice {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
