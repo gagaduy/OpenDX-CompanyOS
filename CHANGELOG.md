@@ -11,10 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Document Autonomous Proactive Inventory Replenishment Loop design specification (`docs/superpowers/specs/2026-09-10-autonomous-inventory-replenishment-design.md`):
-  - Defined dual-trigger background heartbeat (6-hour cron) and post-order event hook (`order.paid`) for automatic low-stock and high-velocity SKU detection.
-  - Specified AI Logistics Reasoner context querying real-time inventory balances joined with 7-day sales velocity and deterministic heuristic fallback.
-  - Outlined Command Center proactive amber alert banner and human-in-the-loop approval gate via enhanced `OperationsProposalModal` updating PostgreSQL stock with audit trail.
+- Implement Autonomous Proactive Inventory Replenishment Loop (Tiểu dự án A):
+  - Database schema & migrations: Added `inventory_replenishment_proposals` and `inventory_replenishment_items` tables with audit fields (`trigger_source`, `status`, `summary`, `total_restock_units`, `total_estimated_budget_vnd`, `applied_at`, `dismissed_at`, `reviewed_by`) and partial unique index `idx_replenishment_pending_status` ensuring at most one active pending proposal.
+  - Repository layer: Implemented `PostgresqlInventoryReplenishmentRepository` conforming to `InventoryReplenishmentRepository` port for atomic persistence, pending retrieval, proposal dismissals, and transactional restock execution.
+  - AI Logistics Reasoner & Heuristic Engine: Extended `AiOperationsService.generateReplenishmentAnalysis` to query real-time warehouse balances joined with 7-day sales velocity from `order_lines` / `orders`, OpenRouter LLM restock evaluation, and deterministic heuristic fallback for offline/fallback resilience.
+  - Autonomous Background Monitor: Built `AutonomousReplenishmentMonitorService` with periodic heartbeat and 15-minute debounce cooldown, preventing alert fatigue through a 6-hour suppression window when pending proposals remain unreviewed.
+  - Event-driven Post-Order Hook: Integrated `onOrderPaid` trigger into `OrderService` to proactively evaluate replenishment needs immediately after high-velocity checkout transitions.
+  - Admin API & Security: Exposed replenishment management endpoints (`/v1/admin/inventory/replenishment/pending`, `/trigger-scan`, `/apply`, `/:id/dismiss`) in `InventoryController` with RBAC authorization and audit logging.
+  - Staff Console & Command Center UX: Added proactive amber alert cards (`🚨 Phát hiện N mặt hàng sắp cạn kiệt`) and glowing header badges (`⚡ Đề xuất nhập kho AI: N SKU`) to `AgenticCommandCenter`, alongside 7-day sales velocity indicators (`🔥 Đã bán 7 ngày: X`) and dynamic budget recalculation in `OperationsProposalModal`, strictly preserving human-in-the-loop approval gates.
+
 
 
 - Fix Storefront Campaign Discount Price Resolution and Visual Hierarchy:
