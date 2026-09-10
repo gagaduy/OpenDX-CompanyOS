@@ -11,6 +11,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Implement Social Token Expiration & Health Monitor with Zero Copy-Paste Renewal (Tiểu dự án B):
+  - Database schema & migrations: Added `marketing_social_accounts` table with unique constraint on `(platform, account_id)`, indexing on `(status, expires_at)`, and comprehensive audit fields (`platform`, `account_id`, `account_name`, `encrypted_access_token`, `token_preview`, `token_type`, `scopes`, `expires_at`, `days_remaining`, `status`, `last_checked_at`, `last_error`, `requires_action`, `action_type`).
+  - Repository layer: Created `SocialAccountRepository` port and `PostgresqlSocialAccountRepository` implementation with atomic upsert, status updates, and dynamic token querying.
+  - Adapter & Meta Graph API integration: Implemented `MetaGraphSocialTokenAdapter` supporting `/debug_token` inspection, token extension via `fb_exchange_token`, permanent Page Access Token retrieval (`GET /{page_id}?fields=access_token`), and OAuth authorization code exchange with strict token redaction in error messages.
+  - Service layer & Fallback credentials: Created `SocialTokenManagerServiceImpl` featuring auto-seed fallback from `.env` on first boot, automatic 7-day expiration warning threshold calculations, on-demand health inspections, and 1-click token renewal.
+  - Dynamic token resolution in publishers: Updated `MetaGraphFacebookPublisherAdapter` and `MetaGraphInstagramPublisherAdapter` to query live database tokens first, falling back seamlessly to constructor credentials if unseeded.
+  - Autonomous background monitor: Built `AutonomousSocialTokenMonitorServiceImpl` with a 6-hour periodic heartbeat loop that actively checks token health and autonomously auto-renews tokens expiring within 7 days, maintaining zero downtime for automated publishing.
+  - Admin REST API endpoints: Added authenticated admin routes `/v1/admin/marketing/social-tokens/status`, `/refresh`, `/oauth-exchange`, and `/check` in `MarketingController`.
+  - Staff Console & Command Center UX:
+    - Added real-time header badges on Marketing column: 🟢 `Social Token: OK`, 🟡 `⚡ Token FB hết hạn sau X ngày`, 🔴 `🚨 Token FB lỗi / hết hạn`.
+    - Added proactive alert cards with 1-click action buttons `[⚡ Tự động Gia hạn ngay]` and `[🔗 1-Click Kết nối lại Facebook]`.
+    - Implemented `SocialTokenManagerModal` for viewing token details and triggering instant renewal with zero manual copy-pasting.
+
 - Implement Autonomous Proactive Inventory Replenishment Loop (Tiểu dự án A):
   - Database schema & migrations: Added `inventory_replenishment_proposals` and `inventory_replenishment_items` tables with audit fields (`trigger_source`, `status`, `summary`, `total_restock_units`, `total_estimated_budget_vnd`, `applied_at`, `dismissed_at`, `reviewed_by`) and partial unique index `idx_replenishment_pending_status` ensuring at most one active pending proposal.
   - Repository layer: Implemented `PostgresqlInventoryReplenishmentRepository` conforming to `InventoryReplenishmentRepository` port for atomic persistence, pending retrieval, proposal dismissals, and transactional restock execution.
