@@ -228,6 +228,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     artifactService,
     publisherService,
     socialTokenManager,
+    socialAccountRepository,
   );
   const adminRouter = createMarketingAdminRouter({
     controller,

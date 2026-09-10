@@ -120,6 +120,13 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
           throw err;
         }
       } else {
+        if (err instanceof FacebookPublisherError && err.code === "FACEBOOK_TOKEN_INVALID" && this.socialAccountRepository) {
+          void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+            tokenStatus: "invalid",
+            lastCheckedAt: this.now(),
+            lastError: err.message,
+          }).catch(() => undefined);
+        }
         throw err;
       }
     }

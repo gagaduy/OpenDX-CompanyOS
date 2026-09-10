@@ -142,6 +142,13 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
           },
         );
       }
+      if (error instanceof SocialPublisherError && error.code === "INSTAGRAM_TOKEN_INVALID" && this.socialAccountRepository) {
+        void this.socialAccountRepository.updateHealthStatus("instagram", accountId, {
+          tokenStatus: "invalid",
+          lastCheckedAt: this.now(),
+          lastError: error.message,
+        }).catch(() => undefined);
+      }
       throw error;
     }
 

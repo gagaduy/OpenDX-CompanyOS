@@ -6,6 +6,7 @@ import type { MarketingCampaignService } from "../../application/services/interf
 import type { MarketingPublisherService } from "../../application/services/interfaces/marketing-publisher.service";
 import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
 import type { SocialTokenManagerService } from "../../application/services/interfaces/social-token-manager.service";
+import type { SocialAccountRepository } from "../../domain/repositories/social-account.repository";
 import {
   createMarketingCampaignSchema,
   listMarketingCampaignsSchema,
@@ -32,6 +33,7 @@ export class MarketingController {
     private readonly artifactService?: MarketingArtifactService,
     private readonly publisherService?: MarketingPublisherService,
     private readonly socialTokenManager?: SocialTokenManagerService,
+    private readonly socialAccountRepository?: SocialAccountRepository,
   ) {}
 
   createCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -144,7 +146,15 @@ export class MarketingController {
             const configuredPageId = detail.brief.facebookPageConfigurationId ?? "";
             const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
             const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
-            const pageAccessToken = parsed.facebookPageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "default-token";
+            let pageAccessToken = parsed.facebookPageAccessToken?.trim();
+            if (!pageAccessToken && this.socialAccountRepository) {
+              const fbAcc = await this.socialAccountRepository.findByPlatformAndId("facebook", pageId)
+                ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "facebook");
+              if (fbAcc?.accessToken) {
+                pageAccessToken = fbAcc.accessToken;
+              }
+            }
+            pageAccessToken = pageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim() || "default-token";
             await this.publisherService.publishApprovedPackage({
               campaignId,
               packageId: detail.currentPackage.id,
@@ -184,15 +194,26 @@ export class MarketingController {
         throw MarketingApplicationError.publicationRetryNotAllowed();
       }
 
-      const pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+      const configuredPageId = pkg.facebookPageConfigurationId ?? "";
+      const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
+      const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
+
+      let pageAccessToken: string | undefined;
+      if (this.socialAccountRepository) {
+        const fbAcc = await this.socialAccountRepository.findByPlatformAndId("facebook", pageId)
+          ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "facebook");
+        if (fbAcc?.accessToken) {
+          pageAccessToken = fbAcc.accessToken;
+        }
+      }
+      if (!pageAccessToken) {
+        pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+      }
       if (!pageAccessToken) {
         throw MarketingApplicationError.facebookCredentialsUnavailable();
       }
 
       let result;
-      const configuredPageId = pkg.facebookPageConfigurationId ?? "";
-      const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
-      const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
       try {
         result = await this.publisherService.publishApprovedPackage({
           campaignId,
