@@ -284,11 +284,11 @@ function fakeMarketingApi(): MarketingApi {
     })),
     markReady: vi.fn(async () => undefined),
     requestRevision: vi.fn(async () => undefined),
-    generateDeliverables: vi.fn(async () => ({ items: [] })),
+    generateDeliverables: vi.fn(async () => ({ items: [], total: 0 })),
     approveCampaign: vi.fn(),
     retryPublication: vi.fn(),
     cancelCampaign: vi.fn(),
-  };
+  } as unknown as MarketingApi;
 }
 
 function fakeCatalogApi(): CatalogApi {
@@ -312,7 +312,7 @@ function fakeCatalogApi(): CatalogApi {
     activateCampaign: vi.fn(),
     applyMerchandisingProposal: vi.fn(),
     revertCampaign: vi.fn(),
-  };
+  } as unknown as CatalogApi;
 }
 
 function fakeInventoryApi(): InventoryApi {
@@ -334,7 +334,7 @@ function fakeInventoryApi(): InventoryApi {
     })),
     applyOperationsProposal: vi.fn(),
     downloadAuditDocx: vi.fn(),
-  };
+  } as unknown as InventoryApi;
 }
 
 function fakeSupportApi(): SupportOperationsApi {
@@ -348,5 +348,5 @@ function fakeSupportApi(): SupportOperationsApi {
     })),
     applySupportProposal: vi.fn(),
     downloadSupportDocx: vi.fn(),
-  };
+  } as unknown as SupportOperationsApi;
 }

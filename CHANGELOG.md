@@ -11,9 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
+- Implement Department Direct Task Dispatcher and Collaborative Resource Queue in Staff Console:
+  - Permanently unblocked all department prompt inputs (`DepartmentInput`), enabling operators to dispatch tasks directly to any department at any time without waiting for other department workflows or CEO tasks to complete.
+  - Built a resource lock scheduler (`department-task-scheduler.ts`) with pure state transitions (`analyzeTaskRequirements`, `checkLockConflicts`, `canAcquireLocks`, `acquireLocks`, `releaseLocks`, `getNextEligibleTask`) tracking digital employee assignments across single-department and cross-department collaboration tasks.
+  - Integrated asynchronous department task queuing with real-time UI state: queue badges in department headers (`⏳ Hàng chờ: N`), busy notices on locked agent cards, and pending task waiting cards with 1-click cancellation.
+  - Enabled parallel execution for non-conflicting department workflows and automatic reactive dequeue when busy digital employees become available.
+  - Comprehensive unit and integration test coverage (`department-task-scheduler.test.ts`, `agentic-department-queue.test.tsx`) covering lock conflicts, parallel execution, 1-click cancel, and automatic dequeue handoffs.
 
-- Add design specification for Department Direct Task Dispatcher and Collaborative Resource Queue in Staff Console (`docs/superpowers/specs/2026-09-10-department-task-queue-design.md`).
 
 - Add autonomous, governed Dynamic Campaign Engine to Catalog & Pricing department:
   - Dynamic LLM campaign extraction (title, duration, discount percentage, theme key, badge text, SEO rationale) with zero static mock fallbacks.
