@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { Link } from "react-router-dom";
 import {
   Sparkles,
@@ -101,7 +101,7 @@ export function AgenticCommandCenter({
     setTimeout(() => {
       const el = document.getElementById(columnId);
       if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.scrollIntoView?.({ behavior: "smooth", block: "center" });
         el.classList.add("ccDeptHighlightGlow");
         setTimeout(() => {
           el.classList.remove("ccDeptHighlightGlow");
@@ -164,6 +164,12 @@ export function AgenticCommandCenter({
     support: [],
   });
   const [activeLocks, setActiveLocks] = useState<Record<string, ResourceLock>>({});
+
+  const departmentQueuesRef = useRef(departmentQueues);
+  departmentQueuesRef.current = departmentQueues;
+
+  const activeLocksRef = useRef(activeLocks);
+  activeLocksRef.current = activeLocks;
 
   const getAgentWaitingTasksCount = (agentId: string): number => {
     let count = 0;
@@ -1074,26 +1080,20 @@ export function AgenticCommandCenter({
 
   // Auto-process next queued task whose resources are completely free
   const processNextQueuedTask = (currentLocks: Record<string, ResourceLock>) => {
-    setDepartmentQueues((prevQueues) => {
-      const candidate = getNextEligibleTask(prevQueues, currentLocks);
-      if (!candidate) return prevQueues;
+    const candidate = getNextEligibleTask(departmentQueuesRef.current, currentLocks);
+    if (!candidate) return;
 
-      const { dept, task } = candidate;
-      const updatedDeptQueue = prevQueues[dept].filter((t) => t.id !== task.id);
-      const nextQueues = {
-        ...prevQueues,
-        [dept]: updatedDeptQueue,
-      };
+    const { dept, task } = candidate;
+    setDepartmentQueues((prevQueues) => ({
+      ...prevQueues,
+      [dept]: prevQueues[dept].filter((t) => t.id !== task.id),
+    }));
 
-      // Acquire locks for the dequeued task and launch
-      setActiveLocks((active) => {
-        const acquired = acquireLocks(task.id, dept, task.requiredAgents, task.prompt, active);
-        void executeDepartmentWorkflow(dept, task.prompt, task.requiredAgents, task.id);
-        return acquired;
-      });
+    setActiveLocks((active) =>
+      acquireLocks(task.id, dept, task.requiredAgents, task.prompt, active),
+    );
 
-      return nextQueues;
-    });
+    void executeDepartmentWorkflow(dept, task.prompt, task.requiredAgents, task.id);
   };
 
   // Direct Execution Workflow for individual departments
