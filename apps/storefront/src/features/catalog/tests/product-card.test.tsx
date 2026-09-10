@@ -31,6 +31,16 @@ describe("ProductCard", () => {
     expect(screen.getByText("-20%")).toBeVisible();
     expect(screen.getByRole("button", { name: "Thêm Nova Laptop vào yêu thích" })).toBeVisible();
 
+    const priceContainer = screen.getByText("8.000.000 ₫").parentElement;
+    const delEl = screen.getByText("10.000.000 ₫");
+    const saleEl = screen.getByText("8.000.000 ₫");
+    const badgeEl = screen.getByText("-20%");
+    expect(delEl.tagName).toBe("DEL");
+    expect(badgeEl).toHaveClass("discount-badge");
+    // Verify original price struck through appears before the sale price in DOM
+    expect(delEl.compareDocumentPosition(saleEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(saleEl.compareDocumentPosition(badgeEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
     await userEvent.click(
       screen.getByRole("button", { name: "Thêm Nova Laptop vào giỏ hàng" }),
     );

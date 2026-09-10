@@ -2567,29 +2567,40 @@ img {
 
 .product-card-price {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 4px 7px;
+  gap: 4px 8px;
 }
 
 .product-card-price .price {
-  width: 100%;
+  margin: 0;
   font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-strong);
 }
 
-.product-card-price del,
+.product-card-price del {
+  color: var(--ink-subtle);
+  font-size: 12px;
+  text-decoration: line-through;
+}
+
 .detail-price-row del {
   color: var(--ink-subtle);
-  font-size: 11px;
+  font-size: 16px;
+  text-decoration: line-through;
 }
 
 .discount-badge {
-  padding: 3px 5px;
-  border-radius: 5px;
-  background: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #ef4444;
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .product-card-cart {
@@ -2631,7 +2642,7 @@ img {
 .detail-price-row {
   padding-top: 20px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   flex-wrap: wrap;
   gap: 8px 12px;
   border-top: 1px solid var(--hairline);

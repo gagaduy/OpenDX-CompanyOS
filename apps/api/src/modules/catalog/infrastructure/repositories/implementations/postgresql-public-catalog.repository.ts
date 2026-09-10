@@ -164,7 +164,7 @@ const onSaleProductPredicate = `EXISTS (
   SELECT 1
   FROM product_variants sale_variant
   JOIN LATERAL (
-    SELECT current_price.amount_minor, current_price.valid_from
+    SELECT current_price.amount_minor, current_price.valid_from, current_price.valid_to, current_price.variant_id
     FROM product_prices current_price
     WHERE current_price.variant_id = sale_variant.id
       AND ${currentPricePredicate}
@@ -172,17 +172,54 @@ const onSaleProductPredicate = `EXISTS (
     LIMIT 1
   ) current_sale_price ON true
   JOIN LATERAL (
-    SELECT previous_price.amount_minor
-    FROM product_prices previous_price
-    WHERE previous_price.variant_id = sale_variant.id
-      AND previous_price.valid_from < current_sale_price.valid_from
-    ORDER BY previous_price.valid_from DESC, previous_price.id DESC
-    LIMIT 1
+    SELECT COALESCE(
+      (SELECT baseline.amount_minor
+       FROM product_prices baseline
+       WHERE baseline.variant_id = current_sale_price.variant_id
+         AND baseline.valid_to IS NULL
+         AND baseline.valid_from <= current_sale_price.valid_from
+         AND current_sale_price.valid_to IS NOT NULL
+       ORDER BY baseline.valid_from DESC, baseline.id DESC
+       LIMIT 1),
+      (SELECT previous_price.amount_minor
+       FROM product_prices previous_price
+       WHERE previous_price.variant_id = current_sale_price.variant_id
+         AND previous_price.valid_from < current_sale_price.valid_from
+         AND previous_price.amount_minor != current_sale_price.amount_minor
+       ORDER BY previous_price.valid_from DESC, previous_price.id DESC
+       LIMIT 1)
+    ) AS amount_minor
   ) previous_sale_price ON true
   WHERE sale_variant.product_id = p.id
     AND sale_variant.status = 'active'
+    AND previous_sale_price.amount_minor IS NOT NULL
     AND current_sale_price.amount_minor < previous_sale_price.amount_minor
 )`;
+
+const priceLateralSelect = `SELECT candidate.amount_minor, candidate.currency,
+         COALESCE(
+           (SELECT baseline.amount_minor
+            FROM product_prices baseline
+            WHERE baseline.variant_id = variant.id
+              AND baseline.valid_to IS NULL
+              AND baseline.valid_from <= candidate.valid_from
+              AND candidate.valid_to IS NOT NULL
+            ORDER BY baseline.valid_from DESC, baseline.id DESC
+            LIMIT 1),
+           (SELECT previous.amount_minor
+            FROM product_prices previous
+            WHERE previous.variant_id = variant.id
+              AND previous.valid_from < candidate.valid_from
+              AND previous.amount_minor != candidate.amount_minor
+            ORDER BY previous.valid_from DESC, previous.id DESC
+            LIMIT 1)
+         ) AS previous_amount_minor
+  FROM product_prices candidate
+  WHERE candidate.variant_id = variant.id
+    AND candidate.valid_from <= NOW()
+    AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
+  ORDER BY candidate.valid_from DESC, candidate.id DESC
+  LIMIT 1`;
 
 const productProjectionColumns = `p.id, p.category_id,
   category.name AS category_name, p.name, p.slug, p.brand, p.description,
@@ -408,19 +445,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
        LEFT JOIN product_variants variant
          ON variant.product_id = eligible.product_id AND variant.status = 'active'
        LEFT JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency,
-                (SELECT previous.amount_minor
-                 FROM product_prices previous
-                 WHERE previous.variant_id = variant.id
-                   AND previous.valid_from < candidate.valid_from
-                 ORDER BY previous.valid_from DESC, previous.id DESC
-                 LIMIT 1) AS previous_amount_minor
-         FROM product_prices candidate
-         WHERE candidate.variant_id = variant.id
-           AND candidate.valid_from <= NOW()
-           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC, candidate.id DESC
-         LIMIT 1
+         ${priceLateralSelect}
        ) price ON true
        ORDER BY eligible.sort_order, eligible.category_id,
                 variant.created_at, variant.id`,
@@ -627,19 +652,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
        JOIN products p ON p.id = variant.product_id
        JOIN categories category ON category.id = p.category_id
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency,
-                (SELECT previous.amount_minor
-                 FROM product_prices previous
-                 WHERE previous.variant_id = variant.id
-                   AND previous.valid_from < candidate.valid_from
-                 ORDER BY previous.valid_from DESC, previous.id DESC
-                 LIMIT 1) AS previous_amount_minor
-         FROM product_prices candidate
-         WHERE candidate.variant_id = variant.id
-           AND candidate.valid_from <= NOW()
-           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC, candidate.id DESC
-         LIMIT 1
+         ${priceLateralSelect}
        ) price ON true
        JOIN LATERAL (
          SELECT media.id, media.alt_text
@@ -681,19 +694,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
               price.previous_amount_minor::text
        FROM product_variants variant
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency,
-                (SELECT previous.amount_minor
-                 FROM product_prices previous
-                 WHERE previous.variant_id = variant.id
-                   AND previous.valid_from < candidate.valid_from
-                 ORDER BY previous.valid_from DESC, previous.id DESC
-                 LIMIT 1) AS previous_amount_minor
-         FROM product_prices candidate
-         WHERE candidate.variant_id = variant.id
-           AND candidate.valid_from <= NOW()
-           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC, candidate.id DESC
-         LIMIT 1
+         ${priceLateralSelect}
        ) price ON true
        WHERE variant.product_id = ANY($1::uuid[]) AND variant.status = 'active'
        ORDER BY variant.product_id, variant.created_at, variant.id`,

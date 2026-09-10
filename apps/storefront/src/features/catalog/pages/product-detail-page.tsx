@@ -73,10 +73,10 @@ export function ProductDetailPage({
         )}
         <p className="product-description">{product.description}</p>
         <div className="detail-price-row">
-          <p className="detail-price">{formatVnd(selected.price.amountMinor)}</p>
           {selected.price.previousAmountMinor === undefined ? null : (
             <del>{formatVnd(selected.price.previousAmountMinor)}</del>
           )}
+          <p className="detail-price">{formatVnd(selected.price.amountMinor)}</p>
           {selected.price.discountPercentage === undefined ? null : (
             <span className="discount-badge">-{selected.price.discountPercentage}%</span>
           )}

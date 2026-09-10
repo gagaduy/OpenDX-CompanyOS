@@ -60,10 +60,10 @@ export function ProductCard({
           <p className="price">Giá đang cập nhật</p>
         ) : (
           <div className="product-card-price">
-            <p className="price">{formatVnd(displayVariant.price.amountMinor)}</p>
             {displayVariant.price.previousAmountMinor === undefined ? null : (
               <del>{formatVnd(displayVariant.price.previousAmountMinor)}</del>
             )}
+            <p className="price">{formatVnd(displayVariant.price.amountMinor)}</p>
             {displayVariant.price.discountPercentage === undefined ? null : (
               <span className="discount-badge">
                 -{displayVariant.price.discountPercentage}%

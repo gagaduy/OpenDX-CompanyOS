@@ -11,7 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Implement Granular Step-Level Execution and Two-Way Collaboration Wire:
+- Fix Storefront Campaign Discount Price Resolution and Visual Hierarchy:
+  - Resolved SCD Type 2 price history lookup in `PostgresqlPublicCatalogRepository` to correctly match the variant's catalog baseline price when temporary promotional campaign prices are active, ensuring `previousAmountMinor` and `discountPercentage` are accurately populated.
+  - Updated Storefront `ProductCard` and `ProductDetailPage` to strictly display the original price with strikethrough first (`<del>`), followed by the discounted price, and the discount percentage tag (`<span className="discount-badge">-{percent}%</span>`).
+  - Refined price row CSS in `globals.css` with baseline alignment, crisp ink contrast, and vivid discount red badge tags.
+
   - Granular Step-Level Task Execution: Department workflows now start Step 1 immediately if the department's initial digital employee is free, processing local work without blocking the entire pipeline upfront. The workflow only enters a waiting state (`Pending Handoff`) at the exact sub-step requiring an external busy employee (e.g., Graphic Designer in Marketing), automatically resuming once the dependency is resolved.
   - Two-Way Connection Wire (Bàn giao đi & Bàn giao về): Enhanced animated SVG collaboration wire to visualize both stages of cross-department collaboration: outgoing delegation (originating department -> collaborating department) and return handoff (collaborating department -> originating department) with dynamic department-specific neon beam gradients and traveling photon pulses.
   - Local Employee Status Isolation: Digital employee cards now only display waiting indicators when that specific employee is the active bottleneck, ensuring idle colleagues in the same department remain unencumbered.
