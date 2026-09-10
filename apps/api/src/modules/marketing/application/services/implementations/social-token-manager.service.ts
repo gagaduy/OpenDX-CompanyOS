@@ -426,11 +426,15 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       expiresAt = new Date(currentDate.getTime() + exchangeResult.expiresInSeconds * 1000).toISOString();
     }
 
+    const targetAccountId = platform === "instagram"
+      ? (this.defaultInstagramAccountId || exchangeResult.pageId)
+      : exchangeResult.pageId;
+
     const saved = await this.repository.upsertAccount({
       id: randomUUID(),
       platform,
-      accountId: exchangeResult.pageId,
-      accountName: exchangeResult.pageName,
+      accountId: targetAccountId,
+      accountName: platform === "instagram" ? "Instagram Business" : exchangeResult.pageName,
       accessToken: exchangeResult.pageAccessToken,
       tokenType: "bearer",
       tokenStatus: "healthy",
@@ -443,6 +447,26 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       createdAt: currentIso,
       updatedAt: currentIso,
     });
+
+    if (platform === "facebook" && this.defaultInstagramAccountId) {
+      await this.repository.upsertAccount({
+        id: randomUUID(),
+        platform: "instagram",
+        accountId: this.defaultInstagramAccountId,
+        accountName: "Instagram Business",
+        accessToken: exchangeResult.pageAccessToken,
+        tokenType: "bearer",
+        tokenStatus: "healthy",
+        tokenExpiresAt: expiresAt,
+        dataAccessExpiresAt: null,
+        scopes: ["instagram_basic", "instagram_content_publish"],
+        isLongLived: true,
+        lastCheckedAt: currentIso,
+        metadata: { source: "oauth_callback_linked", parentPageId: exchangeResult.pageId },
+        createdAt: currentIso,
+        updatedAt: currentIso,
+      });
+    }
 
     return {
       platform,
@@ -487,7 +511,7 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     const currentDate = this.now();
     const currentIso = currentDate.toISOString();
 
-    const targetId = existing?.accountId ?? accountId ?? (platform === "facebook" ? "1321445584378490" : "instagram-account");
+    const targetId = existing?.accountId ?? accountId ?? (platform === "facebook" ? (this.defaultFacebookPageId || "1321445584378490") : (this.defaultInstagramAccountId || "17841427131793503"));
     const targetName = existing?.accountName ?? (platform === "facebook" ? "Facebook Page" : "Instagram Business");
 
     await this.repository.upsertAccount({
@@ -533,6 +557,26 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
         lastCheckedAt: currentIso,
         lastError: inspection.error,
       });
+
+      if (platform === "facebook" && this.defaultInstagramAccountId) {
+        await this.repository.upsertAccount({
+          id: randomUUID(),
+          platform: "instagram",
+          accountId: this.defaultInstagramAccountId,
+          accountName: "Instagram Business",
+          accessToken: trimmedToken,
+          tokenType: "bearer",
+          tokenStatus: status,
+          tokenExpiresAt: expiresAt,
+          dataAccessExpiresAt: inspection.dataAccessExpiresAt ?? null,
+          scopes: ["instagram_basic", "instagram_content_publish"],
+          isLongLived: true,
+          lastCheckedAt: currentIso,
+          metadata: { updated_by: "manual_update_linked", parentPageId: targetId },
+          createdAt: currentIso,
+          updatedAt: currentIso,
+        });
+      }
 
       return {
         platform,

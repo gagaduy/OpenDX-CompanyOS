@@ -227,8 +227,15 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   private async getEffectiveAccessToken(): Promise<string> {
     if (this.socialAccountRepository) {
       try {
-        const account = await this.socialAccountRepository.findByPlatformAndId("instagram", this.businessAccountId)
-          ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "instagram");
+        const account = await this.socialAccountRepository.findByPlatformAndId("instagram", this.businessAccountId);
+        if (account?.accessToken && account.tokenStatus !== "invalid") {
+          return account.accessToken;
+        }
+        const allAccounts = await this.socialAccountRepository.listAccounts();
+        const validFb = allAccounts.find((a) => a.platform === "facebook" && a.tokenStatus !== "invalid" && a.accessToken);
+        if (validFb?.accessToken) {
+          return validFb.accessToken;
+        }
         if (account?.accessToken) {
           return account.accessToken;
         }

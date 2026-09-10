@@ -64,6 +64,10 @@ export function SocialTokenManagerModal({
       const stored = localStorage.getItem("opendx_meta_app_id");
       if (stored) setAppIdInput(stored);
     }
+    if (typeof window !== "undefined") {
+      const storedSecret = localStorage.getItem("opendx_meta_app_secret");
+      if (storedSecret) setAppSecretInput(storedSecret);
+    }
   }, [summary?.metaAppId]);
 
   useEffect(() => {
@@ -105,6 +109,7 @@ export function SocialTokenManagerModal({
     if (!appIdInput.trim() || !appSecretInput.trim()) return;
     if (typeof window !== "undefined") {
       localStorage.setItem("opendx_meta_app_id", appIdInput.trim());
+      localStorage.setItem("opendx_meta_app_secret", appSecretInput.trim());
     }
     if (onConfigureMetaApp) {
       await onConfigureMetaApp(appIdInput.trim(), appSecretInput.trim());
@@ -457,8 +462,10 @@ export function SocialTokenManagerModal({
                         className="socialTokenActionBtn reconnectBtn"
                         onClick={() => {
                           const hasAppId = Boolean(summary?.metaAppId || (typeof window !== "undefined" && localStorage.getItem("opendx_meta_app_id")));
-                          if (!hasAppId) {
+                          const hasAppSecret = Boolean(summary?.oauthConfigured || (typeof window !== "undefined" && localStorage.getItem("opendx_meta_app_secret")));
+                          if (!hasAppId || !hasAppSecret) {
                             setMetaAppConfigOpen(true);
+                            return;
                           }
                           onOAuthReconnect?.(account.platform);
                         }}

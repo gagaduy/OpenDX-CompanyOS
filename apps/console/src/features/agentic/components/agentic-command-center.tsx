@@ -246,16 +246,27 @@ export function AgenticCommandCenter({
           setSocialTokenActionLoading(true);
           setSocialTokenFeedback("Đang trao đổi mã ủy quyền với Meta để cấp Page Access Token vĩnh viễn...");
           try {
+            const storedAppId =
+              socialTokensSummary?.metaAppId ||
+              (typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_id") : null);
+            const storedAppSecret =
+              typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_secret") : null;
             const updated = await marketingApi.exchangeSocialOAuthCode({
               code: event.data.code,
               redirectUri,
               platform,
               targetPageId: "1321445584378490",
+              appId: storedAppId || undefined,
+              appSecret: storedAppSecret || undefined,
             });
             setSocialTokensSummary(updated);
-            setSocialTokenFeedback("Đã kết nối lại và cấp Page Access Token vĩnh viễn thành công! Hệ thống đã sẵn sàng đăng bài.");
+            const okMsg = "Đã kết nối lại và cấp Page Access Token vĩnh viễn thành công! Hệ thống đã sẵn sàng đăng bài.";
+            setSocialTokenFeedback(okMsg);
+            setSuccessMessage(okMsg);
           } catch (err: any) {
-            setSocialTokenFeedback(`Lỗi khi đổi OAuth code: ${err?.message || "Không xác định"}`);
+            const errMsg = `Lỗi khi đổi OAuth code: ${err?.message || "Không xác định"}`;
+            setSocialTokenFeedback(errMsg);
+            setErrorMessage(errMsg);
           } finally {
             setSocialTokenActionLoading(false);
           }
@@ -271,6 +282,10 @@ export function AgenticCommandCenter({
   };
 
   const handleConfigureMetaApp = async (appId: string, appSecret: string) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("opendx_meta_app_id", appId.trim());
+      localStorage.setItem("opendx_meta_app_secret", appSecret.trim());
+    }
     if (!marketingApi?.configureMetaApp) return;
     setSocialTokenActionLoading(true);
     setSocialTokenFeedback(null);

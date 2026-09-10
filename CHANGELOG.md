@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Multi-Platform Meta OAuth Synchronization, Instagram Fallback & Setup Documentation:
+  - Automatic Cross-Platform Token Synchronization: Updated `SocialTokenManagerServiceImpl.handleOAuthCallback` and `updateAccountToken` so obtaining or updating a Page Access Token for a Facebook Fanpage automatically propagates the active token to the linked Instagram Business account (`defaultInstagramAccountId`), maintaining synchronized long-lived credentials across both platforms.
+  - Resilient Instagram Publisher Fallback: Updated `MetaGraphInstagramPublisherAdapter.getEffectiveAccessToken` to gracefully fall back to the owning Facebook Page's verified access token whenever the Instagram account token is unconfigured or invalidated, preventing publication failures when Facebook is already connected.
+  - App Secret Requirement & Form Validation: Enhanced `SocialTokenManagerModal` and `AgenticCommandCenter` to validate both `appId` and `appSecret` prior to launching the Meta OAuth popup, opening the configuration panel with actionable setup guidance when secrets are unconfigured, and persisting secrets safely in `localStorage` and runtime memory.
+  - Comprehensive Integration Documentation: Added step-by-step Meta Developer setup and 1-Click social token integration guide in `README.md` and `docs/integrations/meta-marketing.md`.
+
 - 1-Day Social Token 2-3 Hour Expiration Alert & 1-Click Autonomous Recovery:
   - Dynamic 2-3 Hour Warning Threshold: Updated `SocialTokenManagerServiceImpl.evaluateTokenExpiration` so 1-day or short-lived tokens (duration <= 48 hours) warn `expiring_soon` only when `hoursRemaining <= 3`, keeping tokens healthy without premature warnings during the rest of their 24-hour lifetime.
   - Human-Readable Expiration Formatting: Added `formatExpiresIn` in `social-token.dto.ts` providing friendly displays (e.g. `Còn 2 giờ 30 phút`, `Còn 45 phút`, `Còn 1 ngày`) in the modal, header badge, and global system notice strip.

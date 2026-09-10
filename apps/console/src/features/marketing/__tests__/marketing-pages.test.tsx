@@ -200,6 +200,7 @@ describe("Marketing Console Pages", () => {
       checkSocialTokens: vi.fn(),
       updateSocialToken: vi.fn(),
       syncSocialTokensFromEnv: vi.fn(),
+      configureMetaApp: vi.fn(),
       ...overrides,
     };
   }
