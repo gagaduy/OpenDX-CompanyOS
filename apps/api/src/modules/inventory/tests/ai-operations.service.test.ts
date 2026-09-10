@@ -139,5 +139,71 @@ describe("AiOperationsService", () => {
     const querySql = mockDb.query.mock.calls[0][0];
     expect(querySql).toContain("p.status = 'published'");
   });
+
+  it("generates replenishment analysis with 7-day sales velocity and heuristic fallback", async () => {
+    const mockDb = {
+      query: vi.fn().mockImplementation((sql: string) => {
+        if (sql.includes("units_sold_7d")) {
+          return Promise.resolve({
+            rows: [
+              {
+                variantId: "v1",
+                productId: "p1",
+                productName: "Chuột Gaming RGB",
+                productSlug: "chuot-gaming",
+                sku: "MS-RGB-01",
+                categoryName: "Linh kiện",
+                onHand: 3,
+                reserved: 1,
+                priceMinor: 500000,
+                recentUnitsSold7d: 14,
+              },
+              {
+                variantId: "v2",
+                productId: "p2",
+                productName: "Bàn phím cơ Silent",
+                productSlug: "ban-phim-silent",
+                sku: "KB-SILENT-02",
+                categoryName: "Linh kiện",
+                onHand: 20,
+                reserved: 0,
+                priceMinor: 1200000,
+                recentUnitsSold7d: 2,
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+      connect: vi.fn(),
+    } as any;
+
+    const mockRepo = {
+      create: vi.fn().mockResolvedValue(undefined),
+      findLatestPending: vi.fn().mockResolvedValue(null),
+      findById: vi.fn().mockResolvedValue(null),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new AiOperationsService(
+      mockDb,
+      () => "2026-09-10T12:00:00.000Z",
+      () => "prop-uuid-1",
+      mockRepo as any,
+    );
+
+    const proposal = await service.generateReplenishmentAnalysis({
+      triggerSource: "scheduled_cron",
+    });
+
+    expect(proposal).not.toBeNull();
+    expect(proposal?.items).toHaveLength(1); // Only v1 is critical/low (onHand 3 - reserved 1 = 2 <= 5)
+    expect(proposal?.items[0].sku).toBe("MS-RGB-01");
+    expect(proposal?.items[0].availableQuantity).toBe(2);
+    expect(proposal?.items[0].recentUnitsSold7d).toBe(14);
+    expect(proposal?.items[0].recommendedRestockQuantity).toBeGreaterThan(0);
+    expect(mockRepo.create).toHaveBeenCalledTimes(1);
+  });
 });
+
 
