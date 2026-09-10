@@ -1997,7 +1997,10 @@ export function AgenticCommandCenter({
             variantId: i.variantId,
             restockQuantity: i.recommendedRestockQuantity,
           }));
-      const res: any = await inventoryApi.applyOperationsProposal(operationsProposal.id, payload);
+      const res: any = await (inventoryApi.applyReplenishmentProposal
+        ? inventoryApi.applyReplenishmentProposal(operationsProposal.id, payload)
+        : inventoryApi.applyOperationsProposal(operationsProposal.id, payload));
+      setPendingReplenishment(null);
       setOperationsProposal((prev) => {
         if (!prev) return null;
         const updatedItemsMap = new Map<string, number>(
