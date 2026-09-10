@@ -5,6 +5,7 @@ import type { Request, Response, NextFunction } from "express";
 import type { MarketingCampaignService } from "../../application/services/interfaces/marketing-campaign.service";
 import type { MarketingPublisherService } from "../../application/services/interfaces/marketing-publisher.service";
 import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
+import type { SocialTokenManagerService } from "../../application/services/interfaces/social-token-manager.service";
 import {
   createMarketingCampaignSchema,
   listMarketingCampaignsSchema,
@@ -30,6 +31,7 @@ export class MarketingController {
     private readonly service: MarketingCampaignService,
     private readonly artifactService?: MarketingArtifactService,
     private readonly publisherService?: MarketingPublisherService,
+    private readonly socialTokenManager?: SocialTokenManagerService,
   ) {}
 
   createCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -352,6 +354,66 @@ export class MarketingController {
       res.setHeader("Content-Disposition", `attachment; filename="${payload.artifact.filename}"`);
       res.setHeader("Content-Length", payload.buffer.length);
       res.status(200).send(payload.buffer);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getSocialTokensStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.getTokensSummary();
+      res.status(200).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  refreshSocialToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const accountId = req.body.accountId as string;
+      if (!platform || !accountId) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform and accountId are required");
+      }
+      const result = await this.socialTokenManager.autoRefreshAccount(platform, accountId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  exchangeSocialOAuthCode = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const code = req.body.code as string;
+      const redirectUri = req.body.redirectUri as string;
+      const targetPageId = req.body.targetPageId as string | undefined;
+      if (!platform || !code || !redirectUri) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform, code, and redirectUri are required");
+      }
+      const result = await this.socialTokenManager.handleOAuthCallback(platform, code, redirectUri, targetPageId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  triggerSocialTokensCheck = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.performHealthCheck();
+      res.status(200).json(summary);
     } catch (error) {
       next(error);
     }

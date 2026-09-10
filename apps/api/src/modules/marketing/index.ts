@@ -15,4 +15,15 @@ export * from "./application/services/implementations/marketing-artifact.service
 export * from "./infrastructure/adapters/meta-graph-facebook-publisher.adapter";
 export * from "./infrastructure/storage/minio-marketing-artifact.storage";
 export * from "./infrastructure/workers/marketing-publisher.worker";
+export * from "./domain/entities/social-account";
+export * from "./domain/repositories/social-account.repository";
+export * from "./application/dtos/social-token.dto";
+export * from "./application/ports/social-token-inspector.port";
+export * from "./application/ports/social-token-refresher.port";
+export * from "./application/services/interfaces/social-token-manager.service";
+export * from "./application/services/interfaces/autonomous-social-token-monitor.service";
+export * from "./infrastructure/adapters/meta-graph-social-token.adapter";
+export * from "./infrastructure/repositories/implementations/postgresql-social-account.repository";
+export * from "./application/services/implementations/social-token-manager.service";
+export * from "./application/services/implementations/autonomous-social-token-monitor.service";
 export * from "./marketing.module";

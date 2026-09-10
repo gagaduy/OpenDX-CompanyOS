@@ -77,6 +77,7 @@ export class AutonomousSocialTokenMonitorServiceImpl implements AutonomousSocial
           account.requiresAction &&
           account.actionType === "auto_refresh" &&
           account.daysRemaining !== null &&
+          account.daysRemaining !== undefined &&
           account.daysRemaining <= this.autoRenewDaysThreshold;
 
         if (canAutoRenew) {

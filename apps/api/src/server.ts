@@ -361,6 +361,7 @@ const server = app.listen(environment.apiPort, () => {
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
   marketing.publisherWorker.start();
+  marketing.autonomousSocialTokenMonitor.start();
   inventory.replenishmentMonitor?.startHeartbeat();
 });
 
@@ -387,6 +388,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.attachmentRetentionWorker.stop();
   support.emailPollerWorker?.stop();
   marketing.publisherWorker.stop();
+  marketing.autonomousSocialTokenMonitor.stop();
   await agentic.dispatcher.stop();
   agentic.fileLifecycleWorker?.stop();
   const closeError = await new Promise<Error | undefined>((resolve) => {

@@ -30,6 +30,13 @@ import { SharpMarketingImageTransformerAdapter } from "./infrastructure/adapters
 import { MarketingPublisherWorker } from "./infrastructure/workers/marketing-publisher.worker";
 import { createMarketingVisualMaterializer } from "./infrastructure/adapters/openrouter-marketing-visual.adapter";
 import { createMarketingPublicMediaRouter } from "./presentation/routes/marketing-public-media.routes";
+import type { SocialAccountRepository } from "./domain/repositories/social-account.repository";
+import type { SocialTokenManagerService } from "./application/services/interfaces/social-token-manager.service";
+import type { AutonomousSocialTokenMonitorService } from "./application/services/interfaces/autonomous-social-token-monitor.service";
+import { PostgresqlSocialAccountRepository } from "./infrastructure/repositories/implementations/postgresql-social-account.repository";
+import { MetaGraphSocialTokenAdapter } from "./infrastructure/adapters/meta-graph-social-token.adapter";
+import { SocialTokenManagerServiceImpl } from "./application/services/implementations/social-token-manager.service";
+import { AutonomousSocialTokenMonitorServiceImpl } from "./application/services/implementations/autonomous-social-token-monitor.service";
 
 export interface MarketingModuleOptions {
   readonly database: Pool;
@@ -46,6 +53,11 @@ export interface MarketingModuleOptions {
   readonly workerId?: string;
   readonly pollIntervalMs?: number;
   readonly targetLeaseSeconds?: number;
+  readonly socialAccountRepository?: SocialAccountRepository;
+  readonly socialTokenManager?: SocialTokenManagerService;
+  readonly autonomousSocialTokenMonitor?: AutonomousSocialTokenMonitorService;
+  readonly metaAppId?: string;
+  readonly metaAppSecret?: string;
 }
 
 export interface MarketingModule {
@@ -57,6 +69,9 @@ export interface MarketingModule {
   readonly artifactService: MarketingArtifactService;
   readonly repository: MarketingRepository;
   readonly publisherRegistry: SocialPublisherRegistry;
+  readonly socialAccountRepository: SocialAccountRepository;
+  readonly socialTokenManager: SocialTokenManagerService;
+  readonly autonomousSocialTokenMonitor: AutonomousSocialTokenMonitorService;
 }
 
 export function createMarketingModule(options: MarketingModuleOptions): MarketingModule {
@@ -83,6 +98,35 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
       instagramConfiguration?.mode === "simulation" || instagramConfiguration?.mode === "live"
         ? instagramConfiguration.accountConfigurationId
         : undefined,
+  });
+
+  const socialAccountRepository = options.socialAccountRepository ?? new PostgresqlSocialAccountRepository(options.database);
+
+  const metaTokenAdapter = new MetaGraphSocialTokenAdapter({
+    graphApiBaseUrl: options.publicationConfig?.meta?.graphBaseUrl,
+    requestTimeoutMs: options.publicationConfig?.meta?.requestTimeoutMs,
+  });
+
+  const socialTokenManager = options.socialTokenManager ?? new SocialTokenManagerServiceImpl({
+    socialAccountRepository,
+    inspector: metaTokenAdapter,
+    refresher: metaTokenAdapter,
+    appId: options.metaAppId ?? process.env.META_APP_ID,
+    appSecret: options.metaAppSecret ?? process.env.META_APP_SECRET,
+    defaultFacebookPageId: options.publicationConfig?.facebook?.pageId,
+    defaultFacebookToken: options.publicationConfig?.facebook?.pageAccessToken,
+    defaultInstagramAccountId: options.publicationConfig?.instagram?.mode === "live"
+      ? options.publicationConfig.instagram.businessAccountId
+      : undefined,
+    defaultInstagramToken: options.publicationConfig?.instagram?.mode === "live"
+      ? options.publicationConfig.instagram.accessToken
+      : undefined,
+    now: options.now ? () => new Date(options.now!()) : undefined,
+  });
+
+  const autonomousSocialTokenMonitor = options.autonomousSocialTokenMonitor ?? new AutonomousSocialTokenMonitorServiceImpl({
+    socialTokenManager,
+    intervalMs: 6 * 60 * 60 * 1000,
   });
 
   const publisherRegistry = options.publisherRegistry ?? new SocialPublisherRegistry();
@@ -119,6 +163,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
           pageAccessToken: options.publicationConfig?.facebook?.pageAccessToken,
           graphApiBaseUrl: options.publicationConfig?.meta?.graphBaseUrl,
           requestTimeoutMs: options.publicationConfig?.meta?.requestTimeoutMs,
+          socialAccountRepository,
           now: options.now,
         }));
       }
@@ -128,6 +173,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
         pageAccessToken: options.publicationConfig?.facebook?.pageAccessToken,
         graphApiBaseUrl: options.publicationConfig?.meta?.graphBaseUrl,
         requestTimeoutMs: options.publicationConfig?.meta?.requestTimeoutMs,
+        socialAccountRepository,
         now: options.now,
       }));
     }
@@ -144,6 +190,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
         requestTimeoutMs: options.publicationConfig.meta.requestTimeoutMs,
         pollIntervalMs: options.publicationConfig.instagram.containerPollIntervalMs,
         maxPollAttempts: options.publicationConfig.instagram.containerMaxPollAttempts,
+        socialAccountRepository,
         now: options.now,
       }));
     } else {
@@ -176,7 +223,12 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     generateId: options.generateId,
   });
 
-  const controller = new MarketingController(campaignService, artifactService, publisherService);
+  const controller = new MarketingController(
+    campaignService,
+    artifactService,
+    publisherService,
+    socialTokenManager,
+  );
   const adminRouter = createMarketingAdminRouter({
     controller,
     staffTokenVerifier: options.staffTokenVerifier,
@@ -191,5 +243,8 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     artifactService,
     repository,
     publisherRegistry,
+    socialAccountRepository,
+    socialTokenManager,
+    autonomousSocialTokenMonitor,
   };
 }

@@ -49,5 +49,11 @@ export function createMarketingAdminRouter(options: CreateMarketingRouterOptions
   router.get("/artifacts/:artifactId/download", requireStaffRole(...viewerRoles), controller.downloadArtifact);
   router.get("/visual-assets/:assetId/preview", requireStaffRole(...viewerRoles), controller.previewVisualAsset);
 
+  // Social Tokens Health & Management
+  router.get("/social-tokens/status", requireStaffRole(...viewerRoles), controller.getSocialTokensStatus);
+  router.post("/social-tokens/refresh", requireStaffRole(...operatorRoles), controller.refreshSocialToken);
+  router.post("/social-tokens/oauth-exchange", requireStaffRole(...operatorRoles), controller.exchangeSocialOAuthCode);
+  router.post("/social-tokens/check", requireStaffRole(...operatorRoles), controller.triggerSocialTokensCheck);
+
   return router;
 }
