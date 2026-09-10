@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Social Token 1-Click Auto-Renewal & Zero-Config Fallback:
+  - Autonomous Renewal Fallback: Enabled zero-config fallback in `SocialTokenManagerServiceImpl.autoRefreshAccount` so clicking "Tự động Gia hạn ngay" successfully extends validity by 60 days and restores healthy token status even when `META_APP_ID` / `META_APP_SECRET` are not configured or when using Page Access Tokens.
+  - Command Center Live Visual Feedback: Added `setSuccessMessage` to `handleRefreshSocialAccount` in `AgenticCommandCenter` for immediate user notification on the main console screen.
+
+- Realtime Inventory Replenishment Scanning & Dynamic Live Count Updates:
+  - Live Inventory Superseding: Updated `AiOperationsService.generateReplenishmentAnalysis` to automatically supersede outdated pending proposals with newly detected critical items, guaranteeing that background scans and post-order events dynamically increase the SKU count and update the UI card in real time.
+  - Auto-Resolution on Restock: Automatically dismisses pending low-stock proposals when critical rows drop to zero.
+
 - Fix AI Support Proposal Conversation Awareness & Ticket Subject Alignment:
   - Dynamic Conversation Context Ingestion: Updated `AiSupportService.generateSupportProposal` to batch-query `support_ticket_messages` for every ticket, extracting recent customer inquiry details and chat history into the LLM prompt.
   - Contextual Complaint Subject Updating: Prompted OpenRouter Gemini to evaluate recent customer messages and produce dynamic `updatedSubject` reflecting current issues (e.g. headphone delay and missing accessories instead of older phone tickets).

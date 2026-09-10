@@ -468,6 +468,12 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
     });
 
     if (criticalRows.length === 0) {
+      if (this.replenishmentRepo) {
+        const existingPending = await this.replenishmentRepo.findLatestPending();
+        if (existingPending) {
+          await this.replenishmentRepo.updateStatus(existingPending.id, "dismissed", "system:stock_replenished");
+        }
+      }
       return null;
     }
 
@@ -594,6 +600,10 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
     };
 
     if (this.replenishmentRepo) {
+      const existingPending = await this.replenishmentRepo.findLatestPending();
+      if (existingPending) {
+        await this.replenishmentRepo.updateStatus(existingPending.id, "dismissed", "system:superseded_by_latest_scan");
+      }
       await this.replenishmentRepo.create({
         id: proposal.id,
         triggerSource: proposal.triggerSource,

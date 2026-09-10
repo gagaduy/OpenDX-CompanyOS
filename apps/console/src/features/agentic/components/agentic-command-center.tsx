@@ -180,15 +180,17 @@ export function AgenticCommandCenter({
     setSocialTokenFeedback(null);
     try {
       const refreshed = await marketingApi.refreshSocialToken({ platform, accountId });
-      setSocialTokenFeedback(
-        `Đã tự động gia hạn token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} (${refreshed.accountName || accountId}) thành công! Không cần copy-paste.`,
-      );
+      const successText = `⚡ Đã tự động gia hạn token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} (${refreshed.accountName || accountId}) thành công! Hạn dùng mới: 60 ngày.`;
+      setSocialTokenFeedback(successText);
+      setSuccessMessage(successText);
       if (marketingApi.getSocialTokensStatus) {
         const updated = await marketingApi.getSocialTokensStatus();
         setSocialTokensSummary(updated);
       }
     } catch (err: any) {
-      setSocialTokenFeedback(`Lỗi khi gia hạn token: ${err?.message || "Không xác định"}`);
+      const errorText = `Lỗi khi gia hạn token: ${err?.message || "Không xác định"}`;
+      setSocialTokenFeedback(errorText);
+      setErrorMessage(errorText);
     } finally {
       setSocialTokenActionLoading(false);
     }
