@@ -47,6 +47,20 @@ import type { SupportOperationsApi } from "../../support/api/support-api";
 import type { AiSupportProposalView } from "../../support/types/support.types";
 import { useAuth } from "../../authentication/hooks/auth-context";
 import { ExecutiveReport } from "./executive-report";
+import type {
+  DepartmentQueueMap,
+  DepartmentTask,
+  DepartmentType,
+  ResourceLock,
+} from "../types/department-task-queue.types";
+import { DIGITAL_EMPLOYEES } from "../types/department-task-queue.types";
+import {
+  acquireLocks,
+  analyzeTaskRequirements,
+  checkLockConflicts,
+  getNextEligibleTask,
+  releaseLocks,
+} from "../utils/department-task-scheduler";
 import "../styles/agentic-command-center.css";
 
 interface AgenticCommandCenterProps {
@@ -141,6 +155,36 @@ export function AgenticCommandCenter({
   const [isDownloadingSupportDocx, setIsDownloadingSupportDocx] = useState(false);
   const [supportTicketsPage, setSupportTicketsPage] = useState(1);
   const [supportVipPage, setSupportVipPage] = useState(1);
+
+  // Department Task Queues & Resource Locks State
+  const [departmentQueues, setDepartmentQueues] = useState<DepartmentQueueMap>({
+    marketing: [],
+    merchandising: [],
+    operations: [],
+    support: [],
+  });
+  const [activeLocks, setActiveLocks] = useState<Record<string, ResourceLock>>({});
+
+  const getAgentWaitingTasksCount = (agentId: string): number => {
+    let count = 0;
+    const depts: DepartmentType[] = ["marketing", "merchandising", "operations", "support"];
+    for (const d of depts) {
+      for (const t of departmentQueues[d]) {
+        if (t.status === "queued" && t.requiredAgents.includes(agentId)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  };
+
+  const handleCancelQueuedTask = (taskId: string, dept: DepartmentType) => {
+    setDepartmentQueues((prev) => ({
+      ...prev,
+      [dept]: prev[dept].filter((t) => t.id !== taskId),
+    }));
+    setSuccessMessage("Đã hủy nhiệm vụ khỏi hàng chờ.");
+  };
 
   // Stepped Visual Progression & CEO Planning
   const [ceoPlan, setCeoPlan] = useState<{
@@ -443,6 +487,7 @@ export function AgenticCommandCenter({
     const goalText = (customGoal || prompt).trim();
     if (!goalText || isSubmitting) return;
 
+    let strategicAgents: string[] = [];
     try {
       setIsSubmitting(true);
       setErrorMessage(null);
@@ -456,6 +501,27 @@ export function AgenticCommandCenter({
       setIsCeoThinking(false);
 
       const intent = detectStrategicIntent(goalText);
+      const strategicTaskId = crypto.randomUUID();
+      strategicAgents =
+        intent === "support"
+          ? ["support_steward", "crm_specialist"]
+          : intent === "operations"
+          ? ["inventory_specialist", "order_coordinator"]
+          : intent === "merchandising"
+          ? ["catalog_copywriter", "pricing_strategist", "marketing_visual"]
+          : intent === "marketing"
+          ? ["marketing_copywriter", "marketing_visual", "marketing_publisher"]
+          : ["inventory_specialist", "support_steward"];
+
+      setActiveLocks((prev) =>
+        acquireLocks(
+          strategicTaskId,
+          (intent === "orchestration" ? "operations" : intent) as DepartmentType,
+          strategicAgents,
+          goalText,
+          prev,
+        ),
+      );
 
       if (intent === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
@@ -998,37 +1064,213 @@ export function AgenticCommandCenter({
       setErrorMessage(error instanceof Error ? error.message : "Không thể gửi tác vụ đến hệ thống.");
     } finally {
       setIsSubmitting(false);
+      setActiveLocks((prevLocks) => {
+        const remaining = releaseLocks(strategicAgents, prevLocks);
+        setTimeout(() => processNextQueuedTask(remaining), 50);
+        return remaining;
+      });
     }
   };
 
-  // Direct Department-level Task Delegation (1 input per department)
+  // Auto-process next queued task whose resources are completely free
+  const processNextQueuedTask = (currentLocks: Record<string, ResourceLock>) => {
+    setDepartmentQueues((prevQueues) => {
+      const candidate = getNextEligibleTask(prevQueues, currentLocks);
+      if (!candidate) return prevQueues;
+
+      const { dept, task } = candidate;
+      const updatedDeptQueue = prevQueues[dept].filter((t) => t.id !== task.id);
+      const nextQueues = {
+        ...prevQueues,
+        [dept]: updatedDeptQueue,
+      };
+
+      // Acquire locks for the dequeued task and launch
+      setActiveLocks((active) => {
+        const acquired = acquireLocks(task.id, dept, task.requiredAgents, task.prompt, active);
+        void executeDepartmentWorkflow(dept, task.prompt, task.requiredAgents, task.id);
+        return acquired;
+      });
+
+      return nextQueues;
+    });
+  };
+
+  // Direct Execution Workflow for individual departments
+  const executeDepartmentWorkflow = async (
+    dept: DepartmentType,
+    taskPrompt: string,
+    reqAgents: string[],
+    taskId: string,
+  ) => {
+    try {
+      if (dept === "marketing" && marketingApi) {
+        scrollToDepartment("dept-column-marketing");
+        setActiveWorkflowKind("marketing");
+        setMarketingActiveAgent("marketing_copywriter");
+        setMarketingAgentMessage(`Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
+        await new Promise((r) => setTimeout(r, 800));
+
+        setMarketingActiveAgent("marketing_visual");
+        setMarketingAgentMessage("Thiết kế Đồ họa đang dựng poster và banner...");
+        await new Promise((r) => setTimeout(r, 800));
+
+        setMarketingActiveAgent("marketing_publisher");
+        setMarketingAgentMessage("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...");
+
+        const scheduledTime = new Date(Date.now() + 3600 * 1000).toISOString();
+        const deadlineTime = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+        const idempotencyKey = crypto.randomUUID();
+
+        const createdCampaign = await marketingApi.createCampaign(
+          {
+            campaignName: `Chiến dịch: ${taskPrompt.slice(0, 45)}`,
+            objective: `Quảng bá sản phẩm và đăng bài lên mạng xã hội theo mục tiêu: ${taskPrompt}`,
+            subjectKind: "free_topic",
+            subjectReference: "san-pham",
+            language: "vi",
+            mandatoryMessage: taskPrompt,
+            prohibitedClaims: ["sản phẩm duy nhất vũ trụ", "chữa bách bệnh", "làm giàu không khó"],
+            callToAction: "Khám phá ngay tại NovaCommerce Store",
+            facebookPageConfigurationId: "1321445584378490",
+            scheduledFor: scheduledTime,
+            deadline: deadlineTime,
+            approverId: "staff-director-owner-01",
+            maximumCostMicros: 500000,
+          },
+          idempotencyKey,
+        );
+        setActiveCampaignId(createdCampaign.id);
+        await marketingApi.markReady(createdCampaign.id);
+        await marketingApi.requestRevision(createdCampaign.id, {
+          feedback: `Triển khai sáng tạo bài viết và hình ảnh theo đúng yêu cầu: ${taskPrompt}`,
+        });
+        try {
+          await marketingApi.generateDeliverables(createdCampaign.id);
+        } catch {
+          // Ignored
+        }
+        const detail = await marketingApi.getCampaign(createdCampaign.id);
+        setActiveCampaignDetail(detail);
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
+      } else if (dept === "merchandising" && catalogApi) {
+        scrollToDepartment("dept-column-merchandising");
+        setActiveWorkflowKind("merchandising");
+        setMarketingActiveAgent("catalog_copywriter");
+        setMarketingAgentMessage(`Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
+        await new Promise((r) => setTimeout(r, 800));
+
+        if (reqAgents.includes("marketing_visual")) {
+          setMarketingActiveAgent("merchandising_visual_collab");
+          setMarketingAgentMessage("Phối hợp Thiết kế Đồ họa đang vẽ poster ưu đãi & badge 3D...");
+          await new Promise((r) => setTimeout(r, 800));
+        }
+
+        setMarketingActiveAgent("pricing_strategist");
+        setMarketingAgentMessage("Chuyên gia Định giá đang tính toán chiết khấu & biên lợi nhuận...");
+
+        const cProposal = await catalogApi.generateCampaignProposal({ prompt: taskPrompt });
+        setCampaignProposal(cProposal);
+        setCampaignProposalModalOpen(true);
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
+      } else if (dept === "operations" && inventoryApi) {
+        scrollToDepartment("dept-column-operations");
+        setActiveWorkflowKind("operations");
+        setMarketingActiveAgent("inventory_specialist");
+        setMarketingAgentMessage(`Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
+        await new Promise((r) => setTimeout(r, 800));
+
+        setMarketingActiveAgent("order_coordinator");
+        setMarketingAgentMessage("Điều phối Đơn hàng đang lập phiếu đề xuất nhập kho...");
+
+        const proposal = await inventoryApi.generateOperationsProposal(taskPrompt);
+        setOperationsProposal(proposal);
+        setIsOperationsModalOpen(true);
+        setOperationsPage(1);
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã lập xong Phiếu Đề Xuất Nhập Kho!");
+      } else if (dept === "support" && supportApi) {
+        scrollToDepartment("dept-column-support");
+        setActiveWorkflowKind("support");
+        setMarketingActiveAgent("support_steward");
+        setMarketingAgentMessage(`Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
+        await new Promise((r) => setTimeout(r, 800));
+
+        setMarketingActiveAgent("crm_specialist");
+        setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
+
+        const proposal = await supportApi.generateSupportProposal(taskPrompt);
+        setSupportProposal(proposal);
+        setSupportTicketsPage(1);
+        setSupportVipPage(1);
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã lập xong Đề xuất Xử lý CSKH & CRM!");
+      }
+    } catch (err: any) {
+      console.error(`Execution error in ${dept}:`, err);
+      setErrorMessage(err?.message || `Thực thi nhiệm vụ cho phòng ban ${dept} thất bại.`);
+      setMarketingActiveAgent(null);
+      setMarketingAgentMessage(null);
+    } finally {
+      // Guaranteed lock release and auto-dequeue check
+      setActiveLocks((prevLocks) => {
+        const remaining = releaseLocks(reqAgents, prevLocks);
+        setTimeout(() => processNextQueuedTask(remaining), 50);
+        return remaining;
+      });
+    }
+  };
+
+  // Direct Department-level Task Delegation (1 unblocked input per department)
   const handleDepartmentDirectTask = async (
-    departmentType: "marketing" | "merchandising" | "operations" | "support",
+    departmentType: DepartmentType,
     directPrompt: string,
   ) => {
     if (!directPrompt.trim()) return;
 
-    if (departmentType === "marketing") {
-      await handleSendStrategicTask(
-        `[Phòng Tiếp thị & Sáng tạo] ${directPrompt}`,
-        `Giao việc cho Phòng Tiếp thị: ${directPrompt}`,
+    const reqAgents = analyzeTaskRequirements(departmentType, directPrompt);
+    const conflicts = checkLockConflicts(reqAgents, activeLocks);
+
+    if (conflicts.length > 0) {
+      const conflicting = conflicts[0];
+      const newTask: DepartmentTask = {
+        id: crypto.randomUUID(),
+        department: departmentType,
+        prompt: directPrompt,
+        requiredAgents: reqAgents,
+        status: "queued",
+        waitingForResource: {
+          agentId: conflicting.agentId,
+          agentName: DIGITAL_EMPLOYEES[conflicting.agentId]?.name || conflicting.agentId,
+          heldByDepartment: conflicting.lockedByDepartment,
+          taskPromptSnippet: conflicting.taskPromptSnippet,
+        },
+        queuedAt: Date.now(),
+      };
+
+      setDepartmentQueues((prev) => ({
+        ...prev,
+        [departmentType]: [...prev[departmentType], newTask],
+      }));
+
+      setSuccessMessage(
+        `Nhiệm vụ đã được thêm vào hàng chờ (đang đợi nhân sự ${
+          DIGITAL_EMPLOYEES[conflicting.agentId]?.name || conflicting.agentId
+        } hoàn tất công việc).`,
       );
-    } else if (departmentType === "merchandising") {
-      await handleSendStrategicTask(
-        `[Phòng Danh mục & Định giá] ${directPrompt}`,
-        `Giao việc cho Phòng Danh mục & Định giá: ${directPrompt}`,
-      );
-    } else if (departmentType === "support") {
-      await handleSendStrategicTask(
-        `[Phòng CSKH & Trải nghiệm Khách hàng] ${directPrompt}`,
-        `Giao việc cho Phòng CSKH: ${directPrompt}`,
-      );
-    } else {
-      await handleSendStrategicTask(
-        `[Phòng Vận hành & Kho] ${directPrompt}`,
-        `Giao việc cho phòng ban: ${directPrompt}`,
-      );
+      return;
     }
+
+    // No conflict: acquire locks and execute immediately
+    const taskId = crypto.randomUUID();
+    setActiveLocks((prev) => acquireLocks(taskId, departmentType, reqAgents, directPrompt, prev));
+    await executeDepartmentWorkflow(departmentType, directPrompt, reqAgents, taskId);
   };
 
   // Support Actions
@@ -2838,10 +3080,18 @@ export function AgenticCommandCenter({
               </div>
               <span>Tiếp thị & Sáng tạo</span>
             </div>
-            <span className="ccDeptCountBadge">
-              <span className="ccPillDot" style={{ width: 6, height: 6, background: "#38bdf8" }} />
-              <span>3 Nhân sự</span>
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {departmentQueues.marketing.length > 0 && (
+                <span className="ccDeptQueueBadge">
+                  <Clock size={11} className="ccSpinSlow" />
+                  <span>Hàng chờ: {departmentQueues.marketing.length}</span>
+                </span>
+              )}
+              <span className="ccDeptCountBadge">
+                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#38bdf8" }} />
+                <span>3 Nhân sự</span>
+              </span>
+            </div>
           </div>
 
           <AgentCard
@@ -2849,17 +3099,22 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="blue"
             status={
-              marketingActiveAgent === "marketing_content" || currentMarketingState === "content_drafting"
+              Boolean(activeLocks.marketing_copywriter) ||
+              marketingActiveAgent === "marketing_content" ||
+              currentMarketingState === "content_drafting"
                 ? "running"
                 : activeCampaignDetail
                 ? "completed"
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "marketing_content"
+              activeLocks.marketing_copywriter
+                ? `Đang soạn nội dung: "${activeLocks.marketing_copywriter.taskPromptSnippet}"`
+                : marketingActiveAgent === "marketing_content"
                 ? marketingAgentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
                 : undefined
             }
+            waitingTasksCount={getAgentWaitingTasksCount("marketing_copywriter")}
           />
           <AgentCard
             name="Thiết kế Đồ họa"
@@ -2868,6 +3123,7 @@ export function AgenticCommandCenter({
             isCollaborating={marketingActiveAgent === "merchandising_visual_collab"}
             collabTag="Phối hợp cùng Danh mục"
             status={
+              Boolean(activeLocks.marketing_visual) ||
               marketingActiveAgent === "marketing_visual" ||
               marketingActiveAgent === "merchandising_visual_collab" ||
               currentMarketingState === "visual_creation"
@@ -2881,7 +3137,9 @@ export function AgenticCommandCenter({
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "merchandising_visual_collab"
+              activeLocks.marketing_visual
+                ? `Đang dựng poster: "${activeLocks.marketing_visual.taskPromptSnippet}"`
+                : marketingActiveAgent === "merchandising_visual_collab"
                 ? marketingAgentMessage ?? "Đang thiết kế poster & banner cho Danh mục..."
                 : marketingActiveAgent === "marketing_visual"
                 ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
@@ -2892,32 +3150,81 @@ export function AgenticCommandCenter({
                 : undefined
             }
             showProgress={
+              Boolean(activeLocks.marketing_visual) ||
               marketingActiveAgent === "marketing_visual" ||
               marketingActiveAgent === "merchandising_visual_collab"
             }
+            waitingTasksCount={getAgentWaitingTasksCount("marketing_visual")}
           />
           <AgentCard
             name="Điều phối Xuất bản"
             roleTag="ĐỘI"
             theme="blue"
             status={
-              marketingActiveAgent === "marketing_publisher" || currentMarketingState === "campaign_review" || currentMarketingState === "awaiting_human_approval"
+              Boolean(activeLocks.marketing_publisher) ||
+              marketingActiveAgent === "marketing_publisher" ||
+              currentMarketingState === "campaign_review" ||
+              currentMarketingState === "awaiting_human_approval"
                 ? "running"
                 : activeCampaignDetail?.campaign.state === "completed"
                 ? "completed"
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "marketing_publisher"
+              activeLocks.marketing_publisher
+                ? `Đang xuất bản: "${activeLocks.marketing_publisher.taskPromptSnippet}"`
+                : marketingActiveAgent === "marketing_publisher"
                 ? marketingAgentMessage ?? "Đang đóng gói và điều phối đăng bài Fanpage..."
                 : undefined
             }
+            waitingTasksCount={getAgentWaitingTasksCount("marketing_publisher")}
           />
+
+          {departmentQueues.marketing.map((task) => (
+            <div key={task.id} className="ccDepartmentWaitingCard">
+              <div className="ccWaitingCardHeader">
+                <div className="ccWaitingCardTitle">
+                  <Clock size={12} className="ccSpinSlow" />
+                  <span>Nhiệm vụ đang xếp hàng</span>
+                </div>
+                <button
+                  type="button"
+                  className="ccWaitingCancelBtn"
+                  onClick={() => handleCancelQueuedTask(task.id, "marketing")}
+                  title="Hủy nhiệm vụ khỏi hàng chờ"
+                >
+                  <X size={11} />
+                  <span>Hủy</span>
+                </button>
+              </div>
+              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <div className="ccWaitingCardResource">
+                <span className="ccWaitingDot" />
+                <span>
+                  Đang đợi {task.waitingForResource?.agentName || "nhân sự phối hợp"} hoàn tất việc...
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {activeCampaignDetail && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
+              onClick={() => {
+                const el = document.getElementById("marketing-proposal-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              <Megaphone size={14} color="#3b82f6" />
+              <span>Xem Bài Viết Fanpage</span>
+            </button>
+          )}
 
           <DepartmentInput
             placeholder="Giao việc cho Tiếp thị & Sáng tạo..."
             theme="blue"
-            disabled={isSubmitting}
             onSend={(text) => handleDepartmentDirectTask("marketing", text)}
           />
         </div>
@@ -2931,10 +3238,18 @@ export function AgenticCommandCenter({
               </div>
               <span>Danh mục & Định giá</span>
             </div>
-            <span className="ccDeptCountBadge">
-              <span className="ccPillDot" style={{ width: 6, height: 6, background: "#06b6d4" }} />
-              <span>2 Nhân sự</span>
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {departmentQueues.merchandising.length > 0 && (
+                <span className="ccDeptQueueBadge">
+                  <Clock size={11} className="ccSpinSlow" />
+                  <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
+                </span>
+              )}
+              <span className="ccDeptCountBadge">
+                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#06b6d4" }} />
+                <span>2 Nhân sự</span>
+              </span>
+            </div>
           </div>
 
           <AgentCard
@@ -2942,6 +3257,7 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="cyan"
             status={
+              Boolean(activeLocks.catalog_copywriter) ||
               marketingActiveAgent === "catalog_copywriter"
                 ? "running"
                 : marketingActiveAgent === "merchandising_visual_collab" ||
@@ -2953,7 +3269,9 @@ export function AgenticCommandCenter({
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "catalog_copywriter"
+              activeLocks.catalog_copywriter
+                ? `Đang tối ưu: "${activeLocks.catalog_copywriter.taskPromptSnippet}"`
+                : marketingActiveAgent === "catalog_copywriter"
                 ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
                 : marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
@@ -2963,7 +3281,11 @@ export function AgenticCommandCenter({
                 ? "Đã hoàn tất tối ưu tên & mô tả SEO"
                 : undefined
             }
-            showProgress={marketingActiveAgent === "catalog_copywriter"}
+            showProgress={
+              Boolean(activeLocks.catalog_copywriter) ||
+              marketingActiveAgent === "catalog_copywriter"
+            }
+            waitingTasksCount={getAgentWaitingTasksCount("catalog_copywriter")}
           />
           <AgentCard
             name="Chuyên gia Định giá"
@@ -2972,6 +3294,7 @@ export function AgenticCommandCenter({
             isCollaborating={marketingActiveAgent === "merchandising_clearance_calc"}
             collabTag="Tiếp nhận từ Kho vận"
             status={
+              Boolean(activeLocks.pricing_strategist) ||
               marketingActiveAgent === "pricing_strategist" ||
               marketingActiveAgent === "merchandising_clearance_calc"
                 ? "running"
@@ -2982,7 +3305,9 @@ export function AgenticCommandCenter({
                 : "idle"
             }
             statusText={
-              marketingActiveAgent === "merchandising_clearance_calc"
+              activeLocks.pricing_strategist
+                ? `Đang định giá: "${activeLocks.pricing_strategist.taskPromptSnippet}"`
+                : marketingActiveAgent === "merchandising_clearance_calc"
                 ? marketingAgentMessage ?? "Đang tiếp nhận SKU tồn kho, tính toán giá xả hàng & biên lợi nhuận..."
                 : marketingActiveAgent === "merchandising_visual_collab"
                 ? "⏳ Đang chuyển giao sang Thiết kế Đồ họa vẽ poster..."
@@ -2993,15 +3318,55 @@ export function AgenticCommandCenter({
                 : undefined
             }
             showProgress={
+              Boolean(activeLocks.pricing_strategist) ||
               marketingActiveAgent === "pricing_strategist" ||
               marketingActiveAgent === "merchandising_clearance_calc"
             }
+            waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
           />
+
+          {departmentQueues.merchandising.map((task) => (
+            <div key={task.id} className="ccDepartmentWaitingCard">
+              <div className="ccWaitingCardHeader">
+                <div className="ccWaitingCardTitle">
+                  <Clock size={12} className="ccSpinSlow" />
+                  <span>Nhiệm vụ đang xếp hàng</span>
+                </div>
+                <button
+                  type="button"
+                  className="ccWaitingCancelBtn"
+                  onClick={() => handleCancelQueuedTask(task.id, "merchandising")}
+                  title="Hủy nhiệm vụ khỏi hàng chờ"
+                >
+                  <X size={11} />
+                  <span>Hủy</span>
+                </button>
+              </div>
+              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <div className="ccWaitingCardResource">
+                <span className="ccWaitingDot" />
+                <span>
+                  Đang đợi {task.waitingForResource?.agentName || "nhân sự phối hợp"} hoàn tất việc...
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {campaignProposal && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(6, 182, 212, 0.4)", color: "#22d3ee" }}
+              onClick={() => setCampaignProposalModalOpen(true)}
+            >
+              <Sparkles size={14} color="#06b6d4" />
+              <span>Xem Đề Xuất Chiến Dịch ({campaignProposal.items.length} SP)</span>
+            </button>
+          )}
 
           <DepartmentInput
             placeholder="Giao việc cho Danh mục & Định giá..."
             theme="cyan"
-            disabled={isSubmitting}
             onSend={(text) => handleDepartmentDirectTask("merchandising", text)}
           />
         </div>
@@ -3015,10 +3380,18 @@ export function AgenticCommandCenter({
               </div>
               <span>Vận hành & Kho</span>
             </div>
-            <span className="ccDeptCountBadge">
-              <span className="ccPillDot" style={{ width: 6, height: 6, background: "#fbbf24" }} />
-              <span>2 Nhân sự</span>
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {departmentQueues.operations.length > 0 && (
+                <span className="ccDeptQueueBadge">
+                  <Clock size={11} className="ccSpinSlow" />
+                  <span>Hàng chờ: {departmentQueues.operations.length}</span>
+                </span>
+              )}
+              <span className="ccDeptCountBadge">
+                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#fbbf24" }} />
+                <span>2 Nhân sự</span>
+              </span>
+            </div>
           </div>
 
           <AgentCard
@@ -3028,6 +3401,7 @@ export function AgenticCommandCenter({
             isCollaborating={marketingActiveAgent === "inventory_clearance_handoff"}
             collabTag="Bàn giao liên phòng"
             status={
+              Boolean(activeLocks.inventory_specialist) ||
               marketingActiveAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_clearance_handoff"
                 ? "running"
@@ -3040,7 +3414,9 @@ export function AgenticCommandCenter({
                 : getBranchState("inventory")
             }
             statusText={
-              marketingActiveAgent === "inventory_clearance_handoff"
+              activeLocks.inventory_specialist
+                ? `Đang kiểm toán: "${activeLocks.inventory_specialist.taskPromptSnippet}"`
+                : marketingActiveAgent === "inventory_clearance_handoff"
                 ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
                 : marketingActiveAgent === "inventory_specialist"
                 ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
@@ -3051,15 +3427,18 @@ export function AgenticCommandCenter({
                 : undefined
             }
             showProgress={
+              Boolean(activeLocks.inventory_specialist) ||
               marketingActiveAgent === "inventory_specialist" ||
               marketingActiveAgent === "inventory_clearance_handoff"
             }
+            waitingTasksCount={getAgentWaitingTasksCount("inventory_specialist")}
           />
           <AgentCard
             name="Điều phối Đơn hàng"
             roleTag="ĐỘI"
             theme="amber"
             status={
+              Boolean(activeLocks.order_coordinator) ||
               marketingActiveAgent === "order_coordinator"
                 ? "running"
                 : operationsProposal
@@ -3069,12 +3448,45 @@ export function AgenticCommandCenter({
                 : getBranchState("order")
             }
             statusText={
-              marketingActiveAgent === "order_coordinator"
+              activeLocks.order_coordinator
+                ? `Đang điều phối: "${activeLocks.order_coordinator.taskPromptSnippet}"`
+                : marketingActiveAgent === "order_coordinator"
                 ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
                 : undefined
             }
-            showProgress={marketingActiveAgent === "order_coordinator"}
+            showProgress={
+              Boolean(activeLocks.order_coordinator) ||
+              marketingActiveAgent === "order_coordinator"
+            }
+            waitingTasksCount={getAgentWaitingTasksCount("order_coordinator")}
           />
+
+          {departmentQueues.operations.map((task) => (
+            <div key={task.id} className="ccDepartmentWaitingCard">
+              <div className="ccWaitingCardHeader">
+                <div className="ccWaitingCardTitle">
+                  <Clock size={12} className="ccSpinSlow" />
+                  <span>Nhiệm vụ đang xếp hàng</span>
+                </div>
+                <button
+                  type="button"
+                  className="ccWaitingCancelBtn"
+                  onClick={() => handleCancelQueuedTask(task.id, "operations")}
+                  title="Hủy nhiệm vụ khỏi hàng chờ"
+                >
+                  <X size={11} />
+                  <span>Hủy</span>
+                </button>
+              </div>
+              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <div className="ccWaitingCardResource">
+                <span className="ccWaitingDot" />
+                <span>
+                  Đang đợi {task.waitingForResource?.agentName || "nhân sự phối hợp"} hoàn tất việc...
+                </span>
+              </div>
+            </div>
+          ))}
 
           {operationsProposal && (
             <button
@@ -3091,7 +3503,6 @@ export function AgenticCommandCenter({
           <DepartmentInput
             placeholder="Giao việc cho Vận hành & Kho..."
             theme="amber"
-            disabled={isSubmitting}
             onSend={(text) => handleDepartmentDirectTask("operations", text)}
           />
         </div>
@@ -3105,10 +3516,18 @@ export function AgenticCommandCenter({
               </div>
               <span>CSKH & Cộng đồng</span>
             </div>
-            <span className="ccDeptCountBadge">
-              <span className="ccPillDot" style={{ width: 6, height: 6, background: "#34d399" }} />
-              <span>2 Nhân sự</span>
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {departmentQueues.support.length > 0 && (
+                <span className="ccDeptQueueBadge">
+                  <Clock size={11} className="ccSpinSlow" />
+                  <span>Hàng chờ: {departmentQueues.support.length}</span>
+                </span>
+              )}
+              <span className="ccDeptCountBadge">
+                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#34d399" }} />
+                <span>2 Nhân sự</span>
+              </span>
+            </div>
           </div>
 
           <AgentCard
@@ -3116,6 +3535,7 @@ export function AgenticCommandCenter({
             roleTag="TRỢ LÝ"
             theme="emerald"
             status={
+              Boolean(activeLocks.support_steward) ||
               marketingActiveAgent === "support_steward"
                 ? "running"
                 : marketingActiveAgent === "crm_specialist" || supportProposal
@@ -3125,17 +3545,24 @@ export function AgenticCommandCenter({
                 : getBranchState("support")
             }
             statusText={
-              marketingActiveAgent === "support_steward"
+              activeLocks.support_steward
+                ? `Đang rà soát: "${activeLocks.support_steward.taskPromptSnippet}"`
+                : marketingActiveAgent === "support_steward"
                 ? marketingAgentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
                 : undefined
             }
-            showProgress={marketingActiveAgent === "support_steward"}
+            showProgress={
+              Boolean(activeLocks.support_steward) ||
+              marketingActiveAgent === "support_steward"
+            }
+            waitingTasksCount={getAgentWaitingTasksCount("support_steward")}
           />
           <AgentCard
             name="Chuyên viên CRM"
             roleTag="SKILL"
             theme="emerald"
             status={
+              Boolean(activeLocks.crm_specialist) ||
               marketingActiveAgent === "crm_specialist"
                 ? "running"
                 : supportProposal
@@ -3145,17 +3572,61 @@ export function AgenticCommandCenter({
                 : getBranchState("crm")
             }
             statusText={
-              marketingActiveAgent === "crm_specialist"
+              activeLocks.crm_specialist
+                ? `Đang phân tích: "${activeLocks.crm_specialist.taskPromptSnippet}"`
+                : marketingActiveAgent === "crm_specialist"
                 ? marketingAgentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
                 : undefined
             }
-            showProgress={marketingActiveAgent === "crm_specialist"}
+            showProgress={
+              Boolean(activeLocks.crm_specialist) ||
+              marketingActiveAgent === "crm_specialist"
+            }
+            waitingTasksCount={getAgentWaitingTasksCount("crm_specialist")}
           />
+
+          {departmentQueues.support.map((task) => (
+            <div key={task.id} className="ccDepartmentWaitingCard">
+              <div className="ccWaitingCardHeader">
+                <div className="ccWaitingCardTitle">
+                  <Clock size={12} className="ccSpinSlow" />
+                  <span>Nhiệm vụ đang xếp hàng</span>
+                </div>
+                <button
+                  type="button"
+                  className="ccWaitingCancelBtn"
+                  onClick={() => handleCancelQueuedTask(task.id, "support")}
+                  title="Hủy nhiệm vụ khỏi hàng chờ"
+                >
+                  <X size={11} />
+                  <span>Hủy</span>
+                </button>
+              </div>
+              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <div className="ccWaitingCardResource">
+                <span className="ccWaitingDot" />
+                <span>
+                  Đang đợi {task.waitingForResource?.agentName || "nhân sự phối hợp"} hoàn tất việc...
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {supportProposal && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
+              onClick={handleDownloadSupportDocx}
+            >
+              <FileText size={14} color="#10b981" />
+              <span>Tải Báo Cáo CSKH Word ({supportProposal.tickets.length} Ticket)</span>
+            </button>
+          )}
 
           <DepartmentInput
             placeholder="Giao việc cho CSKH & CRM..."
             theme="emerald"
-            disabled={isSubmitting}
             onSend={(text) => handleDepartmentDirectTask("support", text)}
           />
         </div>
@@ -3186,17 +3657,24 @@ interface DepartmentInputProps {
   readonly placeholder: string;
   readonly theme: "blue" | "cyan" | "amber" | "emerald" | "purple";
   readonly disabled?: boolean;
-  readonly onSend: (input: string) => void;
+  readonly onSend: (input: string) => void | Promise<void>;
 }
 
 function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInputProps) {
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || disabled) return;
-    onSend(input);
+    if (!input.trim() || disabled || isSending) return;
+    const text = input;
     setInput("");
+    try {
+      setIsSending(true);
+      await onSend(text);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -3206,10 +3684,15 @@ function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInp
         className="ccDeptInput"
         placeholder={placeholder}
         value={input}
-        disabled={disabled}
+        disabled={disabled || isSending}
         onChange={(e) => setInput(e.target.value)}
       />
-      <button type="submit" className={`ccDeptSendBtn theme-${theme}`} title="Giao việc cho phòng ban" disabled={disabled || !input.trim()}>
+      <button
+        type="submit"
+        className={`ccDeptSendBtn theme-${theme}`}
+        title="Giao việc cho phòng ban"
+        disabled={disabled || isSending || !input.trim()}
+      >
         <Send size={14} />
       </button>
     </form>
@@ -3225,6 +3708,7 @@ interface AgentCardProps {
   readonly theme?: "blue" | "cyan" | "amber" | "emerald" | "purple";
   readonly isCollaborating?: boolean;
   readonly collabTag?: string;
+  readonly waitingTasksCount?: number;
 }
 
 function AgentCard({
@@ -3236,6 +3720,7 @@ function AgentCard({
   theme = "blue",
   isCollaborating = false,
   collabTag,
+  waitingTasksCount,
 }: AgentCardProps) {
   const isRunning = status === "running";
 
@@ -3277,6 +3762,13 @@ function AgentCard({
         <p className={`ccAgentContentText ${isRunning ? "activeCalc" : ""}`}>
           {statusText}
         </p>
+      )}
+
+      {waitingTasksCount !== undefined && waitingTasksCount > 0 && (
+        <div className="ccAgentQueueNotice" title="Nhiệm vụ đang xếp hàng chờ tài nguyên này">
+          <Clock size={11} />
+          <span>{waitingTasksCount} nhiệm vụ đang chờ nhân sự này</span>
+        </div>
       )}
 
       {(showProgress || isRunning) && (
