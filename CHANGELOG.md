@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Document Autonomous Proactive Inventory Replenishment Loop design specification (`docs/superpowers/specs/2026-09-10-autonomous-inventory-replenishment-design.md`):
+  - Defined dual-trigger background heartbeat (6-hour cron) and post-order event hook (`order.paid`) for automatic low-stock and high-velocity SKU detection.
+  - Specified AI Logistics Reasoner context querying real-time inventory balances joined with 7-day sales velocity and deterministic heuristic fallback.
+  - Outlined Command Center proactive amber alert banner and human-in-the-loop approval gate via enhanced `OperationsProposalModal` updating PostgreSQL stock with audit trail.
+
+
 - Fix Storefront Campaign Discount Price Resolution and Visual Hierarchy:
   - Resolved SCD Type 2 price history lookup in `PostgresqlPublicCatalogRepository` to correctly match the variant's catalog baseline price when temporary promotional campaign prices are active, ensuring `previousAmountMinor` and `discountPercentage` are accurately populated.
   - Updated Storefront `ProductCard` and `ProductDetailPage` to strictly display the original price with strikethrough first (`<del>`), followed by the discounted price, and the discount percentage tag (`<span className="discount-badge">-{percent}%</span>`).
