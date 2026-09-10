@@ -1,0 +1,85 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { ApplicationError } from "../../../../shared/http/application-error";
+
+export class MarketingApplicationError extends ApplicationError {
+  constructor(
+    statusCode: number,
+    code: string,
+    message: string,
+  ) {
+    super(statusCode, code, message);
+    this.name = "MarketingApplicationError";
+  }
+
+  static outOfScope(message = "Task is out of Marketing department scope"): MarketingApplicationError {
+    return new MarketingApplicationError(400, "OUT_OF_DEPARTMENT_SCOPE", message);
+  }
+
+  static crossDepartmentCoordinationRequired(
+    message = "Cross-department coordination is required for this request",
+  ): MarketingApplicationError {
+    return new MarketingApplicationError(
+      400,
+      "CROSS_DEPARTMENT_COORDINATION_REQUIRED",
+      message,
+    );
+  }
+
+  static waitingForInput(message = "Missing required brief fields"): MarketingApplicationError {
+    return new MarketingApplicationError(400, "WAITING_FOR_INPUT", message);
+  }
+
+  static campaignNotFound(id: string): MarketingApplicationError {
+    return new MarketingApplicationError(404, "CAMPAIGN_NOT_FOUND", `Marketing campaign ${id} not found.`);
+  }
+
+  static idempotencyConflict(key: string): MarketingApplicationError {
+    return new MarketingApplicationError(
+      409,
+      "IDEMPOTENCY_KEY_CONFLICT",
+      `Idempotency key '${key}' was already used with different parameters.`,
+    );
+  }
+
+  static invalidStateTransition(message: string): MarketingApplicationError {
+    return new MarketingApplicationError(409, "INVALID_STATE_TRANSITION", message);
+  }
+
+  static packageNotFound(id: string): MarketingApplicationError {
+    return new MarketingApplicationError(404, "PACKAGE_NOT_FOUND", `Publication package ${id} not found.`);
+  }
+
+  static packageNotApproved(id: string): MarketingApplicationError {
+    return new MarketingApplicationError(400, "PACKAGE_NOT_APPROVED", `Publication package ${id} is not in approved state.`);
+  }
+
+  static publicationFailed(message: string): MarketingApplicationError {
+    return new MarketingApplicationError(502, "PUBLICATION_FAILED", message);
+  }
+
+  static publicationRetryNotAllowed(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      409,
+      "PUBLICATION_RETRY_NOT_ALLOWED",
+      "Only a failed campaign with an approved publication package can be retried.",
+    );
+  }
+
+  static facebookCredentialsUnavailable(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      503,
+      "FACEBOOK_CREDENTIALS_UNAVAILABLE",
+      "Facebook Page publishing credentials are not configured.",
+    );
+  }
+
+  static assetStorageUnavailable(): MarketingApplicationError {
+    return new MarketingApplicationError(
+      503,
+      "MARKETING_ASSET_STORAGE_UNAVAILABLE",
+      "The approved Marketing visual cannot be loaded from private storage.",
+    );
+  }
+}

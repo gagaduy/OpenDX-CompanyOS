@@ -13,6 +13,7 @@ help:
 
 up:
 	$(COMPOSE) up --build -d --wait
+	@if [ -f .env ]; then OPENDX_ENV_FILE="$(CURDIR)/.env" node scripts/dev/sync-instagram-quick-tunnel.mjs; fi
 
 down:
 	$(COMPOSE) down --remove-orphans

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { RequestHandler } from "express";
 import type { CustomerProfileServiceContract } from "../../application/services/interfaces/customer-profile.service";
+import type { CustomerWishlistServiceContract } from "../../application/services/interfaces/customer-wishlist.service";
 import { successResponse } from "../../../../shared/http/api-response";
 import { customerState } from "../middleware/customer-session.middleware";
 import {
@@ -10,9 +11,13 @@ import {
   idSchema,
   parseBody,
   profileSchema,
+  wishlistQuerySchema,
 } from "../validators/customer.validator";
 export class CustomerAccountController {
-  constructor(private readonly service: CustomerProfileServiceContract) {}
+  constructor(
+    private readonly service: CustomerProfileServiceContract,
+    private readonly wishlist: CustomerWishlistServiceContract,
+  ) {}
   get: RequestHandler = async (_req, res, next) => {
     try {
       res.json(
@@ -105,6 +110,54 @@ export class CustomerAccountController {
       res.json(successResponse("Default address updated", {}));
     } catch (e) {
       next(e);
+    }
+  };
+  listWishlist: RequestHandler = async (req, res, next) => {
+    try {
+      const result = await this.wishlist.list(
+        customerState(res).customerId,
+        parseBody(wishlistQuerySchema, req.query),
+      );
+      res.json(
+        successResponse("Wishlist retrieved", result.items, {
+          page: result.page,
+          pageSize: result.pageSize,
+          totalItems: result.totalItems,
+          totalPages: result.totalPages,
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+  addWishlistItem: RequestHandler = async (req, res, next) => {
+    try {
+      res.json(
+        successResponse(
+          "Wishlist item added",
+          await this.wishlist.add(
+            customerState(res).customerId,
+            parseBody(idSchema, req.params.productId),
+          ),
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+  removeWishlistItem: RequestHandler = async (req, res, next) => {
+    try {
+      res.json(
+        successResponse(
+          "Wishlist item removed",
+          await this.wishlist.remove(
+            customerState(res).customerId,
+            parseBody(idSchema, req.params.productId),
+          ),
+        ),
+      );
+    } catch (error) {
+      next(error);
     }
   };
 }

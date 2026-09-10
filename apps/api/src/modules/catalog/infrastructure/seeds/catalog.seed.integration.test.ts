@@ -53,6 +53,9 @@ describeWithInfrastructure("NovaCommerce catalog seed", () => {
 
   it("creates a repeatable six-category technology catalog with media", async () => {
     await seedCatalog(transactions, storage);
+    await pool.query(
+      "UPDATE storefront_service_assurances SET title = 'stale' WHERE code = 'free-delivery'",
+    );
     await seedCatalog(transactions, storage);
 
     const counts = await pool.query<{
@@ -98,5 +101,36 @@ describeWithInfrastructure("NovaCommerce catalog seed", () => {
     );
     expect(productSlugs.rows.map(({ slug }) => slug)).toContain("graphics-card");
     expect(productSlugs.rows.map(({ slug }) => slug)).toContain("phone-pro");
+
+    const assurances = await pool.query<{
+      code: string;
+      icon_key: string;
+      title: string;
+      description: string;
+      sort_order: number;
+      enabled: boolean;
+    }>(`SELECT code, icon_key, title, description, sort_order, enabled
+        FROM storefront_service_assurances ORDER BY sort_order, code`);
+    expect(assurances.rows).toEqual([
+      { code: "free-delivery", icon_key: "truck", title: "Miễn phí vận chuyển", description: "Cho đơn hàng đủ điều kiện", sort_order: 0, enabled: true },
+      { code: "official-warranty", icon_key: "shield-check", title: "Bảo hành chính hãng", description: "Cam kết sản phẩm xác thực", sort_order: 1, enabled: true },
+      { code: "zero-installment", icon_key: "badge-percent", title: "Trả góp 0%", description: "Theo điều kiện thanh toán", sort_order: 2, enabled: true },
+      { code: "customer-support", icon_key: "headphones", title: "Hỗ trợ 24/7", description: "Đồng hành khi bạn cần", sort_order: 3, enabled: true },
+    ]);
+
+    const metrics = await pool.query<{
+      code: string;
+      display_value: string;
+      label: string;
+      sort_order: number;
+      enabled: boolean;
+    }>(`SELECT code, display_value, label, sort_order, enabled
+        FROM storefront_trust_metrics ORDER BY sort_order, code`);
+    expect(metrics.rows).toEqual([
+      { code: "authentic-products", display_value: "100%", label: "Sản phẩm chính hãng", sort_order: 0, enabled: true },
+      { code: "trusted-brands", display_value: "30+", label: "Thương hiệu uy tín", sort_order: 1, enabled: true },
+      { code: "product-selection", display_value: "1.000+", label: "Sản phẩm đa dạng", sort_order: 2, enabled: true },
+      { code: "trusted-customers", display_value: "50.000+", label: "Khách hàng tin tưởng", sort_order: 3, enabled: true },
+    ]);
   });
 });

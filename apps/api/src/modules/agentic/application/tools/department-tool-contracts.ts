@@ -22,7 +22,13 @@ export type DepartmentToolName =
   | "crm.followup_opportunities"
   | "support.sla_risk"
   | "support.classification_summary"
-  | "support.related_order_context";
+  | "support.related_order_context"
+  | "marketing.fetch_campaign_brief"
+  | "marketing.fetch_catalog_product_summary"
+  | "marketing.save_content_draft"
+  | "marketing.save_visual_asset"
+  | "marketing.assemble_publication_package"
+  | "marketing.fetch_publication_status";
 
 export type DepartmentToolScope =
   | "catalog:health:read"
@@ -30,7 +36,13 @@ export type DepartmentToolScope =
   | "order:health:read"
   | "finance:health:read"
   | "crm:health:read"
-  | "support:health:read";
+  | "support:health:read"
+  | "marketing:campaign:read"
+  | "marketing:catalog:read"
+  | "marketing:content:write"
+  | "marketing:visual:write"
+  | "marketing:package:write"
+  | "marketing:publication:read";
 
 export type ToolClassification = "internal" | "confidential" | "restricted";
 export type ToolShareability = "executive_summary" | "department_only";
@@ -65,7 +77,7 @@ export interface DepartmentToolInvocationRequest {
   readonly taskId: string;
   readonly toolName: DepartmentToolName;
   readonly toolVersion: 1;
-  readonly purpose: "store_health_review";
+  readonly purpose: "store_health_review" | "marketing_publication";
   readonly dataScope: DepartmentToolScope;
   readonly dataClassification: ToolClassification;
   readonly modelId: string;
@@ -80,7 +92,7 @@ export interface DepartmentToolDescriptor {
   readonly name: DepartmentToolName;
   readonly version: 1;
   readonly agentKind: DepartmentAgentKind;
-  readonly purpose: "store_health_review";
+  readonly purpose: "store_health_review" | "marketing_publication";
   readonly dataScope: DepartmentToolScope;
   readonly classification: ToolClassification;
   readonly shareability: ToolShareability;

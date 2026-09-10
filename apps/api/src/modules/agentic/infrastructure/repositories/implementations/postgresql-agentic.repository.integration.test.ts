@@ -53,7 +53,8 @@ suite("PostgresqlAgenticRepository", () => {
       agentic_configuration_revisions, agentic_agents CASCADE`);
     await pool.query(`INSERT INTO agentic_agents(kind,keycloak_client_id) VALUES
       ('ai_ceo','agent-ai-ceo'),('catalog','agent-catalog'),('inventory','agent-inventory'),
-      ('order','agent-order'),('finance','agent-finance'),('crm','agent-crm'),('support','agent-support')`);
+      ('order','agent-order'),('finance','agent-finance'),('crm','agent-crm'),('support','agent-support'),
+      ('marketing_content','agent-marketing-content'),('marketing_visual','agent-marketing-visual'),('marketing_publisher','agent-marketing-publisher')`);
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);

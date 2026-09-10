@@ -11,9 +11,13 @@ from urllib.parse import ParseResult, urlparse
 
 
 Environment = Literal["development", "test", "production"]
-DepartmentAgentKind = Literal["catalog", "inventory", "order", "finance", "crm", "support"]
+DepartmentAgentKind = Literal[
+    "catalog", "inventory", "order", "finance", "crm", "support",
+    "marketing_content", "marketing_visual", "marketing_publisher"
+]
 DEPARTMENT_AGENT_KINDS: tuple[DepartmentAgentKind, ...] = (
-    "catalog", "inventory", "order", "finance", "crm", "support"
+    "catalog", "inventory", "order", "finance", "crm", "support",
+    "marketing_content", "marketing_visual", "marketing_publisher"
 )
 
 
@@ -98,10 +102,10 @@ class RuntimeSettings:
     def from_mapping(cls, values: Mapping[str, str]) -> RuntimeSettings:
         environment = _environment(values)
         start_to_close = _positive_integer(
-            values, "ACTIVITY_START_TO_CLOSE_SECONDS", 30, maximum=86_400
+            values, "ACTIVITY_START_TO_CLOSE_SECONDS", 120, maximum=86_400
         )
         schedule_to_close = _positive_integer(
-            values, "ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS", 180, maximum=86_400
+            values, "ACTIVITY_SCHEDULE_TO_CLOSE_SECONDS", 300, maximum=86_400
         )
         if schedule_to_close < start_to_close:
             raise ConfigurationError(

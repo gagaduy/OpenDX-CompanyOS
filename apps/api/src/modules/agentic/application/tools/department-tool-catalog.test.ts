@@ -9,11 +9,11 @@ import {
 } from "./department-tool-catalog";
 
 describe("department tool catalog", () => {
-  it("defines 17 unique immutable version-one descriptors", () => {
-    expect(DEPARTMENT_TOOL_CATALOG).toHaveLength(17);
+  it("defines 23 unique immutable version-one descriptors", () => {
+    expect(DEPARTMENT_TOOL_CATALOG).toHaveLength(23);
     expect(new Set(
       DEPARTMENT_TOOL_CATALOG.map((tool) => `${tool.name}@${tool.version}`),
-    ).size).toBe(17);
+    ).size).toBe(23);
     expect(DEPARTMENT_TOOL_CATALOG.every((tool) => tool.version === 1)).toBe(true);
     expect(Object.isFrozen(DEPARTMENT_TOOL_CATALOG)).toBe(true);
     expect(DEPARTMENT_TOOL_CATALOG.every(Object.isFrozen)).toBe(true);
@@ -22,8 +22,12 @@ describe("department tool catalog", () => {
   it("binds every descriptor to one Agent, scope, classification, and digest", () => {
     for (const tool of DEPARTMENT_TOOL_CATALOG) {
       expect(tool.agentKind).not.toBe("ai_ceo");
-      expect(tool.dataScope).toBe(`${tool.agentKind}:health:read`);
-      expect(tool.purpose).toBe("store_health_review");
+      if (tool.purpose === "store_health_review") {
+        expect(tool.dataScope).toBe(`${tool.agentKind}:health:read`);
+      } else {
+        expect(tool.purpose).toBe("marketing_publication");
+        expect(tool.dataScope).toMatch(/^marketing:/);
+      }
       expect(tool.inputSchemaDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(tool.outputSchemaDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(tool.executionCostMicros).toBe(1);

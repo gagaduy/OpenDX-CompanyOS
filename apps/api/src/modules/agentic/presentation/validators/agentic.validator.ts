@@ -11,7 +11,10 @@ import {
 const uuid = z.uuid();
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const positiveVersion = z.number().int().positive();
-const agentKind = z.enum(["ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"]);
+const agentKind = z.enum([
+  "ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support",
+  "marketing_content", "marketing_visual", "marketing_publisher",
+]);
 const page = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),

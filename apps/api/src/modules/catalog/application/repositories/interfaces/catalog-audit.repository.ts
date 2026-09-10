@@ -7,7 +7,7 @@ export interface CatalogAuditEntry {
   readonly id: string;
   readonly actorId: string;
   readonly action: string;
-  readonly resourceType: "category" | "product" | "variant" | "price" | "media";
+  readonly resourceType: "category" | "product" | "variant" | "price" | "media" | "campaign";
   readonly resourceId: string;
   readonly outcome: "success" | "failure" | "denied";
   readonly correlationId: string;

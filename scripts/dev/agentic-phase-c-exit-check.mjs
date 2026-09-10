@@ -99,7 +99,8 @@ function rejectMatch(value, pattern, message) {
 export function validateAgenticPhaseC({ sources }) {
   const descriptors = [...sources.toolCatalog.matchAll(
     /source\("([a-z_.]+)",\s*"([a-z_]+)"/g,
-  )].map((match) => ({ name: match[1], owner: match[2] }));
+  )].map((match) => ({ name: match[1], owner: match[2] }))
+    .filter(({ owner }) => departments.includes(owner));
   const names = descriptors.map(({ name }) => name);
   if (
     descriptors.length !== 17

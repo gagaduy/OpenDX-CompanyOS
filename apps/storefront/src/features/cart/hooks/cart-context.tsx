@@ -14,6 +14,7 @@ import {
 import type { CartApi } from "../api/cart-api";
 import { emptyAnonymousCart } from "../mappers/cart.mapper";
 import type { StorefrontCart } from "../types/cart.types";
+import { useOptionalCustomerSession } from "../../authentication";
 
 interface CartContextValue {
   readonly cart: StorefrontCart;
@@ -42,6 +43,10 @@ export function CartProvider({
   readonly api: CartApi;
   readonly children: ReactNode;
 }) {
+  const session = useOptionalCustomerSession();
+  const customerId = session?.kind === "customer" ? session.customerId : undefined;
+  const sessionKind = session?.kind;
+
   const [cart, setCart] = useState(emptyAnonymousCart);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -66,7 +71,7 @@ export function CartProvider({
   }, [api]);
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, customerId, sessionKind]);
   const mutate = useCallback(
     async (operation: () => Promise<StorefrontCart>) => {
       setLoading(true);

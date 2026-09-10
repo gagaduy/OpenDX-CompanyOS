@@ -37,9 +37,17 @@ def test_rejects_payload_or_authority_digest_mismatch_and_sensitive_fields() -> 
 
 def test_ai_ceo_schema_digests_match_the_api_catalog() -> None:
     assert {name: canonical_digest(schema) for name, schema in AI_CEO_RESULT_SCHEMAS.items()} == {
-        "orchestration_plan_proposal_v1": "c7e0c56c2a125433828418434f2a294bb4c40362bf6f5948ffec0ec84f8ab352",
+        "orchestration_plan_proposal_v1": "1bffcb5714ace0e15acf6e3cee3b32ec211f337984896bc97cf2ff7ea627dd17",
         "store_health_ai_ceo_report_v1": "9eb44168f058917b0eec2c1f30b7dbb6fc54ee6c8e7b1d891da3d56d0ddbe51f",
     }
+
+    owners = AI_CEO_RESULT_SCHEMAS["orchestration_plan_proposal_v1"][
+        "properties"
+    ]["subtasks"]["items"]["properties"]["owner"]["enum"]
+    assert owners == [
+        "catalog", "inventory", "order", "finance", "crm", "support",
+        "marketing_content", "marketing_visual", "marketing_publisher",
+    ]
 
 
 def test_planning_schema_requires_independent_department_branches() -> None:

@@ -8,6 +8,7 @@ import type {
   PaginatedPublicProductsDto,
   PublicProductDto,
   StorefrontHeroSlideDto,
+  StorefrontHeroPresentationDto,
 } from "../../dtos/responses/public-catalog-response.dto";
 import type {
   PublicCatalogRepository,
@@ -22,6 +23,12 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     private readonly inventory: InventoryAvailabilityReader,
     private readonly transactions: TransactionRunner,
   ) {}
+
+  getStorefrontContent() {
+    return this.transactions.runReadOnly((session) =>
+      this.repository.listStorefrontContent(session),
+    );
+  }
 
   listCategories() {
     return this.transactions.runReadOnly((session) =>
@@ -39,6 +46,44 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
         category: slide.category,
         product: products[index]!,
       }));
+    });
+  }
+
+  async getHeroPresentation(): Promise<StorefrontHeroPresentationDto> {
+    return this.transactions.runReadOnly(async (session) => {
+      const presentation = await this.repository.findActiveHeroPresentation(session);
+      if (
+        presentation !== undefined &&
+        presentation.configuredChapterCount > 0 &&
+        presentation.slides.length === presentation.configuredChapterCount
+      ) {
+        const products = await this.enrich(
+          presentation.slides.map(({ product }) => product),
+        );
+        return {
+          media: {
+            id: presentation.media.id,
+            contentUrl: `/v1/storefront/hero-media/${presentation.media.id}/content`,
+            contentType: presentation.media.contentType,
+            byteSize: presentation.media.byteSize,
+            durationMs: presentation.media.durationMs,
+          },
+          slides: presentation.slides.map((slide, index) => ({
+            category: slide.category,
+            product: products[index]!,
+            chapter: slide.chapter,
+          })),
+        };
+      }
+
+      const slides = await this.repository.listHeroSlides(session);
+      const products = await this.enrich(slides.map(({ product }) => product));
+      return {
+        slides: slides.map((slide, index) => ({
+          category: slide.category,
+          product: products[index]!,
+        })),
+      };
     });
   }
 
@@ -98,6 +143,15 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
     });
   }
 
+  async getPublishedByIds(
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductDto[]> {
+    if (productIds.length === 0) return [];
+    return this.transactions.runReadOnly(async (session) =>
+      this.enrich(await this.repository.findProductsByIds(session, productIds)),
+    );
+  }
+
   async getMediaContentAuthorization(productId: string, mediaId: string) {
     return this.transactions.runReadOnly(async (session) => {
       const authorization = await this.repository.findMediaAuthorization(
@@ -109,6 +163,22 @@ export class PublicCatalogService implements PublicCatalogServiceContract {
         throw new CatalogApplicationError(
           "PRODUCT_NOT_PUBLISHED",
           "Published product media not found",
+        );
+      }
+      return authorization;
+    });
+  }
+
+  async getHeroMediaContentAuthorization(mediaId: string) {
+    return this.transactions.runReadOnly(async (session) => {
+      const authorization = await this.repository.findHeroMediaAuthorization(
+        session,
+        mediaId,
+      );
+      if (authorization === undefined) {
+        throw new CatalogApplicationError(
+          "NOT_FOUND",
+          "Active hero media not found",
         );
       }
       return authorization;

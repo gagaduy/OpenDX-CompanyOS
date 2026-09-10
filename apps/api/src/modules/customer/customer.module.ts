@@ -11,6 +11,8 @@ import { CustomerSessionService } from "./application/services/implementations/c
 import { CheckoutCustomerReaderService } from "./application/services/implementations/checkout-customer-reader";
 import { CustomerOperationsReaderService } from "./application/services/implementations/customer-operations-reader";
 import type { CustomerCartLoginResolver } from "./application/services/interfaces/customer-cart-login-resolver";
+import type { PublicWishlistProductReader } from "../catalog";
+import { CustomerWishlistService } from "./application/services/implementations/customer-wishlist.service";
 import { PostgresqlCustomerAuditRepository } from "./infrastructure/repositories/implementations/postgresql-customer-audit.repository";
 import { PostgresqlCustomerRepository } from "./infrastructure/repositories/implementations/postgresql-customer.repository";
 import { CustomerAccountController } from "./presentation/controllers/customer-account.controller";
@@ -36,6 +38,7 @@ export interface CustomerModuleDependencies {
   readonly cookies: StorefrontCookieConfig;
   readonly authenticationRateLimit: number;
   readonly cartLoginResolver?: CustomerCartLoginResolver;
+  readonly wishlistProducts: PublicWishlistProductReader;
 }
 
 export function createCustomerModule(dependencies: CustomerModuleDependencies) {
@@ -65,6 +68,12 @@ export function createCustomerModule(dependencies: CustomerModuleDependencies) {
   );
   const checkout = new CheckoutCustomerReaderService(repository);
   const operations = new CustomerOperationsReaderService(repository, dependencies.transactions);
+  const wishlist = new CustomerWishlistService(
+    repository,
+    dependencies.wishlistProducts,
+    dependencies.transactions,
+    dependencies.now,
+  );
   const origin = requireStorefrontOrigin(dependencies.storefrontOrigin);
   const csrf = requireCsrf(dependencies.cookies);
   const customer = requireCustomerSession(sessions, dependencies.cookies);
@@ -84,12 +93,12 @@ export function createCustomerModule(dependencies: CustomerModuleDependencies) {
   );
   router.use(
     createCustomerAccountRouter(
-      new CustomerAccountController(profile),
+      new CustomerAccountController(profile, wishlist),
       customer,
       origin,
       csrf,
     ),
   );
   router.use(customerErrorMiddleware);
-  return { router, sessions, profile, checkout, operations };
+  return { router, sessions, profile, checkout, operations, wishlist };
 }

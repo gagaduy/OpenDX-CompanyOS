@@ -19,7 +19,7 @@ interface CatalogAuditRow {
   occurred_at: Date | string;
 }
 
-const RESOURCE_TYPES = ["category", "product", "variant", "price", "media"] as const;
+const RESOURCE_TYPES = ["category", "product", "variant", "price", "media", "campaign"] as const;
 const OUTCOMES = ["success", "failure", "denied"] as const;
 
 export class PostgresqlCatalogAuditRepository

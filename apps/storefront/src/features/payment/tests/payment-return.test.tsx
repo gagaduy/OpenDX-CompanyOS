@@ -32,6 +32,9 @@ describe("payment return", () => {
     expect(
       await screen.findByRole("heading", { name: "Đang xác minh thanh toán" }),
     ).toBeVisible();
+    expect(screen.getByRole("region", { name: "Trạng thái thanh toán" })).toHaveAttribute(
+      "data-status", "pending",
+    );
     expect(screen.queryByText("Thanh toán đã xác nhận")).not.toBeInTheDocument();
   });
 
@@ -40,6 +43,9 @@ describe("payment return", () => {
     expect(
       await screen.findByRole("heading", { name: "Thanh toán đã xác nhận" }),
     ).toBeVisible();
+    expect(screen.getByRole("region", { name: "Trạng thái thanh toán" })).toHaveAttribute(
+      "data-status", "paid",
+    );
     await waitFor(() => {
       expect(localStorage.getItem("novacommerce.pending-checkout")).toBeNull();
     });

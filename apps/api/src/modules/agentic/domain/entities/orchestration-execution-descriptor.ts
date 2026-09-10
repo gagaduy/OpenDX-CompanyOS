@@ -10,11 +10,11 @@ export type DepartmentAgentKind = Exclude<AgentKind, "ai_ceo">;
 export interface ExecutionToolGrant {
   readonly name: string;
   readonly version: 1;
-  readonly purpose: "store_health_review";
+  readonly purpose: "store_health_review" | "marketing_publication";
   readonly dataScope: string;
   readonly dataClassification: "internal" | "confidential" | "restricted";
   readonly maximumInvocations: number;
-  readonly parameterTemplate: "empty" | "aggregate_window_24h" | "evidence_window_24h";
+  readonly parameterTemplate: "empty" | "aggregate_window_24h" | "evidence_window_24h" | "marketing_brief_campaign" | "marketing_content_draft" | "marketing_visual_spec" | "marketing_package_assemble" | "marketing_facebook_publish";
 }
 
 export interface ExecutionDescriptorPayload {

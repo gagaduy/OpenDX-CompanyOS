@@ -77,6 +77,7 @@ export function clearCookie(
       secure: config.secure,
       sameSite: "lax",
       path: "/v1/storefront",
+      maxAge: 0,
       expires: new Date(0),
     }),
   );
@@ -96,6 +97,7 @@ function clearCsrfCookieAtPath(
       secure: config.secure,
       sameSite: "lax",
       path,
+      maxAge: 0,
       expires: new Date(0),
     }),
   );

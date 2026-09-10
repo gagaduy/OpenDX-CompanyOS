@@ -9,7 +9,7 @@ ENV CI=true
 WORKDIR /workspace
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends git \
+  && apt-get install --yes --no-install-recommends git fonts-dejavu-core fontconfig \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable \
   && corepack prepare pnpm@11.18.0 --activate \

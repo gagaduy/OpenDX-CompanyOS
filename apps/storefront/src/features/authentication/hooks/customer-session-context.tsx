@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -36,17 +37,30 @@ export function CustomerSessionProvider({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const restore = useCallback(async () => {
-    setLoading(true);
-    try {
-      setSession(await api.get());
-      setError(undefined);
-    } catch {
-      setSession({ kind: "anonymous" });
-      setError("Không thể khôi phục phiên đăng nhập.");
-    } finally {
-      setLoading(false);
-    }
+  const restoreInFlight = useRef<Promise<void> | undefined>(undefined);
+  const restore = useCallback(() => {
+    const activeRestore = restoreInFlight.current;
+    if (activeRestore !== undefined) return activeRestore;
+
+    const request = (async () => {
+      setLoading(true);
+      try {
+        setSession(await api.get());
+        setError(undefined);
+      } catch {
+        setSession({ kind: "anonymous" });
+        setError("Không thể khôi phục phiên đăng nhập.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    restoreInFlight.current = request;
+    void request.finally(() => {
+      if (restoreInFlight.current === request) {
+        restoreInFlight.current = undefined;
+      }
+    });
+    return request;
   }, [api]);
   useEffect(() => {
     void restore();
@@ -54,6 +68,12 @@ export function CustomerSessionProvider({
   const login = useCallback(
     async (credential: string) => {
       setLoading(true);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.clear();
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("novacommerce.pending-checkout");
+      }
       try {
         const next = await api.login(credential);
         setSession(next);
@@ -66,6 +86,12 @@ export function CustomerSessionProvider({
     [api],
   );
   const logout = useCallback(async () => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.clear();
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("novacommerce.pending-checkout");
+    }
     await api.logout();
     setSession({ kind: "anonymous" });
   }, [api]);
@@ -89,4 +115,20 @@ export function useCustomerSession(): SessionContextValue {
   if (value === undefined)
     throw new Error("CustomerSessionProvider is required");
   return value;
+}
+
+export function useOptionalCustomerSession(): CustomerSession | undefined {
+  const value = useContext(SessionContext);
+  return value?.session;
+}
+
+export function useOptionalCustomerSessionState(): {
+  readonly session?: CustomerSession;
+  readonly sessionLoading: boolean;
+} {
+  const value = useContext(SessionContext);
+  return {
+    session: value?.session,
+    sessionLoading: value?.loading ?? false,
+  };
 }

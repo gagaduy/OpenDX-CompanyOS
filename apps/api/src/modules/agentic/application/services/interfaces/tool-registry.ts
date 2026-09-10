@@ -35,7 +35,7 @@ export interface ToolInvocation {
   readonly toolName: DepartmentToolName;
   readonly toolVersion: 1;
   readonly modelId: string;
-  readonly purpose: "store_health_review";
+  readonly purpose: "store_health_review" | "marketing_publication";
   readonly dataScope: DepartmentToolScope;
   readonly dataClassification: ToolClassification;
   readonly parameters: Readonly<Record<string, unknown>>;

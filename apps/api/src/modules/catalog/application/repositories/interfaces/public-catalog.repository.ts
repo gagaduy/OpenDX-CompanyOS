@@ -5,7 +5,10 @@ import type { DatabaseSession } from "../../../../../shared/database/transaction
 import type { ProductAttributes } from "../../../domain/entities/product";
 import type { VariantOptions } from "../../../domain/entities/product-variant";
 import type { PublicProductListQuery } from "../../dtos/requests/public-catalog-request.dto";
-import type { PublicCategoryDto } from "../../dtos/responses/public-catalog-response.dto";
+import type {
+  PublicCategoryDto,
+  PublicStorefrontContentDto,
+} from "../../dtos/responses/public-catalog-response.dto";
 
 export interface PublicationReadinessSnapshot {
   readonly categoryActive: boolean;
@@ -37,6 +40,8 @@ export interface PublicProductProjection {
     readonly price: {
       readonly amountMinor: number;
       readonly currency: "VND";
+      readonly previousAmountMinor?: number;
+      readonly discountPercentage?: number;
     };
   }[];
 }
@@ -53,6 +58,31 @@ export interface PublicHeroSlideProjection {
     readonly slug: string;
   };
   readonly product: PublicProductProjection;
+}
+
+export interface PublicHeroPresentationProjection {
+  readonly media: {
+    readonly id: string;
+    readonly objectKey: string;
+    readonly contentType: "video/mp4";
+    readonly byteSize: number;
+    readonly durationMs: number;
+  };
+  readonly configuredChapterCount: number;
+  readonly slides: readonly (PublicHeroSlideProjection & {
+    readonly chapter: {
+      readonly startMs: number;
+      readonly endMs: number;
+      readonly label: string;
+    };
+  })[];
+}
+
+export interface PublicHeroMediaAuthorization {
+  readonly mediaId: string;
+  readonly objectKey: string;
+  readonly contentType: "video/mp4";
+  readonly byteSize: number;
 }
 
 export interface PublicMediaAuthorization {
@@ -76,6 +106,9 @@ export interface StorefrontVariantProjection {
 }
 
 export interface PublicCatalogRepository {
+  listStorefrontContent(
+    session: DatabaseSession,
+  ): Promise<PublicStorefrontContentDto>;
   inspectPublicationReadiness(
     session: DatabaseSession,
     productId: string,
@@ -84,6 +117,13 @@ export interface PublicCatalogRepository {
   listHeroSlides(
     session: DatabaseSession,
   ): Promise<readonly PublicHeroSlideProjection[]>;
+  findActiveHeroPresentation(
+    session: DatabaseSession,
+  ): Promise<PublicHeroPresentationProjection | undefined>;
+  findHeroMediaAuthorization(
+    session: DatabaseSession,
+    mediaId: string,
+  ): Promise<PublicHeroMediaAuthorization | undefined>;
   listProducts(
     session: DatabaseSession,
     query: PublicProductListQuery,
@@ -92,6 +132,10 @@ export interface PublicCatalogRepository {
     session: DatabaseSession,
     slug: string,
   ): Promise<PublicProductProjection | undefined>;
+  findProductsByIds(
+    session: DatabaseSession,
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductProjection[]>;
   findMediaAuthorization(
     session: DatabaseSession,
     productId: string,

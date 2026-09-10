@@ -28,8 +28,11 @@ describe("Agent governance rules", () => {
       "finance",
       "crm",
       "support",
+      "marketing_content",
+      "marketing_visual",
+      "marketing_publisher",
     ]);
-    expect(new Set(AGENT_KINDS).size).toBe(7);
+    expect(new Set(AGENT_KINDS).size).toBe(10);
   });
 
   it("readies a draft task by pinning one configuration revision", () => {

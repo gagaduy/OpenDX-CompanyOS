@@ -20,6 +20,7 @@ export function PaymentReturnPage({ api }: { readonly api: PaymentApi }) {
   const terminalFailure =
     status.checkout?.status === "expired" ||
     status.checkout?.status === "canceled";
+  const displayStatus = paid ? "paid" : terminalFailure ? "terminal" : "pending";
 
   useEffect(() => {
     if (paid || terminalFailure) clearPendingCheckout();
@@ -27,7 +28,11 @@ export function PaymentReturnPage({ api }: { readonly api: PaymentApi }) {
 
   return (
     <main id="main-content" className="payment-result-page">
-      <div className="payment-result-content">
+      <section
+        className="payment-result-content payment-status-panel"
+        aria-label="Trạng thái thanh toán"
+        data-status={displayStatus}
+      >
         {paid ? (
           <CheckCircle2 className="result-icon success" />
         ) : terminalFailure ? (
@@ -76,7 +81,7 @@ export function PaymentReturnPage({ api }: { readonly api: PaymentApi }) {
             Tiếp tục mua sắm
           </Link>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

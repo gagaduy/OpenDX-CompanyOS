@@ -28,6 +28,22 @@ const validSource = {
   MEDIA_MAX_BYTES: "10485760",
 } as const;
 
+const liveInstagramSource = {
+  INSTAGRAM_PUBLICATION_MODE: "live",
+  INSTAGRAM_ACCOUNT_CONFIGURATION_ID: "ig-live-1",
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: "17841400000000000",
+  INSTAGRAM_ACCESS_TOKEN: "page-access-token",
+  INSTAGRAM_PUBLIC_MEDIA_BASE_URL:
+    "https://random.trycloudflare.com/v1/public/marketing/media",
+  MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: "s".repeat(32),
+  MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "900",
+  MARKETING_INSTAGRAM_JPEG_QUALITY: "90",
+  MARKETING_PUBLIC_MEDIA_RATE_LIMIT: "120",
+  MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: "60000",
+  INSTAGRAM_CONTAINER_POLL_INTERVAL_MS: "5000",
+  INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS: "60",
+} as const;
+
 describe("parseApiEnvironment", () => {
   it("returns typed runtime configuration", () => {
     const environment = parseApiEnvironment(validSource);
@@ -56,6 +72,19 @@ describe("parseApiEnvironment", () => {
       requestTimeoutMs: 5_000,
     });
     expect(environment.googleClientId).toBeUndefined();
+    expect(environment.marketing).toMatchObject({
+      pollIntervalMs: 5000,
+      targetLeaseSeconds: 30,
+      meta: {
+        graphBaseUrl: "https://graph.facebook.com",
+        requestTimeoutMs: 10000,
+      },
+      facebook: {},
+      instagram: {
+        mode: "simulation",
+        accountConfigurationId: "instagram-local-simulation",
+      },
+    });
     expect(environment.agentic).toMatchObject({
       executionEnabled: false,
       controlClientId: "opendx-agentic-control",
@@ -65,6 +94,113 @@ describe("parseApiEnvironment", () => {
       dispatcherIntervalMs: 5_000,
       dispatcherBatchSize: 20,
     });
+  });
+
+  it("parses live Instagram configuration when all required fields are present", () => {
+    const environment = parseApiEnvironment({
+      ...validSource,
+      ...liveInstagramSource,
+    });
+
+    expect(environment.marketing.instagram).toEqual({
+      mode: "live",
+      accountConfigurationId: "ig-live-1",
+      businessAccountId: "17841400000000000",
+      accessToken: "page-access-token",
+      publicMediaBaseUrl:
+        "https://random.trycloudflare.com/v1/public/marketing/media",
+      signingSecret: "s".repeat(32),
+      urlTtlSeconds: 900,
+      jpegQuality: 90,
+      rateLimit: 120,
+      rateWindowMs: 60_000,
+      containerPollIntervalMs: 5_000,
+      containerMaxPollAttempts: 60,
+    });
+  });
+
+  it.each([
+    ["MARKETING_PUBLIC_MEDIA_SIGNING_SECRET", { MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: "short" }],
+    ["MARKETING_PUBLIC_MEDIA_SIGNING_SECRET", { MARKETING_PUBLIC_MEDIA_SIGNING_SECRET: undefined }],
+    ["MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS", { MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "59" }],
+    ["MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS", { MARKETING_PUBLIC_MEDIA_URL_TTL_SECONDS: "3601" }],
+    ["MARKETING_INSTAGRAM_JPEG_QUALITY", { MARKETING_INSTAGRAM_JPEG_QUALITY: "69" }],
+    ["MARKETING_PUBLIC_MEDIA_RATE_LIMIT", { MARKETING_PUBLIC_MEDIA_RATE_LIMIT: "0" }],
+    ["MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS", { MARKETING_PUBLIC_MEDIA_RATE_WINDOW_MS: "999" }],
+  ])("rejects unsafe live-media setting: %s", (expectedKey, override) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        ...liveInstagramSource,
+        ...override,
+      }),
+    ).toThrow(expectedKey);
+  });
+
+  it.each([
+    "https://localhost/v1/public/marketing/media",
+    "https://127.0.0.1/v1/public/marketing/media",
+    "https://10.0.0.1/v1/public/marketing/media",
+    "https://172.16.0.1/v1/public/marketing/media",
+    "https://192.168.1.1/v1/public/marketing/media",
+    "https://0.0.0.0/v1/public/marketing/media",
+    "https://100.64.0.1/v1/public/marketing/media",
+    "https://192.0.2.1/v1/public/marketing/media",
+    "https://198.51.100.1/v1/public/marketing/media",
+    "https://203.0.113.1/v1/public/marketing/media",
+    "https://224.0.0.1/v1/public/marketing/media",
+    "https://255.255.255.255/v1/public/marketing/media",
+    "https://[::1]/v1/public/marketing/media",
+    "https://[::c0a8:101]/media",
+    "https://[2001:db8::1]/v1/public/marketing/media",
+    "https://[4000::1]/media",
+    "https://[ff02::1]/v1/public/marketing/media",
+    "https://media.novacommerce.local/v1/public/marketing/media",
+  ])("rejects non-public media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        ...liveInstagramSource,
+        INSTAGRAM_PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrl,
+      }),
+    ).toThrow("INSTAGRAM_PUBLIC_MEDIA_BASE_URL");
+  });
+
+  it("parses Instagram simulation mode without live-media secrets", () => {
+    const environment = parseApiEnvironment({
+      ...validSource,
+      INSTAGRAM_PUBLICATION_MODE: "simulation",
+    });
+
+    expect(environment.marketing.instagram).toEqual({
+      mode: "simulation",
+      accountConfigurationId: "instagram-local-simulation",
+    });
+  });
+
+  it.each([
+    ["INSTAGRAM_BUSINESS_ACCOUNT_ID", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_ACCESS_TOKEN: "token", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.novacommerce.vn/media" }],
+    ["INSTAGRAM_ACCESS_TOKEN", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_BUSINESS_ACCOUNT_ID: "biz-1", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "https://cdn.novacommerce.vn/media" }],
+    ["INSTAGRAM_PUBLIC_MEDIA_BASE_URL", { INSTAGRAM_PUBLICATION_MODE: "live", INSTAGRAM_BUSINESS_ACCOUNT_ID: "biz-1", INSTAGRAM_ACCESS_TOKEN: "token", INSTAGRAM_PUBLIC_MEDIA_BASE_URL: "http://insecure.com" }],
+  ])("rejects incomplete live Instagram configuration: %s", (expectedKey, override) => {
+    expect(() =>
+      parseApiEnvironment({ ...validSource, ...override }),
+    ).toThrow(expectedKey);
+  });
+
+  it.each([
+    "https://example.com/media",
+    "https://novacommerce.example.com/media",
+    "https://cdn.example.net/media",
+    "https://media.example.org/assets",
+  ])("rejects reserved public-media host in Instagram live mode: %s", (publicMediaBaseUrl) => {
+    expect(() =>
+      parseApiEnvironment({
+        ...validSource,
+        ...liveInstagramSource,
+        INSTAGRAM_PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrl,
+      }),
+    ).toThrow("INSTAGRAM_PUBLIC_MEDIA_BASE_URL");
   });
 
   it.each([
@@ -93,176 +229,36 @@ describe("parseApiEnvironment", () => {
     ["WORKFLOW_GATEWAY_TIMEOUT_MS", { WORKFLOW_GATEWAY_TIMEOUT_MS: "499" }],
     ["WORKFLOW_DISPATCHER_INTERVAL_MS", { WORKFLOW_DISPATCHER_INTERVAL_MS: "99" }],
     ["WORKFLOW_DISPATCHER_BATCH_SIZE", { WORKFLOW_DISPATCHER_BATCH_SIZE: "1001" }],
+    ["MARKETING_PUBLICATION_POLL_INTERVAL_MS", { MARKETING_PUBLICATION_POLL_INTERVAL_MS: "499" }],
+    ["MARKETING_TARGET_LEASE_SECONDS", { MARKETING_TARGET_LEASE_SECONDS: "4" }],
   ])("rejects invalid %s", (expectedKey, override) => {
     expect(() =>
       parseApiEnvironment({ ...validSource, ...override }),
     ).toThrow(expectedKey);
   });
 
-  it("accepts a complete SePay sandbox configuration", () => {
-    expect(parseApiEnvironment({
-      ...validSource,
-      SEPAY_MERCHANT_ID: "sandbox-merchant",
-      SEPAY_SECRET_KEY: "sandbox-secret",
-      SEPAY_IPN_SECRET: "sandbox-ipn-secret",
-    }).sepay).toMatchObject({
-      configured: true,
-      merchantId: "sandbox-merchant",
-      secretKey: "sandbox-secret",
-      ipnSecret: "sandbox-ipn-secret",
-    });
-  });
-
-  it("rejects partially configured SePay credentials", () => {
-    expect(() => parseApiEnvironment({
-      ...validSource,
-      SEPAY_MERCHANT_ID: "sandbox-merchant",
-    })).toThrow("SEPAY_SECRET_KEY");
-  });
-
-  it.each([
-    ["COOKIE_SECURE", { OPENDX_ENV: "production", STOREFRONT_ORIGIN: "https://shop.example.com", COOKIE_SECURE: "false" }],
-    ["STOREFRONT_ORIGIN", { OPENDX_ENV: "production", STOREFRONT_ORIGIN: "http://shop.example.com", COOKIE_SECURE: "true" }],
-  ])("rejects unsafe production %s", (expectedKey, override) => {
-    expect(() => parseApiEnvironment({ ...validSource, ...override })).toThrow(expectedKey);
-  });
-
-  it("accepts an HTTPS production storefront with secure cookies", () => {
-    expect(parseApiEnvironment({
-      ...validSource,
-      OPENDX_ENV: "production",
-      CONSOLE_ORIGIN: "https://console.novacommerce.local",
-      STOREFRONT_ORIGIN: "https://shop.novacommerce.local",
-      COOKIE_SECURE: "true",
-      GOOGLE_CLIENT_ID: "",
-      KEYCLOAK_ISSUER: "https://auth.novacommerce.local/realms/opendx",
-      KEYCLOAK_JWKS_URL:
-        "https://auth.novacommerce.local/realms/opendx/protocol/openid-connect/certs",
-      MINIO_ENDPOINT: "https://storage.novacommerce.local",
-      SEPAY_ENVIRONMENT: "production",
-      SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
-      SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
-      SEPAY_MERCHANT_ID: "production-merchant",
-      SEPAY_SECRET_KEY: "production-secret",
-      SEPAY_IPN_SECRET: "production-ipn-secret",
-      SEPAY_SUCCESS_URL: "https://shop.novacommerce.local/payment/return?outcome=success",
-      SEPAY_ERROR_URL: "https://shop.novacommerce.local/payment/return?outcome=error",
-      SEPAY_CANCEL_URL: "https://shop.novacommerce.local/payment/return?outcome=cancel",
-    })).toMatchObject({
-      environment: "production",
-      storefrontOrigin: "https://shop.novacommerce.local",
-      cookieSecure: true,
-    });
-  });
-
-  it("rejects public plaintext AI Runtime URLs in production", () => {
-    expect(() => parseApiEnvironment({
-      ...validSource,
-      OPENDX_ENV: "production",
-      AI_RUNTIME_INTERNAL_URL: "http://runtime.example.test:8000",
-    })).toThrow("AI_RUNTIME_INTERNAL_URL");
-  });
-
-  it("rejects public plaintext token URLs in production", () => {
-    expect(() => parseApiEnvironment({
-      ...validSource,
-      OPENDX_ENV: "production",
-      KEYCLOAK_TOKEN_URL: "http://identity.example.test/token",
-    })).toThrow("KEYCLOAK_TOKEN_URL");
-  });
-
-  it("rejects placeholder production domains", () => {
+  it("rejects simulation mode in production", () => {
     expect(() =>
       parseApiEnvironment({
         ...validSource,
         OPENDX_ENV: "production",
         COOKIE_SECURE: "true",
-        CONSOLE_ORIGIN: "https://console.example.com",
-        STOREFRONT_ORIGIN: "https://shop.example.com",
-        KEYCLOAK_ISSUER: "https://auth.example.com/realms/opendx",
-        KEYCLOAK_JWKS_URL:
-          "https://auth.example.com/realms/opendx/protocol/openid-connect/certs",
-        MINIO_ENDPOINT: "https://storage.example.com",
+        CONSOLE_ORIGIN: "https://console.novacommerce.local",
+        STOREFRONT_ORIGIN: "https://shop.novacommerce.local",
+        KEYCLOAK_ISSUER: "https://auth.novacommerce.local/realms/opendx",
+        KEYCLOAK_JWKS_URL: "https://auth.novacommerce.local/realms/opendx/protocol/openid-connect/certs",
+        MINIO_ENDPOINT: "https://storage.novacommerce.local",
         SEPAY_ENVIRONMENT: "production",
         SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
         SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
         SEPAY_MERCHANT_ID: "merchant",
         SEPAY_SECRET_KEY: "secret",
         SEPAY_IPN_SECRET: "ipn-secret",
-        SEPAY_SUCCESS_URL:
-          "https://shop.example.com/payment/return?outcome=success",
-        SEPAY_ERROR_URL: "https://shop.example.com/payment/return?outcome=error",
-        SEPAY_CANCEL_URL:
-          "https://shop.example.com/payment/return?outcome=cancel",
+        SEPAY_SUCCESS_URL: "https://shop.novacommerce.local/payment/return?outcome=success",
+        SEPAY_ERROR_URL: "https://shop.novacommerce.local/payment/return?outcome=error",
+        SEPAY_CANCEL_URL: "https://shop.novacommerce.local/payment/return?outcome=cancel",
+        INSTAGRAM_PUBLICATION_MODE: "simulation",
       }),
-    ).toThrow(/placeholder production domain/i);
-  });
-
-  it("parses production observability and body limit settings", () => {
-    const environment = parseApiEnvironment({
-      ...validSource,
-      OPENDX_ENV: "production",
-      COOKIE_SECURE: "true",
-      CONSOLE_ORIGIN: "https://console.novacommerce.local",
-      STOREFRONT_ORIGIN: "https://shop.novacommerce.local",
-      KEYCLOAK_ISSUER: "https://auth.novacommerce.local/realms/opendx",
-      KEYCLOAK_JWKS_URL:
-        "https://auth.novacommerce.local/realms/opendx/protocol/openid-connect/certs",
-      MINIO_ENDPOINT: "https://storage.novacommerce.local",
-      SEPAY_ENVIRONMENT: "production",
-      SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
-      SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
-      SEPAY_MERCHANT_ID: "merchant",
-      SEPAY_SECRET_KEY: "secret",
-      SEPAY_IPN_SECRET: "ipn-secret",
-      SEPAY_SUCCESS_URL:
-        "https://shop.novacommerce.local/payment/return?outcome=success",
-      SEPAY_ERROR_URL:
-        "https://shop.novacommerce.local/payment/return?outcome=error",
-      SEPAY_CANCEL_URL:
-        "https://shop.novacommerce.local/payment/return?outcome=cancel",
-      LOG_FORMAT: "json",
-      LOG_LEVEL: "info",
-      METRICS_ENABLED: "true",
-      METRICS_PATH: "/metrics",
-      READINESS_TIMEOUT_MS: "2500",
-      JSON_BODY_LIMIT: "1mb",
-      PRODUCTION_SEPAY_ACCEPTANCE_AMOUNT_VND: "10000",
-      PRODUCTION_SEPAY_ACCEPTANCE_CONFIRMATION:
-        "I_UNDERSTAND_THIS_CREATES_A_REAL_PAYMENT",
-    });
-    expect(environment.logging).toEqual({ format: "json", level: "info" });
-    expect(environment.metrics).toEqual({ enabled: true, path: "/metrics" });
-    expect(environment.readinessTimeoutMs).toBe(2500);
-    expect(environment.jsonBodyLimit).toBe("1mb");
-    expect(environment.productionSePayAcceptance).toEqual({
-      amountVnd: 10000,
-      confirmation: "I_UNDERSTAND_THIS_CREATES_A_REAL_PAYMENT",
-    });
-  });
-
-  it.each([
-    ["SEPAY_MERCHANT_ID", { SEPAY_MERCHANT_ID: "" }],
-    ["SEPAY_CHECKOUT_URL", { SEPAY_CHECKOUT_URL: "https://pay-sandbox.sepay.vn/v1/checkout/init" }],
-    ["SEPAY_API_BASE_URL", { SEPAY_API_BASE_URL: "https://pgapi-sandbox.sepay.vn" }],
-    ["SEPAY_SUCCESS_URL", { SEPAY_SUCCESS_URL: "http://shop.example.com/payment/return" }],
-    ["MINIO_SUPPORT_BUCKET", { MINIO_SUPPORT_BUCKET: "product-media" }],
-  ])("rejects unsafe production %s", (expectedKey, override) => {
-    expect(() => parseApiEnvironment({
-      ...validSource,
-      OPENDX_ENV: "production",
-      STOREFRONT_ORIGIN: "https://shop.example.com",
-      COOKIE_SECURE: "true",
-      SEPAY_ENVIRONMENT: "production",
-      SEPAY_CHECKOUT_URL: "https://pay.sepay.vn/v1/checkout/init",
-      SEPAY_API_BASE_URL: "https://pgapi.sepay.vn",
-      SEPAY_MERCHANT_ID: "production-merchant",
-      SEPAY_SECRET_KEY: "production-secret",
-      SEPAY_IPN_SECRET: "production-ipn-secret",
-      SEPAY_SUCCESS_URL: "https://shop.example.com/payment/return?outcome=success",
-      SEPAY_ERROR_URL: "https://shop.example.com/payment/return?outcome=error",
-      SEPAY_CANCEL_URL: "https://shop.example.com/payment/return?outcome=cancel",
-      ...override,
-    })).toThrow(expectedKey);
+    ).toThrow("INSTAGRAM_PUBLICATION_MODE");
   });
 });

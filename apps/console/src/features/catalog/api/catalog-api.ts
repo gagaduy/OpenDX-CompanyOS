@@ -17,6 +17,114 @@ export class CatalogApiError extends Error {
   constructor(readonly code: CatalogErrorCode, message: string) { super(message); this.name = "CatalogApiError"; }
 }
 
+export interface MerchandisingItem {
+  readonly targetProductId: string;
+  readonly targetVariantId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly categoryName: string;
+  readonly optimizedTitle: string;
+  readonly optimizedDescription: string;
+  readonly badge: string;
+  readonly originalPriceVnd: number;
+  readonly proposedPriceVnd: number;
+  readonly discountPercent: number;
+  readonly savingAmountVnd: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
+}
+
+export interface MerchandisingProposal {
+  readonly id: string;
+  readonly prompt: string;
+  readonly items: readonly MerchandisingItem[];
+  readonly targetProductId?: string;
+  readonly targetVariantId?: string;
+  readonly productName?: string;
+  readonly productSlug?: string;
+  readonly categoryName?: string;
+  readonly optimizedTitle?: string;
+  readonly optimizedDescription?: string;
+  readonly badge?: string;
+  readonly originalPriceVnd?: number;
+  readonly proposedPriceVnd?: number;
+  readonly discountPercent?: number;
+  readonly savingAmountVnd?: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
+  readonly pricingRationale: string;
+  readonly salesProjection: string;
+  readonly status: "pending_approval" | "applied" | "rejected";
+  readonly createdAt: string;
+}
+
+export interface ApplyMerchandisingResult {
+  readonly success: boolean;
+  readonly proposalId: string;
+  readonly updatedCount: number;
+  readonly items: readonly {
+    readonly productId: string;
+    readonly productName: string;
+    readonly originalPriceVnd: number;
+    readonly newPriceVnd: number;
+    readonly discountPercent: number;
+    readonly badge: string;
+  }[];
+  readonly appliedAt: string;
+  readonly productId?: string;
+  readonly productName?: string;
+  readonly originalPriceVnd?: number;
+  readonly newPriceVnd?: number;
+  readonly discountPercent?: number;
+  readonly badge?: string;
+}
+
+export interface CampaignItem {
+  readonly id: string;
+  readonly productId: string;
+  readonly variantId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly originalPriceVnd: number;
+  readonly campaignPriceVnd: number;
+  readonly discountPercent: number;
+  readonly savingAmountVnd: number;
+  readonly originalMediaUrl?: string;
+  readonly campaignMediaUrl?: string;
+  readonly optimizedTitle: string;
+  readonly optimizedDescription: string;
+  readonly badge: string;
+}
+
+export interface CampaignProposal {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly prompt: string;
+  readonly themeKey: string;
+  readonly badgeText: string;
+  readonly discountPercent: number;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly durationDays: number;
+  readonly status: "draft" | "active" | "completed" | "reverted";
+  readonly items: readonly CampaignItem[];
+  readonly totalProducts: number;
+  readonly pricingRationale: string;
+  readonly salesProjection: string;
+}
+
+export interface ActiveCampaign {
+  readonly id: string;
+  readonly name: string;
+  readonly badgeText: string;
+  readonly discountPercent: number;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly totalProducts: number;
+  readonly remainingMs: number;
+}
+
 export interface CatalogApi {
   listProducts(query: ProductQuery): Promise<ProductPage>;
   getProduct(id: string): Promise<Product>;
@@ -39,6 +147,12 @@ export interface CatalogApi {
   checkPublicationReadiness(productId: string): Promise<PublicationReadiness>;
   publishProduct(productId: string, version: number): Promise<Product>;
   unpublishProduct(productId: string, version: number): Promise<Product>;
+  generateMerchandisingProposal(input: { readonly prompt: string; readonly targetProductId?: string }): Promise<MerchandisingProposal>;
+  applyMerchandisingProposal(input: { readonly proposalId: string; readonly customTitle?: string; readonly customDescription?: string; readonly customPriceVnd?: number }): Promise<ApplyMerchandisingResult>;
+  generateCampaignProposal(input: { readonly prompt: string; readonly durationDays?: number; readonly discountPercent?: number; readonly themeKey?: string }): Promise<CampaignProposal>;
+  activateCampaign(campaignId: string, input?: { readonly endDate?: string; readonly excludedItemIds?: readonly string[] }): Promise<{ readonly success: boolean; readonly campaignId: string; readonly activatedAt: string }>;
+  revertCampaign(campaignId: string): Promise<{ readonly success: boolean; readonly campaignId: string; readonly revertedAt: string }>;
+  getActiveCampaign(): Promise<ActiveCampaign | null>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -54,7 +168,8 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     if (!response.ok) {
       const parsed = errorEnvelopeSchema.safeParse(body);
       const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(response.status);
-      throw new CatalogApiError(code, publicMessage(code));
+      const message = parsed.success && parsed.data.message ? parsed.data.message : publicMessage(code);
+      throw new CatalogApiError(code, message);
     }
     return body;
   };
@@ -91,6 +206,24 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     async checkPublicationReadiness(productId) { return parse(publicationReadinessEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publication-readiness`)).data; },
     async publishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/publish`, write("POST", { version }))).data); },
     async unpublishProduct(productId, version) { return mapProduct(parse(productEnvelopeSchema, await request(`/v1/admin/catalog/products/${productId}/unpublish`, write("POST", { version }))).data); },
+    async generateMerchandisingProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/generate-proposal", write("POST", input))) as MerchandisingProposal;
+    },
+    async applyMerchandisingProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/apply-proposal", write("POST", input))) as ApplyMerchandisingResult;
+    },
+    async generateCampaignProposal(input) {
+      return (await request("/v1/admin/catalog/ai-merchandising/campaigns/generate-proposal", write("POST", input))) as CampaignProposal;
+    },
+    async activateCampaign(campaignId, input) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/activate`, write("POST", input ?? {}))) as { readonly success: boolean; readonly campaignId: string; readonly activatedAt: string };
+    },
+    async revertCampaign(campaignId) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/revert`, write("POST", {}))) as { readonly success: boolean; readonly campaignId: string; readonly revertedAt: string };
+    },
+    async getActiveCampaign() {
+      return (await request("/v1/admin/catalog/ai-merchandising/campaigns/active")) as ActiveCampaign | null;
+    },
   };
 }
 
@@ -102,7 +235,7 @@ function uploadMedia(baseUrl: string, accessToken: string, productId: string, in
     xhr.onerror = () => reject(new CatalogApiError("UNAVAILABLE", "Media upload failed."));
     xhr.onload = () => {
       let body: unknown; try { body = JSON.parse(xhr.responseText); } catch { reject(new CatalogApiError("INVALID_RESPONSE", "Invalid media response.")); return; }
-      if (xhr.status < 200 || xhr.status >= 300) { const parsed = errorEnvelopeSchema.safeParse(body); const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(xhr.status); reject(new CatalogApiError(code, publicMessage(code))); return; }
+      if (xhr.status < 200 || xhr.status >= 300) { const parsed = errorEnvelopeSchema.safeParse(body); const code = parsed.success ? normalizeCode(parsed.data.errorCode) : normalizeStatus(xhr.status); const message = parsed.success && parsed.data.message ? parsed.data.message : publicMessage(code); reject(new CatalogApiError(code, message)); return; }
       try { resolve(parse(mediaEnvelopeSchema, body).data); } catch (error) { reject(error); }
     };
     xhr.send(form);

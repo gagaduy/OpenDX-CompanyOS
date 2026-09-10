@@ -119,7 +119,19 @@ export class ProductMediaService implements ProductMediaServiceContract {
     const media = await this.transactions.runReadOnly((session) =>
       this.requireMedia(session, productId, mediaId),
     );
-    return { bytes: await this.storage.get(media.objectKey), contentType: media.contentType };
+    try {
+      return { bytes: await this.storage.get(media.objectKey), contentType: media.contentType };
+    } catch (error: any) {
+      if (
+        error?.code === "NoSuchKey" ||
+        error?.name === "NoSuchKey" ||
+        error?.code === "NotFound" ||
+        error?.name === "NotFound"
+      ) {
+        throw new CatalogApplicationError("NOT_FOUND", "Product media content not found in storage");
+      }
+      throw error;
+    }
   }
 
   private async requireProduct(session: DatabaseSession, id: string, mutable: boolean): Promise<void> {

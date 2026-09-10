@@ -21,6 +21,9 @@ POST   /account/addresses
 PATCH  /account/addresses/:addressId
 DELETE /account/addresses/:addressId
 POST   /account/addresses/:addressId/default
+GET    /account/wishlist?page=1&pageSize=24
+PUT    /account/wishlist/items/:productId
+DELETE /account/wishlist/items/:productId
 ```
 
 Mutations require the configured storefront `Origin` and matching
@@ -45,3 +48,21 @@ email conflict checks.
 Account and address DTOs omit provider subject, session token/hash, audit
 metadata, and credentials. Address queries constrain every operation by the
 authenticated customer ID.
+
+Wishlist routes require an authenticated customer session; guest and anonymous
+sessions receive `401` and no guest wishlist is created. Every read and mutation
+is constrained by the authenticated customer ID, so a product saved by one
+customer is never visible to another. `productId` must be a UUID for a currently
+published product.
+
+Wishlist listing accepts positive `page` and `pageSize` values, defaults to
+`1` and `24`, and caps `pageSize` at `48`. Items are ordered by most recently
+added first with product ID as the stable tie-breaker. Successful reads use the
+standard `{ success, message, data, meta }` envelope; `meta` contains `page`,
+`pageSize`, `totalItems`, and `totalPages`. Mutations return
+`{ productId, wished }` inside the standard success envelope.
+
+`PUT` and `DELETE` are idempotent by resource semantics: repeating an add keeps
+the item wished, and repeating a removal keeps it absent. They still require
+the configured `Origin` and the matching CSRF cookie/header pair described
+above; no browser-only state proves wishlist ownership.

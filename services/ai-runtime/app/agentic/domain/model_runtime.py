@@ -16,6 +16,9 @@ AgentKind = Literal[
     "finance",
     "crm",
     "support",
+    "marketing_content",
+    "marketing_visual",
+    "marketing_publisher",
 ]
 QualityOutcome = Literal["accepted", "correct", "partial", "escalate"]
 

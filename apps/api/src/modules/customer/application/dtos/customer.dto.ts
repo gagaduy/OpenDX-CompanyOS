@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Customer } from "../../domain/entities/customer";
 import type { CustomerAddress } from "../../domain/entities/customer-address";
+import type { PublicProductDto } from "../../../catalog";
 export interface CustomerPrincipal {
   readonly customerId: string;
   readonly sessionId: string;
@@ -24,6 +25,17 @@ export interface CustomerProfileDto {
   readonly version: number;
 }
 export type AddressDto = CustomerAddress;
+export interface WishlistMutationDto {
+  readonly productId: string;
+  readonly wished: boolean;
+}
+export interface WishlistPageDto {
+  readonly items: readonly PublicProductDto[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
 export function toProfile(customer: Customer): CustomerProfileDto {
   return {
     id: customer.id,

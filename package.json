@@ -29,6 +29,7 @@
     "check:authorization-matrix": "node scripts/dev/authorization-matrix-check.mjs",
     "check:backup-restore": "node scripts/dev/backup-restore-check.mjs",
     "test:make-database-backup": "node --test scripts/dev/make-database-backup.test.mjs",
+    "test:instagram-quick-tunnel": "node --test scripts/dev/sync-instagram-quick-tunnel.test.mjs",
     "check:agentic-workflow-recovery": "node scripts/dev/agentic-workflow-recovery-check.mjs",
     "test:temporal-compose": "node --test scripts/dev/temporal-compose-check.test.mjs",
     "test:agentic-production-compose": "node --test scripts/dev/agentic-production-compose-check.test.mjs",
@@ -48,6 +49,7 @@
     "test:catalog-live-acceptance": "node --test scripts/dev/catalog-live-acceptance.test.mjs",
     "run:catalog-live-acceptance": "node scripts/dev/catalog-live-acceptance.mjs",
     "diagnose:catalog-live": "node scripts/dev/catalog-live-acceptance-diagnose.mjs",
+    "check:catalog-campaign": "node scripts/dev/catalog-campaign-e2e-check.mjs",
     "test:agentic-phase-d-exit": "node --test scripts/dev/agentic-phase-d-exit-check.test.mjs",
     "check:agentic-phase-d-exit": "pnpm test:agentic-phase-d-exit && node scripts/dev/agentic-phase-d-exit-check.mjs",
     "test:agentic-phase-e-exit": "node --test scripts/dev/agentic-phase-e-exit-check.test.mjs",
@@ -62,6 +64,7 @@
     "check:phase8-performance": "node scripts/dev/phase8-performance-check.mjs",
     "test:phase8-exit": "node --test scripts/dev/phase8-exit-check.test.mjs",
     "check:phase8-exit": "pnpm test:phase8-exit && node scripts/dev/phase8-exit-check.mjs",
+    "demo:marketing": "pnpm --filter @opendx/api exec tsx ../../scripts/dev/marketing-facebook-demo.ts",
     "check:fast": "bash scripts/dev/check-fast.sh",
     "check:full": "bash scripts/dev/check.sh",
     "check": "pnpm check:fast"

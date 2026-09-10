@@ -46,10 +46,11 @@ analytics views and its isolated read adapter.
 rolls module migrations back in dependency order after each integration file.
 
 `apps/storefront` contains the React + TypeScript customer commerce surface.
-Its feature-owned Catalog, authentication, Cart, customer-account, Checkout,
-and Order areas consume runtime-validated API envelopes; `src/app` owns
-composition and `src/shared` contains only HTTP, formatting, and global style
-concerns used by multiple features.
+Its feature-owned Catalog, authentication, Cart, customer-account, wishlist,
+Checkout, Payment, and Order areas consume runtime-validated API envelopes;
+the Customer module owns persisted, customer-isolated wishlist state.
+`src/app` owns composition and `src/shared` contains only HTTP, formatting, and
+global style concerns used by multiple features.
 
 The Console adds role-aware Order and Payment operation features. Operations
 and Finance enter through public feature APIs and cannot import backend or

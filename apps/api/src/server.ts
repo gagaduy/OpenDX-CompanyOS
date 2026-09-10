@@ -6,12 +6,14 @@ import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader } from "./modules/catalog";
+import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
 import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
+import { MinioStorefrontHeroMediaStorage } from "./modules/catalog/infrastructure/storage/minio-storefront-hero-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
 import { parseApiEnvironment } from "./shared/config/environment";
 import { createPostgresPool } from "./shared/database/postgres";
+import { assertRequiredMigrations } from "./shared/database/migration-readiness";
 import { PostgresTransactionRunner } from "./shared/database/transaction";
 import { createRemoteStaffTokenVerifier } from "./shared/auth/staff-auth.middleware";
 import { createRemoteWorkloadTokenVerifier } from "./shared/auth/workload-auth.middleware";
@@ -33,6 +35,7 @@ import { createCrmHealthReader, createCrmModule } from "./modules/crm";
 import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
 import { createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
+import { createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
 import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
@@ -92,6 +95,7 @@ const workflowGateway = new HttpWorkflowGateway({
 });
 const inventory = createInventoryModule({
   transactions,
+  database: pool,
   variantReader: createCatalogVariantReader(),
   staffTokenVerifier,
   generateId: randomUUID,
@@ -103,6 +107,10 @@ const inventory = createInventoryModule({
 const catalog = createCatalogModule({
   transactions,
   mediaStorage: new MinioProductMediaStorage(minio, environment.minioBucket),
+  heroMediaStorage: new MinioStorefrontHeroMediaStorage(
+    minio,
+    environment.minioBucket,
+  ),
   mediaInspector: new FileTypeProductMediaInspector(),
   staffTokenVerifier,
   generateId: randomUUID,
@@ -136,6 +144,10 @@ const customer = createCustomerModule({
   cookies: storefrontCookies,
   authenticationRateLimit: environment.authenticationRateLimit,
   cartLoginResolver,
+  wishlistProducts: createPublicWishlistProductReader(
+    transactions,
+    inventory.availability,
+  ),
 });
 const cart = createCartModule({
   transactions,
@@ -196,6 +208,7 @@ const crm = createCrmModule({
 });
 const support = createSupportModule({
   transactions,
+  database: pool,
   customers: customer.operations,
   orders: order.operations,
   staffTokenVerifier,
@@ -214,6 +227,18 @@ const reporting = createReportingModule({
   now: () => new Date().toISOString(),
 });
 const currentTime = () => new Date().toISOString();
+const marketingStorage = new MinioMarketingArtifactStorage(minio, environment.minioBucket);
+const marketing = createMarketingModule({
+  database: pool,
+  staffTokenVerifier,
+  publicationConfig: environment.marketing,
+  assetStorageReader: (key) => marketingStorage.read(key),
+  storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
+  storageReader: (key) => marketingStorage.read(key),
+  publicMediaStorage: marketingStorage,
+  generateId: randomUUID,
+  now: currentTime,
+});
 const orderHealth = createOrderHealthReader({ transactions, now: currentTime });
 const supportHealth = createSupportHealthReader({
   transactions,
@@ -227,6 +252,7 @@ const toolAdapters = createFixedDepartmentToolAdapterRegistry({
   finance: createPaymentHealthReader({ transactions, now: currentTime }),
   crm: createCrmHealthReader({ transactions, analytics, now: currentTime }),
   support: supportHealth,
+  marketingRepository: marketing.repository,
 }, currentTime, environment.agentic.controlClientSecret);
 const agentic = createAgenticModule({
   transactions,
@@ -276,10 +302,20 @@ const app = createApiApp({
   paymentAdminRouter: paymentOperations.adminRouter,
   crmAdminRouter: crm.router,
   supportAdminRouter: support.router,
+  ...(support.inboundEmailRouter === undefined
+    ? {}
+    : { supportInboundEmailRouter: support.inboundEmailRouter }),
+  ...(support.livechatRouter === undefined
+    ? {}
+    : { supportLivechatRouter: support.livechatRouter }),
   reportingAdminRouter: reporting.router,
   agenticAdminRouter: agentic.adminRouter,
   agenticInternalRouter: agentic.internalRouter,
   agenticToolRouter: agentic.toolRouter,
+  marketingAdminRouter: marketing.adminRouter,
+  ...(marketing.publicRouter === undefined
+    ? {}
+    : { marketingPublicRouter: marketing.publicRouter }),
   sepayWebhookRouter: paymentOperations.webhookRouter,
   jsonBodyLimit: environment.jsonBodyLimit,
   readinessTimeoutMs: environment.readinessTimeoutMs,
@@ -287,14 +323,7 @@ const app = createApiApp({
   ...(metrics === undefined ? {} : { metrics, metricsPath: environment.metrics.path }),
   readiness: async () => ({
     postgres: await probe(async () => { await pool.query("SELECT 1"); }),
-    migrations: await probe(async () => {
-      const result = await pool.query<{ catalog: string; company_core: string; inventory: string; customer: string; cart: string; promotion: string; checkout: string; orders: string; payment: string; crm: string; support: string; reporting: string; agentic: string }>(
-        "SELECT (SELECT count(*)::text FROM catalog_migrations) AS catalog, (SELECT count(*)::text FROM company_core_migrations) AS company_core, (SELECT count(*)::text FROM inventory_migrations) AS inventory, (SELECT count(*)::text FROM customer_migrations) AS customer, (SELECT count(*)::text FROM cart_migrations) AS cart, (SELECT count(*)::text FROM promotion_migrations) AS promotion, (SELECT count(*)::text FROM checkout_migrations) AS checkout, (SELECT count(*)::text FROM order_migrations) AS orders, (SELECT count(*)::text FROM payment_migrations) AS payment, (SELECT count(*)::text FROM crm_migrations) AS crm, (SELECT count(*)::text FROM support_migrations) AS support, (SELECT count(*)::text FROM reporting_migrations) AS reporting, (SELECT count(*)::text FROM agentic_migrations) AS agentic",
-      );
-      if (Number(result.rows[0]?.catalog ?? 0) < 3 || Number(result.rows[0]?.company_core ?? 0) < 1 || Number(result.rows[0]?.inventory ?? 0) < 2 || Number(result.rows[0]?.customer ?? 0) < 1 || Number(result.rows[0]?.cart ?? 0) < 1 || Number(result.rows[0]?.promotion ?? 0) < 1 || Number(result.rows[0]?.checkout ?? 0) < 2 || Number(result.rows[0]?.orders ?? 0) < 2 || Number(result.rows[0]?.payment ?? 0) < 2 || Number(result.rows[0]?.crm ?? 0) < 1 || Number(result.rows[0]?.support ?? 0) < 3 || Number(result.rows[0]?.reporting ?? 0) < 2 || Number(result.rows[0]?.agentic ?? 0) < 7) {
-        throw new Error("Database migrations are incomplete");
-      }
-    }),
+    migrations: await probe(() => assertRequiredMigrations(pool)),
     keycloak: await probe(async () => {
       const response = await fetch(environment.keycloakJwksUrl);
       if (!response.ok) throw new Error("Keycloak JWKS is unavailable");
@@ -322,8 +351,10 @@ const server = app.listen(environment.apiPort, () => {
   support.escalationWorker.start();
   support.attachmentScanWorker.start();
   support.attachmentRetentionWorker.start();
+  support.emailPollerWorker?.start();
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
+  marketing.publisherWorker.start();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
@@ -346,6 +377,8 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.escalationWorker.stop();
   support.attachmentScanWorker.stop();
   support.attachmentRetentionWorker.stop();
+  support.emailPollerWorker?.stop();
+  marketing.publisherWorker.stop();
   await agentic.dispatcher.stop();
   agentic.fileLifecycleWorker?.stop();
   const closeError = await new Promise<Error | undefined>((resolve) => {

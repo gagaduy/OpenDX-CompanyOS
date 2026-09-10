@@ -2,33 +2,43 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Navigate, createBrowserRouter } from "react-router-dom";
-import type { StorefrontCatalogApi } from "../features/catalog/api/storefront-catalog-api";
-import { CategoryPage } from "../features/catalog/pages/category-page";
-import { HomePage } from "../features/catalog/pages/home-page";
-import { IntroHomePage } from "../features/catalog/pages/intro-home-page";
-import { SearchPage } from "../features/catalog/pages/search-page";
-import { StorefrontShell } from "./storefront-shell";
-import type { CartApi } from "../features/cart/api/cart-api";
-import { CartProvider, useCart } from "../features/cart/hooks/cart-context";
-import { CartPage } from "../features/cart/pages/cart-page";
-import { ProductDetailPage } from "../features/catalog/pages/product-detail-page";
-import type { CustomerSessionApi } from "../features/authentication/api/customer-session-api";
 import {
+  CategoryPage,
+  HomePage,
+  IntroHomePage,
+  ProductDetailPage,
+  SearchPage,
+  StorefrontContentProvider,
+  type StorefrontCatalogApi,
+  useNavigationCategories,
+} from "../features/catalog";
+import { StorefrontShell } from "./storefront-shell";
+import { CartPage, CartProvider, useCart, type CartApi } from "../features/cart";
+import {
+  CheckoutGate,
   CustomerSessionProvider,
+  SignInPage,
   useCustomerSession,
-} from "../features/authentication/hooks/customer-session-context";
-import { SignInPage } from "../features/authentication/pages/sign-in-page";
-import { CheckoutGate } from "../features/authentication/components/checkout-gate";
-import type { CustomerAccountApi } from "../features/customer-account/api/customer-account-api";
-import { AccountPage } from "../features/customer-account/pages/account-page";
-import { AddressPage } from "../features/customer-account/pages/address-page";
-import type { CheckoutApi } from "../features/checkout/api/checkout-api";
-import { CheckoutPage } from "../features/checkout/pages/checkout-page";
-import type { PaymentApi } from "../features/payment/api/payment-api";
-import { PaymentReturnPage } from "../features/payment/pages/payment-return-page";
-import type { OrderApi } from "../features/order/api/order-api";
-import { OrderListPage } from "../features/order/pages/order-list-page";
-import { OrderDetailPage } from "../features/order/pages/order-detail-page";
+  type CustomerSessionApi,
+} from "../features/authentication";
+import {
+  AccountPage,
+  AddressPage,
+  type CustomerAccountApi,
+} from "../features/customer-account";
+import { CheckoutPage, type CheckoutApi } from "../features/checkout";
+import { PaymentReturnPage, type PaymentApi } from "../features/payment";
+import {
+  OrderDetailPage,
+  OrderListPage,
+  type OrderApi,
+} from "../features/order";
+import {
+  WishlistProvider,
+  WishlistPage,
+  useWishlist,
+  type WishlistApi,
+} from "../features/wishlist";
 
 export function createAppRouter(dependencies: {
   readonly catalogApi: StorefrontCatalogApi;
@@ -38,6 +48,7 @@ export function createAppRouter(dependencies: {
   readonly checkoutApi: CheckoutApi;
   readonly paymentApi: PaymentApi;
   readonly orderApi: OrderApi;
+  readonly wishlistApi: WishlistApi;
   readonly apiBaseUrl: string;
   readonly googleClientId?: string;
 }) {
@@ -45,7 +56,13 @@ export function createAppRouter(dependencies: {
     {
       element: (
         <CustomerSessionProvider api={dependencies.sessionApi}>
-          <StorefrontSessionBoundary cartApi={dependencies.cartApi} />
+          <StorefrontContentProvider api={dependencies.catalogApi}>
+            <StorefrontSessionBoundary
+              cartApi={dependencies.cartApi}
+              catalogApi={dependencies.catalogApi}
+              wishlistApi={dependencies.wishlistApi}
+            />
+          </StorefrontContentProvider>
         </CustomerSessionProvider>
       ),
       children: [
@@ -84,7 +101,13 @@ export function createAppRouter(dependencies: {
         },
         {
           path: "/sign-in",
-          element: <SignInPage googleClientId={dependencies.googleClientId} />,
+          element: (
+            <SignInPage
+              googleClientId={dependencies.googleClientId}
+              catalogApi={dependencies.catalogApi}
+              apiBaseUrl={dependencies.apiBaseUrl}
+            />
+          ),
         },
         {
           path: "/account",
@@ -99,6 +122,17 @@ export function createAppRouter(dependencies: {
           element: (
             <CheckoutGate>
               <AddressPage api={dependencies.accountApi} />
+            </CheckoutGate>
+          ),
+        },
+        {
+          path: "/account/wishlist",
+          element: (
+            <CheckoutGate>
+              <WishlistPage
+                accountApi={dependencies.accountApi}
+                apiBaseUrl={dependencies.apiBaseUrl}
+              />
             </CheckoutGate>
           ),
         },
@@ -143,8 +177,16 @@ export function createAppRouter(dependencies: {
   ]);
 }
 
-function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
-  const { loading } = useCustomerSession();
+function StorefrontSessionBoundary({
+  cartApi,
+  catalogApi,
+  wishlistApi,
+}: {
+  readonly cartApi: CartApi;
+  readonly catalogApi: StorefrontCatalogApi;
+  readonly wishlistApi: WishlistApi;
+}) {
+  const { session, loading } = useCustomerSession();
   if (loading) {
     return (
       <StorefrontShell cartCount={0}>
@@ -156,14 +198,37 @@ function StorefrontSessionBoundary({ cartApi }: { readonly cartApi: CartApi }) {
       </StorefrontShell>
     );
   }
+
+  const sessionKey = session.kind === "customer"
+    ? `customer:${session.customerId}`
+    : session.kind === "guest"
+      ? `guest:${session.expiresAt}`
+      : "anonymous";
+
   return (
-    <CartProvider api={cartApi}>
-      <ShellWithCart />
-    </CartProvider>
+    <WishlistProvider key={`wishlist:${sessionKey}`} api={wishlistApi}>
+      <CartProvider key={`cart:${sessionKey}`} api={cartApi}>
+        <ShellWithCart catalogApi={catalogApi} />
+      </CartProvider>
+    </WishlistProvider>
   );
 }
 
-function ShellWithCart() {
+function ShellWithCart({
+  catalogApi,
+}: {
+  readonly catalogApi: StorefrontCatalogApi;
+}) {
   const { cart } = useCart();
-  return <StorefrontShell cartCount={cart.itemCount} />;
+  const { totalItems } = useWishlist();
+  const { session } = useCustomerSession();
+  const navigation = useNavigationCategories(catalogApi);
+  return (
+    <StorefrontShell
+      cartCount={cart.itemCount}
+      wishlistCount={totalItems}
+      authenticated={session.kind === "customer"}
+      categories={navigation.categories}
+    />
+  );
 }

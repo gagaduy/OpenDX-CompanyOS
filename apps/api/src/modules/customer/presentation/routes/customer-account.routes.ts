@@ -22,5 +22,18 @@ export function createCustomerAccountRouter(
     csrf,
     c.defaultAddress,
   );
+  r.get("/account/wishlist", c.listWishlist);
+  r.put(
+    "/account/wishlist/items/:productId",
+    origin,
+    csrf,
+    c.addWishlistItem,
+  );
+  r.delete(
+    "/account/wishlist/items/:productId",
+    origin,
+    csrf,
+    c.removeWishlistItem,
+  );
   return r;
 }

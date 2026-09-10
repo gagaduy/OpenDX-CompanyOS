@@ -24,6 +24,9 @@ const agentClients = [
   "agent-finance",
   "agent-crm",
   "agent-support",
+  "agent-marketing-content",
+  "agent-marketing-visual",
+  "agent-marketing-publisher",
 ];
 
 test("defines the four Agentic staff roles exactly once", () => {
@@ -44,14 +47,14 @@ test("reconciles Agent clients for existing local Keycloak volumes", () => {
   const reconciler = services["keycloak-reconcile"];
   assert.ok(reconciler);
   assert.equal(reconciler.environment.KEYCLOAK_PRESERVE_DEVELOPMENT_IDENTITIES, "true");
-  for (const kind of ["CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT"]) {
+  for (const kind of ["CATALOG", "INVENTORY", "ORDER", "FINANCE", "CRM", "SUPPORT", "MARKETING_CONTENT", "MARKETING_VISUAL", "MARKETING_PUBLISHER"]) {
     assert.ok(reconciler.environment[`AGENT_${kind}_CLIENT_SECRET`]);
   }
   assert.equal(services.api.depends_on["keycloak-reconcile"].condition, "service_completed_successfully");
   assert.equal(services["ai-runtime"].depends_on["keycloak-reconcile"].condition, "service_completed_successfully");
 });
 
-test("defines seven confidential Agent service clients without committed secrets", () => {
+test("defines ten confidential Agent service clients without committed secrets", () => {
   const clients = realm.clients.filter((client) => client.clientId.startsWith("agent-"));
 
   assert.deepEqual(clients.map((client) => client.clientId).sort(), agentClients.toSorted());
@@ -62,12 +65,8 @@ test("defines seven confidential Agent service clients without committed secrets
     assert.equal(client.serviceAccountsEnabled, true);
     assert.equal(client.standardFlowEnabled, false);
     assert.equal(client.directAccessGrantsEnabled, false);
-    if (client.clientId === "agent-ai-ceo") {
-      assert.equal("secret" in client, false);
-    } else {
-      const kind = client.clientId.slice("agent-".length).toUpperCase();
-      assert.equal(client.secret, `\${AGENT_${kind}_CLIENT_SECRET}`);
-    }
+    const kind = client.clientId.slice("agent-".length).replaceAll("-", "_").toUpperCase();
+    assert.equal(client.secret, `\${AGENT_${kind}_CLIENT_SECRET}`);
     assert.equal(
       client.protocolMappers.some((mapper) => mapper.name === "realm-roles"),
       false,

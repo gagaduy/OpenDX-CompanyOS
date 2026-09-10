@@ -5,13 +5,19 @@ import type {
   PublicationReadinessSnapshot,
   PublicCatalogRepository,
   PublicHeroSlideProjection,
+  PublicHeroMediaAuthorization,
+  PublicHeroPresentationProjection,
   PublicMediaAuthorization,
   PublicProductListResult,
   PublicProductProjection,
   StorefrontVariantProjection,
 } from "../../../application/repositories/interfaces/public-catalog.repository";
 import type { PublicProductListQuery } from "../../../application/dtos/requests/public-catalog-request.dto";
-import type { PublicCategoryDto } from "../../../application/dtos/responses/public-catalog-response.dto";
+import type {
+  PublicCategoryDto,
+  PublicStorefrontContentDto,
+  StorefrontAssuranceIconKey,
+} from "../../../application/dtos/responses/public-catalog-response.dto";
 import { assertAttributes, assertVariantOptions } from "../../../domain/services/catalog-rules";
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
 
@@ -51,6 +57,36 @@ interface HeroProductRow extends ProductRow {
   category_slug: string;
 }
 
+interface HeroPresentationSnapshotRow {
+  presentation_id: string;
+  object_key: string;
+  content_type: "video/mp4";
+  byte_size: string;
+  duration_ms: number;
+  configured_chapter_count: number;
+  category_id: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  product_slug: string | null;
+  product_brand: string | null;
+  product_description: string | null;
+  product_attributes: unknown;
+  primary_media_id: string | null;
+  primary_media_alt_text: string | null;
+  start_ms: number | null;
+  end_ms: number | null;
+  label: string | null;
+  variant_id: string | null;
+  variant_sku: string | null;
+  variant_title: string | null;
+  variant_option_values: unknown;
+  amount_minor: string | null;
+  currency: string | null;
+  previous_amount_minor: string | null;
+}
+
 interface VariantRow {
   id: string;
   product_id: string;
@@ -59,6 +95,7 @@ interface VariantRow {
   option_values: unknown;
   amount_minor: string;
   currency: string;
+  previous_amount_minor: string | null;
 }
 
 interface MediaRow {
@@ -68,11 +105,31 @@ interface MediaRow {
   content_type: string;
 }
 
+interface HeroMediaRow {
+  media_id: string;
+  object_key: string;
+  content_type: "video/mp4";
+  byte_size: string;
+}
+
 interface StorefrontVariantRow extends VariantRow {
   product_name: string;
   product_slug: string;
   primary_media_id: string;
   primary_media_alt_text: string;
+}
+
+interface StorefrontAssuranceRow {
+  code: string;
+  icon_key: StorefrontAssuranceIconKey;
+  title: string;
+  description: string;
+}
+
+interface StorefrontMetricRow {
+  code: string;
+  display_value: string;
+  label: string;
 }
 
 const completePublishedProduct = `p.status = 'published'
@@ -107,7 +164,7 @@ const onSaleProductPredicate = `EXISTS (
   SELECT 1
   FROM product_variants sale_variant
   JOIN LATERAL (
-    SELECT current_price.amount_minor, current_price.valid_from
+    SELECT current_price.amount_minor, current_price.valid_from, current_price.valid_to, current_price.variant_id
     FROM product_prices current_price
     WHERE current_price.variant_id = sale_variant.id
       AND ${currentPricePredicate}
@@ -115,17 +172,54 @@ const onSaleProductPredicate = `EXISTS (
     LIMIT 1
   ) current_sale_price ON true
   JOIN LATERAL (
-    SELECT previous_price.amount_minor
-    FROM product_prices previous_price
-    WHERE previous_price.variant_id = sale_variant.id
-      AND previous_price.valid_from < current_sale_price.valid_from
-    ORDER BY previous_price.valid_from DESC, previous_price.id DESC
-    LIMIT 1
+    SELECT COALESCE(
+      (SELECT baseline.amount_minor
+       FROM product_prices baseline
+       WHERE baseline.variant_id = current_sale_price.variant_id
+         AND baseline.valid_to IS NULL
+         AND baseline.valid_from <= current_sale_price.valid_from
+         AND current_sale_price.valid_to IS NOT NULL
+       ORDER BY baseline.valid_from DESC, baseline.id DESC
+       LIMIT 1),
+      (SELECT previous_price.amount_minor
+       FROM product_prices previous_price
+       WHERE previous_price.variant_id = current_sale_price.variant_id
+         AND previous_price.valid_from < current_sale_price.valid_from
+         AND previous_price.amount_minor != current_sale_price.amount_minor
+       ORDER BY previous_price.valid_from DESC, previous_price.id DESC
+       LIMIT 1)
+    ) AS amount_minor
   ) previous_sale_price ON true
   WHERE sale_variant.product_id = p.id
     AND sale_variant.status = 'active'
+    AND previous_sale_price.amount_minor IS NOT NULL
     AND current_sale_price.amount_minor < previous_sale_price.amount_minor
 )`;
+
+const priceLateralSelect = `SELECT candidate.amount_minor, candidate.currency,
+         COALESCE(
+           (SELECT baseline.amount_minor
+            FROM product_prices baseline
+            WHERE baseline.variant_id = variant.id
+              AND baseline.valid_to IS NULL
+              AND baseline.valid_from <= candidate.valid_from
+              AND candidate.valid_to IS NOT NULL
+            ORDER BY baseline.valid_from DESC, baseline.id DESC
+            LIMIT 1),
+           (SELECT previous.amount_minor
+            FROM product_prices previous
+            WHERE previous.variant_id = variant.id
+              AND previous.valid_from < candidate.valid_from
+              AND previous.amount_minor != candidate.amount_minor
+            ORDER BY previous.valid_from DESC, previous.id DESC
+            LIMIT 1)
+         ) AS previous_amount_minor
+  FROM product_prices candidate
+  WHERE candidate.variant_id = variant.id
+    AND candidate.valid_from <= NOW()
+    AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
+  ORDER BY candidate.valid_from DESC, candidate.id DESC
+  LIMIT 1`;
 
 const productProjectionColumns = `p.id, p.category_id,
   category.name AS category_name, p.name, p.slug, p.brand, p.description,
@@ -141,6 +235,36 @@ const productProjectionJoins = `JOIN categories category ON category.id = p.cate
   ) primary_media ON true`;
 
 export class PostgresqlPublicCatalogRepository implements PublicCatalogRepository {
+  async listStorefrontContent(
+    session: DatabaseSession,
+  ): Promise<PublicStorefrontContentDto> {
+    const assurances = await session.query<StorefrontAssuranceRow>(
+      `SELECT code, icon_key, title, description
+       FROM storefront_service_assurances
+       WHERE enabled = true
+       ORDER BY sort_order, code`,
+    );
+    const metrics = await session.query<StorefrontMetricRow>(
+      `SELECT code, display_value, label
+       FROM storefront_trust_metrics
+       WHERE enabled = true
+       ORDER BY sort_order, code`,
+    );
+    return {
+      assurances: assurances.rows.map((row) => ({
+        code: row.code,
+        iconKey: row.icon_key,
+        title: row.title,
+        description: row.description,
+      })),
+      metrics: metrics.rows.map((row) => ({
+        code: row.code,
+        displayValue: row.display_value,
+        label: row.label,
+      })),
+    };
+  }
+
   async inspectPublicationReadiness(
     session: DatabaseSession,
     productId: string,
@@ -233,6 +357,142 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
       },
       product: products[index]!,
     }));
+  }
+
+  async findActiveHeroPresentation(
+    session: DatabaseSession,
+  ): Promise<PublicHeroPresentationProjection | undefined> {
+    const result = await session.query<HeroPresentationSnapshotRow>(
+      `WITH active_presentation AS MATERIALIZED (
+         SELECT presentation.id, presentation.object_key,
+                presentation.content_type, presentation.byte_size,
+                presentation.duration_ms,
+                (SELECT count(*)::int
+                 FROM storefront_hero_chapters configured_chapter
+                 WHERE configured_chapter.presentation_id = presentation.id)
+                  AS configured_chapter_count
+         FROM storefront_hero_presentations presentation
+         WHERE presentation.enabled = true
+       ), eligible_chapters AS MATERIALIZED (
+         SELECT chapter.presentation_id, chapter.category_id,
+                category.name AS category_name, category.slug AS category_slug,
+                chapter.sort_order, chapter.start_ms, chapter.end_ms, chapter.label,
+                p.id AS product_id, p.name AS product_name, p.slug AS product_slug,
+                p.brand AS product_brand, p.description AS product_description,
+                p.attributes AS product_attributes,
+                primary_media.id AS primary_media_id,
+                primary_media.alt_text AS primary_media_alt_text
+         FROM active_presentation presentation
+         JOIN storefront_hero_chapters chapter
+           ON chapter.presentation_id = presentation.id
+         JOIN LATERAL (
+           SELECT candidate.id
+           FROM products candidate
+           JOIN categories candidate_category
+             ON candidate_category.id = candidate.category_id
+           WHERE candidate.category_id = chapter.category_id
+             AND candidate.status = 'published'
+             AND candidate_category.status = 'active'
+             AND EXISTS (
+               SELECT 1 FROM product_media required_media
+               WHERE required_media.product_id = candidate.id
+                 AND required_media.is_primary = true
+             )
+             AND EXISTS (
+               SELECT 1 FROM product_variants required_variant
+               WHERE required_variant.product_id = candidate.id
+                 AND required_variant.status = 'active'
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM product_variants unpriced_variant
+               WHERE unpriced_variant.product_id = candidate.id
+                 AND unpriced_variant.status = 'active'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM product_prices current_price
+                   WHERE current_price.variant_id = unpriced_variant.id
+                     AND current_price.valid_from <= NOW()
+                     AND (current_price.valid_to IS NULL OR current_price.valid_to > NOW())
+                 )
+             )
+           ORDER BY candidate.created_at DESC, candidate.id ASC
+           LIMIT 1
+         ) newest ON true
+         JOIN products p ON p.id = newest.id
+         JOIN categories category ON category.id = p.category_id
+         JOIN LATERAL (
+           SELECT media.id, media.alt_text
+           FROM product_media media
+           WHERE media.product_id = p.id AND media.is_primary = true
+           LIMIT 1
+         ) primary_media ON true
+       )
+       SELECT presentation.id AS presentation_id, presentation.object_key,
+              presentation.content_type, presentation.byte_size::text,
+              presentation.duration_ms, presentation.configured_chapter_count,
+              eligible.category_id, eligible.category_name, eligible.category_slug,
+              eligible.product_id, eligible.product_name, eligible.product_slug,
+              eligible.product_brand, eligible.product_description,
+              eligible.product_attributes, eligible.primary_media_id,
+              eligible.primary_media_alt_text, eligible.start_ms, eligible.end_ms,
+              eligible.label, variant.id AS variant_id,
+              variant.sku AS variant_sku, variant.title AS variant_title,
+              variant.option_values AS variant_option_values,
+              price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text
+       FROM active_presentation presentation
+       LEFT JOIN eligible_chapters eligible
+         ON eligible.presentation_id = presentation.id
+       LEFT JOIN product_variants variant
+         ON variant.product_id = eligible.product_id AND variant.status = 'active'
+       LEFT JOIN LATERAL (
+         ${priceLateralSelect}
+       ) price ON true
+       ORDER BY eligible.sort_order, eligible.category_id,
+                variant.created_at, variant.id`,
+    );
+    const presentation = result.rows[0];
+    if (presentation === undefined) return undefined;
+
+    const chapterGroups = new Map<string, HeroPresentationSnapshotRow[]>();
+    for (const row of result.rows) {
+      if (row.category_id === null) continue;
+      const rows = chapterGroups.get(row.category_id) ?? [];
+      rows.push(row);
+      chapterGroups.set(row.category_id, rows);
+    }
+    return {
+      media: {
+        id: presentation.presentation_id,
+        objectKey: presentation.object_key,
+        contentType: presentation.content_type,
+        byteSize: toSafeInteger(presentation.byte_size, "Hero media byte size"),
+        durationMs: presentation.duration_ms,
+      },
+      configuredChapterCount: presentation.configured_chapter_count,
+      slides: [...chapterGroups.values()].map(mapHeroSnapshotSlide),
+    };
+  }
+
+  async findHeroMediaAuthorization(
+    session: DatabaseSession,
+    mediaId: string,
+  ): Promise<PublicHeroMediaAuthorization | undefined> {
+    const result = await session.query<HeroMediaRow>(
+      `SELECT presentation.id AS media_id, presentation.object_key,
+              presentation.content_type, presentation.byte_size::text
+       FROM storefront_hero_presentations presentation
+       WHERE presentation.id = $1 AND presentation.enabled = true`,
+      [mediaId],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          mediaId: row.media_id,
+          objectKey: row.object_key,
+          contentType: row.content_type,
+          byteSize: toSafeInteger(row.byte_size, "Hero media byte size"),
+        };
   }
 
   async listProducts(
@@ -335,6 +595,22 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     return (await this.mapProducts(session, result.rows))[0];
   }
 
+  async findProductsByIds(
+    session: DatabaseSession,
+    productIds: readonly string[],
+  ): Promise<readonly PublicProductProjection[]> {
+    if (productIds.length === 0) return [];
+    const result = await session.query<ProductRow>(
+      `SELECT ${productProjectionColumns}
+       FROM products p
+       ${productProjectionJoins}
+       WHERE p.id = ANY($1::uuid[]) AND ${completePublishedProduct}
+       ORDER BY array_position($1::uuid[], p.id)`,
+      [productIds],
+    );
+    return this.mapProducts(session, result.rows);
+  }
+
   async findMediaAuthorization(
     session: DatabaseSession,
     productId: string,
@@ -368,6 +644,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     const result = await session.query<StorefrontVariantRow>(
       `SELECT variant.id, variant.product_id, variant.sku, variant.title,
               variant.option_values, price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text,
               p.name AS product_name, p.slug AS product_slug,
               primary_media.id AS primary_media_id,
               primary_media.alt_text AS primary_media_alt_text
@@ -375,13 +652,7 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
        JOIN products p ON p.id = variant.product_id
        JOIN categories category ON category.id = p.category_id
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency
-         FROM product_prices candidate
-         WHERE candidate.variant_id = variant.id
-           AND candidate.valid_from <= NOW()
-           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC
-         LIMIT 1
+         ${priceLateralSelect}
        ) price ON true
        JOIN LATERAL (
          SELECT media.id, media.alt_text
@@ -419,16 +690,11 @@ export class PostgresqlPublicCatalogRepository implements PublicCatalogRepositor
     if (rows.length === 0) return [];
     const variants = await session.query<VariantRow>(
       `SELECT variant.id, variant.product_id, variant.sku, variant.title,
-              variant.option_values, price.amount_minor::text, price.currency
+              variant.option_values, price.amount_minor::text, price.currency,
+              price.previous_amount_minor::text
        FROM product_variants variant
        JOIN LATERAL (
-         SELECT candidate.amount_minor, candidate.currency
-         FROM product_prices candidate
-         WHERE candidate.variant_id = variant.id
-           AND candidate.valid_from <= NOW()
-           AND (candidate.valid_to IS NULL OR candidate.valid_to > NOW())
-         ORDER BY candidate.valid_from DESC
-         LIMIT 1
+         ${priceLateralSelect}
        ) price ON true
        WHERE variant.product_id = ANY($1::uuid[]) AND variant.status = 'active'
        ORDER BY variant.product_id, variant.created_at, variant.id`,
@@ -468,11 +734,112 @@ function mapVariant(row: VariantRow): PublicProductProjection["variants"][number
   if (!Number.isSafeInteger(amountMinor)) {
     throw new Error("Product price exceeds safe integer range");
   }
+  const previousAmountMinor =
+    row.previous_amount_minor === null
+      ? undefined
+      : Number(row.previous_amount_minor);
+  if (
+    previousAmountMinor !== undefined &&
+    !Number.isSafeInteger(previousAmountMinor)
+  ) {
+    throw new Error("Previous product price exceeds safe integer range");
+  }
+  const markdown =
+    previousAmountMinor !== undefined && previousAmountMinor > amountMinor
+      ? {
+          previousAmountMinor,
+          discountPercentage: Number(
+            ((BigInt(previousAmountMinor) - BigInt(amountMinor)) * 100n) /
+              BigInt(previousAmountMinor),
+          ),
+        }
+      : {};
   return {
     id: row.id,
     sku: row.sku,
     title: row.title,
     optionValues: structuredClone(row.option_values),
-    price: { amountMinor, currency: "VND" },
+    price: { amountMinor, currency: "VND", ...markdown },
   };
+}
+
+function mapHeroSnapshotSlide(
+  rows: readonly HeroPresentationSnapshotRow[],
+): PublicHeroPresentationProjection["slides"][number] {
+  const row = rows[0];
+  if (
+    row === undefined ||
+    row.category_id === null ||
+    row.category_name === null ||
+    row.category_slug === null ||
+    row.product_id === null ||
+    row.product_name === null ||
+    row.product_slug === null ||
+    row.product_description === null ||
+    row.primary_media_id === null ||
+    row.primary_media_alt_text === null ||
+    row.start_ms === null ||
+    row.end_ms === null ||
+    row.label === null
+  ) {
+    throw new Error("Incomplete Storefront hero projection");
+  }
+  assertAttributes(row.product_attributes);
+  const productId = row.product_id;
+  const variants = rows.map((variantRow) => {
+    if (
+      variantRow.variant_id === null ||
+      variantRow.variant_sku === null ||
+      variantRow.variant_title === null ||
+      variantRow.amount_minor === null ||
+      variantRow.currency === null
+    ) {
+      throw new Error("Incomplete Storefront hero variant projection");
+    }
+    return mapVariant({
+      id: variantRow.variant_id,
+      product_id: productId,
+      sku: variantRow.variant_sku,
+      title: variantRow.variant_title,
+      option_values: variantRow.variant_option_values,
+      amount_minor: variantRow.amount_minor,
+      currency: variantRow.currency,
+      previous_amount_minor: variantRow.previous_amount_minor,
+    });
+  });
+  return {
+    category: {
+      id: row.category_id,
+      name: row.category_name,
+      slug: row.category_slug,
+    },
+    product: {
+      id: row.product_id,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      name: row.product_name,
+      slug: row.product_slug,
+      ...(row.product_brand === null ? {} : { brand: row.product_brand }),
+      description: row.product_description,
+      attributes: structuredClone(row.product_attributes),
+      primaryMedia: {
+        id: row.primary_media_id,
+        altText: row.primary_media_alt_text,
+      },
+      variants,
+    },
+    chapter: {
+      startMs: row.start_ms,
+      endMs: row.end_ms,
+      label: row.label,
+    },
+  };
+}
+
+function toSafeInteger(value: string, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} exceeds safe integer range`);
+  }
+  return parsed;
 }

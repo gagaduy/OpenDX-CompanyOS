@@ -20,7 +20,9 @@ describe("Store Health execution catalog", () => {
     ]);
     const allTools = STORE_HEALTH_EXECUTION_CATALOG.flatMap(({ toolGrants }) =>
       toolGrants.map(({ name }) => name));
-    expect(allTools).toEqual(DEPARTMENT_TOOL_CATALOG.map(({ name }) => name)
+    expect(allTools).toEqual(DEPARTMENT_TOOL_CATALOG
+      .filter((tool) => tool.purpose === "store_health_review")
+      .map(({ name }) => name)
       .filter((name) => name !== "support.related_order_context"));
     expect(STORE_HEALTH_EXECUTION_CATALOG.flatMap(({ toolGrants }) => toolGrants)
       .every(({ parameterTemplate }) => ["empty", "aggregate_window_24h", "evidence_window_24h"]

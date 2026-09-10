@@ -46,7 +46,9 @@ describe("customer orders", () => {
     render(<MemoryRouter><OrderListPage api={api} /></MemoryRouter>);
     expect(await screen.findByText(summary.publicNumber)).toBeVisible();
     expect(screen.getByText("Đã thanh toán")).toBeVisible();
+    expect(screen.getByText("Đã thanh toán")).toHaveClass("status-badge");
     expect(screen.getByText(/18\.000\.000/)).toBeVisible();
+    expect(document.querySelector(".customer-workspace-panel")).not.toBeNull();
   });
 
   it("renders immutable lines, totals, and the processing timeline", async () => {
@@ -93,6 +95,10 @@ describe("customer orders", () => {
     expect(screen.getAllByText(/18\.000\.000/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Đã giảm 2\.000\.000/)).toBeVisible();
     expect(screen.getByRole("heading", { name: "Tiến trình đơn hàng" })).toBeVisible();
+    expect(screen.getByRole("list", { name: "Tiến trình đơn hàng" })).toHaveClass(
+      "transaction-timeline",
+    );
+    expect(document.querySelector(".order-total-summary.sticky-summary")).not.toBeNull();
     expect(screen.getAllByText("Đã thanh toán").length).toBeGreaterThan(0);
     expect(screen.queryByText("PAYMENT_CONFIRMED")).not.toBeInTheDocument();
   });

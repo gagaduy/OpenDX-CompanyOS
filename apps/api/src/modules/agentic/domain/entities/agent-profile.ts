@@ -9,6 +9,9 @@ export const AGENT_KINDS = [
   "finance",
   "crm",
   "support",
+  "marketing_content",
+  "marketing_visual",
+  "marketing_publisher",
 ] as const;
 
 export type AgentKind = (typeof AGENT_KINDS)[number];

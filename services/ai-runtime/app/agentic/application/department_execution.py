@@ -387,7 +387,14 @@ class AiCeoPlanningService:
                 frozenset(eligible), provenance_ids,
             ),
         ))
-        await _settle_rejected_deferred_outcome(self._controls, outcome)
+        if getattr(outcome, "status", None) != "completed":
+            terminal = (
+                getattr(outcome, "deferred_terminal_settlement", None)
+                or getattr(outcome, "terminal_settlement", None)
+            )
+            if terminal is not None:
+                await self._controls.complete_model_run(terminal)
+            raise DepartmentExecutionError("AI_CEO_PLANNING_UNAVAILABLE")
         proposal = _accepted_result(outcome, "AI_CEO_PLANNING_UNAVAILABLE")
         subtasks_value = proposal.get("subtasks")
         if type(subtasks_value) is not list:

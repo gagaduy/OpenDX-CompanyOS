@@ -23,9 +23,6 @@ Current major dependencies:
 | Package | Used by | Purpose |
 | --- | --- | --- |
 | `react`, `react-dom` | `apps/console`, `apps/storefront` | Console and Storefront UI rendering |
-| `three` `0.185.1` | `apps/storefront` | MIT-licensed WebGL renderer for the Storefront 3D homepage |
-| `@react-three/fiber` `9.7.0` | `apps/storefront` | MIT-licensed React renderer for the Storefront Three.js scene graph |
-| `@types/three` `0.185.4` | `apps/storefront` | MIT-licensed TypeScript declarations for Three.js and GLTFLoader |
 | `vite`, `@vitejs/plugin-react` | `apps/console`, `apps/storefront` | Frontend development and production builds |
 | `lucide-react` | `apps/console`, `apps/storefront` | Icon set for product UI controls and status surfaces |
 | `vitest`, `jsdom` | `apps/console`, `apps/storefront` | Frontend unit test runner and browser-like test environment |
@@ -43,6 +40,10 @@ Current major dependencies:
 | `minio` | `apps/api` | S3-compatible product media storage adapter (Apache-2.0) |
 | `multer`, `@types/multer` | `apps/api` | Bounded multipart media upload parsing (MIT) |
 | `file-type` | `apps/api` | Uploaded image byte-signature detection (MIT) |
+| `sharp` `0.35.4` | `apps/api` | Bounded Marketing PNG-to-JPEG conversion for private Instagram publication variants (Apache-2.0; Node.js >=20.9) |
+| `nodemailer`, `@types/nodemailer` | `apps/api` | Standards-based SMTP email dispatch for Customer Support & CRM department (MIT) |
+| `imapflow` | `apps/api` | Standards-based IMAP client for automated inbound customer email reply polling in Customer Support & CRM department (MIT) |
+| `mailparser`, `@types/mailparser` | `apps/api` | Standards-based MIME email parser for parsing incoming email headers, text bodies, and attachments (MIT) |
 | `cors`, `@types/cors` | `apps/api` | Explicit browser-origin policy (MIT) |
 | `cookie` | `apps/api` | Standards-based HTTP cookie parsing and serialization for Commerce sessions (MIT) |
 | `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |
@@ -54,6 +55,19 @@ The Commerce Foundation API runs as one process, so `express-rate-limit` initial
 built-in memory store for Google authentication abuse protection. A hosted
 multi-replica deployment must configure a reviewed shared store during Phase 8;
 the in-memory limiter is not treated as a cross-replica quota authority.
+
+Marketing document and spreadsheet deliverable generators
+(`campaign_brief_docx`, `facebook_content_docx`,
+`facebook_publication_log_xlsx`, `marketing_final_report_pdf`) remain
+implemented in pure TypeScript with Node standard library utilities. Marketing
+uses the pinned `sharp` image SDK only at its bounded infrastructure boundary
+to convert an approved private PNG asset into the deterministic private JPEG
+variant required for Instagram publication.
+
+`cloudflared` is an optional, developer-operated external HTTPS tunnel for
+localhost Instagram acceptance. It is not an application runtime dependency,
+is not installed through the workspace lockfile, and is not part of the
+production topology.
 
 ## Python
 

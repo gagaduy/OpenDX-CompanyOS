@@ -103,6 +103,12 @@ describe("storefront checkout", () => {
     renderCheckout({ create } as unknown as CheckoutApi);
 
     await screen.findByText("Duy Duong");
+    expect(screen.getByRole("region", { name: "Thông tin checkout" })).toHaveClass(
+      "transaction-list",
+    );
+    expect(screen.getByRole("complementary", { name: "Tóm tắt thanh toán" })).toHaveClass(
+      "sticky-summary",
+    );
     await userEvent.click(screen.getByText("Duy Nguyen"));
     await userEvent.type(screen.getByLabelText("Mã ưu đãi"), "nova10");
     const submit = screen.getByRole("button", { name: "Tiếp tục thanh toán" });

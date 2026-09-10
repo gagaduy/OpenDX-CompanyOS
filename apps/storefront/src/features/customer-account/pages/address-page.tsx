@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
+import { useCustomerSession } from "../../authentication";
 import type { CustomerAccountApi } from "../api/customer-account-api";
 import { AccountWorkspace } from "../components/account-workspace";
 import { AddressForm } from "../components/address-form";

@@ -3,13 +3,9 @@
 
 import { useSearchParams } from "react-router-dom";
 import type { StorefrontCatalogApi } from "../api/storefront-catalog-api";
-import { CatalogFilters } from "../components/catalog-filters";
-import { CategoryShowcase } from "../components/category-showcase";
 import { DiscoverySidebar } from "../components/discovery-sidebar";
 import { ProductGrid } from "../components/product-grid";
-import { StorefrontHero } from "../components/storefront-hero";
 import { useProductDiscovery } from "../hooks/use-product-discovery";
-import { useHeroSlides } from "../hooks/use-hero-slides";
 
 export function HomePage({
   api,
@@ -22,34 +18,9 @@ export function HomePage({
   const normalized = new URLSearchParams(parameters);
   if (!normalized.has("pageSize")) normalized.set("pageSize", "12");
   const discovery = useProductDiscovery(api, normalized);
-  const landing =
-    [...normalized.keys()].every((key) => key === "page" || key === "pageSize") &&
-    (normalized.get("page") ?? "1") === "1";
-  const hero = useHeroSlides(api, landing);
   const products = discovery.page?.items ?? [];
   return (
-    <main id="main-content">
-      <DiscoverySidebar
-        categories={discovery.categories}
-        parameters={normalized}
-        onSubmit={setParameters}
-      />
-      {!discovery.loading &&
-        landing &&
-        (hero.slides.length > 0 || products[0] !== undefined) && (
-        <>
-          <StorefrontHero
-            slides={hero.slides}
-            fallbackProduct={products[0]}
-            apiBaseUrl={apiBaseUrl}
-          />
-          <CategoryShowcase
-            categories={discovery.categories}
-            products={products}
-            apiBaseUrl={apiBaseUrl}
-          />
-        </>
-      )}
+    <main id="main-content" className="catalog-discovery-page">
       <section id="catalog" className="catalog-page" aria-labelledby="catalog-title">
         <div className="page-heading catalog-heading">
           <div>
@@ -59,12 +30,16 @@ export function HomePage({
           <p>{discovery.page?.totalItems ?? 0} sản phẩm</p>
         </div>
         <div className="catalog-browser">
-          <CatalogFilters
+          <DiscoverySidebar
             categories={discovery.categories}
             parameters={normalized}
             onSubmit={setParameters}
           />
           <div className="catalog-results">
+            <div className="catalog-toolbar" aria-label="Tóm tắt kết quả">
+              <span>{normalized.get("query") ? `Kết quả cho “${normalized.get("query")}”` : "Tất cả sản phẩm"}</span>
+              <span>{discovery.page?.totalItems ?? 0} kết quả</span>
+            </div>
             {discovery.loading ? (
               <p role="status" className="state-panel">
                 Đang tải cửa hàng...

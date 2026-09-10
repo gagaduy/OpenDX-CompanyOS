@@ -119,6 +119,9 @@ function fixture(overrides: Partial<SupportOperationsApi> = {}): SupportOperatio
     message: vi.fn(),
     uploadAttachment: vi.fn(),
     downloadAttachment: vi.fn(async () => new Blob(["pdf"], { type: "application/pdf" })),
+    generateSupportProposal: vi.fn(async () => ({} as any)),
+    downloadSupportDocx: vi.fn(async () => undefined),
+    applySupportProposal: vi.fn(async () => ({})),
     ...overrides,
   };
 }

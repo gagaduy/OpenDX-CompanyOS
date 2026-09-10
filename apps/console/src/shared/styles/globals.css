@@ -81,9 +81,10 @@ textarea:focus-visible {
 .consoleLayout {
   display: grid;
   width: 100%;
-  overflow-x: hidden;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
 }
@@ -115,15 +116,33 @@ textarea:focus-visible {
 }
 
 .consoleSidebar {
-  position: sticky;
-  top: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  max-height: 100vh;
   z-index: 30;
   padding: 18px 12px;
   border-right: 1px solid var(--hairline);
   background: var(--surface-1);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+
+.consoleSidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.consoleSidebar::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 4px;
+}
+
+.consoleSidebar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .consoleBrand,
@@ -239,16 +258,43 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.consoleWorkspace {
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+
+.consoleWorkspace::-webkit-scrollbar {
+  width: 6px;
+}
+
+.consoleWorkspace::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 4px;
+}
+
+.consoleWorkspace::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .consoleContent {
   min-width: 0;
   padding: 28px 32px;
-}
-
-.consoleWorkspace {
-  min-width: 0;
+  flex: 1;
 }
 
 .consoleTopbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   min-height: 64px;
   align-items: center;
@@ -480,11 +526,23 @@ textarea:focus-visible {
 @media (max-width: 767px) {
   .consoleLayout {
     display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .consoleWorkspace {
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .consoleSidebar {
     position: fixed;
     left: 0;
+    top: 0;
+    height: 100vh;
+    max-height: 100vh;
     width: min(280px, 86vw);
     transform: translateX(-100%);
     transition: transform 160ms ease;

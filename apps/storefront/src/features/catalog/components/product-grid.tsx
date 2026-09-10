@@ -11,13 +11,11 @@ export function ProductGrid({
   readonly apiBaseUrl: string;
 }) {
   return (
-    <div className="product-grid">
+    <div className="product-grid" role="list" aria-label="Danh sách sản phẩm">
       {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          apiBaseUrl={apiBaseUrl}
-        />
+        <div key={product.id} role="listitem">
+          <ProductCard product={product} apiBaseUrl={apiBaseUrl} />
+        </div>
       ))}
     </div>
   );

@@ -4,15 +4,31 @@
 import type { z } from "zod";
 import type {
   categorySchema,
+  heroChapterSchema,
+  heroMediaSchema,
+  heroPresentationSchema,
+  heroPresentationSlideSchema,
   heroSlideSchema,
   productSchema,
+  storefrontAssuranceIconKeySchema,
+  storefrontContentSchema,
   variantSchema,
 } from "../schemas/storefront-catalog.schema";
 
 export type StorefrontCategory = z.infer<typeof categorySchema>;
+export type StorefrontHeroChapter = z.infer<typeof heroChapterSchema>;
+export type StorefrontHeroMedia = z.infer<typeof heroMediaSchema>;
+export type StorefrontHeroPresentation = z.infer<typeof heroPresentationSchema>;
+export type StorefrontHeroPresentationSlide = z.infer<
+  typeof heroPresentationSlideSchema
+>;
 export type StorefrontHeroSlide = z.infer<typeof heroSlideSchema>;
 export type StorefrontProduct = z.infer<typeof productSchema>;
 export type StorefrontVariant = z.infer<typeof variantSchema>;
+export type StorefrontAssuranceIconKey = z.infer<
+  typeof storefrontAssuranceIconKeySchema
+>;
+export type StorefrontContent = z.infer<typeof storefrontContentSchema>;
 export interface ProductPage {
   readonly items: readonly StorefrontProduct[];
   readonly page: number;

@@ -3,6 +3,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { ErrorRequestHandler } from "express";
+import { ZodError } from "zod";
 import { DatabaseUnavailableError } from "../database/database-unavailable.error";
 import { ApplicationError } from "./application-error";
 
@@ -20,6 +21,16 @@ export function createErrorHandler(): ErrorRequestHandler {
         message: error.message,
         errorCode: error.errorCode,
         errors: error.errors,
+      });
+      return;
+    }
+
+    if (error instanceof ZodError) {
+      response.status(400).json({
+        success: false,
+        message: "Invalid request payload",
+        errorCode: "VALIDATION_FAILED",
+        errors: error.issues.map((i) => ({ field: i.path.join("."), message: i.message })),
       });
       return;
     }

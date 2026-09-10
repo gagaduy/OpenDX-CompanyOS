@@ -41,6 +41,10 @@ export interface CreateApiAppOptions {
   readonly agenticAdminRouter?: Router;
   readonly agenticInternalRouter?: Router;
   readonly agenticToolRouter?: Router;
+  readonly marketingAdminRouter?: Router;
+  readonly marketingPublicRouter?: Router;
+  readonly supportInboundEmailRouter?: Router;
+  readonly supportLivechatRouter?: Router;
   readonly sepayWebhookRouter?: Router;
 }
 
@@ -82,7 +86,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       options.agenticToolRouter,
     );
   }
+  if (options.marketingPublicRouter !== undefined) {
+    app.use("/v1/public/marketing/media", options.marketingPublicRouter);
+  }
   app.use(express.json({ limit: options.jsonBodyLimit ?? "1mb" }));
+  if (options.supportInboundEmailRouter !== undefined) {
+    app.use("/v1/public", options.supportInboundEmailRouter);
+  }
+  if (options.supportLivechatRouter !== undefined) {
+    app.use("/v1/public/support/livechat", storefrontCors, options.supportLivechatRouter);
+  }
   app.use(
     createHealthRouter(options.readiness, {
       timeoutMs: options.readinessTimeoutMs ?? 2_000,
@@ -125,6 +138,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   }
   if (options.agenticInternalRouter !== undefined) {
     app.use("/v1/internal/agentic", options.agenticInternalRouter);
+  }
+  if (options.marketingAdminRouter !== undefined) {
+    app.use("/v1/admin/marketing", consoleCors, options.marketingAdminRouter);
   }
   if (options.storefrontRouter !== undefined) {
     app.use("/v1/storefront", storefrontCors, options.storefrontRouter);

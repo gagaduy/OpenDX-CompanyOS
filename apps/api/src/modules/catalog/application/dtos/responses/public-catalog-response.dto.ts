@@ -25,6 +25,26 @@ export interface PublicCategoryDto {
   readonly sortOrder: number;
 }
 
+export type StorefrontAssuranceIconKey =
+  | "truck"
+  | "shield-check"
+  | "badge-percent"
+  | "headphones";
+
+export interface PublicStorefrontContentDto {
+  readonly assurances: readonly {
+    readonly code: string;
+    readonly iconKey: StorefrontAssuranceIconKey;
+    readonly title: string;
+    readonly description: string;
+  }[];
+  readonly metrics: readonly {
+    readonly code: string;
+    readonly displayValue: string;
+    readonly label: string;
+  }[];
+}
+
 export interface PublicProductMediaDto {
   readonly id: string;
   readonly altText: string;
@@ -39,6 +59,8 @@ export interface PublicProductVariantDto {
   readonly price: {
     readonly amountMinor: number;
     readonly currency: "VND";
+    readonly previousAmountMinor?: number;
+    readonly discountPercentage?: number;
   };
   readonly availableQuantity: number;
   readonly purchasable: boolean;
@@ -66,6 +88,25 @@ export interface PublicHeroCategoryDto {
 export interface StorefrontHeroSlideDto {
   readonly category: PublicHeroCategoryDto;
   readonly product: PublicProductDto;
+}
+
+export interface StorefrontHeroPresentationSlideDto extends StorefrontHeroSlideDto {
+  readonly chapter?: {
+    readonly startMs: number;
+    readonly endMs: number;
+    readonly label: string;
+  };
+}
+
+export interface StorefrontHeroPresentationDto {
+  readonly media?: {
+    readonly id: string;
+    readonly contentUrl: string;
+    readonly contentType: "video/mp4";
+    readonly byteSize: number;
+    readonly durationMs: number;
+  };
+  readonly slides: readonly StorefrontHeroPresentationSlideDto[];
 }
 
 export interface PaginatedPublicProductsDto {

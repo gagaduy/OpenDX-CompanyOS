@@ -38,3 +38,7 @@ export const addressUpdateSchema = address.extend({
   version: z.number().int().positive(),
 });
 export const idSchema = z.uuid();
+export const wishlistQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(48).default(24),
+});

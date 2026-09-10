@@ -6,8 +6,11 @@ export {
   createCatalogVariantReader,
   createCatalogHealthReader,
   createStorefrontVariantReader,
+  createPublicWishlistProductReader,
   type CatalogModuleDependencies,
 } from "./catalog.module";
+export type { PublicWishlistProductReader } from "./application/services/interfaces/public-wishlist-product-reader";
+export type { PublicProductDto } from "./application/dtos/responses/public-catalog-response.dto";
 export type {
   CatalogHealthReader,
   CatalogMerchandisingSummary,

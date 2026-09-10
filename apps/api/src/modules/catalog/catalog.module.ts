@@ -10,11 +10,13 @@ import { ProductMediaService } from "./application/services/implementations/prod
 import { ProductService } from "./application/services/implementations/product.service";
 import { ProductPublicationService } from "./application/services/implementations/product-publication.service";
 import { PublicCatalogService } from "./application/services/implementations/public-catalog.service";
+import { PublicWishlistProductReaderService } from "./application/services/implementations/public-wishlist-product-reader";
 import { VariantService } from "./application/services/implementations/variant.service";
 import { CatalogVariantReaderService } from "./application/services/implementations/catalog-variant-reader";
 import { StorefrontVariantReaderService } from "./application/services/implementations/storefront-variant-reader";
 import { CatalogHealthReaderService } from "./application/services/implementations/catalog-health-reader";
 import type { ProductMediaInspector, ProductMediaStorage } from "./application/storage/product-media.storage";
+import type { StorefrontHeroMediaStorage } from "./application/storage/storefront-hero-media.storage";
 import { PostgresqlCatalogAuditRepository } from "./infrastructure/repositories/implementations/postgresql-catalog-audit.repository";
 import { PostgresqlCategoryRepository } from "./infrastructure/repositories/implementations/postgresql-category.repository";
 import { PostgresqlProductMediaRepository } from "./infrastructure/repositories/implementations/postgresql-product-media.repository";
@@ -34,11 +36,17 @@ import { createProductRouter } from "./presentation/routes/product.routes";
 import { createProductPublicationRouter } from "./presentation/routes/product-publication.routes";
 import { createPublicCatalogRouter } from "./presentation/routes/public-catalog.routes";
 import { createVariantRouter } from "./presentation/routes/variant.routes";
+import { SharpCampaignVisualAdapter } from "./infrastructure/adapters/sharp-campaign-visual.adapter";
+import { PostgresqlCampaignRepository } from "./infrastructure/repositories/implementations/postgresql-campaign.repository";
+import { AiMerchandisingService } from "./application/services/implementations/ai-merchandising.service";
+import { AiMerchandisingController } from "./presentation/controllers/ai-merchandising.controller";
+import { createAiMerchandisingRouter } from "./presentation/routes/ai-merchandising.routes";
 
 export interface CatalogModuleDependencies {
   readonly transactions: TransactionRunner;
   readonly mediaStorage: ProductMediaStorage;
   readonly mediaInspector: ProductMediaInspector;
+  readonly heroMediaStorage: StorefrontHeroMediaStorage;
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly generateId: () => string;
   readonly now: () => string;
@@ -55,6 +63,18 @@ export function createStorefrontVariantReader(transactions: TransactionRunner) {
     new PostgresqlPublicCatalogRepository(),
     transactions,
   );
+}
+
+export function createPublicWishlistProductReader(
+  transactions: TransactionRunner,
+  availability: InventoryAvailabilityReader,
+) {
+  const catalog = new PublicCatalogService(
+    new PostgresqlPublicCatalogRepository(),
+    availability,
+    transactions,
+  );
+  return new PublicWishlistProductReaderService(catalog);
 }
 
 export function createCatalogHealthReader(
@@ -138,6 +158,22 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     metadata: {},
     occurredAt: dependencies.now(),
   }));
+  const campaignVisualGenerator = new SharpCampaignVisualAdapter({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    enabled: process.env.OPENROUTER_EXECUTION_ENABLED === "true",
+    models: process.env.MARKETING_VISUAL_MODELS || "google/gemini-2.5-flash-image",
+    timeoutMs: Number(process.env.MARKETING_VISUAL_TIMEOUT_MS ?? 25000),
+  });
+  const campaignRepository = new PostgresqlCampaignRepository();
+  const aiMerchandisingService = new AiMerchandisingService(
+    dependencies.transactions,
+    audit,
+    campaignVisualGenerator,
+    dependencies.mediaStorage,
+    campaignRepository,
+    dependencies.generateId,
+    dependencies.now,
+  );
   const adminRouter = Router();
   adminRouter.use(createCategoryRouter(new CategoryController(categoryService), authenticate));
   adminRouter.use(createProductRouter(new ProductController(productService), authenticate));
@@ -154,8 +190,18 @@ export function createCatalogModule(dependencies: CatalogModuleDependencies) {
     authenticate,
     appendDenied,
   ));
+  adminRouter.use(
+    createAiMerchandisingRouter(
+      new AiMerchandisingController(aiMerchandisingService, dependencies.mediaStorage),
+      authenticate,
+    ),
+  );
   const publicRouter = createPublicCatalogRouter(
-    new PublicCatalogController(publicCatalogService, dependencies.mediaStorage),
+    new PublicCatalogController(
+      publicCatalogService,
+      dependencies.mediaStorage,
+      dependencies.heroMediaStorage,
+    ),
   );
   return {
     adminRouter,

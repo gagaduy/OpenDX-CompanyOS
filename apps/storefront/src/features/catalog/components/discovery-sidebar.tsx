@@ -51,7 +51,6 @@ export function DiscoverySidebar({
         id="discovery-sidebar-panel"
         className="sidebar-panel"
         data-testid="discovery-sidebar-panel"
-        aria-hidden={open ? "false" : "true"}
       >
         <div className="sidebar-section">
           <span className="eyebrow">Danh mục</span>

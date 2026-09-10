@@ -11,7 +11,10 @@ import { useOrders } from "../hooks/use-orders";
 export function OrderListPage({ api }: { readonly api: OrderApi }) {
   const { orders, error } = useOrders(api);
   return (
-    <main id="main-content" className="content-page order-page">
+    <main
+      id="main-content"
+      className="content-page transaction-page order-page customer-workspace-panel"
+    >
       <div className="page-heading"><div><span className="eyebrow">Tài khoản khách hàng</span><h1>Đơn hàng</h1></div><p>Lịch sử mua sắm của bạn</p></div>
       {error && <p role="alert" className="inline-alert">{error}</p>}
       {orders === undefined && !error ? <p role="status" className="state-panel">Đang tải đơn hàng...</p> : orders?.items.length === 0 ? (

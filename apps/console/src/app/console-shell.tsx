@@ -11,6 +11,7 @@ import {
   FolderTree,
   Headphones,
   LogOut,
+  Megaphone,
   Menu,
   Moon,
   PackageSearch,
@@ -39,6 +40,7 @@ const routeTitles = [
   ["/agentic/employees", "Digital Employees"],
   ["/agentic/approvals", "Approval Inbox"],
   ["/agentic/tasks", "Digital Workforce"],
+  ["/marketing/campaigns", "Marketing & Creative"],
   ["/company-overview", "Company Overview"],
   ["/categories", "Categories"],
   ["/inventory", "Inventory"],
@@ -66,6 +68,7 @@ export function ConsoleShell() {
   const canReadAgenticTasks = session?.roles.some((role) => role === "administrator" || role === "agentic_operator" || role === "agentic_approver" || role === "agentic_governance_admin") === true;
   const canReadAgenticEmployees = canReadAgenticTasks || session?.roles.includes("agentic_auditor") === true;
   const canReadAgenticAudit = session?.roles.some((role) => role === "administrator" || role === "agentic_governance_admin" || role === "agentic_auditor") === true;
+  const canReadMarketing = canReadAgenticEmployees;
   useEffect(() => {
     window.localStorage.setItem(consoleThemeStorageKey, theme);
   }, [theme]);
@@ -119,6 +122,7 @@ export function ConsoleShell() {
         { to: "/agentic/approvals", label: "Approvals", icon: ClipboardCheck, visible: canReadAgenticTasks },
         { to: "/agentic/employees", label: "Employees", icon: Users, visible: canReadAgenticEmployees },
         { to: "/agentic/audit", label: "Audit", icon: ScrollText, visible: canReadAgenticAudit },
+        { to: "/marketing/campaigns", label: "Marketing", icon: Megaphone, visible: canReadMarketing },
       ],
     },
   ];

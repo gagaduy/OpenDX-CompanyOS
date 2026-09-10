@@ -46,3 +46,38 @@ export interface InventoryQuery {
   readonly page: number;
   readonly pageSize: number;
 }
+
+export type StockRiskClassification = "critical_low" | "balanced" | "slow_moving";
+
+export interface OperationsProposalItem {
+  readonly variantId: string;
+  readonly productId: string;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly sku: string;
+  readonly currentOnHand: number;
+  readonly currentReserved: number;
+  readonly availableQuantity: number;
+  readonly safetyStockThreshold: number;
+  readonly stockStatus: StockRiskClassification;
+  readonly recommendedRestockQuantity: number;
+  readonly estimatedUnitCostVnd: number;
+  readonly estimatedTotalCostVnd: number;
+  readonly actionRationale: string;
+}
+
+export interface OperationsProposal {
+  readonly id: string;
+  readonly prompt: string;
+  readonly items: readonly OperationsProposalItem[];
+  readonly totalItems: number;
+  readonly totalRestockUnits: number;
+  readonly totalEstimatedBudgetVnd: number;
+  readonly inventoryHealthSummary: string;
+  readonly riskAssessment: string;
+  readonly recommendedAction: string;
+  readonly status: "pending_approval" | "applied";
+  readonly createdAt: string;
+  readonly docxFilename: string;
+}
+

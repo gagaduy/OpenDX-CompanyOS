@@ -19,7 +19,10 @@ Digest = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
 SafeIdentifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,254}$")]
 AiCeoExecutionPurpose = Literal["orchestration_planning", "executive_synthesis"]
 _SENSITIVE_KEY = re.compile(r"(apikey|accesskey|authorization|credential|password|privatekey|secret|token)")
-_DEPARTMENTS = ["catalog", "inventory", "order", "finance", "crm", "support"]
+_DEPARTMENTS = [
+    "catalog", "inventory", "order", "finance", "crm", "support",
+    "marketing_content", "marketing_visual", "marketing_publisher",
+]
 
 
 def _camel(value: str) -> str:

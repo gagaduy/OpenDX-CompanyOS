@@ -96,7 +96,7 @@ describe("AgenticTaskDetailPage", () => {
     await waitFor(() => expect(api.cancelWorkflow).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000010", 2, "CANCELED_BY_STAFF",
     ));
-    expect(await screen.findByText("Inventory: RETRY_EXHAUSTED")).toBeVisible();
+    expect(await screen.findByText("RETRY_EXHAUSTED")).toBeVisible();
   });
 
   it("aborts the active request when the page unmounts", async () => {

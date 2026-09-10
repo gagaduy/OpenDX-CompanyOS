@@ -321,7 +321,9 @@ pnpm check:storefront-browser
 ```
 
 The check uses Chrome DevTools Protocol without an additional package. It
-validates seeded image delivery, semantic content, keyboard-visible focus,
+validates deterministic Storefront media fixtures, synchronized tablet/desktop hero
+video chapters and playback controls, image fallbacks for mobile,
+reduced-motion, and media errors, semantic content, keyboard-visible focus,
 dark/light theme switching, and horizontal overflow at 390x844, 768x1024, and
 1440x900. Dark and light screenshots are written to
 `/tmp/opendx-storefront-browser` by default. Set `CHROME_BIN`,
@@ -457,6 +459,55 @@ Run the API:
 pnpm --filter @opendx/api dev
 ```
 
+For a non-destructive Storefront Catalog content rollout, build the affected
+images, apply all migrations, run only the idempotent Catalog seed, and then
+recreate the API and Storefront without starting dependency seed jobs again:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps api \
+  pnpm --filter @opendx/api db:seed:catalog
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+curl -fsS http://localhost:4000/health/ready
+```
+
+This sequence does not reset, restore, truncate, or replace customer/product
+records. The Catalog seed upserts its documented stable rows.
+
+For the approved synchronized Storefront hero video rollout, build the affected
+images, apply migrations, import the bounded local MP4 into MinIO with its
+validated PostgreSQL chapter configuration, and recreate only the API and
+Storefront:
+
+```bash
+export HERO_VIDEO_FILE=/absolute/path/to/hero.mp4
+docker compose --env-file .env -f infra/docker/docker-compose.yml build migrate api storefront
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm migrate
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
+  -v "${HERO_VIDEO_FILE}:/imports/hero.mp4:ro" \
+  api pnpm --filter @opendx/api db:import:storefront-hero -- \
+  --file /imports/hero.mp4 \
+  --config /workspace/apps/api/src/modules/catalog/infrastructure/imports/nova-signal-hero.json
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+```
+
+The import is replay-safe and does not reset customer or Catalog data. If the
+presentation must be withdrawn, use its recoverable disable command and then
+recreate the two serving containers:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml run --rm --no-deps \
+  api pnpm --filter @opendx/api db:disable:storefront-hero -- --code nova-signal
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d \
+  --no-deps --force-recreate api storefront
+```
+
+Do not roll this feature back with direct SQL or by deleting its MinIO object;
+the disable command preserves a recoverable, auditable presentation state.
+
 Run the AI runtime gateway and worker on the host only when Temporal and the
 documented environment are already available:
 
@@ -469,6 +520,69 @@ python3 -m app.agentic.worker
 Normal local development should use `make up`; Compose owns the long-running AI
 Runtime and worker, their readiness, namespace registration, and restart order.
 No OpenRouter key is required through Phase C.
+
+## Development-only live Instagram publication
+
+Instagram live publication from localhost requires Meta to retrieve the
+approved JPEG through a public HTTPS URL. Keep PostgreSQL and MinIO private;
+only tunnel the local API. Start a development-only Quick Tunnel in a named
+external container so the local lifecycle helper can read its current random
+hostname without mounting the Docker socket into an application container:
+
+```bash
+API_PORT=4000
+docker run -d --name opendx-instagram-quick-tunnel \
+  --network host --restart unless-stopped \
+  cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339 \
+  tunnel --no-autoupdate --url "http://localhost:${API_PORT}"
+```
+
+If the named container already exists, start it with
+`docker start opendx-instagram-quick-tunnel`. If the API uses a non-default
+host port, replace `4000` with that port. Set only this non-secret shell
+variable for the tunnel command. Do not source the whole `.env` into the
+shell: doing so would unnecessarily export Meta tokens and other application
+secrets to the `cloudflared` process.
+
+Cloudflare assigns a temporary `https://*.trycloudflare.com` origin. Keep
+`INSTAGRAM_PUBLIC_MEDIA_BASE_URL` in the ignored root `.env`; never put a real
+tunnel hostname, Instagram ID, access token, or signing secret in
+`.env.example` or another tracked file. With `INSTAGRAM_PUBLICATION_MODE=live`,
+`make up` verifies the current tunnel, updates only this URL in `.env`, and
+recreates the API when the hostname changed. Run
+`OPENDX_ENV_FILE="$PWD/.env" node scripts/dev/sync-instagram-quick-tunnel.mjs`
+to perform the same synchronization without rebuilding the full stack.
+
+Set `MARKETING_PUBLIC_MEDIA_SIGNING_SECRET` in the same ignored root `.env` to
+a separate cryptographically random HMAC secret of at least 32 characters. Use
+a password manager or another trusted local secret generator and paste the
+value directly into the file with an editor; do not reuse the Meta access
+token, print the secret into logs, or commit it. Then set the verified
+Instagram business account ID and Page access token, switch
+`INSTAGRAM_PUBLICATION_MODE` to `live`, and start the stack. Its typed startup
+configuration reads the synchronized origin and credentials:
+
+```bash
+make up
+curl -fsS http://localhost:4000/health/ready
+```
+
+The root `Makefile` reads the repository-root `.env` and passes it explicitly
+to Compose. An `infra/docker/.env` file is a different file and is not used by
+root `make up`; do not update it expecting the root workflow to see those
+values. When running Compose manually from the repository root, keep the
+explicit `--env-file .env` shown above to avoid ambiguity.
+
+Quick Tunnel URLs change whenever the tunnel restarts and provide no
+production SLA. The lifecycle helper performs the local URL refresh; it does
+not turn a Quick Tunnel into a deployment endpoint. Use a reviewed stable
+public origin for production.
+
+The default Instagram container readiness window is five minutes
+(`INSTAGRAM_CONTAINER_POLL_INTERVAL_MS=5000` and
+`INSTAGRAM_CONTAINER_MAX_POLL_ATTEMPTS=60`). Keep these values in environment
+configuration; publishing fails retryably without calling `media_publish` if
+Meta never reports `FINISHED` within that window.
 
 ## Configuration
 
@@ -486,6 +600,10 @@ The API readiness probe verifies every PostgreSQL migration family through
 Reporting and Agentic, plus Keycloak, ClamAV, the product-media MinIO bucket,
 and the private `support-attachments` bucket. It uses the repository's current
 minimum migration counts so an older partially migrated stack stays unready.
+Customer readiness additionally requires the exact
+`202608270030_add_customer_wishlist` ledger entry and the
+`customer_wishlist_items` table, so application/schema drift cannot report
+healthy after a partial deploy.
 It does not contact SePay. Runtime persistence remains PostgreSQL-only; there
 is no memory database switch.
 

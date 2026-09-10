@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { formatVnd } from "../../../shared/format/currency";
 import { CartLine } from "../components/cart-line";
 import { useCart } from "../hooks/cart-context";
-import { useCustomerSession } from "../../authentication/hooks/customer-session-context";
+import { useCustomerSession } from "../../authentication";
 import { CartResolutionDialog } from "../components/cart-resolution-dialog";
 import { useEffect } from "react";
 
@@ -51,7 +51,7 @@ export function CartPage({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
     }
   };
   return (
-    <main id="main-content" className="content-page">
+    <main id="main-content" className="content-page transaction-page cart-page">
       {parameters.get("resolution") === "required" && (
         <CartResolutionDialog
           busy={loading}
@@ -88,7 +88,10 @@ export function CartPage({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
         </div>
       ) : (
         <div className="cart-layout">
-          <section className="cart-lines" aria-label="Sản phẩm trong giỏ">
+          <section
+            className="cart-lines transaction-list"
+            aria-label="Sản phẩm trong giỏ"
+          >
             {cart.items.map((line) => (
               <CartLine
                 key={line.id}
@@ -100,7 +103,10 @@ export function CartPage({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
               />
             ))}
           </section>
-          <aside className="cart-summary">
+          <aside
+            className="cart-summary sticky-summary"
+            aria-label="Tóm tắt giỏ hàng"
+          >
             <h2>Tạm tính</h2>
             <div>
               <span>{cart.itemCount} sản phẩm</span>

@@ -6,7 +6,17 @@ import type { DepartmentAgentKind } from "../../domain/entities/orchestration-ex
 import { canonicalDigest } from "../../domain/entities/orchestration-execution-descriptor";
 import { AgenticApplicationError } from "../services/agentic-application.error";
 
-const DEPARTMENTS = ["catalog", "inventory", "order", "finance", "crm", "support"] as const;
+const DEPARTMENTS = [
+  "catalog",
+  "inventory",
+  "order",
+  "finance",
+  "crm",
+  "support",
+  "marketing_content",
+  "marketing_visual",
+  "marketing_publisher",
+] as const;
 const department = z.enum(DEPARTMENTS);
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const reasonCode = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/);

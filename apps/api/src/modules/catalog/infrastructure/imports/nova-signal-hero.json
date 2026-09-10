@@ -1,0 +1,47 @@
+{
+  "code": "nova-signal",
+  "chapters": [
+    {
+      "categorySlug": "laptops",
+      "sortOrder": 0,
+      "startMs": 0,
+      "endMs": 4000,
+      "label": "Laptop nổi bật"
+    },
+    {
+      "categorySlug": "phones",
+      "sortOrder": 1,
+      "startMs": 4000,
+      "endMs": 8000,
+      "label": "Điện thoại nổi bật"
+    },
+    {
+      "categorySlug": "tablets",
+      "sortOrder": 2,
+      "startMs": 8000,
+      "endMs": 12000,
+      "label": "Máy tính bảng nổi bật"
+    },
+    {
+      "categorySlug": "smart-watches",
+      "sortOrder": 3,
+      "startMs": 12000,
+      "endMs": 16000,
+      "label": "Đồng hồ thông minh nổi bật"
+    },
+    {
+      "categorySlug": "computer-components",
+      "sortOrder": 4,
+      "startMs": 16000,
+      "endMs": 20000,
+      "label": "Linh kiện nổi bật"
+    },
+    {
+      "categorySlug": "accessories",
+      "sortOrder": 5,
+      "startMs": 20000,
+      "endMs": 24750,
+      "label": "Phụ kiện nổi bật"
+    }
+  ]
+}

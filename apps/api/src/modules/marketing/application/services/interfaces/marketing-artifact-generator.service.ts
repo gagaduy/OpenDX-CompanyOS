@@ -1,0 +1,24 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import type { MarketingArtifact, VisualAsset } from "../../../domain/entities/marketing-campaign";
+
+export interface VisualAssetPayload {
+  readonly asset: VisualAsset;
+  readonly buffer: Buffer;
+}
+
+export interface GeneratedArtifactPayload {
+  readonly artifact: MarketingArtifact;
+  readonly buffer: Buffer;
+}
+
+export interface MarketingArtifactService {
+  getVisualAssetPayload(assetId: string): Promise<VisualAssetPayload | null>;
+  generateAllDeliverables(campaignId: string): Promise<readonly MarketingArtifact[]>;
+  getArtifactById(artifactId: string): Promise<MarketingArtifact | null>;
+  getArtifactPayload(artifactId: string): Promise<GeneratedArtifactPayload | null>;
+  listArtifactsByCampaignId(campaignId: string): Promise<readonly MarketingArtifact[]>;
+}
+
+export type MarketingArtifactGeneratorService = MarketingArtifactService;
