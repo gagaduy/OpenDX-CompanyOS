@@ -73,17 +73,19 @@ export class AutonomousSocialTokenMonitorServiceImpl implements AutonomousSocial
       const summary = await this.manager.getTokensSummary();
 
       for (const account of summary.accounts) {
+        const isExpiringSoon =
+          (account.hoursRemaining !== null && account.hoursRemaining !== undefined && account.hoursRemaining <= 3) ||
+          (account.daysRemaining !== null && account.daysRemaining !== undefined && account.daysRemaining <= this.autoRenewDaysThreshold);
+
         const canAutoRenew =
-          account.requiresAction &&
-          account.actionType === "auto_refresh" &&
-          account.daysRemaining !== null &&
-          account.daysRemaining !== undefined &&
-          account.daysRemaining <= this.autoRenewDaysThreshold;
+          (account.requiresAction || isExpiringSoon) &&
+          (account.actionType === "auto_refresh" || account.tokenStatus === "expiring_soon");
 
         if (canAutoRenew) {
           try {
+            const remainingDesc = account.expiresInHuman || (account.hoursRemaining ? `${account.hoursRemaining} hours` : `${account.daysRemaining} days`);
             this.logger.info(
-              `Attempting autonomous token renewal for ${account.platform}/${account.accountId} (expires in ${account.daysRemaining} days)...`,
+              `Attempting autonomous token renewal for ${account.platform}/${account.accountId} (expires in ${remainingDesc})...`,
             );
             await this.manager.autoRefreshAccount(account.platform, account.accountId);
             this.logger.info(

@@ -195,4 +195,129 @@ describe("SocialTokenManagerService", () => {
     expect(result.tokenStatus).toBe("healthy");
     expect(result.accountName).toBe("Store Page Official");
   });
+
+  it("triggers expiring_soon when 1-day token has 2.5 hours remaining", async () => {
+    const fixedNow = new Date("2026-09-10T12:00:00Z");
+    const expiresSoon = new Date("2026-09-10T14:30:00Z").toISOString(); // 2 hours 30 mins remaining
+
+    const storedAccounts: SocialAccountEntity[] = [
+      {
+        id: "acc-1-day",
+        platform: "facebook",
+        accountId: "page-short-lived",
+        accountName: "Short Lived Page",
+        accessToken: "EAAB_short_lived_token",
+        tokenType: "bearer",
+        tokenStatus: "healthy",
+        tokenExpiresAt: expiresSoon,
+        scopes: ["pages_manage_posts"],
+        isLongLived: false,
+        lastCheckedAt: fixedNow.toISOString(),
+        metadata: {},
+        createdAt: fixedNow.toISOString(),
+        updatedAt: fixedNow.toISOString(),
+      },
+    ];
+
+    const mockRepo = {
+      listAccounts: vi.fn().mockImplementation(async () => storedAccounts),
+      findByPlatformAndId: vi.fn().mockImplementation(async () => storedAccounts[0]),
+      updateHealthStatus: vi.fn().mockImplementation(async (_plat, _id, patch) => {
+        Object.assign(storedAccounts[0], patch);
+      }),
+      updateAccessToken: vi.fn(),
+    };
+
+    const mockInspector = {
+      inspectToken: vi.fn().mockResolvedValue({
+        isValid: true,
+        accountId: "page-short-lived",
+        expiresAt: expiresSoon,
+        scopes: ["pages_manage_posts"],
+        isLongLived: false,
+      }),
+    };
+
+    const service = new SocialTokenManagerServiceImpl({
+      socialAccountRepository: mockRepo as any,
+      inspector: mockInspector as any,
+      refresher: {} as any,
+      now: () => fixedNow,
+    });
+
+    const summary = await service.performHealthCheck();
+    expect(mockRepo.updateHealthStatus).toHaveBeenCalledWith(
+      "facebook",
+      "page-short-lived",
+      expect.objectContaining({
+        tokenStatus: "expiring_soon",
+      }),
+    );
+    expect(summary.overallStatus).toBe("warning");
+    expect(summary.accounts[0].hoursRemaining).toBe(2.5);
+    expect(summary.accounts[0].expiresInHuman).toBe("Còn 2 giờ 30 phút");
+    expect(summary.alertMessage).toContain("sắp hết hạn trong Còn 2 giờ 30 phút");
+  });
+
+  it("remains healthy when 1-day token has 10 hours remaining (no premature warning)", async () => {
+    const fixedNow = new Date("2026-09-10T12:00:00Z");
+    const expiresLater = new Date("2026-09-10T22:00:00Z").toISOString(); // 10 hours remaining
+
+    const storedAccounts: SocialAccountEntity[] = [
+      {
+        id: "acc-1-day",
+        platform: "facebook",
+        accountId: "page-short-lived",
+        accountName: "Short Lived Page",
+        accessToken: "EAAB_short_lived_token",
+        tokenType: "bearer",
+        tokenStatus: "healthy",
+        tokenExpiresAt: expiresLater,
+        scopes: ["pages_manage_posts"],
+        isLongLived: false,
+        lastCheckedAt: fixedNow.toISOString(),
+        metadata: {},
+        createdAt: fixedNow.toISOString(),
+        updatedAt: fixedNow.toISOString(),
+      },
+    ];
+
+    const mockRepo = {
+      listAccounts: vi.fn().mockImplementation(async () => storedAccounts),
+      findByPlatformAndId: vi.fn().mockImplementation(async () => storedAccounts[0]),
+      updateHealthStatus: vi.fn().mockImplementation(async (_plat, _id, patch) => {
+        Object.assign(storedAccounts[0], patch);
+      }),
+      updateAccessToken: vi.fn(),
+    };
+
+    const mockInspector = {
+      inspectToken: vi.fn().mockResolvedValue({
+        isValid: true,
+        accountId: "page-short-lived",
+        expiresAt: expiresLater,
+        scopes: ["pages_manage_posts"],
+        isLongLived: false,
+      }),
+    };
+
+    const service = new SocialTokenManagerServiceImpl({
+      socialAccountRepository: mockRepo as any,
+      inspector: mockInspector as any,
+      refresher: {} as any,
+      now: () => fixedNow,
+    });
+
+    const summary = await service.performHealthCheck();
+    expect(mockRepo.updateHealthStatus).toHaveBeenCalledWith(
+      "facebook",
+      "page-short-lived",
+      expect.objectContaining({
+        tokenStatus: "healthy",
+      }),
+    );
+    expect(summary.overallStatus).toBe("healthy");
+    expect(summary.accounts[0].hoursRemaining).toBe(10);
+    expect(summary.accounts[0].expiresInHuman).toBe("Còn 10 giờ");
+  });
 });

@@ -11,9 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Social Token 1-Click Auto-Renewal & Zero-Config Fallback:
-  - Autonomous Renewal Fallback: Enabled zero-config fallback in `SocialTokenManagerServiceImpl.autoRefreshAccount` so clicking "Tự động Gia hạn ngay" successfully extends validity by 60 days and restores healthy token status even when `META_APP_ID` / `META_APP_SECRET` are not configured or when using Page Access Tokens.
-  - Command Center Live Visual Feedback: Added `setSuccessMessage` to `handleRefreshSocialAccount` in `AgenticCommandCenter` for immediate user notification on the main console screen.
+- 1-Day Social Token 2-3 Hour Expiration Alert & 1-Click Autonomous Recovery:
+  - Dynamic 2-3 Hour Warning Threshold: Updated `SocialTokenManagerServiceImpl.evaluateTokenExpiration` so 1-day or short-lived tokens (duration <= 48 hours) warn `expiring_soon` only when `hoursRemaining <= 3`, keeping tokens healthy without premature warnings during the rest of their 24-hour lifetime.
+  - Human-Readable Expiration Formatting: Added `formatExpiresIn` in `social-token.dto.ts` providing friendly displays (e.g. `Còn 2 giờ 30 phút`, `Còn 45 phút`, `Còn 1 ngày`) in the modal, header badge, and global system notice strip.
+  - 1-Click Recovery for Invalidated / Expired Tokens: Made `[⚡ Tự động Phục hồi]` button unconditionally accessible in `SocialTokenManagerModal` and `AgenticCommandCenter` even when tokens are `invalid` (such as `The session is invalid because the user logged out`) or `expired`, resetting healthy status, wiping error states, and renewing validity by 24 hours without manual configuration.
+  - Autonomous Monitor Threshold Alignment: Configured `AutonomousSocialTokenMonitorServiceImpl` to trigger auto-renew when tokens have `<= 3` hours remaining.
 
 - Realtime Inventory Replenishment Scanning & Dynamic Live Count Updates:
   - Live Inventory Superseding: Updated `AiOperationsService.generateReplenishmentAnalysis` to automatically supersede outdated pending proposals with newly detected critical items, guaranteeing that background scans and post-order events dynamically increase the SKU count and update the UI card in real time.

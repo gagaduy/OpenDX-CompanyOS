@@ -93,14 +93,14 @@ export function SocialTokenManagerModal({
         return (
           <span className="socialTokenBadge valid" role="status">
             <ShieldCheck size={13} />
-            <span>{account.daysRemaining !== null ? `Còn ${account.daysRemaining} ngày` : "Vĩnh viễn (Never expires)"}</span>
+            <span>{account.expiresInHuman || (account.daysRemaining !== null ? `Còn ${account.daysRemaining} ngày` : "Vĩnh viễn (Never expires)")}</span>
           </span>
         );
       case "expiring_soon":
         return (
           <span className="socialTokenBadge warning" role="status">
             <Clock size={13} />
-            <span>Sắp hết hạn ({account.daysRemaining ?? 0} ngày)</span>
+            <span>Sắp hết hạn ({account.expiresInHuman || `${account.hoursRemaining ?? account.daysRemaining ?? 0} giờ`})</span>
           </span>
         );
       case "expired":
@@ -141,7 +141,7 @@ export function SocialTokenManagerModal({
                 Giám sát & Tự động Quản lý Social Tokens
               </h3>
               <p className="socialTokenModalSubtitle">
-                Theo dõi thời hạn Access Token của Facebook Page & Instagram Business. Tự động gia hạn trước 7 ngày, quy trình 1-click không cần dán thủ công.
+                Theo dõi thời hạn Access Token của Facebook Page & Instagram Business. Tự động cảnh báo trước 2-3 giờ (với token 1 ngày) hoặc 7 ngày (với token dài hạn), quy trình 1-click tự động phục hồi.
               </p>
             </div>
           </div>
@@ -331,27 +331,31 @@ export function SocialTokenManagerModal({
 
                   {/* Actions Column */}
                   <div className="socialTokenAccountActions">
-                    {account.actionType === "auto_refresh" || account.status === "expiring_soon" || account.status === "valid" ? (
-                      <button
-                        type="button"
-                        className="socialTokenActionBtn autoRenewBtn"
-                        onClick={() => handleRefresh(account)}
-                        disabled={isItemRefreshing || isActionLoading}
-                        title="Tự động gia hạn và lưu token mới vào hệ thống mà không cần dán thủ công"
-                      >
-                        {isItemRefreshing ? (
-                          <>
-                            <Loader2 size={13} className="ccSpinSlow" />
-                            <span>Đang gia hạn...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap size={13} />
-                            <span>{account.status === "expiring_soon" ? "Gia hạn ngay (1-Click)" : "Làm mới Token"}</span>
-                          </>
-                        )}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="socialTokenActionBtn autoRenewBtn"
+                      onClick={() => handleRefresh(account)}
+                      disabled={isItemRefreshing || isActionLoading}
+                      title="Tự động gia hạn hoặc phục hồi và lưu token mới vào hệ thống mà không cần dán thủ công"
+                    >
+                      {isItemRefreshing ? (
+                        <>
+                          <Loader2 size={13} className="ccSpinSlow" />
+                          <span>Đang xử lý...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={13} />
+                          <span>
+                            {account.status === "expiring_soon"
+                              ? "Gia hạn ngay (1-Click)"
+                              : account.status === "invalid" || account.status === "expired"
+                              ? "⚡ Tự động Phục hồi"
+                              : "Làm mới Token"}
+                          </span>
+                        </>
+                      )}
+                    </button>
 
                     {account.actionType === "oauth_reconnect" || account.status === "expired" || account.status === "invalid" ? (
                       <button

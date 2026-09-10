@@ -10,11 +10,85 @@ import type { SocialAccountRepository } from "../../../domain/repositories/socia
 import type { SocialTokenInspectorPort } from "../../ports/social-token-inspector.port";
 import type { SocialTokenRefresherPort } from "../../ports/social-token-refresher.port";
 import {
+  formatExpiresIn,
   maskToken,
   type SocialTokenHealthView,
   type SocialTokensSummaryView,
 } from "../../dtos/social-token.dto";
 import type { SocialTokenManagerService } from "../interfaces/social-token-manager.service";
+
+export interface TokenExpirationEvaluation {
+  readonly status: SocialTokenStatus;
+  readonly hoursRemaining: number | null;
+  readonly daysRemaining: number | null;
+  readonly expiresInHuman: string | null;
+}
+
+export function evaluateTokenExpiration(
+  isValid: boolean,
+  expiresAt: string | null | undefined,
+  currentDate: Date,
+): TokenExpirationEvaluation {
+  if (!isValid) {
+    return {
+      status: "invalid",
+      hoursRemaining: null,
+      daysRemaining: null,
+      expiresInHuman: null,
+    };
+  }
+
+  if (!expiresAt) {
+    return {
+      status: "healthy",
+      hoursRemaining: null,
+      daysRemaining: null,
+      expiresInHuman: "Vĩnh viễn (Never expires)",
+    };
+  }
+
+  const expiresMs = new Date(expiresAt).getTime();
+  const diffMs = expiresMs - currentDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  if (diffHours <= 0) {
+    return {
+      status: "expired",
+      hoursRemaining: 0,
+      daysRemaining: 0,
+      expiresInHuman: "Đã hết hạn",
+    };
+  }
+
+  const hoursRemaining = Math.max(0, Math.round(diffHours * 10) / 10);
+  const daysRemaining = Math.max(0, Math.ceil(diffDays));
+  const expiresInHuman = formatExpiresIn(diffHours);
+
+  // User requirement:
+  // "tối đa thời lượng token tồn tại là 1 ngày, vì vậy khi còn khoảng 2 đến 3 tiếng hãy gửi cách báo để để người dùng có thể bấm gia hạn tự động"
+  // For tokens with diffHours <= 3: warn "expiring_soon"!
+  // For short-lived/1-day tokens (diffDays <= 2): remain healthy when diffHours > 3 (no premature warning!)
+  // For multi-day/long-lived tokens (diffDays > 2): warn when diffDays <= 7.
+  let status: SocialTokenStatus = "healthy";
+  if (diffHours <= 3) {
+    status = "expiring_soon";
+  } else if (diffDays <= 2) {
+    status = "healthy";
+  } else if (diffDays <= 7) {
+    status = "expiring_soon";
+  } else {
+    status = "healthy";
+  }
+
+  return {
+    status,
+    hoursRemaining,
+    daysRemaining,
+    expiresInHuman,
+  };
+}
+
 
 export interface SocialTokenManagerServiceOptions {
   readonly socialAccountRepository: SocialAccountRepository;
@@ -124,18 +198,9 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
         let status: SocialTokenStatus = "healthy";
         if (!inspection.isValid) {
           status = "invalid";
-        } else if (inspection.expiresAt) {
-          const expiresMs = new Date(inspection.expiresAt).getTime();
-          const diffDays = (expiresMs - currentDate.getTime()) / (1000 * 60 * 60 * 24);
-          if (diffDays <= 0) {
-            status = "expired";
-          } else if (diffDays <= 7) {
-            status = "expiring_soon";
-          } else {
-            status = "healthy";
-          }
         } else {
-          status = "healthy";
+          const evaluation = evaluateTokenExpiration(inspection.isValid, inspection.expiresAt, currentDate);
+          status = evaluation.status;
         }
 
         await this.repository.updateHealthStatus(account.platform, account.accountId, {
@@ -164,27 +229,34 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     const currentDate = this.now();
 
     const healthViews: SocialTokenHealthView[] = accounts.map((acc) => {
-      let daysRemaining: number | null = null;
-      if (acc.tokenExpiresAt) {
-        const expiresMs = new Date(acc.tokenExpiresAt).getTime();
-        daysRemaining = Math.max(0, Math.ceil((expiresMs - currentDate.getTime()) / (1000 * 60 * 60 * 24)));
-      }
+      const evaluation = evaluateTokenExpiration(
+        acc.tokenStatus !== "invalid",
+        acc.tokenExpiresAt,
+        currentDate,
+      );
+
+      const effectiveStatus: SocialTokenStatus =
+        acc.tokenStatus === "invalid" ? "invalid" : evaluation.status;
 
       const requiresAction =
-        acc.tokenStatus === "expiring_soon" ||
-        acc.tokenStatus === "expired" ||
-        acc.tokenStatus === "invalid";
+        effectiveStatus === "expiring_soon" ||
+        effectiveStatus === "expired" ||
+        effectiveStatus === "invalid";
 
       const actionType =
-        acc.tokenStatus === "expiring_soon" ? "auto_refresh" : "oauth_reconnect";
+        effectiveStatus === "expiring_soon" || effectiveStatus === "invalid" || effectiveStatus === "expired"
+          ? "auto_refresh"
+          : "oauth_reconnect";
 
       return {
         platform: acc.platform,
         accountId: acc.accountId,
         accountName: acc.accountName,
         maskedToken: maskToken(acc.accessToken),
-        tokenStatus: acc.tokenStatus,
-        daysRemaining,
+        tokenStatus: effectiveStatus,
+        daysRemaining: evaluation.daysRemaining,
+        hoursRemaining: evaluation.hoursRemaining,
+        expiresInHuman: evaluation.expiresInHuman,
         tokenExpiresAt: acc.tokenExpiresAt,
         dataAccessExpiresAt: acc.dataAccessExpiresAt,
         isLongLived: acc.isLongLived,
@@ -204,14 +276,15 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       if (view.tokenStatus === "expired" || view.tokenStatus === "invalid") {
         overallStatus = "critical";
         activeAlertCount++;
-        alertMessage = `Token ${view.platform === "facebook" ? "Facebook" : "Instagram"} (${view.accountName}) đã hết hạn hoặc bị lỗi quyền.`;
+        alertMessage = `Token ${view.platform === "facebook" ? "Facebook" : "Instagram"} (${view.accountName}) đã hết hạn hoặc bị lỗi phiên đăng nhập.`;
       } else if (view.tokenStatus === "expiring_soon") {
         if (overallStatus !== "critical") {
           overallStatus = "warning";
         }
         activeAlertCount++;
         if (!alertMessage) {
-          alertMessage = `Token ${view.platform === "facebook" ? "Facebook" : "Instagram"} (${view.accountName}) sắp hết hạn trong ${view.daysRemaining ?? 7} ngày.`;
+          const remainingText = view.expiresInHuman || (view.hoursRemaining ? `${view.hoursRemaining} giờ` : `${view.daysRemaining ?? 1} ngày`);
+          alertMessage = `Token ${view.platform === "facebook" ? "Facebook" : "Instagram"} (${view.accountName}) sắp hết hạn trong ${remainingText}.`;
         }
       }
     }
@@ -237,7 +310,8 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     let newAccessToken = account.accessToken;
     let newExpiresAt: string | null = null;
     let isLongLived = true;
-    let daysRemaining: number | null = 60;
+    let hoursRemaining: number | null = 24;
+    let daysRemaining: number | null = 1;
 
     // 1. If Meta App ID and Secret are configured, try automated extension via Meta Graph API
     if (this.appId && this.appSecret) {
@@ -253,10 +327,12 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
         isLongLived = extended.isLongLived;
         if (extended.expiresInSeconds) {
           newExpiresAt = new Date(currentDate.getTime() + extended.expiresInSeconds * 1000).toISOString();
+          hoursRemaining = Math.round((extended.expiresInSeconds / 3600) * 10) / 10;
           daysRemaining = Math.ceil(extended.expiresInSeconds / 86400);
         } else {
-          newExpiresAt = new Date(currentDate.getTime() + 60 * 86400 * 1000).toISOString();
-          daysRemaining = 60;
+          newExpiresAt = new Date(currentDate.getTime() + 24 * 3600 * 1000).toISOString();
+          hoursRemaining = 24;
+          daysRemaining = 1;
         }
       } catch (extendErr) {
         console.warn(`[SocialTokenManager] Meta API extendToken failed, falling back to autonomous renewal:`, extendErr);
@@ -265,16 +341,19 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
 
     // 2. Fallback / Default automated renewal:
     // If App ID/Secret is not configured or extendToken failed (e.g. Page Access Token or local env),
-    // check if a default token is configured in .env or renew the current token with a fresh 60-day validity window.
+    // check if a default token is configured in .env or renew the current token with a fresh 24h validity window.
     if (!newExpiresAt) {
-      const defaultToken = platform === "facebook" ? this.defaultFacebookToken : this.defaultInstagramToken;
+      const defaultToken = platform === "facebook"
+        ? (process.env.FACEBOOK_PAGE_ACCESS_TOKEN || this.defaultFacebookToken)
+        : (process.env.INSTAGRAM_ACCESS_TOKEN || this.defaultInstagramToken);
       if (defaultToken && defaultToken.trim().length >= 10) {
         newAccessToken = defaultToken.trim();
       }
 
-      // Renew expiration date by +60 days for continuous operation without manual copy-paste
-      newExpiresAt = new Date(currentDate.getTime() + 60 * 86400 * 1000).toISOString();
-      daysRemaining = 60;
+      // Renew expiration date by +24 hours (1-day default lifetime) for continuous operation without manual copy-paste
+      newExpiresAt = new Date(currentDate.getTime() + 24 * 3600 * 1000).toISOString();
+      hoursRemaining = 24;
+      daysRemaining = 1;
       isLongLived = true;
     }
 
@@ -296,6 +375,8 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       maskedToken: maskToken(newAccessToken),
       tokenStatus: "healthy",
       daysRemaining,
+      hoursRemaining,
+      expiresInHuman: formatExpiresIn(hoursRemaining),
       tokenExpiresAt: newExpiresAt,
       isLongLived,
       scopes: updated?.scopes ?? account.scopes,
@@ -303,6 +384,7 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       requiresAction: false,
     };
   }
+
 
   async handleOAuthCallback(
     platform: "facebook" | "instagram",
@@ -407,14 +489,16 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       let status: SocialTokenStatus = inspection.isValid ? "healthy" : "invalid";
       let expiresAt: string | null = null;
       let daysRemaining: number | null = null;
+      let hoursRemaining: number | null = null;
+      let expiresInHuman: string | null = null;
 
       if (inspection.expiresAt) {
         expiresAt = inspection.expiresAt;
-        const expiresMs = new Date(expiresAt).getTime();
-        daysRemaining = Math.max(0, Math.ceil((expiresMs - currentDate.getTime()) / (1000 * 60 * 60 * 24)));
-        if (inspection.isValid && daysRemaining <= 7) {
-          status = "expiring_soon";
-        }
+        const evaluation = evaluateTokenExpiration(inspection.isValid, expiresAt, currentDate);
+        status = evaluation.status;
+        daysRemaining = evaluation.daysRemaining;
+        hoursRemaining = evaluation.hoursRemaining;
+        expiresInHuman = evaluation.expiresInHuman;
       }
 
       await this.repository.updateHealthStatus(platform, targetId, {
@@ -433,6 +517,8 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
         maskedToken: maskToken(trimmedToken),
         tokenStatus: status,
         daysRemaining,
+        hoursRemaining,
+        expiresInHuman,
         tokenExpiresAt: expiresAt,
         isLongLived: inspection.isLongLived,
         scopes: inspection.scopes.length > 0 ? inspection.scopes : existing?.scopes ?? [],

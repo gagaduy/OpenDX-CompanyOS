@@ -16,6 +16,8 @@ export interface SocialTokenHealthView {
   readonly status: "valid" | "expiring_soon" | "expired" | "invalid" | "unconfigured";
   readonly expiresAt: string | null;
   readonly daysRemaining: number | null;
+  readonly hoursRemaining?: number | null;
+  readonly expiresInHuman?: string | null;
   readonly tokenPreview: string;
   readonly lastCheckedAt: string | null;
   readonly lastError: string | null;
@@ -254,6 +256,8 @@ function mapBackendSocialToken(dto: any): SocialTokenHealthView {
     status,
     expiresAt: dto.tokenExpiresAt ?? dto.expiresAt ?? null,
     daysRemaining: dto.daysRemaining ?? null,
+    ...(dto.hoursRemaining !== undefined ? { hoursRemaining: dto.hoursRemaining } : {}),
+    ...(dto.expiresInHuman !== undefined ? { expiresInHuman: dto.expiresInHuman } : {}),
     tokenPreview: dto.maskedToken ?? dto.tokenPreview ?? "••••••••",
     lastCheckedAt: dto.lastCheckedAt ?? null,
     lastError: dto.lastError ?? null,

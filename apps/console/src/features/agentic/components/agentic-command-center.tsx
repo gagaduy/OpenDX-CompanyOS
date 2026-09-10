@@ -3551,8 +3551,8 @@ export function AgenticCommandCenter({
               )}
               <span className="ccSocialTokenGlobalBannerText">
                 {socialTokensSummary.urgentActionRequired
-                  ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Cần cập nhật token mới để đảm bảo chiến dịch xuất bản tự động."
-                  : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn trong vòng 7 ngày tới."}
+                  ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Bấm Tự động Phục hồi hoặc cập nhật token mới."
+                  : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn (còn dưới 3 giờ). Bấm để tự động gia hạn 1-click."}
               </span>
             </div>
             <div className="ccSocialTokenGlobalBannerRight">
@@ -3586,9 +3586,10 @@ export function AgenticCommandCenter({
               )
               .map((acc) => {
                 const isDanger = acc.status === "expired" || acc.status === "invalid";
+                const remainingText = acc.expiresInHuman || (acc.hoursRemaining ? `${acc.hoursRemaining} giờ` : `${acc.daysRemaining ?? 0} ngày`);
                 const title = isDanger
                   ? `🚨 Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} đã hết hạn / lỗi`
-                  : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${acc.daysRemaining ?? 0} ngày)`;
+                  : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${remainingText})`;
 
                 return (
                   <div
@@ -3600,12 +3601,12 @@ export function AgenticCommandCenter({
                       <span className="ccSocialTokenAlertTitle">{title}</span>
                       <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
                       <span className="ccSocialTokenItemMsg">
-                        {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${acc.daysRemaining} ngày. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
+                        {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${remainingText}. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
                       </span>
                     </div>
 
                     <div className="ccSocialTokenAlertActions">
-                      {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon") && (
+                      {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon" || acc.status === "invalid" || acc.status === "expired") && (
                         <button
                           type="button"
                           className="ccSocialTokenActionBtn renew"
@@ -3617,7 +3618,7 @@ export function AgenticCommandCenter({
                           ) : (
                             <Zap size={12} />
                           )}
-                          <span>Tự động Gia hạn ngay</span>
+                          <span>{acc.status === "invalid" || acc.status === "expired" ? "⚡ Tự động Phục hồi" : "Tự động Gia hạn ngay"}</span>
                         </button>
                       )}
 
@@ -3688,7 +3689,8 @@ export function AgenticCommandCenter({
                     icon = <ShieldAlert size={12} />;
                   } else if (hasExpiringOrInvalid || expiringAccount?.status === "expiring_soon") {
                     badgeClass = "warning";
-                    badgeText = `⚡ Token FB hết hạn sau ${days ?? 7} ngày`;
+                    const remainingLabel = expiringAccount?.expiresInHuman || (expiringAccount?.hoursRemaining ? `sau ${expiringAccount.hoursRemaining}h` : `sau ${days ?? 7} ngày`);
+                    badgeText = `⚡ Token FB hết hạn ${remainingLabel}`;
                     icon = <Zap size={12} />;
                   }
 
