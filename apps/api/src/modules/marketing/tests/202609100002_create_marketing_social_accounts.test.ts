@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { upSql, downSql } from "./202609100002_create_marketing_social_accounts";
+import { upSql, downSql } from "../infrastructure/database/migrations/202609100002_create_marketing_social_accounts";
 
 describe("202609100002_create_marketing_social_accounts migration", () => {
   it("contains valid up SQL creating marketing_social_accounts table and indexes", () => {
