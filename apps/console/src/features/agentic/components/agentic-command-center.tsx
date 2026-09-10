@@ -167,10 +167,40 @@ export function AgenticCommandCenter({
 
   // Operations / Inventory Restock State
   const [operationsProposal, setOperationsProposal] = useState<OperationsProposal | null>(null);
+  const [pendingReplenishment, setPendingReplenishment] = useState<OperationsProposal | null>(null);
   const [isOperationsModalOpen, setIsOperationsModalOpen] = useState(false);
   const [operationsActionLoading, setOperationsActionLoading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [operationsPage, setOperationsPage] = useState(1);
+
+  useEffect(() => {
+    if (!inventoryApi) return;
+    let isCancelled = false;
+    const fetchPending = async () => {
+      try {
+        const prop = await inventoryApi.getPendingReplenishment();
+        if (!isCancelled) setPendingReplenishment(prop);
+      } catch (err) {
+        console.error("Failed to fetch pending replenishment:", err);
+      }
+    };
+    void fetchPending();
+    const timer = setInterval(fetchPending, 30_000);
+    return () => {
+      isCancelled = true;
+      clearInterval(timer);
+    };
+  }, [inventoryApi]);
+
+  const handleDismissReplenishment = async () => {
+    if (!pendingReplenishment?.id || !inventoryApi) return;
+    try {
+      await inventoryApi.dismissReplenishmentProposal(pendingReplenishment.id);
+      setPendingReplenishment(null);
+    } catch (err) {
+      console.error("Failed to dismiss replenishment:", err);
+    }
+  };
 
   // Customer Support & CRM State
   const [supportProposal, setSupportProposal] = useState<AiSupportProposalView | null>(null);
@@ -3749,6 +3779,11 @@ export function AgenticCommandCenter({
               <span>Vận hành & Kho</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {pendingReplenishment && pendingReplenishment.items.length > 0 && (
+                <span className="ccReplenishmentAlertBadge" title="Đề xuất nhập kho tự động từ AI">
+                  ⚡ Đề xuất nhập kho AI: {pendingReplenishment.items.length} SKU
+                </span>
+              )}
               {departmentQueues.operations.length > 0 && (
                 <span className="ccDeptQueueBadge">
                   <Clock size={11} className="ccSpinSlow" />
@@ -3874,6 +3909,40 @@ export function AgenticCommandCenter({
               <Boxes size={14} color="#fbbf24" />
               <span>Xem Phiếu Đề Xuất ({operationsProposal.totalRestockUnits} đơn vị)</span>
             </button>
+          )}
+
+          {pendingReplenishment && (
+            <div className="ccOperationsAlertCard">
+              <div className="ccOperationsAlertHeader">
+                <AlertTriangle size={15} color="#f59e0b" className="ccGlowIcon" />
+                <span className="ccOperationsAlertTitle">
+                  🚨 Phát hiện {pendingReplenishment.items.length} mặt hàng sắp cạn kiệt
+                </span>
+              </div>
+              <p className="ccOperationsAlertSummary">
+                {pendingReplenishment.summary || "Tồn kho một số mặt hàng chủ lực đang cạn kiệt nhanh do sức mua tăng cao."}
+              </p>
+              <div className="ccOperationsAlertActions">
+                <button
+                  type="button"
+                  className="ccOperationsAlertBtn primary"
+                  onClick={() => {
+                    setOperationsProposal(pendingReplenishment);
+                    setIsOperationsModalOpen(true);
+                  }}
+                >
+                  <Boxes size={13} />
+                  <span>📋 Xem & Duyệt Nhập hàng</span>
+                </button>
+                <button
+                  type="button"
+                  className="ccOperationsAlertBtn secondary"
+                  onClick={handleDismissReplenishment}
+                >
+                  Bỏ qua
+                </button>
+              </div>
+            </div>
           )}
 
           <DepartmentInput

@@ -5219,3 +5219,118 @@
   color: #0f172a;
 }
 
+/* Replenishment Alert Styles */
+.ccReplenishmentAlertBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  animation: ccPulseBorder 2.5s infinite;
+  white-space: nowrap;
+}
+
+.ccOperationsAlertCard {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  margin-top: 0.6rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.08);
+}
+
+.ccOperationsAlertHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ccOperationsAlertTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fbbf24;
+  line-height: 1.3;
+}
+
+.ccOperationsAlertSummary {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.ccOperationsAlertActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.ccOperationsAlertBtn {
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+}
+
+.ccOperationsAlertBtn.primary {
+  background: #f59e0b;
+  color: #0b0e14;
+  font-weight: 600;
+}
+
+.ccOperationsAlertBtn.primary:hover {
+  background: #d97706;
+}
+
+.ccOperationsAlertBtn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+}
+
+.ccOperationsAlertBtn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsAlertCard,
+[data-theme="light"] .ccOperationsAlertCard {
+  background: #fffbeb;
+  border-color: #fde68a;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.08);
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsAlertTitle,
+[data-theme="light"] .ccOperationsAlertTitle {
+  color: #b45309;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsAlertSummary,
+[data-theme="light"] .ccOperationsAlertSummary {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccOperationsAlertBtn.secondary,
+[data-theme="light"] .ccOperationsAlertBtn.secondary {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+
