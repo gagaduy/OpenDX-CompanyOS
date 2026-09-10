@@ -418,4 +418,34 @@ export class MarketingController {
       next(error);
     }
   };
+
+  updateSocialToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const accessToken = req.body.accessToken as string;
+      const accountId = req.body.accountId as string | undefined;
+      if (!platform || !accessToken) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform and accessToken are required");
+      }
+      const result = await this.socialTokenManager.updateAccountToken(platform, accessToken, accountId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  syncSocialTokensFromEnv = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.syncFromEnvironment();
+      res.status(200).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

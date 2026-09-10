@@ -146,4 +146,45 @@ describe("Social Tokens Admin API", () => {
     expect(res.status).toBe(200);
     expect(mockManager.performHealthCheck).toHaveBeenCalledOnce();
   });
+
+  it("POST /v1/admin/marketing/social-tokens/update updates token directly", async () => {
+    const mockManager = {
+      updateAccountToken: vi.fn().mockResolvedValue({
+        platform: "facebook",
+        accountId: "page-1",
+        accountName: "Facebook Page",
+        maskedToken: "EAAB...updated",
+        tokenStatus: "healthy",
+        requiresAction: false,
+      }),
+    };
+
+    const app = createTestApp(mockManager);
+    const res = await request(app)
+      .post("/v1/admin/marketing/social-tokens/update")
+      .set("Authorization", "Bearer valid-token")
+      .send({ platform: "facebook", accessToken: "EAAB1234567890abcdef", accountId: "page-1" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.tokenStatus).toBe("healthy");
+    expect(mockManager.updateAccountToken).toHaveBeenCalledWith("facebook", "EAAB1234567890abcdef", "page-1");
+  });
+
+  it("POST /v1/admin/marketing/social-tokens/sync-env syncs tokens from environment", async () => {
+    const mockManager = {
+      syncFromEnvironment: vi.fn().mockResolvedValue({
+        overallStatus: "healthy",
+        activeAlertCount: 0,
+        accounts: [],
+      }),
+    };
+
+    const app = createTestApp(mockManager);
+    const res = await request(app)
+      .post("/v1/admin/marketing/social-tokens/sync-env")
+      .set("Authorization", "Bearer valid-token");
+
+    expect(res.status).toBe(200);
+    expect(mockManager.syncFromEnvironment).toHaveBeenCalledOnce();
+  });
 });

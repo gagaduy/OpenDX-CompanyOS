@@ -19,5 +19,11 @@ export interface SocialTokenManagerService {
     redirectUri: string,
     targetPageId?: string,
   ): Promise<SocialTokenHealthView>;
+  updateAccountToken(
+    platform: "facebook" | "instagram",
+    accessToken: string,
+    accountId?: string,
+  ): Promise<SocialTokenHealthView>;
+  syncFromEnvironment(): Promise<SocialTokensSummaryView>;
   seedFromEnvironmentIfEmpty(): Promise<void>;
 }

@@ -209,7 +209,18 @@ export function AgenticCommandCenter({
     }
   };
 
+  const [dismissedSocialTokenAlerts, setDismissedSocialTokenAlerts] = useState(false);
+
   const handleOAuthReconnect = (platform: "facebook" | "instagram") => {
+    const metaAppId = (import.meta as any).env?.VITE_META_APP_ID;
+    if (!metaAppId || metaAppId === "123456789") {
+      setSocialTokenModalOpen(true);
+      setSocialTokenFeedback(
+        "Chưa cấu hình VITE_META_APP_ID hợp lệ. Bạn có thể sử dụng mục '⚡ Nhập Token trực tiếp' hoặc 'Đồng bộ từ .env' trong cửa sổ quản lý để áp dụng ngay.",
+      );
+      return;
+    }
+
     const redirectUri = `${window.location.origin}/auth/oauth-callback`;
     const popupWidth = 600;
     const popupHeight = 700;
@@ -240,11 +251,45 @@ export function AgenticCommandCenter({
     };
     window.addEventListener("message", handleMessage);
 
-    const metaAppId = (import.meta as any).env?.VITE_META_APP_ID || "123456789";
     const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(
       metaAppId
     )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_manage_posts`;
     window.open(oauthUrl, "MetaOAuth", `width=${popupWidth},height=${popupHeight},left=${left},top=${top}`);
+  };
+
+  const handleUpdateSocialToken = async (platform: "facebook" | "instagram", token: string, accountId?: string) => {
+    if (!marketingApi?.updateSocialToken) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      await marketingApi.updateSocialToken({ platform, accessToken: token, accountId });
+      setSocialTokenFeedback(
+        `Đã cập nhật và xác thực token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} thành công!`,
+      );
+      if (marketingApi.getSocialTokensStatus) {
+        const updated = await marketingApi.getSocialTokensStatus();
+        setSocialTokensSummary(updated);
+      }
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi cập nhật token: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleSyncSocialTokensEnv = async () => {
+    if (!marketingApi?.syncSocialTokensFromEnv) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const summary = await marketingApi.syncSocialTokensFromEnv();
+      setSocialTokensSummary(summary);
+      setSocialTokenFeedback("Đã đồng bộ và kiểm tra lại toàn bộ Social Tokens từ file .env thành công!");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi đồng bộ từ .env: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
   };
 
   // Merchandising / Catalog & Pricing State
@@ -3489,11 +3534,47 @@ export function AgenticCommandCenter({
         </div>
       )}
 
+      {/* 4f. Global Social Tokens System Notice Bar (Slim full-width notice strip) */}
+      {socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts && (
+        <div className="ccSocialTokenGlobalBanner" role="alert">
+          <div className="ccSocialTokenGlobalBannerLeft">
+            {socialTokensSummary.urgentActionRequired ? (
+              <ShieldAlert size={16} color="#ef4444" />
+            ) : (
+              <Zap size={16} color="#f59e0b" />
+            )}
+            <span className="ccSocialTokenGlobalBannerText">
+              {socialTokensSummary.urgentActionRequired
+                ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Cần cập nhật token mới để đảm bảo chiến dịch xuất bản tự động."
+                : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn trong vòng 7 ngày tới."}
+            </span>
+          </div>
+          <div className="ccSocialTokenGlobalBannerRight">
+            <button
+              type="button"
+              className="ccSocialTokenActionBtn detail"
+              onClick={() => setSocialTokenModalOpen(true)}
+            >
+              <span>⚡ Quản lý & Cập nhật Token</span>
+            </button>
+            <button
+              type="button"
+              className="ccSocialTokenDismissBtn"
+              onClick={() => setDismissedSocialTokenAlerts(true)}
+              title="Thu gọn cảnh báo"
+              aria-label="Thu gọn cảnh báo"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
       <div
         ref={departmentsGridRef}
         className="ccDepartmentGrid"
-        style={{ marginTop: activeCampaign ? "1rem" : "2rem", position: "relative" }}
+        style={{ marginTop: activeCampaign || (socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts) ? "1rem" : "2rem", position: "relative" }}
       >
         <CrossDepartmentConnector
           activeCollaboration={activeCollaboration}
@@ -3561,8 +3642,8 @@ export function AgenticCommandCenter({
             </div>
           </div>
 
-          {/* Social Token Proactive Alert Card */}
-          {socialTokensSummary?.accounts?.filter(
+          {/* Social Token Proactive Alert Card (Compact & Dismissable) */}
+          {!dismissedSocialTokenAlerts && socialTokensSummary?.accounts?.filter(
             (acc) => acc.requiresAction || acc.status === "expiring_soon" || acc.status === "expired" || acc.status === "invalid"
           ).map((acc) => {
             const isDanger = acc.status === "expired" || acc.status === "invalid";
@@ -3573,15 +3654,26 @@ export function AgenticCommandCenter({
             return (
               <div
                 key={`alert-${acc.platform}-${acc.accountId}`}
-                className={`ccSocialTokenAlertCard ${isDanger ? "danger" : ""}`}
+                className={`ccSocialTokenAlertCard compact ${isDanger ? "danger" : ""}`}
                 role="alert"
               >
                 <div className="ccSocialTokenAlertHeader">
                   <div className="ccSocialTokenAlertTitleGroup">
-                    {isDanger ? <ShieldAlert size={14} /> : <Zap size={14} />}
+                    {isDanger ? <ShieldAlert size={13} /> : <Zap size={13} />}
                     <span className="ccSocialTokenAlertTitle">{title}</span>
                   </div>
-                  <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
+                    <button
+                      type="button"
+                      className="ccSocialTokenDismissBtn"
+                      onClick={() => setDismissedSocialTokenAlerts(true)}
+                      title="Thu gọn cảnh báo này"
+                      aria-label="Thu gọn cảnh báo"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
 
                 <p className="ccSocialTokenAlertMeta">
@@ -4310,6 +4402,8 @@ export function AgenticCommandCenter({
         summary={socialTokensSummary}
         onRefreshAccount={handleRefreshSocialAccount}
         onCheckTokens={handleCheckSocialTokens}
+        onUpdateToken={handleUpdateSocialToken}
+        onSyncEnv={handleSyncSocialTokensEnv}
         onOAuthReconnect={handleOAuthReconnect}
         isActionLoading={socialTokenActionLoading}
         actionFeedback={socialTokenFeedback}

@@ -51,6 +51,8 @@ export interface MarketingApi {
   refreshSocialToken(params: { platform: string; accountId: string }): Promise<SocialTokenHealthView>;
   exchangeSocialOAuthCode(params: { code: string; redirectUri: string; platform?: string }): Promise<SocialTokensSummaryView>;
   checkSocialTokens(): Promise<SocialTokensSummaryView>;
+  updateSocialToken(params: { platform: string; accessToken: string; accountId?: string }): Promise<SocialTokenHealthView>;
+  syncSocialTokensFromEnv(): Promise<SocialTokensSummaryView>;
 }
 
 export function createMarketingApi(baseUrl: string, accessToken: string): MarketingApi {
@@ -186,27 +188,98 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
     },
 
     async getSocialTokensStatus(signal) {
-      return request("/v1/admin/marketing/social-tokens/status", { signal });
+      const res: any = await request("/v1/admin/marketing/social-tokens/status", { signal });
+      return mapBackendSocialTokensSummary(res);
     },
 
     async refreshSocialToken(params) {
-      return request("/v1/admin/marketing/social-tokens/refresh", {
+      const res: any = await request("/v1/admin/marketing/social-tokens/refresh", {
         method: "POST",
         body: JSON.stringify(params),
       });
+      return mapBackendSocialToken(res);
     },
 
     async exchangeSocialOAuthCode(params) {
-      return request("/v1/admin/marketing/social-tokens/oauth-exchange", {
+      const res: any = await request("/v1/admin/marketing/social-tokens/oauth-exchange", {
         method: "POST",
         body: JSON.stringify(params),
       });
+      return mapBackendSocialTokensSummary(res);
     },
 
     async checkSocialTokens() {
-      return request("/v1/admin/marketing/social-tokens/check", {
+      const res: any = await request("/v1/admin/marketing/social-tokens/check", {
         method: "POST",
       });
+      return mapBackendSocialTokensSummary(res);
+    },
+
+    async updateSocialToken(params) {
+      const res: any = await request("/v1/admin/marketing/social-tokens/update", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+      return mapBackendSocialToken(res);
+    },
+
+    async syncSocialTokensFromEnv() {
+      const res: any = await request("/v1/admin/marketing/social-tokens/sync-env", {
+        method: "POST",
+      });
+      return mapBackendSocialTokensSummary(res);
     },
   };
 }
+
+function mapBackendSocialToken(dto: any): SocialTokenHealthView {
+  const status: "valid" | "expiring_soon" | "expired" | "invalid" | "unconfigured" =
+    dto.tokenStatus === "healthy"
+      ? "valid"
+      : dto.tokenStatus === "expiring_soon"
+      ? "expiring_soon"
+      : dto.tokenStatus === "expired"
+      ? "expired"
+      : dto.tokenStatus === "invalid"
+      ? "invalid"
+      : dto.status ?? "unconfigured";
+
+  const isWarningOrCritical = status === "expiring_soon" || status === "expired" || status === "invalid";
+  const actionType = dto.actionType ?? (status === "expiring_soon" ? "auto_refresh" : isWarningOrCritical ? "oauth_reconnect" : "none");
+
+  return {
+    platform: dto.platform,
+    accountId: dto.accountId,
+    accountName: dto.accountName,
+    status,
+    expiresAt: dto.tokenExpiresAt ?? dto.expiresAt ?? null,
+    daysRemaining: dto.daysRemaining ?? null,
+    tokenPreview: dto.maskedToken ?? dto.tokenPreview ?? "••••••••",
+    lastCheckedAt: dto.lastCheckedAt ?? null,
+    lastError: dto.lastError ?? null,
+    requiresAction: dto.requiresAction ?? isWarningOrCritical,
+    actionType,
+    message: dto.message ?? dto.lastError ?? (status === "invalid" ? "Phiên đăng nhập đã hết hạn hoặc không hợp lệ" : ""),
+  };
+}
+
+function mapBackendSocialTokensSummary(raw: any): SocialTokensSummaryView {
+  const accounts = (raw.accounts || []).map(mapBackendSocialToken);
+  const hasExpiringOrInvalid =
+    raw.hasExpiringOrInvalid ??
+    (raw.overallStatus === "warning" ||
+      raw.overallStatus === "critical" ||
+      accounts.some((a: any) => a.requiresAction || a.status !== "valid"));
+  const urgentActionRequired =
+    raw.urgentActionRequired ??
+    (raw.overallStatus === "critical" ||
+      accounts.some((a: any) => a.status === "expired" || a.status === "invalid"));
+
+  return {
+    accounts,
+    hasExpiringOrInvalid,
+    urgentActionRequired,
+    checkedAt: raw.checkedAt ?? new Date().toISOString(),
+  };
+}
+

@@ -335,4 +335,148 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       requiresAction: false,
     };
   }
+
+  async updateAccountToken(
+    platform: "facebook" | "instagram",
+    accessToken: string,
+    accountId?: string,
+  ): Promise<SocialTokenHealthView> {
+    const trimmedToken = accessToken.trim();
+    if (trimmedToken.length < 10) {
+      throw new Error("Access token must be at least 10 characters long");
+    }
+
+    const accounts = await this.repository.listAccounts();
+    const existing = accountId
+      ? accounts.find((a) => a.platform === platform && a.accountId === accountId)
+      : accounts.find((a) => a.platform === platform);
+
+    const currentDate = this.now();
+    const currentIso = currentDate.toISOString();
+
+    const targetId = existing?.accountId ?? accountId ?? (platform === "facebook" ? "1321445584378490" : "instagram-account");
+    const targetName = existing?.accountName ?? (platform === "facebook" ? "Facebook Page" : "Instagram Business");
+
+    await this.repository.upsertAccount({
+      id: existing?.id ?? randomUUID(),
+      platform,
+      accountId: targetId,
+      accountName: targetName,
+      accessToken: trimmedToken,
+      tokenType: "bearer",
+      tokenStatus: "healthy",
+      tokenExpiresAt: null,
+      dataAccessExpiresAt: null,
+      scopes: existing?.scopes ?? (platform === "facebook" ? ["pages_manage_posts", "pages_read_engagement"] : ["instagram_basic", "instagram_content_publish"]),
+      isLongLived: true,
+      lastCheckedAt: currentIso,
+      metadata: { ...(existing?.metadata ?? {}), updated_by: "manual_update", updated_at: currentIso },
+      createdAt: existing?.createdAt ?? currentIso,
+      updatedAt: currentIso,
+    });
+
+    try {
+      const inspection = await this.inspector.inspectToken(platform, trimmedToken);
+      let status: SocialTokenStatus = inspection.isValid ? "healthy" : "invalid";
+      let expiresAt: string | null = null;
+      let daysRemaining: number | null = null;
+
+      if (inspection.expiresAt) {
+        expiresAt = inspection.expiresAt;
+        const expiresMs = new Date(expiresAt).getTime();
+        daysRemaining = Math.max(0, Math.ceil((expiresMs - currentDate.getTime()) / (1000 * 60 * 60 * 24)));
+        if (inspection.isValid && daysRemaining <= 7) {
+          status = "expiring_soon";
+        }
+      }
+
+      await this.repository.updateHealthStatus(platform, targetId, {
+        tokenStatus: status,
+        tokenExpiresAt: expiresAt,
+        dataAccessExpiresAt: inspection.dataAccessExpiresAt ?? null,
+        scopes: inspection.scopes.length > 0 ? inspection.scopes : existing?.scopes ?? [],
+        lastCheckedAt: currentIso,
+        lastError: inspection.error,
+      });
+
+      return {
+        platform,
+        accountId: targetId,
+        accountName: targetName,
+        maskedToken: maskToken(trimmedToken),
+        tokenStatus: status,
+        daysRemaining,
+        tokenExpiresAt: expiresAt,
+        isLongLived: inspection.isLongLived,
+        scopes: inspection.scopes.length > 0 ? inspection.scopes : existing?.scopes ?? [],
+        lastCheckedAt: currentIso,
+        lastError: inspection.error,
+        requiresAction: status !== "healthy",
+      };
+    } catch {
+      return {
+        platform,
+        accountId: targetId,
+        accountName: targetName,
+        maskedToken: maskToken(trimmedToken),
+        tokenStatus: "healthy",
+        daysRemaining: null,
+        tokenExpiresAt: null,
+        isLongLived: true,
+        scopes: existing?.scopes ?? [],
+        lastCheckedAt: currentIso,
+        requiresAction: false,
+      };
+    }
+  }
+
+  async syncFromEnvironment(): Promise<SocialTokensSummaryView> {
+    const timestamp = this.now().toISOString();
+
+    if (this.defaultFacebookToken) {
+      const pageId = this.defaultFacebookPageId || "1321445584378490";
+      const existing = await this.repository.findByPlatformAndId("facebook", pageId);
+      await this.repository.upsertAccount({
+        id: existing?.id ?? randomUUID(),
+        platform: "facebook",
+        accountId: pageId,
+        accountName: existing?.accountName ?? "Facebook Page",
+        accessToken: this.defaultFacebookToken,
+        tokenType: "bearer",
+        tokenStatus: "healthy",
+        tokenExpiresAt: null,
+        dataAccessExpiresAt: null,
+        scopes: existing?.scopes ?? ["pages_manage_posts", "pages_read_engagement"],
+        isLongLived: true,
+        lastCheckedAt: timestamp,
+        metadata: { source: "environment_sync" },
+        createdAt: existing?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      });
+    }
+
+    if (this.defaultInstagramToken) {
+      const igId = this.defaultInstagramAccountId || "instagram-account";
+      const existing = await this.repository.findByPlatformAndId("instagram", igId);
+      await this.repository.upsertAccount({
+        id: existing?.id ?? randomUUID(),
+        platform: "instagram",
+        accountId: igId,
+        accountName: existing?.accountName ?? "Instagram Business",
+        accessToken: this.defaultInstagramToken,
+        tokenType: "bearer",
+        tokenStatus: "healthy",
+        tokenExpiresAt: null,
+        dataAccessExpiresAt: null,
+        scopes: existing?.scopes ?? ["instagram_basic", "instagram_content_publish"],
+        isLongLived: true,
+        lastCheckedAt: timestamp,
+        metadata: { source: "environment_sync" },
+        createdAt: existing?.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      });
+    }
+
+    return this.performHealthCheck();
+  }
 }

@@ -5503,4 +5503,96 @@
   color: #475569;
 }
 
+/* Compact Social Token Alert Card */
+.ccSocialTokenAlertCard.compact {
+  padding: 0.5rem 0.65rem;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.ccSocialTokenAlertCard.compact .ccSocialTokenAlertMeta {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ccSocialTokenAlertCard.compact .ccSocialTokenActionBtn {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.ccSocialTokenDismissBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.ccSocialTokenDismissBtn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.consoleLayout[data-theme="light"] .ccSocialTokenDismissBtn:hover,
+[data-theme="light"] .ccSocialTokenDismissBtn:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Global Social Tokens System Warning Strip */
+.ccSocialTokenGlobalBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.09);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: fadeIn 0.2s ease;
+}
+
+.ccSocialTokenGlobalBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ccSocialTokenGlobalBannerText {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #f87171;
+  line-height: 1.4;
+}
+
+.ccSocialTokenGlobalBannerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consoleLayout[data-theme="light"] .ccSocialTokenGlobalBanner,
+[data-theme="light"] .ccSocialTokenGlobalBanner {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.consoleLayout[data-theme="light"] .ccSocialTokenGlobalBannerText,
+[data-theme="light"] .ccSocialTokenGlobalBannerText {
+  color: #b91c1c;
+}
+
+
 

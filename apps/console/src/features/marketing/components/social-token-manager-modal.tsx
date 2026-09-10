@@ -26,6 +26,8 @@ export interface SocialTokenManagerModalProps {
   readonly summary: SocialTokensSummaryView | null;
   readonly onRefreshAccount: (platform: "facebook" | "instagram", accountId: string) => Promise<void>;
   readonly onCheckTokens: () => Promise<void>;
+  readonly onUpdateToken?: (platform: "facebook" | "instagram", token: string, accountId?: string) => Promise<void>;
+  readonly onSyncEnv?: () => Promise<void>;
   readonly onOAuthReconnect?: (platform: "facebook" | "instagram") => void;
   readonly isActionLoading?: boolean;
   readonly actionFeedback?: string | null;
@@ -37,11 +39,18 @@ export function SocialTokenManagerModal({
   summary,
   onRefreshAccount,
   onCheckTokens,
+  onUpdateToken,
+  onSyncEnv,
   onOAuthReconnect,
   isActionLoading = false,
   actionFeedback,
 }: SocialTokenManagerModalProps) {
   const [refreshingAccountKey, setRefreshingAccountKey] = useState<string | null>(null);
+  const [quickInputOpen, setQuickInputOpen] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<"facebook" | "instagram">("facebook");
+  const [tokenInput, setTokenInput] = useState("");
+  const [editingCardKey, setEditingCardKey] = useState<string | null>(null);
+  const [cardTokenInput, setCardTokenInput] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,6 +71,20 @@ export function SocialTokenManagerModal({
     } finally {
       setRefreshingAccountKey(null);
     }
+  };
+
+  const handleApplyQuickToken = async () => {
+    if (!onUpdateToken || !tokenInput.trim()) return;
+    await onUpdateToken(selectedPlatform, tokenInput.trim());
+    setTokenInput("");
+    setQuickInputOpen(false);
+  };
+
+  const handleApplyCardToken = async (account: SocialTokenHealthView) => {
+    if (!onUpdateToken || !cardTokenInput.trim()) return;
+    await onUpdateToken(account.platform, cardTokenInput.trim(), account.accountId);
+    setCardTokenInput("");
+    setEditingCardKey(null);
   };
 
   const getStatusBadge = (account: SocialTokenHealthView) => {
@@ -148,16 +171,78 @@ export function SocialTokenManagerModal({
               Kiểm tra lần cuối: {summary?.checkedAt ? new Date(summary.checkedAt).toLocaleTimeString("vi-VN") : "Chưa có"}
             </span>
           </div>
-          <button
-            type="button"
-            className="socialTokenRefreshAllBtn"
-            onClick={onCheckTokens}
-            disabled={isActionLoading}
-          >
-            <RefreshCw size={14} className={isActionLoading ? "ccSpinSlow" : ""} />
-            <span>{isActionLoading ? "Đang kiểm tra..." : "Kiểm tra sức khỏe ngay"}</span>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {onSyncEnv && (
+              <button
+                type="button"
+                className="socialTokenRefreshAllBtn"
+                style={{ background: "#2563eb", color: "#ffffff", borderColor: "#1d4ed8" }}
+                onClick={() => void onSyncEnv()}
+                disabled={isActionLoading}
+                title="Đồng bộ tự động các token cấu hình từ file .env vào cơ sở dữ liệu"
+              >
+                <Zap size={14} />
+                <span>Đồng bộ từ .env</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="socialTokenRefreshAllBtn"
+              onClick={onCheckTokens}
+              disabled={isActionLoading}
+            >
+              <RefreshCw size={14} className={isActionLoading ? "ccSpinSlow" : ""} />
+              <span>{isActionLoading ? "Đang kiểm tra..." : "Kiểm tra sức khỏe ngay"}</span>
+            </button>
+            <button
+              type="button"
+              className="socialTokenRefreshAllBtn"
+              style={{ background: quickInputOpen ? "#475569" : "#059669", color: "#ffffff", borderColor: "#047857" }}
+              onClick={() => setQuickInputOpen(!quickInputOpen)}
+            >
+              <span>{quickInputOpen ? "Đóng nhập nhanh" : "⚡ Nhập Token trực tiếp"}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Quick Token Apply Form */}
+        {quickInputOpen && (
+          <div className="socialTokenQuickInputCard" style={{ margin: "0.5rem 1.5rem", padding: "1rem", background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: "8px" }}>
+            <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.9rem", color: "#60a5fa", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Zap size={15} />
+              <span>Cập nhật Access Token trực tiếp từ Graph API Explorer (Không cần khởi động lại)</span>
+            </h4>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#94a3b8" }}>
+              Khi phiên đăng nhập bị Facebook hủy (User logged out), hãy copy mã Access Token từ Graph API Explorer, chọn nền tảng và bấm Áp dụng:
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value as any)}
+                style={{ padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #475569", background: "#1e293b", color: "#f8fafc", fontSize: "0.82rem" }}
+              >
+                <option value="facebook">Facebook Fanpage</option>
+                <option value="instagram">Instagram Business</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Dán token mới (EAA...)..."
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                style={{ flex: 1, minWidth: "250px", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #475569", background: "#1e293b", color: "#f8fafc", fontSize: "0.82rem" }}
+              />
+              <button
+                type="button"
+                className="socialTokenActionBtn autoRenewBtn"
+                onClick={handleApplyQuickToken}
+                disabled={isActionLoading || !tokenInput.trim()}
+              >
+                {isActionLoading ? <Loader2 size={13} className="ccSpinSlow" /> : <CheckCircle2 size={13} />}
+                <span>Lưu & Kiểm tra ngay</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Account Cards / List */}
         <div className="socialTokenList">
@@ -171,6 +256,7 @@ export function SocialTokenManagerModal({
               const key = `${account.platform}:${account.accountId}`;
               const isItemRefreshing = refreshingAccountKey === key;
               const isWarningOrExpired = account.status === "expiring_soon" || account.status === "expired" || account.status === "invalid";
+              const isEditingThis = editingCardKey === key;
 
               return (
                 <div key={key} className={`socialTokenAccountCard ${isWarningOrExpired ? "hasAlert" : ""}`}>
@@ -213,6 +299,34 @@ export function SocialTokenManagerModal({
                       {account.message && !account.lastError && (
                         <p className="socialTokenMessageHint">{account.message}</p>
                       )}
+
+                      {isEditingThis && (
+                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            placeholder="Dán token mới vào đây..."
+                            value={cardTokenInput}
+                            onChange={(e) => setCardTokenInput(e.target.value)}
+                            style={{ flex: 1, padding: "0.4rem 0.6rem", borderRadius: "4px", border: "1px solid #475569", background: "#0f172a", color: "#f8fafc", fontSize: "0.8rem" }}
+                          />
+                          <button
+                            type="button"
+                            className="socialTokenActionBtn autoRenewBtn"
+                            onClick={() => handleApplyCardToken(account)}
+                            disabled={isActionLoading || !cardTokenInput.trim()}
+                          >
+                            <span>Lưu</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="socialTokenActionBtn"
+                            style={{ background: "#475569", color: "#fff" }}
+                            onClick={() => { setEditingCardKey(null); setCardTokenInput(""); }}
+                          >
+                            <span>Hủy</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -246,12 +360,29 @@ export function SocialTokenManagerModal({
                         className="socialTokenActionBtn reconnectBtn"
                         onClick={() => onOAuthReconnect?.(account.platform)}
                         disabled={isActionLoading}
-                        title="Phiên đăng nhập đã hết hạn, bấm để xác thực lại một chạm với Facebook"
+                        title="Bấm để kết nối lại hoặc cập nhật token mới"
                       >
                         <ExternalLink size={13} />
                         <span>1-Click Kết nối lại</span>
                       </button>
                     ) : null}
+
+                    <button
+                      type="button"
+                      className="socialTokenActionBtn"
+                      style={{ background: "rgba(255, 255, 255, 0.08)", color: "#cbd5e1", border: "1px solid rgba(255, 255, 255, 0.15)" }}
+                      onClick={() => {
+                        if (isEditingThis) {
+                          setEditingCardKey(null);
+                        } else {
+                          setEditingCardKey(key);
+                          setCardTokenInput("");
+                        }
+                      }}
+                      title="Cập nhật nhanh token mới cho tài khoản này"
+                    >
+                      <span>{isEditingThis ? "Đóng" : "Cập nhật Token"}</span>
+                    </button>
                   </div>
                 </div>
               );
