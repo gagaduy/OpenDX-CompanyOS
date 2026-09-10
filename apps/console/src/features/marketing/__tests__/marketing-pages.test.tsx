@@ -178,10 +178,10 @@ describe("Marketing Console Pages", () => {
     ],
   };
 
-  it("renders MarketingCampaignListPage with campaign items", async () => {
-    const mockApi: MarketingApi = {
+  function createMockMarketingApi(overrides: Partial<MarketingApi> = {}): MarketingApi {
+    return {
       fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
-      listCampaigns: vi.fn().mockResolvedValue({ items: [sampleCampaign], total: 1 }),
+      listCampaigns: vi.fn(),
       getCampaign: vi.fn(),
       createCampaign: vi.fn(),
       markReady: vi.fn(),
@@ -193,8 +193,19 @@ describe("Marketing Console Pages", () => {
       qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn(),
       listArtifacts: vi.fn(),
-      getArtifactDownloadUrl: vi.fn((id) => `/download/${id}`),
+      getArtifactDownloadUrl: vi.fn((id: string) => `/download/${id}`),
+      getSocialTokensStatus: vi.fn(),
+      refreshSocialToken: vi.fn(),
+      exchangeSocialOAuthCode: vi.fn(),
+      checkSocialTokens: vi.fn(),
+      ...overrides,
     };
+  }
+
+  it("renders MarketingCampaignListPage with campaign items", async () => {
+    const mockApi = createMockMarketingApi({
+      listCampaigns: vi.fn().mockResolvedValue({ items: [sampleCampaign], total: 1 }),
+    });
 
     render(
       <MemoryRouter>
@@ -208,22 +219,12 @@ describe("Marketing Console Pages", () => {
   });
 
   it("renders MarketingCampaignDetailPage with full control room details", async () => {
-    const mockApi: MarketingApi = {
-      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
-      listCampaigns: vi.fn(),
+    const mockApi = createMockMarketingApi({
       getCampaign: vi.fn().mockResolvedValue(sampleDetail),
-      createCampaign: vi.fn(),
-      markReady: vi.fn(),
-      cancelCampaign: vi.fn(),
       approveCampaign: vi.fn().mockResolvedValue(sampleCampaign),
-      retryPublication: vi.fn(),
-      retryTargetPublication: vi.fn(),
       requestRevision: vi.fn().mockResolvedValue(sampleCampaign),
-      qualityFeedback: vi.fn(),
       generateDeliverables: vi.fn().mockResolvedValue({ items: [], total: 0 }),
-      listArtifacts: vi.fn(),
-      getArtifactDownloadUrl: vi.fn((id) => `/download/${id}`),
-    };
+    });
 
     render(
       <MemoryRouter initialEntries={[`/marketing/campaigns/${sampleCampaign.id}`]}>
@@ -266,22 +267,9 @@ describe("Marketing Console Pages", () => {
   });
 
   it("opens multi-platform live post preview modal", async () => {
-    const mockApi: MarketingApi = {
-      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
-      listCampaigns: vi.fn(),
+    const mockApi = createMockMarketingApi({
       getCampaign: vi.fn().mockResolvedValue(sampleDetail),
-      createCampaign: vi.fn(),
-      markReady: vi.fn(),
-      cancelCampaign: vi.fn(),
-      approveCampaign: vi.fn(),
-      retryPublication: vi.fn(),
-      retryTargetPublication: vi.fn(),
-      requestRevision: vi.fn(),
-      qualityFeedback: vi.fn(),
-      generateDeliverables: vi.fn(),
-      listArtifacts: vi.fn(),
-      getArtifactDownloadUrl: vi.fn((id) => `/download/${id}`),
-    };
+    });
 
     render(
       <MemoryRouter initialEntries={[`/marketing/campaigns/${sampleCampaign.id}`]}>
@@ -331,22 +319,10 @@ describe("Marketing Console Pages", () => {
       publicationRecord: null,
     };
     const retryPublication = vi.fn().mockResolvedValue({});
-    const mockApi = {
-      fetchVisualAssetBlob: vi.fn().mockResolvedValue(new Blob()),
-      listCampaigns: vi.fn(),
+    const mockApi = createMockMarketingApi({
       getCampaign: vi.fn().mockResolvedValue(failedDetail),
-      createCampaign: vi.fn(),
-      markReady: vi.fn(),
-      cancelCampaign: vi.fn(),
-      approveCampaign: vi.fn(),
       retryPublication,
-      retryTargetPublication: vi.fn(),
-      requestRevision: vi.fn(),
-      qualityFeedback: vi.fn(),
-      generateDeliverables: vi.fn(),
-      listArtifacts: vi.fn(),
-      getArtifactDownloadUrl: vi.fn((id: string) => `/download/${id}`),
-    } as MarketingApi;
+    });
 
     render(
       <MemoryRouter initialEntries={[`/marketing/campaigns/${sampleCampaign.id}`]}>

@@ -9,6 +9,28 @@ import type {
   PublicationRecord,
 } from "../types";
 
+export interface SocialTokenHealthView {
+  readonly platform: "facebook" | "instagram";
+  readonly accountId: string;
+  readonly accountName: string;
+  readonly status: "valid" | "expiring_soon" | "expired" | "invalid" | "unconfigured";
+  readonly expiresAt: string | null;
+  readonly daysRemaining: number | null;
+  readonly tokenPreview: string;
+  readonly lastCheckedAt: string | null;
+  readonly lastError: string | null;
+  readonly requiresAction: boolean;
+  readonly actionType: "none" | "auto_refresh" | "oauth_reconnect";
+  readonly message: string;
+}
+
+export interface SocialTokensSummaryView {
+  readonly accounts: readonly SocialTokenHealthView[];
+  readonly hasExpiringOrInvalid: boolean;
+  readonly urgentActionRequired: boolean;
+  readonly checkedAt: string;
+}
+
 export interface MarketingApi {
   fetchVisualAssetBlob(assetId: string, signal?: AbortSignal): Promise<Blob>;
   listCampaigns(params?: { limit?: number; offset?: number }, signal?: AbortSignal): Promise<{ items: readonly MarketingCampaign[]; total: number }>;
@@ -25,6 +47,10 @@ export interface MarketingApi {
   listArtifacts(campaignId: string, signal?: AbortSignal): Promise<{ items: readonly MarketingArtifact[]; total: number }>;
   getArtifactDownloadUrl(artifactId: string): string;
   fetchArtifactBlob?(artifactId: string): Promise<Blob>;
+  getSocialTokensStatus(signal?: AbortSignal): Promise<SocialTokensSummaryView>;
+  refreshSocialToken(params: { platform: string; accountId: string }): Promise<SocialTokenHealthView>;
+  exchangeSocialOAuthCode(params: { code: string; redirectUri: string; platform?: string }): Promise<SocialTokensSummaryView>;
+  checkSocialTokens(): Promise<SocialTokensSummaryView>;
 }
 
 export function createMarketingApi(baseUrl: string, accessToken: string): MarketingApi {
@@ -157,6 +183,30 @@ export function createMarketingApi(baseUrl: string, accessToken: string): Market
         throw new Error(`Failed to fetch artifact blob: ${response.status}`);
       }
       return response.blob();
+    },
+
+    async getSocialTokensStatus(signal) {
+      return request("/v1/admin/marketing/social-tokens/status", { signal });
+    },
+
+    async refreshSocialToken(params) {
+      return request("/v1/admin/marketing/social-tokens/refresh", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async exchangeSocialOAuthCode(params) {
+      return request("/v1/admin/marketing/social-tokens/oauth-exchange", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async checkSocialTokens() {
+      return request("/v1/admin/marketing/social-tokens/check", {
+        method: "POST",
+      });
     },
   };
 }
