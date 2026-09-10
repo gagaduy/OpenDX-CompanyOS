@@ -55,6 +55,8 @@ export function createErrorHandler(): ErrorRequestHandler {
       return;
     }
 
+    console.error("[Unhandled Error in createErrorHandler]:", error);
+
     response.status(500).json({
       success: false,
       message: "An unexpected error occurred",

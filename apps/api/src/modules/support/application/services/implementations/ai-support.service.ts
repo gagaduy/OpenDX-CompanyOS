@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
+import { ApplicationError } from "../../../../../shared/http/application-error";
 import type {
   AiSupportProposalDto,
   AiSupportTicketItemDto,
@@ -224,7 +225,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   } {
     const proposal = this.proposalsCache.get(proposalId);
-    if (!proposal) throw new Error(`Support proposal ${proposalId} not found.`);
+    if (!proposal) throw new ApplicationError(404, "PROPOSAL_NOT_FOUND", `Support proposal ${proposalId} not found.`);
     return generateSupportReportDocx(proposal);
   }
 
@@ -436,7 +437,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
             await client.query(
               `INSERT INTO promotions (
                  id, code, name, promotion_type, percentage_bps, fixed_amount_vnd, maximum_discount_vnd, minimum_subtotal_vnd, status, version, created_at, updated_at
-               ) VALUES ($1, $2, $3, 'percentage', 1000, NULL, 500000, 0, 'active', 1, NOW(), NOW())
+               ) VALUES ($1, $2, $3, 'percentage', $4, NULL, 500000, 0, 'active', 1, NOW(), NOW())
                ON CONFLICT (code) DO NOTHING`,
               [promoId, promoCode, `Đền bù CSKH: Giảm 10% đơn hàng tiếp theo`, 1000],
             );
@@ -516,17 +517,40 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
       if (this.emailDispatcher) {
         for (const item of request.items) {
           const ticketProposal = proposal?.tickets?.find((t) => t.ticketId === item.ticketId);
-          if (!ticketProposal || !ticketProposal.customerEmail) continue;
+          let customerEmail = ticketProposal?.customerEmail;
+          let customerName = ticketProposal?.customerName;
+          let subject = ticketProposal?.subject;
+
+          if (!customerEmail || !customerName || !subject) {
+            const ticketInfo = await this.database.query<{
+              full_name: string | null;
+              email: string | null;
+              subject: string;
+            }>(
+              `SELECT COALESCE(c.full_name, 'Khách hàng') as full_name, c.email, st.subject
+               FROM support_tickets st
+               LEFT JOIN customers c ON c.id = st.customer_id
+               WHERE st.id = $1`,
+              [item.ticketId],
+            );
+            if (ticketInfo.rows.length > 0) {
+              customerEmail = customerEmail || ticketInfo.rows[0].email || undefined;
+              customerName = customerName || ticketInfo.rows[0].full_name || "Quý khách";
+              subject = subject || ticketInfo.rows[0].subject;
+            }
+          }
+
+          if (!customerEmail) continue;
 
           const entry = itemMessages.get(item.ticketId);
           const promoCode = entry?.promoCode;
           const voucherDiscountText = entry?.voucherDiscountText;
 
-          const responseText = item.responseMessage || ticketProposal.proposedResponse;
+          const responseText = item.responseMessage || ticketProposal?.proposedResponse || "Yêu cầu hỗ trợ của Quý khách đã được xử lý.";
           const htmlBody = renderSupportResolutionEmailHtml({
-            customerName: ticketProposal.customerName,
+            customerName: customerName || "Quý khách",
             ticketId: item.ticketId,
-            subject: ticketProposal.subject,
+            subject: subject || "Hỗ trợ khách hàng",
             responseMessage: responseText,
             voucherCode: promoCode,
             voucherDiscountText,
@@ -534,16 +558,16 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
 
           try {
             await this.emailDispatcher.sendSupportResolutionEmail({
-              to: ticketProposal.customerEmail,
-              toName: ticketProposal.customerName,
-              subject: `[NovaCommerce] Phản hồi yêu cầu hỗ trợ: ${ticketProposal.subject}`,
+              to: customerEmail,
+              toName: customerName || "Quý khách",
+              subject: `[NovaCommerce] Phản hồi yêu cầu hỗ trợ: ${subject || "Hỗ trợ khách hàng"}`,
               textBody: responseText,
               htmlBody,
               ticketId: item.ticketId,
               voucherCode: promoCode,
             });
           } catch (emailErr) {
-            console.error(`[AiSupportService] Failed to send resolution email to ${ticketProposal.customerEmail}:`, emailErr);
+            console.error(`[AiSupportService] Failed to send resolution email to ${customerEmail}:`, emailErr);
           }
         }
       }

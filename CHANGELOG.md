@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix AI Support Proposal Approval & Email Dispatching:
+  - Fixed PostgreSQL Parameter Binding Mismatch: Replaced hardcoded literal in default 10% voucher query with `$4` parameter placeholder in `AiSupportService`, eliminating `bind message supplies 4 parameters, but prepared statement requires 3` 500 error during proposal application.
+  - Resilient Customer Fallback: Added database fallback query for customer name, email, and subject in outbound email dispatching when proposals are restored across restarts.
+  - Proper Error Classification: Changed proposal document lookup failure in `getProposalDocx` to throw `ApplicationError(404, "PROPOSAL_NOT_FOUND")` instead of unhandled 500 error.
+  - Error Handler Observability: Added unhandled exception logging in `createErrorHandler` middleware for server-side diagnostics.
+
 - Customer Authentication & Unified LiveChat Integration:
   - Fixed Google Identity Conflict: Resolved `GOOGLE_IDENTITY_CONFLICT` when a Google identity email matches an existing customer account (e.g. from guest orders or support inquiries), linking the Google identity rather than rejecting login.
   - Email-based Customer Authentication: Added `POST /v1/storefront/auth/email` endpoint, customer session issuing, guest session migration, and CSRF token handling.
