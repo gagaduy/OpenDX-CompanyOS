@@ -173,6 +173,12 @@ const order = createOrderModule({
   cookies: storefrontCookies,
   generateId: randomUUID,
   now: () => new Date().toISOString(),
+  onOrderPaid: (lines) => {
+    void inventory.replenishmentMonitor?.triggerScan(
+      "post_order_event",
+      lines.map((l) => l.variantId),
+    );
+  },
 });
 const paymentGateway = environment.sepay.configured
   ? new SePayPaymentGateway({
@@ -355,6 +361,7 @@ const server = app.listen(environment.apiPort, () => {
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
   marketing.publisherWorker.start();
+  inventory.replenishmentMonitor?.startHeartbeat();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
@@ -372,6 +379,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
     process.exit(1);
   }, 10_000).unref();
   inventory.expiryWorker.stop();
+  inventory.replenishmentMonitor?.stopHeartbeat();
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
   support.escalationWorker.stop();

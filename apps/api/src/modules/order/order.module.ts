@@ -24,6 +24,7 @@ export interface OrderModuleDependencies {
   readonly cookies: StorefrontCookieConfig;
   readonly generateId: () => string;
   readonly now: () => string;
+  readonly onOrderPaid?: (lines: readonly { variantId: string; quantity: number }[]) => void | Promise<void>;
 }
 
 export interface OrderHealthDependencies {
@@ -48,7 +49,14 @@ export function createOrderModule(dependencies: OrderModuleDependencies) {
       return cancellation.cancelInSession(session, request);
     },
   };
-  const service = new OrderService(repository, dependencies.transactions, dependencies.generateId, dependencies.now, deferredCancellation);
+  const service = new OrderService(
+    repository,
+    dependencies.transactions,
+    dependencies.generateId,
+    dependencies.now,
+    deferredCancellation,
+    dependencies.onOrderPaid,
+  );
   const operations = new CustomerOrderOperationsReaderService(repository, dependencies.transactions);
   const appendDenied = (denied: { actorId: string; action: string; resourceId: string; correlationId: string }) =>
     dependencies.transactions.run((session) => repository.appendAudit(session, {
