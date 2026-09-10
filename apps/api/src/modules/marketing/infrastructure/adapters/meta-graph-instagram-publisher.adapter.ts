@@ -19,10 +19,12 @@ import {
   type SocialReconciliationRequest,
   type SocialReconciliationResult,
 } from "../../application/ports/social-publisher.port";
+import type { SocialAccountRepository } from "../../domain/repositories/social-account.repository";
 
 export interface MetaGraphInstagramPublisherAdapterOptions {
   readonly businessAccountId: string;
   readonly accessToken: string;
+  readonly socialAccountRepository?: SocialAccountRepository;
   readonly preparePublicMediaUrl: (media: SocialPublishMediaItem) => Promise<string>;
   readonly graphApiBaseUrl?: string;
   readonly requestTimeoutMs?: number;
@@ -48,6 +50,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
   private readonly businessAccountId: string;
   private readonly accessToken: string;
+  private readonly socialAccountRepository?: SocialAccountRepository;
   private readonly preparePublicMediaUrl: (media: SocialPublishMediaItem) => Promise<string>;
   private readonly graphApiBaseUrl: string;
   private readonly requestTimeoutMs: number;
@@ -69,6 +72,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     }
     this.businessAccountId = options.businessAccountId;
     this.accessToken = options.accessToken;
+    this.socialAccountRepository = options.socialAccountRepository;
     this.preparePublicMediaUrl = options.preparePublicMediaUrl;
     this.graphApiBaseUrl = (options.graphApiBaseUrl ?? "https://graph.facebook.com/v20.0").replace(/\/+$/, "");
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
@@ -117,12 +121,13 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     await this.waitForContainerReady(containerId);
 
     // Publish container
+    const publishToken = await this.getEffectiveAccessToken();
     const publishEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media_publish`;
     let publishResponse: { data: any; rawText: string };
     try {
       publishResponse = await this.postJson(publishEndpoint, {
         creation_id: containerId,
-        access_token: this.accessToken,
+        access_token: publishToken,
       });
     } catch (error) {
       if (error instanceof SocialPublisherError && error.code === "TIMEOUT") {
@@ -151,7 +156,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
     let publicationUrl: string | null = null;
     try {
-      const permalinkEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(postId)}?fields=id,permalink&access_token=${encodeURIComponent(this.accessToken)}`;
+      const permalinkEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(postId)}?fields=id,permalink&access_token=${encodeURIComponent(publishToken)}`;
       const permalinkResp = await this.fetchWithTimeout(permalinkEndpoint, { method: "GET" });
       if (permalinkResp.ok) {
         const parsed = await permalinkResp.json();
@@ -183,7 +188,8 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     }
 
     try {
-      const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(request.externalPublicationId)}?fields=id,permalink,media_type&access_token=${encodeURIComponent(this.accessToken)}`;
+      const token = await this.getEffectiveAccessToken();
+      const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(request.externalPublicationId)}?fields=id,permalink,media_type&access_token=${encodeURIComponent(token)}`;
       const response = await this.fetchWithTimeout(endpoint, { method: "GET" });
       if (!response.ok) {
         return { exists: false };
@@ -211,6 +217,21 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     }
   }
 
+  private async getEffectiveAccessToken(): Promise<string> {
+    if (this.socialAccountRepository) {
+      try {
+        const account = await this.socialAccountRepository.findByPlatformAndId("instagram", this.businessAccountId)
+          ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "instagram");
+        if (account?.accessToken) {
+          return account.accessToken;
+        }
+      } catch {
+        // Fall back
+      }
+    }
+    return this.accessToken;
+  }
+
   private async prepareMediaUrl(media: SocialPublishMediaItem): Promise<string> {
     try {
       return await this.preparePublicMediaUrl(media);
@@ -234,11 +255,12 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   }
 
   private async createImageContainer(accountId: string, imageUrl: string, caption: string): Promise<string> {
+    const token = await this.getEffectiveAccessToken();
     const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media`;
     const res = await this.postJson(endpoint, {
       image_url: imageUrl,
       caption,
-      access_token: this.accessToken,
+      access_token: token,
     });
     if (!res.data.id) {
       throw new SocialPublisherError("CONTAINER_CREATION_FAILED", "Failed to create Instagram image container");
@@ -247,11 +269,12 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   }
 
   private async createStoryContainer(accountId: string, imageUrl: string): Promise<string> {
+    const token = await this.getEffectiveAccessToken();
     const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media`;
     const res = await this.postJson(endpoint, {
       image_url: imageUrl,
       media_type: "STORIES",
-      access_token: this.accessToken,
+      access_token: token,
     });
     if (!res.data.id) {
       throw new SocialPublisherError("CONTAINER_CREATION_FAILED", "Failed to create Instagram story container");
@@ -260,11 +283,12 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   }
 
   private async createCarouselItemContainer(accountId: string, imageUrl: string): Promise<string> {
+    const token = await this.getEffectiveAccessToken();
     const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media`;
     const res = await this.postJson(endpoint, {
       image_url: imageUrl,
       is_carousel_item: "true",
-      access_token: this.accessToken,
+      access_token: token,
     });
     if (!res.data.id) {
       throw new SocialPublisherError("CONTAINER_CREATION_FAILED", "Failed to create Instagram carousel item container");
@@ -273,12 +297,13 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   }
 
   private async createCarouselParentContainer(accountId: string, children: string[], caption: string): Promise<string> {
+    const token = await this.getEffectiveAccessToken();
     const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}/media`;
     const res = await this.postJson(endpoint, {
       media_type: "CAROUSEL",
       children: children.join(","),
       caption,
-      access_token: this.accessToken,
+      access_token: token,
     });
     if (!res.data.id) {
       throw new SocialPublisherError("CONTAINER_CREATION_FAILED", "Failed to create Instagram carousel parent container");
@@ -287,7 +312,8 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
   }
 
   private async waitForContainerReady(containerId: string): Promise<void> {
-    const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(containerId)}?fields=status_code,status&access_token=${encodeURIComponent(this.accessToken)}`;
+    const token = await this.getEffectiveAccessToken();
+    const endpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(containerId)}?fields=status_code,status&access_token=${encodeURIComponent(token)}`;
 
     for (let attempt = 0; attempt < this.maxPollAttempts; attempt++) {
       let response: Response;

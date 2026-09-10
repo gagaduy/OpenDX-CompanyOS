@@ -232,4 +232,46 @@ describe("MetaGraphFacebookPublisherAdapter", () => {
     expect(receipt.externalPublicationId).toBe("998877_112233");
     expect(mockFetcher).toHaveBeenCalledTimes(3);
   });
+
+  it("dynamically resolves active access token from socialAccountRepository override", async () => {
+    const mockFetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: "post-dyn-1", post_id: "post-dyn-1" }),
+        { status: 200 },
+      ),
+    );
+
+    const mockRepo = {
+      findByPlatformAndId: vi.fn().mockResolvedValue({
+        platform: "facebook",
+        accountId: fakePageId,
+        accessToken: "EAAB_dynamically_resolved_token_from_db",
+      }),
+      listAccounts: vi.fn(),
+      upsertAccount: vi.fn(),
+      updateHealthStatus: vi.fn(),
+      updateAccessToken: vi.fn(),
+    };
+
+    const adapter = new MetaGraphFacebookPublisherAdapter({
+      fetcher: mockFetcher,
+      now: () => fixedNow,
+      pageId: fakePageId,
+      pageAccessToken: "static-fallback-token",
+      socialAccountRepository: mockRepo as any,
+    });
+
+    const receipt = await adapter.publish({
+      target: {
+        id: "target-dyn-1",
+        platform: "facebook",
+        accountConfigurationId: fakePageId,
+      } as any,
+      caption: "Dynamic post",
+      media: [{ id: "media-1", bytes: fakeImageBuffer, mimeType: "image/png", fileName: "post.png" }],
+    });
+
+    expect(receipt.externalPublicationId).toBe("post-dyn-1");
+    expect(mockRepo.findByPlatformAndId).toHaveBeenCalledWith("facebook", fakePageId);
+  });
 });
