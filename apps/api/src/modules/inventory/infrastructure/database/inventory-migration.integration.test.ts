@@ -31,10 +31,11 @@ describeWithDatabase("inventory migration", () => {
        WHERE table_schema = 'public'
          AND table_name = ANY($1::text[])
        ORDER BY table_name`,
-      [["inventory_items", "inventory_reservations", "stock_movements"]],
+      [["inventory_items", "inventory_replenishment_proposals", "inventory_reservations", "stock_movements"]],
     );
     expect(tables.rows.map(({ table_name }) => table_name)).toEqual([
       "inventory_items",
+      "inventory_replenishment_proposals",
       "inventory_reservations",
       "stock_movements",
     ]);
@@ -61,18 +62,32 @@ describeWithDatabase("inventory migration", () => {
       [[
         "inventory_items_available_health_idx",
         "inventory_reservations_finalization_anomaly_idx",
+        "idx_replenishment_pending_status",
       ]],
     );
-    expect(indexes.rows.map(({ indexname }) => indexname)).toEqual([
-      "inventory_items_available_health_idx",
-      "inventory_reservations_finalization_anomaly_idx",
-    ]);
+    expect(indexes.rows.map(({ indexname }) => indexname)).toEqual(
+      expect.arrayContaining([
+        "inventory_items_available_health_idx",
+        "inventory_reservations_finalization_anomaly_idx",
+        "idx_replenishment_pending_status",
+      ]),
+    );
 
+    // Down 1: drops replenishment proposals table
+    await runInventoryMigrations(databaseUrl!, "down", 1);
+    const checkReplenishmentDropped = await pool.query<{ name: string | null }>(
+      "SELECT to_regclass('public.inventory_replenishment_proposals')::text AS name",
+    );
+    expect(checkReplenishmentDropped.rows[0]).toEqual({ name: null });
+
+    // Down 1: drops health indexes
     await runInventoryMigrations(databaseUrl!, "down", 1);
     const retained = await pool.query<{ name: string | null }>(
       "SELECT to_regclass('public.inventory_items')::text AS name",
     );
     expect(retained.rows[0]).toEqual({ name: "inventory_items" });
+
+    // Down 1: drops base inventory tables
     await runInventoryMigrations(databaseUrl!, "down", 1);
     const removed = await pool.query<{ name: string | null }>(
       "SELECT to_regclass('public.inventory_items')::text AS name",
