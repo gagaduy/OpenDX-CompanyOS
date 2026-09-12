@@ -54,21 +54,157 @@ export interface StrategicDeliverable {
 /**
  * Builds a realistic, highly professional strategic deliverable report based on the given goal.
  */
-export function buildStrategicDeliverable(goal: string, taskId?: string): StrategicDeliverable {
+export function buildStrategicDeliverable(
+  goal: string,
+  taskId?: string,
+  department?: "ai_ceo" | DepartmentType,
+): StrategicDeliverable {
   const cleanGoal = goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
   const lowerGoal = cleanGoal.toLowerCase();
   const id = taskId || `deliv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = new Date().toISOString();
 
-  // 1. Cosmetics / Beauty ASEAN Market Analysis
+  // 1. Nova Tech / Electronics & Gadgets Campaign Merchandising Analysis
+  if (
+    lowerGoal.includes("nova tech") ||
+    lowerGoal.includes("công nghệ") ||
+    lowerGoal.includes("thiết bị") ||
+    lowerGoal.includes("điện tử") ||
+    lowerGoal.includes("smartwatch") ||
+    lowerGoal.includes("tai nghe") ||
+    lowerGoal.includes("khai phá tương lai")
+  ) {
+    return {
+      id,
+      taskId,
+      goal: cleanGoal,
+      title: "Báo cáo Chiến lược: Chiến dịch Nova Tech - Khai Phá Tương Lai & Tối ưu Doanh số Thiết bị Công nghệ",
+      department: department || "merchandising",
+      departmentName: department === "merchandising" ? "Phòng Kinh doanh & Định giá Danh mục" : "AI CEO & Điều phối Chiến lược",
+      createdAt: now,
+      completedAt: now,
+      summary:
+        "Chiến dịch Nova Tech - Khai Phá Tương Lai được xây dựng nhằm khai thác nhu cầu tiêu dùng thiết bị thông minh & phụ kiện số thế hệ mới trên Storefront. Hệ thống AI CEO cùng Chuyên gia Định giá và Kỹ sư Kho đã rà soát 10 SKU công nghệ chủ lực (NovaWatch Pro, NovaPods Ultra, NovaCharge 65W GaN...), áp dụng cơ chế chiết khấu linh hoạt 15% - 25% với ngưỡng bảo toàn biên lợi nhuận gộp 38.5%, đồng thời ứng dụng bộ nhận diện đồ họa AI 3D nổi bật nhằm gia tăng tỷ lệ chuyển đổi khách hàng công nghệ.",
+      marketInsights: [
+        {
+          label: "Quy mô Phụ kiện Công nghệ VN",
+          value: "1.45 Tỷ USD",
+          change: "+16.8% YoY",
+          description: "Thiết bị đeo thông minh, sạc nhanh GaN và tai nghe không dây dẫn đầu tốc độ tăng trưởng.",
+        },
+        {
+          label: "Tỷ lệ Chuyển đổi Flash Sale",
+          value: "4.85%",
+          change: "+1.8% so với thường",
+          description: "Mức giảm -20% đánh đúng ngưỡng tâm lý kích hoạt chốt đơn của nhóm khách hàng trẻ thế hệ Gen Z.",
+        },
+        {
+          label: "Khoảng giá Tối ưu (Sweet Spot)",
+          value: "350k - 1.25M",
+          change: "Biên lãi 38.5%",
+          description: "Phân khúc phụ kiện cao cấp và thiết bị đeo có tỷ lệ mua kèm (Cross-sell) cao nhất trên Storefront.",
+        },
+        {
+          label: "Giá trị Giỏ hàng (AOV)",
+          value: "1,250,000 ₫",
+          change: "+28% YoY",
+          description: "Chính sách mua Combo Đồng hồ + Phụ kiện sạc giúp kéo doanh số trung bình mỗi đơn hàng tăng mạnh.",
+        },
+      ],
+      conclusions: [
+        {
+          id: "c-1",
+          title: "Chiến lược Sản phẩm Chim mồi & Bán chéo Combo (Cross-sell)",
+          detail:
+            "Các sản phẩm giá mềm (Cáp sạc C to C, Củ sạc 65W GaN) đóng vai trò kéo lưu lượng truy cập ban đầu, dẫn dắt khách hàng khám phá và mua kèm các sản phẩm biên lãi cao như NovaWatch Pro và NovaPods Ultra.",
+          impact: "high",
+        },
+        {
+          id: "c-2",
+          title: "Đồng bộ Nhận diện Đồ họa AI & Đếm ngược Realtime trên Storefront",
+          detail:
+            "Huy hiệu 3D 'Nova Tech' và đồng hồ đếm ngược thời gian thực trên Storefront tạo hiệu ứng khan hiếm lành mạnh, thúc đẩy quyết định mua hàng trong 48 giờ đầu tiên.",
+          impact: "high",
+        },
+        {
+          id: "c-3",
+          title: "Tối ưu Vận hành Kho & Cam kết Giao hàng Chống sốc 24h",
+          detail:
+            "Đã đồng bộ tồn kho an toàn và quy chuẩn đóng gói chống sốc chuyên dụng cho hàng điện tử giá trị cao, giảm tỷ lệ khiếu nại và hoàn trả xuống dưới 1.2%.",
+          impact: "medium",
+        },
+      ],
+      risks: [
+        {
+          id: "r-1",
+          risk: "Nguy cơ đứt hàng cục bộ đối với các SKU Hot (NovaWatch Pro, NovaCharge)",
+          severity: "medium",
+          mitigation:
+            "Giới hạn tối đa 2 sản phẩm/khách hàng và kích hoạt lệnh nhập bổ sung kho an toàn tự động.",
+        },
+        {
+          id: "r-2",
+          risk: "Tỷ lệ đổi trả hàng do lỗi kỹ thuật hoặc chưa rõ cách kết nối thiết bị",
+          severity: "low",
+          mitigation:
+            "Tích hợp mã QR video hướng dẫn sử dụng nhanh trong hộp sản phẩm và hỗ trợ kỹ thuật 24/7 qua chatbot CSKH.",
+        },
+        {
+          id: "r-3",
+          risk: "Áp lực cạnh tranh giá từ các sàn thương mại điện tử trong đợt Mega Sale",
+          severity: "medium",
+          mitigation:
+            "Tập trung vào cam kết bảo hành 1 đổi 1 trong 30 ngày chính hãng và quà tặng phụ kiện thay vì tham gia cuộc chiến phá giá.",
+        },
+      ],
+      actionPlan: [
+        {
+          phase: "Giai đoạn 1 (Ngày 1-3)",
+          title: "Kích hoạt Storefront & Đồng bộ Giá Flash Sale Realtime",
+          duration: "72 giờ",
+          tasks: [
+            "Kích hoạt bộ nhận diện banner 3D Nova Tech trên trang chủ Storefront",
+            "Đồng bộ bảng giá khuyến mãi Flash Sale thời gian thực trên toàn bộ 10 SKU công nghệ",
+            "Gửi thông báo ưu đãi sớm qua kênh thành viên VIP và Social Fanpage",
+          ],
+        },
+        {
+          phase: "Giai đoạn 2 (Ngày 4-7)",
+          title: "Đẩy mạnh Social Seeding & Livestream KOC Công nghệ",
+          duration: "96 giờ",
+          tasks: [
+            "Triển khai chuỗi 15 video unboxing và đánh giá tính năng trên TikTok & Reels",
+            "Tổ chức 2 phiên livestream đặc biệt với ưu đãi giờ vàng và quà tặng độc quyền",
+            "Theo dõi sát sao phản hồi người mua và hỗ trợ giải đáp kỹ thuật tức thì",
+          ],
+        },
+        {
+          phase: "Giai đoạn 3 (Ngày 8-10)",
+          title: "Chốt Đơn Chặng Cuối & Báo cáo Tổng kết Hiệu quả",
+          duration: "72 giờ",
+          tasks: [
+            "Kích hoạt thông báo đếm ngược 24h cuối cùng cho các giỏ hàng đang chờ thanh toán",
+            "Kiểm toán tổng doanh thu, lợi nhuận gộp và mức tiêu hao tồn kho",
+            "Bàn giao báo cáo đánh giá hiệu quả cho Ban Giám đốc và đề xuất kế hoạch tái nhập hàng",
+          ],
+        },
+      ],
+      estimatedBudgetVnd: 320000000,
+      tokenCost: 3120,
+      format: "docx",
+      docxFilename: "Bao_cao_Chien_luoc_Nova_Tech_Khai_Pha_Tuong_Lai.docx",
+    };
+  }
+
+  // 2. Cosmetics / Beauty ASEAN Market Analysis
   if (lowerGoal.includes("mỹ phẩm") || lowerGoal.includes("đông nam á") || lowerGoal.includes("ra mắt sản phẩm")) {
     return {
       id,
       taskId,
       goal: cleanGoal,
       title: "Báo cáo Chiến lược: Phân tích Thị trường Mỹ phẩm Đông Nam Á & Kế hoạch Ra mắt",
-      department: "ai_ceo",
-      departmentName: "AI CEO & Điều phối Chiến lược",
+      department: department || "ai_ceo",
+      departmentName: department === "merchandising" ? "Phòng Kinh doanh & Định giá Danh mục" : "AI CEO & Điều phối Chiến lược",
       createdAt: now,
       completedAt: now,
       summary:
@@ -186,18 +322,28 @@ export function buildStrategicDeliverable(goal: string, taskId?: string): Strate
     };
   }
 
-  // 2. Generic Strategic Goal Handler
+  // 3. Generic Strategic Goal Handler
+  const deptDisplayNameMap: Record<DepartmentType | "ai_ceo", string> = {
+    ai_ceo: "AI CEO & Điều phối Chiến lược",
+    marketing: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+    merchandising: "Phòng Kinh doanh & Định giá Danh mục",
+    operations: "Phòng Chuỗi cung ứng & Kho vận",
+    support: "Phòng CSKH & Trải nghiệm Khách hàng",
+  };
+  const resolvedDept: DepartmentType | "ai_ceo" = department || "ai_ceo";
+  const resolvedDeptName = deptDisplayNameMap[resolvedDept] || "AI CEO & Điều phối Chiến lược";
+
   const capitalized = cleanGoal.charAt(0).toUpperCase() + cleanGoal.slice(1);
   return {
     id,
     taskId,
     goal: cleanGoal,
     title: `Báo cáo Chiến lược Điều hành: ${capitalized.length > 55 ? `${capitalized.slice(0, 52)}...` : capitalized}`,
-    department: "ai_ceo",
-    departmentName: "AI CEO & Điều phối Chiến lược",
+    department: resolvedDept,
+    departmentName: resolvedDeptName,
     createdAt: now,
     completedAt: now,
-    summary: `Hệ thống AI CEO đã phối hợp đa phòng ban phân tích toàn diện yêu cầu chiến lược: "${cleanGoal}". Dữ liệu được tổng hợp từ lịch sử vận hành, tín hiệu thị trường và năng lực nội tại doanh nghiệp để xây dựng kế hoạch hành động khả thi, tối ưu hóa ngân sách và giảm thiểu rủi ro vận hành.`,
+    summary: `Hệ thống AI CEO đã phối hợp cùng ${resolvedDeptName} phân tích toàn diện yêu cầu chiến lược: "${cleanGoal}". Dữ liệu được tổng hợp từ lịch sử vận hành, tín hiệu thị trường và năng lực nội tại doanh nghiệp để xây dựng kế hoạch hành động khả thi, tối ưu hóa ngân sách và giảm thiểu rủi ro vận hành.`,
     marketInsights: [
       {
         label: "Chỉ số Tiềm năng Tăng trưởng",

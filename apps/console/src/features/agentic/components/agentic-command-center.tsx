@@ -376,6 +376,19 @@ export function AgenticCommandCenter({
     }
   }, [catalogApi]);
 
+  // Safeguard: if campaign proposal modal is requested but campaignProposal is null,
+  // automatically fallback to StrategicDeliverableModal with activeCampaign deliverable
+  useEffect(() => {
+    if (campaignProposalModalOpen && !campaignProposal) {
+      if (activeCampaign) {
+        const deliv = buildStrategicDeliverable(activeCampaign.name, activeCampaign.id, "merchandising");
+        setSelectedStrategicDeliverable(deliv);
+        setIsStrategicModalOpen(true);
+      }
+      setCampaignProposalModalOpen(false);
+    }
+  }, [campaignProposalModalOpen, campaignProposal, activeCampaign]);
+
   // Operations / Inventory Restock State
   const [operationsProposal, setOperationsProposal] = useState<OperationsProposal | null>(null);
   const [pendingReplenishment, setPendingReplenishment] = useState<OperationsProposal | null>(null);
@@ -1016,7 +1029,7 @@ export function AgenticCommandCenter({
           status = "success";
           actionLabel = "Xem kết quả";
           onActionClick = () => {
-            const deliv = buildStrategicDeliverable(t.goal, t.id);
+            const deliv = buildStrategicDeliverable(t.goal, t.id, dept);
             setSelectedStrategicDeliverable(deliv);
             setIsStrategicModalOpen(true);
           };
@@ -1076,6 +1089,12 @@ export function AgenticCommandCenter({
           title: ev.kind === "plan_generated" ? "AI CEO đã phân tích yêu cầu" : `AI CEO: ${ev.kind}`,
           description: ev.state === "completed" ? "Đã tạo kế hoạch và phân bổ cho các phòng ban" : `Trạng thái: ${ev.state}`,
           status: ev.state === "completed" ? "success" : ev.state === "failed" ? "error" : "info",
+          actionLabel: ev.state === "completed" ? "Xem kết quả" : undefined,
+          onActionClick: ev.state === "completed" ? () => {
+            const deliv = buildStrategicDeliverable(activeOperations?.task?.goal || "Kế hoạch Điều hành Chiến lược", ev.id, "ai_ceo");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          } : undefined,
         });
       }
     }
@@ -1093,7 +1112,17 @@ export function AgenticCommandCenter({
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          setCampaignProposalModalOpen(true);
+          if (campaignProposal) {
+            setCampaignProposalModalOpen(true);
+          } else {
+            const deliv = buildStrategicDeliverable(
+              activeCampaign.name,
+              activeCampaign.id,
+              "merchandising",
+            );
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          }
         },
       });
     }
@@ -1147,7 +1176,13 @@ export function AgenticCommandCenter({
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          void handleDownloadSupportDocx();
+          const deliv = buildStrategicDeliverable(
+            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
+            supportProposal.id,
+            "support",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
         },
       });
     }
@@ -1642,7 +1677,14 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            setCampaignProposalModalOpen(true);
+            if (cProposal) {
+              setCampaignProposal(cProposal);
+              setCampaignProposalModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(goalText, undefined, "merchandising");
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
           },
         );
         setSuccessMessage("AI CEO và các phòng ban đã hoàn tất phối hợp! Sẵn sàng để bạn xem trước và duyệt chiến dịch.");
@@ -1825,6 +1867,7 @@ export function AgenticCommandCenter({
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
 
+        const marketingDeliv = buildStrategicDeliverable(goalText, createdCampaign.id, "marketing");
         recordLiveEvent(
           "marketing",
           "Marketing đã hoàn tất tác vụ",
@@ -1832,7 +1875,8 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            scrollToDepartment("dept-column-marketing");
+            setSelectedStrategicDeliverable(marketingDeliv);
+            setIsStrategicModalOpen(true);
           },
         );
 
@@ -2087,6 +2131,7 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        const marketingDirectDeliv = buildStrategicDeliverable(taskPrompt, createdCampaign.id, "marketing");
         recordLiveEvent(
           "marketing",
           "Marketing đã hoàn tất tác vụ",
@@ -2094,7 +2139,8 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            scrollToDepartment("dept-column-marketing");
+            setSelectedStrategicDeliverable(marketingDirectDeliv);
+            setIsStrategicModalOpen(true);
           },
         );
         setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
@@ -2197,7 +2243,14 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            setCampaignProposalModalOpen(true);
+            if (cProposal) {
+              setCampaignProposal(cProposal);
+              setCampaignProposalModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(taskPrompt, undefined, "merchandising");
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
           },
         );
         setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
@@ -3447,6 +3500,15 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
           />
+          {activeCampaign && (
+            <div style={{ marginBottom: "0.75rem" }}>
+              <ActiveCampaignWidget
+                campaign={activeCampaign}
+                onRevert={handleEmergencyRevertCampaign}
+                isReverting={isRevertingCampaign}
+              />
+            </div>
+          )}
           {pendingHandoff?.dept === "merchandising" && (
             <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
               <div className="ccWaitingCardHeader">
@@ -3505,8 +3567,16 @@ export function AgenticCommandCenter({
       onSendDirectTask: (text) => handleDepartmentDirectTask("merchandising", text),
       onDirectDispatch: () => setDirectInputMode(true),
       onOpenDetails: () => {
-        if (campaignProposal || activeCampaign) {
+        if (campaignProposal) {
           setCampaignProposalModalOpen(true);
+        } else if (activeCampaign) {
+          const deliv = buildStrategicDeliverable(
+            activeCampaign.name,
+            activeCampaign.id,
+            "merchandising",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
         } else {
           navigate("/products");
         }
@@ -4020,6 +4090,26 @@ export function AgenticCommandCenter({
           },
         ]
       : []),
+    ...(activeCampaign
+      ? [
+          {
+            id: activeCampaign.id,
+            title: `Báo cáo: Chiến dịch ${activeCampaign.name}`,
+            departmentName: "Kinh doanh",
+            completedAt: formatTime(activeCampaign.startTime),
+            format: "docx",
+            onDownloadOrView: () => {
+              const deliv = buildStrategicDeliverable(
+                activeCampaign.name,
+                activeCampaign.id,
+                "merchandising",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
+          },
+        ]
+      : []),
     ...(activeCampaignDetail
       ? [
           {
@@ -4028,7 +4118,15 @@ export function AgenticCommandCenter({
             departmentName: "Marketing",
             completedAt: formatTime(activeCampaignDetail.campaign.updatedAt),
             format: "docx",
-            onDownloadOrView: () => setSocialTokenModalOpen(true),
+            onDownloadOrView: () => {
+              const deliv = buildStrategicDeliverable(
+                activeCampaignDetail.campaign.campaignName || "Chiến dịch Truyền thông & Visual Fanpage",
+                activeCampaignDetail.campaign.id,
+                "marketing",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
           },
         ]
       : []),

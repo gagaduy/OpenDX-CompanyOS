@@ -114,4 +114,28 @@ describe("StrategicDeliverableModal", () => {
     expect(onClose).toHaveBeenCalled();
     expect(onNavigateToTask).toHaveBeenCalledWith("task-test-123");
   });
+
+  it("builds and renders Nova Tech campaign deliverable with rich tech market data", () => {
+    const techDeliverable = buildStrategicDeliverable(
+      "Chiến dịch: Nova Tech - Khai Phá Tương Lai",
+      "camp-nova-123",
+      "merchandising",
+    );
+
+    expect(techDeliverable.department).toBe("merchandising");
+    expect(techDeliverable.departmentName).toBe("Phòng Kinh doanh & Định giá Danh mục");
+    expect(techDeliverable.title).toContain("Nova Tech");
+    expect(techDeliverable.docxFilename).toBe("Bao_cao_Chien_luoc_Nova_Tech_Khai_Pha_Tuong_Lai.docx");
+
+    render(
+      <StrategicDeliverableModal
+        isOpen={true}
+        deliverable={techDeliverable}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText(/Chiến dịch Nova Tech - Khai Phá Tương Lai/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Phòng Kinh doanh & Định giá Danh mục")).toBeDefined();
+  });
 });
