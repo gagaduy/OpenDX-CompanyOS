@@ -81,10 +81,27 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
   alertBanner,
   children,
   directInputMode = false,
+  taskFilter = "all",
+  onTaskClick,
 }) => {
   const [directInput, setDirectInput] = React.useState("");
   const theme = DEPT_THEMES[department] || DEPT_THEMES.marketing;
   const Icon = theme.icon;
+
+  const queueTitle = React.useMemo(() => {
+    switch (taskFilter) {
+      case "running":
+        return "Đang xử lý";
+      case "waiting_approval":
+        return "Chờ phê duyệt";
+      case "completed":
+        return "Đã hoàn thành";
+      case "failed":
+        return "Tác vụ lỗi";
+      default:
+        return "Hàng đợi";
+    }
+  }, [taskFilter]);
 
   return (
     <div
@@ -106,7 +123,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
                 {displayName}
               </h3>
               <p className="ccDeptSubtext">
-                {employeeCount} nhân sự AI | {activeTaskCount} tác vụ
+                {employeeCount} nhân sự AI | {activeTaskCount} {taskFilter === "all" ? "tác vụ" : queueTitle.toLowerCase()}
               </p>
             </div>
           </div>
@@ -213,21 +230,41 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
             ))}
           </div>
 
-          {/* Right Column: Hàng đợi (Queue) */}
+          {/* Right Column: Hàng đợi (Queue) & Tác vụ */}
           <div className="ccDeptQueueCol">
             <div className="ccDeptQueueHeader">
-              <span className="ccDeptQueueTitle">Hàng đợi</span>
+              <span className="ccDeptQueueTitle">{queueTitle}</span>
               <span className="ccDeptQueueBadge">
                 {queue.length}
               </span>
             </div>
             <div className="ccDeptQueueItems">
               {queue.length === 0 ? (
-                <div className="ccDeptQueueEmpty">Trống</div>
+                <div className="ccDeptQueueEmpty">
+                  {taskFilter === "all" ? "Trống" : `Không có tác vụ nào`}
+                </div>
               ) : (
-                queue.slice(0, 3).map((q) => (
-                  <div key={q.id} className="ccDeptQueueItem">
-                    <span className="ccDeptQueueBullet" />
+                queue.slice(0, 4).map((q) => (
+                  <div
+                    key={q.id}
+                    className="ccDeptQueueItem"
+                    onClick={() => onTaskClick?.(q.id)}
+                    style={onTaskClick ? { cursor: "pointer" } : undefined}
+                    title={q.prompt}
+                  >
+                    <span
+                      className="ccDeptQueueBullet"
+                      style={{
+                        background:
+                          q.status === "completed"
+                            ? "#10b981"
+                            : q.status === "failed"
+                            ? "#ef4444"
+                            : q.status === "running"
+                            ? "#f59e0b"
+                            : "#60a5fa",
+                      }}
+                    />
                     <span className="ccDeptQueueText">{q.prompt}</span>
                   </div>
                 ))

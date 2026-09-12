@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useRef, Fragment, useCallback } from "react";
+import { useState, useEffect, useRef, Fragment, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -875,7 +875,7 @@ export function AgenticCommandCenter({
   useEffect(() => {
     const initialEvents: LiveEventItem[] = [];
     if (tasks?.items && tasks.items.length > 0) {
-      for (const t of tasks.items.slice(0, 5)) {
+      for (const t of tasks.items.slice(0, 30)) {
         const intent = detectStrategicIntent(t.goal);
         const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
         initialEvents.push({
@@ -884,12 +884,12 @@ export function AgenticCommandCenter({
           department: dept,
           title: t.goal.length > 40 ? `${t.goal.slice(0, 38)}...` : t.goal,
           description: `Trạng thái: ${t.state}`,
-          status: t.state === "completed" ? "success" : t.state === "failed" ? "error" : t.state === "awaiting_human_approval" ? "warning" : "info",
+          status: (t.state === "completed" || t.state === "partially_completed") ? "success" : (t.state === "failed" || t.state === "canceled") ? "error" : (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") ? "warning" : "info",
         });
       }
     }
     if (activeOperations?.timeline && activeOperations.timeline.length > 0) {
-      for (const ev of activeOperations.timeline.slice(-5)) {
+      for (const ev of activeOperations.timeline.slice(-10)) {
         initialEvents.push({
           id: `op-ev-${ev.id}`,
           timestamp: ev.occurredAt ? new Date(ev.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -2479,19 +2479,84 @@ export function AgenticCommandCenter({
   const isCurrentlyAnalyzing = isCeoThinking || isRunning;
   const analysisCurrentStep = isCeoThinking ? 2 : isRunning ? 3 : 1;
 
+  const getDepartmentTasks = (dept: DepartmentType): DepartmentTask[] => {
+    const inMem = departmentQueues[dept] || [];
+    const dbTasks: DepartmentTask[] = (tasks?.items || [])
+      .filter((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        return intent === dept || (dept === "operations" && intent === "orchestration");
+      })
+      .map((t): DepartmentTask => {
+        let status: DepartmentTask["status"] = "running";
+        if (t.state === "completed" || t.state === "partially_completed") {
+          status = "completed";
+        } else if (t.state === "failed" || t.state === "canceled") {
+          status = "failed";
+        } else if (t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval") {
+          status = "queued";
+        } else {
+          status = "running";
+        }
+        return {
+          id: t.id,
+          prompt: t.goal,
+          department: dept,
+          requiredAgents: [],
+          status,
+          queuedAt: t.createdAt ? new Date(t.createdAt).getTime() : Date.now(),
+        };
+      });
+
+    const seen = new Set<string>();
+    const allDeptTasks: DepartmentTask[] = [];
+    for (const item of [...inMem, ...dbTasks]) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        allDeptTasks.push(item);
+      }
+    }
+
+    if (taskFilter === "running") {
+      return allDeptTasks.filter((t) => t.status === "running");
+    }
+    if (taskFilter === "waiting_approval") {
+      return allDeptTasks.filter((t) => t.status === "queued");
+    }
+    if (taskFilter === "completed") {
+      return allDeptTasks.filter((t) => t.status === "completed");
+    }
+    if (taskFilter === "failed") {
+      return allDeptTasks.filter((t) => t.status === "failed");
+    }
+    return allDeptTasks;
+  };
+
+  const marketingTasks = getDepartmentTasks("marketing");
+  const merchandisingTasks = getDepartmentTasks("merchandising");
+  const operationsTasks = getDepartmentTasks("operations");
+  const supportTasks = getDepartmentTasks("support");
+
   const redesignedDepartmentCards: DepartmentCardProps[] = [
     {
       department: "marketing",
       displayName: "Marketing",
       employeeCount: 3,
-      activeTaskCount: departmentQueues.marketing.length + (deptStatus.marketing.activeAgent ? 1 : 0),
-      status: activeCampaignDetail?.campaign.state === "campaign_review"
-        ? "waiting_approval"
-        : (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
-        ? "error"
-        : (deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning)
-        ? "running"
-        : "idle",
+      activeTaskCount: marketingTasks.length,
+      status: taskFilter === "running"
+        ? (marketingTasks.length > 0 ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (marketingTasks.length > 0 ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (marketingTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : (activeCampaignDetail?.campaign.state === "campaign_review"
+          ? "waiting_approval"
+          : (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
+          ? "error"
+          : (deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning)
+          ? "running"
+          : "idle"),
       employees: [
         {
           id: "marketing_copywriter",
@@ -2515,8 +2580,10 @@ export function AgenticCommandCenter({
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.marketing,
+      queue: marketingTasks,
       directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {socialTokensSummary && (() => {
@@ -2749,12 +2816,20 @@ export function AgenticCommandCenter({
       department: "merchandising",
       displayName: "Kinh doanh",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.merchandising.length + (deptStatus.merchandising.activeAgent ? 1 : 0),
-      status: campaignProposal
-        ? "waiting_approval"
-        : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
-        ? "running"
-        : "idle",
+      activeTaskCount: merchandisingTasks.length,
+      status: taskFilter === "running"
+        ? (merchandisingTasks.length > 0 ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (merchandisingTasks.length > 0 ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (merchandisingTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : (campaignProposal
+          ? "waiting_approval"
+          : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
+          ? "running"
+          : "idle"),
       employees: [
         {
           id: "catalog_copywriter",
@@ -2767,12 +2842,14 @@ export function AgenticCommandCenter({
           id: "pricing_strategist",
           name: "Sales-02",
           role: "CRM Manager",
-          status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || marketingActiveAgent === "merchandising_clearance_calc" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
-          progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || marketingActiveAgent === "merchandising_clearance_calc") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.merchandising,
+      queue: merchandisingTasks,
       directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
       headerExtra: departmentQueues.merchandising.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -2910,14 +2987,22 @@ export function AgenticCommandCenter({
       department: "operations",
       displayName: "Sản phẩm",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.operations.length + (deptStatus.operations.activeAgent ? 1 : 0),
-      status: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
-        ? "error"
-        : pendingReplenishment
-        ? "waiting_approval"
-        : (deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator")
-        ? "running"
-        : "idle",
+      activeTaskCount: operationsTasks.length,
+      status: taskFilter === "running"
+        ? (operationsTasks.length > 0 ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (operationsTasks.length > 0 ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (operationsTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
+          ? "error"
+          : pendingReplenishment
+          ? "waiting_approval"
+          : (deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator")
+          ? "running"
+          : "idle"),
       errorMessage: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration")) ? errorMessage : undefined,
       employees: [
         {
@@ -2939,8 +3024,10 @@ export function AgenticCommandCenter({
           progressPercent: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.operations,
+      queue: operationsTasks,
       directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {pendingReplenishment && pendingReplenishment.items.length > 0 && (
@@ -3124,12 +3211,20 @@ export function AgenticCommandCenter({
       department: "support",
       displayName: "Tài chính",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.support.length + (deptStatus.support.activeAgent ? 1 : 0),
-      status: (supportProposal && supportProposal.status !== "applied")
-        ? "waiting_approval"
-        : (deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist")
-        ? "running"
-        : "idle",
+      activeTaskCount: supportTasks.length,
+      status: taskFilter === "running"
+        ? (supportTasks.length > 0 ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (supportTasks.length > 0 ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (supportTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((supportProposal && supportProposal.status !== "applied")
+          ? "waiting_approval"
+          : (deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist")
+          ? "running"
+          : "idle"),
       employees: [
         {
           id: "support_steward",
@@ -3146,8 +3241,10 @@ export function AgenticCommandCenter({
           progressPercent: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.support,
+      queue: supportTasks,
       directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
       headerExtra: departmentQueues.support.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -3494,26 +3591,28 @@ export function AgenticCommandCenter({
     ? Math.round(((overview?.counts?.completed ?? 0) / totalApprovalsCount) * 100)
     : 100;
 
-  const filteredDepartmentCards = redesignedDepartmentCards.filter((deptCard) => {
-    if (taskFilter === "all") return true;
-    if (taskFilter === "running") {
-      return (
-        deptCard.status === "running" ||
-        deptCard.employees.some((e) => e.status === "working") ||
-        deptCard.activeTaskCount > 0
-      );
-    }
-    if (taskFilter === "waiting_approval") {
-      return deptCard.status === "waiting_approval" || deptCard.queue.some((t) => t.status === "queued");
-    }
-    if (taskFilter === "failed") {
-      return deptCard.status === "error" || deptCard.employees.some((e) => e.status === "failed");
-    }
-    if (taskFilter === "completed") {
-      return deptStatus[deptCard.department].completedAgents.length > 0;
-    }
-    return true;
-  });
+  const filteredDepartmentCards = redesignedDepartmentCards;
+
+  const filteredLiveEvents = useMemo(() => {
+    return liveEvents.filter((ev) => {
+      if (liveFeedFilter !== "all" && ev.department !== liveFeedFilter) {
+        return false;
+      }
+      if (taskFilter === "running") {
+        return ev.status === "info" || ev.description.toLowerCase().includes("running") || ev.description.toLowerCase().includes("planning");
+      }
+      if (taskFilter === "waiting_approval") {
+        return ev.status === "warning" || ev.description.toLowerCase().includes("approval");
+      }
+      if (taskFilter === "completed") {
+        return ev.status === "success" || ev.description.toLowerCase().includes("completed");
+      }
+      if (taskFilter === "failed") {
+        return ev.status === "error" || ev.description.toLowerCase().includes("failed");
+      }
+      return true;
+    });
+  }, [liveEvents, liveFeedFilter, taskFilter]);
 
   return (
     <section className="commandCenterWorkspace">
@@ -3610,7 +3709,7 @@ export function AgenticCommandCenter({
 
         <div className="ccSidebarSection">
           <LiveActivityFeed
-            events={liveEvents}
+            events={filteredLiveEvents}
             activeDepartmentFilter={liveFeedFilter}
             onFilterChange={setLiveFeedFilter}
           />

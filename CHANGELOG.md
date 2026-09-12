@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Department Queue Multi-State Task Mapping & Grid Permanence:
+  - Permanent 2x2 Workforce Grid: Kept all 4 core departments (Marketing, Kinh doanh, Sản phẩm, Tài chính) permanently visible in the grid regardless of active state filter, preventing abrupt empty states when switching filter tabs.
+  - Reactive Multi-State Department Task Lists: Connected department queues and right-column task lists to both in-memory session operations and actual backend tasks (up to 100 items), displaying categorized tasks (Đang xử lý, Chờ phê duyệt, Đã hoàn thành, Tác vụ lỗi) with status bullets and clickable navigation.
+  - Live Activity Stream Synchronization: Synchronized `LiveActivityFeed` with the top header task filters, dynamically streaming up to 30 real backend events filtered by state.
+
 - AI Command Center Live Domain Data Binding & Zero Hardcoding:
   - Header Filter & Workforce Grid Synchronization: Wired top header filter pills (`Tất cả`, `Đang xử lý`, `Chờ phê duyệt`, `Hoàn tất`, `Lỗi`) to dynamically filter the 4 department cards in `WorkforceGrid`, with dynamic counts and clean empty state messaging.
   - Reactive Digital Employees & Progress Computation: Replaced static employee progress bars and statuses with real domain-reactive calculations derived from department runtime states, marketing active agents, resource locks, and elapsed execution times.

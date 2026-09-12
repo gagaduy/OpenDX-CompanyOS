@@ -28,7 +28,7 @@ export function AgenticCommandCenterPage({
   readonly roles?: readonly StaffRole[];
   readonly apiBaseUrl?: string;
 }) {
-  const filter = useMemo(() => ({ page: 1, pageSize: 10 }), []);
+  const filter = useMemo(() => ({ page: 1, pageSize: 100 }), []);
   const { data, overview, reload } = useAgenticTasks(api, filter);
 
   return (

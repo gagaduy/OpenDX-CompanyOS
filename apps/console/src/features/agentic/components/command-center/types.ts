@@ -76,6 +76,8 @@ export interface DepartmentCardProps {
   readonly alertBanner?: React.ReactNode;
   readonly children?: React.ReactNode;
   readonly directInputMode?: boolean;
+  readonly taskFilter?: TaskFilterType;
+  readonly onTaskClick?: (taskId: string) => void;
 }
 
 export interface WorkforceGridProps {
