@@ -77,6 +77,7 @@ import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel"
 import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
 import type { DepartmentCardProps, LiveEventItem, PendingApprovalItem, TaskFilterType } from "./command-center/types";
 import "../styles/agentic-command-center.css";
+import "../styles/command-center-redesign.css";
 
 export interface ActiveCollaboration {
   fromDept: DepartmentType;
@@ -3305,8 +3306,8 @@ export function AgenticCommandCenter({
       />
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 my-6">
-        <div className="xl:col-span-8">
+      <div className="ccMainContentGrid">
+        <div>
           <WorkforceGrid
             departments={redesignedDepartmentCards}
             onViewDagGraph={() => {
@@ -3325,7 +3326,7 @@ export function AgenticCommandCenter({
           </WorkforceGrid>
         </div>
 
-        <div className="xl:col-span-4 flex flex-col gap-6">
+        <div className="ccSidebarSection">
           <LiveActivityFeed
             events={redesignedLiveEvents}
             activeDepartmentFilter={liveFeedFilter}

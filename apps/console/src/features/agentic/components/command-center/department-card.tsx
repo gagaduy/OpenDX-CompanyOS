@@ -88,48 +88,48 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
   return (
     <div
       id={`dept-column-${department}`}
-      className={`bg-[#0a0b10] border ${theme.borderClass} rounded-xl p-4 flex flex-col justify-between shadow-sm transition-all hover:border-white/20`}
+      className={`ccDeptCard ${status === "error" ? "status-error" : ""}`}
     >
       <div>
         {/* Header */}
-        <div className="flex items-start justify-between gap-2 pb-3 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
+        <div className="ccDeptHeader">
+          <div className="ccDeptInfo">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-white/[0.08]"
+              className="ccDeptIconBox"
               style={{ backgroundColor: `${theme.accentColor}15` }}
             >
               <Icon size={16} style={{ color: theme.accentColor }} />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white leading-tight">
+              <h3 className="ccDeptName">
                 {displayName}
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="ccDeptSubtext">
                 {employeeCount} nhân sự AI | {activeTaskCount} tác vụ
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
             {headerExtra}
             {/* Status badge */}
             {status === "error" ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              <span className="ccDeptStatusBadge status-error">
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
                 Có lỗi
               </span>
             ) : status === "waiting_approval" ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="ccDeptStatusBadge status-waiting">
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} className="animate-pulse" />
                 Chờ duyệt
               </span>
             ) : status === "running" ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="ccDeptStatusBadge status-running">
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} className="animate-pulse" />
                 Đang xử lý
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-white/[0.06]">
+              <span className="ccDeptStatusBadge status-idle">
                 Sẵn sàng
               </span>
             )}
@@ -137,13 +137,30 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
             {/* Token alert badge for marketing if present */}
             {tokenAlert && (
               <span
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                  tokenAlert.status === "invalid"
-                    ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  fontSize: "0.68rem",
+                  fontWeight: 500,
+                  border: tokenAlert.status === "invalid"
+                    ? "1px solid rgba(239, 68, 68, 0.4)"
                     : tokenAlert.status === "warning"
-                    ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                    : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                }`}
+                    ? "1px solid rgba(245, 158, 11, 0.4)"
+                    : "1px solid rgba(16, 185, 129, 0.4)",
+                  background: tokenAlert.status === "invalid"
+                    ? "rgba(239, 68, 68, 0.15)"
+                    : tokenAlert.status === "warning"
+                    ? "rgba(245, 158, 11, 0.15)"
+                    : "rgba(16, 185, 129, 0.15)",
+                  color: tokenAlert.status === "invalid"
+                    ? "#fca5a5"
+                    : tokenAlert.status === "warning"
+                    ? "#fcd34d"
+                    : "#6ee7b7",
+                }}
               >
                 {tokenAlert.status === "invalid" ? (
                   <ShieldAlert size={10} />
@@ -163,45 +180,46 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
 
         {/* Custom children or fallback to Digital Employees List */}
         {children ? (
-          <div className="py-2 space-y-2">{children}</div>
+          <div style={{ padding: "0.5rem 0", display: "flex", flexDirection: "column", gap: "0.5rem" }}>{children}</div>
         ) : (
-          <div className="py-2.5 space-y-2">
+          <div className="ccEmployeeList">
             {employees.map((emp) => (
-              <div key={emp.id} className="flex items-center justify-between gap-2 text-xs">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-slate-200 font-medium truncate">
-                      {emp.name} <span className="text-slate-500 font-normal">({emp.role})</span>
+              <div key={emp.id} className="ccEmployeeRow">
+                <div className="ccEmpMain">
+                  <div className="ccEmpLeft">
+                    <span className="ccEmpAvatar">
+                      {emp.name.slice(0, 2).toUpperCase()}
                     </span>
-                    <span
-                      className={`font-semibold shrink-0 text-[10px] ${
-                        emp.status === "failed"
-                          ? "text-rose-400"
-                          : emp.status === "working"
-                          ? "text-emerald-400"
-                          : "text-slate-400"
-                      }`}
-                    >
+                    <span className="ccEmpId">{emp.name}</span>
+                    <span className="ccEmpRole">{emp.role}</span>
+                  </div>
+                  <div className="ccEmpStatusWrap">
+                    <span className={`ccEmpStatus ${emp.status}`}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: emp.status === "failed" ? "#ef4444" : emp.status === "working" ? "#22c55e" : "#64748b", display: "inline-block" }} />
                       {emp.status === "failed"
                         ? "Lỗi xử lý"
                         : emp.status === "working"
-                        ? `${emp.progressPercent}%`
-                        : "--"}
+                        ? "Đang làm việc"
+                        : "Chờ nhiệm vụ"}
+                    </span>
+                    <span className="ccEmpPercent">
+                      {emp.status === "working" ? `${emp.progressPercent}%` : "--"}
                     </span>
                   </div>
-                  {/* Progress bar */}
-                  <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        emp.status === "failed"
-                          ? "bg-rose-500"
-                          : emp.status === "working"
-                          ? "bg-emerald-500"
-                          : "bg-slate-600"
-                      }`}
-                      style={{ width: `${emp.progressPercent}%` }}
-                    />
-                  </div>
+                </div>
+                {/* Progress bar */}
+                <div className="ccEmpTrack">
+                  <div
+                    className="ccEmpFill"
+                    style={{
+                      width: `${emp.progressPercent}%`,
+                      background: emp.status === "failed"
+                        ? "#ef4444"
+                        : emp.status === "working"
+                        ? theme.accentColor
+                        : "#475569",
+                    }}
+                  />
                 </div>
               </div>
             ))}
@@ -210,18 +228,16 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
 
         {/* Exception Alert Banner if error exists */}
         {errorMessage && (
-          <div className="my-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/25 flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2 min-w-0">
-              <AlertTriangle size={14} className="text-rose-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-rose-300 font-medium leading-snug break-words">
-                {errorMessage}
-              </p>
+          <div className="ccDeptErrorCard">
+            <div className="ccDeptErrorText">
+              <AlertTriangle size={14} style={{ color: "#f87171", flexShrink: 0 }} />
+              <span>{errorMessage}</span>
             </div>
             {onErrorResolve && (
               <button
                 type="button"
                 onClick={() => onErrorResolve(department)}
-                className="shrink-0 text-[11px] text-rose-300 font-semibold hover:text-white underline inline-flex items-center gap-0.5"
+                className="ccDeptErrorAction"
               >
                 <span>Xem chi tiết →</span>
               </button>
@@ -231,25 +247,27 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
 
         {/* Task Queue list */}
         {queue.length > 0 && (
-          <div className="mt-1 pt-2 border-t border-white/[0.04]">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+          <div className="ccDeptQueueBox">
+            <div className="ccDeptQueueHeader">
               <span>Hàng đợi:</span>
-              <span className="font-mono text-[10px] bg-white/[0.06] px-1.5 py-0.2 rounded text-slate-300">
+              <span className="ccDeptQueueBadge">
                 {queue.length}
               </span>
             </div>
-            <div className="space-y-1">
+            <div>
               {queue.slice(0, 2).map((q) => (
                 <div
                   key={q.id}
-                  className="text-[11px] text-slate-300 bg-[#11131a] px-2 py-1 rounded border border-white/[0.04] truncate"
+                  className="ccDeptQueueItem"
                 >
-                  {q.prompt}
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#3b82f6", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.prompt}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
+
         {/* Direct Input Field */}
         {directInputPlaceholder && (
           <form
@@ -261,19 +279,20 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
                 void onSendDirectTask(val);
               }
             }}
-            className="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center gap-1.5"
+            className="ccDeptInputWrap"
           >
             <input
               type="text"
               value={directInput}
               onChange={(e) => setDirectInput(e.target.value)}
               placeholder={directInputPlaceholder}
-              className="flex-1 bg-[#11131a] text-slate-200 text-xs rounded px-2.5 py-1.5 border border-white/[0.08] focus:border-[#5e6ad2] outline-none placeholder:text-slate-500"
+              className="ccDeptMiniInput"
             />
             <button
               type="submit"
               disabled={!directInput.trim()}
-              className="px-2.5 py-1.5 bg-[#5e6ad2] hover:bg-[#4d59c0] disabled:opacity-40 text-white rounded text-xs font-semibold"
+              className="ccDeptMiniSendBtn"
+              style={{ opacity: !directInput.trim() ? 0.4 : 1 }}
             >
               <Send size={11} />
             </button>
@@ -282,11 +301,11 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
       </div>
 
       {/* Footer buttons */}
-      <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2">
+      <div style={{ marginTop: "0.75rem", paddingTop: "0.6rem", borderTop: "1px solid rgba(255, 255, 255, 0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
         <button
           type="button"
           onClick={() => onDirectDispatch(department)}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.04] px-2 py-1 rounded transition-colors"
+          style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "#94a3b8", background: "transparent", border: "none", cursor: "pointer", padding: "3px 6px", borderRadius: "4px" }}
         >
           <Send size={11} />
           <span>Giao việc phòng ban</span>
@@ -295,7 +314,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
         <button
           type="button"
           onClick={() => onOpenDetails(department)}
-          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${theme.textClass} hover:text-white transition-colors`}
+          style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", fontWeight: 600, color: theme.accentColor, background: "transparent", border: "none", cursor: "pointer" }}
         >
           <span>{theme.actionLabel}</span>
           <ExternalLink size={11} />

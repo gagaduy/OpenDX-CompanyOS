@@ -13,15 +13,15 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
   containerRef,
 }) => {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="ccWorkforceSection">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="ccWorkforceHeader">
         <div>
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Users2 size={16} className="text-[#5e6ad2]" />
+          <h2 className="ccWorkforceTitle">
+            <Users2 size={16} />
             <span>Phân công & Điều phối nhân sự AI theo phòng ban</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="ccWorkforceSubtitle">
             AI CEO đã phân tích và phân bổ công việc. Các phòng ban đang phối hợp thực thi.
           </p>
         </div>
@@ -29,7 +29,7 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
         <button
           type="button"
           onClick={onViewDagGraph}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e6ad2] hover:text-white bg-[#5e6ad2]/10 hover:bg-[#5e6ad2]/20 border border-[#5e6ad2]/30 px-3 py-1.5 rounded-lg transition-all"
+          className="ccViewDiagramBtn"
         >
           <span>Xem sơ đồ quy trình</span>
           <ArrowRight size={13} />
@@ -37,7 +37,7 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
       </div>
 
       {/* 2x2 Grid Container */}
-      <div ref={containerRef} className="relative grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div ref={containerRef} className="ccDeptGrid" style={{ position: "relative" }}>
         {children}
         {departments.map((dept) => (
           <DepartmentCard key={dept.department} {...dept} />

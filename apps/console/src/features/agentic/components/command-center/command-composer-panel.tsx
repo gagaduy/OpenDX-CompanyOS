@@ -89,65 +89,65 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-      {/* Left 7/12 (approx 60-65%): Command Composer */}
-      <div className="lg:col-span-8 bg-[#0a0b10] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between shadow-sm">
+    <div className="ccComposerGrid">
+      {/* Left (approx 60-65%): Command Composer */}
+      <div className="ccStrategicCard">
         <div>
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sparkles size={15} className="text-[#5e6ad2]" />
+          <div className="ccStrategicHeader">
+            <h2 className="ccStrategicTitle">
+              <Sparkles size={15} />
               <span>Ra lệnh chiến lược cho AI CEO</span>
             </h2>
-            <span className="text-[11px] text-slate-400 font-mono">
+            <span className="ccStrategicHint">
               Ctrl + Enter để gửi
             </span>
           </div>
 
-          <div className="relative">
+          <div style={{ position: "relative" }}>
             <textarea
               rows={3}
               value={prompt}
               onChange={(e) => onPromptChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Hãy giao việc chiến lược cho AI CEO (Ví dụ: Phân tích thị trường mỹ phẩm Đông Nam Á và xây dựng kế hoạch ra mắt sản phẩm mới tại Việt Nam...)"
-              className="w-full bg-[#11131a] text-slate-100 text-xs rounded-lg p-3 border border-white/[0.08] focus:border-[#5e6ad2]/80 focus:ring-1 focus:ring-[#5e6ad2]/50 placeholder:text-slate-500 resize-none transition-all outline-none"
+              className="ccStrategicTextarea"
             />
           </div>
 
           {/* Context / Goal Expandable Inputs */}
           {activeMetaTab === "context" && (
-            <div className="mt-2 p-2 bg-[#11131a] rounded-lg border border-white/[0.06] text-xs">
-              <label className="text-[11px] text-slate-400 block mb-1">Bối cảnh chiến dịch / thị trường:</label>
+            <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#07090e", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.08)", fontSize: "0.75rem" }}>
+              <label style={{ fontSize: "0.7rem", color: "#94a3b8", display: "block", marginBottom: "3px" }}>Bối cảnh chiến dịch / thị trường:</label>
               <input
                 type="text"
                 value={contextValue}
                 onChange={(e) => setContextValue(e.target.value)}
                 placeholder="Nhập ghi chú bối cảnh kinh doanh..."
-                className="w-full bg-[#0a0b10] border border-white/[0.08] rounded px-2 py-1 text-xs text-slate-200 outline-none"
+                style={{ width: "100%", background: "#0d121f", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "4px", padding: "4px 8px", fontSize: "0.75rem", color: "#f8fafc", outline: "none", boxSizing: "border-box" }}
               />
             </div>
           )}
 
           {activeMetaTab === "goal" && (
-            <div className="mt-2 p-2 bg-[#11131a] rounded-lg border border-white/[0.06] text-xs">
-              <label className="text-[11px] text-slate-400 block mb-1">Mục tiêu cụ thể (KPI target):</label>
+            <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#07090e", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.08)", fontSize: "0.75rem" }}>
+              <label style={{ fontSize: "0.7rem", color: "#94a3b8", display: "block", marginBottom: "3px" }}>Mục tiêu cụ thể (KPI target):</label>
               <input
                 type="text"
                 value={goalValue}
                 onChange={(e) => setGoalValue(e.target.value)}
                 placeholder="VD: Tăng 20% doanh thu trong 30 ngày..."
-                className="w-full bg-[#0a0b10] border border-white/[0.08] rounded px-2 py-1 text-xs text-slate-200 outline-none"
+                style={{ width: "100%", background: "#0d121f", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "4px", padding: "4px 8px", fontSize: "0.75rem", color: "#f8fafc", outline: "none", boxSizing: "border-box" }}
               />
             </div>
           )}
         </div>
 
         {/* Toolbar & Actions */}
-        <div className="mt-3 pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="ccStrategicToolbar">
+          <div className="ccToolbarLeft">
             <button
               type="button"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
+              className="ccToolBtn"
               title="Đính kèm tài liệu phân tích"
             >
               <Paperclip size={13} />
@@ -157,11 +157,8 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
             <button
               type="button"
               onClick={() => setActiveMetaTab(activeMetaTab === "context" ? "none" : "context")}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-colors ${
-                activeMetaTab === "context"
-                  ? "bg-[#5e6ad2]/20 text-[#5e6ad2]"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-              }`}
+              className="ccToolBtn"
+              style={activeMetaTab === "context" ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" } : undefined}
             >
               <Globe size={13} />
               <span>Bối cảnh</span>
@@ -170,37 +167,36 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
             <button
               type="button"
               onClick={() => setActiveMetaTab(activeMetaTab === "goal" ? "none" : "goal")}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-colors ${
-                activeMetaTab === "goal"
-                  ? "bg-[#5e6ad2]/20 text-[#5e6ad2]"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-              }`}
+              className="ccToolBtn"
+              style={activeMetaTab === "goal" ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" } : undefined}
             >
               <Target size={13} />
               <span>Mục tiêu</span>
             </button>
 
-            <div className="relative inline-flex items-center ml-1">
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: "2px" }}>
               <select
                 value={priority}
                 onChange={(e) => onPriorityChange(e.target.value as any)}
-                className="appearance-none bg-[#11131a] text-slate-300 text-xs border border-white/[0.08] rounded px-2.5 py-1 pr-6 hover:bg-white/[0.04] cursor-pointer outline-none"
+                className="ccToolBtn"
+                style={{ paddingRight: "18px", appearance: "none" }}
               >
                 <option value="low">Độ ưu tiên: Thấp</option>
                 <option value="normal">Độ ưu tiên: Vừa</option>
                 <option value="high">Độ ưu tiên: Cao</option>
                 <option value="urgent">Độ ưu tiên: Khẩn cấp</option>
               </select>
-              <ChevronDown size={12} className="absolute right-2 text-slate-400 pointer-events-none" />
+              <ChevronDown size={11} style={{ position: "absolute", right: "6px", pointerEvents: "none", color: "#64748b" }} />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="ccToolbarRight">
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
               <select
                 value={targetDepartment}
                 onChange={(e) => onTargetDepartmentChange(e.target.value)}
-                className="appearance-none bg-[#11131a] text-slate-200 text-xs border border-white/[0.08] rounded-lg px-3 py-1.5 pr-7 font-medium hover:bg-white/[0.04] cursor-pointer outline-none"
+                className="ccTargetSelect"
+                style={{ paddingRight: "22px", appearance: "none" }}
               >
                 <option value="ai_ceo">NovaAI CEO</option>
                 <option value="marketing">Tiếp thị & Sáng tạo</option>
@@ -208,7 +204,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
                 <option value="operations">Vận hành & Kho vận</option>
                 <option value="support">CSKH & Trải nghiệm</option>
               </select>
-              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <ChevronDown size={12} style={{ position: "absolute", right: "7px", pointerEvents: "none", color: "#64748b" }} />
             </div>
 
             <button
@@ -216,7 +212,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               aria-label={isSubmitting ? "Đang gửi..." : "Gửi"}
               disabled={isSubmitting || !prompt.trim()}
               onClick={onSubmit}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#5e6ad2] text-white hover:bg-[#4d59c0] disabled:opacity-50 disabled:cursor-not-allowed shadow transition-all focus:ring-2 focus:ring-[#5e6ad2]/50"
+              className="ccSubmitBtn"
             >
               {isSubmitting ? (
                 <Loader2 size={13} className="animate-spin" />
@@ -229,8 +225,8 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
         </div>
 
         {/* Quick Action Chips */}
-        <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">
+        <div className="ccQuickSuggestions">
+          <span className="ccQuickLabel">
             Gợi ý nhanh:
           </span>
           {DEFAULT_TEMPLATES.map((tmpl) => (
@@ -241,46 +237,45 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
                 onPromptChange(tmpl.prompt);
                 onSelectTemplate(tmpl);
               }}
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#11131a] text-slate-300 border border-white/[0.06] hover:border-white/20 hover:text-white transition-all whitespace-nowrap"
+              className="ccQuickChip"
             >
-              <Zap size={11} className="text-[#5e6ad2]" />
+              <Zap size={11} style={{ color: "#60a5fa", display: "inline", marginRight: "3px" }} />
               <span>{tmpl.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Right 5/12 (approx 35-40%): AI CEO Live Stepper Card */}
-      <div className="lg:col-span-4 bg-[#0a0b10] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between shadow-sm">
+      {/* Right (approx 35-40%): AI CEO Live Stepper Card */}
+      <div className="ccCeoCard">
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-            <div className="flex items-center gap-2.5">
-              <div className="relative w-8 h-8 rounded-full bg-[#5e6ad2]/20 border border-[#5e6ad2]/40 flex items-center justify-center">
-                <Bot size={18} className="text-[#5e6ad2]" />
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#0a0b10]" />
+          <div className="ccCeoHeader">
+            <div className="ccCeoIdentity">
+              <div className="ccCeoAvatar">
+                <Bot size={18} />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-white leading-none">AI CEO</h3>
-                <span className="text-[11px] text-emerald-400 font-medium inline-flex items-center gap-1 mt-0.5">
+                <h3 className="ccCeoName">AI CEO</h3>
+                <span className="ccCeoBadge">
                   {isAnalyzing ? "Đang phân tích..." : "Sẵn sàng"}
                 </span>
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#11131a] border border-white/[0.06] text-xs font-mono text-slate-300">
-              <Clock size={12} className="text-slate-400" />
+            <div className="ccCeoTimer">
+              <Clock size={12} style={{ color: "#38bdf8", marginRight: "3px", display: "inline" }} />
               <span>{formatTimer(analysisDurationSeconds)}</span>
             </div>
           </div>
 
-          {/* Motivational quote when idle / prompt summary when analyzing */}
-          <div className="py-2.5 text-xs text-slate-400 italic">
+          {/* Motivational quote */}
+          <div className="ccCeoQuote">
             &ldquo;Đã hiểu mục tiêu. Đang phân tích, lập kế hoạch và phân bổ nguồn lực phù hợp...&rdquo;
           </div>
 
           {/* Stepper list */}
-          <div className="space-y-2 my-1">
+          <div className="ccCeoStepper">
             {steps.map((s) => {
               const isDone = analysisStep > s.num;
               const isCurrent = analysisStep === s.num;
@@ -288,20 +283,14 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               return (
                 <div
                   key={s.num}
-                  className={`flex items-center gap-2 text-xs py-1 px-2 rounded transition-colors ${
-                    isCurrent
-                      ? "bg-[#5e6ad2]/10 text-white font-medium"
-                      : isDone
-                      ? "text-slate-300"
-                      : "text-slate-500"
-                  }`}
+                  className={`ccCeoStep ${isCurrent ? "active" : isDone ? "done" : "pending"}`}
                 >
                   {isDone ? (
-                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
                   ) : isCurrent ? (
-                    <Loader2 size={14} className="text-[#5e6ad2] animate-spin shrink-0" />
+                    <Loader2 size={14} style={{ color: "#3b82f6", flexShrink: 0 }} className="animate-spin" />
                   ) : (
-                    <span className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0 inline-block" />
+                    <span style={{ width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #475569", flexShrink: 0, display: "inline-block" }} />
                   )}
                   <span>{s.label}</span>
                 </div>
@@ -310,10 +299,10 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
           </div>
         </div>
 
-        {/* Footer quote badge */}
-        <div className="mt-3 pt-2.5 border-t border-white/[0.06] text-[11px] text-slate-400">
-          <p className="font-semibold text-slate-300 leading-tight">Từ chiến lược đến kết quả thực tế.</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">AI × Con người × Quy trình = Tăng trưởng thật.</p>
+        {/* Footer quote banner */}
+        <div className="ccCeoBanner">
+          <p className="ccCeoBannerHeadline">Từ chiến lược đến kết quả thực tế.</p>
+          <p className="ccCeoBannerFormula">AI × Con người × Quy trình = Tăng trưởng thật.</p>
         </div>
       </div>
     </div>

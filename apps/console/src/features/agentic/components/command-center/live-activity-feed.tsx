@@ -35,24 +35,25 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
     : events.filter((e) => e.department === activeDepartmentFilter);
 
   return (
-    <div className="bg-[#0a0b10] border border-white/[0.08] rounded-xl p-4 flex flex-col shadow-sm">
+    <div className="ccLiveFeedCard">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+      <div className="ccLiveFeedHeader">
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <h3 className="ccLiveFeedTitle">
             <span>Luồng công việc thời gian thực</span>
           </h3>
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="ccLivePulseBadge">
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e" }} className="animate-pulse" />
             Live
           </span>
         </div>
 
-        <div className="relative">
+        <div style={{ position: "relative" }}>
           <select
             value={activeDepartmentFilter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="appearance-none bg-[#11131a] text-slate-300 text-[11px] border border-white/[0.06] rounded px-2.5 py-1 pr-6 hover:bg-white/[0.04] cursor-pointer outline-none font-medium"
+            className="ccLiveDeptSelect"
+            style={{ paddingRight: "18px", appearance: "none" }}
           >
             <option value="all">Tất cả phòng ban</option>
             <option value="ai_ceo">AI CEO</option>
@@ -61,14 +62,14 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
             <option value="operations">Vận hành & Kho vận</option>
             <option value="support">CSKH & Trải nghiệm</option>
           </select>
-          <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <ChevronDown size={10} style={{ position: "absolute", right: "5px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748b" }} />
         </div>
       </div>
 
       {/* Events timeline list */}
-      <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+      <div className="ccTimeline" style={{ maxHeight: "280px", overflowY: "auto" }}>
         {filteredEvents.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
+          <div style={{ padding: "2rem 0", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
             Chưa có sự kiện thời gian thực nào
           </div>
         ) : (
@@ -76,47 +77,39 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
             const DeptIcon = DEPT_ICONS[ev.department] || Bot;
 
             return (
-              <div key={ev.id} className="flex items-start gap-2.5 text-xs group">
-                <span className="font-mono text-[10px] text-slate-500 mt-0.5 shrink-0">
+              <div key={ev.id} className="ccTimelineItem">
+                <span className="ccTimelineTime">
                   {ev.timestamp}
                 </span>
 
-                <div className="mt-0.5 shrink-0">
+                <div className={`ccTimelineNode status-${ev.status}`}>
                   {ev.status === "error" ? (
-                    <div className="w-5 h-5 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                      <AlertTriangle size={11} />
-                    </div>
+                    <AlertTriangle size={10} />
                   ) : ev.status === "warning" ? (
-                    <div className="w-5 h-5 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                      <Clock size={11} />
-                    </div>
+                    <Clock size={10} />
                   ) : ev.status === "success" ? (
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                      <CheckCircle2 size={11} />
-                    </div>
+                    <CheckCircle2 size={10} />
                   ) : (
-                    <div className="w-5 h-5 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                      <DeptIcon size={11} />
-                    </div>
+                    <DeptIcon size={10} />
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-medium text-slate-200 truncate">
+                <div className="ccTimelineContent">
+                  <div className="ccTimelineTitleRow">
+                    <span className="ccTimelineTitle">
                       {ev.title}
-                    </p>
+                    </span>
                     {ev.actionLabel && ev.onActionClick && (
                       <button
                         type="button"
                         onClick={ev.onActionClick}
-                        className="shrink-0 text-[10px] font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/20 transition-colors"
+                        className="ccTimelineActionBtn"
                       >
                         {ev.actionLabel}
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                  <p className="ccTimelineDesc">
                     {ev.description}
                   </p>
                 </div>

@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Dedicated CSS Styling & Dark Canvas Isolation:
+  - Enterprise Pure CSS Architecture: Replaced non-functional Tailwind utility classes with dedicated scoped CSS rules in `apps/console/src/features/agentic/styles/command-center-redesign.css`, matching the Linear Dark Canvas design mockup (`#07090e` canvas, `#0d121f` cards, subtle `#1e293b` borders, and `#2563eb` accents).
+  - Theme Isolation: Enforced dark canvas styling on `.commandCenterWorkspace` across both light and night console themes, preventing unstyled light-mode overrides from degrading enterprise readability.
+  - Subcomponent CSS Class Refactor: Updated `CommandCenterHeader`, `CommandComposerPanel`, `DepartmentCard`, `WorkforceGrid`, `LiveActivityFeed`, `PendingApprovalsPanel`, and `ResultsMetricsPanel` to use semantic CSS classes with zero regressions on test suites.
+
 - AI Command Center UI Redesign & Modular Component Architecture:
   - 3-Tier Enterprise Layout: Rebuilt the AI Command Center (`Tasks` tab) based on the linear dark canvas `#010102` specification with hairline borders (`border-white/[0.08]`), scarce `#5e6ad2` accents, high information density, and 0 hardcoded values.
   - Tier 1 (Command Center Header & Composer): Created `CommandCenterHeader` with dynamic filter pills (`Tất cả`, `Đang xử lý`, `Chờ phê duyệt`, `Hoàn tất`, `Lỗi`), real-time counters, Direct Mode toggle, and `CommandComposerPanel` with live 4-step AI CEO analysis stepper (`Phân tích mục tiêu`, `Phân chia đầu việc`, `Chỉ định nhân sự AI`, `Thiết lập tiến độ & phụ thuộc`).
