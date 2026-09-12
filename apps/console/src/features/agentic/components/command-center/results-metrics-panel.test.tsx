@@ -39,10 +39,10 @@ describe("ResultsMetricsPanel", () => {
 
   it("renders Donut chart metrics, department efficiency bars, 4 KPI cards, and recent outputs", () => {
     render(<ResultsMetricsPanel {...defaultProps} />);
-    expect(screen.getByText("KẾT QUẢ HOÀN THÀNH")).toBeDefined();
+    expect(screen.getByText(/kết quả hoàn thành/i)).toBeDefined();
     expect(screen.getAllByText("28").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Đúng hạn/)).toBeDefined();
-    expect(screen.getByText("Marketing")).toBeDefined();
+    expect(screen.getAllByText("Marketing").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("92%")).toBeDefined();
     expect(screen.getByText("3.2h")).toBeDefined();
     expect(screen.getByText("Báo cáo xu hướng thị trường mỹ phẩm SEA")).toBeDefined();

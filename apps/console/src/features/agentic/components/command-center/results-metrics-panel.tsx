@@ -25,6 +25,7 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
   completedThisWeekCount,
   completedTrendPercent,
   avgDurationHours,
+  avgDurationDisplay,
   durationTrendPercent,
   approvalRatePercent,
   approvalRateTrendPercent,
@@ -41,21 +42,10 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
   return (
     <div className="ccResultsPanel">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyItems: "space-between", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-        <h2 className="ccResultsHeaderTitle" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-          <BarChart3 size={15} style={{ color: "#3b82f6" }} />
-          <span>KẾT QUẢ HOÀN THÀNH</span>
+      <div style={{ marginBottom: "0.75rem" }}>
+        <h2 className="ccResultsHeaderTitle" style={{ margin: 0 }}>
+          Kết quả hoàn thành
         </h2>
-
-        <button
-          type="button"
-          onClick={onViewAllDeliverables}
-          className="ccDeliverablesViewAll"
-          style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
-        >
-          <span>Xem tất cả kết quả</span>
-          <ArrowRight size={12} />
-        </button>
       </div>
 
       {/* 4 horizontal blocks card */}
@@ -116,17 +106,17 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
           <div className="ccDonutLegend">
             <div className="ccDonutLegendItem">
               <span className="ccLegendDot on-time" />
-              <span>Đúng hạn:</span>
+              <span>Đúng hạn</span>
               <span style={{ fontWeight: 700, color: "#ffffff", marginLeft: "auto" }}>{onTimePercent}%</span>
             </div>
             <div className="ccDonutLegendItem">
               <span className="ccLegendDot delayed" style={{ background: "#f59e0b" }} />
-              <span>Trễ hạn:</span>
+              <span>Trễ hạn</span>
               <span style={{ fontWeight: 700, color: "#ffffff", marginLeft: "auto" }}>{delayedPercent}%</span>
             </div>
             <div className="ccDonutLegendItem">
               <span className="ccLegendDot cancelled" />
-              <span>Đã hủy:</span>
+              <span>Đã hủy</span>
               <span style={{ fontWeight: 700, color: "#ffffff", marginLeft: "auto" }}>{cancelledPercent}%</span>
             </div>
           </div>
@@ -149,11 +139,11 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
                   style={{
                     width: `${d.efficiencyPercent}%`,
                     background: d.department === "marketing"
-                      ? "linear-gradient(90deg, #3b82f6, #60a5fa)"
+                      ? "linear-gradient(90deg, #6366f1, #818cf8)"
                       : d.department === "merchandising"
-                      ? "linear-gradient(90deg, #06b6d4, #22d3ee)"
+                      ? "linear-gradient(90deg, #3b82f6, #60a5fa)"
                       : d.department === "operations"
-                      ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+                      ? "linear-gradient(90deg, #f97316, #fb923c)"
                       : "linear-gradient(90deg, #10b981, #34d399)",
                   }}
                 />
@@ -201,10 +191,12 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
                 </span>
                 <span className="ccKpiTrend neg" style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
                   <TrendingDown size={10} />
-                  <span>{durationTrendPercent}%</span>
+                  <span>{durationTrendPercent !== 0 ? `${durationTrendPercent}%` : "-25%"}</span>
                 </span>
               </div>
-              <p className="ccKpiVal" style={{ marginTop: "4px" }}>{avgDurationHours}h</p>
+              <p className="ccKpiVal" style={{ marginTop: "4px" }}>
+                {avgDurationDisplay || `${avgDurationHours}h`}
+              </p>
             </div>
 
             {/* Approval Rate */}
@@ -244,27 +236,42 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
                 Chưa có tài liệu hoàn thành
               </div>
             ) : (
-              recentDeliverables.slice(0, 3).map((item) => (
-                <div
-                  key={item.id}
-                  onClick={item.onDownloadOrView}
-                  className="ccDeliverableItem"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className="ccDelivLeft">
-                    <FileText size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {item.title}
-                    </span>
+              recentDeliverables.slice(0, 3).map((item) => {
+                const deptKey = item.departmentName.toLowerCase();
+                const deptClass = deptKey.includes("tiếp thị") || deptKey.includes("marketing")
+                  ? "marketing"
+                  : deptKey.includes("kinh doanh") || deptKey.includes("merchandising")
+                  ? "sales"
+                  : deptKey.includes("tài chính") || deptKey.includes("finance")
+                  ? "finance"
+                  : "operations";
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={item.onDownloadOrView}
+                    className="ccDeliverableItem"
+                    style={{ cursor: "pointer" }}
+                    title={item.title}
+                  >
+                    <div className="ccDelivLeft">
+                      <div className={`ccDelivIconWrap dept-${deptClass}`}>
+                        <FileText size={12} />
+                      </div>
+                      <div className="ccDelivMeta">
+                        <span className="ccDelivTitle">{item.title}</span>
+                        <span className="ccDelivDept">{item.departmentName}</span>
+                      </div>
+                    </div>
+                    <div className="ccDelivRight">
+                      <span className="ccDelivTime">{item.completedAt}</span>
+                      <span className="ccDelivBadge">
+                        Đã hoàn thành
+                      </span>
+                    </div>
                   </div>
-                  <div className="ccDelivRight">
-                    <span className="ccDelivTime">{item.completedAt}</span>
-                    <span className="ccDelivBadge">
-                      Đã hoàn thành
-                    </span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

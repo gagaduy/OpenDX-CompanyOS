@@ -146,6 +146,7 @@ export interface ResultsMetricsProps {
   readonly completedThisWeekCount: number;
   readonly completedTrendPercent: number;
   readonly avgDurationHours: number;
+  readonly avgDurationDisplay?: string;
   readonly durationTrendPercent: number;
   readonly approvalRatePercent: number;
   readonly approvalRateTrendPercent: number;
