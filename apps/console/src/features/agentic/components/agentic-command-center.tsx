@@ -448,7 +448,12 @@ export function AgenticCommandCenter({
     try {
       const res = await api.listApprovals(1, 20, signal);
       if (res?.items) {
-        setApiApprovals(res.items.filter((a) => a.state === "pending"));
+        const now = Date.now();
+        setApiApprovals(
+          res.items.filter(
+            (a) => a.state === "pending" && (!a.expiresAt || new Date(a.expiresAt).getTime() > now)
+          )
+        );
       }
     } catch {
       // safe fallback if listApprovals is not implemented or mock returns void
@@ -4245,43 +4250,71 @@ export function AgenticCommandCenter({
       : []),
 
     // 6. Backend Approvals (Agentic Approval Page Sync)
-    ...apiApprovals.map((app) => ({
-      id: app.id,
-      title: `Yêu cầu phê duyệt: ${app.action} (${app.resourceType})`,
-      sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "support") as DepartmentType,
-      authorName: `Hệ thống (${app.requesterId || "AI Agent"})`,
-      riskLevel: "medium" as const,
-      timestamp: formatTime(app.createdAt),
-      onPreview: () => {
-        const foundTask = tasks?.items?.find((t) => t.id === app.taskId);
-        if (foundTask) {
-          setSelectedStrategicDeliverable(buildStrategicDeliverable(foundTask.goal, foundTask.id, "ai_ceo"));
-          setIsStrategicModalOpen(true);
-        } else {
-          navigate("/agentic/approvals");
-        }
-      },
-      onRequestRevision: async () => {
-        try {
-          await api.decideApproval(app.id, { expectedVersion: app.version, decision: "revision_requested", reason: "Cần điều chỉnh thông số qua Command Center" });
-          setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
-          void refreshApprovals();
-          setSuccessMessage("Đã yêu cầu chỉnh sửa đề xuất.");
-        } catch (err: any) {
-          setErrorMessage(err.message || "Không thể gửi yêu cầu chỉnh sửa.");
-        }
-      },
-      onApprove: async () => {
-        try {
-          await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
-          setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
-          void refreshApprovals();
-          setSuccessMessage("Đã phê duyệt đề xuất thành công!");
-        } catch (err: any) {
-          setErrorMessage(err.message || "Phê duyệt thất bại.");
-        }
-      },
-    })),
+    ...apiApprovals.map((app) => {
+      const foundTask = tasks?.items?.find((t) => t.id === app.taskId);
+      const friendlyTitle =
+        app.action === "agentic.workflow.complete"
+          ? (foundTask
+            ? `Nghiệm thu hoàn tất quy trình: ${foundTask.goal.length > 40 ? `${foundTask.goal.slice(0, 38)}...` : foundTask.goal}`
+            : "Nghiệm thu hoàn tất quy trình tự động")
+          : app.action === "configuration.activate"
+          ? "Phê duyệt kích hoạt cấu hình quản trị số"
+          : app.action.startsWith("tool.")
+          ? `Xác nhận thực thi công cụ đặc quyền (${app.resourceType})`
+          : `Yêu cầu phê duyệt: ${app.action} (${app.resourceType})`;
+
+      const friendlyAuthor =
+        app.requesterId === "system:workflow"
+          ? "Bộ điều phối Quy trình Tự động (Workflow Engine)"
+          : `Hệ thống (${app.requesterId || "AI Agent"})`;
+
+      return {
+        id: app.id,
+        title: friendlyTitle,
+        sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "support") as DepartmentType,
+        authorName: friendlyAuthor,
+        riskLevel: "medium" as const,
+        timestamp: formatTime(app.createdAt),
+        onPreview: () => {
+          if (foundTask) {
+            setSelectedStrategicDeliverable(buildStrategicDeliverable(foundTask.goal, foundTask.id, "ai_ceo"));
+            setIsStrategicModalOpen(true);
+          } else {
+            navigate("/agentic/approvals");
+          }
+        },
+        onRequestRevision: async () => {
+          try {
+            await api.decideApproval(app.id, { expectedVersion: app.version, decision: "revision_requested", reason: "Cần điều chỉnh thông số qua Command Center" });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã yêu cầu chỉnh sửa đề xuất.");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Không thể gửi yêu cầu chỉnh sửa.");
+            }
+          }
+        },
+        onApprove: async () => {
+          try {
+            await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã phê duyệt đề xuất thành công!");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Phê duyệt thất bại.");
+            }
+          }
+        },
+      };
+    }),
 
     // 7. Tasks in items waiting for human approval
     ...(tasks?.items ?? [])

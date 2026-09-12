@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Expired Approval Filtering & Human-Friendly Presentation:
+  - Expired Approval Prevention: Filtered out expired approvals (`expiresAt <= now`) in `AgenticCommandCenter.refreshApprovals` to prevent stale zombie requests from persisting in the pending approvals queue.
+  - Human-Friendly Approval Card Details: Replaced raw system strings (`agentic.workflow.complete`, `system:workflow`) with intuitive business labels ("Nghiệm thu hoàn tất quy trình tự động", "Bộ điều phối Quy trình Tự động (Workflow Engine)").
+  - Graceful Expiration Handling: Added automatic removal and friendly notification if an approval request expires before user action.
+
 - AI Command Center Universal Pending Approvals Integration & One-Click Execution:
   - Unified Pending Approvals Mapping: Connected all finished department workflows and digital employee outputs requiring human authorization directly into the sidebar "Phê duyệt" box (`PendingApprovalsPanel`), ensuring cards immediately appear with 3 canonical human-in-the-loop actions (`👁️ Xem trước`, `✎ Yêu cầu chỉnh sửa`, `✓ Phê duyệt`).
   - Cross-Department Proposal Routing:
