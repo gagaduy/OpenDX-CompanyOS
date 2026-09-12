@@ -130,27 +130,40 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
             {headerExtra}
-            {/* Status badge */}
-            {status === "error" ? (
-              <span className="ccDeptStatusBadge status-error">
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
-                Có lỗi
-              </span>
-            ) : status === "waiting_approval" ? (
-              <span className="ccDeptStatusBadge status-waiting">
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} className="animate-pulse" />
-                Chờ duyệt
-              </span>
-            ) : status === "running" ? (
-              <span className="ccDeptStatusBadge status-running">
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} className="animate-pulse" />
-                Đang xử lý
-              </span>
-            ) : (
-              <span className="ccDeptStatusBadge status-idle">
-                Sẵn sàng
-              </span>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {onOpenDetails && (
+                <button
+                  type="button"
+                  onClick={() => onOpenDetails(department)}
+                  className="ccDeptDetailsActionBtn"
+                  title={`Xem chi tiết: ${theme.actionLabel}`}
+                >
+                  <span>{theme.actionLabel}</span>
+                  <ExternalLink size={10} />
+                </button>
+              )}
+              {/* Status badge */}
+              {status === "error" ? (
+                <span className="ccDeptStatusBadge status-error">
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
+                  Có lỗi
+                </span>
+              ) : status === "waiting_approval" ? (
+                <span className="ccDeptStatusBadge status-waiting">
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} className="animate-pulse" />
+                  Chờ duyệt
+                </span>
+              ) : status === "running" ? (
+                <span className="ccDeptStatusBadge status-running">
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} className="animate-pulse" />
+                  Đang xử lý
+                </span>
+              ) : (
+                <span className="ccDeptStatusBadge status-idle">
+                  Sẵn sàng
+                </span>
+              )}
+            </div>
 
             {/* Token alert badge for marketing if present */}
             {tokenAlert && (

@@ -75,6 +75,7 @@ import { WorkforceGrid } from "./command-center/workforce-grid";
 import { LiveActivityFeed } from "./command-center/live-activity-feed";
 import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel";
 import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
+import { DepartmentDiagnosticsModal } from "./command-center/department-diagnostics-modal";
 import type {
   DepartmentCardProps,
   LiveEventItem,
@@ -549,6 +550,71 @@ export function AgenticCommandCenter({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const isFbTokenInvalid = Boolean(
+    socialTokensSummary?.urgentActionRequired ||
+    socialTokensSummary?.accounts.some((a) => a.status === "expired" || a.status === "invalid")
+  );
+  const isFbTokenWarning = Boolean(
+    socialTokensSummary?.hasExpiringOrInvalid ||
+    socialTokensSummary?.accounts.some((a) => a.status === "expiring_soon")
+  );
+
+  const [diagnosticsState, setDiagnosticsState] = useState<{
+    isOpen: boolean;
+    department: DepartmentType;
+    departmentName: string;
+    errorMessage: string;
+    timestamp?: number;
+    specialActionLabel?: string;
+    onSpecialAction?: () => void;
+  }>({
+    isOpen: false,
+    department: "operations",
+    departmentName: "Vận hành & Kho",
+    errorMessage: "",
+  });
+
+  const handleOpenDiagnostics = (dept: DepartmentType, customMsg?: string) => {
+    const names: Record<DepartmentType, string> = {
+      marketing: "Phòng Tiếp thị & Sáng tạo",
+      merchandising: "Phòng Kinh doanh & Định giá",
+      operations: "Phòng Vận hành & Kho vận",
+      support: "Phòng Tài chính & CSKH",
+    };
+    const defaultMsgs: Record<DepartmentType, string> = {
+      marketing: ((activeWorkflowKind === "marketing" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : (isFbTokenInvalid ? "Token kết nối Facebook Page đã hết hạn hoặc không có quyền publish_pages." : "Ngoại lệ trong quá trình khởi tạo và xuất bản nội dung chiến dịch."),
+      merchandising: ((activeWorkflowKind === "merchandising" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : "Ngoại lệ khi tính toán ma trận biên lợi nhuận hoặc phân bổ mức giá Flash Sale.",
+      operations: errorMessage || "Cảnh báo dữ liệu tồn kho an toàn SKU hoặc lệch định mức điều phối.",
+      support: ((activeWorkflowKind === "support" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : "Không thể kết nối dịch vụ đối soát ngân sách tài chính hoặc luồng hỗ trợ khách hàng.",
+    };
+
+    const msg = customMsg || defaultMsgs[dept];
+    const isSocial = dept === "marketing" && (isFbTokenInvalid || isFbTokenWarning);
+
+    setDiagnosticsState({
+      isOpen: true,
+      department: dept,
+      departmentName: names[dept],
+      errorMessage: msg,
+      timestamp: Date.now(),
+      specialActionLabel: isSocial ? "Mở Quản lý Social Tokens" : dept === "operations" && pendingReplenishment ? "Mở Phiếu Đề Xuất Kho" : undefined,
+      onSpecialAction: isSocial
+        ? () => setSocialTokenModalOpen(true)
+        : dept === "operations" && pendingReplenishment
+        ? () => {
+            setOperationsProposal(pendingReplenishment);
+            setIsOperationsModalOpen(true);
+          }
+        : undefined,
+    });
+  };
 
   const [visualBlobUrl, setVisualBlobUrl] = useState<string | null>(null);
 
@@ -2665,6 +2731,9 @@ export function AgenticCommandCenter({
           : (deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning)
           ? "running"
           : "idle"),
+      errorMessage: (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
+        ? (errorMessage || "Chiến dịch tiếp thị gặp sự cố khi xuất bản lên Facebook Page.")
+        : (isFbTokenInvalid ? "Token kết nối Facebook Page đã hết hạn" : undefined),
       employees: [
         {
           id: "marketing_copywriter",
@@ -2918,7 +2987,22 @@ export function AgenticCommandCenter({
       directInputPlaceholder: "Giao việc cho Tiếp thị & Sáng tạo...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("marketing", text),
       onDirectDispatch: () => setDirectInputMode(true),
-      onOpenDetails: () => setSocialTokenModalOpen(true),
+      onOpenDetails: () => {
+        if (activeCampaignDetail) {
+          setCampaignProposalModalOpen(true);
+        } else if (isFbTokenInvalid || isFbTokenWarning) {
+          setSocialTokenModalOpen(true);
+        } else {
+          navigate("/marketing/campaigns");
+        }
+      },
+      onErrorResolve: () => {
+        if (isFbTokenInvalid || isFbTokenWarning) {
+          setSocialTokenModalOpen(true);
+        } else {
+          handleOpenDiagnostics("marketing");
+        }
+      },
     },
     {
       department: "merchandising",
@@ -3086,10 +3170,13 @@ export function AgenticCommandCenter({
       onSendDirectTask: (text) => handleDepartmentDirectTask("merchandising", text),
       onDirectDispatch: () => setDirectInputMode(true),
       onOpenDetails: () => {
-        if (activeCampaign) {
+        if (campaignProposal || activeCampaign) {
           setCampaignProposalModalOpen(true);
+        } else {
+          navigate("/products");
         }
       },
+      onErrorResolve: () => handleOpenDiagnostics("merchandising"),
     },
     {
       department: "operations",
@@ -3303,15 +3390,19 @@ export function AgenticCommandCenter({
       onSendDirectTask: (text) => handleDepartmentDirectTask("operations", text),
       onDirectDispatch: () => setDirectInputMode(true),
       onOpenDetails: () => {
-        if (pendingReplenishment) {
-          setOperationsProposal(pendingReplenishment);
+        if (pendingReplenishment || operationsProposal) {
+          if (pendingReplenishment) setOperationsProposal(pendingReplenishment);
           setIsOperationsModalOpen(true);
+        } else {
+          navigate("/inventory");
         }
       },
       onErrorResolve: () => {
         if (pendingReplenishment) {
           setOperationsProposal(pendingReplenishment);
           setIsOperationsModalOpen(true);
+        } else {
+          handleOpenDiagnostics("operations");
         }
       },
     },
@@ -3463,7 +3554,8 @@ export function AgenticCommandCenter({
       directInputPlaceholder: "Giao việc cho CSKH & CRM...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("support", text),
       onDirectDispatch: () => setDirectInputMode(true),
-      onOpenDetails: () => {},
+      onOpenDetails: () => navigate("/support"),
+      onErrorResolve: () => handleOpenDiagnostics("support"),
     },
   ];
 
@@ -3876,6 +3968,8 @@ export function AgenticCommandCenter({
             onViewDagGraph={() => {
               if (activeTaskId) {
                 navigate(`/agentic/tasks/${activeTaskId}`);
+              } else if (activeCampaignDetail?.campaign.id) {
+                navigate(`/marketing/campaigns/${activeCampaignDetail.campaign.id}`);
               } else {
                 navigate("/agentic/tasks-table");
               }
@@ -3957,6 +4051,27 @@ export function AgenticCommandCenter({
         onConfigureMetaApp={handleConfigureMetaApp}
         isActionLoading={socialTokenActionLoading}
         actionFeedback={socialTokenFeedback}
+      />
+
+      <DepartmentDiagnosticsModal
+        isOpen={diagnosticsState.isOpen}
+        department={diagnosticsState.department}
+        departmentName={diagnosticsState.departmentName}
+        errorMessage={diagnosticsState.errorMessage}
+        timestamp={diagnosticsState.timestamp}
+        onClose={() => setDiagnosticsState((prev) => ({ ...prev, isOpen: false }))}
+        onRetry={() => {
+          if (diagnosticsState.department === "operations") {
+            void handleDepartmentDirectTask("operations", "Rà soát lại tồn kho an toàn và lập dự toán");
+          } else if (diagnosticsState.department === "marketing") {
+            void handleCheckSocialTokens();
+          } else {
+            onTaskCreated?.();
+          }
+        }}
+        onOpenAuditLogs={() => navigate("/agentic/audit")}
+        onSpecialAction={diagnosticsState.onSpecialAction}
+        specialActionLabel={diagnosticsState.specialActionLabel}
       />
     </section>
   );

@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center & Task Details Governance, Error Diagnostics & RBAC Access Recovery:
+  - Department Error Diagnostics Modal: Created `DepartmentDiagnosticsModal` to handle "Xem chi tiết →" clicks on all department exception banners, displaying root-cause analyses, error timestamps, technical traces, and remediation actions (Retry, Audit Logs link, Social Token Manager).
+  - Department Details Actions: Wired `theme.actionLabel` and `onOpenDetails` across all four departments (Marketing, Merchandising, Operations, Support), rendering visible header action links with icon badges.
+  - Task Detail Page Error & Loading States: Enhanced `AgenticTaskDetailPage` to render structured `PageHeader` navigation with `← Quay lại Bàn điều hành` link and standard `SystemState` alerts (distinguishing between RBAC access denied `403`, not found `404`, and operational refresh errors) instead of unstyled raw text.
+  - Fail-Closed Resilience & Test Coverage: Added unit test suite `department-diagnostics-modal.test.tsx` and extended `workforce-grid.test.tsx` and `agentic-task-detail-page.test.tsx` (all 50 console test suites passing, 210/210 tests).
+
 - AI Command Center AI CEO Standby Consistency & Header Button Polish:
   - Header Action Text Cleanup: Removed redundant `+` from button text `+ Tác vụ mới` to eliminate duplicate `+ + Tác vụ mới` rendering alongside `<Plus />` icon.
   - AI CEO Standby State Calibration: Configured Stepper step to 0 when idle, showing clean standby circle indicators instead of falsely highlighting Step 1 as actively in-progress.

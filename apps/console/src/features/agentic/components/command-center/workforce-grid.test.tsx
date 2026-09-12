@@ -66,4 +66,31 @@ describe("WorkforceGrid", () => {
     fireEvent.click(screen.getByText("Xem sơ đồ quy trình"));
     expect(onViewDag).toHaveBeenCalledTimes(1);
   });
+
+  it("renders onOpenDetails action and calls callback on click", () => {
+    const onOpen = vi.fn();
+    const deptsWithHandler: DepartmentCardProps[] = [
+      {
+        ...departments[0],
+        onOpenDetails: onOpen,
+      },
+    ];
+    render(<WorkforceGrid departments={deptsWithHandler} onViewDagGraph={vi.fn()} />);
+    expect(screen.getByText("Xem chiến dịch")).toBeDefined();
+    fireEvent.click(screen.getByText("Xem chiến dịch"));
+    expect(onOpen).toHaveBeenCalledWith("marketing");
+  });
+
+  it("triggers onErrorResolve when Xem chi tiết → is clicked", () => {
+    const onResolve = vi.fn();
+    const deptsWithError: DepartmentCardProps[] = [
+      {
+        ...departments[1],
+        onErrorResolve: onResolve,
+      },
+    ];
+    render(<WorkforceGrid departments={deptsWithError} onViewDagGraph={vi.fn()} />);
+    fireEvent.click(screen.getByText("Xem chi tiết →"));
+    expect(onResolve).toHaveBeenCalledWith("operations");
+  });
 });

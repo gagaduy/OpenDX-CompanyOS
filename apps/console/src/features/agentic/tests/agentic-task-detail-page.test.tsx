@@ -135,6 +135,20 @@ describe("AgenticTaskDetailPage", () => {
     await waitFor(() => expect(api.loadOperations).toHaveBeenCalledOnce());
     if (original !== undefined) Object.defineProperty(document, "hidden", original);
   });
+
+  it("renders structured error state and back navigation when operations fail to load", async () => {
+    const api = fakeApi(activeOperations());
+    vi.mocked(api.loadOperations).mockRejectedValueOnce(new Error("network failure"));
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be refreshed");
+    expect(screen.getByRole("link", { name: /Quay lại Bàn điều hành/ })).toHaveAttribute("href", "/agentic/tasks");
+  });
+
+  it("renders back to command center link when operations load successfully", async () => {
+    const api = fakeApi(draftOperations());
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /Quay lại Bàn điều hành/ })).toHaveAttribute("href", "/agentic/tasks");
+  });
 });
 
 function fakeApi(operations: AgenticTaskOperations): AgenticOperationsApi {
