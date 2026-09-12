@@ -80,6 +80,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
   headerExtra,
   alertBanner,
   children,
+  directInputMode = false,
 }) => {
   const [directInput, setDirectInput] = React.useState("");
   const theme = DEPT_THEMES[department] || DEPT_THEMES.marketing;
@@ -272,7 +273,8 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
                 void onSendDirectTask(val);
               }
             }}
-            className="ccDeptInputWrap"
+            className={`ccDeptInputWrap ${directInputMode ? "directInputActive" : ""}`}
+            style={directInputMode ? { border: `1px solid ${theme.accentColor}60`, borderRadius: 6, padding: "2px" } : undefined}
           >
             <input
               type="text"
@@ -280,6 +282,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
               onChange={(e) => setDirectInput(e.target.value)}
               placeholder={directInputPlaceholder}
               className="ccDeptMiniInput"
+              style={directInputMode ? { borderColor: theme.accentColor } : undefined}
             />
             <button
               type="submit"

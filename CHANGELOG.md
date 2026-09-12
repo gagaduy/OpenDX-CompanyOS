@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Live Domain Data Binding & Zero Hardcoding:
+  - Header Filter & Workforce Grid Synchronization: Wired top header filter pills (`Tất cả`, `Đang xử lý`, `Chờ phê duyệt`, `Hoàn tất`, `Lỗi`) to dynamically filter the 4 department cards in `WorkforceGrid`, with dynamic counts and clean empty state messaging.
+  - Reactive Digital Employees & Progress Computation: Replaced static employee progress bars and statuses with real domain-reactive calculations derived from department runtime states, marketing active agents, resource locks, and elapsed execution times.
+  - Department Queue & Error Binding: Completely removed dummy static queues (`q-mkt-1`, `q-sales-1`, etc.) and fake operations error messages; queues and error banners now bind directly to real backend tasks and active runtime errors.
+  - Live Domain Activity Stream: Replaced static mock activity feed items with a real-time event recorder capturing task creation, direct input execution, step progressions, replenishment alerts, and approval interactions.
+  - Dynamic Approval Queue: Removed dummy approval items; populated `PendingApprovalsPanel` strictly with live pending proposals (`ReplenishmentProposal`, `CampaignProposal`, `SupportProposal`, and API approvals).
+  - Dynamic Metrics & Deliverables Derivation: Derived donut chart distribution, department efficiency gauges, 4 KPI cards, and recent deliverables table directly from API task summaries, historical completion metrics, and generated artifacts.
+
 - AI Command Center Dedicated CSS Styling & Dark Canvas Isolation:
   - Enterprise Pure CSS Architecture: Replaced non-functional Tailwind utility classes with dedicated scoped CSS rules in `apps/console/src/features/agentic/styles/command-center-redesign.css`, matching the Linear Dark Canvas design mockup (`#07090e` canvas, `#0d121f` cards, subtle `#1e293b` borders, and `#2563eb` accents).
   - Pixel-Perfect UI Mockup Alignment: Aligned Tier 1 into a 3-column layout featuring the Strategic Composer, AI CEO Live Analysis Stepper, and standalone Strategic Vision card (`Từ chiến lược đến kết quả thực tế`); converted `DepartmentCard` body into a clean 2-column layout (Digital Employees on left, Queue on right) with full-width exception alert banner matching the reference design.

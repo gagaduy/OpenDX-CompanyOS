@@ -75,6 +75,7 @@ export interface DepartmentCardProps {
   readonly headerExtra?: React.ReactNode;
   readonly alertBanner?: React.ReactNode;
   readonly children?: React.ReactNode;
+  readonly directInputMode?: boolean;
 }
 
 export interface WorkforceGridProps {

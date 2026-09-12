@@ -239,27 +239,33 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
             </button>
           </div>
           <div className="ccDeliverablesList">
-            {recentDeliverables.slice(0, 3).map((item) => (
-              <div
-                key={item.id}
-                onClick={item.onDownloadOrView}
-                className="ccDeliverableItem"
-                style={{ cursor: "pointer" }}
-              >
-                <div className="ccDelivLeft">
-                  <FileText size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {item.title}
-                  </span>
-                </div>
-                <div className="ccDelivRight">
-                  <span className="ccDelivTime">{item.completedAt}</span>
-                  <span className="ccDelivBadge">
-                    Đã hoàn thành
-                  </span>
-                </div>
+            {recentDeliverables.length === 0 ? (
+              <div style={{ padding: "1.5rem 0", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
+                Chưa có tài liệu hoàn thành
               </div>
-            ))}
+            ) : (
+              recentDeliverables.slice(0, 3).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={item.onDownloadOrView}
+                  className="ccDeliverableItem"
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className="ccDelivLeft">
+                    <FileText size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {item.title}
+                    </span>
+                  </div>
+                  <div className="ccDelivRight">
+                    <span className="ccDelivTime">{item.completedAt}</span>
+                    <span className="ccDelivBadge">
+                      Đã hoàn thành
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

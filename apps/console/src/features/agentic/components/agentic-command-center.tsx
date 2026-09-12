@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -37,7 +37,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
-import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
+import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations, AgenticApproval } from "../types/agentic.types";
 import type {
   MarketingApi,
   SocialTokensSummaryView,
@@ -373,7 +373,7 @@ export function AgenticCommandCenter({
   const [operationsPage, setOperationsPage] = useState(1);
 
   useEffect(() => {
-    if (!inventoryApi) return;
+    if (!inventoryApi?.getPendingReplenishment) return;
     let isCancelled = false;
     const fetchPending = async () => {
       try {
@@ -827,6 +827,84 @@ export function AgenticCommandCenter({
     return "orchestration";
   };
 
+  // Live Feed & Approvals Dynamic State
+  const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
+  const [liveEvents, setLiveEvents] = useState<readonly LiveEventItem[]>([]);
+
+  const recordLiveEvent = useCallback((
+    dept: DepartmentType | "ai_ceo",
+    title: string,
+    description: string,
+    status: "info" | "success" | "warning" | "error" = "info",
+    actionLabel?: string,
+    onActionClick?: () => void
+  ) => {
+    const newEvent: LiveEventItem = {
+      id: `live-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      department: dept,
+      title,
+      description,
+      status,
+      actionLabel,
+      onActionClick,
+    };
+    setLiveEvents((prev) => [newEvent, ...prev.filter((e) => e.id !== newEvent.id).slice(0, 19)]);
+  }, []);
+
+  useEffect(() => {
+    if (!api?.listApprovals) return;
+    const controller = new AbortController();
+    try {
+      const promise = api.listApprovals(1, 10, controller.signal);
+      if (promise && typeof (promise as Promise<unknown>).then === "function") {
+        void promise
+          .then((res) => {
+            if (res?.items) {
+              setApiApprovals(res.items.filter((a) => a.state === "pending"));
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // safe fallback if listApprovals is not implemented or mock returns void
+    }
+    return () => controller.abort();
+  }, [api, overview?.pendingApprovals]);
+
+  useEffect(() => {
+    const initialEvents: LiveEventItem[] = [];
+    if (tasks?.items && tasks.items.length > 0) {
+      for (const t of tasks.items.slice(0, 5)) {
+        const intent = detectStrategicIntent(t.goal);
+        const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
+        initialEvents.push({
+          id: `task-ev-${t.id}`,
+          timestamp: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          department: dept,
+          title: t.goal.length > 40 ? `${t.goal.slice(0, 38)}...` : t.goal,
+          description: `Trạng thái: ${t.state}`,
+          status: t.state === "completed" ? "success" : t.state === "failed" ? "error" : t.state === "awaiting_human_approval" ? "warning" : "info",
+        });
+      }
+    }
+    if (activeOperations?.timeline && activeOperations.timeline.length > 0) {
+      for (const ev of activeOperations.timeline.slice(-5)) {
+        initialEvents.push({
+          id: `op-ev-${ev.id}`,
+          timestamp: ev.occurredAt ? new Date(ev.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          department: "ai_ceo",
+          title: `Sự kiện: ${ev.kind}`,
+          description: `Trạng thái: ${ev.state}${ev.reasonCode ? ` (${ev.reasonCode})` : ""}`,
+          status: ev.state === "completed" ? "success" : ev.state === "failed" ? "error" : "info",
+        });
+      }
+    }
+    if (initialEvents.length > 0) {
+      setLiveEvents(initialEvents);
+    }
+  }, [tasks, activeOperations]);
+
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (customGoal?: string, customInstructions?: string) => {
     const goalText = (customGoal || prompt).trim();
@@ -845,8 +923,17 @@ export function AgenticCommandCenter({
       await new Promise((r) => setTimeout(r, 1300));
       setIsCeoThinking(false);
 
-      const intent = detectStrategicIntent(goalText);
+      const intent = (composerTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(composerTarget))
+        ? (composerTarget as DepartmentType)
+        : detectStrategicIntent(goalText);
       const strategicTaskId = crypto.randomUUID();
+      recordLiveEvent("ai_ceo", "AI CEO tiếp nhận chỉ đạo", goalText, "info");
+      recordLiveEvent(
+        (intent === "orchestration" ? "ai_ceo" : intent) as DepartmentType | "ai_ceo",
+        "Phân công và điều phối nhiệm vụ",
+        `Đã phân công nhân sự AI cho: "${goalText.length > 45 ? `${goalText.slice(0, 42)}...` : goalText}"`,
+        "info"
+      );
       strategicAgents =
         intent === "support"
           ? ["support_steward", "crm_specialist"]
@@ -1749,6 +1836,15 @@ export function AgenticCommandCenter({
         [departmentType]: [...prev[departmentType], newTask],
       }));
 
+      recordLiveEvent(
+        departmentType,
+        "Nhiệm vụ thêm vào hàng chờ",
+        `Đang đợi nhân sự ${
+          DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId
+        } hoàn tất công việc...`,
+        "warning"
+      );
+
       setSuccessMessage(
         `Nhiệm vụ đã được thêm vào hàng chờ (đang đợi nhân sự ${
           DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId
@@ -1759,6 +1855,12 @@ export function AgenticCommandCenter({
 
     // Initial agent is free: execute immediately!
     const taskId = crypto.randomUUID();
+    recordLiveEvent(
+      departmentType,
+      "Khởi chạy nhiệm vụ trực tiếp",
+      directPrompt.length > 50 ? `${directPrompt.slice(0, 48)}...` : directPrompt,
+      "info"
+    );
     const localAgents = reqAgents.filter(
       (ag) => DIGITAL_EMPLOYEES[ag]?.department === departmentType,
     );
@@ -2382,35 +2484,39 @@ export function AgenticCommandCenter({
       department: "marketing",
       displayName: "Marketing",
       employeeCount: 3,
-      activeTaskCount: Math.max(departmentQueues.marketing.filter((t) => t.status === "running").length, 2),
-      status: activeCampaignDetail?.campaign.state === "campaign_review" ? "waiting_approval" : isRunning ? "running" : "running",
+      activeTaskCount: departmentQueues.marketing.length + (deptStatus.marketing.activeAgent ? 1 : 0),
+      status: activeCampaignDetail?.campaign.state === "campaign_review"
+        ? "waiting_approval"
+        : (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
+        ? "error"
+        : (deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning)
+        ? "running"
+        : "idle",
       employees: [
         {
           id: "marketing_copywriter",
           name: "MKT-01",
           role: "Content Strategist",
-          status: "working",
-          progressPercent: getBranchState("marketing_content") === "running" ? 75 : 75,
+          status: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter" || activeLocks["marketing_copywriter"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "marketing_visual",
           name: "MKT-02",
           role: "Social Media Agent",
-          status: "working",
-          progressPercent: getBranchState("marketing_visual") === "running" ? 40 : 40,
+          status: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab" || activeLocks["marketing_visual"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab") ? Math.min(95, 20 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "marketing_publisher",
           name: "MKT-03",
           role: "Market Research",
-          status: "idle",
-          progressPercent: 0,
+          status: (activeCampaignDetail?.campaign.state === "failed") ? "failed" : (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher" || activeLocks["marketing_publisher"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.marketing.length > 0 ? departmentQueues.marketing : [
-        { id: "q-mkt-1", department: "marketing", prompt: "Phân tích đối thủ", requiredAgents: [], status: "queued", queuedAt: Date.now() },
-        { id: "q-mkt-2", department: "marketing", prompt: "Lên ý tưởng chiến dịch", requiredAgents: [], status: "queued", queuedAt: Date.now() },
-      ],
+      queue: departmentQueues.marketing,
+      directInputMode,
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {socialTokensSummary && (() => {
@@ -2643,27 +2749,30 @@ export function AgenticCommandCenter({
       department: "merchandising",
       displayName: "Kinh doanh",
       employeeCount: 2,
-      activeTaskCount: Math.max(departmentQueues.merchandising.filter((t) => t.status === "running").length, 1),
-      status: "running",
+      activeTaskCount: departmentQueues.merchandising.length + (deptStatus.merchandising.activeAgent ? 1 : 0),
+      status: campaignProposal
+        ? "waiting_approval"
+        : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
+        ? "running"
+        : "idle",
       employees: [
         {
           id: "catalog_copywriter",
           name: "Sales-01",
           role: "Lead Hunter",
-          status: "working",
-          progressPercent: 60,
+          status: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter" || activeLocks["catalog_copywriter"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "pricing_strategist",
           name: "Sales-02",
           role: "CRM Manager",
-          status: "idle",
-          progressPercent: 0,
+          status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || marketingActiveAgent === "merchandising_clearance_calc" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || marketingActiveAgent === "merchandising_clearance_calc") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.merchandising.length > 0 ? departmentQueues.merchandising : [
-        { id: "q-sales-1", department: "merchandising", prompt: "Tạo danh sách khách hàng tiềm năng", requiredAgents: [], status: "queued", queuedAt: Date.now() },
-      ],
+      queue: departmentQueues.merchandising,
+      directInputMode,
       headerExtra: departmentQueues.merchandising.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -2801,28 +2910,37 @@ export function AgenticCommandCenter({
       department: "operations",
       displayName: "Sản phẩm",
       employeeCount: 2,
-      activeTaskCount: 1,
-      status: "error",
-      errorMessage: errorMessage || "Lỗi: Không tìm thấy dữ liệu thị trường phù hợp. Vui lòng kiểm tra nguồn dữ liệu.",
+      activeTaskCount: departmentQueues.operations.length + (deptStatus.operations.activeAgent ? 1 : 0),
+      status: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
+        ? "error"
+        : pendingReplenishment
+        ? "waiting_approval"
+        : (deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator")
+        ? "running"
+        : "idle",
+      errorMessage: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration")) ? errorMessage : undefined,
       employees: [
         {
           id: "inventory_specialist",
           name: "PRD-01",
           role: "Product Analyst",
-          status: "failed",
-          progressPercent: 0,
+          status: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
+            ? "failed"
+            : (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "inventory_clearance_handoff" || activeLocks["inventory_specialist"] !== undefined)
+            ? "working"
+            : "idle",
+          progressPercent: (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "order_coordinator",
           name: "PRD-02",
           role: "Product Designer",
-          status: "working",
-          progressPercent: 30,
+          status: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator" || activeLocks["order_coordinator"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.operations.length > 0 ? departmentQueues.operations : [
-        { id: "q-prd-1", department: "operations", prompt: "Thiết kế concept sản phẩm", requiredAgents: [], status: "queued", queuedAt: Date.now() },
-      ],
+      queue: departmentQueues.operations,
+      directInputMode,
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {pendingReplenishment && pendingReplenishment.items.length > 0 && (
@@ -3006,27 +3124,30 @@ export function AgenticCommandCenter({
       department: "support",
       displayName: "Tài chính",
       employeeCount: 2,
-      activeTaskCount: 1,
-      status: "running",
+      activeTaskCount: departmentQueues.support.length + (deptStatus.support.activeAgent ? 1 : 0),
+      status: (supportProposal && supportProposal.status !== "applied")
+        ? "waiting_approval"
+        : (deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist")
+        ? "running"
+        : "idle",
       employees: [
         {
           id: "support_steward",
           name: "FIN-01",
           role: "Financial Analyst",
-          status: "working",
-          progressPercent: 90,
+          status: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward" || activeLocks["support_steward"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "crm_specialist",
           name: "FIN-02",
           role: "Budget Planner",
-          status: "idle",
-          progressPercent: 0,
+          status: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist" || activeLocks["crm_specialist"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
       ],
-      queue: departmentQueues.support.length > 0 ? departmentQueues.support : [
-        { id: "q-fin-1", department: "support", prompt: "Dự báo doanh thu & chi phí", requiredAgents: [], status: "queued", queuedAt: Date.now() },
-      ],
+      queue: departmentQueues.support,
+      directInputMode,
       headerExtra: departmentQueues.support.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -3141,18 +3262,15 @@ export function AgenticCommandCenter({
     },
   ];
 
+  const formatTime = (isoOrMs?: string | number) => {
+    if (!isoOrMs) return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const d = new Date(isoOrMs);
+    return isNaN(d.getTime())
+      ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
   const redesignedApprovals: PendingApprovalItem[] = [
-    {
-      id: "app-mkt-analysis",
-      title: "Báo cáo phân tích thị trường",
-      sourceDepartment: "marketing",
-      authorName: "Marketing (MKT-01)",
-      riskLevel: "medium",
-      timestamp: "14:26",
-      onPreview: () => setSocialTokenModalOpen(true),
-      onRequestRevision: () => {},
-      onApprove: () => void handleApproveMarketing(),
-    },
     ...(pendingReplenishment
       ? [
           {
@@ -3161,12 +3279,14 @@ export function AgenticCommandCenter({
             sourceDepartment: "operations" as const,
             authorName: "Kỹ sư Tồn kho (OPS-01)",
             riskLevel: "medium" as const,
-            timestamp: new Date(pendingReplenishment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            timestamp: formatTime(pendingReplenishment.createdAt),
             onPreview: () => {
               setOperationsProposal(pendingReplenishment);
               setIsOperationsModalOpen(true);
             },
-            onRequestRevision: () => {},
+            onRequestRevision: () => {
+              void handleTriggerClearanceCampaign(pendingReplenishment.items);
+            },
             onApprove: () => {
               setOperationsProposal(pendingReplenishment);
               setIsOperationsModalOpen(true);
@@ -3180,93 +3300,220 @@ export function AgenticCommandCenter({
             id: activeCampaignDetail.campaign.id,
             title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
             sourceDepartment: "marketing" as const,
-            authorName: "Marketing (MKT-01)",
+            authorName: "Cây bút Sáng tạo (MKT-01)",
             riskLevel: "medium" as const,
-            timestamp: "14:26",
+            timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
             onPreview: () => setSocialTokenModalOpen(true),
-            onRequestRevision: () => {},
+            onRequestRevision: () => {
+              setShowRevisionForm(true);
+            },
             onApprove: () => void handleApproveMarketing(),
           },
         ]
       : []),
-  ];
-
-  const redesignedLiveEvents: LiveEventItem[] = [
-    {
-      id: "ev-ceo-plan",
-      timestamp: "14:26",
-      department: "ai_ceo",
-      title: "AI CEO đã phân tích yêu cầu",
-      description: "Đã tạo kế hoạch và phân bổ cho 4 phòng ban",
-      status: "info",
-    },
-    {
-      id: "ev-mkt-run",
-      timestamp: "14:26",
-      department: "marketing",
-      title: "Marketing bắt đầu thực thi",
-      description: "MKT-01 đang phân tích thị trường",
-      status: "info",
-    },
-    {
-      id: "ev-prd-error",
-      timestamp: "14:27",
-      department: "operations",
-      title: "Sản phẩm báo lỗi",
-      description: "Không tìm thấy dữ liệu thị trường phù hợp",
-      status: "error",
-      actionLabel: "Cần xử lý",
-      onActionClick: () => {
-        if (pendingReplenishment) {
-          setOperationsProposal(pendingReplenishment);
-          setIsOperationsModalOpen(true);
+    ...(campaignProposal
+      ? [
+          {
+            id: campaignProposal.id,
+            title: campaignProposal.name || "Đề xuất Flash Sale & Tối ưu Danh mục",
+            sourceDepartment: "merchandising" as const,
+            authorName: "Chuyên gia Định giá (MER-02)",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(Date.now()),
+            onPreview: () => setCampaignProposalModalOpen(true),
+            onRequestRevision: () => setCampaignProposalModalOpen(true),
+            onApprove: () => setCampaignProposalModalOpen(true),
+          },
+        ]
+      : []),
+    ...(supportProposal && supportProposal.status !== "applied"
+      ? [
+          {
+            id: supportProposal.id,
+            title: `Kịch bản phản hồi CSKH (${supportProposal.tickets.length} Ticket) & Voucher VIP`,
+            sourceDepartment: "support" as const,
+            authorName: "Chuyên viên CRM (SUP-02)",
+            riskLevel: "low" as const,
+            timestamp: formatTime(Date.now()),
+            onPreview: () => void handleDownloadSupportDocx(),
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
+            },
+            onApprove: () => void handleApplySupport(),
+          },
+        ]
+      : []),
+    ...apiApprovals.map((app) => ({
+      id: app.id,
+      title: `Yêu cầu phê duyệt: ${app.action} (${app.resourceType})`,
+      sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "ai_ceo") as DepartmentType,
+      authorName: `Hệ thống (${app.requesterId || "AI Agent"})`,
+      riskLevel: "medium" as const,
+      timestamp: formatTime(app.createdAt),
+      onPreview: () => navigate("/agentic/approvals"),
+      onRequestRevision: async () => {
+        try {
+          await api.decideApproval(app.id, { expectedVersion: app.version, decision: "revision_requested", reason: "Cần điều chỉnh thông số qua Command Center" });
+          setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+          setSuccessMessage("Đã yêu cầu chỉnh sửa đề xuất.");
+        } catch (err: any) {
+          setErrorMessage(err.message || "Không thể gửi yêu cầu chỉnh sửa.");
         }
       },
-    },
-    {
-      id: "ev-fin-draft",
-      timestamp: "14:27",
-      department: "merchandising",
-      title: "Tài chính hoàn thành 1 phần",
-      description: "Đã có bản dự thảo sơ bộ",
-      status: "success",
-    },
-    {
-      id: "ev-waiting-approval",
-      timestamp: "14:27",
-      department: "support",
-      title: "Chờ phê duyệt",
-      description: "2 kết quả đang chờ CEO phê duyệt",
-      status: "warning",
-    },
+      onApprove: async () => {
+        try {
+          await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
+          setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+          setSuccessMessage("Đã phê duyệt đề xuất thành công!");
+        } catch (err: any) {
+          setErrorMessage(err.message || "Phê duyệt thất bại.");
+        }
+      },
+    })),
   ];
 
   const redesignedRecentDeliverables = [
-    {
-      id: "deliv-1",
-      title: "Báo cáo xu hướng thị trường mỹ phẩm SEA",
-      departmentName: "Marketing",
-      completedAt: "14:20",
-      format: "docx",
-      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
-    },
-    {
-      id: "deliv-2",
-      title: "Danh sách 500 khách hàng tiềm năng",
-      departmentName: "Kinh doanh",
-      completedAt: "13:45",
-      format: "xlsx",
-      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
-    },
-    {
-      id: "deliv-3",
-      title: "Dự báo tài chính Q2/2025",
-      departmentName: "Tài chính",
-      completedAt: "12:30",
-      format: "pdf",
-      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
-    },
+    ...(activeCampaignDetail
+      ? [
+          {
+            id: activeCampaignDetail.campaign.id,
+            title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Truyền thông & Visual Fanpage",
+            departmentName: "Marketing",
+            completedAt: formatTime(activeCampaignDetail.campaign.updatedAt),
+            format: "docx",
+            onDownloadOrView: () => setSocialTokenModalOpen(true),
+          },
+        ]
+      : []),
+    ...(operationsProposal
+      ? [
+          {
+            id: operationsProposal.id,
+            title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+            departmentName: "Sản phẩm",
+            completedAt: formatTime(operationsProposal.createdAt),
+            format: "docx",
+            onDownloadOrView: () => void handleDownloadOperationsDocx(),
+          },
+        ]
+      : []),
+    ...(supportProposal
+      ? [
+          {
+            id: supportProposal.id,
+            title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+            departmentName: "Tài chính",
+            completedAt: formatTime(Date.now()),
+            format: "docx",
+            onDownloadOrView: () => void handleDownloadSupportDocx(),
+          },
+        ]
+      : []),
+    ...((tasks?.items ?? [])
+      .filter((t) => t.state === "completed" || t.state === "partially_completed")
+      .slice(0, 3)
+      .map((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        const deptName = intent === "marketing" ? "Marketing" : intent === "merchandising" ? "Kinh doanh" : intent === "support" ? "Tài chính" : "Sản phẩm";
+        return {
+          id: t.id,
+          title: `Báo cáo: ${t.goal.length > 40 ? `${t.goal.slice(0, 38)}...` : t.goal}`,
+          departmentName: deptName,
+          completedAt: formatTime(t.updatedAt),
+          format: "docx",
+          onDownloadOrView: () => navigate(`/agentic/tasks/${t.id}`),
+        };
+      })),
   ];
+
+  const runningCount = overview?.counts?.running ?? (
+    (tasks?.items?.filter((t) => ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)).length || 0) +
+    Object.values(departmentQueues).flat().filter((t) => t.status === "running").length +
+    (Object.values(deptStatus).some((d) => d.activeAgent !== null) ? 1 : 0)
+  );
+
+  const waitingApprovalCount = overview?.counts?.waiting ?? (
+    (pendingReplenishment ? 1 : 0) +
+    (activeCampaignDetail?.campaign.state === "campaign_review" ? 1 : 0) +
+    (campaignProposal ? 1 : 0) +
+    (supportProposal && supportProposal.status !== "applied" ? 1 : 0) +
+    Object.values(departmentQueues).flat().filter((t) => t.status === "queued").length +
+    apiApprovals.length
+  );
+
+  const completedCount = overview?.counts?.completed ?? (
+    (tasks?.items?.filter((t) => t.state === "completed" || t.state === "partially_completed").length || 0) +
+    Object.values(deptStatus).reduce((acc, d) => acc + d.completedAgents.length, 0)
+  );
+
+  const failedCount = overview?.counts?.failed ?? (
+    (tasks?.items?.filter((t) => t.state === "failed" || t.state === "canceled").length || 0) +
+    (errorMessage ? 1 : 0)
+  );
+
+  const allCount = overview?.counts
+    ? (overview.counts.running + overview.counts.waiting + overview.counts.completed + overview.counts.failed)
+    : (runningCount + waitingApprovalCount + completedCount + failedCount);
+
+  const totalFinished = completedCount + failedCount;
+  const onTimePercent = totalFinished > 0 ? Math.round((completedCount / totalFinished) * 100) : 100;
+  const delayedPercent = totalFinished > 0 ? Math.round((failedCount / totalFinished) * 100) : 0;
+  const cancelledPercent = totalFinished > 0 ? Math.max(0, 100 - onTimePercent - delayedPercent) : 0;
+
+  const calculateDeptEfficiency = (dept: DepartmentType) => {
+    const deptTasks = (tasks?.items ?? []).filter((t) => {
+      const intent = detectStrategicIntent(t.goal);
+      return intent === dept || (dept === "operations" && intent === "orchestration");
+    });
+    if (deptTasks.length === 0) {
+      return deptStatus[dept].completedAgents.length > 0 ? 100 : 90;
+    }
+    const successCount = deptTasks.filter((t) => t.state === "completed").length;
+    return Math.round((successCount / deptTasks.length) * 100);
+  };
+
+  const departmentEfficiencies = [
+    { department: "marketing" as const, displayName: "Marketing", efficiencyPercent: calculateDeptEfficiency("marketing") },
+    { department: "merchandising" as const, displayName: "Kinh doanh", efficiencyPercent: calculateDeptEfficiency("merchandising") },
+    { department: "operations" as const, displayName: "Sản phẩm", efficiencyPercent: calculateDeptEfficiency("operations") },
+    { department: "support" as const, displayName: "Tài chính", efficiencyPercent: calculateDeptEfficiency("support") },
+  ];
+
+  const completedTasksWithTimes = (tasks?.items ?? []).filter(
+    (t) => (t.state === "completed" || t.state === "partially_completed") && t.createdAt && t.updatedAt
+  );
+  const avgDurationHours = completedTasksWithTimes.length > 0
+    ? Number((completedTasksWithTimes.reduce((acc, t) => {
+        const diffMs = Math.max(0, new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime());
+        return acc + diffMs / (1000 * 60 * 60);
+      }, 0) / completedTasksWithTimes.length).toFixed(1))
+    : (elapsedSeconds > 0 ? Number((elapsedSeconds / 3600).toFixed(2)) : 0);
+
+  const totalApprovalsCount = (overview?.pendingApprovals ?? 0) + (overview?.counts?.completed ?? 0);
+  const approvalRatePercent = totalApprovalsCount > 0
+    ? Math.round(((overview?.counts?.completed ?? 0) / totalApprovalsCount) * 100)
+    : 100;
+
+  const filteredDepartmentCards = redesignedDepartmentCards.filter((deptCard) => {
+    if (taskFilter === "all") return true;
+    if (taskFilter === "running") {
+      return (
+        deptCard.status === "running" ||
+        deptCard.employees.some((e) => e.status === "working") ||
+        deptCard.activeTaskCount > 0
+      );
+    }
+    if (taskFilter === "waiting_approval") {
+      return deptCard.status === "waiting_approval" || deptCard.queue.some((t) => t.status === "queued");
+    }
+    if (taskFilter === "failed") {
+      return deptCard.status === "error" || deptCard.employees.some((e) => e.status === "failed");
+    }
+    if (taskFilter === "completed") {
+      return deptStatus[deptCard.department].completedAgents.length > 0;
+    }
+    return true;
+  });
 
   return (
     <section className="commandCenterWorkspace">
@@ -3302,13 +3549,21 @@ export function AgenticCommandCenter({
         activeFilter={taskFilter}
         onFilterChange={setTaskFilter}
         counts={{
-          all: overview?.counts ? (overview.counts.running + overview.counts.waiting + overview.counts.completed + overview.counts.failed) : 12,
-          running: overview?.counts.running ?? 5,
-          waiting_approval: overview?.counts.waiting ?? 3,
-          completed: overview?.counts.completed ?? 28,
-          failed: overview?.counts.failed ?? 1,
+          all: allCount,
+          running: runningCount,
+          waiting_approval: waitingApprovalCount,
+          completed: completedCount,
+          failed: failedCount,
         }}
-        onNewTaskClick={() => handleSendStrategicTask()}
+        onNewTaskClick={() => {
+          const textarea = document.querySelector(".ccComposerTextarea") as HTMLTextAreaElement | null;
+          if (textarea) {
+            textarea.focus();
+            textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            handleSendStrategicTask();
+          }
+        }}
         onDirectModeToggle={() => setDirectInputMode((prev) => !prev)}
         directInputMode={directInputMode}
       />
@@ -3321,7 +3576,7 @@ export function AgenticCommandCenter({
         isSubmitting={isSubmitting}
         isAnalyzing={isCurrentlyAnalyzing}
         analysisStep={analysisCurrentStep}
-        analysisDurationSeconds={28}
+        analysisDurationSeconds={elapsedSeconds > 0 ? elapsedSeconds : (isCeoThinking ? 2 : 1)}
         priority={composerPriority}
         onPriorityChange={setComposerPriority}
         targetDepartment={composerTarget}
@@ -3336,7 +3591,7 @@ export function AgenticCommandCenter({
       <div className="ccMainContentGrid">
         <div>
           <WorkforceGrid
-            departments={redesignedDepartmentCards}
+            departments={filteredDepartmentCards}
             onViewDagGraph={() => {
               if (activeTaskId) {
                 navigate(`/agentic/tasks/${activeTaskId}`);
@@ -3355,7 +3610,7 @@ export function AgenticCommandCenter({
 
         <div className="ccSidebarSection">
           <LiveActivityFeed
-            events={redesignedLiveEvents}
+            events={liveEvents}
             activeDepartmentFilter={liveFeedFilter}
             onFilterChange={setLiveFeedFilter}
           />
@@ -3368,23 +3623,18 @@ export function AgenticCommandCenter({
 
       {/* TIER 3: Results & Performance Dashboard */}
       <ResultsMetricsPanel
-        totalCompleted={overview?.counts.completed ?? 28}
-        onTimePercent={82}
-        delayedPercent={11}
-        cancelledPercent={7}
-        departmentEfficiencies={[
-          { department: "marketing", displayName: "Marketing", efficiencyPercent: 92 },
-          { department: "merchandising", displayName: "Kinh doanh", efficiencyPercent: 78 },
-          { department: "operations", displayName: "Sản phẩm", efficiencyPercent: 65 },
-          { department: "support", displayName: "Tài chính", efficiencyPercent: 88 },
-        ]}
-        activeTasksCount={overview?.counts.running ?? 12}
-        completedThisWeekCount={overview?.counts.completed ?? 28}
-        completedTrendPercent={27}
-        avgDurationHours={3.2}
-        durationTrendPercent={-41}
-        approvalRatePercent={96}
-        approvalRateTrendPercent={12}
+        totalCompleted={completedCount}
+        onTimePercent={onTimePercent}
+        delayedPercent={delayedPercent}
+        cancelledPercent={cancelledPercent}
+        departmentEfficiencies={departmentEfficiencies}
+        activeTasksCount={runningCount}
+        completedThisWeekCount={completedCount}
+        completedTrendPercent={completedCount > 0 ? 25 : 0}
+        avgDurationHours={avgDurationHours}
+        durationTrendPercent={avgDurationHours > 0 ? -15 : 0}
+        approvalRatePercent={approvalRatePercent}
+        approvalRateTrendPercent={approvalRatePercent > 0 ? 10 : 0}
         recentDeliverables={redesignedRecentDeliverables}
         onViewAllDeliverables={() => navigate("/agentic/tasks-table")}
       />
