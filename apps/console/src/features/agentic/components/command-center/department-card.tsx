@@ -178,51 +178,67 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
         {/* Proactive / custom alert banner if present */}
         {alertBanner}
 
-        {/* Custom children or fallback to Digital Employees List */}
-        {children ? (
-          <div style={{ padding: "0.5rem 0", display: "flex", flexDirection: "column", gap: "0.5rem" }}>{children}</div>
-        ) : (
-          <div className="ccEmployeeList">
+        {/* 2-Column Department Body: Employees on Left, Queue on Right */}
+        <div className="ccDeptBodyGrid">
+          {/* Left Column: Digital Employees */}
+          <div className="ccDeptEmpCol">
             {employees.map((emp) => (
-              <div key={emp.id} className="ccEmployeeRow">
-                <div className="ccEmpMain">
-                  <div className="ccEmpLeft">
-                    <span className="ccEmpAvatar">
-                      {emp.name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span className="ccEmpId">{emp.name}</span>
-                    <span className="ccEmpRole">{emp.role}</span>
+              <div key={emp.id} className="ccEmpRowCompact">
+                <div className="ccEmpRowLeft">
+                  <span className="ccEmpAvatarCompact">
+                    {emp.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="ccEmpInfoCompact">
+                    <span className="ccEmpIdCompact">{emp.name}</span>
+                    <span className="ccEmpRoleCompact">{emp.role}</span>
                   </div>
-                  <div className="ccEmpStatusWrap">
-                    <span className={`ccEmpStatus ${emp.status}`}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: emp.status === "failed" ? "#ef4444" : emp.status === "working" ? "#22c55e" : "#64748b", display: "inline-block" }} />
+                </div>
+                <div className="ccEmpRowRight">
+                  <span className={`ccEmpStatusCompact status-${emp.status}`}>
+                    <span className="ccStatusDot" />
+                    <span>
                       {emp.status === "failed"
                         ? "Lỗi xử lý"
                         : emp.status === "working"
                         ? "Đang làm việc"
                         : "Chờ nhiệm vụ"}
                     </span>
-                    <span className="ccEmpPercent">
-                      {emp.status === "working" ? `${emp.progressPercent}%` : "--"}
-                    </span>
-                  </div>
-                </div>
-                {/* Progress bar */}
-                <div className="ccEmpTrack">
-                  <div
-                    className="ccEmpFill"
-                    style={{
-                      width: `${emp.progressPercent}%`,
-                      background: emp.status === "failed"
-                        ? "#ef4444"
-                        : emp.status === "working"
-                        ? theme.accentColor
-                        : "#475569",
-                    }}
-                  />
+                  </span>
+                  <span className="ccEmpPercentCompact">
+                    {emp.status === "working" ? `${emp.progressPercent}%` : emp.status === "failed" ? "0%" : "--"}
+                  </span>
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Right Column: Hàng đợi (Queue) */}
+          <div className="ccDeptQueueCol">
+            <div className="ccDeptQueueHeader">
+              <span className="ccDeptQueueTitle">Hàng đợi</span>
+              <span className="ccDeptQueueBadge">
+                {queue.length}
+              </span>
+            </div>
+            <div className="ccDeptQueueItems">
+              {queue.length === 0 ? (
+                <div className="ccDeptQueueEmpty">Trống</div>
+              ) : (
+                queue.slice(0, 3).map((q) => (
+                  <div key={q.id} className="ccDeptQueueItem">
+                    <span className="ccDeptQueueBullet" />
+                    <span className="ccDeptQueueText">{q.prompt}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Custom children if present */}
+        {children && (
+          <div style={{ marginTop: "0.5rem" }}>
+            {children}
           </div>
         )}
 
@@ -245,30 +261,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
           </div>
         )}
 
-        {/* Task Queue list */}
-        {queue.length > 0 && (
-          <div className="ccDeptQueueBox">
-            <div className="ccDeptQueueHeader">
-              <span>Hàng đợi:</span>
-              <span className="ccDeptQueueBadge">
-                {queue.length}
-              </span>
-            </div>
-            <div>
-              {queue.slice(0, 2).map((q) => (
-                <div
-                  key={q.id}
-                  className="ccDeptQueueItem"
-                >
-                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#3b82f6", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.prompt}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Direct Input Field */}
+        {/* Direct Input Field if provided */}
         {directInputPlaceholder && (
           <form
             onSubmit={(e) => {
@@ -298,27 +291,6 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
             </button>
           </form>
         )}
-      </div>
-
-      {/* Footer buttons */}
-      <div style={{ marginTop: "0.75rem", paddingTop: "0.6rem", borderTop: "1px solid rgba(255, 255, 255, 0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-        <button
-          type="button"
-          onClick={() => onDirectDispatch(department)}
-          style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "#94a3b8", background: "transparent", border: "none", cursor: "pointer", padding: "3px 6px", borderRadius: "4px" }}
-        >
-          <Send size={11} />
-          <span>Giao việc phòng ban</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOpenDetails(department)}
-          style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", fontWeight: 600, color: theme.accentColor, background: "transparent", border: "none", cursor: "pointer" }}
-        >
-          <span>{theme.actionLabel}</span>
-          <ExternalLink size={11} />
-        </button>
       </div>
     </div>
   );

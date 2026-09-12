@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - AI Command Center Dedicated CSS Styling & Dark Canvas Isolation:
   - Enterprise Pure CSS Architecture: Replaced non-functional Tailwind utility classes with dedicated scoped CSS rules in `apps/console/src/features/agentic/styles/command-center-redesign.css`, matching the Linear Dark Canvas design mockup (`#07090e` canvas, `#0d121f` cards, subtle `#1e293b` borders, and `#2563eb` accents).
+  - Pixel-Perfect UI Mockup Alignment: Aligned Tier 1 into a 3-column layout featuring the Strategic Composer, AI CEO Live Analysis Stepper, and standalone Strategic Vision card (`Từ chiến lược đến kết quả thực tế`); converted `DepartmentCard` body into a clean 2-column layout (Digital Employees on left, Queue on right) with full-width exception alert banner matching the reference design.
   - Theme Isolation: Enforced dark canvas styling on `.commandCenterWorkspace` across both light and night console themes, preventing unstyled light-mode overrides from degrading enterprise readability.
   - Subcomponent CSS Class Refactor: Updated `CommandCenterHeader`, `CommandComposerPanel`, `DepartmentCard`, `WorkforceGrid`, `LiveActivityFeed`, `PendingApprovalsPanel`, and `ResultsMetricsPanel` to use semantic CSS classes with zero regressions on test suites.
 

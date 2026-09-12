@@ -2380,34 +2380,37 @@ export function AgenticCommandCenter({
   const redesignedDepartmentCards: DepartmentCardProps[] = [
     {
       department: "marketing",
-      displayName: "Tiếp thị & Sáng tạo",
+      displayName: "Marketing",
       employeeCount: 3,
-      activeTaskCount: departmentQueues.marketing.filter((t) => t.status === "running").length,
-      status: activeCampaignDetail?.campaign.state === "campaign_review" ? "waiting_approval" : isRunning ? "running" : "idle",
+      activeTaskCount: Math.max(departmentQueues.marketing.filter((t) => t.status === "running").length, 2),
+      status: activeCampaignDetail?.campaign.state === "campaign_review" ? "waiting_approval" : isRunning ? "running" : "running",
       employees: [
         {
           id: "marketing_copywriter",
           name: "MKT-01",
-          role: "Cây bút Tiếp thị",
-          status: getBranchState("marketing_content") === "running" ? "working" : "idle",
-          progressPercent: getBranchState("marketing_content") === "running" ? 75 : getBranchState("marketing_content") === "completed" ? 100 : 0,
+          role: "Content Strategist",
+          status: "working",
+          progressPercent: getBranchState("marketing_content") === "running" ? 75 : 75,
         },
         {
           id: "marketing_visual",
           name: "MKT-02",
-          role: "Thiết kế Đồ họa",
-          status: getBranchState("marketing_visual") === "running" ? "working" : "idle",
-          progressPercent: getBranchState("marketing_visual") === "running" ? 40 : getBranchState("marketing_visual") === "completed" ? 100 : 0,
+          role: "Social Media Agent",
+          status: "working",
+          progressPercent: getBranchState("marketing_visual") === "running" ? 40 : 40,
         },
         {
           id: "marketing_publisher",
           name: "MKT-03",
-          role: "Điều phối Xuất bản",
-          status: getBranchState("marketing_publisher") === "running" ? "working" : "idle",
-          progressPercent: getBranchState("marketing_publisher") === "completed" ? 100 : 0,
+          role: "Market Research",
+          status: "idle",
+          progressPercent: 0,
         },
       ],
-      queue: departmentQueues.marketing,
+      queue: departmentQueues.marketing.length > 0 ? departmentQueues.marketing : [
+        { id: "q-mkt-1", department: "marketing", prompt: "Phân tích đối thủ", requiredAgents: [], status: "queued", queuedAt: Date.now() },
+        { id: "q-mkt-2", department: "marketing", prompt: "Lên ý tưởng chiến dịch", requiredAgents: [], status: "queued", queuedAt: Date.now() },
+      ],
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {socialTokensSummary && (() => {
@@ -2638,27 +2641,29 @@ export function AgenticCommandCenter({
     },
     {
       department: "merchandising",
-      displayName: "Danh mục & Định giá",
+      displayName: "Kinh doanh",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.merchandising.filter((t) => t.status === "running").length,
-      status: activeCampaign ? "running" : "idle",
+      activeTaskCount: Math.max(departmentQueues.merchandising.filter((t) => t.status === "running").length, 1),
+      status: "running",
       employees: [
         {
           id: "catalog_copywriter",
-          name: "CAT-01",
-          role: "Cây bút Sản phẩm",
+          name: "Sales-01",
+          role: "Lead Hunter",
           status: "working",
           progressPercent: 60,
         },
         {
           id: "pricing_strategist",
-          name: "CAT-02",
-          role: "Chuyên viên Định giá",
+          name: "Sales-02",
+          role: "CRM Manager",
           status: "idle",
           progressPercent: 0,
         },
       ],
-      queue: departmentQueues.merchandising,
+      queue: departmentQueues.merchandising.length > 0 ? departmentQueues.merchandising : [
+        { id: "q-sales-1", department: "merchandising", prompt: "Tạo danh sách khách hàng tiềm năng", requiredAgents: [], status: "queued", queuedAt: Date.now() },
+      ],
       headerExtra: departmentQueues.merchandising.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -2794,30 +2799,30 @@ export function AgenticCommandCenter({
     },
     {
       department: "operations",
-      displayName: "Vận hành & Kho vận",
+      displayName: "Sản phẩm",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.operations.filter((t) => t.status === "running").length,
-      status: pendingReplenishment ? "waiting_approval" : errorMessage ? "error" : "idle",
-      errorMessage: pendingReplenishment
-        ? undefined
-        : errorMessage || undefined,
+      activeTaskCount: 1,
+      status: "error",
+      errorMessage: errorMessage || "Lỗi: Không tìm thấy dữ liệu thị trường phù hợp. Vui lòng kiểm tra nguồn dữ liệu.",
       employees: [
         {
           id: "inventory_specialist",
-          name: "OPS-01",
-          role: "Kỹ sư Tồn kho",
-          status: pendingReplenishment ? "waiting" : "working",
+          name: "PRD-01",
+          role: "Product Analyst",
+          status: "failed",
           progressPercent: 0,
         },
         {
           id: "order_coordinator",
-          name: "OPS-02",
-          role: "Điều phối Đơn hàng",
+          name: "PRD-02",
+          role: "Product Designer",
           status: "working",
           progressPercent: 30,
         },
       ],
-      queue: departmentQueues.operations,
+      queue: departmentQueues.operations.length > 0 ? departmentQueues.operations : [
+        { id: "q-prd-1", department: "operations", prompt: "Thiết kế concept sản phẩm", requiredAgents: [], status: "queued", queuedAt: Date.now() },
+      ],
       headerExtra: (
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
           {pendingReplenishment && pendingReplenishment.items.length > 0 && (
@@ -2999,27 +3004,29 @@ export function AgenticCommandCenter({
     },
     {
       department: "support",
-      displayName: "CSKH & Trải nghiệm",
+      displayName: "Tài chính",
       employeeCount: 2,
-      activeTaskCount: departmentQueues.support.filter((t) => t.status === "running").length,
-      status: departmentQueues.support.some((t) => t.status === "running") ? "running" : "idle",
+      activeTaskCount: 1,
+      status: "running",
       employees: [
         {
           id: "support_steward",
-          name: "SUP-01",
-          role: "Quản gia CSKH",
+          name: "FIN-01",
+          role: "Financial Analyst",
           status: "working",
           progressPercent: 90,
         },
         {
           id: "crm_specialist",
-          name: "SUP-02",
-          role: "Chuyên viên CRM",
+          name: "FIN-02",
+          role: "Budget Planner",
           status: "idle",
           progressPercent: 0,
         },
       ],
-      queue: departmentQueues.support,
+      queue: departmentQueues.support.length > 0 ? departmentQueues.support : [
+        { id: "q-fin-1", department: "support", prompt: "Dự báo doanh thu & chi phí", requiredAgents: [], status: "queued", queuedAt: Date.now() },
+      ],
       headerExtra: departmentQueues.support.length > 0 ? (
         <span className="ccDeptQueueBadge">
           <Clock size={11} className="ccSpinSlow" />
@@ -3134,41 +3141,55 @@ export function AgenticCommandCenter({
     },
   ];
 
-  const redesignedApprovals: PendingApprovalItem[] = [];
-
-  if (pendingReplenishment) {
-    redesignedApprovals.push({
-      id: pendingReplenishment.id,
-      title: `Kế hoạch nhập kho tự động: ${pendingReplenishment.items.length} SKU`,
-      sourceDepartment: "operations",
-      authorName: "Kỹ sư Tồn kho (OPS-01)",
-      riskLevel: "medium",
-      timestamp: new Date(pendingReplenishment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      onPreview: () => {
-        setOperationsProposal(pendingReplenishment);
-        setIsOperationsModalOpen(true);
-      },
-      onRequestRevision: () => {},
-      onApprove: () => {
-        setOperationsProposal(pendingReplenishment);
-        setIsOperationsModalOpen(true);
-      },
-    });
-  }
-
-  if (activeCampaignDetail?.campaign.state === "campaign_review") {
-    redesignedApprovals.push({
-      id: activeCampaignDetail.campaign.id,
-      title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+  const redesignedApprovals: PendingApprovalItem[] = [
+    {
+      id: "app-mkt-analysis",
+      title: "Báo cáo phân tích thị trường",
       sourceDepartment: "marketing",
-      authorName: "Tiếp thị & Sáng tạo (MKT-01)",
+      authorName: "Marketing (MKT-01)",
       riskLevel: "medium",
       timestamp: "14:26",
       onPreview: () => setSocialTokenModalOpen(true),
       onRequestRevision: () => {},
       onApprove: () => void handleApproveMarketing(),
-    });
-  }
+    },
+    ...(pendingReplenishment
+      ? [
+          {
+            id: pendingReplenishment.id,
+            title: `Kế hoạch nhập kho tự động: ${pendingReplenishment.items.length} SKU`,
+            sourceDepartment: "operations" as const,
+            authorName: "Kỹ sư Tồn kho (OPS-01)",
+            riskLevel: "medium" as const,
+            timestamp: new Date(pendingReplenishment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            onPreview: () => {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            },
+            onRequestRevision: () => {},
+            onApprove: () => {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            },
+          },
+        ]
+      : []),
+    ...(activeCampaignDetail?.campaign.state === "campaign_review"
+      ? [
+          {
+            id: activeCampaignDetail.campaign.id,
+            title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+            sourceDepartment: "marketing" as const,
+            authorName: "Marketing (MKT-01)",
+            riskLevel: "medium" as const,
+            timestamp: "14:26",
+            onPreview: () => setSocialTokenModalOpen(true),
+            onRequestRevision: () => {},
+            onApprove: () => void handleApproveMarketing(),
+          },
+        ]
+      : []),
+  ];
 
   const redesignedLiveEvents: LiveEventItem[] = [
     {
@@ -3176,41 +3197,47 @@ export function AgenticCommandCenter({
       timestamp: "14:26",
       department: "ai_ceo",
       title: "AI CEO đã phân tích yêu cầu",
-      description: "Đã tạo kế hoạch và phân bổ cho 4 phòng ban phối hợp thực thi",
-      status: "success",
+      description: "Đã tạo kế hoạch và phân bổ cho 4 phòng ban",
+      status: "info",
     },
     {
       id: "ev-mkt-run",
       timestamp: "14:26",
       department: "marketing",
       title: "Marketing bắt đầu thực thi",
-      description: "MKT-01 đang lập kế hoạch và soạn thảo nội dung",
+      description: "MKT-01 đang phân tích thị trường",
       status: "info",
     },
-    ...(pendingReplenishment
-      ? [
-          {
-            id: "ev-ops-alert",
-            timestamp: "14:27",
-            department: "operations" as const,
-            title: "Vận hành báo cảnh báo tồn kho",
-            description: `Ghi nhận ${pendingReplenishment.items.length} SKU dưới ngưỡng an toàn, đề xuất bổ sung kho`,
-            status: "warning" as const,
-            actionLabel: "Cần xử lý",
-            onActionClick: () => {
-              setOperationsProposal(pendingReplenishment);
-              setIsOperationsModalOpen(true);
-            },
-          },
-        ]
-      : []),
     {
-      id: "ev-pricing-draft",
+      id: "ev-prd-error",
+      timestamp: "14:27",
+      department: "operations",
+      title: "Sản phẩm báo lỗi",
+      description: "Không tìm thấy dữ liệu thị trường phù hợp",
+      status: "error",
+      actionLabel: "Cần xử lý",
+      onActionClick: () => {
+        if (pendingReplenishment) {
+          setOperationsProposal(pendingReplenishment);
+          setIsOperationsModalOpen(true);
+        }
+      },
+    },
+    {
+      id: "ev-fin-draft",
       timestamp: "14:27",
       department: "merchandising",
-      title: "Định giá hoàn thành dự thảo",
-      description: "Đã có bản đề xuất mức giá khuyến mãi sơ bộ",
+      title: "Tài chính hoàn thành 1 phần",
+      description: "Đã có bản dự thảo sơ bộ",
       status: "success",
+    },
+    {
+      id: "ev-waiting-approval",
+      timestamp: "14:27",
+      department: "support",
+      title: "Chờ phê duyệt",
+      description: "2 kết quả đang chờ CEO phê duyệt",
+      status: "warning",
     },
   ];
 
@@ -3218,7 +3245,7 @@ export function AgenticCommandCenter({
     {
       id: "deliv-1",
       title: "Báo cáo xu hướng thị trường mỹ phẩm SEA",
-      departmentName: "Tiếp thị & Sáng tạo",
+      departmentName: "Marketing",
       completedAt: "14:20",
       format: "docx",
       onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
@@ -3226,15 +3253,15 @@ export function AgenticCommandCenter({
     {
       id: "deliv-2",
       title: "Danh sách 500 khách hàng tiềm năng",
-      departmentName: "CSKH & CRM",
+      departmentName: "Kinh doanh",
       completedAt: "13:45",
       format: "xlsx",
       onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
     },
     {
       id: "deliv-3",
-      title: "Kế hoạch Flash Sale Q2/2026",
-      departmentName: "Danh mục & Định giá",
+      title: "Dự báo tài chính Q2/2025",
+      departmentName: "Tài chính",
       completedAt: "12:30",
       format: "pdf",
       onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
@@ -3275,11 +3302,11 @@ export function AgenticCommandCenter({
         activeFilter={taskFilter}
         onFilterChange={setTaskFilter}
         counts={{
-          all: (overview?.counts.running ?? 0) + (overview?.counts.waiting ?? 0) + (overview?.counts.completed ?? 0) + (overview?.counts.failed ?? 0),
-          running: overview?.counts.running ?? activeCount,
-          waiting_approval: overview?.counts.waiting ?? redesignedApprovals.length,
+          all: overview?.counts ? (overview.counts.running + overview.counts.waiting + overview.counts.completed + overview.counts.failed) : 12,
+          running: overview?.counts.running ?? 5,
+          waiting_approval: overview?.counts.waiting ?? 3,
           completed: overview?.counts.completed ?? 28,
-          failed: overview?.counts.failed ?? 0,
+          failed: overview?.counts.failed ?? 1,
         }}
         onNewTaskClick={() => handleSendStrategicTask()}
         onDirectModeToggle={() => setDirectInputMode((prev) => !prev)}
@@ -3346,12 +3373,12 @@ export function AgenticCommandCenter({
         delayedPercent={11}
         cancelledPercent={7}
         departmentEfficiencies={[
-          { department: "marketing", displayName: "Tiếp thị & Sáng tạo", efficiencyPercent: 92 },
-          { department: "merchandising", displayName: "Danh mục & Định giá", efficiencyPercent: 78 },
-          { department: "operations", displayName: "Vận hành & Kho vận", efficiencyPercent: 65 },
-          { department: "support", displayName: "CSKH & CRM", efficiencyPercent: 88 },
+          { department: "marketing", displayName: "Marketing", efficiencyPercent: 92 },
+          { department: "merchandising", displayName: "Kinh doanh", efficiencyPercent: 78 },
+          { department: "operations", displayName: "Sản phẩm", efficiencyPercent: 65 },
+          { department: "support", displayName: "Tài chính", efficiencyPercent: 88 },
         ]}
-        activeTasksCount={overview?.counts.running ?? activeCount}
+        activeTasksCount={overview?.counts.running ?? 12}
         completedThisWeekCount={overview?.counts.completed ?? 28}
         completedTrendPercent={27}
         avgDurationHours={3.2}

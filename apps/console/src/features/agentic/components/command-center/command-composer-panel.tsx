@@ -246,7 +246,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
         </div>
       </div>
 
-      {/* Right (approx 35-40%): AI CEO Live Stepper Card */}
+      {/* Column 2 (approx 30%): AI CEO Live Stepper Card */}
       <div className="ccCeoCard">
         <div>
           {/* Header */}
@@ -258,6 +258,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               <div>
                 <h3 className="ccCeoName">AI CEO</h3>
                 <span className="ccCeoBadge">
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} className="animate-pulse" />
                   {isAnalyzing ? "Đang phân tích..." : "Sẵn sàng"}
                 </span>
               </div>
@@ -288,7 +289,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
                   {isDone ? (
                     <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
                   ) : isCurrent ? (
-                    <Loader2 size={14} style={{ color: "#3b82f6", flexShrink: 0 }} className="animate-spin" />
+                    <Target size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
                   ) : (
                     <span style={{ width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #475569", flexShrink: 0, display: "inline-block" }} />
                   )}
@@ -298,12 +299,17 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
             })}
           </div>
         </div>
+      </div>
 
-        {/* Footer quote banner */}
-        <div className="ccCeoBanner">
-          <p className="ccCeoBannerHeadline">Từ chiến lược đến kết quả thực tế.</p>
-          <p className="ccCeoBannerFormula">AI × Con người × Quy trình = Tăng trưởng thật.</p>
+      {/* Column 3 (approx 15-20%): Strategic Vision Slogan Card */}
+      <div className="ccSloganCard">
+        <div className="ccSloganHeader">
+          <span className="ccSloganBlue">Từ chiến lược</span>
+          <span className="ccSloganWhite">đến kết quả thực tế.</span>
         </div>
+        <p className="ccSloganFormula">
+          AI × Con người × Quy trình = Tăng trưởng thật.
+        </p>
       </div>
     </div>
   );
