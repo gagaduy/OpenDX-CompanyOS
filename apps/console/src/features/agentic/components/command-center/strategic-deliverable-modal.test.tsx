@@ -138,4 +138,87 @@ describe("StrategicDeliverableModal", () => {
     expect(screen.getAllByText(/Chiến dịch Nova Tech - Khai Phá Tương Lai/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Phòng Kinh doanh & Định giá Danh mục")).toBeDefined();
   });
+
+  it("builds and renders Operations & Supply Chain deliverable with inventory metrics", () => {
+    const opsDeliverable = buildStrategicDeliverable(
+      "Kiểm tra tồn kho an toàn các mặt hàng bán chạy và lập đề xuất nhập kho",
+      "ops-123",
+      "operations",
+    );
+
+    expect(opsDeliverable.department).toBe("operations");
+    expect(opsDeliverable.departmentName).toBe("Phòng Chuỗi cung ứng & Kho vận");
+    expect(opsDeliverable.title).toContain("Báo cáo Vận hành & Chuỗi cung ứng");
+    expect(opsDeliverable.docxFilename).toBe("Bao_cao_Van_hanh_Ton_kho_An_toan.docx");
+
+    render(
+      <StrategicDeliverableModal
+        isOpen={true}
+        deliverable={opsDeliverable}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Phòng Chuỗi cung ứng & Kho vận")).toBeDefined();
+    expect(screen.getByText("Tóm tắt Chiến lược Điều hành (Executive Summary)")).toBeDefined();
+
+    fireEvent.click(screen.getByText(/Dữ liệu & Thị trường/));
+    expect(screen.getByText("Tỷ lệ Sẵn sàng Hàng hóa (Fill Rate)")).toBeDefined();
+    expect(screen.getByText("98.2%")).toBeDefined();
+  });
+
+  it("builds and renders Support & Customer Experience deliverable with CSAT metrics", () => {
+    const supDeliverable = buildStrategicDeliverable(
+      "Phân tích ticket khiếu nại khách hàng, giảm tỷ lệ churn và đề xuất voucher tri ân",
+      "sup-123",
+      "support",
+    );
+
+    expect(supDeliverable.department).toBe("support");
+    expect(supDeliverable.departmentName).toBe("Phòng CSKH & Trải nghiệm Khách hàng");
+    expect(supDeliverable.title).toContain("Báo cáo CSKH & Trải nghiệm Khách hàng");
+    expect(supDeliverable.docxFilename).toBe("Bao_cao_CSKH_Va_Giu_chan_Khach_hang.docx");
+
+    render(
+      <StrategicDeliverableModal
+        isOpen={true}
+        deliverable={supDeliverable}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeDefined();
+
+    fireEvent.click(screen.getByText(/Dữ liệu & Thị trường/));
+    expect(screen.getByText("Điểm Hài lòng Khách hàng (CSAT)")).toBeDefined();
+    expect(screen.getByText("94.8%")).toBeDefined();
+  });
+
+  it("builds and renders Marketing deliverable with multi-channel reach metrics", () => {
+    const mktDeliverable = buildStrategicDeliverable(
+      "Chiến dịch truyền thông ra mắt sản phẩm mới trên Fanpage Facebook và TikTok",
+      "mkt-123",
+      "marketing",
+    );
+
+    expect(mktDeliverable.department).toBe("marketing");
+    expect(mktDeliverable.departmentName).toBe("Phòng Tiếp thị & Truyền thông Sáng tạo");
+    expect(mktDeliverable.title).toContain("Báo cáo Tiếp thị & Truyền thông");
+    expect(mktDeliverable.docxFilename).toBe("Bao_cao_Tiep_thi_Va_Truyen_thong_Da_kenh.docx");
+
+    render(
+      <StrategicDeliverableModal
+        isOpen={true}
+        deliverable={mktDeliverable}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Phòng Tiếp thị & Truyền thông Sáng tạo")).toBeDefined();
+
+    fireEvent.click(screen.getByText(/Dữ liệu & Thị trường/));
+    expect(screen.getByText("Lượt Tiếp cận Dự kiến (Reach)")).toBeDefined();
+    expect(screen.getByText("285,000 Lượt")).toBeDefined();
+  });
 });
+

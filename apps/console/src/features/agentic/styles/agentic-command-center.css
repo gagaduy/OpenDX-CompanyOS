@@ -5808,6 +5808,269 @@
   color: #475569;
 }
 
+/* ==========================================================================
+   Completion Toast Notification (High-Visibility Floating Alert)
+   ========================================================================== */
+
+.ccCompletionToastContainer {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100000;
+  max-width: 460px;
+  width: calc(100vw - 2.5rem);
+  pointer-events: auto;
+  animation: ccToastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes ccToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ccCompletionToastCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.98) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.25);
+  backdrop-filter: blur(12px);
+  padding: 1.15rem 1.25rem;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.ccCompletionToastCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6, #10b981);
+  background-size: 200% 100%;
+  animation: ccGradientMove 3s linear infinite;
+}
+
+@keyframes ccGradientMove {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+.ccCompletionToastHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ccCompletionToastMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ccCompletionToastIconWrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.ccCompletionToastDeptTag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.ccCompletionToastDeptTag.marketing {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #a78bfa;
+}
+
+.ccCompletionToastDeptTag.merchandising {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.ccCompletionToastDeptTag.operations {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.ccCompletionToastDeptTag.support {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.35);
+  color: #22d3ee;
+}
+
+.ccCompletionToastDeptTag.ai_ceo {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.ccCompletionToastStatusBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ccCompletionToastCloseBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.ccCompletionToastCloseBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ccCompletionToastBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ccCompletionToastTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffffff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ccCompletionToastGoal {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ccCompletionToastActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ccCompletionToastBtnPrimary {
+  flex: 1;
+  background: #2563eb;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.ccCompletionToastBtnPrimary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+}
+
+.ccCompletionToastBtnSecondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.ccCompletionToastBtnSecondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/* Light mode support */
+.consoleLayout[data-theme="light"] .ccCompletionToastCard,
+[data-theme="light"] .ccCompletionToastCard {
+  background: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.15), 0 0 15px rgba(16, 185, 129, 0.15);
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCompletionToastTitle,
+[data-theme="light"] .ccCompletionToastTitle {
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccCompletionToastGoal,
+[data-theme="light"] .ccCompletionToastGoal {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccCompletionToastBtnSecondary,
+[data-theme="light"] .ccCompletionToastBtnSecondary {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+
 
 
 

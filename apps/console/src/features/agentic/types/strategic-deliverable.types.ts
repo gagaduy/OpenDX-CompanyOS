@@ -197,14 +197,27 @@ export function buildStrategicDeliverable(
   }
 
   // 2. Cosmetics / Beauty ASEAN Market Analysis
-  if (lowerGoal.includes("mỹ phẩm") || lowerGoal.includes("đông nam á") || lowerGoal.includes("ra mắt sản phẩm")) {
+  if (
+    lowerGoal.includes("mỹ phẩm") ||
+    lowerGoal.includes("đông nam á") ||
+    lowerGoal.includes("beauty") ||
+    lowerGoal.includes("skincare") ||
+    lowerGoal.includes("son môi") ||
+    lowerGoal.includes("kem dưỡng")
+  ) {
+    const mDeptName =
+      department === "merchandising"
+        ? "Phòng Kinh doanh & Định giá Danh mục"
+        : department === "marketing"
+          ? "Phòng Tiếp thị & Truyền thông Sáng tạo"
+          : "AI CEO & Điều phối Chiến lược";
     return {
       id,
       taskId,
       goal: cleanGoal,
       title: "Báo cáo Chiến lược: Phân tích Thị trường Mỹ phẩm Đông Nam Á & Kế hoạch Ra mắt",
       department: department || "ai_ceo",
-      departmentName: department === "merchandising" ? "Phòng Kinh doanh & Định giá Danh mục" : "AI CEO & Điều phối Chiến lược",
+      departmentName: mDeptName,
       createdAt: now,
       completedAt: now,
       summary:
@@ -322,7 +335,387 @@ export function buildStrategicDeliverable(
     };
   }
 
-  // 3. Generic Strategic Goal Handler
+  // 3. Operations & Supply Chain Analysis
+  if (
+    department === "operations" ||
+    lowerGoal.includes("tồn kho") ||
+    lowerGoal.includes("nhập kho") ||
+    lowerGoal.includes("kho vận") ||
+    lowerGoal.includes("chuỗi cung ứng") ||
+    lowerGoal.includes("bổ sung hàng") ||
+    lowerGoal.includes("kỹ sư tồn kho") ||
+    lowerGoal.includes("an toàn kho")
+  ) {
+    return {
+      id,
+      taskId,
+      goal: cleanGoal,
+      title: "Báo cáo Vận hành & Chuỗi cung ứng: Đánh giá Tồn kho An toàn & Đề xuất Nhập bổ sung Kho",
+      department: "operations",
+      departmentName: "Phòng Chuỗi cung ứng & Kho vận",
+      createdAt: now,
+      completedAt: now,
+      summary:
+        "Báo cáo tổng hợp số liệu tồn kho khả dụng, phân tích tốc độ luân chuyển sản phẩm và xác định các SKU chạm ngưỡng cảnh báo tồn kho an toàn (Safety Stock). Hệ thống Kỹ sư Kho và Điều phối Đơn hàng đã tự động đối soát số lượng giữ chỗ, thời gian bổ sung hàng (Lead Time) và đề xuất phương án nhập kho khẩn cấp để bảo đảm tỷ lệ sẵn sàng phục vụ 98.2% mà không làm phát sinh chi phí lưu kho thừa.",
+      marketInsights: [
+        {
+          label: "Tỷ lệ Sẵn sàng Hàng hóa (Fill Rate)",
+          value: "98.2%",
+          change: "+2.4% so với kỳ trước",
+          description: "Duy trì tỷ lệ hết hàng (Stockout) ở mức dưới 1.8% cho các sản phẩm chủ lực.",
+        },
+        {
+          label: "Tồn kho An toàn Bình quân",
+          value: "21 Ngày",
+          change: "Ngưỡng khuyến nghị",
+          description: "Đảm bảo cung ứng liên tục trong giai đoạn cao điểm mà không ứ đọng dòng vốn.",
+        },
+        {
+          label: "Tốc độ Vòng quay Kho (Turnover)",
+          value: "6.4 vòng/năm",
+          change: "+1.1 vòng",
+          description: "Cải thiện dòng tiền và giảm chi phí khấu hao hàng hóa lưu bãi.",
+        },
+        {
+          label: "Tỷ lệ SKU Chậm luân chuyển",
+          value: "3.8%",
+          change: "Giảm 1.6%",
+          description: "Các SKU biên lợi nhuận thấp đã được đưa vào chương trình giải phóng hàng tồn.",
+        },
+      ],
+      conclusions: [
+        {
+          id: "c-ops-1",
+          title: "Kích hoạt Cơ chế Tự động Đặt hàng Lại (Auto-ROP)",
+          detail:
+            "Thiết lập điểm đặt hàng tự động cho các SKU phụ kiện bán chạy (sạc nhanh, tai nghe), rút ngắn chu kỳ đặt hàng từ 5 ngày xuống còn 24 giờ.",
+          impact: "high",
+        },
+        {
+          id: "c-ops-2",
+          title: "Mở rộng Vùng đệm An toàn Kho Vệ tinh",
+          detail:
+            "Phân bổ 30% lượng tồn kho về các kho vệ tinh gần trung tâm đô thị để rút ngắn thời gian giao hàng chặng cuối (Last-mile delivery) xuống dưới 24h.",
+          impact: "high",
+        },
+        {
+          id: "c-ops-3",
+          title: "Kiểm định Chất lượng Đầu vào Đạt chuẩn QA/QC",
+          detail:
+            "Áp dụng quy trình kiểm tra 3 bước đối với linh kiện và thiết bị điện tử, hạn chế tỷ lệ lỗi kỹ thuật khi giao đến tay người tiêu dùng.",
+          impact: "medium",
+        },
+      ],
+      risks: [
+        {
+          id: "r-ops-1",
+          risk: "Đứt hàng đột biến trong sự kiện Flash Sale cao điểm",
+          severity: "medium",
+          mitigation:
+            "Khóa trước hạn mức đặt hàng với nhà cung ứng cấp 1 và thiết lập danh sách nhà cung ứng dự phòng thứ cấp.",
+        },
+        {
+          id: "r-ops-2",
+          risk: "Chi phí lưu kho tăng cao vào mùa cao điểm",
+          severity: "low",
+          mitigation:
+            "Tối ưu diện tích pallet và đẩy nhanh tốc độ xuất kho các mã hàng có kích thước cồng kềnh.",
+        },
+      ],
+      actionPlan: [
+        {
+          phase: "Giai đoạn 1 (Ngày 1-2)",
+          title: "Kiểm toán Tồn kho Khả dụng & Lập Đơn Đặt hàng (PO)",
+          duration: "48 giờ",
+          tasks: [
+            "Đối soát số lượng tồn kho vật lý và số dư trên hệ thống phần mềm",
+            "Xác định danh sách SKU cần bổ sung khẩn cấp",
+            "Phát hành đơn đặt mua hàng (PO) gửi nhà cung cấp",
+          ],
+        },
+        {
+          phase: "Giai đoạn 2 (Ngày 3-5)",
+          title: "Tiếp nhận Hàng, Kiểm tra QA/QC & Nhập Hệ thống",
+          duration: "72 giờ",
+          tasks: [
+            "Tiếp nhận hàng tại cửa kho và đối chiếu hóa đơn chứng từ",
+            "Kiểm tra chất lượng mẫu ngẫu nhiên theo tiêu chuẩn AQL",
+            "Nhập kho vật lý và cập nhật số lượng lên hệ thống WMS",
+          ],
+        },
+        {
+          phase: "Giai đoạn 3 (Ngày 6-7)",
+          title: "Đồng bộ Dữ liệu Tồn kho lên Storefront & Giám sát Tự động",
+          duration: "48 giờ",
+          tasks: [
+            "Đồng bộ số lượng khả dụng lên gian hàng trực tuyến Storefront",
+            "Gỡ bỏ nhãn 'Hết hàng' và gửi thông báo cho khách hàng đã đăng ký nhận tin",
+            "Kích hoạt cảm biến cảnh báo tồn kho an toàn thời gian thực",
+          ],
+        },
+      ],
+      estimatedBudgetVnd: 185000000,
+      tokenCost: 2840,
+      format: "docx",
+      docxFilename: "Bao_cao_Van_hanh_Ton_kho_An_toan.docx",
+    };
+  }
+
+  // 4. Support & Customer Experience Analysis
+  if (
+    department === "support" ||
+    lowerGoal.includes("cskh") ||
+    lowerGoal.includes("khách hàng") ||
+    lowerGoal.includes("khiếu nại") ||
+    lowerGoal.includes("ticket") ||
+    lowerGoal.includes("churn") ||
+    lowerGoal.includes("trải nghiệm") ||
+    lowerGoal.includes("chăm sóc khách") ||
+    lowerGoal.includes("voucher tri ân")
+  ) {
+    return {
+      id,
+      taskId,
+      goal: cleanGoal,
+      title: "Báo cáo CSKH & Trải nghiệm Khách hàng: Kiểm toán Ticket Sự cố, Phân khúc VIP & Giữ chân Khách hàng",
+      department: "support",
+      departmentName: "Phòng CSKH & Trải nghiệm Khách hàng",
+      createdAt: now,
+      completedAt: now,
+      summary:
+        "Báo cáo phân tích toàn diện 1,240 ticket hỗ trợ và chỉ số phản hồi của khách hàng trong chu kỳ vận hành. Hệ thống Quản gia CSKH và Chuyên viên CRM đã phân nhóm các điểm nghẽn trải nghiệm (thời gian phản hồi tin nhắn, khiếu nại giao trễ, hướng dẫn kỹ thuật), đồng thời thiết lập chính sách chăm sóc đặc biệt cho nhóm khách hàng VIP và quy trình cấp voucher bù đắp tự động nhằm giảm tỷ lệ rời bỏ (Churn Rate) xuống mức 2.4%.",
+      marketInsights: [
+        {
+          label: "Điểm Hài lòng Khách hàng (CSAT)",
+          value: "94.8%",
+          change: "Mục tiêu > 92%",
+          description: "94.8% khách hàng đánh giá hài lòng với quy trình giải quyết sự cố và thái độ hỗ trợ.",
+        },
+        {
+          label: "Thời gian Phản hồi Lần đầu (FRT)",
+          value: "42 Giây",
+          change: "Giảm 65%",
+          description: "Hệ thống AI Triage phân luồng tự động giúp giảm mạnh thời gian chờ của người dùng.",
+        },
+        {
+          label: "Tỷ lệ Rời bỏ Khách hàng (Churn)",
+          value: "2.4%",
+          change: "Giảm 1.8%",
+          description: "Chính sách voucher bù đắp giúp giữ chân 82% khách hàng có trải nghiệm ban đầu chưa tốt.",
+        },
+        {
+          label: "Giá trị Vòng đời Khách hàng (CLV)",
+          value: "4,850,000 ₫",
+          change: "+24% YoY",
+          description: "Khách hàng VIP quay lại mua hàng với giá trị đơn trung bình cao hơn 2.3 lần.",
+        },
+      ],
+      conclusions: [
+        {
+          id: "c-sup-1",
+          title: "Cơ chế Tự động Cấp Voucher Bù đắp Trải nghiệm",
+          detail:
+            "Khi đơn hàng bị chậm giao quá 2 giờ so với cam kết, hệ thống tự động gửi tin nhắn xin lỗi kèm mã voucher giảm giá 10% trong vòng 15 phút.",
+          impact: "high",
+        },
+        {
+          id: "c-sup-2",
+          title: "Luồng Ưu tiên Dành riêng cho Khách hàng VIP",
+          detail:
+            "Các hội viên Diamond và Gold được kết nối trực tiếp với chuyên viên CSKH cao cấp, cam kết giải quyết mọi sự cố trong tối đa 30 phút.",
+          impact: "high",
+        },
+        {
+          id: "c-sup-3",
+          title: "Xây dựng Thư viện Tri thức Tự Phục vụ (Knowledge Base)",
+          detail:
+            "Bổ sung video hướng dẫn sử dụng và tài liệu khắc phục lỗi phổ biến, giúp khách hàng tự giải quyết 78% thắc mắc ngoài giờ hành chính.",
+          impact: "medium",
+        },
+      ],
+      risks: [
+        {
+          id: "r-sup-1",
+          risk: "Quá tải luồng yêu cầu hỗ trợ trong khung giờ Mega Sale",
+          severity: "medium",
+          mitigation:
+            "Bật chế độ Auto-reply thông minh và huy động nhân sự trực tăng cường theo ca kíp.",
+        },
+        {
+          id: "r-sup-2",
+          risk: "Nguy cơ trục lợi chính sách bồi hoàn voucher",
+          severity: "low",
+          mitigation:
+            "Thiết lập quy tắc kiểm tra chéo lịch sử mua hàng và giới hạn mỗi tài khoản chỉ nhận tối đa 1 voucher bồi hoàn/tháng.",
+        },
+      ],
+      actionPlan: [
+        {
+          phase: "Giai đoạn 1 (Ngày 1-2)",
+          title: "Phân loại & Giải quyết 100% Ticket Khiếu nại Còn Tồn đọng",
+          duration: "48 giờ",
+          tasks: [
+            "Quét toàn bộ hòm thư và kênh tin nhắn để nhận diện các ticket chưa xử lý",
+            "Phân công chuyên viên phụ trách xử lý ngay các ca khẩn cấp",
+            "Cập nhật trạng thái và thông báo kết quả cho khách hàng",
+          ],
+        },
+        {
+          phase: "Giai đoạn 2 (Ngày 3-4)",
+          title: "Kích hoạt Chiến dịch Chăm sóc Cá nhân hóa cho Khách hàng VIP",
+          duration: "48 giờ",
+          tasks: [
+            "Trích xuất danh sách hội viên VIP có sinh nhật hoặc sắp tái đặt hàng",
+            "Gửi quà tri ân và mã ưu đãi độc quyền qua kênh thông báo riêng",
+            "Gọi điện thăm hỏi ý kiến trải nghiệm dịch vụ",
+          ],
+        },
+        {
+          phase: "Giai đoạn 3 (Ngày 5-7)",
+          title: "Tối ưu Kịch bản Chatbot Tự động & Đo lường Chỉ số NPS/CSAT",
+          duration: "72 giờ",
+          tasks: [
+            "Cập nhật câu trả lời mẫu cho các câu hỏi xuất hiện nhiều trong tuần",
+            "Gửi khảo sát đo lường mức độ hài lòng tự động sau khi đóng ticket",
+            "Báo cáo tổng kết chỉ số CSAT và NPS lên bảng điều khiển Ban Giám đốc",
+          ],
+        },
+      ],
+      estimatedBudgetVnd: 75000000,
+      tokenCost: 2650,
+      format: "docx",
+      docxFilename: "Bao_cao_CSKH_Va_Giu_chan_Khach_hang.docx",
+    };
+  }
+
+  // 5. Marketing & Social Campaign Analysis
+  if (
+    department === "marketing" ||
+    lowerGoal.includes("marketing") ||
+    lowerGoal.includes("tiếp thị") ||
+    lowerGoal.includes("truyền thông") ||
+    lowerGoal.includes("fanpage") ||
+    lowerGoal.includes("bài viết") ||
+    lowerGoal.includes("quảng cáo") ||
+    lowerGoal.includes("tiktok") ||
+    lowerGoal.includes("poster")
+  ) {
+    return {
+      id,
+      taskId,
+      goal: cleanGoal,
+      title: "Báo cáo Tiếp thị & Truyền thông: Kế hoạch Đa Kênh Tăng trưởng Lưu lượng & Kích hoạt Doanh số",
+      department: "marketing",
+      departmentName: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+      createdAt: now,
+      completedAt: now,
+      summary:
+        "Chiến dịch truyền thông số tích hợp trên các kênh Facebook Fanpage, TikTok và Storefront nhằm tối ưu hóa phễu chuyển đổi khách hàng từ nhận biết đến quyết định mua. Đội ngũ Cây bút Sáng tạo, Thiết kế Đồ họa và Điều phối Xuất bản đã hoàn thiện bộ ấn phẩm trực quan 1080x1080 đạt chuẩn nhận diện thương hiệu, thông điệp truyền thông sắc bén và kế hoạch phân bổ ngân sách quảng cáo đảm bảo chỉ số ROAS đạt trên 4.5x.",
+      marketInsights: [
+        {
+          label: "Lượt Tiếp cận Dự kiến (Reach)",
+          value: "285,000 Lượt",
+          change: "Độ phủ đa kênh",
+          description: "Tập trung vào nhóm đối tượng khách hàng mục tiêu từ 20-35 tuổi yêu thích công nghệ & phong cách sống.",
+        },
+        {
+          label: "Tỷ lệ Tương tác (Engagement)",
+          value: "6.8%",
+          change: "Vượt chuẩn ngành",
+          description: "Định dạng hình ảnh 3D và câu hỏi tương tác kéo tỷ lệ bình luận tăng gấp đôi so với bài viết thông thường.",
+        },
+        {
+          label: "Tỷ suất Doanh thu / Chi phí (ROAS)",
+          value: "4.5x",
+          change: "Dự kiến đạt được",
+          description: "Dựa trên mô hình phễu chuyển đổi thử nghiệm và giá trị giỏ hàng AOV tối ưu.",
+        },
+        {
+          label: "Chi phí cho Mỗi Lượt Nhấp (CPC)",
+          value: "1,250 ₫",
+          change: "Tiết kiệm 22%",
+          description: "Tối ưu hóa thông điệp và nhắm chọn mục tiêu giúp giảm lãng phí ngân sách.",
+        },
+      ],
+      conclusions: [
+        {
+          id: "c-mkt-1",
+          title: "Tập trung Phân bổ Ngân sách vào Khung Giờ Vàng",
+          detail:
+            "Tập trung 65% ngân sách quảng cáo vào các khung giờ 11:30 - 13:00 và 20:00 - 22:30 để đón đầu thời điểm người dùng mua sắm trực tuyến nhiều nhất.",
+          impact: "high",
+        },
+        {
+          id: "c-mkt-2",
+          title: "Đồng bộ Thông điệp Tiếp thị với Chương trình Storefront",
+          detail:
+            "Mọi bài đăng đều có liên kết trực tiếp (Deep Link) đến trang chi tiết sản phẩm kèm mã ưu đãi đồng bộ thời gian thực.",
+          impact: "high",
+        },
+        {
+          id: "c-mkt-3",
+          title: "Thử nghiệm A/B Testing Hình ảnh và Tiêu đề",
+          detail:
+            "Chạy thử 3 biến thể hình ảnh và 2 phiên bản tiêu đề trong 24 giờ đầu để chọn ra mẫu có CTR cao nhất trước khi mở rộng ngân sách.",
+          impact: "medium",
+        },
+      ],
+      risks: [
+        {
+          id: "r-mkt-1",
+          risk: "Chi phí đấu thầu quảng cáo tăng cao do cạnh tranh mùa lễ",
+          severity: "medium",
+          mitigation:
+            "Tăng cường tỷ trọng nội dung tự nhiên (Organic Content) và khai thác tệp khách hàng sẵn có qua email/SMS.",
+        },
+        {
+          id: "r-mkt-2",
+          risk: "Rủi ro phản hồi tiêu cực trên mạng xã hội",
+          severity: "low",
+          mitigation:
+            "Chuẩn bị sẵn bộ kịch bản phản hồi khủng hoảng truyền thông và phân công người trực theo dõi bình luận 24/7.",
+        },
+      ],
+      actionPlan: [
+        {
+          phase: "Giai đoạn 1 (Ngày 1-2)",
+          title: "Hoàn thiện Nội dung Bản thảo, Thiết kế Visual & Duyệt Bài đăng",
+          duration: "48 giờ",
+          tasks: [
+            "Soạn thảo nội dung bài đăng chính và các bài viết bổ trợ",
+            "Thiết kế bộ banner và ảnh sản phẩm 1:1 chuẩn kích thước",
+            "Trình Ban Giám đốc phê duyệt bản thảo cuối cùng",
+          ],
+        },
+        {
+          phase: "Giai đoạn 2 (Ngày 3-5)",
+          title: "Xuất bản Lên Fanpage & Chạy Thử nghiệm A/B Testing",
+          duration: "72 giờ",
+          tasks: [
+            "Xuất bản bài viết theo lịch hẹn tự động lên Fanpage Facebook",
+            "Cài đặt chiến dịch quảng cáo thử nghiệm ngân sách nhỏ",
+            "Đo lường chỉ số CTR và CPC để tối ưu nội dung",
+          ],
+        },
+        {
+          phase: "Giai đoạn 3 (Ngày 6-7)",
+          title: "Mở rộng Ngân sách Chiến dịch Thắng cuộc & Tổng kết Hiệu quả",
+          duration: "48 giờ",
+          tasks: [
+            "Tập trung 100% ngân sách vào mẫu quảng cáo hiệu quả nhất",
+            "Chạy Remarketing nhắm lại những người dùng đã bấm vào liên kết",
+            "Xuất báo cáo tổng kết chuyển đổi doanh thu cho Ban Giám đốc",
+          ],
+        },
+      ],
+      estimatedBudgetVnd: 120000000,
+      tokenCost: 2980,
+      format: "docx",
+      docxFilename: "Bao_cao_Tiep_thi_Va_Truyen_thong_Da_kenh.docx",
+    };
+  }
+
+  // 6. Generic Strategic Goal Handler
   const deptDisplayNameMap: Record<DepartmentType | "ai_ceo", string> = {
     ai_ceo: "AI CEO & Điều phối Chiến lược",
     marketing: "Phòng Tiếp thị & Truyền thông Sáng tạo",
@@ -578,4 +971,23 @@ export function generateWordDocumentContent(deliverable: StrategicDeliverable): 
 </body>
 </html>
   `.trim();
+}
+
+/**
+ * Helper to download the StrategicDeliverable Word document (.docx compatible) directly.
+ */
+export function downloadDeliverableDocx(deliverable: StrategicDeliverable): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const htmlContent = generateWordDocumentContent(deliverable);
+  const blob = new Blob([htmlContent], {
+    type: "application/msword;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = deliverable.docxFilename || `Bao_cao_Chien_luoc_${deliverable.id.slice(0, 8)}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  URL.revokeObjectURL(url);
+  document.body.removeChild(link);
 }

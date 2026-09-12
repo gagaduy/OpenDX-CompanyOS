@@ -11,6 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Universal Strategic Deliverable Popup & Prominent Floating Completion Toast:
+  - Universal Strategic Deliverable Modal Auto-Popup: Resolved the issue where completing tasks dispatched to Marketing, Merchandising, Operations, or Support departments left the Command Center silent without presenting the executive deliverable. Configured all department completion pathways (both Command Composer `handleSendStrategicTask` and department card `executeDepartmentWorkflow`) to automatically open `StrategicDeliverableModal` upon task completion.
+  - High-Visibility Floating Completion Toast (`ccCompletionToast`): Created a fixed-position glassmorphic notification banner (`position: fixed; top: 1.5rem; right: 1.5rem; z-index: 100000;`) featuring animated gradient accents, emerald status indicators, department badges, 100% completion chips, and 1-click action buttons ("Xem Báo cáo ngay" and "Tải Word (.docx)").
+  - Specialized Strategic Deliverable Generators: Expanded `buildStrategicDeliverable` with rich, highly realistic domain-specific templates for all departments:
+    - Operations & Supply Chain: Safety stock audit, fill rate (98.2%), turnover velocity (6.4x), lead-time optimization, auto-ROP policies, and 3-phase replenishment roadmap.
+    - Support & Customer Experience: Ticket audit, CSAT (94.8%), First Response Time (42s), churn reduction (2.4%), automated apology vouchers, VIP escalation routing, and retention roadmap.
+    - Marketing & Communications: Multi-channel campaign plan, projected reach (285,000), engagement rate (6.8%), ROAS (4.5x), golden-hour budget allocation, and creative package deployment.
+  - Deliverables Dashboard & Activity Feed Synchronization: Corrected department naming and event labels across `initialEvents` and `redesignedRecentDeliverables` for Operations ("Vận hành" instead of "Sản phẩm") and Support ("CSKH" instead of "Tài chính"), linking all recent deliverables to `StrategicDeliverableModal`.
+  - Direct Word (.docx) Export Helper: Added `downloadDeliverableDocx` utility enabling direct document download from both the modal and the floating completion toast.
+  - Comprehensive Test Verification: Added unit test coverage in `strategic-deliverable-modal.test.tsx` verifying Operations, Support, and Marketing deliverable generation and tab rendering; all 51 test suites and 219/219 tests pass.
+
 - Catalog Product Media Resilience & Missing Campaign Image Fallback (404 Error Fix):
   - Root Cause Resolution: Diagnosed DevTools 404 errors (`GET /v1/admin/catalog/products/:id/media/:mediaId/content`) caused by orphaned campaign media storage keys in `product_media` pointing to expired or deleted campaign artifacts in MinIO.
   - Defense-in-Depth Seed Fallback: Implemented automatic fallback in `ProductMediaService.getContent` to retrieve the product's seed image (`seed/catalog/${product.slug}.png`) when campaign overlay media is missing from object storage (`NoSuchKey` / `NotFound`), returning HTTP 200 instead of failing with 404.

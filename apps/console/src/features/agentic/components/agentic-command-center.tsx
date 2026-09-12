@@ -79,6 +79,7 @@ import { DepartmentDiagnosticsModal } from "./command-center/department-diagnost
 import { StrategicDeliverableModal } from "./command-center/strategic-deliverable-modal";
 import {
   buildStrategicDeliverable,
+  downloadDeliverableDocx,
   type StrategicDeliverable,
 } from "../types/strategic-deliverable.types";
 import type {
@@ -573,6 +574,77 @@ export function AgenticCommandCenter({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Prominent Completion Toast Notification
+  const [completionToast, setCompletionToast] = useState<{
+    readonly id: string;
+    readonly title: string;
+    readonly department: "ai_ceo" | DepartmentType;
+    readonly departmentName: string;
+    readonly goal: string;
+    readonly deliverable: StrategicDeliverable;
+    readonly timestamp: string;
+  } | null>(null);
+  const completionToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (completionToastTimerRef.current) {
+        clearTimeout(completionToastTimerRef.current);
+      }
+    };
+  }, []);
+
+  const notifyAndShowStrategicDeliverable = useCallback(
+    (
+      goalText: string,
+      taskId?: string,
+      department?: "ai_ceo" | DepartmentType,
+      customSuccessMsg?: string,
+    ) => {
+      const deliverable = buildStrategicDeliverable(goalText, taskId, department);
+      setCompletedStrategicDeliverable(deliverable);
+      setSelectedStrategicDeliverable(deliverable);
+      setIsStrategicModalOpen(true);
+
+      const deptNameMap: Record<DepartmentType | "ai_ceo", string> = {
+        ai_ceo: "AI CEO & Điều phối Chiến lược",
+        marketing: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+        merchandising: "Phòng Kinh doanh & Định giá Danh mục",
+        operations: "Phòng Chuỗi cung ứng & Kho vận",
+        support: "Phòng CSKH & Trải nghiệm Khách hàng",
+      };
+      const deptName = deptNameMap[department || "ai_ceo"] || "AI CEO & Điều phối Chiến lược";
+
+      if (completionToastTimerRef.current) {
+        clearTimeout(completionToastTimerRef.current);
+      }
+
+      setCompletionToast({
+        id: deliverable.id,
+        title: deliverable.title,
+        department: department || "ai_ceo",
+        departmentName: deptName,
+        goal: goalText,
+        deliverable,
+        timestamp: new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      });
+
+      completionToastTimerRef.current = setTimeout(() => {
+        setCompletionToast(null);
+      }, 20000);
+
+      setSuccessMessage(
+        customSuccessMsg ||
+          `✅ ${deptName} đã hoàn tất tác vụ và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.`,
+      );
+    },
+    [],
+  );
 
   const isFbTokenInvalid = Boolean(
     socialTokensSummary?.urgentActionRequired ||
@@ -1153,12 +1225,18 @@ export function AgenticCommandCenter({
         date: formatted.date,
         createdAt: formatted.epoch,
         department: "operations",
-        title: "Sản phẩm đã lập đề xuất kho",
+        title: "Vận hành đã lập đề xuất kho",
         description: operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          setIsOperationsModalOpen(true);
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
         },
       });
     }
@@ -1171,7 +1249,7 @@ export function AgenticCommandCenter({
         date: formatted.date,
         createdAt: formatted.epoch,
         department: "support",
-        title: "Tài chính đã lập báo cáo CSKH",
+        title: "CSKH đã lập báo cáo CSKH",
         description: supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
         status: "success",
         actionLabel: "Xem kết quả",
@@ -1387,15 +1465,22 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(null);
         recordLiveEvent(
           "support",
-          "Tài chính đã hoàn tất tác vụ",
+          "CSKH đã hoàn tất tác vụ",
           goalText,
           "success",
           "Xem kết quả",
           () => {
-            void handleDownloadSupportDocx();
+            const deliv = buildStrategicDeliverable(goalText, proposal?.id, "support");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.");
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          proposal?.id,
+          "support",
+          "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
+        );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
@@ -1464,7 +1549,6 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(goalText);
         setOperationsProposal(proposal);
-        setIsOperationsModalOpen(true);
         setOperationsPage(1);
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
@@ -1487,13 +1571,21 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(null);
         recordLiveEvent(
           "operations",
-          "Sản phẩm đã hoàn tất tác vụ",
+          "Vận hành đã hoàn tất tác vụ",
           goalText,
           "success",
           "Xem kết quả",
           () => {
-            setIsOperationsModalOpen(true);
+            const deliv = buildStrategicDeliverable(goalText, proposal?.id, "operations");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
+        );
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          proposal?.id,
+          "operations",
+          "AI CEO & Kỹ sư Kho đã hoàn tất kiểm toán và lập Báo cáo Word (.docx)! Sẵn sàng để bạn tải về và phê duyệt.",
         );
         setSuccessMessage("AI CEO & Kỹ sư Kho đã hoàn tất kiểm toán và lập Báo cáo Word (.docx)! Sẵn sàng để bạn tải về và phê duyệt.");
         setPrompt("");
@@ -1677,17 +1769,17 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            if (cProposal) {
-              setCampaignProposal(cProposal);
-              setCampaignProposalModalOpen(true);
-            } else {
-              const deliv = buildStrategicDeliverable(goalText, undefined, "merchandising");
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
-            }
+            const deliv = buildStrategicDeliverable(goalText, cProposal?.id, "merchandising");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("AI CEO và các phòng ban đã hoàn tất phối hợp! Sẵn sàng để bạn xem trước và duyệt chiến dịch.");
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          cProposal?.id,
+          "merchandising",
+          "AI CEO và các phòng ban đã hoàn tất phối hợp! Đã lập Báo cáo Chiến lược và bảng đề xuất danh mục.",
+        );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
@@ -1879,8 +1971,12 @@ export function AgenticCommandCenter({
             setIsStrategicModalOpen(true);
           },
         );
-
-        setSuccessMessage(`AI CEO đã điều phối hoàn tất bản thảo chiến dịch! Sẵn sàng để bạn duyệt xuất bản.`);
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          createdCampaign.id,
+          "marketing",
+          "AI CEO đã điều phối hoàn tất bản thảo chiến dịch và Báo cáo Tiếp thị Word (.docx)! Sẵn sàng để bạn duyệt xuất bản.",
+        );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
       } else {
@@ -1999,11 +2095,6 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
 
-        // Build the Strategic Deliverable Artifact
-        const deliverable = buildStrategicDeliverable(goalText, created.task.id);
-        setCompletedStrategicDeliverable(deliverable);
-        setSelectedStrategicDeliverable(deliverable);
-
         // Record live success event with direct clickable action
         recordLiveEvent(
           "ai_ceo",
@@ -2012,15 +2103,18 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            setSelectedStrategicDeliverable(deliverable);
+            const deliv = buildStrategicDeliverable(goalText, created.task.id, "ai_ceo");
+            setSelectedStrategicDeliverable(deliv);
             setIsStrategicModalOpen(true);
           },
         );
 
-        // Automatically open the Strategic Deliverable Modal so the user immediately sees the returned result!
-        setIsStrategicModalOpen(true);
-
-        setSuccessMessage(`AI CEO đã phân tích toàn diện và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.`);
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          created.task.id,
+          "ai_ceo",
+          "AI CEO đã phân tích toàn diện và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.",
+        );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
       }
@@ -2143,7 +2237,12 @@ export function AgenticCommandCenter({
             setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          createdCampaign.id,
+          "marketing",
+          "Đã hoàn tất soạn thảo chiến dịch Marketing & Báo cáo Tiếp thị Word (.docx)!",
+        );
         if (onTaskCreated) onTaskCreated();
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
@@ -2224,7 +2323,6 @@ export function AgenticCommandCenter({
 
         const cProposal = await catalogApi.generateCampaignProposal({ prompt: taskPrompt });
         setCampaignProposal(cProposal);
-        setCampaignProposalModalOpen(true);
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -2243,17 +2341,17 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            if (cProposal) {
-              setCampaignProposal(cProposal);
-              setCampaignProposalModalOpen(true);
-            } else {
-              const deliv = buildStrategicDeliverable(taskPrompt, undefined, "merchandising");
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
-            }
+            const deliv = buildStrategicDeliverable(taskPrompt, cProposal?.id, "merchandising");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          cProposal?.id,
+          "merchandising",
+          "Đã lập xong Đề xuất Chiến dịch Danh mục & Báo cáo Chiến lược Word (.docx)!",
+        );
         if (onTaskCreated) onTaskCreated();
       } else if (dept === "operations" && inventoryApi) {
         scrollToDepartment("dept-column-operations");
@@ -2273,7 +2371,6 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(taskPrompt);
         setOperationsProposal(proposal);
-        setIsOperationsModalOpen(true);
         setOperationsPage(1);
 
         setDeptStatus((prev) => ({
@@ -2288,15 +2385,22 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(null);
         recordLiveEvent(
           "operations",
-          "Sản phẩm đã hoàn tất tác vụ",
+          "Vận hành đã hoàn tất tác vụ",
           taskPrompt,
           "success",
           "Xem kết quả",
           () => {
-            setIsOperationsModalOpen(true);
+            const deliv = buildStrategicDeliverable(taskPrompt, proposal?.id, "operations");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("Đã lập xong Phiếu Đề Xuất Nhập Kho!");
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          proposal?.id,
+          "operations",
+          "Đã lập xong Phiếu Đề Xuất Nhập Kho & Báo cáo Kiểm toán Vận hành Word (.docx)!",
+        );
         if (onTaskCreated) onTaskCreated();
       } else if (dept === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
@@ -2331,15 +2435,22 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(null);
         recordLiveEvent(
           "support",
-          "Tài chính đã hoàn tất tác vụ",
+          "CSKH đã hoàn tất tác vụ",
           taskPrompt,
           "success",
           "Xem kết quả",
           () => {
-            void handleDownloadSupportDocx();
+            const deliv = buildStrategicDeliverable(taskPrompt, proposal?.id, "support");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
           },
         );
-        setSuccessMessage("Đã lập xong Đề xuất Xử lý CSKH & CRM!");
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          proposal?.id,
+          "support",
+          "Đã lập xong Đề xuất Xử lý CSKH, Phân tích VIP & Báo cáo Giữ chân Khách hàng Word (.docx)!",
+        );
         if (onTaskCreated) onTaskCreated();
       }
     } catch (err: any) {
@@ -4126,10 +4237,18 @@ export function AgenticCommandCenter({
           {
             id: operationsProposal.id,
             title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
-            departmentName: "Sản phẩm",
+            departmentName: "Vận hành",
             completedAt: formatTime(operationsProposal.createdAt),
             format: "docx",
-            onDownloadOrView: () => void handleDownloadOperationsDocx(),
+            onDownloadOrView: () => {
+              const deliv = buildStrategicDeliverable(
+                operationsProposal.summary || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+                operationsProposal.id,
+                "operations",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
           },
         ]
       : []),
@@ -4138,10 +4257,18 @@ export function AgenticCommandCenter({
           {
             id: supportProposal.id,
             title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
-            departmentName: "Tài chính",
+            departmentName: "CSKH",
             completedAt: formatTime(Date.now()),
             format: "docx",
-            onDownloadOrView: () => void handleDownloadSupportDocx(),
+            onDownloadOrView: () => {
+              const deliv = buildStrategicDeliverable(
+                supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+                supportProposal.id,
+                "support",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
           },
         ]
       : []),
@@ -4538,6 +4665,64 @@ export function AgenticCommandCenter({
         onSpecialAction={diagnosticsState.onSpecialAction}
         specialActionLabel={diagnosticsState.specialActionLabel}
       />
+
+      {/* High-visibility Floating Completion Toast */}
+      {completionToast && (
+        <aside className="ccCompletionToastContainer" aria-label="Thông báo hoàn tất tác vụ">
+          <div className="ccCompletionToastCard">
+            <div className="ccCompletionToastHeader">
+              <div className="ccCompletionToastMeta">
+                <div className="ccCompletionToastIconWrap">
+                  <CheckCircle2 size={16} />
+                </div>
+                <span className={`ccCompletionToastDeptTag ${completionToast.department}`}>
+                  {completionToast.departmentName}
+                </span>
+                <span className="ccCompletionToastStatusBadge">
+                  <Sparkles size={11} /> Hoàn tất 100%
+                </span>
+              </div>
+              <button
+                type="button"
+                className="ccCompletionToastCloseBtn"
+                onClick={() => setCompletionToast(null)}
+                aria-label="Đóng thông báo"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="ccCompletionToastBody">
+              <div className="ccCompletionToastTitle" title={completionToast.title}>
+                {completionToast.title}
+              </div>
+              <div className="ccCompletionToastGoal" title={completionToast.goal}>
+                Chỉ đạo: &ldquo;{completionToast.goal}&rdquo;
+              </div>
+            </div>
+
+            <div className="ccCompletionToastActions">
+              <button
+                type="button"
+                className="ccCompletionToastBtnPrimary"
+                onClick={() => {
+                  setSelectedStrategicDeliverable(completionToast.deliverable);
+                  setIsStrategicModalOpen(true);
+                }}
+              >
+                <FileText size={14} /> Xem Báo cáo ngay
+              </button>
+              <button
+                type="button"
+                className="ccCompletionToastBtnSecondary"
+                onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+              >
+                <Download size={14} /> Tải Word (.docx)
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
 
       <StrategicDeliverableModal
         isOpen={isStrategicModalOpen}
