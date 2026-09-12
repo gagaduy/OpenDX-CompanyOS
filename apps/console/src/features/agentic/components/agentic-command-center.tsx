@@ -841,7 +841,7 @@ export function AgenticCommandCenter({
   ) => {
     const newEvent: LiveEventItem = {
       id: `live-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }),
       department: dept,
       title,
       description,
@@ -878,24 +878,81 @@ export function AgenticCommandCenter({
       for (const t of tasks.items.slice(0, 30)) {
         const intent = detectStrategicIntent(t.goal);
         const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
+        const deptDisplayMap: Record<DepartmentType | "ai_ceo", string> = {
+          marketing: "Marketing",
+          merchandising: "Kinh doanh",
+          operations: "Sản phẩm",
+          support: "Tài chính",
+          ai_ceo: "AI CEO",
+        };
+        const deptDisplayName = deptDisplayMap[dept];
+        const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
+        const capitalizedGoal = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
+        const shortGoal = capitalizedGoal.length > 42 ? `${capitalizedGoal.slice(0, 39)}...` : capitalizedGoal;
+
+        let title = `${deptDisplayName} tiếp nhận tác vụ`;
+        let description = shortGoal;
+        let status: "info" | "success" | "warning" | "error" = "info";
+        let actionLabel: string | undefined = undefined;
+        let onActionClick: (() => void) | undefined = undefined;
+
+        if (t.state === "completed") {
+          title = `${deptDisplayName} đã hoàn tất tác vụ`;
+          description = shortGoal;
+          status = "success";
+        } else if (t.state === "partially_completed") {
+          title = `${deptDisplayName} hoàn thành 1 phần`;
+          description = `Đã có bản dự thảo sơ bộ: ${shortGoal}`;
+          status = "info";
+        } else if (t.state === "failed") {
+          title = `${deptDisplayName} báo lỗi`;
+          description = `Lỗi thực thi: ${shortGoal}`;
+          status = "error";
+          actionLabel = "Cần xử lý";
+          onActionClick = () => navigate(`/agentic/tasks/${t.id}`);
+        } else if (t.state === "canceled") {
+          title = `${deptDisplayName} đã hủy tác vụ`;
+          description = `Tác vụ đã bị hủy: ${shortGoal}`;
+          status = "error";
+        } else if (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") {
+          title = "Chờ phê duyệt";
+          description = `Đang chờ CEO phê duyệt đề xuất: ${shortGoal}`;
+          status = "warning";
+          actionLabel = "Xem đề xuất";
+          onActionClick = () => navigate("/agentic/approvals");
+        } else if (t.state === "department_analysis" || t.state === "planning" || t.state === "dispatching") {
+          title = `${deptDisplayName} bắt đầu thực thi`;
+          description = `Đang xử lý: ${shortGoal}`;
+          status = "info";
+        }
+
+        const timestampStr = t.createdAt
+          ? new Date(t.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
+          : new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+
         initialEvents.push({
           id: `task-ev-${t.id}`,
-          timestamp: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: timestampStr,
           department: dept,
-          title: t.goal.length > 40 ? `${t.goal.slice(0, 38)}...` : t.goal,
-          description: `Trạng thái: ${t.state}`,
-          status: (t.state === "completed" || t.state === "partially_completed") ? "success" : (t.state === "failed" || t.state === "canceled") ? "error" : (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") ? "warning" : "info",
+          title,
+          description,
+          status,
+          actionLabel,
+          onActionClick,
         });
       }
     }
     if (activeOperations?.timeline && activeOperations.timeline.length > 0) {
       for (const ev of activeOperations.timeline.slice(-10)) {
+        const timeStr = ev.occurredAt
+          ? new Date(ev.occurredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
+          : new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
         initialEvents.push({
           id: `op-ev-${ev.id}`,
-          timestamp: ev.occurredAt ? new Date(ev.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: timeStr,
           department: "ai_ceo",
-          title: `Sự kiện: ${ev.kind}`,
-          description: `Trạng thái: ${ev.state}${ev.reasonCode ? ` (${ev.reasonCode})` : ""}`,
+          title: ev.kind === "plan_generated" ? "AI CEO đã phân tích yêu cầu" : `AI CEO: ${ev.kind}`,
+          description: ev.state === "completed" ? "Đã tạo kế hoạch và phân bổ cho các phòng ban" : `Trạng thái: ${ev.state}`,
           status: ev.state === "completed" ? "success" : ev.state === "failed" ? "error" : "info",
         });
       }
@@ -903,7 +960,7 @@ export function AgenticCommandCenter({
     if (initialEvents.length > 0) {
       setLiveEvents(initialEvents);
     }
-  }, [tasks, activeOperations]);
+  }, [tasks, activeOperations, navigate]);
 
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (customGoal?: string, customInstructions?: string) => {
@@ -3360,11 +3417,11 @@ export function AgenticCommandCenter({
   ];
 
   const formatTime = (isoOrMs?: string | number) => {
-    if (!isoOrMs) return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (!isoOrMs) return new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
     const d = new Date(isoOrMs);
     return isNaN(d.getTime())
-      ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      ? new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
+      : d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
   };
 
   const redesignedApprovals: PendingApprovalItem[] = [

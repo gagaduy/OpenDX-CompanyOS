@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Live Activity Feed Layout & Storytelling Formatting:
+  - Timeline Geometry & Overlap Elimination: Replaced brittle negative absolute positioning with standard horizontal flexbox columns for `.ccTimelineItem`, cleanly separating the 24-hour timestamp (42px), vertical connector line and status icon node (20px), and event details with text truncation.
+  - 24-Hour Time Format Enforcement: Standardized timestamps to 24-hour (`HH:mm`) format across browser locales to prevent AM/PM line wraps and match design specs.
+  - Enterprise Event Localization & Action Triggers: Mapped raw task states (`completed`, `failed`, `partially_completed`, `awaiting_approval`) to human-readable department event narratives (e.g. `Marketing đã hoàn tất tác vụ`, `Sản phẩm báo lỗi`) with interactive `Cần xử lý` action buttons linking directly to task details.
+
 - AI Command Center Live Metrics Resilience & Auto-Synchronization:
   - IMAP Socket Error Guard: Added an error listener on `ImapFlow` client in `ImapEmailReceiverAdapter` to suppress unhandled idle socket timeouts that previously caused the backend API container to exit unexpectedly.
   - Reactive Auto-Polling & Focus Recovery: Upgraded `useAgenticTasks` hook with background polling (`pollIntervalMs: 5000`) and window visibility listener, ensuring the Command Center continuously synchronizes live task metrics without full page reloads and instantly recovers if connections resume.
