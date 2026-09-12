@@ -3500,15 +3500,6 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
           />
-          {activeCampaign && (
-            <div style={{ marginBottom: "0.75rem" }}>
-              <ActiveCampaignWidget
-                campaign={activeCampaign}
-                onRevert={handleEmergencyRevertCampaign}
-                isReverting={isRevertingCampaign}
-              />
-            </div>
-          )}
           {pendingHandoff?.dept === "merchandising" && (
             <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
               <div className="ccWaitingCardHeader">
@@ -4413,6 +4404,26 @@ export function AgenticCommandCenter({
           });
         }}
       />
+
+      {/* Active Merchandising Campaign Live Horizontal Banner (Tier 1 -> Tier 2 Transition) */}
+      {activeCampaign && (
+        <div style={{ marginBottom: "1.25rem" }}>
+          <ActiveCampaignWidget
+            campaign={activeCampaign}
+            onRevert={handleEmergencyRevertCampaign}
+            isReverting={isRevertingCampaign}
+            onViewDeliverable={() => {
+              const deliv = buildStrategicDeliverable(
+                activeCampaign.name,
+                activeCampaign.id,
+                "merchandising",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }}
+          />
+        </div>
+      )}
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
       <div className="ccMainContentGrid">

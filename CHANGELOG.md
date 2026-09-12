@@ -11,6 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Active Campaign Live Horizontal Banner Placement:
+  - Full-Width Horizontal Banner Placement: Repositioned `ActiveCampaignWidget` from the narrow Merchandising department column into a full-width horizontal banner situated directly between the Strategic Command Composer (Tier 1) and the Workforce Grid & Live Activity Feed (Tier 2).
+  - Merchandising Column De-cluttering: Removed the vertical campaign card from the Merchandising column's `extraContent`, restoring balanced card heights across all department columns and making digital employees immediately visible.
+  - 3-Column Horizontal Architecture: Redesigned `ActiveCampaignWidget` layout (`.ccActiveCampaignHorizontal`) with a 3-column desktop structure:
+    - Left Column: Flame icon badge, status pill, campaign badge, discount percentage pill, campaign title, and SKU count.
+    - Center Column: Real-time countdown timer (`HẾT HẠN SAU`), progress bar, and automatic price reversion notification.
+    - Right Column: Action group featuring direct "Xem báo cáo" (`onViewDeliverable`) button opening the campaign's `StrategicDeliverableModal` and emergency "Hoàn nguyên ngay" button with confirmation popover.
+  - Responsive Fluidity: Implemented responsive flex wrapping for viewports `<= 1100px` to maintain visual aesthetics and prevent overflow on tablets and smaller screens.
+  - Test Verification: Added unit tests verifying `onViewDeliverable` callback and horizontal rendering; all 51 test suites and 219/219 tests pass.
+
 - AI Command Center Completed Campaign & Task Deliverable Inspection ("Xem kết quả") Fix:
   - Null Guard Resolution: Fixed an issue where clicking `[Xem kết quả]` on active/completed Merchandising campaigns in the Live Activity Feed (`LiveActivityFeed`) or Department Cards failed silently because `campaignProposal` is `null` once a campaign is activated or loaded from API. Added an automatic fallback to `StrategicDeliverableModal` with the campaign's strategic deliverable.
   - Bulletproof Safeguard `useEffect`: Added a reactive safeguard in `AgenticCommandCenter` ensuring that if `campaignProposalModalOpen` is ever set to `true` while `campaignProposal` is `null` and `activeCampaign` exists, it seamlessly transitions to `StrategicDeliverableModal` and displays the deliverable instead of hanging with nothing rendered.
