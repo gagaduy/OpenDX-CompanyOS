@@ -14,6 +14,8 @@ import {
   Clock,
   Loader2,
   ChevronDown,
+  Building2,
+  Eye,
 } from "lucide-react";
 import type { CommandComposerProps, QuickActionTemplate } from "./types";
 
@@ -61,6 +63,9 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
   targetDepartment,
   onTargetDepartmentChange,
   onSelectTemplate,
+  ceoPlan,
+  onResetCeoPlan,
+  onViewDeliverable,
 }) => {
   const [activeMetaTab, setActiveMetaTab] = useState<"none" | "context" | "goal">("none");
   const [contextValue, setContextValue] = useState("");
@@ -379,10 +384,42 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               </div>
               <div>
                 <h3 className="ccCeoName">AI CEO</h3>
-                <span className="ccCeoBadge">
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} className="animate-pulse" />
-                  {isAnalyzing ? "Đang phân tích..." : "Sẵn sàng"}
-                </span>
+                {ceoPlan ? (
+                  ceoPlan.steps.length > 0 && ceoPlan.steps.every((s) => s.status === "done") ? (
+                    <span className="ccCeoBadge done">
+                      <CheckCircle2 size={11} style={{ color: "#22c55e" }} />
+                      <span>Đã hoàn thành</span>
+                    </span>
+                  ) : ceoPlan.steps.some((s) => s.status === "running") ? (
+                    <span className="ccCeoBadge running">
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#38bdf8", display: "inline-block" }} className="animate-pulse" />
+                      <span>Đang thực thi...</span>
+                    </span>
+                  ) : (
+                    <span className="ccCeoBadge" style={{ background: "rgba(234, 179, 8, 0.15)", borderColor: "rgba(234, 179, 8, 0.3)", color: "#facc15" }}>
+                      <Clock size={11} />
+                      <span>Chờ phê duyệt</span>
+                    </span>
+                  )
+                ) : (
+                  <span className="ccCeoBadge">
+                    <span
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background: isAnalyzing ? "#38bdf8" : "#22c55e",
+                        display: "inline-block",
+                      }}
+                      className={isAnalyzing ? "animate-pulse" : ""}
+                    />
+                    {isAnalyzing
+                      ? "Đang phân tích..."
+                      : prompt.trim().length > 0
+                        ? "Đang tiếp nhận..."
+                        : "Sẵn sàng"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -392,36 +429,113 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
             </div>
           </div>
 
-          {/* Motivational quote */}
+          {/* Motivational quote or active goal */}
           <div className="ccCeoQuote">
-            {isAnalyzing
-              ? "“Đã hiểu mục tiêu. Đang phân tích, lập kế hoạch và phân bổ nguồn lực phù hợp...”"
-              : "“Hệ thống AI CEO sẵn sàng tiếp nhận mục tiêu chiến lược và điều phối nguồn lực doanh nghiệp.”"}
+            {ceoPlan ? (
+              ceoPlan.steps.length > 0 && ceoPlan.steps.every((s) => s.status === "done")
+                ? `“✓ AI CEO đã hoàn tất điều phối tác vụ cho ${ceoPlan.targetDept}.”`
+                : `“Mục tiêu: ${ceoPlan.goal.length > 55 ? `${ceoPlan.goal.slice(0, 52)}...` : ceoPlan.goal}”`
+            ) : isAnalyzing ? (
+              "“Đã hiểu mục tiêu. Đang phân tích, lập kế hoạch và phân bổ nguồn lực phù hợp...”"
+            ) : prompt.trim().length > 0 ? (
+              "“Đang tiếp nhận chỉ đạo chiến lược. Dự kiến phân công phòng ban phù hợp...”"
+            ) : (
+              "“Hệ thống AI CEO sẵn sàng tiếp nhận mục tiêu chiến lược và điều phối nguồn lực doanh nghiệp.”"
+            )}
           </div>
 
-          {/* Stepper list */}
+          {/* Target Department Badge when CeoPlan is present */}
+          {ceoPlan?.targetDept && (
+            <div className="ccCeoTargetBadge">
+              <Building2 size={12} />
+              <span>{ceoPlan.targetDept}</span>
+            </div>
+          )}
+
+          {/* Stepper list: Dynamic CeoPlan Steps or 4 Canonical Intake Steps */}
           <div className="ccCeoStepper">
-            {steps.map((s) => {
-              const isDone = analysisStep > s.num;
-              const isCurrent = analysisStep === s.num;
+            {ceoPlan ? (
+              ceoPlan.steps.map((s, idx) => {
+                const isDone = s.status === "done";
+                const isRunning = s.status === "running";
 
-              return (
-                <div
-                  key={s.num}
-                  className={`ccCeoStep ${isCurrent ? "active" : isDone ? "done" : "pending"}`}
-                >
-                  {isDone ? (
-                    <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
-                  ) : isCurrent ? (
-                    <Target size={14} style={{ color: "#38bdf8", flexShrink: 0 }} />
-                  ) : (
-                    <span style={{ width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #475569", flexShrink: 0, display: "inline-block" }} />
-                  )}
-                  <span>{s.label}</span>
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={idx}
+                    className={`ccCeoStep ${isRunning ? "active" : isDone ? "done" : "pending"}`}
+                    style={{ alignItems: "flex-start", gap: "0.45rem" }}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0, marginTop: "2px" }} />
+                    ) : isRunning ? (
+                      <Loader2 size={14} className="animate-spin" style={{ color: "#38bdf8", flexShrink: 0, marginTop: "2px" }} />
+                    ) : (
+                      <Clock size={14} style={{ color: "#64748b", flexShrink: 0, marginTop: "2px" }} />
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "4px" }}>
+                        <span style={{ fontSize: "0.74rem", fontWeight: isRunning ? 700 : isDone ? 600 : 500, color: isRunning ? "#ffffff" : isDone ? "#e2e8f0" : "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.role}
+                        </span>
+                        <span style={{ fontSize: "0.62rem", padding: "1px 5px", borderRadius: "3px", background: isDone ? "rgba(34, 197, 94, 0.15)" : isRunning ? "rgba(56, 189, 248, 0.15)" : "rgba(255, 255, 255, 0.05)", color: isDone ? "#4ade80" : isRunning ? "#38bdf8" : "#64748b", flexShrink: 0 }}>
+                          {isDone ? "Xong" : isRunning ? "Đang chạy" : "Chờ"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.68rem", color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {s.task}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              steps.map((s) => {
+                const isDone = analysisStep > s.num;
+                const isCurrent = analysisStep === s.num;
+
+                return (
+                  <div
+                    key={s.num}
+                    className={`ccCeoStep ${isCurrent ? "active" : isDone ? "done" : "pending"}`}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
+                    ) : isCurrent ? (
+                      <Target size={14} style={{ color: "#38bdf8", flexShrink: 0 }} className="animate-pulse" />
+                    ) : (
+                      <span className="ccCeoStepNum">{s.num}</span>
+                    )}
+                    <span>{s.label}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
+
+          {/* Action buttons when CeoPlan is complete */}
+          {ceoPlan && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginTop: "6px", paddingTop: "6px", borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}>
+              {onViewDeliverable && (
+                <button
+                  type="button"
+                  onClick={onViewDeliverable}
+                  className="ccCeoActionBtn primary"
+                >
+                  <Eye size={12} />
+                  <span>Xem kết quả</span>
+                </button>
+              )}
+              {onResetCeoPlan && (
+                <button
+                  type="button"
+                  onClick={onResetCeoPlan}
+                  className="ccCeoActionBtn secondary"
+                >
+                  <span>+ Giao việc mới</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

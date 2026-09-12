@@ -40,6 +40,18 @@ export interface CommandComposerSubmitMeta {
   readonly target?: string;
 }
 
+export interface CeoPlanStep {
+  readonly role: string;
+  readonly task: string;
+  readonly status: "pending" | "running" | "done";
+}
+
+export interface CeoPlan {
+  readonly goal: string;
+  readonly targetDept: string;
+  readonly steps: readonly CeoPlanStep[];
+}
+
 export interface CommandComposerProps {
   readonly prompt: string;
   readonly onPromptChange: (val: string) => void;
@@ -53,6 +65,9 @@ export interface CommandComposerProps {
   readonly targetDepartment: string;
   readonly onTargetDepartmentChange: (target: string) => void;
   readonly onSelectTemplate: (template: QuickActionTemplate) => void;
+  readonly ceoPlan?: CeoPlan | null;
+  readonly onResetCeoPlan?: () => void;
+  readonly onViewDeliverable?: () => void;
 }
 
 export interface DigitalEmployeeProgress {

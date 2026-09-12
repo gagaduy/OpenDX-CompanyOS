@@ -520,8 +520,75 @@
   font-weight: 600;
 }
 
+.ccCeoStep.done {
+  color: #e2e8f0;
+}
+
 .ccCeoStep.pending {
   color: #64748b;
+}
+
+.ccCeoStepNum {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid #475569;
+  background: rgba(30, 41, 59, 0.6);
+  color: #94a3b8;
+  font-size: 0.62rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ccCeoTargetBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+}
+
+.ccCeoActionBtn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.ccCeoActionBtn.primary {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.ccCeoActionBtn.primary:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #ffffff;
+}
+
+.ccCeoActionBtn.secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+.ccCeoActionBtn.secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
 }
 
 .ccCeoBanner {

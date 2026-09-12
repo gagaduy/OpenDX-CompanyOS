@@ -141,4 +141,77 @@ describe("CommandComposerPanel", () => {
       })
     );
   });
+
+  it("renders active CeoPlan with target department badge, live step statuses, and action buttons", () => {
+    const handleReset = vi.fn();
+    const handleView = vi.fn();
+    const mockCeoPlan = {
+      goal: "Chiến dịch Marketing Fanpage Khuyến mãi Mùa hè",
+      targetDept: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+      steps: [
+        { role: "Cây bút Sáng tạo", task: "Soạn nội dung bài viết", status: "done" as const },
+        { role: "Thiết kế Đồ họa", task: "Dựng poster 1:1 chuẩn Fanpage", status: "running" as const },
+        { role: "Điều phối Xuất bản", task: "Đóng gói Publication Package", status: "pending" as const },
+      ],
+    };
+
+    render(
+      <CommandComposerPanel
+        {...defaultProps}
+        ceoPlan={mockCeoPlan}
+        onResetCeoPlan={handleReset}
+        onViewDeliverable={handleView}
+      />
+    );
+
+    expect(screen.getByText("Phòng Tiếp thị & Truyền thông Sáng tạo")).toBeDefined();
+    expect(screen.getByText("Đang thực thi...")).toBeDefined();
+    expect(screen.getByText("Cây bút Sáng tạo")).toBeDefined();
+    expect(screen.getByText("Xong")).toBeDefined();
+    expect(screen.getByText("Thiết kế Đồ họa")).toBeDefined();
+    expect(screen.getByText("Đang chạy")).toBeDefined();
+    expect(screen.getByText("Chờ")).toBeDefined();
+
+    // Click view deliverable and reset
+    fireEvent.click(screen.getByText("Xem kết quả"));
+    expect(handleView).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("+ Giao việc mới"));
+    expect(handleReset).toHaveBeenCalled();
+  });
+
+  it("renders completed CeoPlan with 'Đã hoàn thành' status badge and completion quote", () => {
+    const mockCompletedPlan = {
+      goal: "Kiểm toán kho hàng Q3",
+      targetDept: "Phòng Vận hành & Kho vận",
+      steps: [
+        { role: "Kỹ sư Tồn kho", task: "Kiểm kê SKU", status: "done" as const },
+        { role: "Điều phối Đơn hàng", task: "Lập báo cáo Word", status: "done" as const },
+      ],
+    };
+
+    render(
+      <CommandComposerPanel
+        {...defaultProps}
+        ceoPlan={mockCompletedPlan}
+      />
+    );
+
+    expect(screen.getByText("Đã hoàn thành")).toBeDefined();
+    expect(screen.getByText(/AI CEO đã hoàn tất điều phối tác vụ cho Phòng Vận hành & Kho vận/i)).toBeDefined();
+  });
+
+  it("renders dynamic intent intake preview when typing prompt in standby mode", () => {
+    render(
+      <CommandComposerPanel
+        {...defaultProps}
+        prompt="Kế hoạch giảm giá 20% xả hàng tồn kho"
+        isAnalyzing={false}
+        analysisStep={0}
+      />
+    );
+
+    expect(screen.getByText("Đang tiếp nhận...")).toBeDefined();
+    expect(screen.getByText(/Đang tiếp nhận chỉ đạo chiến lược/i)).toBeDefined();
+  });
 });

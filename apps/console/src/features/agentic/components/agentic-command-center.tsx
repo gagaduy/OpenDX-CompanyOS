@@ -579,6 +579,7 @@ export function AgenticCommandCenter({
     targetDept: string;
     steps: { role: string; task: string; status: "pending" | "running" | "done" }[];
   } | null>(null);
+  const [analysisStep, setAnalysisStep] = useState<number>(0);
   const [marketingActiveAgent, setMarketingActiveAgent] = useState<string | null>(null);
   const [marketingAgentMessage, setMarketingAgentMessage] = useState<string | null>(null);
 
@@ -920,8 +921,9 @@ export function AgenticCommandCenter({
     "reporting",
   ].includes(currentMarketingState);
 
+  const isCeoPlanRunning = Boolean(ceoPlan?.steps?.some((s) => s.status === "running"));
   const isRunning = activeWorkflowKind === "marketing" ? isMarketingRunning : isOrchestrationRunning;
-  const isCurrentlyAnalyzing = isSubmitting || isCeoThinking || isRunning;
+  const isCurrentlyAnalyzing = isSubmitting || isCeoThinking || isRunning || isCeoPlanRunning;
 
   useEffect(() => {
     if (!isCurrentlyAnalyzing) return;
@@ -1389,16 +1391,31 @@ export function AgenticCommandCenter({
       setSuccessMessage(null);
       setElapsedSeconds(0);
       setStrategicDeliverableApproved(false);
+      setCeoPlan(null);
 
-      // 🧠 Phase 1: AI CEO Thinking & Department Routing Simulation (1.2s - 1.5s)
+      // 🧠 Phase 1: AI CEO Progressive 4-Stage Intake & Routing Simulation
       setIsCeoThinking(true);
-      setCeoThinkingText("👑 AI CEO đang phân tích yêu cầu, đánh giá mục tiêu & lựa chọn phòng ban phù hợp...");
-      await new Promise((r) => setTimeout(r, 1300));
-      setIsCeoThinking(false);
+      setAnalysisStep(1); // 1. Phân tích yêu cầu
+      setCeoThinkingText("👑 AI CEO đang phân tích yêu cầu chiến lược...");
+      await new Promise((r) => setTimeout(r, 300));
+
+      setAnalysisStep(2); // 2. Xác định phạm vi & mục tiêu
+      setCeoThinkingText("👑 AI CEO đang xác định phạm vi thực hiện & chỉ số mục tiêu...");
+      await new Promise((r) => setTimeout(r, 300));
 
       const intent = (metaTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(metaTarget))
         ? (metaTarget as DepartmentType)
         : detectStrategicIntent(goalText);
+
+      setAnalysisStep(3); // 3. Lựa chọn phòng ban phù hợp
+      setCeoThinkingText(`👑 AI CEO đã xác định phòng ban phụ trách: ${intent}...`);
+      await new Promise((r) => setTimeout(r, 300));
+
+      setAnalysisStep(4); // 4. Phân công nhân sự AI
+      setCeoThinkingText("👑 AI CEO đang phân công nhân sự AI chuyên trách...");
+      await new Promise((r) => setTimeout(r, 300));
+
+      setIsCeoThinking(false);
       const strategicTaskId = crypto.randomUUID();
       const metaSuffix = isMeta && customGoalOrMeta.attachments && customGoalOrMeta.attachments.length > 0
         ? ` (+${customGoalOrMeta.attachments.length} tệp đính kèm)`
@@ -2227,9 +2244,36 @@ export function AgenticCommandCenter({
   ) => {
     try {
       setStrategicDeliverableApproved(false);
+      setElapsedSeconds(0);
       if (dept === "marketing" && marketingApi) {
         scrollToDepartment("dept-column-marketing");
         setActiveWorkflowKind("marketing");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          steps: [
+            {
+              role: "Cây bút Sáng tạo (Copywriter)",
+              task: `Soạn thảo nội dung bài viết và hashtag cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Thiết kế Đồ họa (Visual Designer)",
+              task: "Dựng poster và banner sản phẩm 1:1 chuẩn Fanpage",
+              status: "pending",
+            },
+            {
+              role: "Điều phối Đăng bài (Publisher)",
+              task: "Chuẩn bị gói xuất bản Fanpage & đối soát băm SHA-256",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt & xuất bản Fanpage Facebook",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Copywriter
         setDeptActiveAgent("marketing", "marketing_copywriter", `Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
@@ -2237,17 +2281,50 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(`Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
         // Step 2: Visual Designer
         setDeptActiveAgent("marketing", "marketing_visual", "Thiết kế Đồ họa đang dựng poster và banner...", "marketing_copywriter");
         setMarketingActiveAgent("marketing_visual");
         setMarketingAgentMessage("Thiết kế Đồ họa đang dựng poster và banner...");
         await new Promise((r) => setTimeout(r, 800));
 
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
         // Step 3: Publisher
         setDeptActiveAgent("marketing", "marketing_publisher", "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...", "marketing_visual");
         setMarketingActiveAgent("marketing_publisher");
         setMarketingAgentMessage("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...");
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 3 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         const scheduledTime = new Date(Date.now() + 3600 * 1000).toISOString();
         const deadlineTime = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
@@ -2333,12 +2410,49 @@ export function AgenticCommandCenter({
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
         setActiveWorkflowKind("merchandising");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Danh mục & Định giá",
+          steps: [
+            {
+              role: "Cây bút Sản phẩm (Catalog Copywriter)",
+              task: `Tối ưu tiêu đề SEO & mô tả cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Thiết kế Đồ họa (Phối hợp Tiếp thị)",
+              task: "Thiết kế Poster & Banner 3D ưu đãi",
+              status: "pending",
+            },
+            {
+              role: "Chuyên viên Định giá (Pricing Strategist)",
+              task: "Tính toán chiết khấu & biên lợi nhuận Flash Sale",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt áp dụng bảng giá mới lên Storefront",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Catalog Copywriter
         setDeptActiveAgent("merchandising", "catalog_copywriter", `Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("catalog_copywriter");
         setMarketingAgentMessage(`Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         // Step 1 complete
         setDeptActiveAgent("merchandising", null, "Đã hoàn thành tối ưu SEO và mô tả danh mục", "catalog_copywriter");
@@ -2409,6 +2523,16 @@ export function AgenticCommandCenter({
 
         const cProposal = await catalogApi.generateCampaignProposal({ prompt: taskPrompt });
         setCampaignProposal(cProposal);
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 3 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -2442,12 +2566,44 @@ export function AgenticCommandCenter({
       } else if (dept === "operations" && inventoryApi) {
         scrollToDepartment("dept-column-operations");
         setActiveWorkflowKind("operations");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Vận hành & Kho vận",
+          steps: [
+            {
+              role: "Kỹ sư Tồn kho (Inventory Specialist)",
+              task: `Kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Điều phối Đơn hàng (Order Coordinator)",
+              task: "Lập phiếu đề xuất nhập kho & Báo cáo Kiểm toán Word",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt kế hoạch nhập kho",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Inventory Specialist
         setDeptActiveAgent("operations", "inventory_specialist", `Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("inventory_specialist");
         setMarketingAgentMessage(`Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         // Step 2: Order Coordinator
         setDeptActiveAgent("operations", "order_coordinator", "Điều phối Đơn hàng đang lập phiếu đề xuất nhập kho...", "inventory_specialist");
@@ -2458,6 +2614,17 @@ export function AgenticCommandCenter({
         const proposal = await inventoryApi.generateOperationsProposal(taskPrompt);
         setOperationsProposal(proposal);
         setOperationsPage(1);
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -2491,12 +2658,44 @@ export function AgenticCommandCenter({
       } else if (dept === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
         setActiveWorkflowKind("support");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Chăm sóc Khách hàng & CRM",
+          steps: [
+            {
+              role: "Quản gia CSKH (Support Steward)",
+              task: `Rà soát ticket sự cố cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Chuyên viên CRM (CRM Specialist)",
+              task: "Phân tích khách hàng VIP & lập báo cáo giữ chân",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt kịch bản chăm sóc & voucher",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Support Steward
         setDeptActiveAgent("support", "support_steward", `Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("support_steward");
         setMarketingAgentMessage(`Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         // Step 2: CRM Specialist
         setDeptActiveAgent("support", "crm_specialist", "Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...", "support_steward");
@@ -2508,6 +2707,17 @@ export function AgenticCommandCenter({
         setSupportProposal(proposal);
         setSupportTicketsPage(1);
         setSupportVipPage(1);
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -3256,13 +3466,7 @@ export function AgenticCommandCenter({
   const latestVisual = activeCampaignDetail?.visualAssets?.[activeCampaignDetail.visualAssets.length - 1];
 
   // Redesigned Subcomponent Data Mappings
-  const analysisCurrentStep = !isCurrentlyAnalyzing
-    ? 0
-    : isCeoThinking
-    ? 1
-    : isRunning
-    ? (elapsedSeconds > 10 ? 4 : elapsedSeconds > 4 ? 3 : 2)
-    : 1;
+  const activeAnalysisStep = analysisStep > 0 ? analysisStep : (isCurrentlyAnalyzing ? 1 : 0);
 
   const getDepartmentTasks = (dept: DepartmentType): DepartmentTask[] => {
     const inMem = departmentQueues[dept] || [];
@@ -4880,8 +5084,8 @@ export function AgenticCommandCenter({
         onSubmit={(meta) => handleSendStrategicTask(meta)}
         isSubmitting={isSubmitting}
         isAnalyzing={isCurrentlyAnalyzing}
-        analysisStep={analysisCurrentStep}
-        analysisDurationSeconds={isCurrentlyAnalyzing ? elapsedSeconds : 0}
+        analysisStep={activeAnalysisStep}
+        analysisDurationSeconds={elapsedSeconds}
         priority={composerPriority}
         onPriorityChange={setComposerPriority}
         targetDepartment={composerTarget}
@@ -4895,6 +5099,31 @@ export function AgenticCommandCenter({
             target: tmpl.target,
             priority: tmpl.priority,
           });
+        }}
+        ceoPlan={ceoPlan}
+        onResetCeoPlan={() => {
+          setCeoPlan(null);
+          setElapsedSeconds(0);
+          setAnalysisStep(0);
+        }}
+        onViewDeliverable={() => {
+          if (activeCampaignDetail) {
+            setMarketingCampaignModalOpen(true);
+          } else if (selectedStrategicDeliverable) {
+            setIsStrategicModalOpen(true);
+          } else if (operationsProposal) {
+            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Kiểm toán vận hành", operationsProposal.id, "operations");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          } else if (merchandisingProposal) {
+            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Đề xuất danh mục", merchandisingProposal.id, "merchandising");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          } else if (supportProposal) {
+            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Báo cáo CSKH", supportProposal.id, "support");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          }
         }}
       />
 

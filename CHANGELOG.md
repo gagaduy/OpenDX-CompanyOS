@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center AI CEO Live Stepper Card Dynamic Execution & Real-Time CeoPlan Tracking:
+  - CeoPlan Execution Rendering: Enhanced `CommandComposerPanel` and `AgenticCommandCenter` to render the active `ceoPlan` directly within the AI CEO Live Stepper Card, displaying real-time digital employee roles, active task descriptions, and dynamic lifecycle statuses (`running`, `done`, `pending`) across all 4 departments (Marketing, Merchandising, Operations, Support).
+  - Progressive 4-Stage Intake Stepper Animation: Refactored AI CEO intake simulation in `handleSendStrategicTask` to progress sequentially through the 4 canonical intake stages (1. Phân tích yêu cầu ➔ 2. Xác định phạm vi & mục tiêu ➔ 3. Lựa chọn phòng ban phù hợp ➔ 4. Tạo tác vụ & phân công nhân sự AI) with live pulse indicators and green completion checkmarks.
+  - Step Numbering & Clear Pipeline Hierarchy: Replaced ambiguous radio-like empty circles in standby mode with clear numbered pipeline step bubbles (`.ccCeoStepNum`), eliminating confusion over unselected radio buttons.
+  - Continuous Elapsed Timer & Completion Retention: Updated timer hooks so `elapsedSeconds` continues ticking throughout full digital employee execution and preserves the final execution duration upon completion instead of resetting to `00:00:00`.
+  - Standby Intent Preview: Added dynamic intent recognition when typing in the prompt composer, immediately previewing the target department and priority before dispatching.
+  - One-Click Completion Actions: Added direct `[👁️ Xem kết quả]` and `[+ Giao việc mới]` action buttons when workflows complete.
+
 - Marketing Campaign Verification Preservation, Multi-Target Publishing & Meta Graph Token Alignment:
   - Verified Target Status Preservation: Updated `MarketingCampaignService.approveCampaign` so that publication targets with status `verified` (already published, e.g. Facebook) are preserved and never regressed back to unverified `approved` status during human approval.
   - Multi-Target Publication Idempotency & Campaign State Synchronization: Refactored `MarketingPublisherServiceImpl.publishApprovedPackage` to check per-target status, execute remaining unverified targets (e.g. Instagram) without duplicating verified ones, and always call `synchronizeCampaignState` to accurately transition campaigns to `completed`.
