@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Marketing Work Presentation & Interactive Campaign Modal:
+  - Authentic Deliverables Presentation: Resolved the bug where completing a Marketing copywriting and visual poster task popped up a generic executive report (`StrategicDeliverableModal`) instead of the actual completed work product.
+  - Dedicated `MarketingCampaignModal`: Created an interactive deliverable inspection modal displaying the AI Copywriter's drafted post (headline, body, CTA, hashtags), Graphic Designer's 1024x1024 poster graphic, live Facebook Newsfeed mockup preview, 5 downloadable campaign deliverables (DOCX, PNG, XLSX, PDF), and 1-click `✓ Phê duyệt & Đăng Fanpage` / `✎ Yêu cầu chỉnh sửa` actions.
+  - Command Center Workflow Alignment: Seamlessly routed task completion triggers, the floating completion toast (`Xem bài & poster ngay`), the sidebar pending approval cards, and the Marketing department card directly into `MarketingCampaignModal`.
+
 - AI Command Center Expired Approval Filtering & Human-Friendly Presentation:
   - Expired Approval Prevention: Filtered out expired approvals (`expiresAt <= now`) in `AgenticCommandCenter.refreshApprovals` to prevent stale zombie requests from persisting in the pending approvals queue.
   - Human-Friendly Approval Card Details: Replaced raw system strings (`agentic.workflow.complete`, `system:workflow`) with intuitive business labels ("Nghiệm thu hoàn tất quy trình tự động", "Bộ điều phối Quy trình Tự động (Workflow Engine)").

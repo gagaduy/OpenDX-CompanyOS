@@ -44,6 +44,7 @@ import type {
 } from "../../marketing/api/marketing-api";
 import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
 import { SocialTokenManagerModal } from "../../marketing/components/social-token-manager-modal";
+import { MarketingCampaignModal } from "../../marketing/components/marketing-campaign-modal";
 import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
 import { CampaignProposalModal, resolveMediaUrl } from "../../catalog/components/campaign-proposal-modal";
 import { ActiveCampaignWidget } from "../../catalog/components/active-campaign-widget";
@@ -182,6 +183,7 @@ export function AgenticCommandCenter({
   const [marketingActionLoading, setMarketingActionLoading] = useState(false);
   const [revisionInput, setRevisionInput] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [marketingCampaignModalOpen, setMarketingCampaignModalOpen] = useState(false);
 
   // Social Tokens State & 1-Click Operations
   const [socialTokensSummary, setSocialTokensSummary] = useState<SocialTokensSummaryView | null>(null);
@@ -746,6 +748,19 @@ export function AgenticCommandCenter({
       .then((res) => {
         if (isMounted) {
           setCampaignsList(res.items);
+          const pendingCamp =
+            res.items.find((c) =>
+              ["awaiting_human_approval", "campaign_review", "draft", "visual_creation"].includes(c.state),
+            ) || res.items[0];
+          if (pendingCamp && !activeCampaignId) {
+            setActiveCampaignId(pendingCamp.id);
+            marketingApi
+              .getCampaign(pendingCamp.id)
+              .then((d) => {
+                if (isMounted) setActiveCampaignDetail(d);
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch((err) => console.error("Failed to load marketing campaigns:", err));
@@ -1967,6 +1982,8 @@ export function AgenticCommandCenter({
 
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
+        setActiveCampaignId(createdCampaign.id);
+        setMarketingCampaignModalOpen(true);
 
         const marketingDeliv = buildStrategicDeliverable(goalText, createdCampaign.id, "marketing");
         recordLiveEvent(
@@ -1974,18 +1991,33 @@ export function AgenticCommandCenter({
           "Marketing đã hoàn tất tác vụ",
           goalText,
           "success",
-          "Xem kết quả",
+          "Xem bài & poster",
           () => {
-            setSelectedStrategicDeliverable(marketingDeliv);
-            setIsStrategicModalOpen(true);
+            setActiveCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
           },
         );
-        notifyAndShowStrategicDeliverable(
-          goalText,
-          createdCampaign.id,
-          "marketing",
-          "AI CEO đã điều phối hoàn tất bản thảo chiến dịch và Báo cáo Tiếp thị Word (.docx)! Sẵn sàng để bạn duyệt xuất bản.",
-        );
+        setCompletionToast({
+          id: createdCampaign.id,
+          title: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          department: "marketing",
+          departmentName: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          goal: goalText,
+          deliverable: marketingDeliv,
+          timestamp: new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        });
+        if (completionToastTimerRef.current) {
+          clearTimeout(completionToastTimerRef.current);
+        }
+        completionToastTimerRef.current = setTimeout(() => {
+          setCompletionToast(null);
+        }, 12000);
+        void refreshApprovals();
+        setSuccessMessage("AI CEO đã điều phối hoàn tất bản thảo bài viết và thiết kế poster chiến dịch!");
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
       } else {
@@ -2224,6 +2256,8 @@ export function AgenticCommandCenter({
         }
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
+        setActiveCampaignId(createdCampaign.id);
+        setMarketingCampaignModalOpen(true);
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -2241,18 +2275,33 @@ export function AgenticCommandCenter({
           "Marketing đã hoàn tất tác vụ",
           taskPrompt,
           "success",
-          "Xem kết quả",
+          "Xem bài & poster",
           () => {
-            setSelectedStrategicDeliverable(marketingDirectDeliv);
-            setIsStrategicModalOpen(true);
+            setActiveCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
           },
         );
-        notifyAndShowStrategicDeliverable(
-          taskPrompt,
-          createdCampaign.id,
-          "marketing",
-          "Đã hoàn tất soạn thảo chiến dịch Marketing & Báo cáo Tiếp thị Word (.docx)!",
-        );
+        setCompletionToast({
+          id: createdCampaign.id,
+          title: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          department: "marketing",
+          departmentName: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          goal: taskPrompt,
+          deliverable: marketingDirectDeliv,
+          timestamp: new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        });
+        if (completionToastTimerRef.current) {
+          clearTimeout(completionToastTimerRef.current);
+        }
+        completionToastTimerRef.current = setTimeout(() => {
+          setCompletionToast(null);
+        }, 12000);
+        void refreshApprovals();
+        setSuccessMessage("Đã hoàn tất soạn thảo bài viết & thiết kế poster chiến dịch Marketing!");
         if (onTaskCreated) onTaskCreated();
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
@@ -2627,12 +2676,13 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleRevisionMarketing = async () => {
-    if (!activeCampaignId || !marketingApi || !revisionInput.trim()) return;
+  const handleRevisionMarketing = async (feedbackText?: string) => {
+    const feedback = typeof feedbackText === "string" ? feedbackText : revisionInput;
+    if (!activeCampaignId || !marketingApi || !feedback.trim()) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.requestRevision(activeCampaignId, { feedback: revisionInput });
+      await marketingApi.requestRevision(activeCampaignId, { feedback: feedback.trim() });
       const detail = await marketingApi.getCampaign(activeCampaignId);
       setActiveCampaignDetail(detail);
       setRevisionInput("");
@@ -3498,7 +3548,7 @@ export function AgenticCommandCenter({
       onDirectDispatch: () => setDirectInputMode(true),
       onOpenDetails: () => {
         if (activeCampaignDetail) {
-          setCampaignProposalModalOpen(true);
+          setMarketingCampaignModalOpen(true);
         } else if (isFbTokenInvalid || isFbTokenWarning) {
           setSocialTokenModalOpen(true);
         } else {
@@ -4143,13 +4193,7 @@ export function AgenticCommandCenter({
             riskLevel: "medium" as const,
             timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
             onPreview: () => {
-              const deliv = buildStrategicDeliverable(
-                activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
-                activeCampaignDetail.campaign.id,
-                "marketing",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
+              setMarketingCampaignModalOpen(true);
             },
             onRequestRevision: () => {
               setShowRevisionForm(true);
@@ -4392,13 +4436,7 @@ export function AgenticCommandCenter({
             completedAt: formatTime(activeCampaignDetail.campaign.updatedAt),
             format: "docx",
             onDownloadOrView: () => {
-              const deliv = buildStrategicDeliverable(
-                activeCampaignDetail.campaign.campaignName || "Chiến dịch Truyền thông & Visual Fanpage",
-                activeCampaignDetail.campaign.id,
-                "marketing",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
+              setMarketingCampaignModalOpen(true);
             },
           },
         ]
@@ -4870,26 +4908,103 @@ export function AgenticCommandCenter({
             </div>
 
             <div className="ccCompletionToastActions">
-              <button
-                type="button"
-                className="ccCompletionToastBtnPrimary"
-                onClick={() => {
-                  setSelectedStrategicDeliverable(completionToast.deliverable);
-                  setIsStrategicModalOpen(true);
-                }}
-              >
-                <FileText size={14} /> Xem Báo cáo ngay
-              </button>
-              <button
-                type="button"
-                className="ccCompletionToastBtnSecondary"
-                onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
-              >
-                <Download size={14} /> Tải Word (.docx)
-              </button>
+              {completionToast.department === "marketing" ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setMarketingCampaignModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Sparkles size={14} /> Xem bài & poster ngay
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "operations" && operationsProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsOperationsModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <FileText size={14} /> Xem Đề xuất nhập kho
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadOperationsDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "merchandising" && campaignProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setCampaignProposalModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Sparkles size={14} /> Xem Đề xuất Flash Sale
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setSelectedStrategicDeliverable(completionToast.deliverable);
+                      setIsStrategicModalOpen(true);
+                    }}
+                  >
+                    <FileText size={14} /> Xem Báo cáo ngay
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </aside>
+      )}
+
+      {activeCampaignDetail && (
+        <MarketingCampaignModal
+          isOpen={marketingCampaignModalOpen}
+          onClose={() => setMarketingCampaignModalOpen(false)}
+          detail={activeCampaignDetail}
+          api={marketingApi}
+          onApprove={handleApproveMarketing}
+          onRequestRevision={handleRevisionMarketing}
+          onRetryPublication={handleRetryPublication}
+          isActionLoading={marketingActionLoading}
+        />
       )}
 
       <StrategicDeliverableModal

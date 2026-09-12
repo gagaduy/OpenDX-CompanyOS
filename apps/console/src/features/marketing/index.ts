@@ -10,6 +10,7 @@ export * from "./components/facebook-post-preview-modal";
 export * from "./components/social-token-manager-modal";
 export * from "./components/campaign-approval-action-bar";
 export * from "./components/marketing-deliverables-panel";
+export * from "./components/marketing-campaign-modal";
 export * from "./pages/marketing-campaign-list-page";
 export * from "./pages/marketing-campaign-detail-page";
 export * from "./pages/social-oauth-callback-page";
