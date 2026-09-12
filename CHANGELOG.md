@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Responsive Grid Truncation & Layout Isolation:
+  - Department Queue & Grid Track Containment: Resolved horizontal track blowout on CSS grid containers (`.ccMainContentGrid`, `.ccDeptGrid`, `.ccDeptCard`, `.ccDeptBodyGrid`) by specifying `minmax(0, ...)` and `min-width: 0`, preventing long failed task descriptions and custom error text from forcing the grid to expand past viewport boundaries.
+  - Text Ellipsis & Flex Truncation: Applied `overflow: hidden`, `text-overflow: ellipsis`, and `min-width: 0` to `.ccDeptQueueItem`, `.ccDeptQueueText`, `.ccDeptErrorCard`, `.ccDeptErrorText`, and input flexboxes, ensuring department cards truncate lengthy prompts cleanly.
+  - Sidebar & Wrapper Guard Styles: Hardened `.commandCenterWorkspace`, `.ccSidebarSection`, `.ccLiveFeedCard`, and `.ccApprovalsCard` with `overflow-x: hidden` and `min-width: 0` containment to guarantee the right sidebar never overflows or cuts off borders.
+
 - AI Command Center Department Queue Multi-State Task Mapping & Grid Permanence:
   - Permanent 2x2 Workforce Grid: Kept all 4 core departments (Marketing, Kinh doanh, Sản phẩm, Tài chính) permanently visible in the grid regardless of active state filter, preventing abrupt empty states when switching filter tabs.
   - Reactive Multi-State Department Task Lists: Connected department queues and right-column task lists to both in-memory session operations and actual backend tasks (up to 100 items), displaying categorized tasks (Đang xử lý, Chờ phê duyệt, Đã hoàn thành, Tác vụ lỗi) with status bullets and clickable navigation.

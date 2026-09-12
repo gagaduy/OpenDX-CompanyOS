@@ -275,7 +275,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
 
         {/* Custom children if present */}
         {children && (
-          <div style={{ marginTop: "0.5rem" }}>
+          <div style={{ marginTop: "0.5rem", minWidth: 0, overflow: "hidden" }}>
             {children}
           </div>
         )}

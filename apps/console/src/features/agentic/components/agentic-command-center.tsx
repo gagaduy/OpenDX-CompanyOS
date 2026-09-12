@@ -3688,7 +3688,7 @@ export function AgenticCommandCenter({
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
       <div className="ccMainContentGrid">
-        <div>
+        <div style={{ minWidth: 0, overflow: "hidden" }}>
           <WorkforceGrid
             departments={filteredDepartmentCards}
             onViewDagGraph={() => {
