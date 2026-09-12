@@ -2682,11 +2682,12 @@ export function AgenticCommandCenter({
       setActiveCampaignDetail(detail);
       setActiveCampaignId(campId);
 
-      if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
-        setErrorMessage(
-          "⚠️ Phê duyệt hoàn tất nhưng xuất bản lên Fanpage gặp lỗi do Token Meta Facebook chưa hợp lệ. Bạn có thể nhấn 'Thử xuất bản lại' hoặc kiểm tra Token.",
-        );
-      } else {
+      const isPublished =
+        detail.campaign.state === "completed" ||
+        Boolean(detail.publicationRecord?.externalPostId) ||
+        Boolean(detail.publicationRecords && detail.publicationRecords.length > 0);
+
+      if (isPublished) {
         // Complete all steps in CEO Plan
         setCeoPlan((prev) =>
           prev
@@ -2699,6 +2700,10 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+      } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
+        setErrorMessage(
+          "⚠️ Phê duyệt hoàn tất nhưng xuất bản lên Fanpage gặp lỗi do Token Meta Facebook chưa hợp lệ. Bạn có thể nhấn 'Thử xuất bản lại' hoặc kiểm tra Token.",
+        );
       }
 
       // Refresh recent campaigns list
@@ -2743,7 +2748,12 @@ export function AgenticCommandCenter({
       setActiveCampaignDetail(detail);
       setActiveCampaignId(campId);
 
-      if (detail.campaign.state === "completed") {
+      const isPublished =
+        detail.campaign.state === "completed" ||
+        Boolean(detail.publicationRecord?.externalPostId) ||
+        Boolean(detail.publicationRecords && detail.publicationRecords.length > 0);
+
+      if (isPublished) {
         // Complete all steps in CEO Plan
         setCeoPlan((prev) =>
           prev

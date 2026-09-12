@@ -296,12 +296,6 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       throw MarketingApplicationError.packageNotFound(packageId);
     }
 
-    // Idempotency: if any package-level record exists, return it
-    const existingPackageRecord = await this.marketingRepository.findPublicationRecordByPackageId(packageId);
-    if (existingPackageRecord) {
-      return existingPackageRecord;
-    }
-
     let targets = await this.marketingRepository.findPublicationTargetsByPackageId(packageId);
     if (targets.length === 0) {
       // If legacy package has no targets yet, backfill/create a target for this package
@@ -337,6 +331,14 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       targets = [legacyTarget];
     }
 
+    // If ALL targets are already verified, return existing record
+    if (targets.length > 0 && targets.every((t) => t.status === "verified")) {
+      const existingPackageRecord = await this.marketingRepository.findPublicationRecordByPackageId(packageId);
+      if (existingPackageRecord) {
+        return existingPackageRecord;
+      }
+    }
+
     const records: PublicationRecord[] = [];
     let firstError: unknown;
     for (const target of targets) {
@@ -350,11 +352,20 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       }
     }
 
+    // Always synchronize campaign state after targets have been published
+    await this.synchronizeCampaignState(campaign.id);
+
     if (records.length === 0 && firstError) {
       throw firstError;
     }
 
-    return records[0]!;
+    const firstRecord = records[0] ?? (await this.marketingRepository.findPublicationRecordByPackageId(packageId));
+    if (!firstRecord) {
+      if (firstError) throw firstError;
+      throw new Error(`Failed to publish package '${packageId}'.`);
+    }
+
+    return firstRecord;
   }
 
   private async synchronizeCampaignState(campaignId: string): Promise<void> {

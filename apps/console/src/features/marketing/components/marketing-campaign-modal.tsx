@@ -93,11 +93,17 @@ export function MarketingCampaignModal({
   const { campaign, brief, contentVersions, visualAssets, artifacts } = detail;
   const latestContent = contentVersions?.[contentVersions.length - 1];
   const latestVisual = visualAssets?.[visualAssets.length - 1];
+  const facebookRecord =
+    detail.publicationRecord?.platform === "facebook"
+      ? detail.publicationRecord
+      : (detail.publicationRecords || []).find((r) => r.platform === "facebook");
+  const isFacebookPublished = Boolean(facebookRecord?.postUrl || facebookRecord?.externalPostId);
   const isApprovedOrPublished =
     campaign.state === "completed" ||
     campaign.state === "publishing" ||
-    campaign.state === "verifying_publication";
-  const isFailed = campaign.state === "failed" || campaign.state === "partial_failure";
+    campaign.state === "verifying_publication" ||
+    isFacebookPublished;
+  const isFailed = (campaign.state === "failed" || campaign.state === "partial_failure") && !isFacebookPublished;
 
   const handleCopyPostText = async () => {
     if (!latestContent) return;
@@ -288,6 +294,47 @@ export function MarketingCampaignModal({
             </div>
           </div>
         </div>
+
+        {isFacebookPublished && (
+          <div
+            style={{
+              padding: "0.75rem 1.75rem",
+              background: "rgba(34, 197, 94, 0.12)",
+              borderBottom: "1px solid rgba(34, 197, 94, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#86efac", fontSize: "0.82rem" }}>
+              <CheckCircle2 size={16} style={{ flexShrink: 0, color: "#22c55e" }} />
+              <span>
+                Bài viết và poster đã được phê duyệt & xuất bản thành công lên Fanpage Facebook!
+              </span>
+            </div>
+            {facebookRecord?.postUrl && (
+              <a
+                href={facebookRecord.postUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#60a5fa",
+                  textDecoration: "underline",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontWeight: 600,
+                }}
+              >
+                <span>Xem bài đăng trên Facebook ↗</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+        )}
 
         {isFailed && (
           <div
@@ -751,18 +798,40 @@ export function MarketingCampaignModal({
             )}
 
             {isApprovedOrPublished && (
-              <span
-                style={{
-                  color: "#4ade80",
-                  fontWeight: 700,
-                  fontSize: "0.85rem",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                }}
-              >
-                <CheckCircle2 size={16} /> Đã xuất bản lên Fanpage thành công
-              </span>
+              facebookRecord?.postUrl ? (
+                <a
+                  href={facebookRecord.postUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="marketingBtnPrimary"
+                  style={{
+                    fontSize: "0.85rem",
+                    padding: "0.55rem 1.25rem",
+                    background: "linear-gradient(135deg, #1877f2 0%, #1d4ed8 100%)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    textDecoration: "none",
+                    color: "#ffffff",
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Đã xuất bản (Xem trên Fanpage ↗)</span>
+                </a>
+              ) : (
+                <span
+                  style={{
+                    color: "#4ade80",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  <CheckCircle2 size={16} /> Đã xuất bản lên Fanpage thành công
+                </span>
+              )
             )}
           </div>
         </div>

@@ -145,7 +145,10 @@ const VALID_TRANSITIONS: ReadonlyMap<MarketingCampaignState, ReadonlySet<Marketi
         "failed",
       ]),
     ],
-    ["partial_failure", new Set<MarketingCampaignState>(["publishing", "failed", "canceled"])],
+    [
+      "partial_failure",
+      new Set<MarketingCampaignState>(["publishing", "completed", "failed", "canceled"]),
+    ],
     ["schedule_missed", new Set<MarketingCampaignState>(["scheduled", "failed", "canceled"])],
     ["blocked_credentials", new Set<MarketingCampaignState>(["scheduled", "publishing", "failed", "canceled"])],
     ["platform_rejected", new Set<MarketingCampaignState>(["failed", "canceled"])],

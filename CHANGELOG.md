@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Marketing Campaign Verification Preservation, Multi-Target Publishing & Meta Graph Token Alignment:
+  - Verified Target Status Preservation: Updated `MarketingCampaignService.approveCampaign` so that publication targets with status `verified` (already published, e.g. Facebook) are preserved and never regressed back to unverified `approved` status during human approval.
+  - Multi-Target Publication Idempotency & Campaign State Synchronization: Refactored `MarketingPublisherServiceImpl.publishApprovedPackage` to check per-target status, execute remaining unverified targets (e.g. Instagram) without duplicating verified ones, and always call `synchronizeCampaignState` to accurately transition campaigns to `completed`.
+  - State Transition Rule Expansion: Added `completed` as an allowed transition target from `partial_failure` in `marketing-campaign-rules.ts` when lingering target errors are resolved or non-critical targets are completed.
+  - Accurate Published Deliverable Feedback: Updated `MarketingCampaignModal` and `AgenticCommandCenter` to recognize published Facebook deliverables with direct live links (`Xem bài đăng trên Facebook ↗`), eliminating misleading failure alerts when Facebook publication was already successful.
+  - Meta Page Access Token Alignment: Verified and synced valid Page Access Token with full `pages_manage_posts`, `pages_read_engagement`, and `instagram_basic` permissions across `.env` and PostgreSQL `marketing_social_accounts`.
+
 - AI Command Center Pending Approvals Scrollable Container:
   - Added `.ccApprovalsScrollContainer` with `max-height: 400px`, sleek dark-themed custom scrollbars, and `overflow-y: auto` to `PendingApprovalsPanel`.
   - Prevented infinite vertical sidebar stretching when large numbers of pending approvals accumulate, preserving compact layout and fixed header visibility.

@@ -345,10 +345,12 @@ export class MarketingCampaignService implements IMarketingCampaignService {
 
     if (input.decision === "approve") {
       for (const target of targets) {
-        await this.repository.updatePublicationTargetStatus({
-          targetId: target.id,
-          status: "approved",
-        });
+        if (target.status !== "verified") {
+          await this.repository.updatePublicationTargetStatus({
+            targetId: target.id,
+            status: "approved",
+          });
+        }
       }
       await this.repository.updatePublicationPackageStatus(currentPackage.id, "approved", actorId);
       if (campaign.state !== "awaiting_human_approval" && canTransitionState(campaign.state, "awaiting_human_approval")) {
