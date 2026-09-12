@@ -99,6 +99,9 @@ export interface WorkforceGridProps {
 export interface LiveEventItem {
   readonly id: string;
   readonly timestamp: string;
+  readonly time?: string;
+  readonly date?: string;
+  readonly createdAt?: number;
   readonly department: DepartmentType | "ai_ceo";
   readonly title: string;
   readonly description: string;

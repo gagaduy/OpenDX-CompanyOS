@@ -86,7 +86,14 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
                 title={ev.actionLabel ? `${ev.actionLabel}: ${ev.title}` : undefined}
               >
                 <span className="ccTimelineTime">
-                  {ev.timestamp}
+                  <span className="ccTimelineTimeHour">
+                    {ev.time || (ev.timestamp.includes(" ") ? ev.timestamp.split(" ")[0] : ev.timestamp)}
+                  </span>
+                  {(ev.date || (ev.timestamp.includes(" ") ? ev.timestamp.split(" ")[1] : "")) ? (
+                    <span className="ccTimelineTimeDate">
+                      {ev.date || (ev.timestamp.includes(" ") ? ev.timestamp.split(" ")[1] : "")}
+                    </span>
+                  ) : null}
                 </span>
 
                 <div className={`ccTimelineNode status-${ev.status}`}>

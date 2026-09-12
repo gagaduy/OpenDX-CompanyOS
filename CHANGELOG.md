@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Live Activity Feed Real-Time Task Updating & Date-Time Timestamps:
+  - Full Date & Time Timestamps (`HH:mm` + `DD/MM/YYYY`): Added day, month, and year display alongside hours and minutes in `LiveActivityFeed` (e.g. `21:38` on top with `12/09/2026` below), eliminating ambiguity when browsing events across multiple calendar days. Adjusted `.ccTimelineTime` and vertical connector alignment (`left: 85px`) to accommodate stacked monospace timestamps.
+  - Multi-Department Real-Time Event Updating: Resolved issue where assigned tasks in Marketing, Merchandising, Operations, and Support did not appear or vanished in the Live Feed. Wired `recordLiveEvent` with `actionLabel: "Xem kết quả"` on completion across all department direct executions and Command Composer dispatches.
+  - Non-Destructive Live Feed Merging & Resilient Event Retention: Replaced the blind overwriting of `liveEvents` during 5-second task polling with an idempotent merge algorithm that preserves session-generated events, keeps richer completion statuses with action callbacks, and sorts events strictly descending by timestamp.
+  - Multi-Source Timeline Integration: Automatically integrated live campaign events from Catalog/Merchandising (`activeCampaign`, `campaignProposal`), Inventory (`operationsProposal`), and Customer Support (`supportProposal`) into the live feed stream with 1-click modal viewing.
+  - Unit Test Verification: Added tests verifying `DD/MM/YYYY` date and `HH:mm` time rendering (all 51 test suites and 217/217 tests passing).
+
 - AI Command Center Strategic Deliverables Delivery, Executive Report Modal & Live Feed Interactivity:
   - Immediate Strategic Deliverable Generation: Enhanced AI CEO strategic orchestration execution so upon task completion (e.g. "Phân tích thị trường mỹ phẩm Đông Nam Á..."), a comprehensive `StrategicDeliverable` is immediately compiled and automatically displayed in a dedicated executive modal (`StrategicDeliverableModal`), ensuring the user immediately sees the returned market analysis findings, financial projections, and action plans.
   - Interactive "Xem kết quả" Action in Live Activity Feed: Added `actionLabel: "Xem kết quả"` and interactive click handlers to completed tasks in `LiveActivityFeed`, allowing users to open the Strategic Deliverable / Executive Report modal directly from the timeline feed. Enhanced `.ccTimelineActionBtn` with `.action-success` and `.action-warning` color themes and enabled row-level click dispatching.

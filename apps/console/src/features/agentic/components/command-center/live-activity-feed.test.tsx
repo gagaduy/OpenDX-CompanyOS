@@ -55,4 +55,29 @@ describe("LiveActivityFeed", () => {
     fireEvent.click(screen.getByText("Cần xử lý"));
     expect(onActionClick).toHaveBeenCalledTimes(1);
   });
+
+  it("renders both time and date (day, month, year) when provided", () => {
+    const eventsWithDate: LiveEventItem[] = [
+      {
+        id: "ev-date-1",
+        timestamp: "21:38 12/09/2026",
+        time: "21:38",
+        date: "12/09/2026",
+        department: "marketing",
+        title: "Marketing đã hoàn tất tác vụ",
+        description: "Chiến dịch quảng bá",
+        status: "success",
+      },
+    ];
+    render(
+      <LiveActivityFeed
+        events={eventsWithDate}
+        activeDepartmentFilter="all"
+        onFilterChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText("21:38")).toBeDefined();
+    expect(screen.getByText("12/09/2026")).toBeDefined();
+    expect(screen.getByText("Marketing đã hoàn tất tác vụ")).toBeDefined();
+  });
 });

@@ -914,17 +914,44 @@ export function AgenticCommandCenter({
   const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
   const [liveEvents, setLiveEvents] = useState<readonly LiveEventItem[]>([]);
 
+  const formatLiveEventTimestamp = useCallback((dateInput?: string | number | Date) => {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const validDate = isNaN(d.getTime()) ? new Date() : d;
+    const time = validDate.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const date = validDate.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return {
+      time,
+      date,
+      timestamp: `${time} ${date}`,
+      epoch: validDate.getTime(),
+    };
+  }, []);
+
   const recordLiveEvent = useCallback((
     dept: DepartmentType | "ai_ceo",
     title: string,
     description: string,
     status: "info" | "success" | "warning" | "error" = "info",
     actionLabel?: string,
-    onActionClick?: () => void
+    onActionClick?: () => void,
+    dateInput?: string | number | Date,
+    customId?: string,
   ) => {
+    const formatted = formatLiveEventTimestamp(dateInput);
     const newEvent: LiveEventItem = {
-      id: `live-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }),
+      id: customId || `live-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: formatted.timestamp,
+      time: formatted.time,
+      date: formatted.date,
+      createdAt: formatted.epoch,
       department: dept,
       title,
       description,
@@ -932,8 +959,12 @@ export function AgenticCommandCenter({
       actionLabel,
       onActionClick,
     };
-    setLiveEvents((prev) => [newEvent, ...prev.filter((e) => e.id !== newEvent.id).slice(0, 19)]);
-  }, []);
+    setLiveEvents((prev) => {
+      const filtered = prev.filter((e) => e.id !== newEvent.id);
+      const combined = [newEvent, ...filtered];
+      return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 30);
+    });
+  }, [formatLiveEventTimestamp]);
 
   useEffect(() => {
     if (!api?.listApprovals) return;
@@ -979,7 +1010,7 @@ export function AgenticCommandCenter({
         let actionLabel: string | undefined = undefined;
         let onActionClick: (() => void) | undefined = undefined;
 
-        if (t.state === "completed") {
+        if (t.state === "completed" || t.state === "ready") {
           title = `${deptDisplayName} đã hoàn tất tác vụ`;
           description = shortGoal;
           status = "success";
@@ -1015,13 +1046,14 @@ export function AgenticCommandCenter({
           status = "info";
         }
 
-        const timestampStr = t.createdAt
-          ? new Date(t.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
-          : new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+        const formatted = formatLiveEventTimestamp(t.createdAt);
 
         initialEvents.push({
           id: `task-ev-${t.id}`,
-          timestamp: timestampStr,
+          timestamp: formatted.timestamp,
+          time: formatted.time,
+          date: formatted.date,
+          createdAt: formatted.epoch,
           department: dept,
           title,
           description,
@@ -1033,12 +1065,13 @@ export function AgenticCommandCenter({
     }
     if (activeOperations?.timeline && activeOperations.timeline.length > 0) {
       for (const ev of activeOperations.timeline.slice(-10)) {
-        const timeStr = ev.occurredAt
-          ? new Date(ev.occurredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
-          : new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+        const formatted = formatLiveEventTimestamp(ev.occurredAt);
         initialEvents.push({
           id: `op-ev-${ev.id}`,
-          timestamp: timeStr,
+          timestamp: formatted.timestamp,
+          time: formatted.time,
+          date: formatted.date,
+          createdAt: formatted.epoch,
           department: "ai_ceo",
           title: ev.kind === "plan_generated" ? "AI CEO đã phân tích yêu cầu" : `AI CEO: ${ev.kind}`,
           description: ev.state === "completed" ? "Đã tạo kế hoạch và phân bổ cho các phòng ban" : `Trạng thái: ${ev.state}`,
@@ -1046,10 +1079,104 @@ export function AgenticCommandCenter({
         });
       }
     }
-    if (initialEvents.length > 0) {
-      setLiveEvents(initialEvents);
+    if (activeCampaign) {
+      const formatted = formatLiveEventTimestamp(activeCampaign.startTime);
+      initialEvents.push({
+        id: `camp-ev-${activeCampaign.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "merchandising",
+        title: "Kinh doanh đã hoàn tất tác vụ",
+        description: `Chiến dịch: ${activeCampaign.name}`,
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setCampaignProposalModalOpen(true);
+        },
+      });
     }
-  }, [tasks, activeOperations, navigate]);
+    if (campaignProposal) {
+      const formatted = formatLiveEventTimestamp(campaignProposal.startTime || Date.now());
+      initialEvents.push({
+        id: `proposal-ev-${campaignProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "merchandising",
+        title: "Kinh doanh đã lập đề xuất",
+        description: `Đề xuất: ${campaignProposal.name || campaignProposal.prompt}`,
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setCampaignProposalModalOpen(true);
+        },
+      });
+    }
+    if (operationsProposal) {
+      const formatted = formatLiveEventTimestamp(operationsProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `ops-prop-ev-${operationsProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "operations",
+        title: "Sản phẩm đã lập đề xuất kho",
+        description: operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setIsOperationsModalOpen(true);
+        },
+      });
+    }
+    if (supportProposal) {
+      const formatted = formatLiveEventTimestamp(supportProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `support-prop-ev-${supportProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "support",
+        title: "Tài chính đã lập báo cáo CSKH",
+        description: supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          void handleDownloadSupportDocx();
+        },
+      });
+    }
+    if (initialEvents.length > 0) {
+      setLiveEvents((prevEvents) => {
+        const map = new Map<string, LiveEventItem>();
+        for (const ev of initialEvents) {
+          map.set(ev.id, ev);
+        }
+        for (const prev of prevEvents) {
+          const existing = map.get(prev.id);
+          if (!existing) {
+            map.set(prev.id, prev);
+          } else if (prev.status === "success" && existing.status !== "success") {
+            map.set(prev.id, {
+              ...existing,
+              status: "success",
+              title: prev.title,
+              actionLabel: prev.actionLabel || existing.actionLabel,
+              onActionClick: prev.onActionClick || existing.onActionClick,
+            });
+          }
+        }
+        return Array.from(map.values())
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+          .slice(0, 30);
+      });
+    }
+  }, [tasks, activeOperations, activeCampaign, campaignProposal, operationsProposal, supportProposal, formatLiveEventTimestamp, navigate]);
 
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (
@@ -1223,7 +1350,19 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "support",
+          "Tài chính đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            void handleDownloadSupportDocx();
+          },
+        );
         setSuccessMessage("AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.");
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -1311,7 +1450,19 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "operations",
+          "Sản phẩm đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            setIsOperationsModalOpen(true);
+          },
+        );
         setSuccessMessage("AI CEO & Kỹ sư Kho đã hoàn tất kiểm toán và lập Báo cáo Word (.docx)! Sẵn sàng để bạn tải về và phê duyệt.");
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -1484,7 +1635,19 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "merchandising",
+          "Kinh doanh đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            setCampaignProposalModalOpen(true);
+          },
+        );
         setSuccessMessage("AI CEO và các phòng ban đã hoàn tất phối hợp! Sẵn sàng để bạn xem trước và duyệt chiến dịch.");
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -1563,21 +1726,16 @@ export function AgenticCommandCenter({
             },
           ],
         });
-
-        // Stage 1: AI CEO Intake & Dispatch
-        setMarketingActiveAgent("ceo");
-        setMarketingAgentMessage("👑 AI CEO đang phân tích yêu cầu chiến lược, lập kế hoạch và phân bổ 3 nhân sự số...");
-
         const createdCampaign = await marketingApi.createCampaign(
           {
-            campaignName: `Chiến dịch: ${cleanName}`,
-            objective: `Quảng bá sản phẩm và đăng bài lên mạng xã hội theo mục tiêu: ${goalText}`,
-            subjectKind,
-            subjectReference: dynamicSubjectRef,
+            campaignName: `Chiến dịch: ${goalText.slice(0, 45)}`,
+            objective: `Quảng bá sản phẩm và kích cầu doanh số theo chỉ đạo CEO: ${goalText}`,
+            subjectKind: "free_topic",
+            subjectReference: "san-pham",
             language: "vi",
             mandatoryMessage: goalText,
             prohibitedClaims: ["sản phẩm duy nhất vũ trụ", "chữa bách bệnh", "làm giàu không khó"],
-            callToAction: dynamicCta,
+            callToAction: "Khám phá ngay tại NovaCommerce Store",
             facebookPageConfigurationId: "1321445584378490",
             scheduledFor: scheduledTime,
             deadline: deadlineTime,
@@ -1588,12 +1746,6 @@ export function AgenticCommandCenter({
         );
 
         setActiveCampaignId(createdCampaign.id);
-        await new Promise((r) => setTimeout(r, 1200));
-
-        // Stage 2: Copywriter drafting
-        setDeptActiveAgent("marketing", "marketing_copywriter", `✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
-        setMarketingActiveAgent("marketing_content");
-        setMarketingAgentMessage(`✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
         setCeoPlan((prev) =>
           prev
             ? {
@@ -1673,8 +1825,20 @@ export function AgenticCommandCenter({
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
 
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            scrollToDepartment("dept-column-marketing");
+          },
+        );
+
         setSuccessMessage(`AI CEO đã điều phối hoàn tất bản thảo chiến dịch! Sẵn sàng để bạn duyệt xuất bản.`);
         setPrompt("");
+        if (onTaskCreated) onTaskCreated();
       } else {
         scrollToDepartment("dept-column-support");
         // Route to Orchestration (Store Health / Operations / Finance / Support)
@@ -1923,7 +2087,18 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            scrollToDepartment("dept-column-marketing");
+          },
+        );
         setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
         setActiveWorkflowKind("merchandising");
@@ -2015,7 +2190,18 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "merchandising",
+          "Kinh doanh đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            setCampaignProposalModalOpen(true);
+          },
+        );
         setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "operations" && inventoryApi) {
         scrollToDepartment("dept-column-operations");
         setActiveWorkflowKind("operations");
@@ -2047,7 +2233,18 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "operations",
+          "Sản phẩm đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            setIsOperationsModalOpen(true);
+          },
+        );
         setSuccessMessage("Đã lập xong Phiếu Đề Xuất Nhập Kho!");
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
         setActiveWorkflowKind("support");
@@ -2079,7 +2276,18 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "support",
+          "Tài chính đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            void handleDownloadSupportDocx();
+          },
+        );
         setSuccessMessage("Đã lập xong Đề xuất Xử lý CSKH & CRM!");
+        if (onTaskCreated) onTaskCreated();
       }
     } catch (err: any) {
       console.error(`Execution error in ${dept}:`, err);
