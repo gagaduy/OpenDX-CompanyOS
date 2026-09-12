@@ -11,6 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center UI Redesign & Modular Component Architecture:
+  - 3-Tier Enterprise Layout: Rebuilt the AI Command Center (`Tasks` tab) based on the linear dark canvas `#010102` specification with hairline borders (`border-white/[0.08]`), scarce `#5e6ad2` accents, high information density, and 0 hardcoded values.
+  - Tier 1 (Command Center Header & Composer): Created `CommandCenterHeader` with dynamic filter pills (`Tất cả`, `Đang xử lý`, `Chờ phê duyệt`, `Hoàn tất`, `Lỗi`), real-time counters, Direct Mode toggle, and `CommandComposerPanel` with live 4-step AI CEO analysis stepper (`Phân tích mục tiêu`, `Phân chia đầu việc`, `Chỉ định nhân sự AI`, `Thiết lập tiến độ & phụ thuộc`).
+  - Tier 2 (2x2 Workforce Grid & Live Collaboration): Created `DepartmentCard` and `WorkforceGrid` featuring 4 core departments (`Tiếp thị & Sáng tạo`, `Danh mục & Định giá`, `Vận hành & Kho vận`, `CSKH & CRM`), dynamic digital employee cards with live status indicators, proactive replenishment/token alerts, and queued task cards with resource-lock resolution.
+  - Tier 2 Sidebar (Live Activity Feed & Pending Approvals): Created `LiveActivityFeed` with filterable events and status icons, alongside `PendingApprovalsPanel` with risk badges (`low`, `medium`, `high`) and human-in-the-loop review actions (`Xem trước`, `Yêu cầu sửa`, `Duyệt`).
+  - Tier 3 (Results & Performance Dashboard): Created `ResultsMetricsPanel` featuring an SVG Donut chart displaying completed task distribution (on-time, delayed, cancelled), 4-department efficiency gauges, 4 KPI cards with week-over-week trends, and recent business deliverables table.
+  - Modular Code Refactoring: Refactored `agentic-command-center.tsx` from an oversized monolith into focused, reusable components under `features/agentic/components/command-center/`, preserving all production modals, WebSocket/REST API hooks, and passing 100% of test suites.
+
+
 - Fixed Instagram publication recovery so Meta token-invalid responses from container creation and readiness polling now invalidate the stored credential, allowing later retries to use the linked Facebook Page token fallback; repeated marketing deliverable generation now reuses existing campaign artifacts instead of failing the database uniqueness constraint.
 
 - Multi-Platform Meta OAuth Synchronization, Instagram Fallback & Setup Documentation:
