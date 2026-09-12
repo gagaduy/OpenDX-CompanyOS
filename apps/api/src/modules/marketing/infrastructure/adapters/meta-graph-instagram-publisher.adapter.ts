@@ -142,13 +142,6 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
           },
         );
       }
-      if (error instanceof SocialPublisherError && error.code === "INSTAGRAM_TOKEN_INVALID" && this.socialAccountRepository) {
-        void this.socialAccountRepository.updateHealthStatus("instagram", accountId, {
-          tokenStatus: "invalid",
-          lastCheckedAt: this.now(),
-          lastError: error.message,
-        }).catch(() => undefined);
-      }
       throw error;
     }
 
@@ -343,7 +336,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
       }
 
       if (!response.ok) {
-        this.handleGraphApiError(response.status, rawText);
+        await this.throwGraphApiError(response.status, rawText);
       }
 
       let parsed: { status_code?: string; status?: string };
@@ -393,7 +386,7 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
     }
 
     if (!response.ok) {
-      this.handleGraphApiError(response.status, rawText);
+      await this.throwGraphApiError(response.status, rawText);
     }
 
     try {
@@ -442,6 +435,25 @@ export class MetaGraphInstagramPublisherAdapter implements SocialPublisherPort {
 
     const retryable = httpStatus >= 500;
     throw new SocialPublisherError("INSTAGRAM_PUBLISH_FAILED", message, { httpStatus, retryable });
+  }
+
+  private async throwGraphApiError(httpStatus: number, rawText: string): Promise<never> {
+    try {
+      this.handleGraphApiError(httpStatus, rawText);
+    } catch (error) {
+      if (
+        error instanceof SocialPublisherError
+        && error.code === "INSTAGRAM_TOKEN_INVALID"
+        && this.socialAccountRepository
+      ) {
+        await this.socialAccountRepository.updateHealthStatus("instagram", this.businessAccountId, {
+          tokenStatus: "invalid",
+          lastCheckedAt: this.now(),
+          lastError: error.message,
+        }).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   private sanitize(text: string): string {

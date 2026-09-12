@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fixed Instagram publication recovery so Meta token-invalid responses from container creation and readiness polling now invalidate the stored credential, allowing later retries to use the linked Facebook Page token fallback; repeated marketing deliverable generation now reuses existing campaign artifacts instead of failing the database uniqueness constraint.
+
 - Multi-Platform Meta OAuth Synchronization, Instagram Fallback & Setup Documentation:
   - Automatic Cross-Platform Token Synchronization: Updated `SocialTokenManagerServiceImpl.handleOAuthCallback` and `updateAccountToken` so obtaining or updating a Page Access Token for a Facebook Fanpage automatically propagates the active token to the linked Instagram Business account (`defaultInstagramAccountId`), maintaining synchronized long-lived credentials across both platforms.
   - Resilient Instagram Publisher Fallback: Updated `MetaGraphInstagramPublisherAdapter.getEffectiveAccessToken` to gracefully fall back to the owning Facebook Page's verified access token whenever the Instagram account token is unconfigured or invalidated, preventing publication failures when Facebook is already connected.
