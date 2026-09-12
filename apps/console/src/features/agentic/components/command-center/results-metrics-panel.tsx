@@ -236,7 +236,7 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
                 Chưa có tài liệu hoàn thành
               </div>
             ) : (
-              recentDeliverables.slice(0, 3).map((item) => {
+              recentDeliverables.slice(0, 4).map((item) => {
                 const deptKey = item.departmentName.toLowerCase();
                 const deptClass = deptKey.includes("tiếp thị") || deptKey.includes("marketing")
                   ? "marketing"
@@ -244,6 +244,8 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
                   ? "sales"
                   : deptKey.includes("tài chính") || deptKey.includes("finance")
                   ? "finance"
+                  : deptKey.includes("ceo") || deptKey.includes("chiến lược")
+                  ? "ceo"
                   : "operations";
 
                 return (

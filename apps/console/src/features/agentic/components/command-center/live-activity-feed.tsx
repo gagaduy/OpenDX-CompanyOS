@@ -76,8 +76,15 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
           filteredEvents.map((ev) => {
             const DeptIcon = DEPT_ICONS[ev.department] || Bot;
 
+            const isClickable = Boolean(ev.onActionClick);
             return (
-              <div key={ev.id} className="ccTimelineItem">
+              <div
+                key={ev.id}
+                className="ccTimelineItem"
+                onClick={ev.onActionClick}
+                style={isClickable ? { cursor: "pointer" } : undefined}
+                title={ev.actionLabel ? `${ev.actionLabel}: ${ev.title}` : undefined}
+              >
                 <span className="ccTimelineTime">
                   {ev.timestamp}
                 </span>
@@ -102,8 +109,17 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({
                     {ev.actionLabel && ev.onActionClick && (
                       <button
                         type="button"
-                        onClick={ev.onActionClick}
-                        className="ccTimelineActionBtn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          ev.onActionClick?.();
+                        }}
+                        className={`ccTimelineActionBtn ${
+                          ev.status === "success"
+                            ? "action-success"
+                            : ev.status === "warning"
+                            ? "action-warning"
+                            : "action-error"
+                        }`}
                       >
                         {ev.actionLabel}
                       </button>

@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Strategic Deliverables Delivery, Executive Report Modal & Live Feed Interactivity:
+  - Immediate Strategic Deliverable Generation: Enhanced AI CEO strategic orchestration execution so upon task completion (e.g. "Phân tích thị trường mỹ phẩm Đông Nam Á..."), a comprehensive `StrategicDeliverable` is immediately compiled and automatically displayed in a dedicated executive modal (`StrategicDeliverableModal`), ensuring the user immediately sees the returned market analysis findings, financial projections, and action plans.
+  - Interactive "Xem kết quả" Action in Live Activity Feed: Added `actionLabel: "Xem kết quả"` and interactive click handlers to completed tasks in `LiveActivityFeed`, allowing users to open the Strategic Deliverable / Executive Report modal directly from the timeline feed. Enhanced `.ccTimelineActionBtn` with `.action-success` and `.action-warning` color themes and enabled row-level click dispatching.
+  - Recent Deliverables Prioritization & AI CEO Attribution: Updated `redesignedRecentDeliverables` to prepend newly completed strategic deliverables to the top of "Kết quả gần đây", correctly categorized AI CEO strategic reports under department "AI CEO" (instead of defaulting to Operations), expanded recent deliverables preview to 4 items, and enabled 1-click modal viewing.
+  - Multi-Tab Strategic Outcome Viewer & DOCX Export: Built `StrategicDeliverableModal` featuring 4 interactive tabs (Tóm tắt Điều hành, Dữ liệu & Thị trường, Lộ trình Thực thi, Rủi ro & Pháp lý), copy-to-clipboard functionality, direct Microsoft Word (.docx) document generation and download, and technical DAG navigation.
+  - Test Verification & Quality Assurance: Added comprehensive unit test suite `strategic-deliverable-modal.test.tsx` (all 51 test suites and 216/216 tests passing).
+
 - AI Command Center & Task Details Governance, Error Diagnostics & RBAC Access Recovery:
   - Department Error Diagnostics Modal: Created `DepartmentDiagnosticsModal` to handle "Xem chi tiết →" clicks on all department exception banners, displaying root-cause analyses, error timestamps, technical traces, and remediation actions (Retry, Audit Logs link, Social Token Manager).
   - Department Details Actions: Wired `theme.actionLabel` and `onOpenDetails` across all four departments (Marketing, Merchandising, Operations, Support), rendering visible header action links with icon badges.

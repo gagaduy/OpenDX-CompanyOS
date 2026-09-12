@@ -76,6 +76,11 @@ import { LiveActivityFeed } from "./command-center/live-activity-feed";
 import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel";
 import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
 import { DepartmentDiagnosticsModal } from "./command-center/department-diagnostics-modal";
+import { StrategicDeliverableModal } from "./command-center/strategic-deliverable-modal";
+import {
+  buildStrategicDeliverable,
+  type StrategicDeliverable,
+} from "../types/strategic-deliverable.types";
 import type {
   DepartmentCardProps,
   LiveEventItem,
@@ -414,6 +419,11 @@ export function AgenticCommandCenter({
   const [isDownloadingSupportDocx, setIsDownloadingSupportDocx] = useState(false);
   const [supportTicketsPage, setSupportTicketsPage] = useState(1);
   const [supportVipPage, setSupportVipPage] = useState(1);
+
+  // Strategic AI CEO Deliverable State
+  const [completedStrategicDeliverable, setCompletedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
+  const [isStrategicModalOpen, setIsStrategicModalOpen] = useState(false);
+  const [selectedStrategicDeliverable, setSelectedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
 
   // Department Task Queues & Resource Locks State
   const [departmentQueues, setDepartmentQueues] = useState<DepartmentQueueMap>({
@@ -973,6 +983,12 @@ export function AgenticCommandCenter({
           title = `${deptDisplayName} đã hoàn tất tác vụ`;
           description = shortGoal;
           status = "success";
+          actionLabel = "Xem kết quả";
+          onActionClick = () => {
+            const deliv = buildStrategicDeliverable(t.goal, t.id);
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          };
         } else if (t.state === "partially_completed") {
           title = `${deptDisplayName} hoàn thành 1 phần`;
           description = `Đã có bản dự thảo sơ bộ: ${shortGoal}`;
@@ -1663,6 +1679,46 @@ export function AgenticCommandCenter({
         scrollToDepartment("dept-column-support");
         // Route to Orchestration (Store Health / Operations / Finance / Support)
         setActiveWorkflowKind("orchestration");
+
+        const cleanName =
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|phân tích)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
+
+        setCeoPlan({
+          goal: goalText,
+          targetDept: "AI CEO & Hội đồng Chiến lược Liên phòng ban",
+          steps: [
+            {
+              role: "AI CEO (Tổng Giám Đốc AI)",
+              task: `Phân tích yêu cầu chiến lược, đánh giá mục tiêu & lập kế hoạch phân rã cho: "${cleanName}"`,
+              status: "running",
+            },
+            {
+              role: "Chuyên viên Nghiên cứu & Định giá",
+              task: `Thu thập dữ liệu thị trường, phân tích đối thủ cạnh tranh & cơ cấu giá thâm nhập`,
+              status: "pending",
+            },
+            {
+              role: "Điều phối Tiếp thị & Chuỗi cung ứng",
+              task: `Lập kế hoạch ra mắt đa kênh, dự toán ngân sách, tồn kho an toàn & ma trận rủi ro`,
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: `Phê duyệt Báo cáo Chiến lược Điều hành & Kế hoạch thực thi Word (.docx)`,
+              status: "pending",
+            },
+          ],
+        });
+
+        // Stage 1: AI CEO Strategic Intake & Decomposition
+        setMarketingActiveAgent("ceo");
+        setMarketingAgentMessage("👑 AI CEO đang phân tích yêu cầu chiến lược và điều phối các phòng ban số...");
+
         const idempotencyKey = crypto.randomUUID();
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -1685,7 +1741,78 @@ export function AgenticCommandCenter({
 
         setActiveTaskId(created.task.id);
         setActiveRunId(run.id);
-        setSuccessMessage(`AI CEO đã điều phối nhiệm vụ tới các phòng ban vận hành!`);
+
+        // Transition: Step 1 done -> Step 2 running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
+        // Stage 2: Research & Pricing Strategist
+        setMarketingActiveAgent("pricing_strategist");
+        setMarketingAgentMessage("📊 Chuyên viên Nghiên cứu đang phân tích số liệu thị trường Đông Nam Á và phân khúc mục tiêu...");
+        await new Promise((r) => setTimeout(r, 1100));
+
+        // Transition: Step 2 done -> Step 3 running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 1 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
+        // Stage 3: Operations & Multi-channel Coordinator
+        setMarketingActiveAgent("order_coordinator");
+        setMarketingAgentMessage("📦 Điều phối Vận hành đang tính toán kế hoạch ra mắt đa kênh, dự toán ngân sách & ma trận rủi ro...");
+        await new Promise((r) => setTimeout(r, 1000));
+
+        // Transition: Step 3 done -> Step 4 ready
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 2 ? { ...s, status: "done" } : { ...s, status: "running" },
+                ),
+              }
+            : null,
+        );
+
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+
+        // Build the Strategic Deliverable Artifact
+        const deliverable = buildStrategicDeliverable(goalText, created.task.id);
+        setCompletedStrategicDeliverable(deliverable);
+        setSelectedStrategicDeliverable(deliverable);
+
+        // Record live success event with direct clickable action
+        recordLiveEvent(
+          "ai_ceo",
+          "AI CEO đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            setSelectedStrategicDeliverable(deliverable);
+            setIsStrategicModalOpen(true);
+          },
+        );
+
+        // Automatically open the Strategic Deliverable Modal so the user immediately sees the returned result!
+        setIsStrategicModalOpen(true);
+
+        setSuccessMessage(`AI CEO đã phân tích toàn diện và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.`);
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
       }
@@ -3670,6 +3797,21 @@ export function AgenticCommandCenter({
   ];
 
   const redesignedRecentDeliverables = [
+    ...(completedStrategicDeliverable
+      ? [
+          {
+            id: completedStrategicDeliverable.id,
+            title: completedStrategicDeliverable.title,
+            departmentName: "AI CEO",
+            completedAt: formatTime(completedStrategicDeliverable.completedAt),
+            format: "docx",
+            onDownloadOrView: () => {
+              setSelectedStrategicDeliverable(completedStrategicDeliverable);
+              setIsStrategicModalOpen(true);
+            },
+          },
+        ]
+      : []),
     ...(activeCampaignDetail
       ? [
           {
@@ -3712,7 +3854,7 @@ export function AgenticCommandCenter({
       );
       if (completed.length === 0) return [];
       // Pick distinct departments to showcase cross-department deliverables
-      const depts = ["marketing", "merchandising", "operations", "support"] as const;
+      const depts = ["orchestration", "marketing", "merchandising", "operations", "support"] as const;
       const picked: typeof completed = [];
       for (const dept of depts) {
         const found = completed.find(
@@ -3721,12 +3863,12 @@ export function AgenticCommandCenter({
         if (found) picked.push(found);
       }
       for (const t of completed) {
-        if (picked.length >= 3) break;
+        if (picked.length >= 4) break;
         if (!picked.some((p) => p.id === t.id)) {
           picked.push(t);
         }
       }
-      return picked.slice(0, 3).map((t) => {
+      return picked.slice(0, 4).map((t) => {
         const intent = detectStrategicIntent(t.goal);
         const deptName =
           intent === "marketing"
@@ -3735,6 +3877,8 @@ export function AgenticCommandCenter({
             ? "Kinh doanh"
             : intent === "support"
             ? "Tài chính"
+            : intent === "orchestration"
+            ? "AI CEO"
             : "Sản phẩm";
         const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
         const capitalized = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
@@ -3747,7 +3891,11 @@ export function AgenticCommandCenter({
           departmentName: deptName,
           completedAt: formatTime(t.updatedAt),
           format: "docx",
-          onDownloadOrView: () => navigate(`/agentic/tasks/${t.id}`),
+          onDownloadOrView: () => {
+            const deliv = buildStrategicDeliverable(t.goal, t.id);
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
         };
       });
     })(),
@@ -4072,6 +4220,13 @@ export function AgenticCommandCenter({
         onOpenAuditLogs={() => navigate("/agentic/audit")}
         onSpecialAction={diagnosticsState.onSpecialAction}
         specialActionLabel={diagnosticsState.specialActionLabel}
+      />
+
+      <StrategicDeliverableModal
+        isOpen={isStrategicModalOpen}
+        deliverable={selectedStrategicDeliverable || completedStrategicDeliverable}
+        onClose={() => setIsStrategicModalOpen(false)}
+        onNavigateToTask={(taskId) => navigate(`/agentic/tasks/${taskId}`)}
       />
     </section>
   );
