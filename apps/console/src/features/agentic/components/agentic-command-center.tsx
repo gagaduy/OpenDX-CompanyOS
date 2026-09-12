@@ -695,14 +695,15 @@ export function AgenticCommandCenter({
   ].includes(currentMarketingState);
 
   const isRunning = activeWorkflowKind === "marketing" ? isMarketingRunning : isOrchestrationRunning;
+  const isCurrentlyAnalyzing = isSubmitting || isCeoThinking || isRunning;
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isCurrentlyAnalyzing) return;
     const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isCurrentlyAnalyzing]);
 
   // Helper: Intent classifier for AI CEO
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
@@ -2578,8 +2579,13 @@ export function AgenticCommandCenter({
   const latestVisual = activeCampaignDetail?.visualAssets?.[activeCampaignDetail.visualAssets.length - 1];
 
   // Redesigned Subcomponent Data Mappings
-  const isCurrentlyAnalyzing = isCeoThinking || isRunning;
-  const analysisCurrentStep = isCeoThinking ? 2 : isRunning ? 3 : 1;
+  const analysisCurrentStep = !isCurrentlyAnalyzing
+    ? 0
+    : isCeoThinking
+    ? 1
+    : isRunning
+    ? (elapsedSeconds > 10 ? 4 : elapsedSeconds > 4 ? 3 : 2)
+    : 1;
 
   const getDepartmentTasks = (dept: DepartmentType): DepartmentTask[] => {
     const inMem = departmentQueues[dept] || [];
@@ -3845,7 +3851,7 @@ export function AgenticCommandCenter({
         isSubmitting={isSubmitting}
         isAnalyzing={isCurrentlyAnalyzing}
         analysisStep={analysisCurrentStep}
-        analysisDurationSeconds={elapsedSeconds > 0 ? elapsedSeconds : (isCeoThinking ? 2 : 1)}
+        analysisDurationSeconds={isCurrentlyAnalyzing ? elapsedSeconds : 0}
         priority={composerPriority}
         onPriorityChange={setComposerPriority}
         targetDepartment={composerTarget}

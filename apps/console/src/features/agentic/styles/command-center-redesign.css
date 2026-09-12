@@ -251,6 +251,7 @@
 }
 
 .ccStrategicCard {
+  min-width: 0;
   background: #0d121f;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -422,6 +423,7 @@
 
 /* AI CEO Card */
 .ccCeoCard {
+  min-width: 0;
   background: #0d121f;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -543,6 +545,7 @@
 
 /* Strategic Slogan / Vision Card (Tier 1 3rd column) */
 .ccSloganCard {
+  min-width: 0;
   background: radial-gradient(circle at 85% 15%, rgba(37, 99, 235, 0.16), #0d121f 70%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;

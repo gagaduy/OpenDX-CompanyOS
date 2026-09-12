@@ -394,7 +394,9 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
 
           {/* Motivational quote */}
           <div className="ccCeoQuote">
-            &ldquo;Đã hiểu mục tiêu. Đang phân tích, lập kế hoạch và phân bổ nguồn lực phù hợp...&rdquo;
+            {isAnalyzing
+              ? "“Đã hiểu mục tiêu. Đang phân tích, lập kế hoạch và phân bổ nguồn lực phù hợp...”"
+              : "“Hệ thống AI CEO sẵn sàng tiếp nhận mục tiêu chiến lược và điều phối nguồn lực doanh nghiệp.”"}
           </div>
 
           {/* Stepper list */}

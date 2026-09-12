@@ -37,6 +37,23 @@ describe("CommandComposerPanel", () => {
     expect(screen.getByText("Lựa chọn phòng ban phù hợp")).toBeDefined();
   });
 
+  it("renders AI CEO Stepper card in standby idle state when not analyzing", () => {
+    render(
+      <CommandComposerPanel
+        {...defaultProps}
+        isAnalyzing={false}
+        analysisStep={0}
+        analysisDurationSeconds={0}
+      />
+    );
+    expect(screen.getByText("AI CEO")).toBeDefined();
+    expect(screen.getByText("Sẵn sàng")).toBeDefined();
+    expect(screen.getByText("00:00:00")).toBeDefined();
+    expect(
+      screen.getByText(/Hệ thống AI CEO sẵn sàng tiếp nhận mục tiêu/i)
+    ).toBeDefined();
+  });
+
   it("triggers onSubmit when Giao việc is clicked", () => {
     render(<CommandComposerPanel {...defaultProps} prompt="Launch new campaign" />);
     fireEvent.click(screen.getByText("Giao việc"));

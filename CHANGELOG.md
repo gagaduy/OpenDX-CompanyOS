@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center AI CEO Standby Consistency & Header Button Polish:
+  - Header Action Text Cleanup: Removed redundant `+` from button text `+ Tác vụ mới` to eliminate duplicate `+ + Tác vụ mới` rendering alongside `<Plus />` icon.
+  - AI CEO Standby State Calibration: Configured Stepper step to 0 when idle, showing clean standby circle indicators instead of falsely highlighting Step 1 as actively in-progress.
+  - Timer Standby Reset: Set `analysisDurationSeconds` to `0` (`00:00:00`) when idle rather than defaulting to `00:00:01`, and activated live elapsed timer exclusively during active AI analysis.
+  - Dynamic AI CEO Voice Quote: Updated AI CEO quote box to display a welcoming readiness message when in `Sẵn sàng` standby mode and transition to the active execution quote when analyzing.
+  - Grid Containment Safeguards: Added `min-width: 0;` to `.ccStrategicCard`, `.ccCeoCard`, and `.ccSloganCard` to prevent unexpected column overflow and clipping.
+
 - AI Command Center Strategic Command Composer Full Toolbar Interactivity:
   - File Attachment Capability: Wired `📎 Đính kèm` button to a native hidden file picker supporting multiple documents (PDF, Word, Excel, CSV, TXT), displaying removable file chip tags with human-readable file sizes and a dynamic attachment count badge.
   - Context & KPI Goal Metadata: Enabled expandable input toggles for `🌐 Bối cảnh` and `🎯 Mục tiêu` with real-time active indicator badges (`✓`), bundling context and KPI target values into task instructions upon submission.

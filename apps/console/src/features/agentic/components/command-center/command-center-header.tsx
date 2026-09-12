@@ -53,7 +53,7 @@ export const CommandCenterHeader: React.FC<CommandCenterHeaderProps> = ({
             className="ccNewTaskBtn"
           >
             <Plus size={14} />
-            <span>+ Tác vụ mới</span>
+            <span>Tác vụ mới</span>
           </button>
         </div>
       </div>

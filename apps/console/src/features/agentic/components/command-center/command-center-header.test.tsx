@@ -35,9 +35,9 @@ describe("CommandCenterHeader", () => {
     expect(defaultProps.onFilterChange).toHaveBeenCalledWith("waiting_approval");
   });
 
-  it("calls onNewTaskClick when + Tác vụ mới is clicked", () => {
+  it("calls onNewTaskClick when Tác vụ mới is clicked", () => {
     render(<CommandCenterHeader {...defaultProps} />);
-    fireEvent.click(screen.getByText("+ Tác vụ mới"));
+    fireEvent.click(screen.getByText("Tác vụ mới"));
     expect(defaultProps.onNewTaskClick).toHaveBeenCalledTimes(1);
   });
 });
