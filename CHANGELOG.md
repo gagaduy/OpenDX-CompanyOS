@@ -11,6 +11,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Universal Pending Approvals Integration & One-Click Execution:
+  - Unified Pending Approvals Mapping: Connected all finished department workflows and digital employee outputs requiring human authorization directly into the sidebar "Phê duyệt" box (`PendingApprovalsPanel`), ensuring cards immediately appear with 3 canonical human-in-the-loop actions (`👁️ Xem trước`, `✎ Yêu cầu chỉnh sửa`, `✓ Phê duyệt`).
+  - Cross-Department Proposal Routing:
+    - Operations & Supply Chain: Automatically maps inventory replenishment proposals (`operationsProposal` & `pendingReplenishment`) into pending approval cards; clicking `✓ Phê duyệt` calls `handleApplyOperations` to update stock in PostgreSQL and clear the item.
+    - Marketing & Growth: Captures active campaigns in review or drafting states (`draft`, `campaign_review`, `awaiting_human_approval`, `revision_requested`, `visual_creation`); clicking `✓ Phê duyệt` executes `handleApproveMarketing` to publish to Facebook Fanpage.
+    - Merchandising & Pricing: Integrates Flash Sale discount proposals (`campaignProposal` & `merchandisingProposal`); clicking `✓ Phê duyệt` activates real-time Storefront discounts via `handleApplyMerchandisingProposal`.
+    - Support & CRM: Enlists customer care ticket scripts and VIP retention voucher proposals (`supportProposal`); clicking `✓ Phê duyệt` executes `handleApplySupport` and closes tickets.
+    - AI CEO & Strategic Orchestration: Promotes executive strategic deliverables (`completedStrategicDeliverable`) to pending approval cards when awaiting Director authorization; clicking `✓ Phê duyệt` completes all steps in the CEO Plan.
+    - Backend Approval Synchronization: Queries and maps pending approvals from `api.listApprovals()` with reactive re-fetching upon any task dispatch or deliverable notification.
+  - Reactive Approval Metrics & Filter Alignment: Synchronized `waitingApprovalCount` with `Math.max(overview?.counts?.waiting ?? 0, redesignedApprovals.length)`, ensuring top header badges (`Chờ duyệt (N)`) and sidebar card badges (`Phê duyệt (N)`) stay accurately synchronized.
+  - Department Card Status Consistency: Updated department cards across all 4 departments to reflect `waiting_approval` status whenever their corresponding proposal or campaign is awaiting human review.
+
+
 - AI Command Center Universal Strategic Deliverable Popup & Prominent Floating Completion Toast:
   - Universal Strategic Deliverable Modal Auto-Popup: Resolved the issue where completing tasks dispatched to Marketing, Merchandising, Operations, or Support departments left the Command Center silent without presenting the executive deliverable. Configured all department completion pathways (both Command Composer `handleSendStrategicTask` and department card `executeDepartmentWorkflow`) to automatically open `StrategicDeliverableModal` upon task completion.
   - High-Visibility Floating Completion Toast (`ccCompletionToast`): Created a fixed-position glassmorphic notification banner (`position: fixed; top: 1.5rem; right: 1.5rem; z-index: 100000;`) featuring animated gradient accents, emerald status indicators, department badges, 100% completion chips, and 1-click action buttons ("Xem Báo cáo ngay" and "Tải Word (.docx)").

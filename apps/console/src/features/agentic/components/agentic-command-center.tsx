@@ -438,6 +438,22 @@ export function AgenticCommandCenter({
   const [completedStrategicDeliverable, setCompletedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
   const [isStrategicModalOpen, setIsStrategicModalOpen] = useState(false);
   const [selectedStrategicDeliverable, setSelectedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
+  const [strategicDeliverableApproved, setStrategicDeliverableApproved] = useState(false);
+
+  // Live Feed & Approvals Dynamic State
+  const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
+
+  const refreshApprovals = useCallback(async (signal?: AbortSignal) => {
+    if (!api?.listApprovals) return;
+    try {
+      const res = await api.listApprovals(1, 20, signal);
+      if (res?.items) {
+        setApiApprovals(res.items.filter((a) => a.state === "pending"));
+      }
+    } catch {
+      // safe fallback if listApprovals is not implemented or mock returns void
+    }
+  }, [api]);
 
   // Department Task Queues & Resource Locks State
   const [departmentQueues, setDepartmentQueues] = useState<DepartmentQueueMap>({
@@ -605,7 +621,9 @@ export function AgenticCommandCenter({
       const deliverable = buildStrategicDeliverable(goalText, taskId, department);
       setCompletedStrategicDeliverable(deliverable);
       setSelectedStrategicDeliverable(deliverable);
+      setStrategicDeliverableApproved(false);
       setIsStrategicModalOpen(true);
+      void refreshApprovals();
 
       const deptNameMap: Record<DepartmentType | "ai_ceo", string> = {
         ai_ceo: "AI CEO & Điều phối Chiến lược",
@@ -643,7 +661,7 @@ export function AgenticCommandCenter({
           `✅ ${deptName} đã hoàn tất tác vụ và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.`,
       );
     },
-    [],
+    [refreshApprovals],
   );
 
   const isFbTokenInvalid = Boolean(
@@ -995,8 +1013,7 @@ export function AgenticCommandCenter({
     return "orchestration";
   };
 
-  // Live Feed & Approvals Dynamic State
-  const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
+  // Live Activity Feed State
   const [liveEvents, setLiveEvents] = useState<readonly LiveEventItem[]>([]);
 
   const formatLiveEventTimestamp = useCallback((dateInput?: string | number | Date) => {
@@ -1052,24 +1069,10 @@ export function AgenticCommandCenter({
   }, [formatLiveEventTimestamp]);
 
   useEffect(() => {
-    if (!api?.listApprovals) return;
     const controller = new AbortController();
-    try {
-      const promise = api.listApprovals(1, 10, controller.signal);
-      if (promise && typeof (promise as Promise<unknown>).then === "function") {
-        void promise
-          .then((res) => {
-            if (res?.items) {
-              setApiApprovals(res.items.filter((a) => a.state === "pending"));
-            }
-          })
-          .catch(() => {});
-      }
-    } catch {
-      // safe fallback if listApprovals is not implemented or mock returns void
-    }
+    void refreshApprovals(controller.signal);
     return () => controller.abort();
-  }, [api, overview?.pendingApprovals]);
+  }, [refreshApprovals, overview?.pendingApprovals, tasks]);
 
   useEffect(() => {
     const initialEvents: LiveEventItem[] = [];
@@ -1338,6 +1341,7 @@ export function AgenticCommandCenter({
       setErrorMessage(null);
       setSuccessMessage(null);
       setElapsedSeconds(0);
+      setStrategicDeliverableApproved(false);
 
       // 🧠 Phase 1: AI CEO Thinking & Department Routing Simulation (1.2s - 1.5s)
       setIsCeoThinking(true);
@@ -2158,6 +2162,7 @@ export function AgenticCommandCenter({
     taskId: string,
   ) => {
     try {
+      setStrategicDeliverableApproved(false);
       if (dept === "marketing" && marketingApi) {
         scrollToDepartment("dept-column-marketing");
         setActiveWorkflowKind("marketing");
@@ -3216,14 +3221,14 @@ export function AgenticCommandCenter({
       employeeCount: 3,
       activeTaskCount: marketingTasks.length,
       status: taskFilter === "running"
-        ? (marketingTasks.length > 0 ? "running" : "idle")
+        ? (marketingTasks.length > 0 || deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning ? "running" : "idle")
         : taskFilter === "waiting_approval"
-        ? (marketingTasks.length > 0 ? "waiting_approval" : "idle")
+        ? (marketingTasks.length > 0 || (activeCampaignDetail && ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(activeCampaignDetail.campaign.state)) ? "waiting_approval" : "idle")
         : taskFilter === "failed"
-        ? (marketingTasks.length > 0 ? "error" : "idle")
+        ? (marketingTasks.length > 0 || (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure") ? "error" : "idle")
         : taskFilter === "completed"
         ? "idle"
-        : (activeCampaignDetail?.campaign.state === "campaign_review"
+        : ((activeCampaignDetail && ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(activeCampaignDetail.campaign.state))
           ? "waiting_approval"
           : (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
           ? "error"
@@ -3509,14 +3514,14 @@ export function AgenticCommandCenter({
       employeeCount: 2,
       activeTaskCount: merchandisingTasks.length,
       status: taskFilter === "running"
-        ? (merchandisingTasks.length > 0 ? "running" : "idle")
+        ? (merchandisingTasks.length > 0 || deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist" ? "running" : "idle")
         : taskFilter === "waiting_approval"
-        ? (merchandisingTasks.length > 0 ? "waiting_approval" : "idle")
+        ? (merchandisingTasks.length > 0 || ((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied")) ? "waiting_approval" : "idle")
         : taskFilter === "failed"
         ? (merchandisingTasks.length > 0 ? "error" : "idle")
         : taskFilter === "completed"
         ? "idle"
-        : (campaignProposal
+        : (((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied"))
           ? "waiting_approval"
           : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
           ? "running"
@@ -3691,16 +3696,16 @@ export function AgenticCommandCenter({
       employeeCount: 2,
       activeTaskCount: operationsTasks.length,
       status: taskFilter === "running"
-        ? (operationsTasks.length > 0 ? "running" : "idle")
+        ? (operationsTasks.length > 0 || deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator" ? "running" : "idle")
         : taskFilter === "waiting_approval"
-        ? (operationsTasks.length > 0 ? "waiting_approval" : "idle")
+        ? (operationsTasks.length > 0 || (operationsProposal && operationsProposal.status !== "applied") || pendingReplenishment ? "waiting_approval" : "idle")
         : taskFilter === "failed"
-        ? (operationsTasks.length > 0 ? "error" : "idle")
+        ? (operationsTasks.length > 0 || (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration")) ? "error" : "idle")
         : taskFilter === "completed"
         ? "idle"
         : ((errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
           ? "error"
-          : pendingReplenishment
+          : ((operationsProposal && operationsProposal.status !== "applied") || pendingReplenishment)
           ? "waiting_approval"
           : (deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator")
           ? "running"
@@ -3919,9 +3924,9 @@ export function AgenticCommandCenter({
       employeeCount: 2,
       activeTaskCount: supportTasks.length,
       status: taskFilter === "running"
-        ? (supportTasks.length > 0 ? "running" : "idle")
+        ? (supportTasks.length > 0 || deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist" ? "running" : "idle")
         : taskFilter === "waiting_approval"
-        ? (supportTasks.length > 0 ? "waiting_approval" : "idle")
+        ? (supportTasks.length > 0 || (supportProposal && supportProposal.status !== "applied") ? "waiting_approval" : "idle")
         : taskFilter === "failed"
         ? (supportTasks.length > 0 ? "error" : "idle")
         : taskFilter === "completed"
@@ -4075,7 +4080,27 @@ export function AgenticCommandCenter({
   };
 
   const redesignedApprovals: PendingApprovalItem[] = [
-    ...(pendingReplenishment
+    // 1. Operations: Inventory Replenishment Proposal
+    ...((operationsProposal && operationsProposal.status !== "applied")
+      ? [
+          {
+            id: operationsProposal.id,
+            title: `Phiếu đề xuất nhập kho: ${operationsProposal.items.length} SKU (${operationsProposal.totalRestockUnits} đơn vị)`,
+            sourceDepartment: "operations" as const,
+            authorName: "Kỹ sư Tồn kho (OPS-01)",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(operationsProposal.createdAt),
+            onPreview: () => {
+              setOperationsProposal(operationsProposal);
+              setIsOperationsModalOpen(true);
+            },
+            onRequestRevision: () => {
+              void handleTriggerClearanceCampaign(operationsProposal.items);
+            },
+            onApprove: () => void handleApplyOperations(),
+          },
+        ]
+      : pendingReplenishment
       ? [
           {
             id: pendingReplenishment.id,
@@ -4093,12 +4118,17 @@ export function AgenticCommandCenter({
             },
             onApprove: () => {
               setOperationsProposal(pendingReplenishment);
-              setIsOperationsModalOpen(true);
+              void handleApplyOperations();
             },
           },
         ]
       : []),
-    ...(activeCampaignDetail?.campaign.state === "campaign_review"
+
+    // 2. Marketing: Campaign Creative & Social Publication
+    ...(activeCampaignDetail &&
+    ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(
+      activeCampaignDetail.campaign.state,
+    )
       ? [
           {
             id: activeCampaignDetail.campaign.id,
@@ -4107,7 +4137,15 @@ export function AgenticCommandCenter({
             authorName: "Cây bút Sáng tạo (MKT-01)",
             riskLevel: "medium" as const,
             timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
-            onPreview: () => setSocialTokenModalOpen(true),
+            onPreview: () => {
+              const deliv = buildStrategicDeliverable(
+                activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+                activeCampaignDetail.campaign.id,
+                "marketing",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
             onRequestRevision: () => {
               setShowRevisionForm(true);
             },
@@ -4115,21 +4153,27 @@ export function AgenticCommandCenter({
           },
         ]
       : []),
-    ...(campaignProposal
+
+    // 3. Merchandising: Flash Sale & Pricing Optimization Proposal
+    ...((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied")
       ? [
           {
-            id: campaignProposal.id,
-            title: campaignProposal.name || "Đề xuất Flash Sale & Tối ưu Danh mục",
+            id: campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval",
+            title: campaignProposal?.name || "Đề xuất Flash Sale & Tối ưu Danh mục",
             sourceDepartment: "merchandising" as const,
             authorName: "Chuyên gia Định giá (MER-02)",
             riskLevel: "medium" as const,
-            timestamp: formatTime(Date.now()),
+            timestamp: formatTime(campaignProposal?.startTime || merchandisingProposal?.createdAt),
             onPreview: () => setCampaignProposalModalOpen(true),
-            onRequestRevision: () => setCampaignProposalModalOpen(true),
-            onApprove: () => setCampaignProposalModalOpen(true),
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh biên lợi nhuận cho Chuyên gia Định giá.");
+            },
+            onApprove: () => void handleApplyMerchandisingProposal(),
           },
         ]
       : []),
+
+    // 4. Support: Customer Care Script & VIP Retention Vouchers
     ...(supportProposal && supportProposal.status !== "applied"
       ? [
           {
@@ -4139,7 +4183,15 @@ export function AgenticCommandCenter({
             authorName: "Chuyên viên CRM (SUP-02)",
             riskLevel: "low" as const,
             timestamp: formatTime(Date.now()),
-            onPreview: () => void handleDownloadSupportDocx(),
+            onPreview: () => {
+              const deliv = buildStrategicDeliverable(
+                supportProposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP",
+                supportProposal.id,
+                "support",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            },
             onRequestRevision: () => {
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
             },
@@ -4147,18 +4199,73 @@ export function AgenticCommandCenter({
           },
         ]
       : []),
+
+    // 5. AI CEO / Executive Deliverable: Strategic Cross-Department Execution Plan
+    ...(completedStrategicDeliverable &&
+    !strategicDeliverableApproved &&
+    (completedStrategicDeliverable.department === "ai_ceo" ||
+      (!operationsProposal && !campaignProposal && !supportProposal && !activeCampaignDetail))
+      ? [
+          {
+            id: completedStrategicDeliverable.id,
+            title: `Phê duyệt Kế hoạch Thực thi: ${completedStrategicDeliverable.title}`,
+            sourceDepartment: (completedStrategicDeliverable.department === "ai_ceo"
+              ? "operations"
+              : completedStrategicDeliverable.department) as DepartmentType,
+            authorName: "AI CEO & Hội đồng Điều hành",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(completedStrategicDeliverable.completedAt),
+            onPreview: () => {
+              setSelectedStrategicDeliverable(completedStrategicDeliverable);
+              setIsStrategicModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã gửi yêu cầu AI CEO điều chỉnh kế hoạch thực thi.");
+            },
+            onApprove: () => {
+              setStrategicDeliverableApproved(true);
+              setCeoPlan((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+                    }
+                  : null,
+              );
+              recordLiveEvent(
+                "ai_ceo",
+                "Chủ tịch đã phê duyệt kế hoạch thực thi",
+                completedStrategicDeliverable.title,
+                "success",
+              );
+              setSuccessMessage(`Đã phê duyệt kế hoạch thực thi "${completedStrategicDeliverable.title}" thành công!`);
+            },
+          },
+        ]
+      : []),
+
+    // 6. Backend Approvals (Agentic Approval Page Sync)
     ...apiApprovals.map((app) => ({
       id: app.id,
       title: `Yêu cầu phê duyệt: ${app.action} (${app.resourceType})`,
-      sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "ai_ceo") as DepartmentType,
+      sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "support") as DepartmentType,
       authorName: `Hệ thống (${app.requesterId || "AI Agent"})`,
       riskLevel: "medium" as const,
       timestamp: formatTime(app.createdAt),
-      onPreview: () => navigate("/agentic/approvals"),
+      onPreview: () => {
+        const foundTask = tasks?.items?.find((t) => t.id === app.taskId);
+        if (foundTask) {
+          setSelectedStrategicDeliverable(buildStrategicDeliverable(foundTask.goal, foundTask.id, "ai_ceo"));
+          setIsStrategicModalOpen(true);
+        } else {
+          navigate("/agentic/approvals");
+        }
+      },
       onRequestRevision: async () => {
         try {
           await api.decideApproval(app.id, { expectedVersion: app.version, decision: "revision_requested", reason: "Cần điều chỉnh thông số qua Command Center" });
           setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+          void refreshApprovals();
           setSuccessMessage("Đã yêu cầu chỉnh sửa đề xuất.");
         } catch (err: any) {
           setErrorMessage(err.message || "Không thể gửi yêu cầu chỉnh sửa.");
@@ -4168,12 +4275,43 @@ export function AgenticCommandCenter({
         try {
           await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
           setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+          void refreshApprovals();
           setSuccessMessage("Đã phê duyệt đề xuất thành công!");
         } catch (err: any) {
           setErrorMessage(err.message || "Phê duyệt thất bại.");
         }
       },
     })),
+
+    // 7. Tasks in items waiting for human approval
+    ...(tasks?.items ?? [])
+      .filter((t) => (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") && !apiApprovals.some((a) => a.taskId === t.id))
+      .map((t) => ({
+        id: t.id,
+        title: `Phê duyệt tác vụ: ${t.goal}`,
+        sourceDepartment: (detectStrategicIntent(t.goal) === "orchestration" ? "operations" : detectStrategicIntent(t.goal)) as DepartmentType,
+        authorName: "Tổng Giám Đốc AI (AI CEO)",
+        riskLevel: "medium" as const,
+        timestamp: formatTime(t.createdAt),
+        onPreview: () => {
+          setSelectedStrategicDeliverable(buildStrategicDeliverable(t.goal, t.id, "ai_ceo"));
+          setIsStrategicModalOpen(true);
+        },
+        onRequestRevision: () => {
+          setSuccessMessage("Đã yêu cầu điều chỉnh tác vụ.");
+        },
+        onApprove: async () => {
+          try {
+            if (api?.startTask) {
+              await api.startTask(t.id, t.version, 1);
+            }
+            if (onTaskCreated) onTaskCreated();
+            setSuccessMessage(`Đã phê duyệt và tiếp tục thực thi tác vụ "${t.goal.slice(0, 40)}..."!`);
+          } catch (err: any) {
+            setErrorMessage(err?.message || "Lỗi phê duyệt tác vụ.");
+          }
+        },
+      })),
   ];
 
   const redesignedRecentDeliverables = [
@@ -4332,13 +4470,10 @@ export function AgenticCommandCenter({
       (Object.values(deptStatus).some((d) => d.activeAgent !== null) ? 1 : 0)
   );
 
-  const waitingApprovalCount = overview?.counts?.waiting ?? (
-    (pendingReplenishment ? 1 : 0) +
-    (activeCampaignDetail?.campaign.state === "campaign_review" ? 1 : 0) +
-    (campaignProposal ? 1 : 0) +
-    (supportProposal && supportProposal.status !== "applied" ? 1 : 0) +
-    Object.values(departmentQueues).flat().filter((t) => t.status === "queued").length +
-    apiApprovals.length
+  const waitingApprovalCount = Math.max(
+    overview?.counts?.waiting ?? 0,
+    redesignedApprovals.length,
+    Object.values(departmentQueues).flat().filter((t) => t.status === "queued").length,
   );
 
   const completedTasksList = (tasks?.items ?? []).filter(
