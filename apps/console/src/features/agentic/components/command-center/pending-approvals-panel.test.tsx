@@ -1,0 +1,45 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { PendingApprovalsPanel } from "./pending-approvals-panel";
+import type { PendingApprovalItem } from "./types";
+
+describe("PendingApprovalsPanel", () => {
+  const onPreview = vi.fn();
+  const onRequestRevision = vi.fn();
+  const onApprove = vi.fn();
+
+  const approvals: PendingApprovalItem[] = [
+    {
+      id: "app-1",
+      title: "Báo cáo phân tích thị trường SEA",
+      sourceDepartment: "marketing",
+      authorName: "Marketing (MKT-01)",
+      riskLevel: "medium",
+      timestamp: "14:26",
+      onPreview,
+      onRequestRevision,
+      onApprove,
+    },
+  ];
+
+  it("renders pending approval card with 3 Human-in-the-Loop action buttons", () => {
+    render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
+    expect(screen.getAllByText(/Phê duyệt/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Báo cáo phân tích thị trường SEA")).toBeDefined();
+    expect(screen.getByText("Xem trước")).toBeDefined();
+    expect(screen.getByText("Yêu cầu chỉnh sửa")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Phê duyệt/ })).toBeDefined();
+  });
+
+  it("triggers onPreview and onApprove callbacks", () => {
+    render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
+    fireEvent.click(screen.getByText("Xem trước"));
+    expect(onPreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Phê duyệt/ }));
+    expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+});
