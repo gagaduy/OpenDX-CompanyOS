@@ -41,7 +41,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
       </div>
 
       {/* Approvals list */}
-      <div>
+      <div className="ccApprovalsScrollContainer">
         {approvals.length === 0 ? (
           <div style={{ padding: "1.5rem 0", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
             Không có đề xuất nào đang chờ phê duyệt

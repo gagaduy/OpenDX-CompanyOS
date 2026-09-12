@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Pending Approvals Scrollable Container:
+  - Added `.ccApprovalsScrollContainer` with `max-height: 400px`, sleek dark-themed custom scrollbars, and `overflow-y: auto` to `PendingApprovalsPanel`.
+  - Prevented infinite vertical sidebar stretching when large numbers of pending approvals accumulate, preserving compact layout and fixed header visibility.
+
 - AI Command Center Pending Approvals Persistence, Interactive Card Clickability & Facebook Publication Resilience:
   - Interactive Approval Card Body Click: Enhanced `PendingApprovalsPanel` by binding `app.onPreview` to the entire `.ccApprovalBox` container with hover animation and cursor styling, while adding `e.stopPropagation()` to internal action buttons so users can click anywhere on an approval card to inspect details.
   - Multi-Campaign Approval Persistence Across Page Reloads: Expanded `redesignedApprovals` in `AgenticCommandCenter` to iterate over all active and pending campaigns from `campaignsList` (`awaiting_human_approval`, `campaign_review`, `revision_requested`, `draft`, `visual_creation`, `failed`, `partial_failure`), eliminating the single in-memory state limitation where refreshing the page cleared pending approvals to `(0)`.

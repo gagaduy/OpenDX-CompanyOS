@@ -1451,6 +1451,37 @@
   text-decoration: underline;
 }
 
+.ccApprovalsScrollContainer {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.ccApprovalsScrollContainer::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ccApprovalsScrollContainer::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.ccApprovalsScrollContainer::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.ccApprovalsScrollContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.ccApprovalsScrollContainer > .ccApprovalBox:first-child {
+  margin-top: 0.25rem;
+}
+
 .ccApprovalBox {
   background: #080c14;
   border: 1px solid rgba(255, 255, 255, 0.08);

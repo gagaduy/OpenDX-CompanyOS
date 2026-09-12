@@ -42,4 +42,11 @@ describe("PendingApprovalsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Phê duyệt/ }));
     expect(onApprove).toHaveBeenCalledTimes(1);
   });
+
+  it("renders approvals inside a scrollable container", () => {
+    const { container } = render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
+    const scrollContainer = container.querySelector(".ccApprovalsScrollContainer");
+    expect(scrollContainer).toBeDefined();
+    expect(scrollContainer?.children.length).toBe(1);
+  });
 });
