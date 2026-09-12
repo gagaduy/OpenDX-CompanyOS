@@ -1457,6 +1457,14 @@
   border-radius: 8px;
   padding: 0.75rem;
   margin-top: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.ccApprovalBox:hover {
+  background: #0e1526;
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .ccApprovalTopRow {

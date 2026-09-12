@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Pending Approvals Persistence, Interactive Card Clickability & Facebook Publication Resilience:
+  - Interactive Approval Card Body Click: Enhanced `PendingApprovalsPanel` by binding `app.onPreview` to the entire `.ccApprovalBox` container with hover animation and cursor styling, while adding `e.stopPropagation()` to internal action buttons so users can click anywhere on an approval card to inspect details.
+  - Multi-Campaign Approval Persistence Across Page Reloads: Expanded `redesignedApprovals` in `AgenticCommandCenter` to iterate over all active and pending campaigns from `campaignsList` (`awaiting_human_approval`, `campaign_review`, `revision_requested`, `draft`, `visual_creation`, `failed`, `partial_failure`), eliminating the single in-memory state limitation where refreshing the page cleared pending approvals to `(0)`.
+  - Unreviewed Completed Tasks Mapping: Integrated Section 8 into `redesignedApprovals` to display recently completed tasks awaiting human inspection or acceptance, persisting unreviewed task state in `localStorage` (`opendx_reviewed_task_ids`) so tasks finished running remain visible until explicitly reviewed or approved.
+  - Meta Graph Token Resilience & Publication Error Handling: Updated `meta-graph-facebook-publisher.adapter.ts` with fallback to configured `pageAccessToken` if database tokens fail with `FACEBOOK_TOKEN_INVALID`. Synced valid NovaCommerce Page Access Token into PostgreSQL `marketing_social_accounts` and `.env`.
+  - Failed Publication UI Handling & One-Click Retry: Added failure state recognition (`isFailed`), informative error banners, and `🔄 Thử xuất bản lại` actions in `MarketingCampaignModal` and `AgenticCommandCenter`.
+
 - AI Command Center Marketing Work Presentation & Interactive Campaign Modal:
   - Authentic Deliverables Presentation: Resolved the bug where completing a Marketing copywriting and visual poster task popped up a generic executive report (`StrategicDeliverableModal`) instead of the actual completed work product.
   - Dedicated `MarketingCampaignModal`: Created an interactive deliverable inspection modal displaying the AI Copywriter's drafted post (headline, body, CTA, hashtags), Graphic Designer's 1024x1024 poster graphic, live Facebook Newsfeed mockup preview, 5 downloadable campaign deliverables (DOCX, PNG, XLSX, PDF), and 1-click `✓ Phê duyệt & Đăng Fanpage` / `✎ Yêu cầu chỉnh sửa` actions.

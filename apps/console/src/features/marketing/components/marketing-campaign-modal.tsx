@@ -97,6 +97,7 @@ export function MarketingCampaignModal({
     campaign.state === "completed" ||
     campaign.state === "publishing" ||
     campaign.state === "verifying_publication";
+  const isFailed = campaign.state === "failed" || campaign.state === "partial_failure";
 
   const handleCopyPostText = async () => {
     if (!latestContent) return;
@@ -188,18 +189,42 @@ export function MarketingCampaignModal({
                   style={{
                     fontSize: "0.72rem",
                     fontWeight: 600,
-                    color: isApprovedOrPublished ? "#4ade80" : "#fbbf24",
-                    background: isApprovedOrPublished ? "rgba(34, 197, 94, 0.15)" : "rgba(251, 191, 36, 0.15)",
+                    color: isApprovedOrPublished ? "#4ade80" : isFailed ? "#f87171" : "#fbbf24",
+                    background: isApprovedOrPublished
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : isFailed
+                      ? "rgba(239, 68, 68, 0.15)"
+                      : "rgba(251, 191, 36, 0.15)",
                     padding: "0.15rem 0.5rem",
                     borderRadius: "9999px",
-                    border: `1px solid ${isApprovedOrPublished ? "rgba(34, 197, 94, 0.3)" : "rgba(251, 191, 36, 0.3)"}`,
+                    border: `1px solid ${
+                      isApprovedOrPublished
+                        ? "rgba(34, 197, 94, 0.3)"
+                        : isFailed
+                        ? "rgba(239, 68, 68, 0.3)"
+                        : "rgba(251, 191, 36, 0.3)"
+                    }`,
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "0.3rem",
                   }}
                 >
-                  <CheckCircle2 size={11} />
-                  {isApprovedOrPublished ? "Đã Xuất bản Thành công" : "Hoàn tất 100% • Chờ duyệt xuất bản"}
+                  {isApprovedOrPublished ? (
+                    <>
+                      <CheckCircle2 size={11} />
+                      Đã Xuất bản Thành công
+                    </>
+                  ) : isFailed ? (
+                    <>
+                      <AlertTriangle size={11} />
+                      Xuất bản gặp sự cố • Cần kiểm tra & Thử lại
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={11} />
+                      Hoàn tất 100% • Chờ duyệt xuất bản
+                    </>
+                  )}
                 </span>
               </div>
               <h2 className="ccOperationsModalHeading" style={{ marginTop: "0.25rem", fontSize: "1.2rem" }}>
@@ -263,6 +288,45 @@ export function MarketingCampaignModal({
             </div>
           </div>
         </div>
+
+        {isFailed && (
+          <div
+            style={{
+              padding: "0.75rem 1.75rem",
+              background: "rgba(239, 68, 68, 0.12)",
+              borderBottom: "1px solid rgba(239, 68, 68, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#fca5a5", fontSize: "0.82rem" }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, color: "#ef4444" }} />
+              <span>
+                Nội dung bài viết và poster đã hoàn thiện, nhưng xuất bản tự động lên Fanpage Facebook gặp sự cố (Token Meta/Facebook chưa kết nối hoặc đã hết hạn).
+              </span>
+            </div>
+            {onRetryPublication && (
+              <button
+                type="button"
+                className="marketingBtnPrimary"
+                onClick={onRetryPublication}
+                disabled={isActionLoading}
+                style={{
+                  fontSize: "0.78rem",
+                  padding: "0.35rem 0.85rem",
+                  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isActionLoading ? <Loader2 size={13} className="ccSpin" /> : <RefreshCw size={13} />}
+                <span>Thử xuất bản lại ngay</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div
@@ -652,21 +716,38 @@ export function MarketingCampaignModal({
               </button>
             )}
 
-            {!isApprovedOrPublished && onApprove && (
+            {isFailed && onRetryPublication ? (
               <button
                 type="button"
                 className="marketingBtnPrimary"
                 disabled={isActionLoading}
-                onClick={onApprove}
+                onClick={onRetryPublication}
                 style={{
                   fontSize: "0.85rem",
                   padding: "0.55rem 1.25rem",
-                  background: "linear-gradient(135deg, #1877f2 0%, #2563eb 100%)",
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
                 }}
               >
-                {isActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>{isActionLoading ? "Đang xuất bản lên Fanpage..." : "✓ Phê duyệt & Đăng Fanpage"}</span>
+                {isActionLoading ? <Loader2 size={16} className="ccSpin" /> : <RefreshCw size={16} />}
+                <span>{isActionLoading ? "Đang thử xuất bản lại..." : "🔄 Thử xuất bản lại lên Fanpage"}</span>
               </button>
+            ) : (
+              !isApprovedOrPublished && onApprove && (
+                <button
+                  type="button"
+                  className="marketingBtnPrimary"
+                  disabled={isActionLoading}
+                  onClick={onApprove}
+                  style={{
+                    fontSize: "0.85rem",
+                    padding: "0.55rem 1.25rem",
+                    background: "linear-gradient(135deg, #1877f2 0%, #2563eb 100%)",
+                  }}
+                >
+                  {isActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
+                  <span>{isActionLoading ? "Đang xuất bản lên Fanpage..." : "✓ Phê duyệt & Đăng Fanpage"}</span>
+                </button>
+              )
             )}
 
             {isApprovedOrPublished && (

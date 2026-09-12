@@ -119,6 +119,38 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
         } else {
           throw err;
         }
+      } else if (
+        err instanceof FacebookPublisherError &&
+        err.code === "FACEBOOK_TOKEN_INVALID" &&
+        this.pageAccessToken &&
+        this.pageAccessToken !== pageAccessToken
+      ) {
+        try {
+          result = await this.publishImagePost({
+            pageId,
+            pageAccessToken: this.pageAccessToken,
+            message: request.caption,
+            imageBuffer: firstMedia.bytes,
+            imageFileName: firstMedia.fileName,
+            mimeType: firstMedia.mimeType,
+          });
+          if (this.socialAccountRepository) {
+            void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+              tokenStatus: "healthy",
+              lastCheckedAt: this.now(),
+              lastError: null,
+            }).catch(() => undefined);
+          }
+        } catch (fallbackErr) {
+          if (this.socialAccountRepository) {
+            void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+              tokenStatus: "invalid",
+              lastCheckedAt: this.now(),
+              lastError: err.message,
+            }).catch(() => undefined);
+          }
+          throw fallbackErr;
+        }
       } else {
         if (err instanceof FacebookPublisherError && err.code === "FACEBOOK_TOKEN_INVALID" && this.socialAccountRepository) {
           void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {

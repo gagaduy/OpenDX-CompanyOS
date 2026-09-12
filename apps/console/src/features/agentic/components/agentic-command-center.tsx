@@ -179,11 +179,33 @@ export function AgenticCommandCenter({
   // Marketing Campaign State
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [activeCampaignDetail, setActiveCampaignDetail] = useState<MarketingCampaignDetail | null>(null);
-  const [_campaignsList, setCampaignsList] = useState<readonly MarketingCampaign[]>([]);
+  const [campaignsList, setCampaignsList] = useState<readonly MarketingCampaign[]>([]);
   const [marketingActionLoading, setMarketingActionLoading] = useState(false);
   const [revisionInput, setRevisionInput] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [marketingCampaignModalOpen, setMarketingCampaignModalOpen] = useState(false);
+
+  // Completed Tasks Reviewed Acknowledgment State
+  const [reviewedTaskIds, setReviewedTaskIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const stored = localStorage.getItem("opendx_reviewed_task_ids");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const markTaskReviewed = (taskId: string) => {
+    setReviewedTaskIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      try {
+        localStorage.setItem("opendx_reviewed_task_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
 
   // Social Tokens State & 1-Click Operations
   const [socialTokensSummary, setSocialTokensSummary] = useState<SocialTokensSummaryView | null>(null);
@@ -738,19 +760,20 @@ export function AgenticCommandCenter({
 
   const [visualBlobUrl, setVisualBlobUrl] = useState<string | null>(null);
 
-  // Load initial marketing campaigns list for History without forcing auto-open on clean mount
+  // Load initial marketing campaigns list for History and keep pending campaigns fresh
   useEffect(() => {
     if (!marketingApi?.listCampaigns) return;
     let isMounted = true;
 
-    marketingApi
-      .listCampaigns({ limit: 5 })
-      .then((res) => {
-        if (isMounted) {
+    const loadCampaigns = () => {
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) => {
+          if (!isMounted) return;
           setCampaignsList(res.items);
           const pendingCamp =
             res.items.find((c) =>
-              ["awaiting_human_approval", "campaign_review", "draft", "visual_creation"].includes(c.state),
+              ["awaiting_human_approval", "campaign_review", "draft", "visual_creation", "failed", "partial_failure"].includes(c.state),
             ) || res.items[0];
           if (pendingCamp && !activeCampaignId) {
             setActiveCampaignId(pendingCamp.id);
@@ -761,14 +784,18 @@ export function AgenticCommandCenter({
               })
               .catch(() => {});
           }
-        }
-      })
-      .catch((err) => console.error("Failed to load marketing campaigns:", err));
+        })
+        .catch((err) => console.error("Failed to load marketing campaigns:", err));
+    };
+
+    loadCampaigns();
+    const interval = setInterval(loadCampaigns, 8000);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
-  }, [marketingApi]);
+  }, [marketingApi, activeCampaignId]);
 
   // Authenticated visual blob loader for image preview
   useEffect(() => {
@@ -2644,31 +2671,38 @@ export function AgenticCommandCenter({
   };
 
   // Marketing Actions
-  const handleApproveMarketing = async () => {
-    if (!activeCampaignId || !marketingApi) return;
+  const handleApproveMarketing = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId || !marketingApi) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.approveCampaign(activeCampaignId, { decision: "approve" });
-      const detail = await marketingApi.getCampaign(activeCampaignId);
+      await marketingApi.approveCampaign(campId, { decision: "approve" });
+      const detail = await marketingApi.getCampaign(campId);
       setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
 
-      // Complete all steps in CEO Plan
-      setCeoPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
-            }
-          : null,
-      );
-      setMarketingActiveAgent(null);
-      setMarketingAgentMessage(null);
+      if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
+        setErrorMessage(
+          "⚠️ Phê duyệt hoàn tất nhưng xuất bản lên Fanpage gặp lỗi do Token Meta Facebook chưa hợp lệ. Bạn có thể nhấn 'Thử xuất bản lại' hoặc kiểm tra Token.",
+        );
+      } else {
+        // Complete all steps in CEO Plan
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+      }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 10 }).then((res) => setCampaignsList(res.items)).catch(() => {});
-
-      setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Phê duyệt thất bại.");
     } finally {
@@ -2676,18 +2710,21 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleRevisionMarketing = async (feedbackText?: string) => {
+  const handleRevisionMarketing = async (feedbackText?: string, targetId?: string) => {
+    const campId = targetId || activeCampaignId;
     const feedback = typeof feedbackText === "string" ? feedbackText : revisionInput;
-    if (!activeCampaignId || !marketingApi || !feedback.trim()) return;
+    if (!campId || !marketingApi || !feedback.trim()) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.requestRevision(activeCampaignId, { feedback: feedback.trim() });
-      const detail = await marketingApi.getCampaign(activeCampaignId);
+      await marketingApi.requestRevision(campId, { feedback: feedback.trim() });
+      const detail = await marketingApi.getCampaign(campId);
       setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
       setRevisionInput("");
       setShowRevisionForm(false);
       setSuccessMessage("Đã gửi yêu cầu chỉnh sửa! 3 nhân sự số Marketing đang tạo lại bản sửa đổi mới.");
+      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Yêu cầu chỉnh sửa thất bại.");
     } finally {
@@ -2695,31 +2732,36 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleRetryPublication = async () => {
-    if (!activeCampaignId || !marketingApi) return;
+  const handleRetryPublication = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId || !marketingApi) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.retryPublication(activeCampaignId);
-      const detail = await marketingApi.getCampaign(activeCampaignId);
+      await marketingApi.retryPublication(campId);
+      const detail = await marketingApi.getCampaign(campId);
       setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
 
-      // Complete all steps in CEO Plan
-      setCeoPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
-            }
-          : null,
-      );
-      setMarketingActiveAgent(null);
-      setMarketingAgentMessage(null);
+      if (detail.campaign.state === "completed") {
+        // Complete all steps in CEO Plan
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã xuất bản lại thành công lên Fanpage Facebook!");
+      } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
+        setErrorMessage("Xuất bản lại chưa thành công. Vui lòng kiểm tra lại Token Meta Facebook.");
+      }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 10 }).then((res) => setCampaignsList(res.items)).catch(() => {});
-
-      setSuccessMessage("Đã xuất bản lại thành công lên Facebook!");
+      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Đăng lại lên Facebook thất bại.");
     } finally {
@@ -4180,28 +4222,100 @@ export function AgenticCommandCenter({
       : []),
 
     // 2. Marketing: Campaign Creative & Social Publication
-    ...(activeCampaignDetail &&
-    ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(
-      activeCampaignDetail.campaign.state,
-    )
-      ? [
-          {
-            id: activeCampaignDetail.campaign.id,
-            title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+    ...(() => {
+      const items: PendingApprovalItem[] = [];
+      const seenIds = new Set<string>();
+
+      // Check activeCampaignDetail first
+      if (
+        activeCampaignDetail &&
+        [
+          "awaiting_human_approval",
+          "campaign_review",
+          "revision_requested",
+          "draft",
+          "visual_creation",
+          "failed",
+          "partial_failure",
+        ].includes(activeCampaignDetail.campaign.state)
+      ) {
+        seenIds.add(activeCampaignDetail.campaign.id);
+        const isFailed =
+          activeCampaignDetail.campaign.state === "failed" ||
+          activeCampaignDetail.campaign.state === "partial_failure";
+        items.push({
+          id: activeCampaignDetail.campaign.id,
+          title: isFailed
+            ? `⚠️ [Cần xử lý] ${activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xuất bản)`
+            : (activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"),
+          sourceDepartment: "marketing" as const,
+          authorName: isFailed ? "Hệ thống Xuất bản (Cần kiểm tra Token)" : "Cây bút Sáng tạo (MKT-01)",
+          riskLevel: isFailed ? ("high" as const) : ("medium" as const),
+          timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
+          onPreview: () => {
+            setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setMarketingCampaignModalOpen(true);
+          },
+          onRequestRevision: () => {
+            setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setShowRevisionForm(true);
+          },
+          onApprove: () => void handleApproveMarketing(activeCampaignDetail.campaign.id),
+        });
+      }
+
+      // Check all campaigns in campaignsList
+      for (const camp of campaignsList) {
+        if (seenIds.has(camp.id)) continue;
+        if (
+          [
+            "awaiting_human_approval",
+            "campaign_review",
+            "revision_requested",
+            "draft",
+            "visual_creation",
+            "failed",
+            "partial_failure",
+          ].includes(camp.state)
+        ) {
+          seenIds.add(camp.id);
+          const isFailed = camp.state === "failed" || camp.state === "partial_failure";
+          items.push({
+            id: camp.id,
+            title: isFailed
+              ? `⚠️ [Cần xử lý] ${camp.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xuất bản)`
+              : (camp.campaignName || "Chiến dịch Marketing Fanpage"),
             sourceDepartment: "marketing" as const,
-            authorName: "Cây bút Sáng tạo (MKT-01)",
-            riskLevel: "medium" as const,
-            timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
-            onPreview: () => {
+            authorName: isFailed ? "Hệ thống Xuất bản (Cần kiểm tra Token)" : "Cây bút Sáng tạo (MKT-01)",
+            riskLevel: isFailed ? ("high" as const) : ("medium" as const),
+            timestamp: formatTime(camp.updatedAt),
+            onPreview: async () => {
+              setActiveCampaignId(camp.id);
+              try {
+                if (marketingApi?.getCampaign) {
+                  const d = await marketingApi.getCampaign(camp.id);
+                  setActiveCampaignDetail(d);
+                }
+              } catch {}
               setMarketingCampaignModalOpen(true);
             },
-            onRequestRevision: () => {
+            onRequestRevision: async () => {
+              setActiveCampaignId(camp.id);
+              try {
+                if (marketingApi?.getCampaign) {
+                  const d = await marketingApi.getCampaign(camp.id);
+                  setActiveCampaignDetail(d);
+                }
+              } catch {}
               setShowRevisionForm(true);
             },
-            onApprove: () => void handleApproveMarketing(),
-          },
-        ]
-      : []),
+            onApprove: () => void handleApproveMarketing(camp.id),
+          });
+        }
+      }
+
+      return items;
+    })(),
 
     // 3. Merchandising: Flash Sale & Pricing Optimization Proposal
     ...((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied")
@@ -4389,6 +4503,42 @@ export function AgenticCommandCenter({
           }
         },
       })),
+
+    // 8. Completed tasks awaiting user review / inspection
+    ...(tasks?.items ?? [])
+      .filter(
+        (t) =>
+          (t.state === "completed" || t.state === "partially_completed") &&
+          !reviewedTaskIds.has(t.id) &&
+          !apiApprovals.some((a) => a.taskId === t.id)
+      )
+      .slice(0, 3)
+      .map((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        return {
+          id: `review-${t.id}`,
+          title: `Nghiệm thu kết quả: ${t.goal.length > 50 ? `${t.goal.slice(0, 47)}...` : t.goal}`,
+          sourceDepartment: (intent === "orchestration" ? "operations" : intent) as DepartmentType,
+          authorName: "Báo cáo Hoàn tất Tác vụ",
+          riskLevel: "low" as const,
+          timestamp: formatTime(t.updatedAt || t.createdAt),
+          onPreview: () => {
+            markTaskReviewed(t.id);
+            setSelectedStrategicDeliverable(
+              buildStrategicDeliverable(t.goal, t.id, (intent === "orchestration" ? "ai_ceo" : intent) as any)
+            );
+            setIsStrategicModalOpen(true);
+          },
+          onRequestRevision: () => {
+            markTaskReviewed(t.id);
+            setSuccessMessage("Đã chuyển phản hồi nghiệm thu cho nhân sự số.");
+          },
+          onApprove: () => {
+            markTaskReviewed(t.id);
+            setSuccessMessage(`Đã nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}..." thành công!`);
+          },
+        };
+      }),
   ];
 
   const redesignedRecentDeliverables = [
@@ -5000,9 +5150,9 @@ export function AgenticCommandCenter({
           onClose={() => setMarketingCampaignModalOpen(false)}
           detail={activeCampaignDetail}
           api={marketingApi}
-          onApprove={handleApproveMarketing}
-          onRequestRevision={handleRevisionMarketing}
-          onRetryPublication={handleRetryPublication}
+          onApprove={() => handleApproveMarketing(activeCampaignDetail.campaign.id)}
+          onRequestRevision={(feedback) => handleRevisionMarketing(feedback, activeCampaignDetail.campaign.id)}
+          onRetryPublication={() => handleRetryPublication(activeCampaignDetail.campaign.id)}
           isActionLoading={marketingActionLoading}
         />
       )}

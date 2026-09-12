@@ -51,6 +51,16 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
             <div
               key={app.id}
               className="ccApprovalBox"
+              onClick={app.onPreview}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  app.onPreview();
+                }
+              }}
+              style={{ cursor: "pointer" }}
+              title="Nhấn để xem chi tiết & phê duyệt"
             >
               <div className="ccApprovalTopRow">
                 <div className="ccApprovalTitleWrap">
@@ -84,7 +94,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
               <div className="ccApprovalBtns">
                 <button
                   type="button"
-                  onClick={app.onPreview}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    app.onPreview();
+                  }}
                   className="ccApprovalBtnPreview"
                 >
                   <Eye size={11} style={{ display: "inline", marginRight: "4px" }} />
@@ -93,7 +106,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
 
                 <button
                   type="button"
-                  onClick={app.onRequestRevision}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    app.onRequestRevision();
+                  }}
                   className="ccApprovalBtnEdit"
                 >
                   <Edit3 size={11} style={{ display: "inline", marginRight: "4px" }} />
@@ -102,7 +118,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
 
                 <button
                   type="button"
-                  onClick={app.onApprove}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    app.onApprove();
+                  }}
                   className="ccApprovalBtnApprove"
                 >
                   <Check size={12} style={{ display: "inline", marginRight: "3px" }} />

@@ -32,6 +32,13 @@ const sampleDetail: MarketingCampaignDetail = {
     facebookPageConfigurationId: "fb-cfg-01",
     audience: "Đại chúng",
     tone: "Hào hứng",
+    scheduledFor: "2026-09-13T01:00:00Z",
+    deadline: "2026-09-14T00:00:00Z",
+    approverId: "user-approver-1",
+    maximumCostMicros: 500000,
+    provenance: [],
+    version: 1,
+    createdAt: "2026-09-13T00:00:00Z",
   },
   contentVersions: [
     {
@@ -54,6 +61,7 @@ const sampleDetail: MarketingCampaignDetail = {
     {
       id: "va-001",
       campaignId: "camp-001",
+      versionNumber: 1,
       aspectRatio: "1:1",
       width: 1024,
       height: 1024,
@@ -76,6 +84,8 @@ const sampleDetail: MarketingCampaignDetail = {
       campaignId: "camp-001",
       kind: "facebook_content_docx",
       filename: "facebook_content_camp-001.docx",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      storageKey: "marketing/camp-001/facebook_content_camp-001.docx",
       byteSize: 4200,
       sha256Digest: "digest-001-abcdef1234567890",
       createdAt: "2026-09-13T00:04:00Z",
@@ -85,6 +95,8 @@ const sampleDetail: MarketingCampaignDetail = {
       campaignId: "camp-001",
       kind: "facebook_visual_png",
       filename: "facebook_visual_camp-001.png",
+      mediaType: "image/png",
+      storageKey: "marketing/camp-001/facebook_visual_camp-001.png",
       byteSize: 2048000,
       sha256Digest: "digest-002-abcdef1234567890",
       createdAt: "2026-09-13T00:04:00Z",
@@ -164,5 +176,32 @@ describe("MarketingCampaignModal", () => {
     const approveBtn = screen.getByRole("button", { name: /Phê duyệt & Đăng Fanpage/i });
     fireEvent.click(approveBtn);
     expect(handleApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders failed state alert banner and triggers retry publication handler", () => {
+    const handleRetry = vi.fn();
+    const failedDetail: MarketingCampaignDetail = {
+      ...sampleDetail,
+      campaign: {
+        ...sampleDetail.campaign,
+        state: "failed",
+      },
+    };
+
+    render(
+      <MarketingCampaignModal
+        isOpen={true}
+        onClose={vi.fn()}
+        detail={failedDetail}
+        onRetryPublication={handleRetry}
+      />
+    );
+
+    expect(screen.getByText(/Xuất bản gặp sự cố • Cần kiểm tra & Thử lại/i)).toBeInTheDocument();
+    expect(screen.getByText(/xuất bản tự động lên Fanpage Facebook gặp sự cố/i)).toBeInTheDocument();
+
+    const retryBtn = screen.getByRole("button", { name: /Thử xuất bản lại lên Fanpage/i });
+    fireEvent.click(retryBtn);
+    expect(handleRetry).toHaveBeenCalledTimes(1);
   });
 });
