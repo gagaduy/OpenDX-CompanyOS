@@ -54,7 +54,7 @@ export class ImapEmailReceiverAdapter implements EmailReceiverPort {
   constructor(private readonly config: ImapEmailReceiverConfig) {}
 
   private createClient(): ImapFlow {
-    return new ImapFlow({
+    const client = new ImapFlow({
       host: this.config.host,
       port: this.config.port,
       secure: this.config.secure,
@@ -67,6 +67,10 @@ export class ImapEmailReceiverAdapter implements EmailReceiverPort {
         rejectUnauthorized: this.config.tlsRejectUnauthorized ?? false,
       },
     });
+    client.on("error", () => {
+      // Suppress unhandled socket error/timeout crashes from idle IMAP connections
+    });
+    return client;
   }
 
   public async fetchUnreadReplies(): Promise<IncomingCustomerEmailDto[]> {

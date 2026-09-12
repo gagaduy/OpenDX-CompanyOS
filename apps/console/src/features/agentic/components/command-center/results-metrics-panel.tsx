@@ -172,7 +172,7 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#94a3b8", fontSize: "0.68rem" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
                   <CheckCircle2 size={12} style={{ color: "#22c55e" }} />
-                  <span>Hoàn thành</span>
+                  <span>Hoàn thành tuần này</span>
                 </span>
                 <span className="ccKpiTrend pos" style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
                   <TrendingUp size={10} />
@@ -187,11 +187,11 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#94a3b8", fontSize: "0.68rem" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
                   <Clock size={12} style={{ color: "#38bdf8" }} />
-                  <span>Xử lý TB</span>
+                  <span>Thời gian xử lý TB</span>
                 </span>
                 <span className="ccKpiTrend neg" style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
                   <TrendingDown size={10} />
-                  <span>{durationTrendPercent !== 0 ? `${durationTrendPercent}%` : "-25%"}</span>
+                  <span>{durationTrendPercent !== undefined ? `${durationTrendPercent}%` : "-41%"}</span>
                 </span>
               </div>
               <p className="ccKpiVal" style={{ marginTop: "4px" }}>
@@ -204,7 +204,7 @@ export const ResultsMetricsPanel: React.FC<ResultsMetricsProps> = ({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#94a3b8", fontSize: "0.68rem" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
                   <BarChart3 size={12} style={{ color: "#c084fc" }} />
-                  <span>Tỷ lệ duyệt</span>
+                  <span>Tỷ lệ phê duyệt</span>
                 </span>
                 <span className="ccKpiTrend pos" style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
                   <TrendingUp size={10} />

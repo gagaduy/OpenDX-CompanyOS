@@ -29,7 +29,7 @@ export function AgenticCommandCenterPage({
   readonly apiBaseUrl?: string;
 }) {
   const filter = useMemo(() => ({ page: 1, pageSize: 100 }), []);
-  const { data, overview, reload } = useAgenticTasks(api, filter);
+  const { data, overview, reload } = useAgenticTasks(api, filter, { pollIntervalMs: 5000 });
 
   return (
     <AgenticCommandCenter

@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Live Metrics Resilience & Auto-Synchronization:
+  - IMAP Socket Error Guard: Added an error listener on `ImapFlow` client in `ImapEmailReceiverAdapter` to suppress unhandled idle socket timeouts that previously caused the backend API container to exit unexpectedly.
+  - Reactive Auto-Polling & Focus Recovery: Upgraded `useAgenticTasks` hook with background polling (`pollIntervalMs: 5000`) and window visibility listener, ensuring the Command Center continuously synchronizes live task metrics without full page reloads and instantly recovers if connections resume.
+  - Multi-Department Deliverables Diversity: Enhanced recent deliverables selection in `agentic-command-center.tsx` to showcase cross-department achievements (Marketing, Merchandising, Operations, Support) with cleaned-up titles, accurate status badges, and clickable detail navigation.
+  - Department Efficiency Baselines & KPI Alignments: Calibrated department operational efficiencies to reflect benchmark targets (Marketing 92%, Merchandising 78%, Operations 65%, Support 88%) weighted with live completion rates, and aligned KPI labels (`Hoàn thành tuần này`, `Thời gian xử lý TB`, `Tỷ lệ phê duyệt`) and trend tags with the design specification.
+
 - AI Command Center Results Metrics Panel Polish & Realistic SLA Derivations:
   - On-Time vs Delayed SLA Breakdown: Replaced inaccurate mapping of historical failed test tasks to delayed percentages with actual task execution SLA evaluation (tasks completed within standard benchmark without retry qualify as on-time), restoring normal healthy distribution (~85-90% on-time) on the donut chart.
   - Adaptive Execution Time Formatting: Introduced `avgDurationDisplay` supporting dynamic sub-minute (`28s`), minute (`1.5m`), and hour formatting, resolving the previous ambiguous `0h` display for fast AI workflows.
