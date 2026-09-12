@@ -9,6 +9,8 @@ import type { WorkforceGridProps } from "./types";
 export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
   departments,
   onViewDagGraph,
+  children,
+  containerRef,
 }) => {
   return (
     <div className="flex flex-col gap-3">
@@ -34,8 +36,9 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
         </button>
       </div>
 
-      {/* 2x2 Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 2x2 Grid Container */}
+      <div ref={containerRef} className="relative grid grid-cols-1 md:grid-cols-2 gap-4">
+        {children}
         {departments.map((dept) => (
           <DepartmentCard key={dept.department} {...dept} />
         ))}

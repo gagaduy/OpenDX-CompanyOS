@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useRef, Fragment } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   Send,
@@ -69,6 +69,13 @@ import {
   getNextEligibleTask,
   releaseLocks,
 } from "../utils/department-task-scheduler";
+import { CommandCenterHeader } from "./command-center/command-center-header";
+import { CommandComposerPanel } from "./command-center/command-composer-panel";
+import { WorkforceGrid } from "./command-center/workforce-grid";
+import { LiveActivityFeed } from "./command-center/live-activity-feed";
+import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel";
+import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
+import type { DepartmentCardProps, LiveEventItem, PendingApprovalItem, TaskFilterType } from "./command-center/types";
 import "../styles/agentic-command-center.css";
 
 export interface ActiveCollaboration {
@@ -116,10 +123,16 @@ export function AgenticCommandCenter({
   apiBaseUrl,
 }: AgenticCommandCenterProps) {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"hub" | "orchestration" | "workforce">("hub");
   const [recentOutcomesOpen, setRecentOutcomesOpen] = useState(true);
+  const [taskFilter, setTaskFilter] = useState<TaskFilterType>("all");
+  const [liveFeedFilter, setLiveFeedFilter] = useState<string>("all");
+  const [composerPriority, setComposerPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
+  const [composerTarget, setComposerTarget] = useState<string>("ai_ceo");
+  const [directInputMode, setDirectInputMode] = useState(false);
 
   // AI CEO Thinking & Smooth Scroll State
   const [isCeoThinking, setIsCeoThinking] = useState(false);
@@ -2359,1438 +2372,160 @@ export function AgenticCommandCenter({
   const latestContent = activeCampaignDetail?.contentVersions?.[activeCampaignDetail.contentVersions.length - 1];
   const latestVisual = activeCampaignDetail?.visualAssets?.[activeCampaignDetail.visualAssets.length - 1];
 
-  return (
-    <section className="commandCenterWorkspace">
-      {/* 1. Header Bar */}
-      <header className="ccHeaderBar">
-        <div className="ccBrandTitle">
-          <Sparkles size={20} color="#f59e0b" />
-          <span>OpenDX CompanyOS — Trung tâm điều hành AI</span>
-        </div>
+  // Redesigned Subcomponent Data Mappings
+  const isCurrentlyAnalyzing = isCeoThinking || isRunning;
+  const analysisCurrentStep = isCeoThinking ? 2 : isRunning ? 3 : 1;
 
-        <nav className="ccNavTabs">
-          <button
-            type="button"
-            className={`ccNavTab ${activeTab === "hub" ? "active" : ""}`}
-            onClick={() => setActiveTab("hub")}
-          >
-            Command Hub
-          </button>
-          <Link
-            to={activeTaskId ? `/agentic/tasks/${activeTaskId}` : "/agentic/tasks-table"}
-            className="ccNavTab"
-          >
-            Orchestration
-          </Link>
-          <Link to="/agentic/employees" className="ccNavTab">
-            Workforce
-          </Link>
-        </nav>
+  const redesignedDepartmentCards: DepartmentCardProps[] = [
+    {
+      department: "marketing",
+      displayName: "Tiếp thị & Sáng tạo",
+      employeeCount: 3,
+      activeTaskCount: departmentQueues.marketing.filter((t) => t.status === "running").length,
+      status: activeCampaignDetail?.campaign.state === "campaign_review" ? "waiting_approval" : isRunning ? "running" : "idle",
+      employees: [
+        {
+          id: "marketing_copywriter",
+          name: "MKT-01",
+          role: "Cây bút Tiếp thị",
+          status: getBranchState("marketing_content") === "running" ? "working" : "idle",
+          progressPercent: getBranchState("marketing_content") === "running" ? 75 : getBranchState("marketing_content") === "completed" ? 100 : 0,
+        },
+        {
+          id: "marketing_visual",
+          name: "MKT-02",
+          role: "Thiết kế Đồ họa",
+          status: getBranchState("marketing_visual") === "running" ? "working" : "idle",
+          progressPercent: getBranchState("marketing_visual") === "running" ? 40 : getBranchState("marketing_visual") === "completed" ? 100 : 0,
+        },
+        {
+          id: "marketing_publisher",
+          name: "MKT-03",
+          role: "Điều phối Xuất bản",
+          status: getBranchState("marketing_publisher") === "running" ? "working" : "idle",
+          progressPercent: getBranchState("marketing_publisher") === "completed" ? 100 : 0,
+        },
+      ],
+      queue: departmentQueues.marketing,
+      headerExtra: (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          {socialTokensSummary && (() => {
+            const hasExpiringOrInvalid = socialTokensSummary.hasExpiringOrInvalid;
+            const urgent = socialTokensSummary.urgentActionRequired;
+            const expiringAccount = socialTokensSummary.accounts.find(
+              (a) => a.status === "expiring_soon" || a.status === "expired" || a.status === "invalid"
+            );
+            const days = expiringAccount?.daysRemaining;
 
-        <div className="ccHeaderRight">
-          <span className="ccStatBadge">4 Phòng ban</span>
-          <span className="ccStatBadge">9 Nhân sự AI</span>
-          <span className={`ccStatBadge ${activeCount > 0 ? "activeTasks" : ""}`}>
-            {activeCount > 0 && <span className="ccPillDot" />}
-            <span>{activeCount} Đang làm</span>
-          </span>
+            let badgeClass = "valid";
+            let badgeText = "Social Token: OK";
+            let icon = <ShieldCheck size={12} />;
 
-          <div className="ccProfilePill">
-            <div className="ccAvatar">
-              <Bot size={14} color="#94a3b8" />
-              <span className="ccAvatarOnline" />
-            </div>
-            <span>Chủ tịch (Owner)</span>
-          </div>
-        </div>
-      </header>
-
-      {/* 2. Strategic Command Card */}
-      <div className="ccStrategicCard">
-        <h1 className="ccStrategicTitle">Giao việc chiến lược</h1>
-
-        {errorMessage && (
-          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <AlertTriangle size={16} />
-              <span>{errorMessage === "Authentication required" ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." : errorMessage}</span>
-            </div>
-            {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
-              <button
-                type="button"
-                onClick={() => void signIn()}
-                style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
-              >
-                Đăng nhập lại
-              </button>
-            )}
-          </div>
-        )}
-
-        {successMessage && (
-          <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#6ee7b7", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-            <CheckCircle2 size={16} />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        <form
-          className="ccInputWrapper"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendStrategicTask();
-          }}
-        >
-          <Sparkles className="ccSparkleIcon" size={20} />
-          <input
-            type="text"
-            className="ccMainPromptInput"
-            placeholder="Hãy giao việc chiến lược cho AI CEO (ví dụ: Quảng bá điện thoại NovaPhone 15 Pro Max trên Facebook)..."
-            value={prompt}
-            disabled={isSubmitting}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="ccSendButton"
-            disabled={isSubmitting || !prompt.trim()}
-          >
-            <Play size={14} fill="currentColor" />
-            <span>{isSubmitting ? "Đang gửi..." : "Gửi"}</span>
-          </button>
-        </form>
-
-        {/* Quick Action Pills */}
-        <div className="ccQuickActionRow">
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() => setRecentOutcomesOpen((prev) => !prev)}
-          >
-            <Clock size={13} />
-            <span>Lịch sử ({tasks?.items.length ?? 0})</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Quảng bá sản phẩm NovaPhone 15 Pro Max trên Facebook với ưu đãi tặng tai nghe NovaBuds Pro",
-              )
+            if (urgent || expiringAccount?.status === "expired" || expiringAccount?.status === "invalid") {
+              badgeClass = "danger";
+              badgeText = "🚨 Token FB lỗi / hết hạn";
+              icon = <ShieldAlert size={12} />;
+            } else if (hasExpiringOrInvalid || expiringAccount?.status === "expiring_soon") {
+              badgeClass = "warning";
+              const remainingLabel = expiringAccount?.expiresInHuman || (expiringAccount?.hoursRemaining ? `sau ${expiringAccount.hoursRemaining}h` : `sau ${days ?? 7} ngày`);
+              badgeText = `⚡ Token FB hết hạn ${remainingLabel}`;
+              icon = <Zap size={12} />;
             }
-          >
-            <span>📢 Chiến dịch Marketing FB</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Kiểm toán rủi ro kinh doanh & tồn kho khẩn cấp",
-                "Rà soát các SKU có nguy cơ đứt hàng và cảnh báo tồn kho bán chậm.",
-              )
-            }
-          >
-            <span>📦 Rà soát sức khỏe cửa hàng</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Rà soát đơn hàng quá hạn & khiếu nại khách hàng",
-                "Kiểm tra các đơn hàng bị kẹt giao và ticket khách hàng vi phạm thời gian hỗ trợ.",
-              )
-            }
-          >
-            <span>🎧 Kiểm toán đơn hàng & CSKH</span>
-          </button>
-        </div>
 
-        {/* Recent Outcomes Dropdown */}
-        <div className="ccRecentOutcomesContainer">
-          <div
-            className="ccRecentOutcomesHeader"
-            onClick={() => setRecentOutcomesOpen((prev) => !prev)}
-          >
-            <span>Tác vụ gần đây</span>
-            {recentOutcomesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-          {recentOutcomesOpen && (
-            <div className="ccRecentOutcomesList">
-              {tasks?.items && tasks.items.length > 0 &&
-                tasks.items.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="ccRecentOutcomeItem"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setActiveWorkflowKind("orchestration");
-                      setActiveTaskId(item.id);
-                    }}
-                  >
-                    <CheckCircle2 size={16} className="ccCheckIcon" />
-                    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                      <span>
-                        <strong>{item.goal}</strong> — Trạng thái: <em>{item.state}</em>
-                      </span>
-                      <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                        {new Date(item.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              {/* Marketing campaigns history */}
-              {_campaignsList && _campaignsList.length > 0 &&
-                _campaignsList.slice(0, 5).map((camp) => {
-                  const title =
-                    camp.campaignName?.replace(/^Chiến dịch:\s*/, "") ||
-                    camp.objective?.replace(/^Quảng bá sản phẩm và đăng bài lên mạng xã hội theo mục tiêu:\s*/, "") ||
-                    camp.mandatoryMessage ||
-                    `Chiến dịch Marketing (ID ${camp.id.slice(0, 8)})`;
-                  return (
-                    <div
-                      key={camp.id}
-                      className="ccRecentOutcomeItem"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        setActiveWorkflowKind("marketing");
-                        setActiveCampaignId(camp.id);
-                      }}
-                    >
-                      <Megaphone size={15} color="#38bdf8" />
-                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", gap: "1rem" }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          <strong>[Tiếp thị FB] {title}</strong> — Trạng thái: <em>{camp.state}</em>
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: "#64748b", flexShrink: 0 }}>
-                          {new Date(camp.createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              {(!tasks?.items || tasks.items.length === 0) && (!_campaignsList || _campaignsList.length === 0) && (
-                <div className="ccRecentOutcomeItem">
-                  <CheckCircle2 size={16} className="ccCheckIcon" />
-                  <span>Chưa có tác vụ nào gần đây. Hãy giao việc ở khung trên!</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 2a. AI CEO Reasoning & Department Routing Transition Banner */}
-      {isCeoThinking && (
-        <div className="ccCeoThinkingBanner">
-          <div className="ccCeoThinkingIcon">
-            <Brain size={18} className="ccSpin" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: "0.92rem", marginBottom: "0.15rem" }}>
-              👑 AI CEO đang suy nghĩ & định tuyến nhiệm vụ...
-            </div>
-            <div style={{ color: "#cbd5e1", fontSize: "0.84rem" }}>
-              {ceoThinkingText || "Đang phân tích bối cảnh, thẩm quyền và lựa chọn phòng ban phụ trách..."}
-            </div>
-          </div>
-          <Loader2 size={18} color="#f59e0b" className="ccSpin" />
-        </div>
-      )}
-
-      {/* 2b. AI CEO Strategic Decomposition Plan */}
-      {ceoPlan && (
-        <div className="ccCeoPlanCard">
-          <div className="ccCeoPlanHeader">
-            <div className="ccCeoPlanTitle">
-              <Bot size={18} color="#fbbf24" />
-              <span>Kế hoạch Điều phối Chiến lược của AI CEO</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span className="ccDeptCountBadge amber">
-                <span className="ccPillDot" style={{ width: 6, height: 6 }} />
-                <span>{ceoPlan.targetDept}</span>
-              </span>
+            return (
               <button
                 type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
-                onClick={() => setCeoPlan(null)}
-                title="Đóng bảng kế hoạch"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          <div className="ccCeoPlanGoal">
-            <strong style={{ color: "#f59e0b" }}>Mục tiêu chiến lược: </strong>
-            <span>{ceoPlan.goal}</span>
-          </div>
-
-          <div className="ccCeoPlanStepsList">
-            {ceoPlan.steps.map((s, idx) => (
-              <div key={idx} className={`ccCeoPlanStepItem ${s.status}`}>
-                <div>
-                  <div className="ccCeoStepRole">
-                    {s.status === "running" ? (
-                      <Loader2 size={14} color="#38bdf8" className="ccSpin" />
-                    ) : s.status === "done" ? (
-                      <CheckCircle2 size={14} color="#10b981" />
-                    ) : (
-                      <Clock size={14} color="#94a3b8" />
-                    )}
-                    <span>{s.role}</span>
-                  </div>
-                  <div className="ccCeoStepTask">{s.task}</div>
-                </div>
-                <span className={`ccCeoStepStatus ${s.status}`}>
-                  {s.status === "running" && (
-                    <span
-                      className="ccPillDot"
-                      style={{ width: 6, height: 6, background: "#38bdf8", boxShadow: "0 0 6px #38bdf8" }}
-                    />
-                  )}
-                  <span>
-                    {s.status === "running"
-                      ? "Đang xử lý..."
-                      : s.status === "done"
-                      ? "Hoàn tất"
-                      : "Chờ đến lượt"}
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 3. Dynamic Pipeline Flow Bar */}
-      <div className="ccPipelineBar">
-        {ceoPlan?.steps ? (
-          /* Dynamic Multi-Agent / Multi-Department CEO Plan Pipeline */
-          <div className="ccPipelineSteps">
-            {ceoPlan.steps.map((step, idx) => {
-              const isRunning = step.status === "running";
-              const isDone = step.status === "done";
-              return (
-                <Fragment key={idx}>
-                  {idx > 0 && <ArrowRight className="ccPipelineArrow" size={14} />}
-                  <div
-                    className={`ccPipelineNode ${
-                      isRunning ? "active" : isDone ? "completed" : ""
-                    }`}
-                  >
-                    {isDone ? (
-                      <CheckCircle2 size={14} color="#10b981" />
-                    ) : isRunning ? (
-                      <Loader2 size={14} className="ccSpin" color="#38bdf8" />
-                    ) : (
-                      <Bot size={14} />
-                    )}
-                    <span>{step.role.replace(/\s*\([^)]*\)/, "")}</span>
-                  </div>
-                </Fragment>
-              );
-            })}
-          </div>
-        ) : activeWorkflowKind === "merchandising" ? (
-          /* Merchandising / Catalog & Pricing Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "ceo" || isSubmitting || ceoPlan !== null ? "active" : ""
-              }`}
-            >
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "catalog_copywriter" || (ceoPlan?.steps[0]?.status === "running" || ceoPlan?.steps[0]?.status === "done")
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <FileText size={14} />
-              <span>Cây bút Sản phẩm (SEO)</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "pricing_strategist" || (ceoPlan?.steps[1]?.status === "running" || ceoPlan?.steps[1]?.status === "done")
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <DollarSign size={14} />
-              <span>Chuyên gia Định giá</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                merchandisingProposal?.status === "pending_approval" || merchandisingProposal?.status === "applied"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <CheckCircle2 size={14} />
-              <span>Chủ tịch Duyệt & Áp dụng</span>
-            </div>
-          </div>
-        ) : activeWorkflowKind === "marketing" ? (
-          /* Marketing Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "ceo" || isMarketingRunning || ceoPlan !== null ? "active" : ""
-              }`}
-            >
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_content" || currentMarketingState === "content_drafting"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Megaphone size={14} />
-              <span>Cây bút Tiếp thị</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_visual" || currentMarketingState === "visual_creation"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Palette size={14} />
-              <span>Thiết kế Đồ họa</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_publisher" ||
-                currentMarketingState === "campaign_review" ||
-                currentMarketingState === "awaiting_human_approval"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Share2 size={14} />
-              <span>Điều phối & Phê duyệt FB</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${currentMarketingState === "completed" ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Bàn giao</span>
-            </div>
-          </div>
-        ) : (
-          /* Orchestration Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div className={`ccPipelineNode ${isOrchestrationRunning ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("inventory") === "running" ? "active" : ""}`}>
-              <Package size={14} />
-              <span>Kỹ sư Tồn kho</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("order") === "running" ? "active" : ""}`}>
-              <ShoppingBag size={14} />
-              <span>Điều phối Đơn hàng</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("support") === "running" ? "active" : ""}`}>
-              <Headphones size={14} />
-              <span>Quản gia CSKH</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${currentOrchestrationState === "executive_synthesis" ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Tổng hợp</span>
-            </div>
-          </div>
-        )}
-
-        <div className="ccPipelineStatus">
-          {isRunning ? (
-            <>
-              <div className="ccReasoningIndicator">
-                <span className="ccPulseDot" />
-                <span>
-                  Đang thực thi: {activeWorkflowKind === "marketing" ? currentMarketingState : currentOrchestrationState}...{" "}
-                  {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, "0")}
-                </span>
-              </div>
-              <button type="button" className="ccStopButton" onClick={handleStopTask}>
-                <Square size={12} fill="currentColor" />
-                <span>Dừng</span>
-              </button>
-            </>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontSize: "0.85rem", fontWeight: 600 }}>
-              <CheckCircle2 size={15} color="#10b981" />
-              <span>
-                {activeWorkflowKind === "marketing"
-                  ? activeCampaignDetail?.campaign.state
-                    ? `Chiến dịch Marketing: ${activeCampaignDetail.campaign.state}`
-                    : "Sẵn sàng nhận chiến dịch Marketing"
-                  : activeOperations?.task.state
-                    ? `Tác vụ gần nhất: ${activeOperations.task.state}`
-                    : "Sẵn sàng nhận việc"}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. In-Place Active Marketing Campaign Control & Deliverables (when active/selected) */}
-      {activeCampaignDetail && (
-        <div className="ccMarketingLiveCard">
-          <div className="ccMarketingLiveHeader">
-            <div className="ccMarketingLiveTitle">
-              <Megaphone size={18} color="#38bdf8" />
-              <span>{activeCampaignDetail.brief?.campaignName ?? "Chiến dịch Tiếp thị Facebook"}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <span
-                className={`ccMarketingStatusBadge ${
-                  activeCampaignDetail.campaign.state === "awaiting_human_approval"
-                    ? "awaiting"
-                    : activeCampaignDetail.campaign.state === "completed"
-                      ? "live"
-                      : "draft"
-                }`}
-              >
-                {activeCampaignDetail.campaign.state === "awaiting_human_approval"
-                  ? "⏳ Chờ Phê Duyệt"
-                  : activeCampaignDetail.campaign.state === "completed"
-                    ? "✅ Đã Đăng Live Facebook"
-                    : activeCampaignDetail.campaign.state}
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem", color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                onClick={() => {
-                  setActiveCampaignDetail(null);
-                  setActiveCampaignId(null);
-                  setCeoPlan(null);
-                }}
-                title="Đóng / Làm mới bảng làm việc"
-              >
-                <X size={13} />
-                <span>Đóng</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="ccMarketingSplitGrid">
-            {/* Left: Copy Preview */}
-            <div className="ccMarketingContentBox">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>
-                  Nội dung bài viết Facebook (Copy v{latestContent?.versionNumber ?? 1})
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#10b981", fontWeight: 600 }}>
-                  ✓ Kiểm duyệt chính sách: Đạt
-                </span>
-              </div>
-              <h4 className="ccMarketingHeadline">{latestContent?.headline ?? latestContent?.primaryText ?? "Tiêu đề chiến dịch..."}</h4>
-              <p className="ccMarketingBody">{latestContent?.body ?? activeCampaignDetail.brief?.mandatoryMessage}</p>
-              <p className="ccMarketingHashtags">{latestContent?.hashtags?.join(" ") ?? "#NovaCommerce #KhuyenMai"}</p>
-            </div>
-
-            {/* Right: 1:1 Visual Preview */}
-            <div className="ccMarketingVisualBox">
-              <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>
-                Ảnh quảng cáo vuông 1:1 (1080x1080)
-              </span>
-              {visualBlobUrl ? (
-                <div
-                  className="ccMarketingVisualPreview"
-                  style={{
-                    padding: 0,
-                    overflow: "hidden",
-                    border: "1px solid rgba(56, 189, 248, 0.4)",
-                    position: "relative",
-                    background: "#090d16",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <img
-                    src={visualBlobUrl}
-                    alt="Ảnh quảng cáo sản phẩm 1:1"
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-                </div>
-              ) : (
-                <div className="ccMarketingVisualPreview">
-                  <Palette size={32} color="#38bdf8" style={{ marginBottom: "0.5rem" }} />
-                  <span>Ảnh đồ họa chuẩn Facebook 1:1</span>
-                  <span style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.25rem" }}>
-                    {latestVisual?.imageDigest ? `SHA-256: ${latestVisual.imageDigest.slice(0, 12)}...` : "PNG 1080x1080"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Row */}
-          <div className="ccMarketingActionsRow">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-              {activeCampaignDetail.campaign.state === "awaiting_human_approval" && (
-                <>
-                  <button
-                    type="button"
-                    className="ccMarketingActionBtn approve"
-                    disabled={marketingActionLoading}
-                    onClick={handleApproveMarketing}
-                  >
-                    <Check size={16} />
-                    <span>
-                      {marketingActionLoading
-                        ? "Đang xử lý..."
-                        : (activeCampaignDetail.currentPackage?.targets?.length ?? 0) > 1
-                          ? "Phê duyệt & Đăng lên Facebook & Instagram"
-                          : activeCampaignDetail.currentPackage?.targets?.[0]?.platform === "instagram"
-                            ? "Phê duyệt & Đăng ngay lên Instagram"
-                            : "Phê duyệt & Đăng ngay lên Facebook"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ccMarketingActionBtn revision"
-                    disabled={marketingActionLoading}
-                    onClick={() => setShowRevisionForm((prev) => !prev)}
-                  >
-                    <RotateCcw size={14} />
-                    <span>Yêu cầu chỉnh sửa</span>
-                  </button>
-                </>
-              )}
-
-              {(activeCampaignDetail.campaign.state === "failed" || activeCampaignDetail.campaign.state === "partial_failure") && (
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn approve"
-                  disabled={marketingActionLoading}
-                  onClick={handleRetryPublication}
-                >
-                  <RotateCcw size={14} />
-                  <span>
-                    {marketingActionLoading
-                      ? "Đang thử lại..."
-                      : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified") &&
-                        activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "instagram" && t.status !== "verified")
-                        ? "Thử đăng lại Facebook & Instagram"
-                        : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified")
-                          ? "Thử đăng lại lên Facebook"
-                          : "Thử đăng lại lên Instagram"}
-                  </span>
-                </button>
-              )}
-
-              {(() => {
-                const records = (activeCampaignDetail.publicationRecords && activeCampaignDetail.publicationRecords.length > 0)
-                  ? activeCampaignDetail.publicationRecords
-                  : (activeCampaignDetail.publicationRecord ? [activeCampaignDetail.publicationRecord] : []);
-
-                const fbRecord = records.find((r) => r.platform === "facebook" && r.postUrl);
-                const igRecord = records.find((r) => r.platform === "instagram" && r.postUrl);
-
-                return (
-                  <>
-                    {fbRecord?.postUrl && (
-                      <a
-                        href={fbRecord.postUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ccMarketingActionBtn livePost"
-                      >
-                        <ExternalLink size={14} />
-                        <span>Xem bài đăng Facebook live ↗</span>
-                      </a>
-                    )}
-                    {igRecord?.postUrl && (
-                      <a
-                        href={igRecord.postUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ccMarketingActionBtn livePost"
-                        style={{
-                          background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-                          color: "#ffffff",
-                          borderColor: "rgba(255, 255, 255, 0.2)",
-                        }}
-                      >
-                        <ExternalLink size={14} />
-                        <span>Xem bài đăng Instagram live ↗</span>
-                      </a>
-                    )}
-                  </>
-                );
-              })()}
-
-              {activeCampaignDetail.campaign.state === "completed" && activeCampaignDetail.artifacts.length === 0 && (
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn revision"
-                  disabled={marketingActionLoading}
-                  onClick={handleGenerateDeliverables}
-                >
-                  <FileText size={14} />
-                  <span>Tạo 5 tệp bàn giao (Deliverables)</span>
-                </button>
-              )}
-            </div>
-
-            {/* Deliverables Download Links */}
-            {activeCampaignDetail.artifacts.length > 0 && (
-              <div className="ccMarketingDeliverablesList">
-                <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600 }}>Tài liệu bàn giao:</span>
-                {activeCampaignDetail.artifacts.map((art) => (
-                  <a
-                    key={art.id}
-                    href={marketingApi?.getArtifactDownloadUrl(art.id)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ccMarketingDeliverablePill"
-                    download
-                  >
-                    <Download size={12} />
-                    <span>{art.filename}</span>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Revision Form Collapse */}
-          {showRevisionForm && (
-            <div className="ccMarketingRevisionBox">
-              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#fbbf24", marginBottom: "0.5rem" }}>
-                Ghi chú yêu cầu chỉnh sửa cho 3 nhân sự số Marketing:
-              </label>
-              <textarea
-                className="ccMarketingRevisionTextarea"
-                placeholder="Ví dụ: Đổi màu nền ảnh sang tông đỏ cam và nhấn mạnh thêm ưu đãi tặng tai nghe..."
-                value={revisionInput}
-                onChange={(e) => setRevisionInput(e.target.value)}
-              />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="ccQuickPill"
-                  onClick={() => setShowRevisionForm(false)}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn revision"
-                  disabled={!revisionInput.trim() || marketingActionLoading}
-                  onClick={handleRevisionMarketing}
-                >
-                  <span>Gửi yêu cầu sửa đổi</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4b. In-Place Active Catalog & Pricing Merchandising Proposal Card */}
-      {merchandisingProposal && (
-        <div className="ccMarketingLiveCard ccMerchProposalCard">
-          <div className="ccMarketingLiveHeader">
-            <div className="ccMarketingLiveTitle">
-              <Package size={18} color="#38bdf8" />
-              <span>
-                {merchandisingProposal.items && merchandisingProposal.items.length > 1
-                  ? `Đề xuất Chiến lược Giá & Danh mục cho ${merchandisingProposal.items.length} Sản phẩm`
-                  : `Đề xuất Chiến lược Giá & Tối ưu Danh mục: ${merchandisingProposal.productName || merchandisingProposal.items?.[0]?.productName}`}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <span
-                className={`ccMarketingStatusBadge ${
-                  merchandisingProposal.status === "pending_approval"
-                    ? "awaiting"
-                    : merchandisingProposal.status === "applied"
-                      ? "live"
-                      : "draft"
-                }`}
-              >
-                {merchandisingProposal.status === "pending_approval"
-                  ? "⏳ Chờ Phê Duyệt Giá"
-                  : merchandisingProposal.status === "applied"
-                    ? "✅ Đã Áp Dụng Lên Storefront"
-                    : merchandisingProposal.status}
-              </span>
-              <a
-                href="http://localhost:3100"
-                target="_blank"
-                rel="noreferrer"
-                className="ccFbPostLink"
-                style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}
-              >
-                <span>Xem Cửa hàng Storefront</span>
-                <ExternalLink size={12} />
-              </a>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
-                onClick={() => setMerchandisingProposal(null)}
-                title="Đóng bảng đề xuất"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Cross-Department Collaboration Banner */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            padding: "0.65rem 1rem",
-            marginBottom: "1rem",
-            borderRadius: "8px",
-            background: "linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15))",
-            border: "1px solid rgba(99, 102, 241, 0.35)",
-            fontSize: "0.82rem",
-            color: "#e2e8f0"
-          }}>
-            <Sparkles size={16} color="#818cf8" style={{ flexShrink: 0 }} />
-            <span>
-              <strong>Phối hợp liên phòng ban:</strong>{" "}
-              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>Phòng Tiếp thị & Sáng tạo</span> (Thiết kế Visual & Đồ họa AI) 🤝{" "}
-              <span style={{ color: "#38bdf8", fontWeight: 600 }}>Phòng Danh mục & Định giá</span> (Định giá chiết khấu SCD Type 2 & SEO)
-            </span>
-          </div>
-
-          {/* Strategy Rationale & Sales Projection Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
-            <div className="ccProposalRationaleBox amber">
-              <strong style={{ color: "#fbbf24", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-                💡 Lý do chiến lược định giá:
-              </strong>
-              <p>
-                {merchandisingProposal.pricingRationale}
-              </p>
-            </div>
-            <div className="ccProposalRationaleBox cyan">
-              <strong style={{ color: "#38bdf8", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-                📈 Dự báo lượng bán:
-              </strong>
-              <p>
-                {merchandisingProposal.salesProjection}
-              </p>
-            </div>
-          </div>
-
-          {campaignProposal ? (
-            /* Multi-product Campaign Proposal Card */
-            <div className="ccCampaignOverviewCard">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                <span className="ccCampaignBadgePill">{campaignProposal.badgeText}</span>
-                <span className="ccCampaignDiscountPill">-{campaignProposal.discountPercent}%</span>
-                <span className="ccCampaignDurationText">
-                  Thời hạn: {campaignProposal.durationDays} ngày
-                </span>
-              </div>
-
-              {/* Thumbnails preview strip */}
-              <div>
-                <span className="ccCampaignPreviewHeading">
-                  Xem trước {campaignProposal.items.length} sản phẩm áp dụng:
-                </span>
-                <div style={{ display: "flex", gap: "0.6rem", overflowX: "auto", paddingBottom: "0.4rem" }}>
-                  {campaignProposal.items.map((it) => {
-                    const imgUrl = resolveMediaUrl(it.campaignMediaUrl || it.originalMediaUrl, apiBaseUrl);
-                    return (
-                      <div
-                        key={it.id}
-                        title={`${it.productName} (${it.campaignPriceVnd.toLocaleString("vi-VN")} ₫)`}
-                        className="ccCampaignPreviewMiniThumb"
-                      >
-                        {imgUrl ? (
-                          <img
-                            src={imgUrl}
-                            alt={it.productName}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            onError={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}
-                          />
-                        ) : (
-                          <Sparkles size={18} color="#818cf8" style={{ position: "absolute", inset: "50%", transform: "translate(-50%, -50%)" }} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Action Button to Open Fullscreen Modal */}
-              <button
-                type="button"
-                className="ccCampaignOpenModalBtn"
-                onClick={() => setCampaignProposalModalOpen(true)}
-              >
-                <Sparkles size={16} />
-                <span>Xem Thiết Kế Poster & Phê Duyệt ({campaignProposal.items.length} SP)</span>
-              </button>
-            </div>
-          ) : (
-            /* Single Product Proposal */
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {(merchandisingProposal.items || []).map((item, idx) => {
-                const imgUrl = resolveMediaUrl(item.campaignMediaUrl || item.originalMediaUrl, apiBaseUrl);
-                return (
-                  <div
-                    key={item.targetProductId || idx}
-                    className="ccMerchProductCard"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "90px 1fr",
-                      gap: "1rem",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{
-                      width: 90,
-                      height: 90,
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
-                      background: "#0b0f19",
-                    }}>
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt={item.optimizedTitle}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        <Sparkles size={20} color="#818cf8" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="ccMerchProductTitle" style={{ fontSize: "0.85rem", marginBottom: "0.2rem" }}>
-                        {item.optimizedTitle}
-                      </h4>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", fontSize: "0.8rem" }}>
-                        <del style={{ color: "#64748b" }}>{item.originalPriceVnd.toLocaleString("vi-VN")} đ</del>
-                        <span style={{ color: "#10b981", fontWeight: 700 }}>{item.proposedPriceVnd.toLocaleString("vi-VN")} đ</span>
-                        <span style={{ color: "#f43f5e", fontWeight: 600 }}>(-{item.discountPercent}%)</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Action Row */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
-            {merchandisingProposal.status === "pending_approval" && !campaignProposal && (
-              <button
-                type="button"
-                className="ccMarketingActionBtn approve"
-                disabled={merchandisingLoading}
-                onClick={handleApplyMerchandisingProposal}
-                style={{ padding: "0.65rem 1.25rem", fontSize: "0.85rem" }}
-              >
-                {merchandisingLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>Duyệt & Áp dụng ngay lên Storefront</span>
-              </button>
-            )}
-            {merchandisingProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.85rem" }}>
-                  <CheckCircle2 size={18} color="#10b981" />
-                  <span>Đã áp dụng thành công lên Storefront!</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setMerchandisingProposal(null); setCampaignProposal(null); }}
-                  className="ccCampaignCancelBtn"
-                  style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
-                >
-                  Thu gọn
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4c. Interactive Operations & Inventory Restock Proposal Modal */}
-      {operationsProposal && (
-        <OperationsProposalModal
-          isOpen={isOperationsModalOpen}
-          proposal={operationsProposal}
-          onClose={() => setIsOperationsModalOpen(false)}
-          onApply={handleApplyOperations}
-          onDownloadDocx={handleDownloadOperationsDocx}
-          onTriggerClearanceCampaign={handleTriggerClearanceCampaign}
-          isApplying={operationsActionLoading}
-          isDownloadingDocx={isDownloadingDocx}
-        />
-      )}
-
-      {/* 4d. Customer Support & CRM Live Proposal Card (Emerald Theme) */}
-      {supportProposal && (
-        <div className="ccMarketingLiveCard ccSupportProposalCard">
-          {/* Card Header */}
-          <div className="ccMarketingLiveHeader">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <div className="ccDeptIconBadge emerald">
-                <Headphones size={18} />
-              </div>
-              <div>
-                <div className="ccSupportHeaderTitle">
-                  Bảng Đề Xuất Xử Lý Khiếu Nại &amp; Chăm Sóc Khách Hàng (Support &amp; CRM)
-                </div>
-                <div className="ccSupportHeaderSubtitle">
-                  Được đồng lập bởi <strong>Quản gia CSKH</strong> (Phân tích CSAT) &amp; <strong>Chuyên viên CRM</strong> (Phân khúc VIP &amp; Churn Risk)
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span className="ccDeptCountBadge emerald">
-                <span className="ccPillDot emerald" />
-                <span>{supportProposal.status === "applied" ? "Đã duyệt xử lý" : "Chờ Giám đốc duyệt"}</span>
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
-                onClick={() => setSupportProposal(null)}
-                title="Đóng bảng đề xuất"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Overall Sentiment & Churn Assessment */}
-          <div className="ccProposalSummaryGrid">
-            <div className="ccProposalSummaryBox emerald">
-              <div className="ccProposalSummaryHeader emerald">
-                <HeartHandshake size={15} />
-                <span>Tổng quan Tâm lý CSAT</span>
-              </div>
-              <p className="ccProposalSummaryText">
-                {supportProposal.overallSentimentSummary}
-              </p>
-            </div>
-
-            <div className="ccProposalSummaryBox danger">
-              <div className="ccProposalSummaryHeader danger">
-                <AlertTriangle size={15} />
-                <span>Đánh giá Nguy cơ Rời bỏ (Churn Risk)</span>
-              </div>
-              <p className="ccProposalSummaryText">
-                {supportProposal.churnRiskAssessment}
-              </p>
-            </div>
-          </div>
-
-          {/* Table of Support Tickets */}
-          <div className="ccProposalTableContainer" style={{ marginBottom: "1rem" }}>
-            <table className="ccProposalTable">
-              <thead>
-                <tr className="ccProposalTableThRow">
-                  <th>Khách hàng</th>
-                  <th>Sự cố &amp; Phân loại</th>
-                  <th style={{ textAlign: "center" }}>Tâm lý</th>
-                  <th style={{ textAlign: "center" }}>Rủi ro Churn</th>
-                  <th>Kịch bản phản hồi 5 sao &amp; Đề xuất đền bù</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supportProposal.tickets
-                  .slice((supportTicketsPage - 1) * 5, supportTicketsPage * 5)
-                  .map((t) => (
-                    <tr key={t.ticketId} className="ccProposalTableTr">
-                      <td>
-                        <div className="ccProposalCustomerName">{t.customerName}</div>
-                        <div className="ccProposalItemSubtext">{t.customerEmail}</div>
-                      </td>
-                      <td>
-                        <div className="ccProposalItemName">{t.subject}</div>
-                        <span className="ccIssueCategoryBadge">
-                          {t.issueCategory}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`ccSentimentBadge ${
-                            t.sentiment === "angry" || t.sentiment === "frustrated" ? "danger" : "safe"
-                          }`}
-                        >
-                          {t.sentiment.toUpperCase()}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`ccSentimentBadge ${
-                            t.churnRisk === "high" ? "danger" : t.churnRisk === "medium" ? "amber" : "safe"
-                          }`}
-                        >
-                          {t.churnRisk.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <CompactProposedResponse text={t.proposedResponse} />
-                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
-                          <span className="ccCompensationBadge">
-                            🎁 Đền bù: {t.suggestedCompensation}
-                          </span>
-                          {supportProposal.status === "applied" && (
-                            <span className="ccSentBadge">
-                              ✉️ Email đã gửi
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            <ProposalPagination
-              currentPage={supportTicketsPage}
-              totalPages={Math.max(1, Math.ceil(supportProposal.tickets.length / 5))}
-              totalItems={supportProposal.tickets.length}
-              pageSize={5}
-              itemName="khiếu nại"
-              onPageChange={setSupportTicketsPage}
-            />
-          </div>
-
-          {/* Table of VIP & Loyal Customers */}
-          {supportProposal.vipCustomers && supportProposal.vipCustomers.length > 0 && (
-            <div className="ccProposalTableContainer">
-              <div className="ccProposalTableSectionHeader">
-                💎 Phân Khúc Khách Hàng VIP &amp; Chiến Lược Giữ Chân
-              </div>
-              <table className="ccProposalTable">
-                <thead>
-                  <tr className="ccProposalTableThRow">
-                    <th>Khách hàng</th>
-                    <th style={{ textAlign: "center" }}>Phân khúc</th>
-                    <th style={{ textAlign: "right" }}>Tổng chi tiêu</th>
-                    <th>Chiến lược chăm sóc riêng biệt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {supportProposal.vipCustomers
-                    .slice((supportVipPage - 1) * 5, supportVipPage * 5)
-                    .map((vip) => (
-                      <tr key={vip.customerId} className="ccProposalTableTr">
-                        <td className="ccProposalCustomerName">{vip.customerName}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <span className="ccVipSegmentBadge">
-                            {vip.segment}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "right" }} className="ccRestockCost">
-                          {vip.totalSpentVnd.toLocaleString("vi-VN")} đ
-                        </td>
-                        <td className="ccProposalItemSubtext">{vip.engagementRecommendation}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              <ProposalPagination
-                currentPage={supportVipPage}
-                totalPages={Math.max(1, Math.ceil((supportProposal.vipCustomers?.length || 0) / 5))}
-                totalItems={supportProposal.vipCustomers?.length || 0}
-                pageSize={5}
-                itemName="khách hàng VIP"
-                onPageChange={setSupportVipPage}
-              />
-            </div>
-          )}
-
-          {/* Action Row */}
-          <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button
-                type="button"
-                className="ccMarketingActionBtn livePost"
-                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
-                disabled={isDownloadingSupportDocx}
-                onClick={handleDownloadSupportDocx}
-              >
-                <FileText size={15} />
-                <span>{isDownloadingSupportDocx ? "Đang tạo file..." : "📥 Tải Báo Cáo Word (.docx)"}</span>
-              </button>
-            </div>
-
-            {supportProposal.status === "pending_approval" && (
-              <button
-                type="button"
-                className="ccMarketingActionBtn approve"
-                style={{ padding: "0.75rem 1.75rem", fontSize: "0.95rem", background: "linear-gradient(135deg, #059669 0%, #10b981 100%)" }}
-                disabled={supportActionLoading}
-                onClick={handleApplySupport}
-              >
-                {supportActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>
-                  {supportActionLoading
-                    ? "Đang gửi email & cấp voucher..."
-                    : `✓ Phê duyệt & Gửi Email phản hồi (${supportProposal.tickets.length} ticket kèm Voucher)`}
-                </span>
-              </button>
-            )}
-            {supportProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.95rem" }}>
-                <CheckCircle2 size={20} color="#10b981" />
-                <span>✉️ Đã phê duyệt, gửi email phản hồi & kích hoạt voucher cho toàn bộ khách hàng!</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4e. Global Active Merchandising Campaign Live Monitor Banner */}
-      {activeCampaign && (
-        <div style={{ marginTop: "2rem", marginBottom: "0.5rem" }}>
-          <ActiveCampaignWidget
-            campaign={activeCampaign}
-            onRevert={handleEmergencyRevertCampaign}
-            isReverting={isRevertingCampaign}
-          />
-        </div>
-      )}
-
-      {/* 4f. Global Social Tokens System Notice Bar (Slim full-width notice strip) */}
-      {socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts && (
-        <div className={`ccSocialTokenGlobalBanner ${socialTokensSummary.urgentActionRequired ? "urgent" : "warning"}`}>
-          <div className="ccSocialTokenGlobalBannerHeader">
-            <div className="ccSocialTokenGlobalBannerLeft">
-              {socialTokensSummary.urgentActionRequired ? (
-                <ShieldAlert size={16} color="#ef4444" />
-              ) : (
-                <Zap size={16} color="#f59e0b" />
-              )}
-              <span className="ccSocialTokenGlobalBannerText">
-                {socialTokensSummary.urgentActionRequired
-                  ? "Cảnh báo Hệ thống: Access Token mạng xã hội (Facebook/Instagram) đã hết hạn hoặc phiên đăng nhập bị hủy. Bấm Tự động Phục hồi hoặc cập nhật token mới."
-                  : "Nhắc nhở Hệ thống: Một số Access Token mạng xã hội sắp hết hạn (còn dưới 3 giờ). Bấm để tự động gia hạn 1-click."}
-              </span>
-            </div>
-            <div className="ccSocialTokenGlobalBannerRight">
-              <button
-                type="button"
-                className="ccSocialTokenActionBtn detail"
+                className={`ccSocialTokenHeaderBadge ${badgeClass}`}
                 onClick={() => setSocialTokenModalOpen(true)}
+                title="Bấm để mở Trung tâm Quản lý Social Tokens"
+                aria-label="Social Token Health Status"
               >
-                <span>⚡ Quản lý & Cập nhật Token</span>
+                {icon}
+                <span>{badgeText}</span>
               </button>
-              <button
-                type="button"
-                className="ccSocialTokenDismissBtn"
-                onClick={() => setDismissedSocialTokenAlerts(true)}
-                title="Thu gọn cảnh báo"
-                aria-label="Thu gọn cảnh báo"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
+            );
+          })()}
+          {departmentQueues.marketing.length > 0 && (
+            <span className="ccDeptQueueBadge">
+              <Clock size={11} className="ccSpinSlow" />
+              <span>Hàng chờ: {departmentQueues.marketing.length}</span>
+            </span>
+          )}
+        </div>
+      ),
+      alertBanner: socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts ? (
+        <div className="space-y-2 mb-2">
+          {socialTokensSummary.accounts
+            ?.filter((acc) => acc.requiresAction || acc.status === "expiring_soon" || acc.status === "expired" || acc.status === "invalid")
+            .map((acc) => {
+              const isDanger = acc.status === "expired" || acc.status === "invalid";
+              const remainingText = acc.expiresInHuman || (acc.hoursRemaining ? `${acc.hoursRemaining} giờ` : `${acc.daysRemaining ?? 0} ngày`);
+              const title = isDanger
+                ? `🚨 Token Facebook đã hết hạn / lỗi`
+                : `⚡ Token Facebook sắp hết hạn (${remainingText})`;
 
-          <div className="ccSocialTokenGlobalAccountsList">
-            {socialTokensSummary.accounts
-              ?.filter(
-                (acc) =>
-                  acc.requiresAction ||
-                  acc.status === "expiring_soon" ||
-                  acc.status === "expired" ||
-                  acc.status === "invalid"
-              )
-              .map((acc) => {
-                const isDanger = acc.status === "expired" || acc.status === "invalid";
-                const remainingText = acc.expiresInHuman || (acc.hoursRemaining ? `${acc.hoursRemaining} giờ` : `${acc.daysRemaining ?? 0} ngày`);
-                const title = isDanger
-                  ? `🚨 Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} đã hết hạn / lỗi`
-                  : `⚡ Token ${acc.platform === "facebook" ? "Facebook" : "Instagram"} sắp hết hạn (${remainingText})`;
-
-                return (
-                  <div
-                    key={`global-alert-${acc.platform}-${acc.accountId}`}
-                    className={`ccSocialTokenGlobalItem ${isDanger ? "danger" : "warning"}`}
-                    role="alert"
-                  >
-                    <div className="ccSocialTokenGlobalItemInfo">
-                      <span className="ccSocialTokenAlertTitle">{title}</span>
-                      <span className="accountIdTag">{acc.accountName || acc.accountId}</span>
-                      <span className="ccSocialTokenItemMsg">
-                        {acc.lastError || acc.message || `Token ${acc.tokenPreview} sẽ hết hạn trong ${remainingText}. Bấm để gia hạn tự động 1-click mà không cần dán token.`}
-                      </span>
-                    </div>
-
-                    <div className="ccSocialTokenAlertActions">
-                      {(acc.actionType === "auto_refresh" || acc.status === "expiring_soon" || acc.status === "invalid" || acc.status === "expired") && (
-                        <button
-                          type="button"
-                          className="ccSocialTokenActionBtn renew"
-                          onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
-                          disabled={socialTokenActionLoading}
-                        >
-                          {socialTokenActionLoading ? (
-                            <Loader2 size={12} className="ccSpinSlow" />
-                          ) : (
-                            <Zap size={12} />
-                          )}
-                          <span>{acc.status === "invalid" || acc.status === "expired" ? "⚡ Tự động Phục hồi" : "Tự động Gia hạn ngay"}</span>
-                        </button>
-                      )}
-
-                      {(acc.actionType === "oauth_reconnect" || isDanger) && (
-                        <button
-                          type="button"
-                          className="ccSocialTokenActionBtn reconnect"
-                          onClick={() => handleOAuthReconnect(acc.platform)}
-                          disabled={socialTokenActionLoading}
-                        >
-                          <ExternalLink size={12} />
-                          <span>1-Click Kết nối lại</span>
-                        </button>
-                      )}
-
+              return (
+                <div key={`alert-${acc.platform}-${acc.accountId}`} className={`p-2.5 rounded-lg border text-xs ${isDanger ? "bg-rose-500/10 border-rose-500/30 text-rose-300" : "bg-amber-500/10 border-amber-500/30 text-amber-300"}`} role={isDanger ? "alert" : undefined}>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-bold">{title}</span>
+                    <span className="text-[10px] opacity-80">{acc.accountName || acc.accountId}</span>
+                  </div>
+                  {acc.lastError && <p className="text-[11px] opacity-90 mb-2">{acc.lastError}</p>}
+                  <div className="flex items-center gap-2 mt-2">
+                    {acc.actionType === "auto_refresh" ? (
                       <button
                         type="button"
-                        className="ccSocialTokenActionBtn detail"
-                        onClick={() => setSocialTokenModalOpen(true)}
+                        className="px-2 py-1 bg-amber-500 text-black font-bold rounded text-xs hover:bg-amber-400 cursor-pointer"
+                        onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
                       >
-                        <span>Chi tiết</span>
+                        Tự động Gia hạn ngay
                       </button>
-                    </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="px-2 py-1 bg-rose-500 text-white font-bold rounded text-xs hover:bg-rose-400 cursor-pointer"
+                        onClick={() => handleOAuthReconnect(acc.platform)}
+                      >
+                        1-Click Kết nối lại
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-          </div>
+                </div>
+              );
+            })}
         </div>
-      )}
-
-      {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
-      <div
-        ref={departmentsGridRef}
-        className="ccDepartmentGrid"
-        style={{ marginTop: activeCampaign || (socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts) ? "1rem" : "2rem", position: "relative" }}
-      >
-        <CrossDepartmentConnector
-          activeCollaboration={activeCollaboration}
-          containerRef={departmentsGridRef}
-        />
-
-        {/* Column 1: Tiếp thị & Sáng tạo (Blue Theme) */}
-        <div id="dept-column-marketing" className="ccDepartmentColumn theme-blue">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Megaphone size={16} />
-              </div>
-              <span>Tiếp thị & Sáng tạo</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {socialTokensSummary && (
-                (() => {
-                  const hasExpiringOrInvalid = socialTokensSummary.hasExpiringOrInvalid;
-                  const urgent = socialTokensSummary.urgentActionRequired;
-                  const expiringAccount = socialTokensSummary.accounts.find(
-                    (a) => a.status === "expiring_soon" || a.status === "expired" || a.status === "invalid"
-                  );
-                  const days = expiringAccount?.daysRemaining;
-
-                  let badgeClass = "valid";
-                  let badgeText = "Social Token: OK";
-                  let icon = <ShieldCheck size={12} />;
-
-                  if (urgent || expiringAccount?.status === "expired" || expiringAccount?.status === "invalid") {
-                    badgeClass = "danger";
-                    badgeText = "🚨 Token FB lỗi / hết hạn";
-                    icon = <ShieldAlert size={12} />;
-                  } else if (hasExpiringOrInvalid || expiringAccount?.status === "expiring_soon") {
-                    badgeClass = "warning";
-                    const remainingLabel = expiringAccount?.expiresInHuman || (expiringAccount?.hoursRemaining ? `sau ${expiringAccount.hoursRemaining}h` : `sau ${days ?? 7} ngày`);
-                    badgeText = `⚡ Token FB hết hạn ${remainingLabel}`;
-                    icon = <Zap size={12} />;
-                  }
-
-                  return (
-                    <button
-                      type="button"
-                      className={`ccSocialTokenHeaderBadge ${badgeClass}`}
-                      onClick={() => setSocialTokenModalOpen(true)}
-                      title="Bấm để mở Trung tâm Quản lý Social Tokens"
-                      aria-label="Social Token Health Status"
-                    >
-                      {icon}
-                      <span>{badgeText}</span>
-                    </button>
-                  );
-                })()
-              )}
-
-              {departmentQueues.marketing.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.marketing.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#38bdf8" }} />
-                <span>3 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
+      ) : null,
+      children: (
+        <>
           <AgentCard
-            name="Cây bút Tiếp thị"
+            name="Cây bút Sáng tạo"
             roleTag="SKILL"
             theme="blue"
             status={
               deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_content"
+              marketingActiveAgent === "marketing_copywriter"
                 ? "running"
                 : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
                   activeCampaignDetail ||
-                  ceoPlan?.steps[0]?.status === "done"
+                  marketingActiveAgent === "marketing_visual" ||
+                  marketingActiveAgent === "marketing_publisher"
                 ? "completed"
-                : "idle"
+                : getBranchState("marketing_content")
             }
             statusText={
               deptStatus.marketing.activeAgent === "marketing_copywriter"
-                ? deptStatus.marketing.agentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
-                : marketingActiveAgent === "marketing_content"
-                ? marketingAgentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
+                ? deptStatus.marketing.agentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag..."
+                : marketingActiveAgent === "marketing_copywriter"
+                ? marketingAgentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag..."
                 : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
-                  activeCampaignDetail ||
-                  ceoPlan?.steps[0]?.status === "done"
+                  marketingActiveAgent === "marketing_visual" ||
+                  marketingActiveAgent === "marketing_publisher"
                 ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
                 : undefined
             }
             showProgress={
               deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_content"
+              marketingActiveAgent === "marketing_copywriter"
             }
             waitingTasksCount={getAgentWaitingTasksCount("marketing_copywriter")}
           />
@@ -3799,38 +2534,33 @@ export function AgenticCommandCenter({
             roleTag="SKILL"
             theme="blue"
             isCollaborating={
-              activeCollaboration?.toDept === "marketing" ||
+              (activeCollaboration?.fromDept === "merchandising" && activeCollaboration.toDept === "marketing") ||
+              (activeCollaboration?.fromDept === "marketing" && activeCollaboration.toDept === "merchandising") ||
               marketingActiveAgent === "merchandising_visual_collab"
             }
-            collabTag={activeCollaboration?.toDept === "marketing" ? "Phối hợp liên phòng" : "Phối hợp cùng Danh mục"}
+            collabTag="Phối hợp cùng Danh mục"
             status={
               deptStatus.marketing.activeAgent === "marketing_visual" ||
               marketingActiveAgent === "marketing_visual" ||
-              marketingActiveAgent === "merchandising_visual_collab" ||
-              currentMarketingState === "visual_creation"
+              marketingActiveAgent === "merchandising_visual_collab"
                 ? "running"
                 : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
-                  (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  campaignProposal ||
-                  activeCampaignDetail ||
-                  ceoPlan?.steps[1]?.status === "done"
+                  (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
+                  marketingActiveAgent === "marketing_publisher"
                 ? "completed"
-                : "idle"
+                : getBranchState("marketing_visual")
             }
             statusText={
               deptStatus.marketing.activeAgent === "marketing_visual"
-                ? deptStatus.marketing.agentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
-                : marketingActiveAgent === "merchandising_visual_collab"
-                ? marketingAgentMessage ?? "Đang thiết kế poster & banner cho Danh mục..."
+                ? deptStatus.marketing.agentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner..."
                 : marketingActiveAgent === "marketing_visual"
-                ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
-                : deptStatus.marketing.completedAgents.includes("marketing_visual")
+                ? marketingAgentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner..."
+                : marketingActiveAgent === "merchandising_visual_collab"
+                ? marketingAgentMessage ?? "Đang phối hợp vẽ poster ưu đãi & badge 3D..."
+                : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
+                  (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
+                  marketingActiveAgent === "marketing_publisher"
                 ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
-                : (marketingActiveAgent === "pricing_strategist" || merchandisingProposal) && ceoPlan?.targetDept?.includes("Phối hợp")
-                ? "Đã hoàn thành thiết kế poster chiến dịch cho Danh mục"
-                : campaignProposal
-                ? "Đã hoàn tất thiết kế poster & banner xả hàng"
                 : undefined
             }
             showProgress={
@@ -3841,32 +2571,29 @@ export function AgenticCommandCenter({
             waitingTasksCount={getAgentWaitingTasksCount("marketing_visual")}
           />
           <AgentCard
-            name="Điều phối Xuất bản"
-            roleTag="ĐỘI"
+            name="Điều phối Đăng bài"
+            roleTag="DEPLOY"
             theme="blue"
             status={
               deptStatus.marketing.activeAgent === "marketing_publisher" ||
               marketingActiveAgent === "marketing_publisher"
                 ? "running"
                 : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
-                  currentMarketingState === "campaign_review" ||
-                  currentMarketingState === "awaiting_human_approval" ||
-                  activeCampaignDetail?.campaign.state === "completed" ||
-                  activeCampaignDetail !== null
+                  activeCampaignDetail?.campaign.state === "completed"
                 ? "completed"
-                : "idle"
+                : activeCampaignDetail?.campaign.state === "failed" ||
+                  activeCampaignDetail?.campaign.state === "partial_failure"
+                ? "failed"
+                : getBranchState("marketing_publisher")
             }
             statusText={
               deptStatus.marketing.activeAgent === "marketing_publisher"
-                ? deptStatus.marketing.agentMessage ?? "Đang chuẩn bị gói xuất bản Fanpage..."
+                ? deptStatus.marketing.agentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage..."
                 : marketingActiveAgent === "marketing_publisher"
-                ? marketingAgentMessage ?? "Đang đóng gói và điều phối đăng bài Fanpage..."
-                : currentMarketingState === "awaiting_human_approval"
-                ? "Đã đóng gói và sẵn sàng xuất bản (đang chờ phê duyệt)"
-                : activeCampaignDetail?.campaign.state === "completed"
-                ? "Đã xuất bản thành công lên Facebook & Instagram"
-                : deptStatus.marketing.completedAgents.includes("marketing_publisher")
-                ? "Đã hoàn tất điều phối xuất bản"
+                ? marketingAgentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage..."
+                : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
+                  activeCampaignDetail?.campaign.state === "completed"
+                ? "Đã hoàn tất đăng bài lên Fanpage thành công"
                 : undefined
             }
             showProgress={
@@ -3875,7 +2602,6 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("marketing_publisher")}
           />
-
           {departmentQueues.marketing.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -3893,7 +2619,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -3902,57 +2628,44 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {activeCampaignDetail && (
-            <button
-              type="button"
-              className="ccOperationsQuickBtn"
-              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
-              onClick={() => {
-                const el = document.getElementById("marketing-proposal-section");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              <Megaphone size={14} color="#3b82f6" />
-              <span>Xem Bài Viết Fanpage</span>
-            </button>
-          )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Tiếp thị & Sáng tạo..."
-            theme="blue"
-            onSend={(text) => handleDepartmentDirectTask("marketing", text)}
-          />
-        </div>
-
-        {/* Column 2: Danh mục & Định giá (Cyan Theme) */}
-        <div id="dept-column-merchandising" className="ccDepartmentColumn theme-cyan">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Package size={16} />
-              </div>
-              <span>Danh mục & Định giá</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {pendingHandoff?.dept === "merchandising" ? (
-                <span className="ccDeptQueueBadge" style={{ borderColor: "rgba(6, 182, 212, 0.5)", color: "#22d3ee" }}>
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Chờ bàn giao: 1</span>
-                </span>
-              ) : departmentQueues.merchandising.length > 0 ? (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
-                </span>
-              ) : null}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#06b6d4" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
+        </>
+      ),
+      directInputPlaceholder: "Giao việc cho Tiếp thị & Sáng tạo...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("marketing", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => setSocialTokenModalOpen(true),
+    },
+    {
+      department: "merchandising",
+      displayName: "Danh mục & Định giá",
+      employeeCount: 2,
+      activeTaskCount: departmentQueues.merchandising.filter((t) => t.status === "running").length,
+      status: activeCampaign ? "running" : "idle",
+      employees: [
+        {
+          id: "catalog_copywriter",
+          name: "CAT-01",
+          role: "Cây bút Sản phẩm",
+          status: "working",
+          progressPercent: 60,
+        },
+        {
+          id: "pricing_strategist",
+          name: "CAT-02",
+          role: "Chuyên viên Định giá",
+          status: "idle",
+          progressPercent: 0,
+        },
+      ],
+      queue: departmentQueues.merchandising,
+      headerExtra: departmentQueues.merchandising.length > 0 ? (
+        <span className="ccDeptQueueBadge">
+          <Clock size={11} className="ccSpinSlow" />
+          <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
+        </span>
+      ) : null,
+      children: (
+        <>
           <AgentCard
             name="Cây bút Sản phẩm"
             roleTag="SKILL"
@@ -3962,24 +2675,20 @@ export function AgenticCommandCenter({
               marketingActiveAgent === "catalog_copywriter"
                 ? "running"
                 : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  merchandisingProposal ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
                   campaignProposal
                 ? "completed"
-                : "idle"
+                : getBranchState("catalog")
             }
             statusText={
               deptStatus.merchandising.activeAgent === "catalog_copywriter"
-                ? deptStatus.merchandising.agentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
+                ? deptStatus.merchandising.agentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO..."
                 : marketingActiveAgent === "catalog_copywriter"
-                ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
+                ? marketingAgentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO..."
                 : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
                   marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  merchandisingProposal ||
+                  marketingActiveAgent === "merchandising_visual_collab" ||
                   campaignProposal
                 ? "Đã hoàn tất tối ưu tên & mô tả SEO"
                 : undefined
@@ -3992,47 +2701,33 @@ export function AgenticCommandCenter({
           />
           <AgentCard
             name="Chuyên gia Định giá"
-            roleTag="ASSISTANT"
+            roleTag="SKILL"
             theme="cyan"
-            isCollaborating={
-              activeCollaboration?.toDept === "merchandising" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
-            }
-            collabTag="Tiếp nhận từ Kho vận"
             status={
               deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
+              marketingActiveAgent === "pricing_strategist"
                 ? "running"
                 : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  merchandisingProposal ||
                   campaignProposal
                 ? "completed"
-                : "idle"
+                : getBranchState("pricing")
             }
             statusText={
               deptStatus.merchandising.activeAgent === "pricing_strategist"
-                ? deptStatus.merchandising.agentMessage ?? "Đang tính toán chiết khấu và giá khuyến mãi..."
-                : marketingActiveAgent === "merchandising_clearance_calc"
-                ? marketingAgentMessage ?? "Đang tiếp nhận SKU tồn kho, tính toán giá xả hàng & biên lợi nhuận..."
-                : marketingActiveAgent === "merchandising_visual_collab"
-                ? "⏳ Đang chuyển giao sang Thiết kế Đồ họa vẽ poster..."
+                ? deptStatus.merchandising.agentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận..."
                 : marketingActiveAgent === "pricing_strategist"
-                ? marketingAgentMessage ?? "Đang tính toán giá Flash Sale & biên lợi nhuận..."
+                ? marketingAgentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận..."
                 : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  merchandisingProposal ||
                   campaignProposal
-                ? "Đã hoàn tất tính toán giá Flash Sale & biên lợi nhuận"
+                ? "Đã hoàn thành phân tích biên lợi nhuận & lập đề xuất Flash Sale"
                 : undefined
             }
             showProgress={
               deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
+              marketingActiveAgent === "pricing_strategist"
             }
             waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
           />
-
           {pendingHandoff?.dept === "merchandising" && (
             <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
               <div className="ccWaitingCardHeader">
@@ -4050,7 +2745,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{pendingHandoff.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${pendingHandoff.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" style={{ background: "#22d3ee" }} />
                 <span>
@@ -4059,7 +2754,6 @@ export function AgenticCommandCenter({
               </div>
             </div>
           )}
-
           {departmentQueues.merchandising.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -4077,7 +2771,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -4086,54 +2780,93 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {campaignProposal && (
+        </>
+      ),
+      directInputPlaceholder: "Giao việc cho Danh mục & Định giá...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("merchandising", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {
+        if (activeCampaign) {
+          setCampaignProposalModalOpen(true);
+        }
+      },
+    },
+    {
+      department: "operations",
+      displayName: "Vận hành & Kho vận",
+      employeeCount: 2,
+      activeTaskCount: departmentQueues.operations.filter((t) => t.status === "running").length,
+      status: pendingReplenishment ? "waiting_approval" : errorMessage ? "error" : "idle",
+      errorMessage: pendingReplenishment
+        ? undefined
+        : errorMessage || undefined,
+      employees: [
+        {
+          id: "inventory_specialist",
+          name: "OPS-01",
+          role: "Kỹ sư Tồn kho",
+          status: pendingReplenishment ? "waiting" : "working",
+          progressPercent: 0,
+        },
+        {
+          id: "order_coordinator",
+          name: "OPS-02",
+          role: "Điều phối Đơn hàng",
+          status: "working",
+          progressPercent: 30,
+        },
+      ],
+      queue: departmentQueues.operations,
+      headerExtra: (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          {pendingReplenishment && pendingReplenishment.items.length > 0 && (
+            <span className="ccReplenishmentAlertBadge" title="Đề xuất nhập kho tự động từ AI">
+              {`⚡ Đề xuất nhập kho AI: ${pendingReplenishment.items.length} SKU`}
+            </span>
+          )}
+          {departmentQueues.operations.length > 0 && (
+            <span className="ccDeptQueueBadge">
+              <Clock size={11} className="ccSpinSlow" />
+              <span>{`Hàng chờ: ${departmentQueues.operations.length}`}</span>
+            </span>
+          )}
+        </div>
+      ),
+      alertBanner: pendingReplenishment ? (
+        <div className="ccOperationsAlertCard mb-2">
+          <div className="ccOperationsAlertHeader">
+            <AlertTriangle size={15} color="#f59e0b" className="ccGlowIcon" />
+            <span className="ccOperationsAlertTitle">
+              {`🚨 Phát hiện ${pendingReplenishment.items.length} mặt hàng sắp cạn kiệt`}
+            </span>
+          </div>
+          <p className="ccOperationsAlertSummary">
+            {pendingReplenishment.summary || "Tồn kho một số mặt hàng chủ lực đang cạn kiệt nhanh do sức mua tăng cao."}
+          </p>
+          <div className="ccOperationsAlertActions">
             <button
               type="button"
-              className="ccOperationsQuickBtn"
-              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(6, 182, 212, 0.4)", color: "#22d3ee" }}
-              onClick={() => setCampaignProposalModalOpen(true)}
+              className="ccOperationsAlertBtn primary"
+              onClick={() => {
+                setOperationsProposal(pendingReplenishment);
+                setIsOperationsModalOpen(true);
+              }}
             >
-              <Sparkles size={14} color="#06b6d4" />
-              <span>Xem Đề Xuất Chiến Dịch ({campaignProposal.items.length} SP)</span>
+              <Boxes size={13} />
+              <span>📋 Xem & Duyệt Nhập hàng</span>
             </button>
-          )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Danh mục & Định giá..."
-            theme="cyan"
-            onSend={(text) => handleDepartmentDirectTask("merchandising", text)}
-          />
-        </div>
-
-        {/* Column 3: Vận hành & Kho (Amber Theme) */}
-        <div id="dept-column-operations" className="ccDepartmentColumn theme-amber">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <ShoppingBag size={16} />
-              </div>
-              <span>Vận hành & Kho</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {pendingReplenishment && pendingReplenishment.items.length > 0 && (
-                <span className="ccReplenishmentAlertBadge" title="Đề xuất nhập kho tự động từ AI">
-                  ⚡ Đề xuất nhập kho AI: {pendingReplenishment.items.length} SKU
-                </span>
-              )}
-              {departmentQueues.operations.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.operations.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#fbbf24" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
+            <button
+              type="button"
+              className="ccOperationsAlertBtn secondary"
+              onClick={handleDismissReplenishment}
+            >
+              Bỏ qua
+            </button>
           </div>
-
+        </div>
+      ) : null,
+      children: (
+        <>
           <AgentCard
             name="Kỹ sư Tồn kho"
             roleTag="SKILL"
@@ -4181,25 +2914,25 @@ export function AgenticCommandCenter({
           />
           <AgentCard
             name="Điều phối Đơn hàng"
-            roleTag="ĐỘI"
+            roleTag="SKILL"
             theme="amber"
             status={
               deptStatus.operations.activeAgent === "order_coordinator" ||
               marketingActiveAgent === "order_coordinator"
                 ? "running"
                 : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  operationsProposal ||
-                  getBranchState("order") === "completed"
+                  operationsProposal
                 ? "completed"
-                : getBranchState("order")
+                : getBranchState("fulfillment")
             }
             statusText={
               deptStatus.operations.activeAgent === "order_coordinator"
-                ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
+                ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
                 : marketingActiveAgent === "order_coordinator"
-                ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
-                : deptStatus.operations.completedAgents.includes("order_coordinator") || operationsProposal
-                ? "Đã lập phiếu đề xuất nhập kho và ngân sách dự toán"
+                ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
+                : deptStatus.operations.completedAgents.includes("order_coordinator") ||
+                  operationsProposal
+                ? "Đã hoàn thành lập dự toán ngân sách và xuất báo cáo kiểm toán Word"
                 : undefined
             }
             showProgress={
@@ -4208,7 +2941,6 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("order_coordinator")}
           />
-
           {departmentQueues.operations.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -4226,7 +2958,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -4235,7 +2967,6 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
           {operationsProposal && (
             <button
               type="button"
@@ -4247,74 +2978,58 @@ export function AgenticCommandCenter({
               <span>Xem Phiếu Đề Xuất ({operationsProposal.totalRestockUnits} đơn vị)</span>
             </button>
           )}
-
-          {pendingReplenishment && (
-            <div className="ccOperationsAlertCard">
-              <div className="ccOperationsAlertHeader">
-                <AlertTriangle size={15} color="#f59e0b" className="ccGlowIcon" />
-                <span className="ccOperationsAlertTitle">
-                  🚨 Phát hiện {pendingReplenishment.items.length} mặt hàng sắp cạn kiệt
-                </span>
-              </div>
-              <p className="ccOperationsAlertSummary">
-                {pendingReplenishment.summary || "Tồn kho một số mặt hàng chủ lực đang cạn kiệt nhanh do sức mua tăng cao."}
-              </p>
-              <div className="ccOperationsAlertActions">
-                <button
-                  type="button"
-                  className="ccOperationsAlertBtn primary"
-                  onClick={() => {
-                    setOperationsProposal(pendingReplenishment);
-                    setIsOperationsModalOpen(true);
-                  }}
-                >
-                  <Boxes size={13} />
-                  <span>📋 Xem & Duyệt Nhập hàng</span>
-                </button>
-                <button
-                  type="button"
-                  className="ccOperationsAlertBtn secondary"
-                  onClick={handleDismissReplenishment}
-                >
-                  Bỏ qua
-                </button>
-              </div>
-            </div>
-          )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Vận hành & Kho..."
-            theme="amber"
-            onSend={(text) => handleDepartmentDirectTask("operations", text)}
-          />
-        </div>
-
-        {/* Column 4: CSKH & Cộng đồng (Emerald Theme) */}
-        <div id="dept-column-support" className="ccDepartmentColumn theme-emerald">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Headphones size={16} />
-              </div>
-              <span>CSKH & Cộng đồng</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {departmentQueues.support.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.support.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#34d399" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
+        </>
+      ),
+      directInputPlaceholder: "Giao việc cho Vận hành & Kho...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("operations", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {
+        if (pendingReplenishment) {
+          setOperationsProposal(pendingReplenishment);
+          setIsOperationsModalOpen(true);
+        }
+      },
+      onErrorResolve: () => {
+        if (pendingReplenishment) {
+          setOperationsProposal(pendingReplenishment);
+          setIsOperationsModalOpen(true);
+        }
+      },
+    },
+    {
+      department: "support",
+      displayName: "CSKH & Trải nghiệm",
+      employeeCount: 2,
+      activeTaskCount: departmentQueues.support.filter((t) => t.status === "running").length,
+      status: departmentQueues.support.some((t) => t.status === "running") ? "running" : "idle",
+      employees: [
+        {
+          id: "support_steward",
+          name: "SUP-01",
+          role: "Quản gia CSKH",
+          status: "working",
+          progressPercent: 90,
+        },
+        {
+          id: "crm_specialist",
+          name: "SUP-02",
+          role: "Chuyên viên CRM",
+          status: "idle",
+          progressPercent: 0,
+        },
+      ],
+      queue: departmentQueues.support,
+      headerExtra: departmentQueues.support.length > 0 ? (
+        <span className="ccDeptQueueBadge">
+          <Clock size={11} className="ccSpinSlow" />
+          <span>Hàng chờ: {departmentQueues.support.length}</span>
+        </span>
+      ) : null,
+      children: (
+        <>
           <AgentCard
             name="Quản gia CSKH"
-            roleTag="TRỢ LÝ"
+            roleTag="SKILL"
             theme="emerald"
             status={
               deptStatus.support.activeAgent === "support_steward" ||
@@ -4322,18 +3037,19 @@ export function AgenticCommandCenter({
                 ? "running"
                 : deptStatus.support.completedAgents.includes("support_steward") ||
                   marketingActiveAgent === "crm_specialist" ||
-                  supportProposal ||
-                  getBranchState("support") === "completed"
+                  supportProposal
                 ? "completed"
-                : getBranchState("support")
+                : "idle"
             }
             statusText={
               deptStatus.support.activeAgent === "support_steward"
-                ? deptStatus.support.agentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
+                ? deptStatus.support.agentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT..."
                 : marketingActiveAgent === "support_steward"
-                ? marketingAgentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
-                : deptStatus.support.completedAgents.includes("support_steward") || supportProposal
-                ? "Đã rà soát và đánh giá mức độ khẩn cấp ticket CSKH"
+                ? marketingAgentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT..."
+                : deptStatus.support.completedAgents.includes("support_steward") ||
+                  marketingActiveAgent === "crm_specialist" ||
+                  supportProposal
+                ? "Đã phân tích toàn bộ khiếu nại & tính toán CSAT"
                 : undefined
             }
             showProgress={
@@ -4351,18 +3067,18 @@ export function AgenticCommandCenter({
               marketingActiveAgent === "crm_specialist"
                 ? "running"
                 : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  supportProposal ||
-                  getBranchState("crm") === "completed"
+                  supportProposal
                 ? "completed"
-                : getBranchState("crm")
+                : "idle"
             }
             statusText={
               deptStatus.support.activeAgent === "crm_specialist"
-                ? deptStatus.support.agentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
+                ? deptStatus.support.agentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher..."
                 : marketingActiveAgent === "crm_specialist"
-                ? marketingAgentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
-                : deptStatus.support.completedAgents.includes("crm_specialist") || supportProposal
-                ? "Đã phân khúc VIP và đề xuất giải pháp xử lý"
+                ? marketingAgentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher..."
+                : deptStatus.support.completedAgents.includes("crm_specialist") ||
+                  supportProposal
+                ? "Đã lập kịch bản chăm sóc & đề xuất voucher cho khách VIP"
                 : undefined
             }
             showProgress={
@@ -4371,7 +3087,6 @@ export function AgenticCommandCenter({
             }
             waitingTasksCount={getAgentWaitingTasksCount("crm_specialist")}
           />
-
           {departmentQueues.support.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -4389,7 +3104,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -4398,7 +3113,6 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
           {supportProposal && (
             <button
               type="button"
@@ -4410,23 +3124,244 @@ export function AgenticCommandCenter({
               <span>Tải Báo Cáo CSKH Word ({supportProposal.tickets.length} Ticket)</span>
             </button>
           )}
+        </>
+      ),
+      directInputPlaceholder: "Giao việc cho CSKH & CRM...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("support", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {},
+    },
+  ];
 
-          <DepartmentInput
-            placeholder="Giao việc cho CSKH & CRM..."
-            theme="emerald"
-            onSend={(text) => handleDepartmentDirectTask("support", text)}
+  const redesignedApprovals: PendingApprovalItem[] = [];
+
+  if (pendingReplenishment) {
+    redesignedApprovals.push({
+      id: pendingReplenishment.id,
+      title: `Kế hoạch nhập kho tự động: ${pendingReplenishment.items.length} SKU`,
+      sourceDepartment: "operations",
+      authorName: "Kỹ sư Tồn kho (OPS-01)",
+      riskLevel: "medium",
+      timestamp: new Date(pendingReplenishment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      onPreview: () => {
+        setOperationsProposal(pendingReplenishment);
+        setIsOperationsModalOpen(true);
+      },
+      onRequestRevision: () => {},
+      onApprove: () => {
+        setOperationsProposal(pendingReplenishment);
+        setIsOperationsModalOpen(true);
+      },
+    });
+  }
+
+  if (activeCampaignDetail?.campaign.state === "campaign_review") {
+    redesignedApprovals.push({
+      id: activeCampaignDetail.campaign.id,
+      title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+      sourceDepartment: "marketing",
+      authorName: "Tiếp thị & Sáng tạo (MKT-01)",
+      riskLevel: "medium",
+      timestamp: "14:26",
+      onPreview: () => setSocialTokenModalOpen(true),
+      onRequestRevision: () => {},
+      onApprove: () => void handleApproveMarketing(),
+    });
+  }
+
+  const redesignedLiveEvents: LiveEventItem[] = [
+    {
+      id: "ev-ceo-plan",
+      timestamp: "14:26",
+      department: "ai_ceo",
+      title: "AI CEO đã phân tích yêu cầu",
+      description: "Đã tạo kế hoạch và phân bổ cho 4 phòng ban phối hợp thực thi",
+      status: "success",
+    },
+    {
+      id: "ev-mkt-run",
+      timestamp: "14:26",
+      department: "marketing",
+      title: "Marketing bắt đầu thực thi",
+      description: "MKT-01 đang lập kế hoạch và soạn thảo nội dung",
+      status: "info",
+    },
+    ...(pendingReplenishment
+      ? [
+          {
+            id: "ev-ops-alert",
+            timestamp: "14:27",
+            department: "operations" as const,
+            title: "Vận hành báo cảnh báo tồn kho",
+            description: `Ghi nhận ${pendingReplenishment.items.length} SKU dưới ngưỡng an toàn, đề xuất bổ sung kho`,
+            status: "warning" as const,
+            actionLabel: "Cần xử lý",
+            onActionClick: () => {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            },
+          },
+        ]
+      : []),
+    {
+      id: "ev-pricing-draft",
+      timestamp: "14:27",
+      department: "merchandising",
+      title: "Định giá hoàn thành dự thảo",
+      description: "Đã có bản đề xuất mức giá khuyến mãi sơ bộ",
+      status: "success",
+    },
+  ];
+
+  const redesignedRecentDeliverables = [
+    {
+      id: "deliv-1",
+      title: "Báo cáo xu hướng thị trường mỹ phẩm SEA",
+      departmentName: "Tiếp thị & Sáng tạo",
+      completedAt: "14:20",
+      format: "docx",
+      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
+    },
+    {
+      id: "deliv-2",
+      title: "Danh sách 500 khách hàng tiềm năng",
+      departmentName: "CSKH & CRM",
+      completedAt: "13:45",
+      format: "xlsx",
+      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
+    },
+    {
+      id: "deliv-3",
+      title: "Kế hoạch Flash Sale Q2/2026",
+      departmentName: "Danh mục & Định giá",
+      completedAt: "12:30",
+      format: "pdf",
+      onDownloadOrView: () => setRecentOutcomesOpen((prev) => !prev),
+    },
+  ];
+
+  return (
+    <section className="commandCenterWorkspace">
+      {/* Expired Session or Error Alert */}
+      {errorMessage && (
+        <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage === "Authentication required" ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." : errorMessage}</span>
+          </div>
+          {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
+            <button
+              type="button"
+              onClick={() => void signIn()}
+              style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
+            >
+              Đăng nhập lại
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {successMessage && (
+        <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#6ee7b7", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+          <CheckCircle2 size={16} />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
+      {/* TIER 1: Command Center Header Bar */}
+      <CommandCenterHeader
+        activeFilter={taskFilter}
+        onFilterChange={setTaskFilter}
+        counts={{
+          all: (overview?.counts.running ?? 0) + (overview?.counts.waiting ?? 0) + (overview?.counts.completed ?? 0) + (overview?.counts.failed ?? 0),
+          running: overview?.counts.running ?? activeCount,
+          waiting_approval: overview?.counts.waiting ?? redesignedApprovals.length,
+          completed: overview?.counts.completed ?? 28,
+          failed: overview?.counts.failed ?? 0,
+        }}
+        onNewTaskClick={() => handleSendStrategicTask()}
+        onDirectModeToggle={() => setDirectInputMode((prev) => !prev)}
+        directInputMode={directInputMode}
+      />
+
+      {/* TIER 1: Command Composer Panel & AI CEO Stepper */}
+      <CommandComposerPanel
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        onSubmit={() => handleSendStrategicTask()}
+        isSubmitting={isSubmitting}
+        isAnalyzing={isCurrentlyAnalyzing}
+        analysisStep={analysisCurrentStep}
+        analysisDurationSeconds={28}
+        priority={composerPriority}
+        onPriorityChange={setComposerPriority}
+        targetDepartment={composerTarget}
+        onTargetDepartmentChange={setComposerTarget}
+        onSelectTemplate={(tmpl) => {
+          setPrompt(tmpl.prompt);
+          handleSendStrategicTask(tmpl.prompt);
+        }}
+      />
+
+      {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 my-6">
+        <div className="xl:col-span-8">
+          <WorkforceGrid
+            departments={redesignedDepartmentCards}
+            onViewDagGraph={() => {
+              if (activeTaskId) {
+                navigate(`/agentic/tasks/${activeTaskId}`);
+              } else {
+                navigate("/agentic/tasks-table");
+              }
+            }}
+            containerRef={departmentsGridRef}
+          >
+            <CrossDepartmentConnector
+              activeCollaboration={activeCollaboration}
+              containerRef={departmentsGridRef}
+            />
+          </WorkforceGrid>
+        </div>
+
+        <div className="xl:col-span-4 flex flex-col gap-6">
+          <LiveActivityFeed
+            events={redesignedLiveEvents}
+            activeDepartmentFilter={liveFeedFilter}
+            onFilterChange={setLiveFeedFilter}
+          />
+          <PendingApprovalsPanel
+            approvals={redesignedApprovals}
+            onViewAll={() => navigate("/agentic/approvals")}
           />
         </div>
       </div>
 
-      {/* 6. Live Executive Report Output when Orchestration is available */}
-      {executiveReportData && (
-        <div style={{ marginTop: "2rem" }}>
-          <ExecutiveReport report={executiveReportData} workflowState={currentOrchestrationState} />
-        </div>
-      )}
+      {/* TIER 3: Results & Performance Dashboard */}
+      <ResultsMetricsPanel
+        totalCompleted={overview?.counts.completed ?? 28}
+        onTimePercent={82}
+        delayedPercent={11}
+        cancelledPercent={7}
+        departmentEfficiencies={[
+          { department: "marketing", displayName: "Tiếp thị & Sáng tạo", efficiencyPercent: 92 },
+          { department: "merchandising", displayName: "Danh mục & Định giá", efficiencyPercent: 78 },
+          { department: "operations", displayName: "Vận hành & Kho vận", efficiencyPercent: 65 },
+          { department: "support", displayName: "CSKH & CRM", efficiencyPercent: 88 },
+        ]}
+        activeTasksCount={overview?.counts.running ?? activeCount}
+        completedThisWeekCount={overview?.counts.completed ?? 28}
+        completedTrendPercent={27}
+        avgDurationHours={3.2}
+        durationTrendPercent={-41}
+        approvalRatePercent={96}
+        approvalRateTrendPercent={12}
+        recentDeliverables={redesignedRecentDeliverables}
+        onViewAllDeliverables={() => navigate("/agentic/tasks-table")}
+      />
 
-      {/* 7. Multi-Modal Campaign Proposal Review Modal with Pagination */}
+      {/* Production Modals */}
       {campaignProposalModalOpen && campaignProposal && (
         <CampaignProposalModal
           proposal={campaignProposal}
@@ -4437,7 +3372,19 @@ export function AgenticCommandCenter({
         />
       )}
 
-      {/* 8. Social Token Health & Manager Modal */}
+      {operationsProposal && (
+        <OperationsProposalModal
+          isOpen={isOperationsModalOpen}
+          proposal={operationsProposal}
+          onClose={() => setIsOperationsModalOpen(false)}
+          onApply={handleApplyOperations}
+          onDownloadDocx={handleDownloadOperationsDocx}
+          onTriggerClearanceCampaign={handleTriggerClearanceCampaign}
+          isApplying={operationsActionLoading}
+          isDownloadingDocx={isDownloadingDocx}
+        />
+      )}
+
       <SocialTokenManagerModal
         isOpen={socialTokenModalOpen}
         onClose={() => setSocialTokenModalOpen(false)}

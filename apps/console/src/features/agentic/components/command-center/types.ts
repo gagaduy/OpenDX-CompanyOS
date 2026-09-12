@@ -70,11 +70,18 @@ export interface DepartmentCardProps {
   readonly onDirectDispatch: (dept: DepartmentType) => void;
   readonly onOpenDetails: (dept: DepartmentType) => void;
   readonly onErrorResolve?: (dept: DepartmentType) => void;
+  readonly onSendDirectTask?: (text: string) => void | Promise<void>;
+  readonly directInputPlaceholder?: string;
+  readonly headerExtra?: React.ReactNode;
+  readonly alertBanner?: React.ReactNode;
+  readonly children?: React.ReactNode;
 }
 
 export interface WorkforceGridProps {
   readonly departments: readonly DepartmentCardProps[];
   readonly onViewDagGraph: () => void;
+  readonly children?: React.ReactNode;
+  readonly containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export interface LiveEventItem {

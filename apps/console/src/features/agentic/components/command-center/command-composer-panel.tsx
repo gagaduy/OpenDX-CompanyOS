@@ -109,7 +109,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               value={prompt}
               onChange={(e) => onPromptChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ví dụ: Phân tích thị trường mỹ phẩm Đông Nam Á và xây dựng kế hoạch ra mắt sản phẩm mới tại Việt Nam..."
+              placeholder="Hãy giao việc chiến lược cho AI CEO (Ví dụ: Phân tích thị trường mỹ phẩm Đông Nam Á và xây dựng kế hoạch ra mắt sản phẩm mới tại Việt Nam...)"
               className="w-full bg-[#11131a] text-slate-100 text-xs rounded-lg p-3 border border-white/[0.08] focus:border-[#5e6ad2]/80 focus:ring-1 focus:ring-[#5e6ad2]/50 placeholder:text-slate-500 resize-none transition-all outline-none"
             />
           </div>
@@ -213,6 +213,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
 
             <button
               type="button"
+              aria-label={isSubmitting ? "Đang gửi..." : "Gửi"}
               disabled={isSubmitting || !prompt.trim()}
               onClick={onSubmit}
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#5e6ad2] text-white hover:bg-[#4d59c0] disabled:opacity-50 disabled:cursor-not-allowed shadow transition-all focus:ring-2 focus:ring-[#5e6ad2]/50"

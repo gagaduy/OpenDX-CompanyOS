@@ -75,12 +75,21 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
   onDirectDispatch,
   onOpenDetails,
   onErrorResolve,
+  onSendDirectTask,
+  directInputPlaceholder,
+  headerExtra,
+  alertBanner,
+  children,
 }) => {
+  const [directInput, setDirectInput] = React.useState("");
   const theme = DEPT_THEMES[department] || DEPT_THEMES.marketing;
   const Icon = theme.icon;
 
   return (
-    <div className={`bg-[#0a0b10] border ${theme.borderClass} rounded-xl p-4 flex flex-col justify-between shadow-sm transition-all hover:border-white/20`}>
+    <div
+      id={`dept-column-${department}`}
+      className={`bg-[#0a0b10] border ${theme.borderClass} rounded-xl p-4 flex flex-col justify-between shadow-sm transition-all hover:border-white/20`}
+    >
       <div>
         {/* Header */}
         <div className="flex items-start justify-between gap-2 pb-3 border-b border-white/[0.06]">
@@ -102,6 +111,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
           </div>
 
           <div className="flex flex-col items-end gap-1">
+            {headerExtra}
             {/* Status badge */}
             {status === "error" ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
@@ -148,48 +158,55 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
           </div>
         </div>
 
-        {/* Digital Employees List */}
-        <div className="py-2.5 space-y-2">
-          {employees.map((emp) => (
-            <div key={emp.id} className="flex items-center justify-between gap-2 text-xs">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-slate-200 font-medium truncate">
-                    {emp.name} <span className="text-slate-500 font-normal">({emp.role})</span>
-                  </span>
-                  <span
-                    className={`font-semibold shrink-0 text-[10px] ${
-                      emp.status === "failed"
-                        ? "text-rose-400"
+        {/* Proactive / custom alert banner if present */}
+        {alertBanner}
+
+        {/* Custom children or fallback to Digital Employees List */}
+        {children ? (
+          <div className="py-2 space-y-2">{children}</div>
+        ) : (
+          <div className="py-2.5 space-y-2">
+            {employees.map((emp) => (
+              <div key={emp.id} className="flex items-center justify-between gap-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="text-slate-200 font-medium truncate">
+                      {emp.name} <span className="text-slate-500 font-normal">({emp.role})</span>
+                    </span>
+                    <span
+                      className={`font-semibold shrink-0 text-[10px] ${
+                        emp.status === "failed"
+                          ? "text-rose-400"
+                          : emp.status === "working"
+                          ? "text-emerald-400"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {emp.status === "failed"
+                        ? "Lỗi xử lý"
                         : emp.status === "working"
-                        ? "text-emerald-400"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {emp.status === "failed"
-                      ? "Lỗi xử lý"
-                      : emp.status === "working"
-                      ? `${emp.progressPercent}%`
-                      : "--"}
-                  </span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      emp.status === "failed"
-                        ? "bg-rose-500"
-                        : emp.status === "working"
-                        ? "bg-emerald-500"
-                        : "bg-slate-600"
-                    }`}
-                    style={{ width: `${emp.progressPercent}%` }}
-                  />
+                        ? `${emp.progressPercent}%`
+                        : "--"}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        emp.status === "failed"
+                          ? "bg-rose-500"
+                          : emp.status === "working"
+                          ? "bg-emerald-500"
+                          : "bg-slate-600"
+                      }`}
+                      style={{ width: `${emp.progressPercent}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Exception Alert Banner if error exists */}
         {errorMessage && (
@@ -232,6 +249,35 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
               ))}
             </div>
           </div>
+        )}
+        {/* Direct Input Field */}
+        {directInputPlaceholder && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (directInput.trim() && onSendDirectTask) {
+                const val = directInput.trim();
+                setDirectInput("");
+                void onSendDirectTask(val);
+              }
+            }}
+            className="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center gap-1.5"
+          >
+            <input
+              type="text"
+              value={directInput}
+              onChange={(e) => setDirectInput(e.target.value)}
+              placeholder={directInputPlaceholder}
+              className="flex-1 bg-[#11131a] text-slate-200 text-xs rounded px-2.5 py-1.5 border border-white/[0.08] focus:border-[#5e6ad2] outline-none placeholder:text-slate-500"
+            />
+            <button
+              type="submit"
+              disabled={!directInput.trim()}
+              className="px-2.5 py-1.5 bg-[#5e6ad2] hover:bg-[#4d59c0] disabled:opacity-40 text-white rounded text-xs font-semibold"
+            >
+              <Send size={11} />
+            </button>
+          </form>
         )}
       </div>
 
