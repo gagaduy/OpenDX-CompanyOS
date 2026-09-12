@@ -31,10 +31,19 @@ export interface QuickActionTemplate {
   readonly priority?: "low" | "normal" | "high" | "urgent";
 }
 
+export interface CommandComposerSubmitMeta {
+  readonly prompt?: string;
+  readonly context?: string;
+  readonly goalTarget?: string;
+  readonly attachments?: readonly { readonly name: string; readonly size: number }[];
+  readonly priority?: "low" | "normal" | "high" | "urgent";
+  readonly target?: string;
+}
+
 export interface CommandComposerProps {
   readonly prompt: string;
   readonly onPromptChange: (val: string) => void;
-  readonly onSubmit: () => void;
+  readonly onSubmit: (meta?: CommandComposerSubmitMeta) => void;
   readonly isSubmitting: boolean;
   readonly isAnalyzing: boolean;
   readonly analysisStep: number; // 1 to 4

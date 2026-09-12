@@ -75,7 +75,13 @@ import { WorkforceGrid } from "./command-center/workforce-grid";
 import { LiveActivityFeed } from "./command-center/live-activity-feed";
 import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel";
 import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
-import type { DepartmentCardProps, LiveEventItem, PendingApprovalItem, TaskFilterType } from "./command-center/types";
+import type {
+  DepartmentCardProps,
+  LiveEventItem,
+  PendingApprovalItem,
+  TaskFilterType,
+  CommandComposerSubmitMeta,
+} from "./command-center/types";
 import "../styles/agentic-command-center.css";
 import "../styles/command-center-redesign.css";
 
@@ -963,9 +969,45 @@ export function AgenticCommandCenter({
   }, [tasks, activeOperations, navigate]);
 
   // Strategic AI CEO Dispatch
-  const handleSendStrategicTask = async (customGoal?: string, customInstructions?: string) => {
-    const goalText = (customGoal || prompt).trim();
+  const handleSendStrategicTask = async (
+    customGoalOrMeta?: string | CommandComposerSubmitMeta,
+    customInstructions?: string,
+  ) => {
+    const isMeta = typeof customGoalOrMeta === "object" && customGoalOrMeta !== null;
+    const goalText = (isMeta ? customGoalOrMeta.prompt || prompt : customGoalOrMeta || prompt).trim();
     if (!goalText || isSubmitting) return;
+
+    const metaTarget = isMeta && customGoalOrMeta.target ? customGoalOrMeta.target : composerTarget;
+    const metaPriority = isMeta && customGoalOrMeta.priority ? customGoalOrMeta.priority : composerPriority;
+
+    let enrichedInstructions = customInstructions;
+    if (isMeta) {
+      const parts: string[] = [];
+      if (metaPriority) {
+        const priorityLabels: Record<string, string> = {
+          low: "Thấp",
+          normal: "Vừa",
+          high: "Cao",
+          urgent: "Khẩn cấp",
+        };
+        parts.push(`[Độ ưu tiên: ${priorityLabels[metaPriority] || metaPriority}]`);
+      }
+      if (customGoalOrMeta.context?.trim()) {
+        parts.push(`[Bối cảnh kinh doanh: ${customGoalOrMeta.context.trim()}]`);
+      }
+      if (customGoalOrMeta.goalTarget?.trim()) {
+        parts.push(`[Chỉ số KPI mục tiêu: ${customGoalOrMeta.goalTarget.trim()}]`);
+      }
+      if (customGoalOrMeta.attachments && customGoalOrMeta.attachments.length > 0) {
+        const fileNames = customGoalOrMeta.attachments
+          .map((f) => `${f.name} (${(f.size / 1024).toFixed(0)} KB)`)
+          .join(", ");
+        parts.push(`[Tài liệu đính kèm: ${fileNames}]`);
+      }
+      if (parts.length > 0) {
+        enrichedInstructions = `${parts.join("\n")}\n\nRà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`;
+      }
+    }
 
     let strategicAgents: string[] = [];
     try {
@@ -980,11 +1022,14 @@ export function AgenticCommandCenter({
       await new Promise((r) => setTimeout(r, 1300));
       setIsCeoThinking(false);
 
-      const intent = (composerTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(composerTarget))
-        ? (composerTarget as DepartmentType)
+      const intent = (metaTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(metaTarget))
+        ? (metaTarget as DepartmentType)
         : detectStrategicIntent(goalText);
       const strategicTaskId = crypto.randomUUID();
-      recordLiveEvent("ai_ceo", "AI CEO tiếp nhận chỉ đạo", goalText, "info");
+      const metaSuffix = isMeta && customGoalOrMeta.attachments && customGoalOrMeta.attachments.length > 0
+        ? ` (+${customGoalOrMeta.attachments.length} tệp đính kèm)`
+        : "";
+      recordLiveEvent("ai_ceo", "AI CEO tiếp nhận chỉ đạo", `${goalText}${metaSuffix}`, "info");
       recordLiveEvent(
         (intent === "orchestration" ? "ai_ceo" : intent) as DepartmentType | "ai_ceo",
         "Phân công và điều phối nhiệm vụ",
@@ -1559,7 +1604,7 @@ export function AgenticCommandCenter({
           {
             mode: "advanced",
             goal: goalText,
-            instructions: customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
+            instructions: enrichedInstructions || customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
             reviewWindow: {
               start: thirtyDaysAgo.toISOString().slice(0, 10),
               end: now.toISOString().slice(0, 10),
@@ -3779,7 +3824,8 @@ export function AgenticCommandCenter({
           failed: failedCount,
         }}
         onNewTaskClick={() => {
-          const textarea = document.querySelector(".ccComposerTextarea") as HTMLTextAreaElement | null;
+          const textarea = (document.querySelector(".ccStrategicTextarea") ||
+            document.querySelector(".ccComposerTextarea")) as HTMLTextAreaElement | null;
           if (textarea) {
             textarea.focus();
             textarea.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -3795,7 +3841,7 @@ export function AgenticCommandCenter({
       <CommandComposerPanel
         prompt={prompt}
         onPromptChange={setPrompt}
-        onSubmit={() => handleSendStrategicTask()}
+        onSubmit={(meta) => handleSendStrategicTask(meta)}
         isSubmitting={isSubmitting}
         isAnalyzing={isCurrentlyAnalyzing}
         analysisStep={analysisCurrentStep}
@@ -3806,7 +3852,13 @@ export function AgenticCommandCenter({
         onTargetDepartmentChange={setComposerTarget}
         onSelectTemplate={(tmpl) => {
           setPrompt(tmpl.prompt);
-          handleSendStrategicTask(tmpl.prompt);
+          if (tmpl.target) setComposerTarget(tmpl.target);
+          if (tmpl.priority) setComposerPriority(tmpl.priority);
+          handleSendStrategicTask({
+            prompt: tmpl.prompt,
+            target: tmpl.target,
+            priority: tmpl.priority,
+          });
         }}
       />
 

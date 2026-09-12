@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Strategic Command Composer Full Toolbar Interactivity:
+  - File Attachment Capability: Wired `📎 Đính kèm` button to a native hidden file picker supporting multiple documents (PDF, Word, Excel, CSV, TXT), displaying removable file chip tags with human-readable file sizes and a dynamic attachment count badge.
+  - Context & KPI Goal Metadata: Enabled expandable input toggles for `🌐 Bối cảnh` and `🎯 Mục tiêu` with real-time active indicator badges (`✓`), bundling context and KPI target values into task instructions upon submission.
+  - Priority & Department Dispatch Synchronization: Forwarded priority levels (`low`, `normal`, `high`, `urgent`) and target department assignments into backend task creation payloads and live audit event streams.
+  - Quick Suggestion One-Click Routing: Synced quick template chips (`Phân tích thị trường`, `Ra mắt sản phẩm`, `Tối ưu tồn kho`, `Rà soát CSKH`) to auto-populate target department, priority, and prompt text with instant task dispatching.
+  - Test Coverage & Audit: Added 4 comprehensive unit test cases verifying file attachment ingestion, metadata bundling, dropdown changes, and template triggers (all 49 console test suites passing).
+
 - AI Command Center Live Activity Feed Layout & Storytelling Formatting:
   - Timeline Geometry & Overlap Elimination: Replaced brittle negative absolute positioning with standard horizontal flexbox columns for `.ccTimelineItem`, cleanly separating the 24-hour timestamp (42px), vertical connector line and status icon node (20px), and event details with text truncation.
   - 24-Hour Time Format Enforcement: Standardized timestamps to 24-hour (`HH:mm`) format across browser locales to prevent AM/PM line wraps and match design specs.

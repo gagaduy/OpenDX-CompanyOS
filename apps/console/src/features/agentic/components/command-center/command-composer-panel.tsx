@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Send,
   Sparkles,
@@ -65,6 +65,8 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
   const [activeMetaTab, setActiveMetaTab] = useState<"none" | "context" | "goal">("none");
   const [contextValue, setContextValue] = useState("");
   const [goalValue, setGoalValue] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -79,12 +81,26 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
     { num: 4, label: "Tạo tác vụ và phân công nhân sự AI" },
   ];
 
+  const handleSubmit = () => {
+    if (!prompt.trim() || isSubmitting) return;
+    onSubmit({
+      prompt: prompt.trim(),
+      context: contextValue.trim() || undefined,
+      goalTarget: goalValue.trim() || undefined,
+      attachments: attachedFiles.length > 0 ? attachedFiles : undefined,
+      priority,
+      target: targetDepartment,
+    });
+    setAttachedFiles([]);
+    setContextValue("");
+    setGoalValue("");
+    setActiveMetaTab("none");
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      if (prompt.trim() && !isSubmitting) {
-        onSubmit();
-      }
+      handleSubmit();
     }
   };
 
@@ -114,10 +130,67 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
             />
           </div>
 
+          {/* Attached Files Chips */}
+          {attachedFiles.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+              {attachedFiles.map((file, idx) => (
+                <span
+                  key={`${file.name}-${idx}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "rgba(30, 41, 59, 0.85)",
+                    border: "1px solid rgba(59, 130, 246, 0.35)",
+                    borderRadius: "4px",
+                    padding: "3px 8px",
+                    fontSize: "0.72rem",
+                    color: "#93c5fd",
+                  }}
+                >
+                  <Paperclip size={11} />
+                  <span>{file.name}</span>
+                  <span style={{ color: "#64748b", fontSize: "0.68rem" }}>
+                    ({(file.size / 1024).toFixed(0)} KB)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#94a3b8",
+                      cursor: "pointer",
+                      padding: "0 2px",
+                      marginLeft: "2px",
+                      fontSize: "0.75rem",
+                      lineHeight: 1,
+                    }}
+                    title="Xóa tệp đính kèm"
+                    aria-label={`Xóa tệp ${file.name}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Context / Goal Expandable Inputs */}
           {activeMetaTab === "context" && (
             <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#07090e", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.08)", fontSize: "0.75rem" }}>
-              <label style={{ fontSize: "0.7rem", color: "#94a3b8", display: "block", marginBottom: "3px" }}>Bối cảnh chiến dịch / thị trường:</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                <label style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Bối cảnh chiến dịch / thị trường:</label>
+                {contextValue && (
+                  <button
+                    type="button"
+                    onClick={() => setContextValue("")}
+                    style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "0.68rem" }}
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 value={contextValue}
@@ -130,7 +203,18 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
 
           {activeMetaTab === "goal" && (
             <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#07090e", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.08)", fontSize: "0.75rem" }}>
-              <label style={{ fontSize: "0.7rem", color: "#94a3b8", display: "block", marginBottom: "3px" }}>Mục tiêu cụ thể (KPI target):</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                <label style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Mục tiêu cụ thể (KPI target):</label>
+                {goalValue && (
+                  <button
+                    type="button"
+                    onClick={() => setGoalValue("")}
+                    style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "0.68rem" }}
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 value={goalValue}
@@ -145,33 +229,65 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
         {/* Toolbar & Actions */}
         <div className="ccStrategicToolbar">
           <div className="ccToolbarLeft">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              style={{ display: "none" }}
+              data-testid="cc-file-input"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length > 0) {
+                  const newFiles = files.map((f) => ({ name: f.name, size: f.size }));
+                  setAttachedFiles((prev) => [...prev, ...newFiles]);
+                }
+                e.target.value = "";
+              }}
+            />
+
             <button
               type="button"
               className="ccToolBtn"
-              title="Đính kèm tài liệu phân tích"
+              title={attachedFiles.length > 0 ? `Đã đính kèm ${attachedFiles.length} tệp` : "Đính kèm tài liệu phân tích"}
+              onClick={() => fileInputRef.current?.click()}
+              style={
+                attachedFiles.length > 0
+                  ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" }
+                  : undefined
+              }
             >
               <Paperclip size={13} />
-              <span>Đính kèm</span>
+              <span>{attachedFiles.length > 0 ? `Đính kèm (${attachedFiles.length})` : "Đính kèm"}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveMetaTab(activeMetaTab === "context" ? "none" : "context")}
               className="ccToolBtn"
-              style={activeMetaTab === "context" ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" } : undefined}
+              style={
+                activeMetaTab === "context" || contextValue.trim()
+                  ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" }
+                  : undefined
+              }
+              title={contextValue.trim() ? `Bối cảnh: ${contextValue}` : "Thêm bối cảnh chiến dịch"}
             >
               <Globe size={13} />
-              <span>Bối cảnh</span>
+              <span>{contextValue.trim() ? "Bối cảnh ✓" : "Bối cảnh"}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveMetaTab(activeMetaTab === "goal" ? "none" : "goal")}
               className="ccToolBtn"
-              style={activeMetaTab === "goal" ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" } : undefined}
+              style={
+                activeMetaTab === "goal" || goalValue.trim()
+                  ? { background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", borderColor: "rgba(59, 130, 246, 0.4)" }
+                  : undefined
+              }
+              title={goalValue.trim() ? `Mục tiêu KPI: ${goalValue}` : "Thêm chỉ số KPI mục tiêu"}
             >
               <Target size={13} />
-              <span>Mục tiêu</span>
+              <span>{goalValue.trim() ? "Mục tiêu ✓" : "Mục tiêu"}</span>
             </button>
 
             <div style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: "2px" }}>
@@ -211,7 +327,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               type="button"
               aria-label={isSubmitting ? "Đang gửi..." : "Gửi"}
               disabled={isSubmitting || !prompt.trim()}
-              onClick={onSubmit}
+              onClick={handleSubmit}
               className="ccSubmitBtn"
             >
               {isSubmitting ? (
@@ -235,6 +351,12 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               type="button"
               onClick={() => {
                 onPromptChange(tmpl.prompt);
+                if (tmpl.target) {
+                  onTargetDepartmentChange(tmpl.target);
+                }
+                if (tmpl.priority) {
+                  onPriorityChange(tmpl.priority);
+                }
                 onSelectTemplate(tmpl);
               }}
               className="ccQuickChip"
