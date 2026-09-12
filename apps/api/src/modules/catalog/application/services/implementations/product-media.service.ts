@@ -14,7 +14,7 @@ import type { ProductRepository } from "../../repositories/interfaces/product.re
 import type { ProductMediaInspector, ProductMediaStorage } from "../../storage/product-media.storage";
 import { CatalogApplicationError } from "../catalog-application.error";
 import type { CatalogCommandContext } from "../interfaces/category.service";
-import type { ProductMediaServiceContract } from "../interfaces/product-media.service";
+import type { ProductMediaContent, ProductMediaServiceContract } from "../interfaces/product-media.service";
 
 export class ProductMediaService implements ProductMediaServiceContract {
   constructor(
@@ -115,7 +115,7 @@ export class ProductMediaService implements ProductMediaServiceContract {
     if (deleted !== undefined) await this.storage.delete(deleted.objectKey);
   }
 
-  async getContent(productId: string, mediaId: string) {
+  async getContent(productId: string, mediaId: string): Promise<ProductMediaContent> {
     const media = await this.transactions.runReadOnly((session) =>
       this.requireMedia(session, productId, mediaId),
     );
@@ -128,6 +128,19 @@ export class ProductMediaService implements ProductMediaServiceContract {
         error?.code === "NotFound" ||
         error?.name === "NotFound"
       ) {
+        if (media.objectKey.startsWith("campaigns/")) {
+          const product = await this.transactions.runReadOnly((session) =>
+            this.products.findById(session, productId),
+          );
+          if (product?.slug) {
+            try {
+              const seedBytes = await this.storage.get(`seed/catalog/${product.slug}.png`);
+              return { bytes: seedBytes, contentType: "image/png" as const };
+            } catch {
+              // fallback failed, proceed to throw error
+            }
+          }
+        }
         throw new CatalogApplicationError("NOT_FOUND", "Product media content not found in storage");
       }
       throw error;

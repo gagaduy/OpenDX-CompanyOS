@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Catalog Product Media Resilience & Missing Campaign Image Fallback (404 Error Fix):
+  - Root Cause Resolution: Diagnosed DevTools 404 errors (`GET /v1/admin/catalog/products/:id/media/:mediaId/content`) caused by orphaned campaign media storage keys in `product_media` pointing to expired or deleted campaign artifacts in MinIO.
+  - Defense-in-Depth Seed Fallback: Implemented automatic fallback in `ProductMediaService.getContent` to retrieve the product's seed image (`seed/catalog/${product.slug}.png`) when campaign overlay media is missing from object storage (`NoSuchKey` / `NotFound`), returning HTTP 200 instead of failing with 404.
+  - Campaign Activation & State Sanitization: Enhanced `activateCampaign` to supersede previously active campaigns, preventing concurrent overlapping campaigns from leaving inconsistent media keys.
+  - Active Campaign Self-Healing: Extended `getActiveCampaign` to automatically restore original media storage keys for products in active campaigns that do not have custom visual overlay assets.
+  - Unit Test Verification: Added unit test in `product-media.service.test.ts` verifying seamless fallback to product seed images when campaign storage objects are missing; all 27 catalog test files and 182/182 tests pass.
+
 - AI Command Center Active Campaign Live Horizontal Banner Placement:
   - Full-Width Horizontal Banner Placement: Repositioned `ActiveCampaignWidget` from the narrow Merchandising department column into a full-width horizontal banner situated directly between the Strategic Command Composer (Tier 1) and the Workforce Grid & Live Activity Feed (Tier 2).
   - Merchandising Column De-cluttering: Removed the vertical campaign card from the Merchandising column's `extraContent`, restoring balanced card heights across all department columns and making digital employees immediately visible.

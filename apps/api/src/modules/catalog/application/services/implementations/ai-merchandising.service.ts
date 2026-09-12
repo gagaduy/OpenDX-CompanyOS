@@ -489,7 +489,14 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
       const targetEndTime = overrides?.endDate ? new Date(overrides.endDate) : new Date(campaign.endTime);
       const excludedSet = new Set(overrides?.excludedItemIds ?? []);
 
-      // 1. Update campaign status to active with actual dates
+      // 1. Deactivate previously active campaigns and activate new campaign with actual dates
+      await session.query(
+        `UPDATE merchandising_campaigns 
+         SET status = 'completed', updated_at = NOW() 
+         WHERE status = 'active' AND id != $1`,
+        [campaignId],
+      );
+
       await session.query(
         `UPDATE merchandising_campaigns 
          SET status = 'active', start_time = NOW(), end_time = $1, updated_at = NOW() 
@@ -678,6 +685,19 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
              AND mci.campaign_media_storage_key IS NOT NULL
              AND pm.is_primary = true
              AND pm.object_key != mci.campaign_media_storage_key`,
+          [activeCampaign.id],
+        );
+
+        await session.query(
+          `UPDATE product_media pm
+           SET object_key = mci.original_media_storage_key, content_type = 'image/png'
+           FROM merchandising_campaign_items mci
+           WHERE pm.product_id = mci.product_id
+             AND mci.campaign_id = $1
+             AND mci.campaign_media_storage_key IS NULL
+             AND mci.original_media_storage_key IS NOT NULL
+             AND pm.is_primary = true
+             AND pm.object_key LIKE 'campaigns/%'`,
           [activeCampaign.id],
         );
 
