@@ -762,6 +762,31 @@
   background: rgba(239, 68, 68, 0.02);
 }
 
+@keyframes ccCardHighlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.85);
+    border-color: rgba(96, 165, 250, 1);
+  }
+  30% {
+    box-shadow: 0 0 25px 6px rgba(59, 130, 246, 0.5);
+    border-color: rgba(96, 165, 250, 1);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.ccDeptCard.highlight-pulse {
+  animation: ccCardHighlightPulse 2.2s ease-out;
+  border-color: rgba(96, 165, 250, 0.9) !important;
+}
+
+.ccDeptQueueItem.highlight-pulse {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: rgba(96, 165, 250, 0.8) !important;
+}
+
 .ccDeptHeader {
   display: flex;
   align-items: flex-start;

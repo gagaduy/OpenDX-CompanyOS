@@ -37,16 +37,35 @@ describe("PendingApprovalsPanel", () => {
     expect(screen.getByRole("button", { name: /Phê duyệt/ })).toBeDefined();
   });
 
-  it("triggers onPreview, onApprove, and onReject callbacks", () => {
+  it("triggers onPreview, onApprove, onReject, and onRequestRevision callbacks", () => {
     render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
     fireEvent.click(screen.getByText("Xem trước"));
     expect(onPreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Yêu cầu chỉnh sửa"));
+    expect(onRequestRevision).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText("Hủy duyệt"));
     expect(onReject).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: /Phê duyệt/ }));
     expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it("triggers onPreview when clicking directly on the approval card or pressing Enter", () => {
+    onPreview.mockClear();
+    const { container } = render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
+    const card = container.querySelector(".ccApprovalBox") as HTMLElement;
+    expect(card).toBeDefined();
+
+    fireEvent.click(card);
+    expect(onPreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(onPreview).toHaveBeenCalledTimes(2);
+
+    fireEvent.keyDown(card, { key: " " });
+    expect(onPreview).toHaveBeenCalledTimes(3);
   });
 
   it("renders approvals inside a scrollable container", () => {

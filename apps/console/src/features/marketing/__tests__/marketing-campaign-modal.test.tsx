@@ -204,4 +204,52 @@ describe("MarketingCampaignModal", () => {
     fireEvent.click(retryBtn);
     expect(handleRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("renders revision form immediately when initialShowRevisionForm is true", () => {
+    render(
+      <MarketingCampaignModal
+        isOpen={true}
+        onClose={vi.fn()}
+        detail={sampleDetail}
+        initialShowRevisionForm={true}
+      />
+    );
+
+    expect(screen.getByText(/Nhập phản hồi yêu cầu đội ngũ Marketing chỉnh sửa/i)).toBeInTheDocument();
+  });
+
+  it("renders safely with minimal/fallback detail without crashing", () => {
+    const fallbackDetail: MarketingCampaignDetail = {
+      campaign: {
+        id: "camp-fallback",
+        state: "awaiting_human_approval",
+        assignmentMode: "direct_department",
+        createdBy: "user-1",
+        idempotencyKey: "key-fb",
+        version: 1,
+        campaignName: "Chiến dịch Marketing Fanpage",
+        createdAt: "2026-09-13T00:00:00Z",
+        updatedAt: "2026-09-13T00:00:00Z",
+      },
+      brief: null,
+      contentVersions: [],
+      visualAssets: [],
+      publicationPackages: [],
+      currentPackage: null,
+      publicationAttempts: [],
+      publicationRecord: null,
+      artifacts: [],
+    };
+
+    render(
+      <MarketingCampaignModal
+        isOpen={true}
+        onClose={vi.fn()}
+        detail={fallbackDetail}
+      />
+    );
+
+    expect(screen.getByText("Chiến dịch Marketing Fanpage")).toBeInTheDocument();
+    expect(screen.getByText(/0 file tài liệu kiểm toán/i)).toBeInTheDocument();
+  });
 });

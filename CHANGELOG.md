@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Approval Preview Instant Modal Display & Department Smooth Scroll ("Kéo đến công việc & Hiện chi tiết"):
+  - Guaranteed Immediate Modal Preview: Resolved silent click failure where clicking `[👁️ Xem trước]` or the approval card body did nothing if backend campaign details were loading or unavailable. Implemented `buildFallbackMarketingDetail` and resilient rendering guards ensuring `MarketingCampaignModal` always opens immediately with complete deliverable context while fetching fresh remote data in the background.
+  - Smooth Scroll & Glowing Focus on Department Cards: Implemented `scrollToDepartment` across all approval categories (Marketing, Operations, Merchandising, Support, AI CEO, and workflow tasks), smoothly navigating the viewport directly to the corresponding AI department card (`dept-column-*`) or task item (`dept-task-*`) with an eye-catching `.highlight-pulse` glowing animation.
+  - Direct Revision Form Activation: Extended `MarketingCampaignModal` with `initialShowRevisionForm` and linked `[✏️ Yêu cầu chỉnh sửa]` across all approvals to immediately launch the revision drawer so users can provide targeted feedback to AI agents without extra clicks.
+  - Merchandising Proposal Modal Synthesis: Created `buildCampaignProposalFromMerchandising` to reliably bridge `merchandisingProposal` into `CampaignProposalModal`, ensuring flash sale proposals open instantly and completely.
+
 - AI Command Center Pending Approvals Panel Height Matching & Approval Cancellation ("Hủy duyệt"):
   - Dynamic Height Synchronization with AI Department Boards: Implemented real-time `ResizeObserver` height tracking in `AgenticCommandCenter` to dynamically compute `approvalsScrollMaxHeight` matching the exact bottom baseline of the adjacent AI department cards ("bảng AI bên phải", Merchandising and Support), preventing empty voids and keeping both columns aligned.
   - Bounded Internal Scrollability: Configured `.ccApprovalsScrollContainer` with dynamic `maxHeight` and internal overflow scrolling, strictly preventing the Approvals panel from stretching down endlessly (`không kéo dài xuống mãi`) and ensuring smooth internal scrolling (`cho phần phê duyệt thành cuộn`) even with 16+ pending approvals.

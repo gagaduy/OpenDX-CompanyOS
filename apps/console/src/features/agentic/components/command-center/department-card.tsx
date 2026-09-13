@@ -260,6 +260,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
                 queue.slice(0, 4).map((q) => (
                   <div
                     key={q.id}
+                    id={`dept-task-${q.id}`}
                     className="ccDeptQueueItem"
                     onClick={() => onTaskClick?.(q.id)}
                     style={onTaskClick ? { cursor: "pointer" } : undefined}

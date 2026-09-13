@@ -41,6 +41,7 @@ export interface MarketingCampaignModalProps {
   readonly onCancelCampaign?: () => Promise<void> | void;
   readonly api?: MarketingApi;
   readonly isActionLoading?: boolean;
+  readonly initialShowRevisionForm?: boolean;
 }
 
 type TabType = "creative" | "social" | "deliverables" | "brief";
@@ -55,12 +56,19 @@ export function MarketingCampaignModal({
   onCancelCampaign,
   api,
   isActionLoading = false,
+  initialShowRevisionForm = false,
 }: MarketingCampaignModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>("creative");
-  const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [showRevisionForm, setShowRevisionForm] = useState(initialShowRevisionForm);
   const [revisionFeedback, setRevisionFeedback] = useState("");
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
   const [copiedContent, setCopiedContent] = useState(false);
+
+  useEffect(() => {
+    if (initialShowRevisionForm) {
+      setShowRevisionForm(true);
+    }
+  }, [initialShowRevisionForm, isOpen]);
 
   // Visual asset blob loader
   const visualId = detail?.visualAssets?.at(-1)?.id;
@@ -92,7 +100,11 @@ export function MarketingCampaignModal({
 
   if (!isOpen || !detail) return null;
 
-  const { campaign, brief, contentVersions, visualAssets, artifacts } = detail;
+  const campaign = detail.campaign;
+  const brief = detail.brief ?? null;
+  const contentVersions = detail.contentVersions ?? [];
+  const visualAssets = detail.visualAssets ?? [];
+  const artifacts = detail.artifacts ?? [];
   const latestContent = contentVersions?.[contentVersions.length - 1];
   const latestVisual = visualAssets?.[visualAssets.length - 1];
   const facebookRecord =
