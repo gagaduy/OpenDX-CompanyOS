@@ -389,6 +389,31 @@ export function AgenticCommandCenter({
     });
   };
 
+  // Canceled Marketing Campaigns State (Dismissed / Excluded from Pending Approvals)
+  const [canceledCampaignIds, setCanceledCampaignIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const stored = localStorage.getItem("opendx_canceled_campaign_ids");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const canceledCampaignIdsRef = useRef(canceledCampaignIds);
+  canceledCampaignIdsRef.current = canceledCampaignIds;
+
+  const markCampaignCanceled = (campaignId: string) => {
+    setCanceledCampaignIds((prev) => {
+      const next = new Set(prev);
+      next.add(campaignId);
+      try {
+        localStorage.setItem("opendx_canceled_campaign_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
   // Social Tokens State & 1-Click Operations
   const [socialTokensSummary, setSocialTokensSummary] = useState<SocialTokensSummaryView | null>(null);
   const [socialTokenModalOpen, setSocialTokenModalOpen] = useState(false);
@@ -992,11 +1017,17 @@ export function AgenticCommandCenter({
         .listCampaigns({ limit: 20 })
         .then((res) => {
           if (!isMounted) return;
-          setCampaignsList(res.items);
-          const pendingCamp =
-            res.items.find((c) =>
-              ["awaiting_human_approval", "campaign_review", "draft", "visual_creation", "failed", "partial_failure"].includes(c.state),
-            ) || res.items[0];
+          const filtered = res.items.filter(
+            (c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled",
+          );
+          setCampaignsList(filtered);
+          if (activeCampaignId && canceledCampaignIdsRef.current.has(activeCampaignId)) {
+            setActiveCampaignId(null);
+            setActiveCampaignDetail(null);
+          }
+          const pendingCamp = filtered.find((c) =>
+            ["awaiting_human_approval", "campaign_review", "draft", "visual_creation", "failed", "partial_failure"].includes(c.state),
+          );
           if (pendingCamp && !activeCampaignId) {
             setActiveCampaignId(pendingCamp.id);
             marketingApi
@@ -3138,7 +3169,14 @@ export function AgenticCommandCenter({
       }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Phê duyệt thất bại.");
     } finally {
@@ -3160,7 +3198,14 @@ export function AgenticCommandCenter({
       setRevisionInput("");
       setShowRevisionForm(false);
       setSuccessMessage("Đã gửi yêu cầu chỉnh sửa! 3 nhân sự số Marketing đang tạo lại bản sửa đổi mới.");
-      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Yêu cầu chỉnh sửa thất bại.");
     } finally {
@@ -3202,7 +3247,14 @@ export function AgenticCommandCenter({
       }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Đăng lại lên Facebook thất bại.");
     } finally {
@@ -3213,25 +3265,37 @@ export function AgenticCommandCenter({
   const handleCancelMarketingCampaign = async (targetId?: string) => {
     const campId = targetId || activeCampaignId;
     if (!campId) return;
+
+    markCampaignCanceled(campId);
+    setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
+    if (activeCampaignId === campId) {
+      setActiveCampaignId(null);
+      setActiveCampaignDetail(null);
+    } else if (activeCampaignDetail?.campaign.id === campId) {
+      setActiveCampaignDetail(null);
+    }
+    if (previewCampaignDetail?.campaign.id === campId) {
+      setPreviewCampaignDetail(null);
+    }
+    setMarketingCampaignModalOpen(false);
+    setShowRevisionModal(false);
+    setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
+
     try {
       setMarketingActionLoading(true);
       if (marketingApi?.cancelCampaign) {
         await marketingApi.cancelCampaign(campId, "Hủy duyệt bởi Quản trị viên");
       }
-      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
-      if (activeCampaignDetail?.campaign.id === campId) {
-        setActiveCampaignDetail(null);
+      const res = await marketingApi?.listCampaigns({ limit: 20 });
+      if (res?.items) {
+        setCampaignsList(
+          res.items.filter(
+            (c) => !canceledCampaignIdsRef.current.has(c.id) && c.id !== campId && c.state !== "canceled",
+          ),
+        );
       }
-      setMarketingCampaignModalOpen(false);
-      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
-      marketingApi?.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
     } catch (err: any) {
-      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
-      if (activeCampaignDetail?.campaign.id === campId) {
-        setActiveCampaignDetail(null);
-      }
-      setMarketingCampaignModalOpen(false);
-      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
+      console.warn("Marketing campaign cancel notice:", err);
     } finally {
       setMarketingActionLoading(false);
     }
@@ -3653,6 +3717,7 @@ export function AgenticCommandCenter({
       }
     } else if (activeWorkflowKind === "marketing" && activeCampaignId && marketingApi) {
       try {
+        markCampaignCanceled(activeCampaignId);
         await marketingApi.cancelCampaign(activeCampaignId, "Canceled by Staff Operator");
         const detail = await marketingApi.getCampaign(activeCampaignId);
         setActiveCampaignDetail(detail);
@@ -4699,6 +4764,8 @@ export function AgenticCommandCenter({
       // Check activeCampaignDetail first
       if (
         activeCampaignDetail &&
+        !canceledCampaignIds.has(activeCampaignDetail.campaign.id) &&
+        activeCampaignDetail.campaign.state !== "canceled" &&
         [
           "awaiting_human_approval",
           "campaign_review",
@@ -4740,7 +4807,7 @@ export function AgenticCommandCenter({
 
       // Check all campaigns in campaignsList
       for (const camp of campaignsList) {
-        if (seenIds.has(camp.id)) continue;
+        if (seenIds.has(camp.id) || canceledCampaignIds.has(camp.id) || camp.state === "canceled") continue;
         if (
           [
             "awaiting_human_approval",

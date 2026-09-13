@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Marketing Campaign Cancellation from Failed State & Persistent Approval Dismissal ("Hủy duyệt vĩnh viễn"):
+  - Allowed `failed` and `publication_unknown` states in `marketing-campaign-rules.ts` to transition to `canceled`, enabling operators to permanently cancel failed or unrecoverable campaigns via `marketingApi.cancelCampaign` without encountering state transition errors (`INVALID_STATE_TRANSITION`).
+  - Added unit test coverage in `marketing-campaign-rules.test.ts` and `marketing-campaign.service.test.ts` verifying that canceling campaigns in `failed` and `publication_unknown` states succeeds cleanly.
+  - Implemented persistent `canceledCampaignIds` backed by `localStorage` (`opendx_canceled_campaign_ids`) in `AgenticCommandCenter`, ensuring canceled campaign approvals are immediately removed and never reappear on subsequent polls (`setInterval`), background refreshes, or page reloads.
+  - Filtered out canceled campaigns from `campaignsList` state, active campaign selection, and `redesignedApprovals` computation.
+
 - AI Command Center Approval Direct Deliverable Result Modal Display ("Xem kết quả tại chỗ"):
   - Pure In-Place Modal Popup without Page Scrolling: Removed viewport scrolling (`scrollToDepartment`) from all approval items when clicking "Xem trước" or clicking the card body. Kept the user focused on the active approval list and immediately displayed the comprehensive deliverable modal (`MarketingCampaignModal`, `OperationsProposalModal`, `CampaignProposalModal`, or `StrategicDeliverableModal`) directly over the screen.
   - Dedicated Preview Campaign Detail State: Introduced `previewCampaignDetail` state to decouple individual approval card preview from global background polling, immediately rendering the selected campaign with full copy, 1024x1024 poster graphic, and all 5 audit deliverables (`Bộ 5 Tài liệu Bàn giao`) while refreshing live details in the background.

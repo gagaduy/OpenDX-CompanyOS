@@ -186,12 +186,14 @@ describe("Marketing Campaign Rules", () => {
       expect(canTransitionState("publishing", "publication_unknown")).toBe(true);
       expect(canTransitionState("publication_unknown", "verifying_publication")).toBe(true);
       expect(canTransitionState("publication_unknown", "failed")).toBe(true);
+      expect(canTransitionState("publication_unknown", "canceled")).toBe(true);
     });
 
-    it("allows publication retry or governed revision recovery from failed", () => {
+    it("allows publication retry, governed revision recovery, or operator cancellation from failed", () => {
       expect(isTerminalState("failed")).toBe(false);
       expect(canTransitionState("failed", "publishing")).toBe(true);
       expect(canTransitionState("failed", "revision_requested")).toBe(true);
+      expect(canTransitionState("failed", "canceled")).toBe(true);
       expect(canTransitionState("failed", "campaign_review")).toBe(false);
       expect(canTransitionState("failed", "awaiting_human_approval")).toBe(false);
     });

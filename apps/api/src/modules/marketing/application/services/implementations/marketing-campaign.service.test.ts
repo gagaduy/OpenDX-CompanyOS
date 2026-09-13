@@ -361,6 +361,13 @@ describe("MarketingCampaignService", () => {
     expect(canceled.state).toBe("canceled");
   });
 
+  it("cancels a failed campaign on cancelCampaign", async () => {
+    const created = await service.createCampaign("operator-1", validBriefInput);
+    repository.campaigns.set(created.id, { ...repository.campaigns.get(created.id)!, state: "failed" });
+    const canceled = await service.cancelCampaign("operator-1", created.id, "Staff request");
+    expect(canceled.state).toBe("canceled");
+  });
+
   it("retrieves full campaign detail", async () => {
     const created = await service.createCampaign("operator-1", validBriefInput);
     const detail = await service.getCampaign(created.id);
