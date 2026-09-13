@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Social Token Health Validation & Meta Error Transparency ("Xác thực & Giám sát Token Mạng xã hội"):
+  - Strict Token Health Inspection on Refresh: Updated `autoRefreshAccount` in `social-token-manager.service.ts` to actively inspect token validity with `this.inspector.inspectToken(...)` before declaring health. When a token has been revoked by Meta (e.g. `OAuthException code: 190, error_subcode: 467` due to user logout or password change), the account is accurately marked as `invalid`, preserving the root cause in `lastError` and throwing a descriptive exception instead of falsely reporting a healthy state.
+  - Transparent Operator Feedback in Command Center: Updated `handleRefreshSocialAccount` in `agentic-command-center.tsx` to handle rejected refreshes without silent failures, immediately synchronizing modal state and displaying the exact error message from Meta API to guide operators toward re-authentication or token updates.
+  - Comprehensive Unit Test Coverage: Added unit test in `social-token-manager.service.test.ts` verifying that revoked Meta tokens correctly trigger validation failure, record `tokenStatus: 'invalid'`, and retain the specific Meta error message.
+
 - Bounded Multi-Campaign Scroll Container with Quick Navigation ("Ô cuộn chiến dịch đang kích hoạt"):
   - Bounded Height & Vertical Scrollbox: Enclosed concurrent active merchandising campaigns inside `.ccActiveCampaignsScrollBox` with `max-height: 155px` (matching single-banner height on desktop, `265px` on tablet/mobile), preventing multiple active campaigns from stretching the Command Center downwards and keeping the AI Workforce Grid (Tier 2) immediately in view.
   - Smooth Snap-Scrolling & Mousewheel Navigation: Applied `scroll-snap-type: y mandatory` and custom rose-themed scrollbar (`scrollbar-width: thin`), enabling effortless mousewheel, trackpad, and touch scrolling between concurrent campaigns.

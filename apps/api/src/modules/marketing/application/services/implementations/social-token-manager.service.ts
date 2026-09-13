@@ -359,6 +359,43 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
       isLongLived = true;
     }
 
+    // 3. Inspect and validate token with Meta Graph API before declaring it healthy
+    if (this.inspector && typeof this.inspector.inspectToken === "function") {
+      try {
+        const inspection = await this.inspector.inspectToken(
+          platform,
+          newAccessToken,
+          accountId,
+        );
+
+        if (!inspection.isValid) {
+          const errorMsg = inspection.error || "Token không còn hiệu lực trên Meta Graph API";
+          await this.repository.updateHealthStatus(platform, accountId, {
+            tokenStatus: "invalid",
+            lastCheckedAt: currentDate.toISOString(),
+            lastError: errorMsg,
+          });
+          throw new Error(
+            `Không thể tự động gia hạn token: ${errorMsg}. ` +
+            `Do phiên làm việc của tài khoản Facebook đã bị thu hồi hoặc hết hạn (Mã lỗi 190), bạn cần bấm '1-Click Kết nối lại' hoặc 'Cập nhật Token' để cấp token mới.`
+          );
+        }
+
+        if (inspection.expiresAt) {
+          newExpiresAt = inspection.expiresAt;
+          const expiresMs = new Date(inspection.expiresAt).getTime();
+          const diffHours = (expiresMs - currentDate.getTime()) / (1000 * 3600);
+          hoursRemaining = Math.max(0, Math.round(diffHours * 10) / 10);
+          daysRemaining = Math.max(0, Math.ceil(diffHours / 24));
+        }
+      } catch (err: any) {
+        if (err?.message?.includes("Không thể tự động gia hạn token")) {
+          throw err;
+        }
+        console.warn(`[SocialTokenManager] Verification during autoRefreshAccount encountered an issue:`, err);
+      }
+    }
+
     await this.repository.updateAccessToken(platform, accountId, {
       accessToken: newAccessToken,
       tokenStatus: "healthy",

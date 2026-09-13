@@ -320,4 +320,59 @@ describe("SocialTokenManagerService", () => {
     expect(summary.accounts[0].hoursRemaining).toBe(10);
     expect(summary.accounts[0].expiresInHuman).toBe("Còn 10 giờ");
   });
+
+  it("fails autoRefreshAccount when token is invalid on Meta API (user logged out / Error 190)", async () => {
+    const storedAccount: SocialAccountEntity = {
+      id: "acc-1",
+      platform: "facebook",
+      accountId: "page-1",
+      accountName: "Store Page",
+      accessToken: "EAAB_revoked_token",
+      tokenType: "bearer",
+      tokenStatus: "invalid",
+      tokenExpiresAt: null,
+      scopes: ["pages_manage_posts"],
+      isLongLived: true,
+      lastCheckedAt: new Date().toISOString(),
+      metadata: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const mockRepo = {
+      listAccounts: vi.fn().mockResolvedValue([storedAccount]),
+      findByPlatformAndId: vi.fn().mockResolvedValue(storedAccount),
+      updateHealthStatus: vi.fn().mockResolvedValue(undefined),
+      updateAccessToken: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const mockInspector = {
+      inspectToken: vi.fn().mockResolvedValue({
+        isValid: false,
+        accountId: "page-1",
+        accountName: "Store Page",
+        scopes: [],
+        isLongLived: false,
+        error: "Error validating access token: The session is invalid because the user logged out.",
+      }),
+    };
+
+    const service = new SocialTokenManagerServiceImpl({
+      socialAccountRepository: mockRepo as any,
+      inspector: mockInspector as any,
+      refresher: {} as any,
+    });
+
+    await expect(service.autoRefreshAccount("facebook", "page-1")).rejects.toThrow(
+      /Không thể tự động gia hạn token.*user logged out/,
+    );
+    expect(mockRepo.updateHealthStatus).toHaveBeenCalledWith(
+      "facebook",
+      "page-1",
+      expect.objectContaining({
+        tokenStatus: "invalid",
+        lastError: expect.stringContaining("user logged out"),
+      }),
+    );
+  });
 });
