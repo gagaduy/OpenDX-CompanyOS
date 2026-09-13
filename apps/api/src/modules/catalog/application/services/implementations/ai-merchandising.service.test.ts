@@ -155,6 +155,16 @@ describe("AiMerchandisingService Campaign Engine", () => {
     const mockRepo = {
       createCampaign: vi.fn(),
       getById: vi.fn(),
+      findAllActive: vi.fn().mockResolvedValue([{
+        id: "camp-active",
+        name: "Active Sale",
+        badgeText: "SALE",
+        discountPercent: 20,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 500000).toISOString(),
+        totalProducts: 5,
+        remainingMs: 500000,
+      }]),
       findActive: vi.fn().mockResolvedValue({
         id: "camp-active",
         name: "Active Sale",

@@ -597,6 +597,7 @@ export function AgenticCommandCenter({
   const [merchandisingProposal, setMerchandisingProposal] = useState<MerchandisingProposal | null>(null);
   const [merchandisingLoading, setMerchandisingLoading] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState<ActiveCampaign | null>(null);
+  const [activeCampaigns, setActiveCampaigns] = useState<readonly ActiveCampaign[]>([]);
   const [campaignProposal, setCampaignProposal] = useState<CampaignProposal | null>(null);
   const [campaignProposalModalOpen, setCampaignProposalModalOpen] = useState(false);
   const [isActivatingCampaign, setIsActivatingCampaign] = useState(false);
@@ -604,7 +605,16 @@ export function AgenticCommandCenter({
 
   useEffect(() => {
     if (catalogApi) {
-      void catalogApi.getActiveCampaign().then(setActiveCampaign).catch(console.error);
+      void catalogApi.getActiveCampaign().then((res) => {
+        setActiveCampaign(res);
+        if (res?.activeCampaigns && res.activeCampaigns.length > 0) {
+          setActiveCampaigns(res.activeCampaigns);
+        } else if (res) {
+          setActiveCampaigns([res]);
+        } else {
+          setActiveCampaigns([]);
+        }
+      }).catch(console.error);
     }
   }, [catalogApi]);
 
@@ -1474,31 +1484,30 @@ export function AgenticCommandCenter({
         });
       }
     }
-    if (activeCampaign) {
-      const formatted = formatLiveEventTimestamp(activeCampaign.startTime);
+    const effectiveActiveCampaigns = activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+    for (const camp of effectiveActiveCampaigns) {
+      const formatted = formatLiveEventTimestamp(camp.startTime);
       initialEvents.push({
-        id: `camp-ev-${activeCampaign.id}`,
+        id: `camp-ev-${camp.id}`,
         timestamp: formatted.timestamp,
         time: formatted.time,
         date: formatted.date,
         createdAt: formatted.epoch,
         department: "merchandising",
         title: "Kinh doanh đã hoàn tất tác vụ",
-        description: `Chiến dịch: ${activeCampaign.name}`,
+        description: `Chiến dịch: ${camp.name}`,
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          if (campaignProposal) {
-            setCampaignProposalModalOpen(true);
-          } else {
-            const deliv = buildStrategicDeliverable(
-              activeCampaign.name,
-              activeCampaign.id,
-              "merchandising",
-            );
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
-          }
+          const deliv = buildStrategicDeliverable(
+            camp.name,
+            camp.id,
+            "merchandising",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
         },
       });
     }
@@ -1679,7 +1688,7 @@ export function AgenticCommandCenter({
           .slice(0, 30);
       });
     }
-  }, [tasks, activeOperations, activeCampaign, campaignProposal, operationsProposal, supportProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
+  }, [tasks, activeOperations, activeCampaign, activeCampaigns, campaignProposal, operationsProposal, supportProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
 
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (
@@ -3529,6 +3538,7 @@ export function AgenticCommandCenter({
       );
       const active = await catalogApi.getActiveCampaign();
       setActiveCampaign(active);
+      setActiveCampaigns(active?.activeCampaigns ?? (active ? [active] : []));
 
       // Complete steps in CEO Plan
       setCeoPlan((prev) =>
@@ -3575,7 +3585,9 @@ export function AgenticCommandCenter({
       setIsRevertingCampaign(true);
       setErrorMessage(null);
       await catalogApi.revertCampaign(campaignId);
-      setActiveCampaign(null);
+      const active = await catalogApi.getActiveCampaign();
+      setActiveCampaign(active);
+      setActiveCampaigns(active?.activeCampaigns ?? (active ? [active] : []));
       setSuccessMessage("Đã hoàn nguyên chiến dịch thành công! Toàn bộ giá sản phẩm đã tự động quay về mức ban đầu.");
     } catch (err: any) {
       console.error("Revert campaign failed:", err);
@@ -5343,18 +5355,21 @@ export function AgenticCommandCenter({
       });
     }
 
-    if (activeCampaign) {
+    const effectiveActiveCampaigns = activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+    for (const camp of effectiveActiveCampaigns) {
       list.push({
-        id: activeCampaign.id,
-        title: `Báo cáo: Chiến dịch ${activeCampaign.name}`,
+        id: camp.id,
+        title: `Báo cáo: Chiến dịch ${camp.name}`,
         departmentName: "Kinh doanh",
-        completedAt: formatTime(activeCampaign.startTime),
+        completedAt: formatTime(camp.startTime),
         format: "docx",
-        timestamp: new Date(activeCampaign.startTime).getTime(),
+        timestamp: new Date(camp.startTime).getTime(),
         onDownloadOrView: () => {
           const deliv = buildStrategicDeliverable(
-            activeCampaign.name,
-            activeCampaign.id,
+            camp.name,
+            camp.id,
             "merchandising",
           );
           setSelectedStrategicDeliverable(deliv);
@@ -5492,6 +5507,7 @@ export function AgenticCommandCenter({
   }, [
     completedStrategicDeliverable,
     activeCampaign,
+    activeCampaigns,
     activeCampaignDetail,
     campaignsList,
     operationsProposal,
@@ -5754,16 +5770,16 @@ export function AgenticCommandCenter({
       />
 
       {/* Active Merchandising Campaign Live Horizontal Banner (Tier 1 -> Tier 2 Transition) */}
-      {activeCampaign && (
-        <div style={{ marginBottom: "1.25rem" }}>
+      {((activeCampaigns && activeCampaigns.length > 0) ? activeCampaigns : (activeCampaign ? [activeCampaign] : [])).map((camp) => (
+        <div key={camp.id} style={{ marginBottom: "1.25rem" }}>
           <ActiveCampaignWidget
-            campaign={activeCampaign}
+            campaign={camp}
             onRevert={handleEmergencyRevertCampaign}
             isReverting={isRevertingCampaign}
             onViewDeliverable={() => {
               const deliv = buildStrategicDeliverable(
-                activeCampaign.name,
-                activeCampaign.id,
+                camp.name,
+                camp.id,
                 "merchandising",
               );
               setSelectedStrategicDeliverable(deliv);
@@ -5771,7 +5787,7 @@ export function AgenticCommandCenter({
             }}
           />
         </div>
-      )}
+      ))}
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
       <div className="ccMainContentGrid">

@@ -489,14 +489,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
       const targetEndTime = overrides?.endDate ? new Date(overrides.endDate) : new Date(campaign.endTime);
       const excludedSet = new Set(overrides?.excludedItemIds ?? []);
 
-      // 1. Deactivate previously active campaigns and activate new campaign with actual dates
-      await session.query(
-        `UPDATE merchandising_campaigns 
-         SET status = 'completed', updated_at = NOW() 
-         WHERE status = 'active' AND id != $1`,
-        [campaignId],
-      );
-
+      // 1. Activate new campaign with actual dates (preserve existing active campaigns)
       await session.query(
         `UPDATE merchandising_campaigns 
          SET status = 'active', start_time = NOW(), end_time = $1, updated_at = NOW() 
@@ -588,14 +581,17 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
 
       // 1. Expire all campaign prices immediately (valid_to = NOW())
       await session.query(
-        `UPDATE product_prices 
+        `UPDATE product_prices pp
          SET valid_to = NOW()
-         WHERE variant_id IN (SELECT variant_id FROM merchandising_campaign_items WHERE campaign_id = $1)
-           AND valid_to > NOW()`,
+         FROM merchandising_campaign_items mci
+         WHERE pp.variant_id = mci.variant_id
+           AND mci.campaign_id = $1
+           AND pp.amount_minor = mci.campaign_price_minor
+           AND pp.valid_to > NOW()`,
         [campaignId],
       );
 
-      // 2. Restore original media storage key
+      // 2. Restore original media storage key (only if not active in another campaign)
       await session.query(
         `UPDATE product_media pm
          SET object_key = mci.original_media_storage_key
@@ -603,15 +599,31 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
          WHERE pm.product_id = mci.product_id
            AND mci.campaign_id = $1
            AND mci.original_media_storage_key IS NOT NULL
-           AND pm.is_primary = true`,
+           AND pm.is_primary = true
+           AND NOT EXISTS (
+             SELECT 1 FROM merchandising_campaign_items other_mci
+             JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+             WHERE other_mci.product_id = pm.product_id
+               AND other_c.id != $1
+               AND other_c.status = 'active'
+               AND other_c.end_time > NOW()
+           )`,
         [campaignId],
       );
 
-      // 3. Remove campaign badge from product attributes
+      // 3. Remove campaign badge from product attributes (only if not active in another campaign)
       await session.query(
         `UPDATE products
          SET attributes = attributes - 'badge' - 'campaignId' - 'campaignActivatedAt', updated_at = NOW()
-         WHERE id IN (SELECT product_id FROM merchandising_campaign_items WHERE campaign_id = $1)`,
+         WHERE id IN (SELECT product_id FROM merchandising_campaign_items WHERE campaign_id = $1)
+           AND NOT EXISTS (
+             SELECT 1 FROM merchandising_campaign_items other_mci
+             JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+             WHERE other_mci.product_id = products.id
+               AND other_c.id != $1
+               AND other_c.status = 'active'
+               AND other_c.end_time > NOW()
+           )`,
         [campaignId],
       );
 
@@ -643,15 +655,15 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
 
   async getActiveCampaign(): Promise<ActiveCampaignDto | null> {
     return this.transactions.run(async (session) => {
-      // First check if active campaign expired naturally
+      // 1. Check and mark naturally expired campaigns as completed
       const expiredCheck = await session.query<{ id: string }>(
-        `SELECT id FROM merchandising_campaigns WHERE status = 'active' AND end_time <= NOW() LIMIT 1`,
+        `SELECT id FROM merchandising_campaigns WHERE status = 'active' AND end_time <= NOW()`,
       );
-      if (expiredCheck?.rows?.[0]) {
-        const expiredId = expiredCheck.rows[0].id;
+      for (const exp of expiredCheck.rows) {
+        const expiredId = exp.id;
         await this.campaignRepository.updateStatus(session, expiredId, "completed");
 
-        // Restore media and attributes
+        // Restore media and attributes if no other active campaign uses them
         await session.query(
           `UPDATE product_media pm
            SET object_key = mci.original_media_storage_key
@@ -659,23 +671,46 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
            WHERE pm.product_id = mci.product_id
              AND mci.campaign_id = $1
              AND mci.original_media_storage_key IS NOT NULL
-             AND pm.is_primary = true`,
+             AND pm.is_primary = true
+             AND NOT EXISTS (
+               SELECT 1 FROM merchandising_campaign_items other_mci
+               JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+               WHERE other_mci.product_id = pm.product_id
+                 AND other_c.status = 'active'
+                 AND other_c.end_time > NOW()
+             )`,
           [expiredId],
         );
 
         await session.query(
           `UPDATE products
            SET attributes = attributes - 'badge' - 'campaignId' - 'campaignActivatedAt', updated_at = NOW()
-           WHERE id IN (SELECT product_id FROM merchandising_campaign_items WHERE campaign_id = $1)`,
+           WHERE id IN (SELECT product_id FROM merchandising_campaign_items WHERE campaign_id = $1)
+             AND NOT EXISTS (
+               SELECT 1 FROM merchandising_campaign_items other_mci
+               JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+               WHERE other_mci.product_id = products.id
+                 AND other_c.status = 'active'
+                 AND other_c.end_time > NOW()
+             )`,
           [expiredId],
         );
+      }
 
+      // 2. Query all currently active campaigns
+      let allActive: readonly ActiveCampaignDto[] = [];
+      if (typeof this.campaignRepository.findAllActive === "function") {
+        allActive = await this.campaignRepository.findAllActive(session);
+      } else if (typeof this.campaignRepository.findActive === "function") {
+        const single = await this.campaignRepository.findActive(session);
+        allActive = single ? [single] : [];
+      }
+      if (allActive.length === 0) {
         return null;
       }
 
-      const activeCampaign = await this.campaignRepository.findActive(session);
-      if (activeCampaign) {
-        // Self-heal: ensure product_media and product_prices remain synchronized while campaign is active
+      // 3. Self-heal each active campaign: ensure product_media and product_prices remain synchronized
+      for (const campaign of allActive) {
         await session.query(
           `UPDATE product_media pm
            SET object_key = mci.campaign_media_storage_key, content_type = 'image/webp'
@@ -685,7 +720,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
              AND mci.campaign_media_storage_key IS NOT NULL
              AND pm.is_primary = true
              AND pm.object_key != mci.campaign_media_storage_key`,
-          [activeCampaign.id],
+          [campaign.id],
         );
 
         await session.query(
@@ -698,7 +733,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
              AND mci.original_media_storage_key IS NOT NULL
              AND pm.is_primary = true
              AND pm.object_key LIKE 'campaigns/%'`,
-          [activeCampaign.id],
+          [campaign.id],
         );
 
         await session.query(
@@ -709,7 +744,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
            WHERE p.id = mci.product_id
              AND mci.campaign_id = $1
              AND (p.attributes->>'campaignId' IS NULL OR p.attributes->>'campaignId' != $1::text)`,
-          [activeCampaign.id],
+          [campaign.id],
         );
 
         const missingPrices = await session.query<{
@@ -722,7 +757,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
              AND pp.amount_minor = mci.campaign_price_minor
              AND (pp.valid_to IS NULL OR pp.valid_to > NOW())
            WHERE mci.campaign_id = $1 AND pp.id IS NULL`,
-          [activeCampaign.id],
+          [campaign.id],
         );
 
         for (const mp of missingPrices.rows) {
@@ -730,12 +765,16 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
             `INSERT INTO product_prices
               (id, variant_id, amount_minor, currency, tax_inclusive, valid_from, valid_to, created_by)
              VALUES (gen_random_uuid(), $1, $2, 'VND', true, NOW(), $3, 'system:campaign-selfheal')`,
-            [mp.variant_id, mp.campaign_price_minor, activeCampaign.endTime],
+            [mp.variant_id, mp.campaign_price_minor, campaign.endTime],
           );
         }
       }
 
-      return activeCampaign;
+      // Return primary (latest) active campaign with full list attached
+      return {
+        ...allActive[0],
+        activeCampaigns: allActive,
+      };
     });
   }
 

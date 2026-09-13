@@ -134,32 +134,35 @@ export class PostgresqlCampaignRepository {
     };
   }
 
-  async findActive(session: DatabaseSession): Promise<ActiveCampaignDto | null> {
+  async findAllActive(session: DatabaseSession): Promise<readonly ActiveCampaignDto[]> {
     const { rows } = await session.query<any>(
       `SELECT c.*, count(mci.id)::int as item_count
        FROM merchandising_campaigns c
        LEFT JOIN merchandising_campaign_items mci ON mci.campaign_id = c.id
        WHERE c.status = 'active' AND c.end_time > NOW()
        GROUP BY c.id
-       ORDER BY c.start_time DESC
-       LIMIT 1`,
+       ORDER BY c.start_time DESC`,
     );
-    if (!rows[0]) return null;
-    const r = rows[0];
-    const endTime = new Date(r.end_time);
-    const startTime = new Date(r.start_time);
-    const remainingMs = Math.max(0, endTime.getTime() - Date.now());
+    return rows.map((r) => {
+      const endTime = new Date(r.end_time);
+      const startTime = new Date(r.start_time);
+      const remainingMs = Math.max(0, endTime.getTime() - Date.now());
+      return {
+        id: r.id,
+        name: r.name,
+        badgeText: r.badge_text,
+        discountPercent: r.discount_percent,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        totalProducts: r.item_count,
+        remainingMs,
+      };
+    });
+  }
 
-    return {
-      id: r.id,
-      name: r.name,
-      badgeText: r.badge_text,
-      discountPercent: r.discount_percent,
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      totalProducts: r.item_count,
-      remainingMs,
-    };
+  async findActive(session: DatabaseSession): Promise<ActiveCampaignDto | null> {
+    const all = await this.findAllActive(session);
+    return all[0] ?? null;
   }
 
   async updateStatus(session: DatabaseSession, id: string, status: "draft" | "active" | "completed" | "reverted"): Promise<void> {

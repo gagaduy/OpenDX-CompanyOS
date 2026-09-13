@@ -123,6 +123,7 @@ export interface ActiveCampaign {
   readonly endTime: string;
   readonly totalProducts: number;
   readonly remainingMs: number;
+  readonly activeCampaigns?: readonly ActiveCampaign[];
 }
 
 export interface CatalogApi {

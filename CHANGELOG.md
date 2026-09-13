@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Multi-Campaign Concurrent Merchandising Support ("Hỗ trợ chạy đồng thời nhiều sự kiện chiến dịch Kinh doanh"):
+  - Non-destructive Campaign Activation: Removed aggressive SQL update that previously marked all other active campaigns as `completed` whenever a new campaign was activated in `ai-merchandising.service.ts`. Unexpired campaigns remain active throughout their scheduled duration.
+  - Target-Specific Price & Media Reversion: Scoped `revertCampaign` and natural expiry to only revert product prices and restore original media belonging specifically to that campaign, ensuring products in other concurrently active campaigns are not affected.
+  - Multi-Campaign Repository Queries: Added `findAllActive` in `PostgresqlCampaignRepository` returning all active campaigns where `status = 'active' AND end_time > NOW()`.
+  - Multi-Banner Horizontal Widgets: Extended `AgenticCommandCenter` to maintain `activeCampaigns` array, rendering stacked horizontal banners for all concurrently active campaigns with real-time individual countdown timers and quick deliverable modals.
+  - Comprehensive Live Activity & Deliverables Feed: Pushed all concurrently active campaigns into `initialEvents` and `redesignedRecentDeliverables`, maintaining visibility and deliverable access for every active campaign.
+
 - Cross-Department Completed Task Metrics, Live Activity Feed & Deliverables Synchronization ("Đồng bộ kết quả & chỉ số tác vụ hoàn thành"):
   - Real-Time Live Activity Feed Synchronization: Populated marketing campaigns (`campaignsList`), active campaigns, and department proposals directly into `LiveActivityFeed` with `t.updatedAt || t.createdAt` timestamps, accurately streaming newly completed and approved tasks into the real-time event feed immediately upon approval or page load.
   - Cross-Department Unified Completed & Total Counts: Integrated completed marketing campaigns, merchandising campaigns, operations proposals, support proposals, and digital employees into `completedCount` and `allCount`. Header task badges (`Đã hoàn thành`, `Tất cả`), the central Donut chart, and weekly completion metrics (`Hoàn thành tuần này`) dynamically increment and stay in sync across all 4 departments.

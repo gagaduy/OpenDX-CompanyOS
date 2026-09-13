@@ -45,4 +45,5 @@ export interface ActiveCampaignDto {
   readonly endTime: string;
   readonly totalProducts: number;
   readonly remainingMs: number;
+  readonly activeCampaigns?: readonly ActiveCampaignDto[];
 }
