@@ -148,6 +148,7 @@ export interface PendingApprovalsProps {
   readonly approvals: readonly PendingApprovalItem[];
   readonly onViewAll: () => void;
   readonly maxHeight?: number;
+  readonly focusedApprovalId?: string;
 }
 
 export interface DepartmentEfficiencyMetric {

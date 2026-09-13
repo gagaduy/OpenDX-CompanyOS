@@ -80,4 +80,17 @@ describe("PendingApprovalsPanel", () => {
     const scrollContainer = container.querySelector(".ccApprovalsScrollContainer") as HTMLElement;
     expect(scrollContainer?.style.maxHeight).toBe("430px");
   });
+
+  it("exposes and highlights the approval targeted from a completion modal", () => {
+    render(
+      <PendingApprovalsPanel
+        approvals={approvals}
+        onViewAll={vi.fn()}
+        focusedApprovalId="app-1"
+      />,
+    );
+
+    const card = document.getElementById("pending-approval-app-1");
+    expect(card).toHaveClass("is-focused");
+  });
 });

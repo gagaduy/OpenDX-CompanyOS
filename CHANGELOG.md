@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Completion-to-Approval Handoff ("Đi từ báo cáo hoàn tất tới phê duyệt"):
+  - Added a direct `Đi đến phê duyệt` action to completed strategic and department reports whenever their pending approval is present in the centralized approval inbox.
+  - Added smooth navigation and temporary visual focus for the exact approval card without bypassing the required human approval decision.
+
 - Merchandising Campaign Conflict Resolution & Anti-Compounding Discount Protection ("Xử lý xung đột chiến dịch & Chống cộng dồn giảm giá kép"):
   - Active Overlap Detection: Updated `generateCampaignProposal` and `getById` in catalog module to automatically detect overlapping products across currently active campaigns, attaching `conflictedCampaign` metadata (`id`, `name`, `endTime`, `remainingDays`) to proposal items.
   - Visual Overlap Warnings in Approval Modal: Added warning badges (`⚠️ Đang trong chiến dịch "[Tên]" (còn X ngày)`) on conflicting products in `CampaignProposalModal`, giving operators full visibility before activation and allowing them to uncheck products to exclude them from the new campaign.

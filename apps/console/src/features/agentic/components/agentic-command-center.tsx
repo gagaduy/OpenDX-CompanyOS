@@ -741,6 +741,18 @@ export function AgenticCommandCenter({
   const [isStrategicModalOpen, setIsStrategicModalOpen] = useState(false);
   const [selectedStrategicDeliverable, setSelectedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
   const [strategicDeliverableApproved, setStrategicDeliverableApproved] = useState(false);
+  const [focusedApprovalId, setFocusedApprovalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusedApprovalId) return;
+
+    document
+      .getElementById(`pending-approval-${focusedApprovalId}`)
+      ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+
+    const timer = window.setTimeout(() => setFocusedApprovalId(null), 3_000);
+    return () => window.clearTimeout(timer);
+  }, [focusedApprovalId]);
 
   // Live Feed & Approvals Dynamic State
   const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
@@ -5385,6 +5397,20 @@ export function AgenticCommandCenter({
       }),
   ];
 
+  const displayedStrategicDeliverable =
+    selectedStrategicDeliverable || completedStrategicDeliverable;
+  const displayedApprovalId = displayedStrategicDeliverable
+    ? redesignedApprovals.find((approval) => {
+        if (approval.id === displayedStrategicDeliverable.taskId) return true;
+        if (approval.id === `review-${displayedStrategicDeliverable.taskId}`) return true;
+        return apiApprovals.some(
+          (apiApproval) =>
+            apiApproval.id === approval.id &&
+            apiApproval.taskId === displayedStrategicDeliverable.taskId,
+        );
+      })?.id
+    : undefined;
+
   const redesignedRecentDeliverables = useMemo(() => {
     const list: Array<{
       id: string;
@@ -5982,6 +6008,7 @@ export function AgenticCommandCenter({
             approvals={redesignedApprovals}
             onViewAll={() => navigate("/agentic/approvals")}
             maxHeight={approvalsScrollMaxHeight}
+            focusedApprovalId={focusedApprovalId ?? undefined}
           />
         </div>
       </div>
@@ -6223,8 +6250,13 @@ export function AgenticCommandCenter({
 
       <StrategicDeliverableModal
         isOpen={isStrategicModalOpen}
-        deliverable={selectedStrategicDeliverable || completedStrategicDeliverable}
+        deliverable={displayedStrategicDeliverable}
         onClose={() => setIsStrategicModalOpen(false)}
+        onNavigateToApproval={
+          displayedApprovalId
+            ? () => setFocusedApprovalId(displayedApprovalId)
+            : undefined
+        }
         onNavigateToTask={(taskId) => navigate(`/agentic/tasks/${taskId}`)}
       />
     </section>

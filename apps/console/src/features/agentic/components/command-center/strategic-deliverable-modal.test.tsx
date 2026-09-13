@@ -115,6 +115,24 @@ describe("StrategicDeliverableModal", () => {
     expect(onNavigateToTask).toHaveBeenCalledWith("task-test-123");
   });
 
+  it("routes a completed deliverable to its pending approval", () => {
+    const onClose = vi.fn();
+    const onNavigateToApproval = vi.fn();
+    render(
+      <StrategicDeliverableModal
+        isOpen={true}
+        deliverable={sampleDeliverable}
+        onClose={onClose}
+        onNavigateToApproval={onNavigateToApproval}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Đi đến phê duyệt" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onNavigateToApproval).toHaveBeenCalledWith("task-test-123");
+  });
+
   it("builds and renders Nova Tech campaign deliverable with rich tech market data", () => {
     const techDeliverable = buildStrategicDeliverable(
       "Chiến dịch: Nova Tech - Khai Phá Tương Lai",
@@ -221,4 +239,3 @@ describe("StrategicDeliverableModal", () => {
     expect(screen.getByText("285,000 Lượt")).toBeDefined();
   });
 });
-

@@ -29,6 +29,7 @@ export interface StrategicDeliverableModalProps {
   readonly deliverable: StrategicDeliverable | null;
   readonly onClose: () => void;
   readonly onDownloadDocx?: () => void;
+  readonly onNavigateToApproval?: (approvalId: string) => void;
   readonly onNavigateToTask?: (taskId: string) => void;
 }
 
@@ -39,6 +40,7 @@ export const StrategicDeliverableModal: React.FC<StrategicDeliverableModalProps>
   deliverable,
   onClose,
   onDownloadDocx,
+  onNavigateToApproval,
   onNavigateToTask,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
@@ -358,11 +360,25 @@ export const StrategicDeliverableModal: React.FC<StrategicDeliverableModalProps>
               type="button"
               onClick={handleDownload}
               disabled={isDownloading}
-              className="sdBtnPrimary"
+              className={onNavigateToApproval ? "sdBtnSecondary" : "sdBtnPrimary"}
             >
               <Download size={14} />
               <span>{isDownloading ? "Đang chuẩn bị tệp..." : "Tải Báo cáo (.docx)"}</span>
             </button>
+
+            {deliverable.taskId && onNavigateToApproval && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNavigateToApproval(deliverable.taskId!);
+                }}
+                className="sdBtnPrimary"
+              >
+                <ChevronRight size={14} />
+                <span>Đi đến phê duyệt</span>
+              </button>
+            )}
 
             {deliverable.taskId && onNavigateToTask && (
               <button

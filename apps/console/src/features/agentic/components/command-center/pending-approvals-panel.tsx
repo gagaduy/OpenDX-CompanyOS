@@ -17,6 +17,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
   approvals,
   onViewAll,
   maxHeight,
+  focusedApprovalId,
 }) => {
   return (
     <div className="ccApprovalsCard">
@@ -55,7 +56,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
           approvals.map((app) => (
             <div
               key={app.id}
-              className="ccApprovalBox"
+              id={`pending-approval-${app.id}`}
+              className={`ccApprovalBox ${focusedApprovalId === app.id ? "is-focused" : ""}`}
+              aria-current={focusedApprovalId === app.id ? "true" : undefined}
               onClick={app.onPreview}
               tabIndex={0}
               onKeyDown={(e) => {

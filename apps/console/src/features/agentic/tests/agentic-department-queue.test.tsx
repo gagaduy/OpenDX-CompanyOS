@@ -145,6 +145,35 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(supportApi.generateSupportProposal).toHaveBeenCalled();
   });
 
+  it("opens the completed Support report and keeps its action in the approval inbox", async () => {
+    vi.useFakeTimers();
+    const authClient = fakeAuthClient();
+    const supportApi = fakeSupportApi();
+
+    render(
+      <AuthProvider client={authClient}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Rà soát ticket cần phản hồi" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Đi đến phê duyệt" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.getElementById("pending-approval-supp-prop-1")).toHaveClass("is-focused");
+    expect(screen.getByText("Kịch bản phản hồi CSKH (0 Ticket) & Voucher VIP")).toBeInTheDocument();
+  });
+
   it("automatically dequeues and executes queued task when the conflicting resource is freed", async () => {
     vi.useFakeTimers();
     const authClient = fakeAuthClient();
