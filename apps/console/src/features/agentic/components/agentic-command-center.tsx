@@ -1050,9 +1050,9 @@ export function AgenticCommandCenter({
   const handleOpenDiagnostics = (dept: DepartmentType, customMsg?: string) => {
     const names: Record<DepartmentType, string> = {
       marketing: "Phòng Tiếp thị & Sáng tạo",
-      merchandising: "Phòng Kinh doanh & Định giá",
+      merchandising: "Phòng Danh mục & Định giá",
       operations: "Phòng Vận hành & Kho vận",
-      support: "Phòng Tài chính & CSKH",
+      support: "Phòng CSKH & Trải nghiệm",
     };
     const defaultMsgs: Record<DepartmentType, string> = {
       marketing: ((activeWorkflowKind === "marketing" || activeWorkflowKind === "orchestration") && errorMessage)
@@ -1465,10 +1465,10 @@ export function AgenticCommandCenter({
         const intent = detectStrategicIntent(t.goal);
         const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
         const deptDisplayMap: Record<DepartmentType | "ai_ceo", string> = {
-          marketing: "Marketing",
-          merchandising: "Kinh doanh",
-          operations: "Sản phẩm",
-          support: "Tài chính",
+          marketing: "Tiếp thị & Sáng tạo",
+          merchandising: "Danh mục & Định giá",
+          operations: "Vận hành & Kho vận",
+          support: "CSKH & Trải nghiệm",
           ai_ceo: "AI CEO",
         };
         const deptDisplayName = deptDisplayMap[dept];
@@ -4082,7 +4082,7 @@ export function AgenticCommandCenter({
   const redesignedDepartmentCards: DepartmentCardProps[] = [
     {
       department: "marketing",
-      displayName: "Marketing",
+      displayName: "Tiếp thị & Sáng tạo",
       employeeCount: 3,
       activeTaskCount: marketingTasks.length,
       status: taskFilter === "running"
@@ -4107,21 +4107,21 @@ export function AgenticCommandCenter({
         {
           id: "marketing_copywriter",
           name: "MKT-01",
-          role: "Content Strategist",
+          role: "Cây bút Tiếp thị",
           status: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter" || activeLocks["marketing_copywriter"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "marketing_visual",
           name: "MKT-02",
-          role: "Social Media Agent",
+          role: "Thiết kế Đồ họa",
           status: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab" || activeLocks["marketing_visual"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab") ? Math.min(95, 20 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "marketing_publisher",
           name: "MKT-03",
-          role: "Market Research",
+          role: "Điều phối Xuất bản",
           status: (activeCampaignDetail?.campaign.state === "failed") ? "failed" : (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher" || activeLocks["marketing_publisher"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
@@ -4375,7 +4375,7 @@ export function AgenticCommandCenter({
     },
     {
       department: "merchandising",
-      displayName: "Kinh doanh",
+      displayName: "Danh mục & Định giá",
       employeeCount: 2,
       activeTaskCount: merchandisingTasks.length,
       status: taskFilter === "running"
@@ -4394,15 +4394,15 @@ export function AgenticCommandCenter({
       employees: [
         {
           id: "catalog_copywriter",
-          name: "Sales-01",
-          role: "Lead Hunter",
+          name: "CAT-01",
+          role: "Cây bút Sản phẩm",
           status: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter" || activeLocks["catalog_copywriter"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "pricing_strategist",
-          name: "Sales-02",
-          role: "CRM Manager",
+          name: "CAT-02",
+          role: "Chuyên viên Định giá",
           status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
@@ -4557,7 +4557,7 @@ export function AgenticCommandCenter({
     },
     {
       department: "operations",
-      displayName: "Sản phẩm",
+      displayName: "Vận hành & Kho vận",
       employeeCount: 2,
       activeTaskCount: operationsTasks.length,
       status: taskFilter === "running"
@@ -4579,8 +4579,8 @@ export function AgenticCommandCenter({
       employees: [
         {
           id: "inventory_specialist",
-          name: "PRD-01",
-          role: "Product Analyst",
+          name: "OPS-01",
+          role: "Kỹ sư Tồn kho",
           status: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
             ? "failed"
             : (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "inventory_clearance_handoff" || activeLocks["inventory_specialist"] !== undefined)
@@ -4590,8 +4590,8 @@ export function AgenticCommandCenter({
         },
         {
           id: "order_coordinator",
-          name: "PRD-02",
-          role: "Product Designer",
+          name: "OPS-02",
+          role: "Điều phối Đơn hàng",
           status: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator" || activeLocks["order_coordinator"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
@@ -4785,7 +4785,7 @@ export function AgenticCommandCenter({
     },
     {
       department: "support",
-      displayName: "Tài chính",
+      displayName: "CSKH & Trải nghiệm",
       employeeCount: 2,
       activeTaskCount: supportTasks.length,
       status: taskFilter === "running"
@@ -4804,15 +4804,15 @@ export function AgenticCommandCenter({
       employees: [
         {
           id: "support_steward",
-          name: "FIN-01",
-          role: "Financial Analyst",
+          name: "SUP-01",
+          role: "Quản gia CSKH",
           status: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward" || activeLocks["support_steward"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
         {
           id: "crm_specialist",
-          name: "FIN-02",
-          role: "Budget Planner",
+          name: "SUP-02",
+          role: "Chuyên viên CRM",
           status: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist" || activeLocks["crm_specialist"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
         },
@@ -5444,7 +5444,7 @@ export function AgenticCommandCenter({
       list.push({
         id: camp.id,
         title: `Báo cáo: Chiến dịch ${camp.name}`,
-        departmentName: "Kinh doanh",
+        departmentName: "Danh mục & Định giá",
         completedAt: formatTime(camp.startTime),
         format: "docx",
         timestamp: new Date(camp.startTime).getTime(),
@@ -5460,7 +5460,7 @@ export function AgenticCommandCenter({
       list.push({
         id: `active-camp-${camp.id}`,
         title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
-        departmentName: "Marketing",
+        departmentName: "Tiếp thị & Sáng tạo",
         completedAt: formatTime(camp.updatedAt || camp.createdAt),
         format: "docx",
         timestamp: new Date(camp.updatedAt || camp.createdAt).getTime(),
@@ -5476,7 +5476,7 @@ export function AgenticCommandCenter({
         list.push({
           id: `camp-${c.id}`,
           title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
-          departmentName: "Marketing",
+          departmentName: "Tiếp thị & Sáng tạo",
           completedAt: formatTime(c.updatedAt || c.createdAt),
           format: "docx",
           timestamp: new Date(c.updatedAt || c.createdAt).getTime(),
@@ -5500,7 +5500,7 @@ export function AgenticCommandCenter({
       list.push({
         id: operationsProposal.id,
         title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
-        departmentName: "Vận hành",
+        departmentName: "Vận hành & Kho vận",
         completedAt: formatTime(operationsProposal.createdAt),
         format: "docx",
         timestamp: new Date(operationsProposal.createdAt).getTime(),
@@ -5520,7 +5520,7 @@ export function AgenticCommandCenter({
       list.push({
         id: supportProposal.id,
         title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
-        departmentName: "CSKH",
+        departmentName: "CSKH & Trải nghiệm",
         completedAt: formatTime(Date.now()),
         format: "docx",
         timestamp: Date.now(),
@@ -5543,14 +5543,14 @@ export function AgenticCommandCenter({
       const intent = detectStrategicIntent(t.goal);
       const deptName =
         intent === "marketing"
-          ? "Marketing"
+          ? "Tiếp thị & Sáng tạo"
           : intent === "merchandising"
-          ? "Kinh doanh"
+          ? "Danh mục & Định giá"
           : intent === "support"
-          ? "Tài chính"
+          ? "CSKH & Trải nghiệm"
           : intent === "orchestration"
           ? "AI CEO"
-          : "Sản phẩm";
+          : "Vận hành & Kho vận";
       const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
       const capitalized = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
       const displayTitle = capitalized.startsWith("Báo cáo")
@@ -5687,10 +5687,10 @@ export function AgenticCommandCenter({
   };
 
   const departmentEfficiencies = [
-    { department: "marketing" as const, displayName: "Marketing", efficiencyPercent: calculateDeptEfficiency("marketing") },
-    { department: "merchandising" as const, displayName: "Kinh doanh", efficiencyPercent: calculateDeptEfficiency("merchandising") },
-    { department: "operations" as const, displayName: "Sản phẩm", efficiencyPercent: calculateDeptEfficiency("operations") },
-    { department: "support" as const, displayName: "Tài chính", efficiencyPercent: calculateDeptEfficiency("support") },
+    { department: "marketing" as const, displayName: "Tiếp thị & Sáng tạo", efficiencyPercent: calculateDeptEfficiency("marketing") },
+    { department: "merchandising" as const, displayName: "Danh mục & Định giá", efficiencyPercent: calculateDeptEfficiency("merchandising") },
+    { department: "operations" as const, displayName: "Vận hành & Kho vận", efficiencyPercent: calculateDeptEfficiency("operations") },
+    { department: "support" as const, displayName: "CSKH & Trải nghiệm", efficiencyPercent: calculateDeptEfficiency("support") },
   ];
 
   const completedTasksWithTimes = (tasks?.items ?? []).filter(

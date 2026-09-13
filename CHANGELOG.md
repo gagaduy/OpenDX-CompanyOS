@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Department Naming Alignment ("Chuẩn hóa tên phòng ban"):
+  - Aligned department, Digital Employee, diagnostics, deliverable, and efficiency labels with the current Tiếp thị, Danh mục, Vận hành, and CSKH operating model.
+
 - AI Command Center Completion-to-Approval Handoff ("Đi từ báo cáo hoàn tất tới phê duyệt"):
   - Added a direct `Đi đến phê duyệt` action to completed strategic and department reports whenever their pending approval is present in the centralized approval inbox.
   - Added smooth navigation and temporary visual focus for the exact approval card without bypassing the required human approval decision.

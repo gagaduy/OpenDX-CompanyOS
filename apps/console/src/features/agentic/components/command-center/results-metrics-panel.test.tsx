@@ -12,10 +12,10 @@ describe("ResultsMetricsPanel", () => {
     delayedPercent: 11,
     cancelledPercent: 7,
     departmentEfficiencies: [
-      { department: "marketing" as const, displayName: "Marketing", efficiencyPercent: 92 },
-      { department: "merchandising" as const, displayName: "Kinh doanh", efficiencyPercent: 78 },
-      { department: "operations" as const, displayName: "Sản phẩm", efficiencyPercent: 65 },
-      { department: "support" as const, displayName: "Tài chính", efficiencyPercent: 88 },
+      { department: "marketing" as const, displayName: "Tiếp thị & Sáng tạo", efficiencyPercent: 92 },
+      { department: "merchandising" as const, displayName: "Danh mục & Định giá", efficiencyPercent: 78 },
+      { department: "operations" as const, displayName: "Vận hành & Kho vận", efficiencyPercent: 65 },
+      { department: "support" as const, displayName: "CSKH & Trải nghiệm", efficiencyPercent: 88 },
     ],
     activeTasksCount: 12,
     completedThisWeekCount: 28,
@@ -28,7 +28,7 @@ describe("ResultsMetricsPanel", () => {
       {
         id: "d1",
         title: "Báo cáo xu hướng thị trường mỹ phẩm SEA",
-        departmentName: "Marketing",
+        departmentName: "Tiếp thị & Sáng tạo",
         completedAt: "14:20",
         format: "docx",
         onDownloadOrView: vi.fn(),
@@ -42,7 +42,7 @@ describe("ResultsMetricsPanel", () => {
     expect(screen.getByText(/kết quả hoàn thành/i)).toBeDefined();
     expect(screen.getAllByText("28").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Đúng hạn/)).toBeDefined();
-    expect(screen.getAllByText("Marketing").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Tiếp thị & Sáng tạo").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("92%")).toBeDefined();
     expect(screen.getByText("3.2h")).toBeDefined();
     expect(screen.getByText("Báo cáo xu hướng thị trường mỹ phẩm SEA")).toBeDefined();
