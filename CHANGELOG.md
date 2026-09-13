@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Bounded Multi-Campaign Scroll Container with Quick Navigation ("Ô cuộn chiến dịch đang kích hoạt"):
+  - Bounded Height & Vertical Scrollbox: Enclosed concurrent active merchandising campaigns inside `.ccActiveCampaignsScrollBox` with `max-height: 155px` (matching single-banner height on desktop, `265px` on tablet/mobile), preventing multiple active campaigns from stretching the Command Center downwards and keeping the AI Workforce Grid (Tier 2) immediately in view.
+  - Smooth Snap-Scrolling & Mousewheel Navigation: Applied `scroll-snap-type: y mandatory` and custom rose-themed scrollbar (`scrollbar-width: thin`), enabling effortless mousewheel, trackpad, and touch scrolling between concurrent campaigns.
+  - Interactive Campaign Navigation Bar: Added `.ccActiveCampaignsNavRow` with live concurrent count (`{N} chiến dịch song song`), quick-switch pills (`#1...`, `#2...`) that smoothly scroll directly to specific campaigns, and Up/Down navigation buttons (`▲`, `▼`).
+  - Dark & Light Mode Theme Support: Styled active campaign scrollbox, track, thumb, and pills with theme-aware colors for seamless readability in both dark and light modes.
+
 - Multi-Campaign Concurrent Merchandising Support ("Hỗ trợ chạy đồng thời nhiều sự kiện chiến dịch Kinh doanh"):
   - Non-destructive Campaign Activation: Removed aggressive SQL update that previously marked all other active campaigns as `completed` whenever a new campaign was activated in `ai-merchandising.service.ts`. Unexpired campaigns remain active throughout their scheduled duration.
   - Target-Specific Price & Media Reversion: Scoped `revertCampaign` and natural expiry to only revert product prices and restore original media belonging specifically to that campaign, ensuring products in other concurrently active campaigns are not affected.

@@ -3735,6 +3735,160 @@
   margin-top: 2px;
 }
 
+/* Multi-Campaign Scrollable Area (Ô cuộn chiến dịch) */
+.ccActiveCampaignsSection {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ccActiveCampaignsNavRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.25rem;
+  flex-wrap: wrap;
+}
+
+.ccActiveCampaignsNavLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fb7185;
+}
+
+.ccActiveCampaignsCountBadge {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ccActiveCampaignsNavRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ccActiveCampaignsNavPills {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.ccActiveCampaignsNavPill {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccActiveCampaignsNavPill:hover {
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #ffffff;
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.ccActiveCampaignsNavPill.active {
+  background: rgba(244, 63, 94, 0.22);
+  border-color: #f43f5e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+}
+
+.ccActiveCampaignsNavArrowGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ccActiveCampaignsNavArrowBtn {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.ccActiveCampaignsNavArrowBtn:hover:not(:disabled) {
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #ffffff;
+  background: rgba(244, 63, 94, 0.15);
+}
+
+.ccActiveCampaignsNavArrowBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ccActiveCampaignsScrollBox {
+  max-height: 155px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 63, 94, 0.45) rgba(255, 255, 255, 0.03);
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-radius: 14px;
+}
+
+.ccActiveCampaignsScrollBox::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ccActiveCampaignsScrollBox::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.45);
+  border-radius: 4px;
+}
+
+.ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 94, 0.8);
+}
+
+.ccActiveCampaignItem {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex-shrink: 0;
+}
+
+.ccActiveCampaignItem .ccActiveCampaignBanner.ccActiveCampaignHorizontal {
+  margin-bottom: 0;
+}
+
 /* Horizontal Banner Layout (Tier 1 -> Tier 2 Transition) */
 .ccActiveCampaignBanner.ccActiveCampaignHorizontal {
   padding: 1.15rem 1.6rem;
@@ -3837,6 +3991,10 @@
 
   .ccActiveCampaignActionsCol {
     justify-content: flex-end;
+  }
+
+  .ccActiveCampaignsScrollBox {
+    max-height: 265px;
   }
 }
 
@@ -3983,6 +4141,67 @@
 .consoleLayout[data-theme="light"] .ccActiveCampaignConfirmText,
 [data-theme="light"] .ccActiveCampaignConfirmText {
   color: #9f1239;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavLeft,
+[data-theme="light"] .ccActiveCampaignsNavLeft {
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsCountBadge,
+[data-theme="light"] .ccActiveCampaignsCountBadge {
+  background: #ffe4e6;
+  color: #e11d48;
+  border-color: #fecdd3;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavPill,
+[data-theme="light"] .ccActiveCampaignsNavPill {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavPill:hover,
+[data-theme="light"] .ccActiveCampaignsNavPill:hover {
+  border-color: #f43f5e;
+  color: #0f172a;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavPill.active,
+[data-theme="light"] .ccActiveCampaignsNavPill.active {
+  background: #fff1f2;
+  border-color: #e11d48;
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavArrowBtn,
+[data-theme="light"] .ccActiveCampaignsNavArrowBtn {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsNavArrowBtn:hover:not(:disabled),
+[data-theme="light"] .ccActiveCampaignsNavArrowBtn:hover:not(:disabled) {
+  background: #fff1f2;
+  border-color: #f43f5e;
+  color: #e11d48;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-track,
+[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb,
+[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb {
+  background: #fda4af;
+}
+
+.consoleLayout[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .ccActiveCampaignsScrollBox::-webkit-scrollbar-thumb:hover {
+  background: #f43f5e;
 }
 
 .consoleLayout[data-theme="light"] .ccCampaignOverviewCard,

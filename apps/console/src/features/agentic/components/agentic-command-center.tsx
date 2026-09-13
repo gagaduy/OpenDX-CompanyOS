@@ -27,6 +27,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Flame,
   Loader2,
   X,
   Boxes,
@@ -602,6 +603,14 @@ export function AgenticCommandCenter({
   const [campaignProposalModalOpen, setCampaignProposalModalOpen] = useState(false);
   const [isActivatingCampaign, setIsActivatingCampaign] = useState(false);
   const [isRevertingCampaign, setIsRevertingCampaign] = useState(false);
+  const [activeCampaignScrollIndex, setActiveCampaignScrollIndex] = useState(0);
+  const activeCampaignsScrollRef = useRef<HTMLDivElement>(null);
+
+  const displayedActiveCampaigns = useMemo(() => {
+    return activeCampaigns && activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+  }, [activeCampaigns, activeCampaign]);
 
   useEffect(() => {
     if (catalogApi) {
@@ -5770,13 +5779,14 @@ export function AgenticCommandCenter({
       />
 
       {/* Active Merchandising Campaign Live Horizontal Banner (Tier 1 -> Tier 2 Transition) */}
-      {((activeCampaigns && activeCampaigns.length > 0) ? activeCampaigns : (activeCampaign ? [activeCampaign] : [])).map((camp) => (
-        <div key={camp.id} style={{ marginBottom: "1.25rem" }}>
+      {displayedActiveCampaigns.length === 1 ? (
+        <div style={{ marginBottom: "1.25rem" }}>
           <ActiveCampaignWidget
-            campaign={camp}
+            campaign={displayedActiveCampaigns[0]!}
             onRevert={handleEmergencyRevertCampaign}
             isReverting={isRevertingCampaign}
             onViewDeliverable={() => {
+              const camp = displayedActiveCampaigns[0]!;
               const deliv = buildStrategicDeliverable(
                 camp.name,
                 camp.id,
@@ -5787,7 +5797,125 @@ export function AgenticCommandCenter({
             }}
           />
         </div>
-      ))}
+      ) : displayedActiveCampaigns.length > 1 ? (
+        <div className="ccActiveCampaignsSection">
+          <div className="ccActiveCampaignsNavRow">
+            <div className="ccActiveCampaignsNavLeft">
+              <Flame size={16} color="#f43f5e" />
+              <span>Chiến dịch đang kích hoạt</span>
+              <span className="ccActiveCampaignsCountBadge">
+                {displayedActiveCampaigns.length} chiến dịch song song
+              </span>
+            </div>
+            <div className="ccActiveCampaignsNavRight">
+              <div className="ccActiveCampaignsNavPills">
+                {displayedActiveCampaigns.map((camp, idx) => (
+                  <button
+                    key={camp.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveCampaignScrollIndex(idx);
+                      const container = activeCampaignsScrollRef.current;
+                      if (container) {
+                        const children = Array.from(container.children) as HTMLElement[];
+                        if (children[idx]) {
+                          children[idx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                      }
+                    }}
+                    className={`ccActiveCampaignsNavPill ${activeCampaignScrollIndex === idx ? "active" : ""}`}
+                    title={camp.name}
+                  >
+                    #{idx + 1}: {camp.name.length > 25 ? `${camp.name.slice(0, 25)}...` : camp.name}
+                  </button>
+                ))}
+              </div>
+              <div className="ccActiveCampaignsNavArrowGroup">
+                <button
+                  type="button"
+                  className="ccActiveCampaignsNavArrowBtn"
+                  disabled={activeCampaignScrollIndex <= 0}
+                  onClick={() => {
+                    const nextIdx = Math.max(0, activeCampaignScrollIndex - 1);
+                    setActiveCampaignScrollIndex(nextIdx);
+                    const container = activeCampaignsScrollRef.current;
+                    if (container) {
+                      const children = Array.from(container.children) as HTMLElement[];
+                      if (children[nextIdx]) {
+                        children[nextIdx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }
+                  }}
+                  title="Chiến dịch trước (Cuộn lên)"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="ccActiveCampaignsNavArrowBtn"
+                  disabled={activeCampaignScrollIndex >= displayedActiveCampaigns.length - 1}
+                  onClick={() => {
+                    const nextIdx = Math.min(displayedActiveCampaigns.length - 1, activeCampaignScrollIndex + 1);
+                    setActiveCampaignScrollIndex(nextIdx);
+                    const container = activeCampaignsScrollRef.current;
+                    if (container) {
+                      const children = Array.from(container.children) as HTMLElement[];
+                      if (children[nextIdx]) {
+                        children[nextIdx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }
+                  }}
+                  title="Chiến dịch tiếp theo (Cuộn xuống)"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={activeCampaignsScrollRef}
+            className="ccActiveCampaignsScrollBox"
+            onScroll={() => {
+              const container = activeCampaignsScrollRef.current;
+              if (!container) return;
+              const children = Array.from(container.children) as HTMLElement[];
+              const containerTop = container.scrollTop;
+              let closestIdx = 0;
+              let minDiff = Infinity;
+              children.forEach((child, idx) => {
+                const diff = Math.abs(child.offsetTop - container.offsetTop - containerTop);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  closestIdx = idx;
+                }
+              });
+              if (closestIdx !== activeCampaignScrollIndex && closestIdx >= 0 && closestIdx < displayedActiveCampaigns.length) {
+                setActiveCampaignScrollIndex(closestIdx);
+              }
+            }}
+          >
+            {displayedActiveCampaigns.map((camp) => (
+              <div key={camp.id} id={`active-camp-${camp.id}`} className="ccActiveCampaignItem">
+                <ActiveCampaignWidget
+                  campaign={camp}
+                  onRevert={handleEmergencyRevertCampaign}
+                  isReverting={isRevertingCampaign}
+                  onViewDeliverable={() => {
+                    const deliv = buildStrategicDeliverable(
+                      camp.name,
+                      camp.id,
+                      "merchandising",
+                    );
+                    setSelectedStrategicDeliverable(deliv);
+                    setIsStrategicModalOpen(true);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
       <div className="ccMainContentGrid">
