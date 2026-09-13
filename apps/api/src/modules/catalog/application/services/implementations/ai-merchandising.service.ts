@@ -710,7 +710,9 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
       }
 
       // 3. Self-heal each active campaign: ensure product_media and product_prices remain synchronized
-      for (const campaign of allActive) {
+      // Process oldest to newest so that more recent campaigns take precedence on shared products!
+      const chronological = [...allActive].reverse();
+      for (const campaign of chronological) {
         await session.query(
           `UPDATE product_media pm
            SET object_key = mci.campaign_media_storage_key, content_type = 'image/webp'
@@ -732,7 +734,16 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
              AND mci.campaign_media_storage_key IS NULL
              AND mci.original_media_storage_key IS NOT NULL
              AND pm.is_primary = true
-             AND pm.object_key LIKE 'campaigns/%'`,
+             AND pm.object_key LIKE 'campaigns/%'
+             AND NOT EXISTS (
+               SELECT 1 FROM merchandising_campaign_items other_mci
+               JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+               WHERE other_mci.product_id = pm.product_id
+                 AND other_c.id != $1
+                 AND other_c.status = 'active'
+                 AND other_c.end_time > NOW()
+                 AND other_mci.campaign_media_storage_key IS NOT NULL
+             )`,
           [campaign.id],
         );
 

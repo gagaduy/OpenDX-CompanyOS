@@ -341,4 +341,68 @@ describe("AiMerchandisingService Campaign Engine", () => {
     expect(result.items[0]?.discountPercent).toBe(18);
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(expect.anything(), "camp-legacy-1", "active");
   });
+
+  it("synchronizes multiple active campaigns in chronological order so newest campaign takes precedence", async () => {
+    const executedQueries: Array<{ sql: string; values?: any[] }> = [];
+    const mockTx = {
+      runReadOnly: vi.fn(),
+      run: vi.fn().mockImplementation(async (cb) => cb({
+        query: vi.fn().mockImplementation(async (sql, values) => {
+          executedQueries.push({ sql, values });
+          if (sql.includes("status = 'active' AND end_time <= NOW()")) {
+            return { rows: [] };
+          }
+          return { rows: [] };
+        }),
+      })),
+    };
+
+    const mockRepo = {
+      createCampaign: vi.fn(),
+      getById: vi.fn(),
+      findActive: vi.fn(),
+      findAllActive: vi.fn().mockResolvedValue([
+        {
+          id: "camp-newest",
+          name: "Flash Sale",
+          badgeText: "FLASH SALE",
+          discountPercent: 20,
+          startTime: "2026-09-13T11:00:00.000Z",
+          endTime: "2026-09-20T11:00:00.000Z",
+          totalProducts: 10,
+          remainingMs: 600000,
+        },
+        {
+          id: "camp-oldest",
+          name: "Old Campaign",
+          badgeText: "OLD SALE",
+          discountPercent: 10,
+          startTime: "2026-09-10T10:00:00.000Z",
+          endTime: "2026-09-17T10:00:00.000Z",
+          totalProducts: 10,
+          remainingMs: 400000,
+        },
+      ]),
+      updateStatus: vi.fn(),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn() } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const active = await service.getActiveCampaign();
+    expect(active?.id).toBe("camp-newest");
+
+    // Verify camp-oldest was processed first and camp-newest was processed last in update queries
+    const updateMediaQueries = executedQueries.filter(
+      (q) => q.sql.includes("UPDATE product_media pm") && q.sql.includes("SET object_key = mci.campaign_media_storage_key"),
+    );
+    expect(updateMediaQueries).toHaveLength(2);
+    expect(updateMediaQueries[0]?.values?.[0]).toBe("camp-oldest");
+    expect(updateMediaQueries[1]?.values?.[0]).toBe("camp-newest");
+  });
 });

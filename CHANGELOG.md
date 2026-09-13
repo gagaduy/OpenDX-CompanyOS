@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Multi-Campaign Chronological Asset Synchronization & Override Protection ("Đồng bộ tài nguyên đa chiến dịch theo thứ tự thời gian"):
+  - Chronological Active Campaign Synchronization: Fixed `getActiveCampaign` in `ai-merchandising.service.ts` to process active campaigns in ascending chronological order (`[...allActive].reverse()`), ensuring that newly approved and activated campaigns (e.g. Flash Sale) take precedence for overlapping products over older campaigns (e.g. Nova Tech) rather than being overwritten by earlier campaigns.
+  - Non-Destructive Media Restoration Guard: Prevented campaigns without custom posters from resetting product media back to raw seed photos if another concurrently active campaign supplies an active visual poster.
+  - Comprehensive Unit Test Coverage: Added unit test verifying that `getActiveCampaign` executes updates in chronological order (`oldest -> newest`), preserving the newest campaign's visual assets and attributes on shared products.
+
+
 - Merchandising Campaign Proposal Deliverable Modal Inspection ("Xem lại kết quả đề xuất chiến dịch Kinh doanh"):
   - Rich Deliverable Modal Persistence & Read-Only Inspection: Enhanced `CampaignProposalModal` to support a `readOnly` mode with active status indication and direct link to Storefront (`[🛒 Mở Storefront xem trực tiếp]`), allowing operators to re-inspect the comprehensive proposal modal (displaying all 10 products with original prices, sale prices, saving amounts, and AI poster designs) even after campaign approval and activation.
   - Campaign Deliverable Retrieval API: Added `getCampaign(campaignId)` in `AiMerchandisingService`, `AiMerchandisingController`, and `GET /api/v1/ai-merchandising/campaigns/:campaignId` to fetch historical and active campaigns with full product item details from `merchandising_campaign_items`.
