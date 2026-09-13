@@ -3572,7 +3572,11 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleApproveCampaign = async (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => {
+  const handleApproveCampaign = async (options: {
+    readonly endDate: string;
+    readonly excludedItemIds: readonly string[];
+    readonly conflictResolution?: "replace" | "schedule_after";
+  }) => {
     if (!catalogApi || !campaignProposal) return;
     try {
       setIsActivatingCampaign(true);
@@ -3580,6 +3584,7 @@ export function AgenticCommandCenter({
       await catalogApi.activateCampaign(campaignProposal.id, {
         endDate: options.endDate,
         excludedItemIds: options.excludedItemIds,
+        conflictResolution: options.conflictResolution,
       });
       campaignProposalsCache.current[campaignProposal.id] = campaignProposal;
       const approvedCampId = campaignProposal.id;

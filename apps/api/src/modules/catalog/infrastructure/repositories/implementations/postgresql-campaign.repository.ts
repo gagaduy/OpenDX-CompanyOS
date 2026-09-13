@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DatabaseSession } from "../../../../../shared/database/transaction";
-import type { CampaignProposalDto, CampaignItemDto, ActiveCampaignDto } from "../../../application/dtos/campaign-merchandising.dto";
+import type {
+  CampaignProposalDto,
+  CampaignItemDto,
+  ActiveCampaignDto,
+  ConflictedCampaignInfoDto,
+} from "../../../application/dtos/campaign-merchandising.dto";
 
 export interface CreateCampaignRecordInput {
   readonly id: string;
@@ -15,7 +20,7 @@ export interface CreateCampaignRecordInput {
   readonly startTime: Date;
   readonly endTime: Date;
   readonly heroBannerStorageKey?: string;
-  readonly status: "draft" | "active" | "completed" | "reverted";
+  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted";
   readonly createdBy: string;
   readonly items: ReadonlyArray<{
     readonly id: string;
@@ -87,30 +92,57 @@ export class PostgresqlCampaignRepository {
     const r = rows[0];
 
     const itemsRes = await session.query<any>(
-      `SELECT mci.*, p.name as product_name, p.slug as product_slug
+      `SELECT mci.*, p.name as product_name, p.slug as product_slug,
+              conf.id as conf_id, conf.name as conf_name, conf.end_time as conf_end_time
        FROM merchandising_campaign_items mci
        JOIN products p ON p.id = mci.product_id
+       LEFT JOIN LATERAL (
+         SELECT other_c.id, other_c.name, other_c.end_time
+         FROM merchandising_campaign_items other_mci
+         JOIN merchandising_campaigns other_c ON other_c.id = other_mci.campaign_id
+         WHERE other_mci.product_id = mci.product_id
+           AND other_c.id != $1
+           AND other_c.status = 'active'
+           AND other_c.end_time > NOW()
+         ORDER BY other_c.start_time DESC
+         LIMIT 1
+       ) conf ON true
        WHERE mci.campaign_id = $1
        ORDER BY mci.created_at ASC`,
       [id],
     );
 
-    const items: CampaignItemDto[] = itemsRes.rows.map((it) => ({
-      id: it.id,
-      productId: it.product_id,
-      variantId: it.variant_id,
-      productName: it.product_name,
-      productSlug: it.product_slug,
-      originalPriceVnd: Number(it.original_price_minor),
-      campaignPriceVnd: Number(it.campaign_price_minor),
-      discountPercent: r.discount_percent,
-      savingAmountVnd: Math.max(0, Number(it.original_price_minor) - Number(it.campaign_price_minor)),
-      originalMediaUrl: it.original_media_storage_key ? `/v1/admin/catalog/media-content?key=${encodeURIComponent(it.original_media_storage_key)}` : undefined,
-      campaignMediaUrl: it.campaign_media_storage_key ? `/v1/admin/catalog/media-content?key=${encodeURIComponent(it.campaign_media_storage_key)}` : undefined,
-      optimizedTitle: it.optimized_title,
-      optimizedDescription: it.optimized_description,
-      badge: it.badge,
-    }));
+    const items: CampaignItemDto[] = itemsRes.rows.map((it) => {
+      let conflictedCampaign: ConflictedCampaignInfoDto | undefined = undefined;
+      if (it.conf_id && it.conf_end_time) {
+        const confEndTime = new Date(it.conf_end_time);
+        if (!isNaN(confEndTime.getTime())) {
+          conflictedCampaign = {
+            id: it.conf_id,
+            name: it.conf_name,
+            endTime: confEndTime.toISOString(),
+            remainingDays: Math.max(1, Math.ceil((confEndTime.getTime() - Date.now()) / (24 * 3600 * 1000))),
+          };
+        }
+      }
+      return {
+        id: it.id,
+        productId: it.product_id,
+        variantId: it.variant_id,
+        productName: it.product_name,
+        productSlug: it.product_slug,
+        originalPriceVnd: Number(it.original_price_minor),
+        campaignPriceVnd: Number(it.campaign_price_minor),
+        discountPercent: r.discount_percent,
+        savingAmountVnd: Math.max(0, Number(it.original_price_minor) - Number(it.campaign_price_minor)),
+        originalMediaUrl: it.original_media_storage_key ? `/v1/admin/catalog/media-content?key=${encodeURIComponent(it.original_media_storage_key)}` : undefined,
+        campaignMediaUrl: it.campaign_media_storage_key ? `/v1/admin/catalog/media-content?key=${encodeURIComponent(it.campaign_media_storage_key)}` : undefined,
+        optimizedTitle: it.optimized_title,
+        optimizedDescription: it.optimized_description,
+        badge: it.badge,
+        conflictedCampaign,
+      };
+    });
 
     const startTime = new Date(r.start_time);
     const endTime = new Date(r.end_time);
@@ -165,7 +197,7 @@ export class PostgresqlCampaignRepository {
     return all[0] ?? null;
   }
 
-  async updateStatus(session: DatabaseSession, id: string, status: "draft" | "active" | "completed" | "reverted"): Promise<void> {
+  async updateStatus(session: DatabaseSession, id: string, status: "draft" | "active" | "scheduled" | "completed" | "reverted"): Promise<void> {
     await session.query(
       `UPDATE merchandising_campaigns SET status = $1, updated_at = NOW() WHERE id = $2`,
       [status, id],

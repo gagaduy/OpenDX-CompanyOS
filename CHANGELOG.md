@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Merchandising Campaign Conflict Resolution & Anti-Compounding Discount Protection ("Xử lý xung đột chiến dịch & Chống cộng dồn giảm giá kép"):
+  - Active Overlap Detection: Updated `generateCampaignProposal` and `getById` in catalog module to automatically detect overlapping products across currently active campaigns, attaching `conflictedCampaign` metadata (`id`, `name`, `endTime`, `remainingDays`) to proposal items.
+  - Visual Overlap Warnings in Approval Modal: Added warning badges (`⚠️ Đang trong chiến dịch "[Tên]" (còn X ngày)`) on conflicting products in `CampaignProposalModal`, giving operators full visibility before activation and allowing them to uncheck products to exclude them from the new campaign.
+  - Flexible Conflict Resolution Policies: Provided admin controls with two resolution strategies:
+    - `replace` (Default): Immediately expires existing time-bounded price rows on conflicting variants (`SET valid_to = NOW()`) so prices do not compound (preventing double discount compounding, e.g. -36%), applying the new campaign price and poster immediately.
+    - `schedule_after`: Automatically schedules the new campaign to start when the latest conflicting campaign ends (`status = 'scheduled'`), shifting `startTime` and `endTime` and auto-activating when the scheduled start time arrives.
+  - Command Center & API Integration: Extended `activateCampaign` across catalog controller, API client, and `AgenticCommandCenter` to accept and forward `conflictResolution`, and added unit test coverage for both resolution modes.
+
 - Multi-Campaign Chronological Asset Synchronization & Override Protection ("Đồng bộ tài nguyên đa chiến dịch theo thứ tự thời gian"):
   - Chronological Active Campaign Synchronization: Fixed `getActiveCampaign` in `ai-merchandising.service.ts` to process active campaigns in ascending chronological order (`[...allActive].reverse()`), ensuring that newly approved and activated campaigns (e.g. Flash Sale) take precedence for overlapping products over older campaigns (e.g. Nova Tech) rather than being overwritten by earlier campaigns.
   - Non-Destructive Media Restoration Guard: Prevented campaigns without custom posters from resetting product media back to raw seed photos if another concurrently active campaign supplies an active visual poster.

@@ -1,6 +1,13 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
+export interface ConflictedCampaignInfoDto {
+  readonly id: string;
+  readonly name: string;
+  readonly endTime: string;
+  readonly remainingDays: number;
+}
+
 export interface CampaignItemDto {
   readonly id: string;
   readonly productId: string;
@@ -16,6 +23,7 @@ export interface CampaignItemDto {
   readonly optimizedTitle: string;
   readonly optimizedDescription: string;
   readonly badge: string;
+  readonly conflictedCampaign?: ConflictedCampaignInfoDto;
 }
 
 export interface CampaignProposalDto {
@@ -29,7 +37,7 @@ export interface CampaignProposalDto {
   readonly startTime: string;
   readonly endTime: string;
   readonly durationDays: number;
-  readonly status: "draft" | "active" | "completed" | "reverted";
+  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted";
   readonly items: readonly CampaignItemDto[];
   readonly totalProducts: number;
   readonly pricingRationale: string;

@@ -17,6 +17,7 @@ import type {
   CampaignProposalDto,
   CampaignItemDto,
   ActiveCampaignDto,
+  ConflictedCampaignInfoDto,
 } from "../../dtos/campaign-merchandising.dto";
 import type { CampaignVisualGenerator } from "../../ports/campaign-visual-generator.port";
 import type { ProductMediaStorage } from "../../storage/product-media.storage";
@@ -47,6 +48,7 @@ export interface GenerateCampaignProposalInput {
 export interface ActivateCampaignOverrides {
   readonly endDate?: string;
   readonly excludedItemIds?: readonly string[];
+  readonly conflictResolution?: "replace" | "schedule_after";
 }
 
 export class AiMerchandisingService {
@@ -338,7 +340,38 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
       }
     }
 
-    // 6. Build items and synthesize visual badge overlays via Sharp
+    // 6. Query active campaigns to detect product overlap conflicts
+    const activeConflicts = await this.transactions.runReadOnly(async (session) => {
+      const { rows } = await session.query<{
+        product_id: string;
+        campaign_id: string;
+        campaign_name: string;
+        end_time: Date;
+      }>(
+        `SELECT mci.product_id, c.id as campaign_id, c.name as campaign_name, c.end_time
+         FROM merchandising_campaign_items mci
+         JOIN merchandising_campaigns c ON c.id = mci.campaign_id
+         WHERE c.status = 'active' AND c.end_time > NOW()
+         ORDER BY c.start_time DESC`,
+      );
+      const map = new Map<string, ConflictedCampaignInfoDto>();
+      for (const r of rows) {
+        if (r?.campaign_id && r?.end_time && !map.has(r.product_id)) {
+          const endTime = new Date(r.end_time);
+          if (!isNaN(endTime.getTime())) {
+            map.set(r.product_id, {
+              id: r.campaign_id,
+              name: r.campaign_name,
+              endTime: endTime.toISOString(),
+              remainingDays: Math.max(1, Math.ceil((endTime.getTime() - Date.now()) / (24 * 3600 * 1000))),
+            });
+          }
+        }
+      }
+      return map;
+    });
+
+    // 7. Build items and synthesize visual badge overlays via Sharp
     const items: CampaignItemDto[] = [];
     const dbItemsToInsert: Array<{
       id: string;
@@ -358,6 +391,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
       const campaignPriceVnd = Math.round((originalPriceVnd * (100 - discountPercent)) / 100);
       const savingAmountVnd = Math.max(0, originalPriceVnd - campaignPriceVnd);
       const itemId = this.generateId();
+      const conflictedCampaign = activeConflicts.get(snap.productId);
 
       const aiMatch = rawAiResult?.items?.find((it) => it.productId === snap.productId);
       const optimizedTitle = aiMatch?.optimizedTitle || `${snap.name} - ${badgeText}`;
@@ -410,6 +444,7 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
         optimizedTitle,
         optimizedDescription,
         badge: itemBadge,
+        conflictedCampaign,
       });
 
       dbItemsToInsert.push({
@@ -486,60 +521,91 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
         throw new CatalogApplicationError("CONFLICT", `Chiến dịch không ở trạng thái nháp (trạng thái: ${campaign.status})`);
       }
 
-      const targetEndTime = overrides?.endDate ? new Date(overrides.endDate) : new Date(campaign.endTime);
+      let targetStartTime = new Date();
+      let targetEndTime = overrides?.endDate ? new Date(overrides.endDate) : new Date(campaign.endTime);
       const excludedSet = new Set(overrides?.excludedItemIds ?? []);
+      const resolution = overrides?.conflictResolution ?? "replace";
 
-      // 1. Activate new campaign with actual dates (preserve existing active campaigns)
+      let campaignStatus: "active" | "scheduled" = "active";
+      if (resolution === "schedule_after") {
+        const confTimes = campaign.items
+          .filter((it) => !excludedSet.has(it.id) && it.conflictedCampaign)
+          .map((it) => new Date(it.conflictedCampaign!.endTime).getTime());
+        if (confTimes.length > 0) {
+          const maxConfEndTime = Math.max(...confTimes);
+          if (maxConfEndTime > Date.now()) {
+            campaignStatus = "scheduled";
+            targetStartTime = new Date(maxConfEndTime);
+            const originalDurationMs = new Date(campaign.endTime).getTime() - new Date(campaign.startTime).getTime();
+            targetEndTime = new Date(targetStartTime.getTime() + Math.max(86400000, originalDurationMs));
+          }
+        }
+      }
+
+      // 1. Activate or schedule new campaign with actual dates (preserve existing active campaigns)
       await session.query(
-        `UPDATE merchandising_campaigns 
-         SET status = 'active', start_time = NOW(), end_time = $1, updated_at = NOW() 
-         WHERE id = $2`,
-        [targetEndTime, campaignId],
+        `UPDATE merchandising_campaigns
+         SET status = $1, start_time = $2, end_time = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [campaignStatus, targetStartTime, targetEndTime, campaignId],
       );
 
       // 2. For each active item: insert time-bounded price & update product attributes
       for (const item of campaign.items) {
         if (excludedSet.has(item.id)) continue;
 
+        // If replacing and activating now: expire existing active prices for this variant so prices do not compound!
+        if (resolution === "replace" && campaignStatus === "active") {
+          await session.query(
+            `UPDATE product_prices
+             SET valid_to = NOW()
+             WHERE variant_id = $1
+               AND valid_to > NOW()`,
+            [item.variantId],
+          );
+        }
+
         // Insert new time-bounded price row in product_prices
         const priceId = this.generateId();
         await session.query(
-          `INSERT INTO product_prices 
+          `INSERT INTO product_prices
             (id, variant_id, amount_minor, currency, tax_inclusive, valid_from, valid_to, created_by)
-           VALUES ($1, $2, $3, 'VND', true, NOW(), $4, $5)`,
-          [priceId, item.variantId, item.campaignPriceVnd, targetEndTime, context.actorId],
+           VALUES ($1, $2, $3, 'VND', true, $4, $5, $6)`,
+          [priceId, item.variantId, item.campaignPriceVnd, targetStartTime, targetEndTime, context.actorId],
         );
 
-        // Update product attributes with campaign badge
-        await session.query(
-          `UPDATE products
-           SET attributes = attributes || $1::jsonb, updated_at = NOW(), version = version + 1
-           WHERE id = $2`,
-          [
-            JSON.stringify({
-              badge: item.badge,
-              campaignId,
-              campaignActivatedAt: activatedAt,
-            }),
-            item.productId,
-          ],
-        );
+        // If campaign is active immediately: update product attributes with campaign badge and primary media
+        if (campaignStatus === "active") {
+          await session.query(
+            `UPDATE products
+             SET attributes = attributes || $1::jsonb, updated_at = NOW(), version = version + 1
+             WHERE id = $2`,
+            [
+              JSON.stringify({
+                badge: item.badge,
+                campaignId,
+                campaignActivatedAt: activatedAt,
+              }),
+              item.productId,
+            ],
+          );
 
-        // Update primary product_media to campaign overlay if available
-        if (item.campaignMediaUrl) {
-          const keyParam = new URL(item.campaignMediaUrl, "http://dummy").searchParams.get("key");
-          if (keyParam) {
-            await session.query(
-              `UPDATE product_media 
-               SET object_key = $1, content_type = 'image/webp'
-               WHERE product_id = $2 AND is_primary = true`,
-              [keyParam, item.productId],
-            );
+          // Update primary product_media to campaign overlay if available
+          if (item.campaignMediaUrl) {
+            const keyParam = new URL(item.campaignMediaUrl, "http://dummy").searchParams.get("key");
+            if (keyParam) {
+              await session.query(
+                `UPDATE product_media
+                 SET object_key = $1, content_type = 'image/webp'
+                 WHERE product_id = $2 AND is_primary = true`,
+                [keyParam, item.productId],
+              );
+            }
           }
         }
       }
 
-      await this.campaignRepository.updateStatus(session, campaignId, "active");
+      await this.campaignRepository.updateStatus(session, campaignId, campaignStatus);
 
       // Append audit record
       await this.audit.append(session, {
@@ -655,6 +721,13 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
 
   async getActiveCampaign(): Promise<ActiveCampaignDto | null> {
     return this.transactions.run(async (session) => {
+      // 0. Auto-activate scheduled campaigns whose start_time has arrived
+      await session.query(
+        `UPDATE merchandising_campaigns
+         SET status = 'active', updated_at = NOW()
+         WHERE status = 'scheduled' AND start_time <= NOW() AND end_time > NOW()`,
+      );
+
       // 1. Check and mark naturally expired campaigns as completed
       const expiredCheck = await session.query<{ id: string }>(
         `SELECT id FROM merchandising_campaigns WHERE status = 'active' AND end_time <= NOW()`,

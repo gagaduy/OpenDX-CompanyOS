@@ -128,7 +128,7 @@ export class AiMerchandisingController {
       }
 
       const campaignId = String(req.params.campaignId);
-      const { endDate, excludedItemIds } = req.body ?? {};
+      const { endDate, excludedItemIds, conflictResolution } = req.body ?? {};
       const correlationId = String(req.headers["x-correlation-id"] || `campaign-activate-${Date.now()}`);
 
       const result = await this.service.activateCampaign(
@@ -140,6 +140,7 @@ export class AiMerchandisingController {
         {
           endDate: typeof endDate === "string" ? endDate : undefined,
           excludedItemIds: Array.isArray(excludedItemIds) ? excludedItemIds : undefined,
+          conflictResolution: conflictResolution === "schedule_after" ? "schedule_after" : "replace",
         },
       );
 

@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   Calendar,
   Check,
   ChevronLeft,
@@ -20,7 +21,11 @@ import type { CampaignProposal } from "../api/catalog-api";
 export interface CampaignProposalModalProps {
   readonly proposal: CampaignProposal;
   readonly onClose: () => void;
-  readonly onApprove?: (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => Promise<void> | void;
+  readonly onApprove?: (options: {
+    readonly endDate: string;
+    readonly excludedItemIds: readonly string[];
+    readonly conflictResolution?: "replace" | "schedule_after";
+  }) => Promise<void> | void;
   readonly isActivating?: boolean;
   readonly apiBaseUrl?: string;
   readonly readOnly?: boolean;
@@ -49,6 +54,10 @@ export function CampaignProposalModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(proposal.items.map((it) => it.id)),
   );
+  const [conflictResolution, setConflictResolution] = useState<"replace" | "schedule_after">("replace");
+
+  const conflictedItems = proposal.items.filter((it) => it.conflictedCampaign);
+  const hasConflicts = conflictedItems.length > 0;
 
   // Duration End Time State (default to proposal.endTime)
   const [endDate, setEndDate] = useState<string>(() => {
@@ -106,7 +115,11 @@ export function CampaignProposalModal({
       .map((it) => it.id);
 
     const finalEndDate = endDate ? new Date(endDate).toISOString() : proposal.endTime;
-    void onApprove({ endDate: finalEndDate, excludedItemIds: excluded });
+    void onApprove({
+      endDate: finalEndDate,
+      excludedItemIds: excluded,
+      conflictResolution,
+    });
   };
 
   return (
@@ -134,6 +147,21 @@ export function CampaignProposalModal({
                 <span className="ccCampaignDiscountPill">
                   -{proposal.discountPercent}%
                 </span>
+                {proposal.status === "scheduled" && (
+                  <span
+                    style={{
+                      background: "rgba(245, 158, 11, 0.2)",
+                      border: "1px solid rgba(245, 158, 11, 0.5)",
+                      color: "#fbbf24",
+                      padding: "2px 8px",
+                      borderRadius: "999px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    🗓️ Đã xếp lịch
+                  </span>
+                )}
               </div>
               <p className="ccCampaignModalSubtitle">
                 {readOnly
@@ -222,6 +250,92 @@ export function CampaignProposalModal({
               </button>
             </div>
           </div>
+
+          {/* Conflict Resolution Settings (if any items conflict with existing active campaigns) */}
+          {hasConflicts && !readOnly && (
+            <div
+              style={{
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.35)",
+                borderRadius: "10px",
+                padding: "14px 16px",
+                marginBottom: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fbbf24", fontWeight: 600, fontSize: "13px" }}>
+                <AlertTriangle size={16} color="#f59e0b" />
+                <span>
+                  Phát hiện {conflictedItems.length} sản phẩm trùng với chiến dịch đang chạy. Vui lòng chọn chính sách xử lý:
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    background: conflictResolution === "replace" ? "rgba(99, 102, 241, 0.15)" : "rgba(30, 41, 59, 0.6)",
+                    border: `1px solid ${conflictResolution === "replace" ? "#6366f1" : "rgba(148, 163, 184, 0.2)"}`,
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="conflictResolution"
+                    value="replace"
+                    checked={conflictResolution === "replace"}
+                    onChange={() => setConflictResolution("replace")}
+                    style={{ marginTop: "3px", accentColor: "#6366f1", cursor: "pointer" }}
+                  />
+                  <div>
+                    <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "13px" }}>
+                      ⚡ Ghi đè & kích hoạt ngay (Khuyên dùng)
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "12px", marginTop: "2px", lineHeight: "1.35" }}>
+                      Hết hạn giá cũ trên các sản phẩm trùng để không bị giảm giá kép (-36%). Áp dụng giá mới ngay.
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    background: conflictResolution === "schedule_after" ? "rgba(99, 102, 241, 0.15)" : "rgba(30, 41, 59, 0.6)",
+                    border: `1px solid ${conflictResolution === "schedule_after" ? "#6366f1" : "rgba(148, 163, 184, 0.2)"}`,
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="conflictResolution"
+                    value="schedule_after"
+                    checked={conflictResolution === "schedule_after"}
+                    onChange={() => setConflictResolution("schedule_after")}
+                    style={{ marginTop: "3px", accentColor: "#6366f1", cursor: "pointer" }}
+                  />
+                  <div>
+                    <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "13px" }}>
+                      🗓️ Xếp lịch sau khi chiến dịch cũ hết hạn
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "12px", marginTop: "2px", lineHeight: "1.35" }}>
+                      Tự động xếp lịch chờ (Scheduled). Sẽ tự động áp dụng giá và poster ngay khi chiến dịch cũ kết thúc.
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Products Review List Header & Pagination Controls */}
           <div className="ccCampaignListHeader">
@@ -348,6 +462,29 @@ export function CampaignProposalModal({
                     <p className="ccCampaignSeoDesc">
                       {item.optimizedDescription}
                     </p>
+
+                    {item.conflictedCampaign && (
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          padding: "6px 10px",
+                          background: "rgba(245, 158, 11, 0.12)",
+                          border: "1px solid rgba(245, 158, 11, 0.35)",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          color: "#fbbf24",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          lineHeight: "1.4",
+                        }}
+                      >
+                        <AlertTriangle size={14} style={{ flexShrink: 0, color: "#f59e0b" }} />
+                        <span>
+                          ⚠️ Đang trong chiến dịch <strong>&ldquo;{item.conflictedCampaign.name}&rdquo;</strong> (còn {item.conflictedCampaign.remainingDays} ngày). Bỏ chọn nếu muốn giữ chiến dịch cũ.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Price Comparison */}
@@ -374,6 +511,10 @@ export function CampaignProposalModal({
             {readOnly ? (
               <>
                 Chiến dịch đang kích hoạt trên Storefront với <strong>{selectedIds.size}</strong> sản phẩm.
+              </>
+            ) : hasConflicts && conflictResolution === "schedule_after" ? (
+              <>
+                Sẽ xếp lịch chờ cho <strong>{selectedIds.size}</strong> sản phẩm (tự động kích hoạt khi chiến dịch cũ kết thúc).
               </>
             ) : (
               <>
@@ -424,7 +565,14 @@ export function CampaignProposalModal({
                   {isActivating ? (
                     <>
                       <Loader2 size={16} className="ccSpin" />
-                      Đang kích hoạt chiến dịch...
+                      {hasConflicts && conflictResolution === "schedule_after"
+                        ? "Đang xếp lịch chiến dịch..."
+                        : "Đang kích hoạt chiến dịch..."}
+                    </>
+                  ) : hasConflicts && conflictResolution === "schedule_after" ? (
+                    <>
+                      <Check size={16} />
+                      Phê duyệt & Xếp lịch chiến dịch
                     </>
                   ) : (
                     <>
