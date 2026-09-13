@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Approval Direct Deliverable Result Modal Display ("Xem kết quả tại chỗ"):
+  - Pure In-Place Modal Popup without Page Scrolling: Removed viewport scrolling (`scrollToDepartment`) from all approval items when clicking "Xem trước" or clicking the card body. Kept the user focused on the active approval list and immediately displayed the comprehensive deliverable modal (`MarketingCampaignModal`, `OperationsProposalModal`, `CampaignProposalModal`, or `StrategicDeliverableModal`) directly over the screen.
+  - Dedicated Preview Campaign Detail State: Introduced `previewCampaignDetail` state to decouple individual approval card preview from global background polling, immediately rendering the selected campaign with full copy, 1024x1024 poster graphic, and all 5 audit deliverables (`Bộ 5 Tài liệu Bàn giao`) while refreshing live details in the background.
+  - Complete Fallback Marketing Deliverables: Enhanced `buildFallbackMarketingDetail` with complete 5-document deliverable artifacts (`campaign_brief_docx`, `facebook_content_docx`, `facebook_visual_png`, `facebook_publication_log_xlsx`, `marketing_final_report_pdf`), 1024x1024 square graphic specification, and executive directive brief objective.
+  - Robust Modal Overlay Backing: Standardized modal backdrop styling with `.ccModalOverlay` and `.ccOperationsModalBackdrop` at z-index 10000 with backdrop blur and fixed viewport centering.
+
 - AI Command Center Approval Preview Instant Modal Display & Department Smooth Scroll ("Kéo đến công việc & Hiện chi tiết"):
   - Guaranteed Immediate Modal Preview: Resolved silent click failure where clicking `[👁️ Xem trước]` or the approval card body did nothing if backend campaign details were loading or unavailable. Implemented `buildFallbackMarketingDetail` and resilient rendering guards ensuring `MarketingCampaignModal` always opens immediately with complete deliverable context while fetching fresh remote data in the background.
   - Smooth Scroll & Glowing Focus on Department Cards: Implemented `scrollToDepartment` across all approval categories (Marketing, Operations, Merchandising, Support, AI CEO, and workflow tasks), smoothly navigating the viewport directly to the corresponding AI department card (`dept-column-*`) or task item (`dept-task-*`) with an eye-catching `.highlight-pulse` glowing animation.

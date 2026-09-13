@@ -153,7 +153,7 @@ export function MarketingCampaignModal({
 
   return (
     <div
-      className="ccOperationsModalBackdrop"
+      className="ccModalOverlay ccOperationsModalBackdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

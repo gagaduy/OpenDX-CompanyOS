@@ -4268,7 +4268,8 @@
    OPERATIONS PROPOSAL MODAL (Amber Linear Canvas)
    ========================================================================== */
 
-.ccModalOverlay {
+.ccModalOverlay,
+.ccOperationsModalBackdrop {
   position: fixed;
   inset: 0;
   z-index: 9999;

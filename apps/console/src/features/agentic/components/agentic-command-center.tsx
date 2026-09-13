@@ -42,7 +42,7 @@ import type {
   MarketingApi,
   SocialTokensSummaryView,
 } from "../../marketing/api/marketing-api";
-import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
+import type { MarketingCampaignDetail, MarketingCampaign, MarketingArtifact } from "../../marketing/types";
 import { SocialTokenManagerModal } from "../../marketing/components/social-token-manager-modal";
 import { MarketingCampaignModal } from "../../marketing/components/marketing-campaign-modal";
 import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
@@ -115,13 +115,76 @@ export interface DepartmentAgentStatus {
 }
 
 export function buildFallbackMarketingDetail(camp: MarketingCampaign): MarketingCampaignDetail {
+  const artifacts: MarketingArtifact[] = [
+    {
+      id: `art-brief-${camp.id}`,
+      campaignId: camp.id,
+      kind: "campaign_brief_docx",
+      filename: `campaign-brief-${camp.id.slice(0, 8)}.docx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      byteSize: 18432,
+      sha256Digest: "sha256:brief-digest",
+      storageKey: `marketing/${camp.id}/brief.docx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-copy-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_content_docx",
+      filename: `facebook-content-${camp.id.slice(0, 8)}.docx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      byteSize: 15360,
+      sha256Digest: "sha256:content-digest",
+      storageKey: `marketing/${camp.id}/content.docx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-visual-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_visual_png",
+      filename: `facebook-visual-${camp.id.slice(0, 8)}.png`,
+      mediaType: "image/png",
+      byteSize: 2108723,
+      sha256Digest: "sha256:visual-digest",
+      storageKey: `marketing/${camp.id}/visual.png`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-log-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_publication_log_xlsx",
+      filename: `publication-log-${camp.id.slice(0, 8)}.xlsx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      byteSize: 12288,
+      sha256Digest: "sha256:log-digest",
+      storageKey: `marketing/${camp.id}/publication-log.xlsx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-report-${camp.id}`,
+      campaignId: camp.id,
+      kind: "marketing_final_report_pdf",
+      filename: `marketing-final-report-${camp.id.slice(0, 8)}.pdf`,
+      mediaType: "application/pdf",
+      byteSize: 34816,
+      sha256Digest: "sha256:report-digest",
+      storageKey: `marketing/${camp.id}/final-report.pdf`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+  ];
+
+  const defaultBody =
+    "Cuối tuần rồi, bạn đã sẵn sàng săn DEAL KHỦNG chưa? 💥 NovaCommerce mang đến 'Siêu Sale Cuối Tuần' với hàng ngàn sản phẩm từ công nghệ, thời trang đến đồ gia dụng,... GIẢM GIÁ SỐC CHƯA TỪNG CÓ! 🤩\n\n🎯 ĐỪNG BỎ LỠ cơ hội vàng để sắm sửa những món đồ yêu thích với mức giá không tưởng. Chất lượng đỉnh cao, giá cả cực mềm - chỉ có tại NovaCommerce! 🛍️\n\n🎁 Đặc biệt, hàng trăm QUÀ TẶNG BẤT NGỜ đang chờ đợi những khách hàng may mắn nhất! 🎁";
+
   return {
     campaign: camp,
     brief: {
       id: `brief-${camp.id}`,
       campaignId: camp.id,
-      campaignName: camp.campaignName || "Chiến dịch Marketing Fanpage",
-      objective: camp.objective || "Tăng trưởng tương tác & nhận diện thương hiệu trên Fanpage",
+      campaignName: camp.campaignName || "Chiến dịch Tiếp thị & Truyền thông Sáng tạo",
+      objective:
+        camp.objective ||
+        "Quảng bá sản phẩm và kích cầu doanh số theo chỉ đạo CEO: Soạn thảo nội dung quảng bá và chiến dịch content tiếp thị cho sự kiện Siêu Sale Cuối Tuần trên mạng xã hội Facebook để tăng tương tác và chuyển đổi khách hàng",
       subjectKind: "free_topic",
       subjectReference: camp.campaignName || "Chiến dịch Marketing Fanpage",
       language: "vi",
@@ -143,25 +206,39 @@ export function buildFallbackMarketingDetail(camp: MarketingCampaign): Marketing
         campaignId: camp.id,
         versionNumber: 1,
         hook: "🔥 BÙNG NỔ ƯU ĐÃI ĐẶC QUYỀN HÔM NAY!",
-        headline: camp.campaignName || "Chiến dịch Marketing Fanpage",
-        body:
-          camp.mandatoryMessage ||
-          "Khám phá ngay các ưu đãi đặc quyền với hàng loạt sản phẩm độc đáo, giá tốt nhất thị trường cùng chính sách bảo hành chính hãng từ OpenDX CompanyOS.",
+        headline: camp.campaignName || "Chiến dịch Tiếp thị & Truyền thông Sáng tạo",
+        body: camp.mandatoryMessage || defaultBody,
         callToAction: "👉 Nhắn tin ngay cho Fanpage để nhận mã giảm giá giới hạn!",
-        hashtags: ["#OpenDX", "#CompanyOS", "#KhuyenMai", "#Sale"],
+        hashtags: ["#OpenDX", "#CompanyOS", "#SieuSaleCuoiTuan", "#NovaCommerce", "#GiamGiaSoc"],
         factualClaimSourceIds: [],
         contentDigest: "sha256:fallback",
         costMicros: 0,
         createdAt: camp.createdAt || new Date().toISOString(),
       },
     ],
-    visualAssets: [],
+    visualAssets: [
+      {
+        id: `visual-${camp.id}`,
+        campaignId: camp.id,
+        versionNumber: 1,
+        aspectRatio: "1:1",
+        width: 1024,
+        height: 1024,
+        mediaType: "image/png",
+        byteSize: 2108723,
+        imageDigest: "sha256:visual-digest",
+        altText: camp.campaignName || "Poster Đồ họa Siêu Sale Cuối Tuần (1024x1024)",
+        storageKey: `marketing/${camp.id}/visual.png`,
+        costMicros: 0,
+        createdAt: camp.createdAt || new Date().toISOString(),
+      },
+    ],
     publicationPackages: [],
     currentPackage: null,
     publicationAttempts: [],
     publicationRecord: null,
     publicationRecords: [],
-    artifacts: [],
+    artifacts,
   };
 }
 
@@ -282,6 +359,7 @@ export function AgenticCommandCenter({
   // Marketing Campaign State
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [activeCampaignDetail, setActiveCampaignDetail] = useState<MarketingCampaignDetail | null>(null);
+  const [previewCampaignDetail, setPreviewCampaignDetail] = useState<MarketingCampaignDetail | null>(null);
   const [campaignsList, setCampaignsList] = useState<readonly MarketingCampaign[]>([]);
   const [marketingActionLoading, setMarketingActionLoading] = useState(false);
   const [revisionInput, setRevisionInput] = useState("");
@@ -4572,12 +4650,10 @@ export function AgenticCommandCenter({
             riskLevel: "medium" as const,
             timestamp: formatTime(operationsProposal.createdAt),
             onPreview: () => {
-              scrollToDepartment("operations");
               setOperationsProposal(operationsProposal);
               setIsOperationsModalOpen(true);
             },
             onRequestRevision: () => {
-              scrollToDepartment("operations");
               void handleTriggerClearanceCampaign(operationsProposal.items);
             },
             onApprove: () => void handleApplyOperations(),
@@ -4597,12 +4673,10 @@ export function AgenticCommandCenter({
             riskLevel: "medium" as const,
             timestamp: formatTime(pendingReplenishment.createdAt),
             onPreview: () => {
-              scrollToDepartment("operations");
               setOperationsProposal(pendingReplenishment);
               setIsOperationsModalOpen(true);
             },
             onRequestRevision: () => {
-              scrollToDepartment("operations");
               void handleTriggerClearanceCampaign(pendingReplenishment.items);
             },
             onApprove: () => {
@@ -4649,13 +4723,13 @@ export function AgenticCommandCenter({
           riskLevel: isFailed ? ("high" as const) : ("medium" as const),
           timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
           onPreview: () => {
-            scrollToDepartment("marketing");
             setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setPreviewCampaignDetail(activeCampaignDetail);
             setMarketingCampaignModalOpen(true);
           },
           onRequestRevision: () => {
-            scrollToDepartment("marketing");
             setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setPreviewCampaignDetail(activeCampaignDetail);
             setShowRevisionModal(true);
             setMarketingCampaignModalOpen(true);
           },
@@ -4690,34 +4764,42 @@ export function AgenticCommandCenter({
             riskLevel: isFailed ? ("high" as const) : ("medium" as const),
             timestamp: formatTime(camp.updatedAt),
             onPreview: () => {
-              scrollToDepartment("marketing");
               setActiveCampaignId(camp.id);
-              if (!activeCampaignDetail || activeCampaignDetail.campaign.id !== camp.id) {
-                setActiveCampaignDetail(buildFallbackMarketingDetail(camp));
-              }
+              const detailToUse =
+                activeCampaignDetail && activeCampaignDetail.campaign.id === camp.id
+                  ? activeCampaignDetail
+                  : buildFallbackMarketingDetail(camp);
+              setPreviewCampaignDetail(detailToUse);
               setMarketingCampaignModalOpen(true);
               if (marketingApi?.getCampaign) {
                 void marketingApi
                   .getCampaign(camp.id)
                   .then((d) => {
-                    if (d) setActiveCampaignDetail(d);
+                    if (d) {
+                      setPreviewCampaignDetail(d);
+                      setActiveCampaignDetail(d);
+                    }
                   })
                   .catch(() => {});
               }
             },
             onRequestRevision: () => {
-              scrollToDepartment("marketing");
               setActiveCampaignId(camp.id);
-              if (!activeCampaignDetail || activeCampaignDetail.campaign.id !== camp.id) {
-                setActiveCampaignDetail(buildFallbackMarketingDetail(camp));
-              }
+              const detailToUse =
+                activeCampaignDetail && activeCampaignDetail.campaign.id === camp.id
+                  ? activeCampaignDetail
+                  : buildFallbackMarketingDetail(camp);
+              setPreviewCampaignDetail(detailToUse);
               setShowRevisionModal(true);
               setMarketingCampaignModalOpen(true);
               if (marketingApi?.getCampaign) {
                 void marketingApi
                   .getCampaign(camp.id)
                   .then((d) => {
-                    if (d) setActiveCampaignDetail(d);
+                    if (d) {
+                      setPreviewCampaignDetail(d);
+                      setActiveCampaignDetail(d);
+                    }
                   })
                   .catch(() => {});
               }
@@ -4742,14 +4824,12 @@ export function AgenticCommandCenter({
             riskLevel: "medium" as const,
             timestamp: formatTime(campaignProposal?.startTime || merchandisingProposal?.createdAt),
             onPreview: () => {
-              scrollToDepartment("merchandising");
               if (!campaignProposal && merchandisingProposal) {
                 setCampaignProposal(buildCampaignProposalFromMerchandising(merchandisingProposal));
               }
               setCampaignProposalModalOpen(true);
             },
             onRequestRevision: () => {
-              scrollToDepartment("merchandising");
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh biên lợi nhuận cho Chuyên gia Định giá.");
             },
             onApprove: () => void handleApplyMerchandisingProposal(),
@@ -4774,7 +4854,6 @@ export function AgenticCommandCenter({
             riskLevel: "low" as const,
             timestamp: formatTime(Date.now()),
             onPreview: () => {
-              scrollToDepartment("support");
               const deliv = buildStrategicDeliverable(
                 supportProposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP",
                 supportProposal.id,
@@ -4784,7 +4863,6 @@ export function AgenticCommandCenter({
               setIsStrategicModalOpen(true);
             },
             onRequestRevision: () => {
-              scrollToDepartment("support");
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
             },
             onApprove: () => void handleApplySupport(),
@@ -4812,12 +4890,10 @@ export function AgenticCommandCenter({
             riskLevel: "medium" as const,
             timestamp: formatTime(completedStrategicDeliverable.completedAt),
             onPreview: () => {
-              scrollToDepartment("operations");
               setSelectedStrategicDeliverable(completedStrategicDeliverable);
               setIsStrategicModalOpen(true);
             },
             onRequestRevision: () => {
-              scrollToDepartment("operations");
               setSuccessMessage("Đã gửi yêu cầu AI CEO điều chỉnh kế hoạch thực thi.");
             },
             onApprove: () => {
@@ -4874,7 +4950,6 @@ export function AgenticCommandCenter({
         riskLevel: "medium" as const,
         timestamp: formatTime(app.createdAt),
         onPreview: () => {
-          scrollToDepartment(app.approverScope === "workflow_execution" ? "operations" : "support");
           if (foundTask) {
             setSelectedStrategicDeliverable(buildStrategicDeliverable(foundTask.goal, foundTask.id, "ai_ceo"));
             setIsStrategicModalOpen(true);
@@ -4948,12 +5023,10 @@ export function AgenticCommandCenter({
           riskLevel: "medium" as const,
           timestamp: formatTime(t.createdAt),
           onPreview: () => {
-            scrollToDepartment(dept, t.id);
             setSelectedStrategicDeliverable(buildStrategicDeliverable(t.goal, t.id, "ai_ceo"));
             setIsStrategicModalOpen(true);
           },
           onRequestRevision: () => {
-            scrollToDepartment(dept, t.id);
             setSuccessMessage("Đã yêu cầu điều chỉnh tác vụ.");
           },
           onApprove: async () => {
@@ -4994,7 +5067,6 @@ export function AgenticCommandCenter({
           riskLevel: "low" as const,
           timestamp: formatTime(t.updatedAt || t.createdAt),
           onPreview: () => {
-            scrollToDepartment(dept, t.id);
             markTaskReviewed(t.id);
             setSelectedStrategicDeliverable(
               buildStrategicDeliverable(t.goal, t.id, (intent === "orchestration" ? "ai_ceo" : intent) as any)
@@ -5002,7 +5074,6 @@ export function AgenticCommandCenter({
             setIsStrategicModalOpen(true);
           },
           onRequestRevision: () => {
-            scrollToDepartment(dept, t.id);
             markTaskReviewed(t.id);
             setSuccessMessage("Đã chuyển phản hồi nghiệm thu cho nhân sự số.");
           },
@@ -5649,29 +5720,30 @@ export function AgenticCommandCenter({
         </aside>
       )}
 
-      {marketingCampaignModalOpen && (activeCampaignDetail || (campaignsList.length > 0 && buildFallbackMarketingDetail(campaignsList[0]))) && (
+      {marketingCampaignModalOpen && (previewCampaignDetail || activeCampaignDetail || (campaignsList.length > 0 && buildFallbackMarketingDetail(campaignsList[0]))) && (
         <MarketingCampaignModal
           isOpen={marketingCampaignModalOpen}
           onClose={() => {
             setMarketingCampaignModalOpen(false);
             setShowRevisionModal(false);
+            setPreviewCampaignDetail(null);
           }}
-          detail={activeCampaignDetail || buildFallbackMarketingDetail(campaignsList[0])}
+          detail={previewCampaignDetail || activeCampaignDetail || buildFallbackMarketingDetail(campaignsList[0])}
           api={marketingApi}
           onApprove={() => {
-            const id = activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
             if (id) void handleApproveMarketing(id);
           }}
           onRequestRevision={(feedback) => {
-            const id = activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
             if (id) void handleRevisionMarketing(feedback, id);
           }}
           onRetryPublication={() => {
-            const id = activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
             if (id) void handleRetryPublication(id);
           }}
           onCancelCampaign={() => {
-            const id = activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
             if (id) void handleCancelMarketingCampaign(id);
           }}
           isActionLoading={marketingActionLoading}
