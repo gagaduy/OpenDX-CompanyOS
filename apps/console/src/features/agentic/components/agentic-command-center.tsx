@@ -1435,7 +1435,7 @@ export function AgenticCommandCenter({
           status = "info";
         }
 
-        const formatted = formatLiveEventTimestamp(t.createdAt);
+        const formatted = formatLiveEventTimestamp(t.updatedAt || t.createdAt);
 
         initialEvents.push({
           id: `task-ev-${t.id}`,
@@ -1568,6 +1568,92 @@ export function AgenticCommandCenter({
         },
       });
     }
+    if (campaignsList && campaignsList.length > 0) {
+      for (const camp of campaignsList) {
+        const formatted = formatLiveEventTimestamp(camp.updatedAt || camp.createdAt);
+        const campTitle = camp.campaignName || camp.objective || "Chiến dịch Marketing Fanpage";
+        if (camp.state === "completed") {
+          initialEvents.push({
+            id: `marketing-camp-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing đã hoàn tất tác vụ",
+            description: campTitle,
+            status: "success",
+            actionLabel: "Xem kết quả",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              if (marketingApi?.getCampaign) {
+                void marketingApi.getCampaign(camp.id).then((d) => {
+                  if (d) {
+                    setActiveCampaignDetail(d);
+                    setPreviewCampaignDetail(d);
+                  }
+                }).catch(() => {});
+              }
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        } else if (camp.state === "awaiting_human_approval" || camp.state === "campaign_review") {
+          initialEvents.push({
+            id: `marketing-camp-wait-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing chờ phê duyệt",
+            description: campTitle,
+            status: "warning",
+            actionLabel: "Xem đề xuất",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              if (marketingApi?.getCampaign) {
+                void marketingApi.getCampaign(camp.id).then((d) => {
+                  if (d) {
+                    setActiveCampaignDetail(d);
+                    setPreviewCampaignDetail(d);
+                  }
+                }).catch(() => {});
+              }
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        } else if (camp.state === "draft" || camp.state === "content_drafting" || camp.state === "visual_creation") {
+          initialEvents.push({
+            id: `marketing-camp-run-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing đang xử lý tác vụ",
+            description: campTitle,
+            status: "info",
+          });
+        } else if (camp.state === "failed" || camp.state === "partial_failure") {
+          initialEvents.push({
+            id: `marketing-camp-fail-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing báo lỗi",
+            description: `Lỗi xuất bản: ${campTitle}`,
+            status: "error",
+            actionLabel: "Cần xử lý",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        }
+      }
+    }
     if (initialEvents.length > 0) {
       setLiveEvents((prevEvents) => {
         const map = new Map<string, LiveEventItem>();
@@ -1593,7 +1679,7 @@ export function AgenticCommandCenter({
           .slice(0, 30);
       });
     }
-  }, [tasks, activeOperations, activeCampaign, campaignProposal, operationsProposal, supportProposal, formatLiveEventTimestamp, navigate]);
+  }, [tasks, activeOperations, activeCampaign, campaignProposal, operationsProposal, supportProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
 
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (
@@ -3123,7 +3209,26 @@ export function AgenticCommandCenter({
             }
           : null,
       );
+      recordLiveEvent(
+        "support",
+        "CSKH đã hoàn tất tác vụ",
+        supportProposal.overallSentimentSummary || supportProposal.prompt || "Đã phản hồi toàn bộ ticket CSKH",
+        "success",
+        "Xem kết quả",
+        () => {
+          const deliv = buildStrategicDeliverable(
+            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
+            supportProposal.id,
+            "support",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+        new Date().toISOString(),
+        `support-prop-ev-${supportProposal.id}`,
+      );
       setSuccessMessage(`✅ Đã phê duyệt và gửi phản hồi CSKH thành công cho toàn bộ ${supportProposal.tickets.length} ticket!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply support proposal:", err);
       setErrorMessage(err instanceof Error ? err.message : "Không thể gửi phản hồi CSKH.");
@@ -3161,7 +3266,22 @@ export function AgenticCommandCenter({
         );
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          "success",
+          "Xem kết quả",
+          () => {
+            setActiveCampaignDetail(detail);
+            setPreviewCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
+          },
+          detail.campaign.updatedAt,
+          `marketing-camp-${campId}`,
+        );
         setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+        if (onTaskCreated) onTaskCreated();
       } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
         setErrorMessage(
           "⚠️ Phê duyệt hoàn tất nhưng xuất bản lên Fanpage gặp lỗi do Token Meta Facebook chưa hợp lệ. Bạn có thể nhấn 'Thử xuất bản lại' hoặc kiểm tra Token.",
@@ -3420,7 +3540,27 @@ export function AgenticCommandCenter({
           : null,
       );
 
+      recordLiveEvent(
+        "merchandising",
+        "Kinh doanh đã hoàn tất tác vụ",
+        `Chiến dịch: ${campaignProposal.name}`,
+        "success",
+        "Xem kết quả",
+        () => {
+          const deliv = buildStrategicDeliverable(
+            campaignProposal.name,
+            campaignProposal.id,
+            "merchandising",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+        new Date().toISOString(),
+        `camp-ev-${campaignProposal.id}`,
+      );
+
       setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err: any) {
       console.error("Activate campaign failed:", err);
       setErrorMessage(err.message || "Kích hoạt chiến dịch thất bại.");
@@ -3495,7 +3635,28 @@ export function AgenticCommandCenter({
       );
 
       const totalRestocked = payload.reduce((acc, it) => acc + it.restockQuantity, 0);
+
+      recordLiveEvent(
+        "operations",
+        "Vận hành đã hoàn tất tác vụ",
+        operationsProposal.summary || `Đã nhập kho bổ sung +${totalRestocked} đơn vị hàng`,
+        "success",
+        "Xem kết quả",
+        () => {
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+        new Date().toISOString(),
+        `ops-prop-ev-${operationsProposal.id}`,
+      );
+
       setSuccessMessage(`✅ Đã phê duyệt và nhập kho thành công +${totalRestocked} đơn vị hàng vào cơ sở dữ liệu PostgreSQL!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply operations proposal:", err);
       setErrorMessage(err instanceof Error ? err.message : "Không thể nhập kho vào hệ thống.");
@@ -5156,148 +5317,188 @@ export function AgenticCommandCenter({
       }),
   ];
 
-  const redesignedRecentDeliverables = [
-    ...(completedStrategicDeliverable
-      ? [
-          {
-            id: completedStrategicDeliverable.id,
-            title: completedStrategicDeliverable.title,
-            departmentName: "AI CEO",
-            completedAt: formatTime(completedStrategicDeliverable.completedAt),
-            format: "docx",
-            onDownloadOrView: () => {
-              setSelectedStrategicDeliverable(completedStrategicDeliverable);
-              setIsStrategicModalOpen(true);
-            },
-          },
-        ]
-      : []),
-    ...(activeCampaign
-      ? [
-          {
-            id: activeCampaign.id,
-            title: `Báo cáo: Chiến dịch ${activeCampaign.name}`,
-            departmentName: "Kinh doanh",
-            completedAt: formatTime(activeCampaign.startTime),
-            format: "docx",
-            onDownloadOrView: () => {
-              const deliv = buildStrategicDeliverable(
-                activeCampaign.name,
-                activeCampaign.id,
-                "merchandising",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
-            },
-          },
-        ]
-      : []),
-    ...(activeCampaignDetail
-      ? [
-          {
-            id: activeCampaignDetail.campaign.id,
-            title: activeCampaignDetail.campaign.campaignName || "Chiến dịch Truyền thông & Visual Fanpage",
-            departmentName: "Marketing",
-            completedAt: formatTime(activeCampaignDetail.campaign.updatedAt),
-            format: "docx",
-            onDownloadOrView: () => {
-              setMarketingCampaignModalOpen(true);
-            },
-          },
-        ]
-      : []),
-    ...(operationsProposal
-      ? [
-          {
-            id: operationsProposal.id,
-            title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
-            departmentName: "Vận hành",
-            completedAt: formatTime(operationsProposal.createdAt),
-            format: "docx",
-            onDownloadOrView: () => {
-              const deliv = buildStrategicDeliverable(
-                operationsProposal.summary || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
-                operationsProposal.id,
-                "operations",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
-            },
-          },
-        ]
-      : []),
-    ...(supportProposal
-      ? [
-          {
-            id: supportProposal.id,
-            title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
-            departmentName: "CSKH",
-            completedAt: formatTime(Date.now()),
-            format: "docx",
-            onDownloadOrView: () => {
-              const deliv = buildStrategicDeliverable(
-                supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo Phân tích CSKH & Khách hàng VIP",
-                supportProposal.id,
-                "support",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
-            },
-          },
-        ]
-      : []),
-    ...(() => {
-      const completed = (tasks?.items ?? []).filter(
-        (t) => t.state === "completed" || t.state === "partially_completed"
-      );
-      if (completed.length === 0) return [];
-      // Pick distinct departments to showcase cross-department deliverables
-      const depts = ["orchestration", "marketing", "merchandising", "operations", "support"] as const;
-      const picked: typeof completed = [];
-      for (const dept of depts) {
-        const found = completed.find(
-          (t) => detectStrategicIntent(t.goal) === dept && !picked.some((p) => p.id === t.id)
-        );
-        if (found) picked.push(found);
-      }
-      for (const t of completed) {
-        if (picked.length >= 4) break;
-        if (!picked.some((p) => p.id === t.id)) {
-          picked.push(t);
-        }
-      }
-      return picked.slice(0, 4).map((t) => {
-        const intent = detectStrategicIntent(t.goal);
-        const deptName =
-          intent === "marketing"
-            ? "Marketing"
-            : intent === "merchandising"
-            ? "Kinh doanh"
-            : intent === "support"
-            ? "Tài chính"
-            : intent === "orchestration"
-            ? "AI CEO"
-            : "Sản phẩm";
-        const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
-        const capitalized = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
-        const displayTitle = capitalized.startsWith("Báo cáo")
-          ? (capitalized.length > 42 ? `${capitalized.slice(0, 39)}...` : capitalized)
-          : `Báo cáo: ${capitalized.length > 36 ? `${capitalized.slice(0, 33)}...` : capitalized}`;
-        return {
-          id: t.id,
-          title: displayTitle,
-          departmentName: deptName,
-          completedAt: formatTime(t.updatedAt),
-          format: "docx",
-          onDownloadOrView: () => {
-            const deliv = buildStrategicDeliverable(t.goal, t.id);
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
-          },
-        };
+  const redesignedRecentDeliverables = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      departmentName: string;
+      completedAt: string;
+      format: string;
+      timestamp: number;
+      onDownloadOrView: () => void;
+    }> = [];
+
+    if (completedStrategicDeliverable) {
+      list.push({
+        id: completedStrategicDeliverable.id,
+        title: completedStrategicDeliverable.title,
+        departmentName: "AI CEO",
+        completedAt: formatTime(completedStrategicDeliverable.completedAt),
+        format: "docx",
+        timestamp: new Date(completedStrategicDeliverable.completedAt).getTime(),
+        onDownloadOrView: () => {
+          setSelectedStrategicDeliverable(completedStrategicDeliverable);
+          setIsStrategicModalOpen(true);
+        },
       });
-    })(),
-  ];
+    }
+
+    if (activeCampaign) {
+      list.push({
+        id: activeCampaign.id,
+        title: `Báo cáo: Chiến dịch ${activeCampaign.name}`,
+        departmentName: "Kinh doanh",
+        completedAt: formatTime(activeCampaign.startTime),
+        format: "docx",
+        timestamp: new Date(activeCampaign.startTime).getTime(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(
+            activeCampaign.name,
+            activeCampaign.id,
+            "merchandising",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    if (activeCampaignDetail && activeCampaignDetail.campaign.state === "completed") {
+      const camp = activeCampaignDetail.campaign;
+      const title = camp.campaignName || camp.objective || "Chiến dịch Truyền thông & Visual Fanpage";
+      list.push({
+        id: `active-camp-${camp.id}`,
+        title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
+        departmentName: "Marketing",
+        completedAt: formatTime(camp.updatedAt || camp.createdAt),
+        format: "docx",
+        timestamp: new Date(camp.updatedAt || camp.createdAt).getTime(),
+        onDownloadOrView: () => {
+          setMarketingCampaignModalOpen(true);
+        },
+      });
+    }
+
+    for (const c of campaignsList) {
+      if (c.state === "completed") {
+        const title = c.campaignName || c.objective || "Chiến dịch Truyền thông & Visual Fanpage";
+        list.push({
+          id: `camp-${c.id}`,
+          title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
+          departmentName: "Marketing",
+          completedAt: formatTime(c.updatedAt || c.createdAt),
+          format: "docx",
+          timestamp: new Date(c.updatedAt || c.createdAt).getTime(),
+          onDownloadOrView: () => {
+            setActiveCampaignId(c.id);
+            if (marketingApi?.getCampaign) {
+              void marketingApi.getCampaign(c.id).then((d) => {
+                if (d) {
+                  setActiveCampaignDetail(d);
+                  setPreviewCampaignDetail(d);
+                }
+              }).catch(() => {});
+            }
+            setMarketingCampaignModalOpen(true);
+          },
+        });
+      }
+    }
+
+    if (operationsProposal) {
+      list.push({
+        id: operationsProposal.id,
+        title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+        departmentName: "Vận hành",
+        completedAt: formatTime(operationsProposal.createdAt),
+        format: "docx",
+        timestamp: new Date(operationsProposal.createdAt).getTime(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    if (supportProposal) {
+      list.push({
+        id: supportProposal.id,
+        title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+        departmentName: "CSKH",
+        completedAt: formatTime(Date.now()),
+        format: "docx",
+        timestamp: Date.now(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(
+            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+            supportProposal.id,
+            "support",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    const completed = (tasks?.items ?? []).filter(
+      (t) => t.state === "completed" || t.state === "partially_completed"
+    );
+    for (const t of completed) {
+      const intent = detectStrategicIntent(t.goal);
+      const deptName =
+        intent === "marketing"
+          ? "Marketing"
+          : intent === "merchandising"
+          ? "Kinh doanh"
+          : intent === "support"
+          ? "Tài chính"
+          : intent === "orchestration"
+          ? "AI CEO"
+          : "Sản phẩm";
+      const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
+      const capitalized = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
+      const displayTitle = capitalized.startsWith("Báo cáo")
+        ? (capitalized.length > 42 ? `${capitalized.slice(0, 39)}...` : capitalized)
+        : `Báo cáo: ${capitalized.length > 36 ? `${capitalized.slice(0, 33)}...` : capitalized}`;
+      list.push({
+        id: t.id,
+        title: displayTitle,
+        departmentName: deptName,
+        completedAt: formatTime(t.updatedAt || t.createdAt),
+        format: "docx",
+        timestamp: new Date(t.updatedAt || t.createdAt).getTime(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(t.goal, t.id);
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    const map = new Map<string, typeof list[0]>();
+    for (const item of list) {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      }
+    }
+    return Array.from(map.values())
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 10);
+  }, [
+    completedStrategicDeliverable,
+    activeCampaign,
+    activeCampaignDetail,
+    campaignsList,
+    operationsProposal,
+    supportProposal,
+    tasks?.items,
+    marketingApi,
+  ]);
 
   const runningCount = Math.max(
     overview?.counts?.running ?? 0,
@@ -5317,9 +5518,31 @@ export function AgenticCommandCenter({
   );
   const canceledTasksList = (tasks?.items ?? []).filter((t) => t.state === "canceled");
 
+  // Non-agentic tasks completed across departments
+  const completedMarketingCount = campaignsList.filter(
+    (c) => c.state === "completed" && !tasks?.items?.some((t) => t.id === c.id)
+  ).length;
+  const completedStrategicCount =
+    completedStrategicDeliverable && !tasks?.items?.some((t) => t.id === completedStrategicDeliverable.id) ? 1 : 0;
+  const completedMerchCount =
+    activeCampaign && !tasks?.items?.some((t) => t.id === activeCampaign.id) ? 1 : 0;
+  const completedOpsCount =
+    operationsProposal && !tasks?.items?.some((t) => t.id === operationsProposal.id) ? 1 : 0;
+  const completedSupportCount =
+    supportProposal && !tasks?.items?.some((t) => t.id === supportProposal.id) ? 1 : 0;
+  const completedAgentsCount = Object.values(deptStatus).reduce((acc, d) => acc + d.completedAgents.length, 0);
+
+  const extraCompletedCount =
+    completedMarketingCount +
+    completedStrategicCount +
+    completedMerchCount +
+    completedOpsCount +
+    completedSupportCount +
+    completedAgentsCount;
+
   const completedCount = Math.max(
-    overview?.counts?.completed ?? 0,
-    completedTasksList.length + Object.values(deptStatus).reduce((acc, d) => acc + d.completedAgents.length, 0)
+    (overview?.counts?.completed ?? 0) + extraCompletedCount,
+    completedTasksList.length + extraCompletedCount
   );
 
   const failedCount = overview?.counts?.failed ?? (
@@ -5327,15 +5550,15 @@ export function AgenticCommandCenter({
     (errorMessage ? 1 : 0)
   );
 
-  const allCount = overview?.counts
+  const allCount = (overview?.counts
     ? (overview.counts.running + overview.counts.waiting + overview.counts.completed + overview.counts.failed)
-    : (runningCount + waitingApprovalCount + completedCount + failedCount);
+    : (runningCount + waitingApprovalCount + completedCount + failedCount)) + extraCompletedCount;
 
   // Determine SLA on-time vs delayed among completed tasks
-  const onTimeCompleted = completedTasksList.filter((t) => t.state === "completed").length;
+  const onTimeCompleted = completedTasksList.filter((t) => t.state === "completed").length + extraCompletedCount;
   const delayedCompleted = completedTasksList.filter((t) => t.state === "partially_completed").length;
 
-  const totalEvaluated = completedTasksList.length + canceledTasksList.length;
+  const totalEvaluated = completedTasksList.length + canceledTasksList.length + extraCompletedCount;
   const onTimePercent = totalEvaluated > 0
     ? Math.round((onTimeCompleted / totalEvaluated) * 100)
     : (completedCount > 0 ? 82 : 0);
@@ -5358,14 +5581,16 @@ export function AgenticCommandCenter({
       const intent = detectStrategicIntent(t.goal);
       return intent === dept;
     });
+    const extraFinished = dept === "marketing" ? completedMarketingCount : 0;
     const finishedTasks = deptTasks.filter(
       (t) => t.state === "completed" || t.state === "partially_completed" || t.state === "failed" || t.state === "canceled"
     );
-    if (finishedTasks.length === 0) {
+    const totalFinished = finishedTasks.length + extraFinished;
+    if (totalFinished === 0) {
       return baseReadiness;
     }
-    const successCount = finishedTasks.filter((t) => t.state === "completed" || t.state === "partially_completed").length;
-    const successRate = (successCount / finishedTasks.length) * 100;
+    const successCount = finishedTasks.filter((t) => t.state === "completed" || t.state === "partially_completed").length + extraFinished;
+    const successRate = (successCount / totalFinished) * 100;
     return Math.min(100, Math.max(30, Math.round(baseReadiness * 0.85 + successRate * 0.15)));
   };
 

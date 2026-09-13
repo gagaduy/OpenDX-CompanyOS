@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Cross-Department Completed Task Metrics, Live Activity Feed & Deliverables Synchronization ("Đồng bộ kết quả & chỉ số tác vụ hoàn thành"):
+  - Real-Time Live Activity Feed Synchronization: Populated marketing campaigns (`campaignsList`), active campaigns, and department proposals directly into `LiveActivityFeed` with `t.updatedAt || t.createdAt` timestamps, accurately streaming newly completed and approved tasks into the real-time event feed immediately upon approval or page load.
+  - Cross-Department Unified Completed & Total Counts: Integrated completed marketing campaigns, merchandising campaigns, operations proposals, support proposals, and digital employees into `completedCount` and `allCount`. Header task badges (`Đã hoàn thành`, `Tất cả`), the central Donut chart, and weekly completion metrics (`Hoàn thành tuần này`) dynamically increment and stay in sync across all 4 departments.
+  - Recency-Sorted Recent Deliverables ("Kết quả gần đây"): Aggregated completed deliverables from all departments with exact epoch timestamps, deduplicating records and sorting in descending order (`newest first`) so newly completed tasks immediately occupy the top slots of "Kết quả gần đây" with full click-to-view modal capabilities.
+  - Backend Brief Title Enrichment in Campaign Listing: Joined `marketing_campaign_briefs` with `marketing_campaigns` in PostgreSQL repository query (`listCampaigns`, `findCampaignById`, and `findCampaignByIdempotencyKey`), returning actual brief titles (`campaign_name` and `objective`) for rich display across Command Center and Live Feeds.
+
 - Marketing Campaign Cancellation from Failed State & Persistent Approval Dismissal ("Hủy duyệt vĩnh viễn"):
   - Allowed `failed` and `publication_unknown` states in `marketing-campaign-rules.ts` to transition to `canceled`, enabling operators to permanently cancel failed or unrecoverable campaigns via `marketingApi.cancelCampaign` without encountering state transition errors (`INVALID_STATE_TRANSITION`).
   - Added unit test coverage in `marketing-campaign-rules.test.ts` and `marketing-campaign.service.test.ts` verifying that canceling campaigns in `failed` and `publication_unknown` states succeeds cleanly.
