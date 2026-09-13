@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Keycloak Staff Session Timeout Removal & Lifespan Extension ("Gỡ bỏ giới hạn thời gian đăng nhập Keycloak"):
+  - Extended Token & Session Lifespans: Increased `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `clientSessionIdleTimeout`, and `clientSessionMaxLifespan` to 31,536,000 seconds (1 full year) in Keycloak realm `opendx`. Operators and developers remain continuously authenticated without sudden 5-minute or 30-minute session expirations ("Authentication required").
+  - Persistent Configuration: Updated `infra/keycloak/realm-export.json` and `infra/keycloak/realm-production.json` to ensure 1-year persistent session lifespans across container re-creations and environment resets.
+
 - Social Token Health Validation & Meta Error Transparency ("Xác thực & Giám sát Token Mạng xã hội"):
   - Strict Token Health Inspection on Refresh: Updated `autoRefreshAccount` in `social-token-manager.service.ts` to actively inspect token validity with `this.inspector.inspectToken(...)` before declaring health. When a token has been revoked by Meta (e.g. `OAuthException code: 190, error_subcode: 467` due to user logout or password change), the account is accurately marked as `invalid`, preserving the root cause in `lastError` and throwing a descriptive exception instead of falsely reporting a healthy state.
   - Transparent Operator Feedback in Command Center: Updated `handleRefreshSocialAccount` in `agentic-command-center.tsx` to handle rejected refreshes without silent failures, immediately synchronizing modal state and displaying the exact error message from Meta API to guide operators toward re-authentication or token updates.
