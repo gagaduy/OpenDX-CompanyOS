@@ -55,4 +55,10 @@ describe("PendingApprovalsPanel", () => {
     expect(scrollContainer).toBeDefined();
     expect(scrollContainer?.children.length).toBe(1);
   });
+
+  it("applies custom maxHeight style when maxHeight prop is provided", () => {
+    const { container } = render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} maxHeight={430} />);
+    const scrollContainer = container.querySelector(".ccApprovalsScrollContainer") as HTMLElement;
+    expect(scrollContainer?.style.maxHeight).toBe("430px");
+  });
 });

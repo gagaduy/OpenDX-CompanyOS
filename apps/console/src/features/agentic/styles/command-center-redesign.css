@@ -657,7 +657,7 @@
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
   gap: 1.25rem;
   margin-bottom: 1.5rem;
-  align-items: stretch;
+  align-items: start;
 }
 
 .ccMainContentGrid > * {
@@ -667,12 +667,6 @@
 @media (max-width: 1200px) {
   .ccMainContentGrid {
     grid-template-columns: 1fr;
-  }
-  .ccSidebarSection {
-    height: auto;
-  }
-  .ccApprovalsScrollContainer {
-    max-height: 520px;
   }
 }
 
@@ -1268,7 +1262,6 @@
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
-  height: 100%;
 }
 
 .ccLiveFeedCard {
@@ -1495,10 +1488,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   min-width: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
 }
 
 .ccApprovalsHeader {
@@ -1530,8 +1519,7 @@
 }
 
 .ccApprovalsScrollContainer {
-  flex: 1;
-  min-height: 220px;
+  max-height: 460px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;

@@ -16,6 +16,7 @@ import type { PendingApprovalsProps } from "./types";
 export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
   approvals,
   onViewAll,
+  maxHeight,
 }) => {
   return (
     <div className="ccApprovalsCard">
@@ -42,7 +43,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
       </div>
 
       {/* Approvals list */}
-      <div className="ccApprovalsScrollContainer">
+      <div
+        className="ccApprovalsScrollContainer"
+        style={maxHeight ? { maxHeight: `${maxHeight}px` } : undefined}
+      >
         {approvals.length === 0 ? (
           <div style={{ padding: "1.5rem 0", textAlign: "center", fontSize: "0.75rem", color: "#64748b" }}>
             Không có đề xuất nào đang chờ phê duyệt

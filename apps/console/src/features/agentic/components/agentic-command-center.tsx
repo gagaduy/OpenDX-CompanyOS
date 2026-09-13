@@ -586,6 +586,45 @@ export function AgenticCommandCenter({
   // Active Cross-Department Collaboration Bridge ("Sợi dây kết nối")
   const [activeCollaboration, setActiveCollaboration] = useState<ActiveCollaboration | null>(null);
   const departmentsGridRef = useRef<HTMLDivElement | null>(null);
+  const workforceColumnRef = useRef<HTMLDivElement | null>(null);
+  const liveFeedContainerRef = useRef<HTMLDivElement | null>(null);
+  const [approvalsScrollMaxHeight, setApprovalsScrollMaxHeight] = useState<number>(440);
+
+  useEffect(() => {
+    const updateApprovalsHeight = () => {
+      if (typeof window !== "undefined" && window.innerWidth <= 1200) {
+        setApprovalsScrollMaxHeight(420);
+        return;
+      }
+      if (!workforceColumnRef.current) return;
+      const workforceH = workforceColumnRef.current.offsetHeight;
+      const liveFeedH = liveFeedContainerRef.current ? liveFeedContainerRef.current.offsetHeight : 340;
+      // Gap between liveFeed and approvals is 16px (1rem), approvals card padding and header overhead is ~76px
+      const targetScrollH = workforceH - liveFeedH - 16 - 76;
+      if (targetScrollH > 180) {
+        setApprovalsScrollMaxHeight(Math.round(targetScrollH));
+      } else {
+        setApprovalsScrollMaxHeight(420);
+      }
+    };
+
+    updateApprovalsHeight();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        updateApprovalsHeight();
+      });
+      if (workforceColumnRef.current) ro.observe(workforceColumnRef.current);
+      if (liveFeedContainerRef.current) ro.observe(liveFeedContainerRef.current);
+    }
+    window.addEventListener("resize", updateApprovalsHeight);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", updateApprovalsHeight);
+    };
+  }, []);
 
   // Department-level Sequential Execution State Machine
   const [deptStatus, setDeptStatus] = useState<Record<DepartmentType, DepartmentAgentStatus>>({
@@ -5228,7 +5267,7 @@ export function AgenticCommandCenter({
 
       {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
       <div className="ccMainContentGrid">
-        <div style={{ minWidth: 0, overflow: "hidden" }}>
+        <div ref={workforceColumnRef} style={{ minWidth: 0, overflow: "hidden" }}>
           <WorkforceGrid
             departments={filteredDepartmentCards}
             onViewDagGraph={() => {
@@ -5250,14 +5289,17 @@ export function AgenticCommandCenter({
         </div>
 
         <div className="ccSidebarSection">
-          <LiveActivityFeed
-            events={filteredLiveEvents}
-            activeDepartmentFilter={liveFeedFilter}
-            onFilterChange={setLiveFeedFilter}
-          />
+          <div ref={liveFeedContainerRef}>
+            <LiveActivityFeed
+              events={filteredLiveEvents}
+              activeDepartmentFilter={liveFeedFilter}
+              onFilterChange={setLiveFeedFilter}
+            />
+          </div>
           <PendingApprovalsPanel
             approvals={redesignedApprovals}
             onViewAll={() => navigate("/agentic/approvals")}
+            maxHeight={approvalsScrollMaxHeight}
           />
         </div>
       </div>
