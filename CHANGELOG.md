@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Local Catalog Product Import Utility ("Nhập sản phẩm mẫu từ ảnh cục bộ"):
+  - Added `db:import:user-products` for idempotently importing the prepared 50-product catalog, media objects, variants, VND prices, and initial single-location inventory into local PostgreSQL and MinIO services, with local source images supplied through `PRODUCT_IMAGE_DIR`.
+
 - AI Command Center Department Naming Alignment ("Chuẩn hóa tên phòng ban"):
   - Aligned department, Digital Employee, diagnostics, deliverable, and efficiency labels with the current Tiếp thị, Danh mục, Vận hành, and CSKH operating model.
 
