@@ -2989,6 +2989,33 @@ export function AgenticCommandCenter({
     }
   };
 
+  const handleCancelMarketingCampaign = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId) return;
+    try {
+      setMarketingActionLoading(true);
+      if (marketingApi?.cancelCampaign) {
+        await marketingApi.cancelCampaign(campId, "Hủy duyệt bởi Quản trị viên");
+      }
+      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
+      if (activeCampaignDetail?.campaign.id === campId) {
+        setActiveCampaignDetail(null);
+      }
+      setMarketingCampaignModalOpen(false);
+      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
+      marketingApi?.listCampaigns({ limit: 20 }).then((res) => setCampaignsList(res.items)).catch(() => {});
+    } catch (err: any) {
+      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
+      if (activeCampaignDetail?.campaign.id === campId) {
+        setActiveCampaignDetail(null);
+      }
+      setMarketingCampaignModalOpen(false);
+      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
+    } finally {
+      setMarketingActionLoading(false);
+    }
+  };
+
   const handleGenerateDeliverables = async () => {
     if (!activeCampaignId || !marketingApi) return;
     try {
@@ -4409,6 +4436,10 @@ export function AgenticCommandCenter({
               void handleTriggerClearanceCampaign(operationsProposal.items);
             },
             onApprove: () => void handleApplyOperations(),
+            onReject: () => {
+              setOperationsProposal(null);
+              setSuccessMessage("Đã hủy đề xuất nhập kho.");
+            },
           },
         ]
       : pendingReplenishment
@@ -4430,6 +4461,10 @@ export function AgenticCommandCenter({
             onApprove: () => {
               setOperationsProposal(pendingReplenishment);
               void handleApplyOperations();
+            },
+            onReject: () => {
+              setPendingReplenishment(null);
+              setSuccessMessage("Đã hủy đề xuất nhập kho tự động.");
             },
           },
         ]
@@ -4475,6 +4510,7 @@ export function AgenticCommandCenter({
             setShowRevisionForm(true);
           },
           onApprove: () => void handleApproveMarketing(activeCampaignDetail.campaign.id),
+          onReject: () => void handleCancelMarketingCampaign(activeCampaignDetail.campaign.id),
         });
       }
 
@@ -4524,6 +4560,7 @@ export function AgenticCommandCenter({
               setShowRevisionForm(true);
             },
             onApprove: () => void handleApproveMarketing(camp.id),
+            onReject: () => void handleCancelMarketingCampaign(camp.id),
           });
         }
       }
@@ -4546,6 +4583,12 @@ export function AgenticCommandCenter({
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh biên lợi nhuận cho Chuyên gia Định giá.");
             },
             onApprove: () => void handleApplyMerchandisingProposal(),
+            onReject: () => {
+              setCampaignProposal(null);
+              setMerchandisingProposal(null);
+              setCampaignProposalModalOpen(false);
+              setSuccessMessage("Đã hủy đề xuất Flash Sale & Tối ưu Danh mục.");
+            },
           },
         ]
       : []),
@@ -4573,6 +4616,10 @@ export function AgenticCommandCenter({
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
             },
             onApprove: () => void handleApplySupport(),
+            onReject: () => {
+              setSupportProposal(null);
+              setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
+            },
           },
         ]
       : []),
@@ -4616,6 +4663,11 @@ export function AgenticCommandCenter({
                 "success",
               );
               setSuccessMessage(`Đã phê duyệt kế hoạch thực thi "${completedStrategicDeliverable.title}" thành công!`);
+            },
+            onReject: () => {
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setSuccessMessage("Đã hủy đề xuất kế hoạch thực thi.");
             },
           },
         ]
@@ -4685,6 +4737,25 @@ export function AgenticCommandCenter({
             }
           }
         },
+        onReject: async () => {
+          try {
+            await api.decideApproval(app.id, {
+              expectedVersion: app.version,
+              decision: "rejected",
+              reason: "Hủy duyệt từ AI Command Center",
+            });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã hủy duyệt đề xuất.");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Không thể hủy duyệt đề xuất.");
+            }
+          }
+        },
       };
     }),
 
@@ -4715,6 +4786,10 @@ export function AgenticCommandCenter({
           } catch (err: any) {
             setErrorMessage(err?.message || "Lỗi phê duyệt tác vụ.");
           }
+        },
+        onReject: () => {
+          markTaskReviewed(t.id);
+          setSuccessMessage(`Đã hủy duyệt tác vụ "${t.goal.slice(0, 40)}...".`);
         },
       })),
 
@@ -4750,6 +4825,10 @@ export function AgenticCommandCenter({
           onApprove: () => {
             markTaskReviewed(t.id);
             setSuccessMessage(`Đã nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}..." thành công!`);
+          },
+          onReject: () => {
+            markTaskReviewed(t.id);
+            setSuccessMessage(`Đã bỏ qua nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}...".`);
           },
         };
       }),
@@ -5392,6 +5471,7 @@ export function AgenticCommandCenter({
           onApprove={() => handleApproveMarketing(activeCampaignDetail.campaign.id)}
           onRequestRevision={(feedback) => handleRevisionMarketing(feedback, activeCampaignDetail.campaign.id)}
           onRetryPublication={() => handleRetryPublication(activeCampaignDetail.campaign.id)}
+          onCancelCampaign={() => handleCancelMarketingCampaign(activeCampaignDetail.campaign.id)}
           isActionLoading={marketingActionLoading}
         />
       )}

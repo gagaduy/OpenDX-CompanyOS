@@ -141,6 +141,7 @@ export interface PendingApprovalItem {
   readonly onPreview: () => void;
   readonly onRequestRevision: () => void;
   readonly onApprove: () => void;
+  readonly onReject?: () => void;
 }
 
 export interface PendingApprovalsProps {

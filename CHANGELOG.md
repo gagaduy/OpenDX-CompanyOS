@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI Command Center Pending Approvals Panel Height Matching & Approval Cancellation ("Hủy duyệt"):
+  - Height Extension & Adjacent Column Alignment: Updated `.ccMainContentGrid` with `align-items: stretch;` and `.ccSidebarSection` with `height: 100%;`, configuring `.ccApprovalsCard` and `.ccApprovalsScrollContainer` to `flex: 1` with `min-height: 220px;` and smooth vertical scrolling, seamlessly extending the Approvals panel downwards to match the height of the adjacent workforce department grid without leaving empty dead space.
+  - Approval Cancellation Action ("Hủy duyệt"): Added `onReject` callback to `PendingApprovalItem` and an explicit "✕ Hủy duyệt" danger action button in `PendingApprovalsPanel` alongside "Xem trước", "Yêu cầu chỉnh sửa", and "Phê duyệt" with a responsive 2-column grid layout.
+  - Comprehensive Approval Rejection Across Departments: Implemented rejection handlers in `AgenticCommandCenter` for marketing campaigns (`marketingApi.cancelCampaign`), inventory replenishment proposals, flash sales, customer care script/voucher proposals, AI CEO strategic deliverables, and backend API approvals.
+  - Modal Footer Cancellation Support: Extended `MarketingCampaignModal` with an `onCancelCampaign` prop and "✕ Hủy duyệt" action button for canceling directly from the preview modal.
+
 - AI Command Center AI CEO Live Stepper Card Dynamic Execution & Real-Time CeoPlan Tracking:
   - CeoPlan Execution Rendering: Enhanced `CommandComposerPanel` and `AgenticCommandCenter` to render the active `ceoPlan` directly within the AI CEO Live Stepper Card, displaying real-time digital employee roles, active task descriptions, and dynamic lifecycle statuses (`running`, `done`, `pending`) across all 4 departments (Marketing, Merchandising, Operations, Support).
   - Progressive 4-Stage Intake Stepper Animation: Refactored AI CEO intake simulation in `handleSendStrategicTask` to progress sequentially through the 4 canonical intake stages (1. Phân tích yêu cầu ➔ 2. Xác định phạm vi & mục tiêu ➔ 3. Lựa chọn phòng ban phù hợp ➔ 4. Tạo tác vụ & phân công nhân sự AI) with live pulse indicators and green completion checkmarks.

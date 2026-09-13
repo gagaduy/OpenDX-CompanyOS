@@ -7,6 +7,7 @@ import {
   Eye,
   Edit3,
   Check,
+  X,
   ArrowRight,
   ShieldAlert,
 } from "lucide-react";
@@ -90,7 +91,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
                 </div>
               )}
 
-              {/* 3 Human-in-the-Loop Action buttons */}
+              {/* Human-in-the-Loop Action buttons */}
               <div className="ccApprovalBtns">
                 <button
                   type="button"
@@ -100,7 +101,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
                   }}
                   className="ccApprovalBtnPreview"
                 >
-                  <Eye size={11} style={{ display: "inline", marginRight: "4px" }} />
+                  <Eye size={12} style={{ display: "inline", marginRight: "3px" }} />
                   <span>Xem trước</span>
                 </button>
 
@@ -112,9 +113,23 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
                   }}
                   className="ccApprovalBtnEdit"
                 >
-                  <Edit3 size={11} style={{ display: "inline", marginRight: "4px" }} />
+                  <Edit3 size={12} style={{ display: "inline", marginRight: "3px" }} />
                   <span>Yêu cầu chỉnh sửa</span>
                 </button>
+
+                {app.onReject && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      app.onReject?.();
+                    }}
+                    className="ccApprovalBtnReject"
+                  >
+                    <X size={12} style={{ display: "inline", marginRight: "3px" }} />
+                    <span>Hủy duyệt</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -123,6 +138,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsProps> = ({
                     app.onApprove();
                   }}
                   className="ccApprovalBtnApprove"
+                  style={!app.onReject ? { gridColumn: "span 2" } : undefined}
                 >
                   <Check size={12} style={{ display: "inline", marginRight: "3px" }} />
                   <span>Phê duyệt</span>

@@ -657,7 +657,7 @@
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
   gap: 1.25rem;
   margin-bottom: 1.5rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .ccMainContentGrid > * {
@@ -667,6 +667,12 @@
 @media (max-width: 1200px) {
   .ccMainContentGrid {
     grid-template-columns: 1fr;
+  }
+  .ccSidebarSection {
+    height: auto;
+  }
+  .ccApprovalsScrollContainer {
+    max-height: 520px;
   }
 }
 
@@ -1262,6 +1268,7 @@
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
+  height: 100%;
 }
 
 .ccLiveFeedCard {
@@ -1488,6 +1495,10 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   min-width: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .ccApprovalsHeader {
@@ -1519,7 +1530,8 @@
 }
 
 .ccApprovalsScrollContainer {
-  max-height: 400px;
+  flex: 1;
+  min-height: 220px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -1622,8 +1634,9 @@
 
 .ccApprovalBtns {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.4rem;
+  margin-top: 0.5rem;
 }
 
 .ccApprovalBtnPreview {
@@ -1631,12 +1644,16 @@
   color: #cbd5e1;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  padding: 5px 0;
+  padding: 6px 0;
   font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 
 .ccApprovalBtnPreview:hover {
@@ -1649,12 +1666,16 @@
   color: #cbd5e1;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  padding: 5px 0;
+  padding: 6px 0;
   font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 
 .ccApprovalBtnEdit:hover {
@@ -1662,18 +1683,45 @@
   color: #ffffff;
 }
 
+.ccApprovalBtnReject {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.ccApprovalBtnReject:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
 .ccApprovalBtnApprove {
   background: #2563eb;
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  padding: 5px 0;
+  padding: 6px 0;
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 
 .ccApprovalBtnApprove:hover {

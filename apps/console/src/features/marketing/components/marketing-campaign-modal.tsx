@@ -38,6 +38,7 @@ export interface MarketingCampaignModalProps {
   readonly onApprove?: () => Promise<void> | void;
   readonly onRequestRevision?: (feedback: string) => Promise<void> | void;
   readonly onRetryPublication?: () => Promise<void> | void;
+  readonly onCancelCampaign?: () => Promise<void> | void;
   readonly api?: MarketingApi;
   readonly isActionLoading?: boolean;
 }
@@ -51,6 +52,7 @@ export function MarketingCampaignModal({
   onApprove,
   onRequestRevision,
   onRetryPublication,
+  onCancelCampaign,
   api,
   isActionLoading = false,
 }: MarketingCampaignModalProps) {
@@ -750,6 +752,19 @@ export function MarketingCampaignModal({
             >
               Đóng
             </button>
+
+            {!isApprovedOrPublished && onCancelCampaign && (
+              <button
+                type="button"
+                className="marketingBtnSecondary"
+                onClick={onCancelCampaign}
+                disabled={isActionLoading}
+                style={{ fontSize: "0.85rem", borderColor: "rgba(239, 68, 68, 0.4)", color: "#f87171" }}
+              >
+                <X size={15} />
+                <span>Hủy duyệt</span>
+              </button>
+            )}
 
             {!isApprovedOrPublished && onRequestRevision && (
               <button

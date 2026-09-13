@@ -10,6 +10,7 @@ describe("PendingApprovalsPanel", () => {
   const onPreview = vi.fn();
   const onRequestRevision = vi.fn();
   const onApprove = vi.fn();
+  const onReject = vi.fn();
 
   const approvals: PendingApprovalItem[] = [
     {
@@ -22,22 +23,27 @@ describe("PendingApprovalsPanel", () => {
       onPreview,
       onRequestRevision,
       onApprove,
+      onReject,
     },
   ];
 
-  it("renders pending approval card with 3 Human-in-the-Loop action buttons", () => {
+  it("renders pending approval card with Human-in-the-Loop action buttons including Hủy duyệt", () => {
     render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
     expect(screen.getAllByText(/Phê duyệt/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Báo cáo phân tích thị trường SEA")).toBeDefined();
     expect(screen.getByText("Xem trước")).toBeDefined();
     expect(screen.getByText("Yêu cầu chỉnh sửa")).toBeDefined();
+    expect(screen.getByText("Hủy duyệt")).toBeDefined();
     expect(screen.getByRole("button", { name: /Phê duyệt/ })).toBeDefined();
   });
 
-  it("triggers onPreview and onApprove callbacks", () => {
+  it("triggers onPreview, onApprove, and onReject callbacks", () => {
     render(<PendingApprovalsPanel approvals={approvals} onViewAll={vi.fn()} />);
     fireEvent.click(screen.getByText("Xem trước"));
     expect(onPreview).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Hủy duyệt"));
+    expect(onReject).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: /Phê duyệt/ }));
     expect(onApprove).toHaveBeenCalledTimes(1);
