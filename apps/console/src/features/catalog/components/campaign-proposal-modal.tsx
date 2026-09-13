@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   ImageIcon,
   Loader2,
   Sparkles,
@@ -19,9 +20,10 @@ import type { CampaignProposal } from "../api/catalog-api";
 export interface CampaignProposalModalProps {
   readonly proposal: CampaignProposal;
   readonly onClose: () => void;
-  readonly onApprove: (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => Promise<void> | void;
+  readonly onApprove?: (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => Promise<void> | void;
   readonly isActivating?: boolean;
   readonly apiBaseUrl?: string;
+  readonly readOnly?: boolean;
 }
 
 const ITEMS_PER_PAGE = 4;
@@ -41,6 +43,7 @@ export function CampaignProposalModal({
   onApprove,
   isActivating = false,
   apiBaseUrl,
+  readOnly = false,
 }: CampaignProposalModalProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -62,6 +65,7 @@ export function CampaignProposalModal({
   const currentItems = proposal.items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const toggleItem = (itemId: string) => {
+    if (readOnly) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) {
@@ -74,6 +78,7 @@ export function CampaignProposalModal({
   };
 
   const handleSelectAllOnPage = () => {
+    if (readOnly) return;
     const allSelected = currentItems.every((it) => selectedIds.has(it.id));
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -89,11 +94,13 @@ export function CampaignProposalModal({
   };
 
   const addPresetDays = (days: number) => {
+    if (readOnly) return;
     const next = new Date(Date.now() + days * 24 * 3600 * 1000);
     setEndDate(next.toISOString().slice(0, 16));
   };
 
   const handleApprove = () => {
+    if (!onApprove) return;
     const excluded = proposal.items
       .filter((it) => !selectedIds.has(it.id))
       .map((it) => it.id);
@@ -129,7 +136,9 @@ export function CampaignProposalModal({
                 </span>
               </div>
               <p className="ccCampaignModalSubtitle">
-                Xem trước Thiết Kế Poster & Phê duyệt áp dụng chiến dịch lên Storefront
+                {readOnly
+                  ? "Chiến dịch đang kích hoạt trực tiếp trên Storefront và áp dụng mức giá khuyến mãi"
+                  : "Xem trước Thiết Kế Poster & Phê duyệt áp dụng chiến dịch lên Storefront"}
               </p>
             </div>
           </div>
@@ -362,36 +371,70 @@ export function CampaignProposalModal({
         {/* Footer Actions */}
         <div className="ccCampaignModalFooter">
           <div className="ccCampaignFooterSummary">
-            Sẽ áp dụng cho <strong>{selectedIds.size}</strong> sản phẩm. Giá sẽ tự động hoàn nguyên khi hết hạn.
+            {readOnly ? (
+              <>
+                Chiến dịch đang kích hoạt trên Storefront với <strong>{selectedIds.size}</strong> sản phẩm.
+              </>
+            ) : (
+              <>
+                Sẽ áp dụng cho <strong>{selectedIds.size}</strong> sản phẩm. Giá sẽ tự động hoàn nguyên khi hết hạn.
+              </>
+            )}
           </div>
 
           <div className="ccCampaignFooterActions">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isActivating}
-              className="ccCampaignCancelBtn"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              type="button"
-              onClick={handleApprove}
-              disabled={selectedIds.size === 0 || isActivating}
-              className="ccCampaignApproveBtn"
-            >
-              {isActivating ? (
-                <>
-                  <Loader2 size={16} className="ccSpin" />
-                  Đang kích hoạt chiến dịch...
-                </>
-              ) : (
-                <>
-                  <Check size={16} />
-                  Phê duyệt & Kích hoạt chiến dịch
-                </>
-              )}
-            </button>
+            {readOnly ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="ccCampaignCancelBtn"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.open("http://localhost:3100", "_blank")}
+                  className="ccCampaignApproveBtn"
+                  style={{
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    borderColor: "#3b82f6",
+                  }}
+                >
+                  <ExternalLink size={16} />
+                  Mở Storefront xem trực tiếp
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isActivating}
+                  className="ccCampaignCancelBtn"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={selectedIds.size === 0 || isActivating}
+                  className="ccCampaignApproveBtn"
+                >
+                  {isActivating ? (
+                    <>
+                      <Loader2 size={16} className="ccSpin" />
+                      Đang kích hoạt chiến dịch...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Phê duyệt & Kích hoạt chiến dịch
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -154,6 +154,7 @@ export interface CatalogApi {
   activateCampaign(campaignId: string, input?: { readonly endDate?: string; readonly excludedItemIds?: readonly string[] }): Promise<{ readonly success: boolean; readonly campaignId: string; readonly activatedAt: string }>;
   revertCampaign(campaignId: string): Promise<{ readonly success: boolean; readonly campaignId: string; readonly revertedAt: string }>;
   getActiveCampaign(): Promise<ActiveCampaign | null>;
+  getCampaign?(campaignId: string): Promise<CampaignProposal>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -224,6 +225,9 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     },
     async getActiveCampaign() {
       return (await request("/v1/admin/catalog/ai-merchandising/campaigns/active")) as ActiveCampaign | null;
+    },
+    async getCampaign(campaignId) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}`)) as CampaignProposal;
     },
   };
 }

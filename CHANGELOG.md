@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Merchandising Campaign Proposal Deliverable Modal Inspection ("Xem lại kết quả đề xuất chiến dịch Kinh doanh"):
+  - Rich Deliverable Modal Persistence & Read-Only Inspection: Enhanced `CampaignProposalModal` to support a `readOnly` mode with active status indication and direct link to Storefront (`[🛒 Mở Storefront xem trực tiếp]`), allowing operators to re-inspect the comprehensive proposal modal (displaying all 10 products with original prices, sale prices, saving amounts, and AI poster designs) even after campaign approval and activation.
+  - Campaign Deliverable Retrieval API: Added `getCampaign(campaignId)` in `AiMerchandisingService`, `AiMerchandisingController`, and `GET /api/v1/ai-merchandising/campaigns/:campaignId` to fetch historical and active campaigns with full product item details from `merchandising_campaign_items`.
+  - Unified Modal Navigation Across Command Center: Connected `[Xem kết quả]` in `LiveActivityFeed` (for completed campaign events and proposals), `ActiveCampaignWidget` banners, and `redesignedRecentDeliverables` to load and open the rich visual `CampaignProposalModal` directly instead of falling back to a generic plain text report.
+
+
 - Keycloak Staff Session Timeout Removal & Lifespan Extension ("Gỡ bỏ giới hạn thời gian đăng nhập Keycloak"):
   - Extended Token & Session Lifespans: Increased `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `clientSessionIdleTimeout`, and `clientSessionMaxLifespan` to 31,536,000 seconds (1 full year) in Keycloak realm `opendx`. Operators and developers remain continuously authenticated without sudden 5-minute or 30-minute session expirations ("Authentication required").
   - Persistent Configuration: Updated `infra/keycloak/realm-export.json` and `infra/keycloak/realm-production.json` to ensure 1-year persistent session lifespans across container re-creations and environment resets.

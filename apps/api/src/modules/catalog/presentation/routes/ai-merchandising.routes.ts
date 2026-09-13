@@ -21,6 +21,7 @@ export function createAiMerchandisingRouter(
   router.post("/ai-merchandising/campaigns/:campaignId/activate", authenticate, controller.activateCampaign);
   router.post("/ai-merchandising/campaigns/:campaignId/revert", authenticate, controller.revertCampaign);
   router.get("/ai-merchandising/campaigns/active", authenticate, controller.getActiveCampaign);
+  router.get("/ai-merchandising/campaigns/:campaignId", authenticate, controller.getCampaign);
 
   // Direct media content delivery for campaign and product visual previews
   router.get("/media-content", controller.getMediaContent);

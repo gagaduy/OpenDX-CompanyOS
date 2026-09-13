@@ -191,6 +191,35 @@ describe("AiMerchandisingService Campaign Engine", () => {
     expect(active?.discountPercent).toBe(20);
   });
 
+  it("retrieves campaign details by id", async () => {
+    const mockTx = {
+      runReadOnly: vi.fn().mockImplementation(async (cb) => cb({ query: vi.fn().mockResolvedValue({ rows: [] }) })),
+    };
+
+    const mockRepo = {
+      getById: vi.fn().mockResolvedValue({
+        id: "camp-123",
+        name: "Test Campaign",
+        badgeText: "HOT",
+        discountPercent: 15,
+        items: [],
+      }),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn().mockResolvedValue(undefined) } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const result = await service.getCampaign("camp-123");
+    expect(result?.id).toBe("camp-123");
+    expect(result?.name).toBe("Test Campaign");
+    expect(mockRepo.getById).toHaveBeenCalledWith(expect.anything(), "camp-123");
+  });
+
   it("filters specific products matching user prompt keywords or synonyms", async () => {
     const mockTx = {
       runReadOnly: vi.fn().mockImplementation(async (cb) => cb({

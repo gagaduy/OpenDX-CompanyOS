@@ -778,6 +778,12 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
     });
   }
 
+  async getCampaign(campaignId: string): Promise<CampaignProposalDto | null> {
+    return this.transactions.runReadOnly(async (session) => {
+      return this.campaignRepository.getById(session, campaignId);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // LEGACY PROPOSAL METHODS (PRESERVED FOR BACKWARD COMPATIBILITY)
   // ---------------------------------------------------------------------------

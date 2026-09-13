@@ -179,6 +179,19 @@ export class AiMerchandisingController {
     }
   };
 
+  getCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const campaignId = String(req.params.campaignId);
+      const campaign = await this.service.getCampaign(campaignId);
+      if (!campaign) {
+        throw new ApplicationError(404, "NOT_FOUND", `Không tìm thấy chiến dịch ID: ${campaignId}`);
+      }
+      res.status(200).json(campaign);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
   getMediaContent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const rawKey = req.query.key;

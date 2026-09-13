@@ -605,11 +605,58 @@ export function AgenticCommandCenter({
   const [activeCampaign, setActiveCampaign] = useState<ActiveCampaign | null>(null);
   const [activeCampaigns, setActiveCampaigns] = useState<readonly ActiveCampaign[]>([]);
   const [campaignProposal, setCampaignProposal] = useState<CampaignProposal | null>(null);
+  const [viewingCampaignProposal, setViewingCampaignProposal] = useState<CampaignProposal | null>(null);
+  const [isCampaignModalReadOnly, setIsCampaignModalReadOnly] = useState(false);
+  const campaignProposalsCache = useRef<Record<string, CampaignProposal>>({});
   const [campaignProposalModalOpen, setCampaignProposalModalOpen] = useState(false);
   const [isActivatingCampaign, setIsActivatingCampaign] = useState(false);
   const [isRevertingCampaign, setIsRevertingCampaign] = useState(false);
   const [activeCampaignScrollIndex, setActiveCampaignScrollIndex] = useState(0);
   const activeCampaignsScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenCampaignDeliverable = async (campaignId?: string, readOnly = true) => {
+    setIsCampaignModalReadOnly(readOnly);
+    if (!campaignId) {
+      if (campaignProposal) {
+        setViewingCampaignProposal(campaignProposal);
+        setCampaignProposalModalOpen(true);
+      }
+      return;
+    }
+
+    if (campaignProposal && campaignProposal.id === campaignId) {
+      setViewingCampaignProposal(campaignProposal);
+      setCampaignProposalModalOpen(true);
+      return;
+    }
+
+    if (campaignProposalsCache.current[campaignId]) {
+      setViewingCampaignProposal(campaignProposalsCache.current[campaignId]!);
+      setCampaignProposalModalOpen(true);
+      return;
+    }
+
+    if (catalogApi?.getCampaign) {
+      try {
+        const fetched = await catalogApi.getCampaign(campaignId);
+        if (fetched) {
+          campaignProposalsCache.current[campaignId] = fetched;
+          setViewingCampaignProposal(fetched);
+          setCampaignProposalModalOpen(true);
+          return;
+        }
+      } catch (e) {
+        console.warn("[CampaignProposal] Could not fetch campaign by id:", e);
+      }
+    }
+
+    const targetCamp = activeCampaigns.find((c) => c.id === campaignId) || activeCampaign;
+    if (targetCamp) {
+      const deliv = buildStrategicDeliverable(targetCamp.name, targetCamp.id, "merchandising");
+      setSelectedStrategicDeliverable(deliv);
+      setIsStrategicModalOpen(true);
+    }
+  };
 
   const displayedActiveCampaigns = useMemo(() => {
     return activeCampaigns && activeCampaigns.length > 0
@@ -632,10 +679,10 @@ export function AgenticCommandCenter({
     }
   }, [catalogApi]);
 
-  // Safeguard: if campaign proposal modal is requested but campaignProposal is null,
+  // Safeguard: if campaign proposal modal is requested but neither campaignProposal nor viewingCampaignProposal is present,
   // automatically fallback to StrategicDeliverableModal with activeCampaign deliverable
   useEffect(() => {
-    if (campaignProposalModalOpen && !campaignProposal) {
+    if (campaignProposalModalOpen && !campaignProposal && !viewingCampaignProposal) {
       if (activeCampaign) {
         const deliv = buildStrategicDeliverable(activeCampaign.name, activeCampaign.id, "merchandising");
         setSelectedStrategicDeliverable(deliv);
@@ -643,7 +690,7 @@ export function AgenticCommandCenter({
       }
       setCampaignProposalModalOpen(false);
     }
-  }, [campaignProposalModalOpen, campaignProposal, activeCampaign]);
+  }, [campaignProposalModalOpen, campaignProposal, viewingCampaignProposal, activeCampaign]);
 
   // Operations / Inventory Restock State
   const [operationsProposal, setOperationsProposal] = useState<OperationsProposal | null>(null);
@@ -1515,13 +1562,7 @@ export function AgenticCommandCenter({
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          const deliv = buildStrategicDeliverable(
-            camp.name,
-            camp.id,
-            "merchandising",
-          );
-          setSelectedStrategicDeliverable(deliv);
-          setIsStrategicModalOpen(true);
+          void handleOpenCampaignDeliverable(camp.id, true);
         },
       });
     }
@@ -1539,7 +1580,7 @@ export function AgenticCommandCenter({
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          setCampaignProposalModalOpen(true);
+          void handleOpenCampaignDeliverable(campaignProposal.id, false);
         },
       });
     }
@@ -3540,6 +3581,8 @@ export function AgenticCommandCenter({
         endDate: options.endDate,
         excludedItemIds: options.excludedItemIds,
       });
+      campaignProposalsCache.current[campaignProposal.id] = campaignProposal;
+      const approvedCampId = campaignProposal.id;
       setCampaignProposalModalOpen(false);
       setCampaignProposal(null);
       setMerchandisingProposal((prev) =>
@@ -3571,13 +3614,7 @@ export function AgenticCommandCenter({
         "success",
         "Xem kết quả",
         () => {
-          const deliv = buildStrategicDeliverable(
-            campaignProposal.name,
-            campaignProposal.id,
-            "merchandising",
-          );
-          setSelectedStrategicDeliverable(deliv);
-          setIsStrategicModalOpen(true);
+          void handleOpenCampaignDeliverable(approvedCampId, true);
         },
         new Date().toISOString(),
         `camp-ev-${campaignProposal.id}`,
@@ -5381,13 +5418,7 @@ export function AgenticCommandCenter({
         format: "docx",
         timestamp: new Date(camp.startTime).getTime(),
         onDownloadOrView: () => {
-          const deliv = buildStrategicDeliverable(
-            camp.name,
-            camp.id,
-            "merchandising",
-          );
-          setSelectedStrategicDeliverable(deliv);
-          setIsStrategicModalOpen(true);
+          void handleOpenCampaignDeliverable(camp.id, true);
         },
       });
     }
@@ -5765,6 +5796,8 @@ export function AgenticCommandCenter({
         onViewDeliverable={() => {
           if (activeCampaignDetail) {
             setMarketingCampaignModalOpen(true);
+          } else if (campaignProposal || activeCampaign) {
+            void handleOpenCampaignDeliverable(campaignProposal?.id || activeCampaign?.id, !campaignProposal && !!activeCampaign);
           } else if (selectedStrategicDeliverable) {
             setIsStrategicModalOpen(true);
           } else if (operationsProposal) {
@@ -5791,14 +5824,7 @@ export function AgenticCommandCenter({
             onRevert={handleEmergencyRevertCampaign}
             isReverting={isRevertingCampaign}
             onViewDeliverable={() => {
-              const camp = displayedActiveCampaigns[0]!;
-              const deliv = buildStrategicDeliverable(
-                camp.name,
-                camp.id,
-                "merchandising",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
+              void handleOpenCampaignDeliverable(displayedActiveCampaigns[0]!.id, true);
             }}
           />
         </div>
@@ -5907,13 +5933,7 @@ export function AgenticCommandCenter({
                   onRevert={handleEmergencyRevertCampaign}
                   isReverting={isRevertingCampaign}
                   onViewDeliverable={() => {
-                    const deliv = buildStrategicDeliverable(
-                      camp.name,
-                      camp.id,
-                      "merchandising",
-                    );
-                    setSelectedStrategicDeliverable(deliv);
-                    setIsStrategicModalOpen(true);
+                    void handleOpenCampaignDeliverable(camp.id, true);
                   }}
                 />
               </div>
@@ -5981,13 +6001,17 @@ export function AgenticCommandCenter({
       />
 
       {/* Production Modals */}
-      {campaignProposalModalOpen && campaignProposal && (
+      {campaignProposalModalOpen && (viewingCampaignProposal || campaignProposal) && (
         <CampaignProposalModal
-          proposal={campaignProposal}
-          onClose={() => setCampaignProposalModalOpen(false)}
+          proposal={(viewingCampaignProposal || campaignProposal)!}
+          onClose={() => {
+            setCampaignProposalModalOpen(false);
+            setViewingCampaignProposal(null);
+          }}
           onApprove={handleApproveCampaign}
           isActivating={isActivatingCampaign}
           apiBaseUrl={apiBaseUrl}
+          readOnly={isCampaignModalReadOnly}
         />
       )}
 
