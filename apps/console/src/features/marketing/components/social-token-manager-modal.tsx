@@ -186,12 +186,62 @@ export function SocialTokenManagerModal({
         </div>
 
         {/* Action feedback message */}
-        {actionFeedback && (
-          <div className="socialTokenFeedbackBanner" role="alert">
-            <CheckCircle2 size={16} />
-            <span>{actionFeedback}</span>
-          </div>
-        )}
+        {actionFeedback && (() => {
+          const isError =
+            actionFeedback.startsWith("Lỗi") ||
+            actionFeedback.startsWith("Error") ||
+            actionFeedback.includes("Authentication required") ||
+            actionFeedback.includes("thất bại");
+          const isAuthError = actionFeedback.includes("Authentication required") || actionFeedback.includes("401");
+
+          return (
+            <div
+              className={`socialTokenFeedbackBanner ${isError ? "error" : ""}`}
+              style={
+                isError
+                  ? {
+                      background: "rgba(239, 68, 68, 0.15)",
+                      borderColor: "rgba(239, 68, 68, 0.4)",
+                      color: "#fca5a5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.75rem",
+                    }
+                  : undefined
+              }
+              role="alert"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {isError ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+                <span>
+                  {isAuthError
+                    ? "Phiên đăng nhập trên OpenDX CompanyOS đã hết hạn. Vui lòng tải lại trang (F5) hoặc Đăng nhập lại."
+                    : actionFeedback}
+                </span>
+              </div>
+              {isAuthError && (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  style={{
+                    background: "#f59e0b",
+                    color: "#000",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "0.25rem 0.6rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Tải lại trang (F5)
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Global Toolbar */}
         <div className="socialTokenToolbar">
@@ -288,6 +338,8 @@ export function SocialTokenManagerModal({
                 placeholder="Meta App Secret..."
                 value={appSecretInput}
                 onChange={(e) => setAppSecretInput(e.target.value)}
+                autoComplete="new-password"
+                spellCheck={false}
                 className="socialTokenInput"
                 style={{ flex: "1 1 240px" }}
               />
