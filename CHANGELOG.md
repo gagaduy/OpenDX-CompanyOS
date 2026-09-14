@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Agentic Command Center Light Theme:
   - Removed the redesign stylesheet's forced-dark override in light mode and mapped workspace, workforce, timeline, approval, diagnostics, Support email, and strategic deliverable surfaces to the console's semantic theme tokens.
-  - Increased typography across the complete Command Center workspace and its governed modals by 15% through one shared scale token, without resizing icons or structural layout dimensions.
+  - Increased typography across the complete Command Center workspace and its governed modals by 20% through one shared scale token, without resizing icons or structural layout dimensions.
 
 - Support Email Proposal Preview & Selective Approval ("Xem trước và duyệt email CSKH"):
   - Added a data-driven completion modal that renders AI-generated recipients, subjects, response bodies, priorities, churn risks, and voucher recommendations directly from the Support proposal.

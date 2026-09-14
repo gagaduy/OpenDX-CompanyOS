@@ -84,7 +84,7 @@ describe("Agentic Command Center theme", () => {
     );
   });
 
-  it("scales Command Center typography by fifteen percent", () => {
+  it("scales Command Center typography by twenty percent", () => {
     const style = document.createElement("style");
     style.dataset.commandCenterTest = "true";
     style.textContent = `${legacyCommandCenterCss}\n${commandCenterCss}`;
@@ -104,7 +104,7 @@ describe("Agentic Command Center theme", () => {
       (rule) => rule.selectorText === ".ccActiveCampaignTitle",
     );
 
-    expect(workspaceRule?.style.getPropertyValue("--cc-font-scale")).toBe("1.15");
+    expect(workspaceRule?.style.getPropertyValue("--cc-font-scale")).toBe("1.2");
     expect(titleRule?.style.fontSize).toBe("calc(1.65rem * var(--cc-font-scale))");
     expect(compactLabelRule?.style.fontSize).toContain("var(--cc-font-scale)");
     expect(campaignTitleRule?.style.fontSize).toContain("var(--cc-font-scale)");

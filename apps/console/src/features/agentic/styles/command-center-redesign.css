@@ -11,7 +11,7 @@
 
 /* Shared typography scale for every Command Center surface and modal. */
 .commandCenterWorkspace {
-  --cc-font-scale: 1.15;
+  --cc-font-scale: 1.2;
 }
 
 /* Workspace Container: dark is the default and explicit night-theme canvas. */
