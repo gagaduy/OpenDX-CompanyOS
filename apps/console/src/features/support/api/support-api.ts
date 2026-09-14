@@ -28,6 +28,7 @@ export interface SupportOperationsApi {
   uploadAttachment(ticketId:string, file:File):Promise<SupportAttachmentView>;
   downloadAttachment(ticketId:string, attachmentId:string):Promise<Blob>;
   generateSupportProposal(prompt: string): Promise<AiSupportProposalView>;
+  getLatestSupportProposal?(signal?: AbortSignal): Promise<AiSupportProposalView | null>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
   draftAiReply?(id: string, signal?: AbortSignal): Promise<string>;
@@ -50,6 +51,10 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
         body: JSON.stringify({ prompt }),
       });
       return envelope.data as AiSupportProposalView;
+    },
+    async getLatestSupportProposal(signal?: AbortSignal): Promise<AiSupportProposalView | null> {
+      const envelope: any = await request("/v1/admin/support/tickets/ai-proposal/latest", { signal });
+      return (envelope.data as AiSupportProposalView | null) ?? null;
     },
     async downloadSupportDocx(proposalId: string, filename: string): Promise<void> {
       const response = await fetch(`${baseUrl}/v1/admin/support/tickets/ai-proposal/${proposalId}/docx`, {

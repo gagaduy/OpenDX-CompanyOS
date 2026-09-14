@@ -6,6 +6,54 @@ import { describe, expect, it, vi } from "vitest";
 import { AiSupportService } from "../application/services/implementations/ai-support.service";
 
 describe("AiSupportService", () => {
+  it("returns the most recently created cached support proposal", async () => {
+    const service = new AiSupportService({} as any, {});
+    const proposal = (id: string, createdAt: string) => ({
+      id,
+      prompt: "Soạn email chăm sóc khách hàng",
+      overallSentimentSummary: "Đã xử lý email CSKH.",
+      churnRiskAssessment: "Rủi ro thấp.",
+      recommendedAction: "Theo dõi phản hồi.",
+      tickets: [],
+      vipCustomers: [],
+      totalTickets: 0,
+      status: "applied" as const,
+      createdAt,
+      docxFilename: `${id}.docx`,
+    });
+    (service as any).proposalsCache.set("older", proposal("older", "2026-09-13T10:00:00.000Z"));
+    (service as any).proposalsCache.set("latest", proposal("latest", "2026-09-13T11:00:00.000Z"));
+
+    await expect(service.getLatestSupportProposal()).resolves.toMatchObject({ id: "latest", status: "applied" });
+  });
+
+  it("recovers the latest applied support proposal from persisted ticket events", async () => {
+    const service = new AiSupportService({
+      query: vi.fn(async () => ({
+        rows: [{
+          proposal_id: "persisted-proposal",
+          applied_at: new Date("2026-09-13T16:00:00.000Z"),
+          ticket_id: "ticket-1",
+          customer_name: "Khách hàng A",
+          customer_email: "customer-a@example.com",
+          subject: "Hỗ trợ đơn hàng",
+          priority: "high",
+          response_message: "Nội dung email đã gửi.",
+        }],
+      })),
+    } as any, {});
+
+    await expect(service.getLatestSupportProposal()).resolves.toMatchObject({
+      id: "persisted-proposal",
+      status: "applied",
+      tickets: [{
+        ticketId: "ticket-1",
+        customerEmail: "customer-a@example.com",
+        proposedResponse: "Nội dung email đã gửi.",
+      }],
+    });
+  });
+
   it("creates and retrieves cached support proposals and generates docx", async () => {
     const mockPool: any = {
       query: vi.fn(async (sql: string) => {

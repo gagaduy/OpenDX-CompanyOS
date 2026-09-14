@@ -9,9 +9,13 @@
    Theme: Pure Deep Dark Canvas (#07090e), Hairline Borders, Sleek Accent (#2563eb / #5e6ad2)
    ========================================================================== */
 
-/* Workspace Container: Force dark theme regardless of console shell mode */
+/* Shared typography scale for every Command Center surface and modal. */
+.commandCenterWorkspace {
+  --cc-font-scale: 1.15;
+}
+
+/* Workspace Container: dark is the default and explicit night-theme canvas. */
 .commandCenterWorkspace,
-.consoleLayout[data-theme="light"] .commandCenterWorkspace,
 .consoleLayout[data-theme="night"] .commandCenterWorkspace {
   min-height: 100vh;
   padding: 1.25rem 1.75rem 3.5rem;
@@ -50,7 +54,7 @@
 }
 
 .ccTitle {
-  font-size: 1.65rem;
+  font-size: calc(1.65rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.02em;
@@ -59,7 +63,7 @@
 }
 
 .ccSubtitle {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 4px 0 0 0;
 }
@@ -78,7 +82,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 6px 12px;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #cbd5e1;
   user-select: none;
 }
@@ -101,7 +105,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 6px 12px;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #cbd5e1;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -124,7 +128,7 @@
   gap: 0.4rem;
   background: #2563eb;
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 600;
   border: none;
   border-radius: 8px;
@@ -158,7 +162,7 @@
   gap: 0.45rem;
   padding: 4px 12px;
   border-radius: 9999px;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -186,7 +190,7 @@
   justify-content: center;
   padding: 1px 7px;
   border-radius: 9999px;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 700;
   background: #07090e;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -270,7 +274,7 @@
 }
 
 .ccStrategicTitle {
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -284,7 +288,7 @@
 }
 
 .ccStrategicHint {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #64748b;
 }
 
@@ -296,7 +300,7 @@
   border-radius: 8px;
   padding: 0.7rem 0.85rem;
   color: #f8fafc;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   line-height: 1.45;
   resize: vertical;
   outline: none;
@@ -336,7 +340,7 @@
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--cc-font-scale));
   padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
@@ -358,7 +362,7 @@
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
@@ -371,7 +375,7 @@
   gap: 0.4rem;
   background: #2563eb;
   color: #ffffff;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   border: none;
   border-radius: 6px;
@@ -399,7 +403,7 @@
 }
 
 .ccQuickLabel {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #64748b;
   font-weight: 500;
 }
@@ -408,7 +412,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   padding: 3px 9px;
   border-radius: 4px;
   cursor: pointer;
@@ -462,7 +466,7 @@
 }
 
 .ccCeoName {
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -472,7 +476,7 @@
   background: rgba(34, 197, 94, 0.15);
   border: 1px solid rgba(34, 197, 94, 0.3);
   color: #4ade80;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 9999px;
@@ -483,13 +487,13 @@
 
 .ccCeoTimer {
   font-family: monospace, ui-monospace;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   color: #38bdf8;
 }
 
 .ccCeoQuote {
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--cc-font-scale));
   color: #94a3b8;
   font-style: italic;
   background: rgba(255, 255, 255, 0.02);
@@ -511,7 +515,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--cc-font-scale));
   color: #cbd5e1;
 }
 
@@ -535,7 +539,7 @@
   border: 1px solid #475569;
   background: rgba(30, 41, 59, 0.6);
   color: #94a3b8;
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--cc-font-scale));
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -547,7 +551,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.25);
@@ -558,7 +562,7 @@
 }
 
 .ccCeoActionBtn {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 4px;
@@ -600,13 +604,13 @@
 .ccCeoBannerHeadline {
   color: #38bdf8;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   margin: 0;
 }
 
 .ccCeoBannerFormula {
   color: #64748b;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   margin: 2px 0 0 0;
 }
 
@@ -625,7 +629,7 @@
 }
 
 .ccSloganHeader {
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--cc-font-scale));
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.015em;
@@ -643,7 +647,7 @@
 }
 
 .ccSloganFormula {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   color: #94a3b8;
   line-height: 1.5;
   margin: 0;
@@ -686,7 +690,7 @@
 }
 
 .ccWorkforceTitle {
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -700,7 +704,7 @@
 }
 
 .ccWorkforceSubtitle {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 2px 0 0 0;
 }
@@ -712,7 +716,7 @@
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.25);
   color: #60a5fa;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 5px 12px;
   border-radius: 6px;
@@ -814,7 +818,7 @@
 }
 
 .ccDeptName {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
@@ -822,7 +826,7 @@
 }
 
 .ccDeptSubtext {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 2px 0 0 0;
 }
@@ -833,7 +837,7 @@
   gap: 0.3rem;
   padding: 2px 8px;
   border-radius: 9999px;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 600;
 }
 
@@ -878,7 +882,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--cc-font-scale));
 }
 
 .ccEmpLeft {
@@ -896,7 +900,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   color: #cbd5e1;
 }
@@ -908,7 +912,7 @@
 
 .ccEmpRole {
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
 }
 
 .ccEmpStatusWrap {
@@ -918,7 +922,7 @@
 }
 
 .ccEmpStatus {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -937,7 +941,7 @@
 }
 
 .ccEmpPercent {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   color: #cbd5e1;
 }
@@ -983,7 +987,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.45rem;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   padding: 2px 0;
 }
 
@@ -1003,7 +1007,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--cc-font-scale));
   font-weight: 700;
   color: #cbd5e1;
   flex-shrink: 0;
@@ -1020,13 +1024,13 @@
 .ccEmpIdCompact {
   font-weight: 700;
   color: #ffffff;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   white-space: nowrap;
 }
 
 .ccEmpRoleCompact {
   color: #94a3b8;
-  font-size: 0.71rem;
+  font-size: calc(0.71rem * var(--cc-font-scale));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1040,7 +1044,7 @@
 }
 
 .ccEmpStatusCompact {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -1082,7 +1086,7 @@
 }
 
 .ccEmpPercentCompact {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   color: #cbd5e1;
   min-width: 24px;
@@ -1107,14 +1111,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #cbd5e1;
   font-weight: 600;
   margin-bottom: 2px;
 }
 
 .ccDeptQueueTitle {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #cbd5e1;
   font-weight: 600;
 }
@@ -1124,7 +1128,7 @@
   color: #94a3b8;
   padding: 1px 6px;
   border-radius: 4px;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
@@ -1137,7 +1141,7 @@
 }
 
 .ccDeptQueueItem {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   display: flex;
   align-items: center;
@@ -1165,7 +1169,7 @@
 }
 
 .ccDeptQueueEmpty {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   color: #64748b;
   font-style: italic;
 }
@@ -1181,7 +1185,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   color: #fca5a5;
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--cc-font-scale));
   min-width: 0;
   overflow: hidden;
 }
@@ -1205,7 +1209,7 @@
 .ccDeptErrorAction {
   color: #f87171;
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
@@ -1220,7 +1224,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   color: #94a3b8;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1253,7 +1257,7 @@
   border-radius: 6px;
   padding: 5px 8px;
   color: #f8fafc;
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--cc-font-scale));
   outline: none;
 }
 
@@ -1307,7 +1311,7 @@
 }
 
 .ccLiveFeedTitle {
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -1320,7 +1324,7 @@
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
   border: 1px solid rgba(34, 197, 94, 0.3);
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 9999px;
@@ -1333,7 +1337,7 @@
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   border-radius: 6px;
   padding: 2px 6px;
   outline: none;
@@ -1382,7 +1386,7 @@
 }
 
 .ccTimelineTimeHour {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   color: #cbd5e1;
   letter-spacing: -0.2px;
@@ -1390,7 +1394,7 @@
 }
 
 .ccTimelineTimeDate {
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--cc-font-scale));
   color: #64748b;
   letter-spacing: -0.3px;
   line-height: 1;
@@ -1404,7 +1408,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: calc(10px * var(--cc-font-scale));
   flex-shrink: 0;
   position: relative;
   z-index: 1;
@@ -1446,7 +1450,7 @@
 }
 
 .ccTimelineTitle {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #f1f5f9;
   white-space: nowrap;
@@ -1455,7 +1459,7 @@
 }
 
 .ccTimelineDesc {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   line-height: 1.35;
   white-space: nowrap;
@@ -1469,7 +1473,7 @@
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 4px;
   padding: 1px 7px;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -1523,14 +1527,14 @@
 }
 
 .ccApprovalsTitle {
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
 }
 
 .ccApprovalsViewAll {
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--cc-font-scale));
   color: #60a5fa;
   cursor: pointer;
   text-decoration: none;
@@ -1597,6 +1601,306 @@
   scroll-margin-block: 1rem;
 }
 
+/* Support email approval deliverable */
+.supportEmailModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(1, 1, 2, 0.84);
+  backdrop-filter: blur(5px);
+}
+
+.supportEmailModal {
+  width: min(1080px, 96vw);
+  max-height: min(850px, 92vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #e5e7eb;
+  background: #0b101b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62);
+}
+
+.supportEmailModalHeader,
+.supportEmailModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #0d1421;
+}
+
+.supportEmailModalHeader {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.supportEmailModalHeading,
+.supportEmailModalTitleRow,
+.supportEmailRecipient,
+.supportEmailSubjectRow,
+.supportEmailFooterStatus,
+.supportEmailFooterActions,
+.supportEmailPagination {
+  display: flex;
+  align-items: center;
+}
+
+.supportEmailModalHeading { gap: 0.75rem; }
+.supportEmailModalTitleRow { gap: 0.65rem; flex-wrap: wrap; }
+
+.supportEmailModalIcon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  color: #a5b4fc;
+  background: rgba(94, 106, 210, 0.18);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  border-radius: 10px;
+}
+
+.supportEmailModalHeader h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: calc(1rem * var(--cc-font-scale));
+  line-height: 1.35;
+}
+
+.supportEmailModalHeader p {
+  margin: 0.2rem 0 0;
+  color: #8190a7;
+  font-size: calc(0.72rem * var(--cc-font-scale));
+}
+
+.supportEmailPendingBadge {
+  padding: 0.18rem 0.5rem;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 999px;
+  font-size: calc(0.65rem * var(--cc-font-scale));
+  font-weight: 700;
+}
+
+.supportEmailPendingBadge.is-applied {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.supportEmailCloseBtn,
+.supportEmailPagination button {
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 7px;
+}
+
+.supportEmailCloseBtn { width: 34px; height: 34px; }
+.supportEmailCloseBtn:hover { color: #f8fafc; border-color: rgba(148, 163, 184, 0.42); }
+
+.supportEmailSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  background: #080d17;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.13);
+}
+
+.supportEmailSummary > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  color: #a8b3c7;
+  background: #0d1421;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 8px;
+  font-size: calc(0.68rem * var(--cc-font-scale));
+}
+
+.supportEmailSummary svg { flex: 0 0 auto; color: #818cf8; }
+.supportEmailSummary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.supportEmailSummary strong { color: #f8fafc; }
+
+.supportEmailToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  color: #dbe3ef;
+  font-size: calc(0.72rem * var(--cc-font-scale));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.13);
+}
+
+.supportEmailToolbar > div:first-child { display: flex; align-items: center; gap: 0.75rem; }
+
+.supportEmailSelectPageBtn {
+  padding: 0;
+  color: #a5b4fc;
+  background: transparent;
+  border: 0;
+  font-size: calc(0.68rem * var(--cc-font-scale));
+  text-decoration: underline;
+}
+
+.supportEmailPagination { gap: 0.35rem; color: #8491a7; }
+.supportEmailPagination button { width: 28px; height: 28px; }
+.supportEmailPagination button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.supportEmailList {
+  min-height: 230px;
+  padding: 0.75rem 1.25rem;
+  overflow-y: auto;
+}
+
+.supportEmailRow {
+  display: grid;
+  grid-template-columns: 32px minmax(160px, 0.7fr) minmax(320px, 1.8fr);
+  gap: 0.75rem;
+  align-items: start;
+  margin-bottom: 0.65rem;
+  padding: 0.85rem;
+  background: #0d1421;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.supportEmailRow.is-selected {
+  background: #11182a;
+  border-color: rgba(94, 106, 210, 0.66);
+}
+
+.supportEmailCheckboxWrap { padding-top: 0.2rem; }
+.supportEmailCheckboxWrap input { width: 16px; height: 16px; accent-color: #5e6ad2; }
+.supportEmailRecipient { gap: 0.55rem; min-width: 0; }
+.supportEmailRecipient > div { min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
+.supportEmailRecipient strong { color: #f1f5f9; font-size: calc(0.76rem * var(--cc-font-scale)); }
+.supportEmailRecipient span:not(.supportEmailAvatar) { overflow: hidden; color: #7f8da3; font-size: calc(0.66rem * var(--cc-font-scale)); text-overflow: ellipsis; white-space: nowrap; }
+
+.supportEmailAvatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  color: #c7d2fe;
+  background: rgba(94, 106, 210, 0.2);
+  border-radius: 50%;
+  font-size: calc(0.66rem * var(--cc-font-scale));
+  font-weight: 800;
+}
+
+.supportEmailContent { min-width: 0; }
+.supportEmailSubjectRow { gap: 0.4rem; flex-wrap: wrap; }
+.supportEmailSubjectRow > strong { margin-right: auto; color: #f1f5f9; font-size: calc(0.75rem * var(--cc-font-scale)); }
+.supportEmailContent p { margin: 0.45rem 0; color: #a6b1c2; font-size: calc(0.7rem * var(--cc-font-scale)); line-height: 1.55; white-space: pre-wrap; }
+
+.supportEmailPriority,
+.supportEmailRisk,
+.supportEmailVoucher {
+  padding: 0.16rem 0.4rem;
+  border-radius: 5px;
+  font-size: calc(0.61rem * var(--cc-font-scale));
+  font-weight: 700;
+}
+
+.supportEmailPriority { color: #fbbf24; background: rgba(245, 158, 11, 0.11); }
+.supportEmailPriority.priority-urgent,
+.supportEmailPriority.priority-high { color: #fb7185; background: rgba(244, 63, 94, 0.11); }
+.supportEmailRisk { color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
+.supportEmailRisk.risk-high { color: #fb7185; }
+.supportEmailRisk.risk-low { color: #34d399; }
+
+.supportEmailVoucher {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.supportEmailEmpty {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: #64748b;
+  text-align: center;
+  font-size: calc(0.72rem * var(--cc-font-scale));
+}
+
+.supportEmailEmpty strong { color: #cbd5e1; }
+
+.supportEmailModalFooter {
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.supportEmailFooterStatus { gap: 0.4rem; color: #8e9bb0; font-size: calc(0.68rem * var(--cc-font-scale)); }
+.supportEmailFooterStatus svg { color: #34d399; }
+.supportEmailFooterActions { gap: 0.55rem; }
+
+.supportEmailCancelBtn,
+.supportEmailSelectedBtn,
+.supportEmailApproveAllBtn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 7px;
+  font-size: calc(0.7rem * var(--cc-font-scale));
+  font-weight: 700;
+}
+
+.supportEmailCancelBtn,
+.supportEmailSelectedBtn {
+  color: #cbd5e1;
+  background: #172033;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.supportEmailSelectedBtn { color: #c7d2fe; border-color: rgba(94, 106, 210, 0.48); }
+.supportEmailApproveAllBtn { color: white; background: #5e6ad2; border: 1px solid #7079db; }
+.supportEmailApproveAllBtn:hover:not(:disabled) { background: #6b75dc; }
+.supportEmailCancelBtn:disabled,
+.supportEmailSelectedBtn:disabled,
+.supportEmailApproveAllBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+@media (max-width: 820px) {
+  .supportEmailSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .supportEmailRow { grid-template-columns: 28px 1fr; }
+  .supportEmailContent { grid-column: 2; }
+  .supportEmailModalFooter { align-items: stretch; flex-direction: column; }
+  .supportEmailFooterActions { flex-wrap: wrap; }
+}
+
+@media (max-width: 560px) {
+  .supportEmailModalOverlay { padding: 0.5rem; }
+  .supportEmailModal { width: 100%; max-height: 96vh; }
+  .supportEmailSummary { grid-template-columns: 1fr; }
+  .supportEmailToolbar { align-items: flex-start; flex-direction: column; }
+  .supportEmailFooterActions > button { flex: 1 1 100%; }
+}
+
 .ccApprovalTopRow {
   display: flex;
   align-items: flex-start;
@@ -1624,7 +1928,7 @@
 }
 
 .ccApprovalTitle {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
   color: #f8fafc;
   line-height: 1.25;
@@ -1633,7 +1937,7 @@
 .ccApprovalNewBadge {
   background: #f59e0b;
   color: #000000;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 1px 4px;
   border-radius: 3px;
@@ -1641,12 +1945,12 @@
 
 .ccApprovalTime {
   color: #64748b;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   white-space: nowrap;
 }
 
 .ccApprovalAuthor {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 4px 0 0.6rem;
   padding-left: 2rem;
@@ -1665,7 +1969,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   padding: 6px 0;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   text-align: center;
@@ -1687,7 +1991,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   padding: 6px 0;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   text-align: center;
@@ -1709,7 +2013,7 @@
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 6px;
   padding: 6px 0;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -1732,7 +2036,7 @@
   border: none;
   border-radius: 6px;
   padding: 6px 0;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -1756,7 +2060,7 @@
 }
 
 .ccResultsHeaderTitle {
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin-bottom: 0.75rem;
@@ -1811,14 +2115,14 @@
 }
 
 .ccDonutNumber {
-  font-size: 1.4rem;
+  font-size: calc(1.4rem * var(--cc-font-scale));
   font-weight: 800;
   color: #ffffff;
   line-height: 1;
 }
 
 .ccDonutLabel {
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--cc-font-scale));
   color: #94a3b8;
   margin-top: 2px;
   text-align: center;
@@ -1828,7 +2132,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #cbd5e1;
 }
 
@@ -1865,7 +2169,7 @@
 }
 
 .ccColTitle {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #cbd5e1;
   margin: 0 0 0.3rem 0;
@@ -1881,7 +2185,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -1920,7 +2224,7 @@
 }
 
 .ccKpiVal {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   font-weight: 800;
   color: #ffffff;
   display: flex;
@@ -1930,13 +2234,13 @@
 }
 
 .ccKpiLabel {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   color: #94a3b8;
   margin-top: 2px;
 }
 
 .ccKpiTrend {
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 600;
   margin-top: 2px;
 }
@@ -1963,7 +2267,7 @@
 }
 
 .ccDeliverablesViewAll {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #60a5fa;
   cursor: pointer;
   background: transparent;
@@ -1986,7 +2290,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   background: #080c14;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
@@ -2059,7 +2363,7 @@
 .ccDelivTitle {
   color: #f8fafc;
   font-weight: 500;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2067,7 +2371,7 @@
 
 .ccDelivDept {
   color: #94a3b8;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2083,7 +2387,7 @@
 
 .ccDelivTime {
   color: #64748b;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   white-space: nowrap;
 }
 
@@ -2093,7 +2397,7 @@
   border: 1px solid rgba(34, 197, 94, 0.3);
   border-radius: 4px;
   padding: 1px 6px;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2144,14 +2448,14 @@
 }
 
 .ccDiagnosticsTitle {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   font-weight: 600;
   color: #f8fafc;
   margin: 0;
 }
 
 .ccDiagnosticsSubtitle {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 0.15rem 0 0 0;
 }
@@ -2186,7 +2490,7 @@
 
 .ccDiagnosticsAlertBadge {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2199,7 +2503,7 @@
 
 .ccDiagnosticsErrorMsg {
   color: #fee2e2;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   line-height: 1.45;
   margin: 0;
   word-break: break-word;
@@ -2217,14 +2521,14 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
   color: #e2e8f0;
   margin: 0 0 0.45rem 0;
 }
 
 .ccDiagnosticsSectionText {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   line-height: 1.5;
   color: #cbd5e1;
   margin: 0;
@@ -2243,7 +2547,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--cc-font-scale));
   line-height: 1.45;
   color: #cbd5e1;
 }
@@ -2254,7 +2558,7 @@
   border-radius: 50%;
   background: rgba(52, 211, 153, 0.15);
   color: #34d399;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -2272,7 +2576,7 @@
   border: 1px solid rgba(59, 130, 246, 0.2);
   border-radius: 6px;
   color: #93c5fd;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   line-height: 1.4;
 }
 
@@ -2311,7 +2615,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.8rem;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 500;
   color: #94a3b8;
   background: transparent;
@@ -2332,7 +2636,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.8rem;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.1);
@@ -2352,7 +2656,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.9rem;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   color: #ffffff;
   background: #3b82f6;
@@ -2451,7 +2755,7 @@
   align-items: center;
   gap: 0.3rem;
   padding: 2px 8px;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 700;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
@@ -2466,7 +2770,7 @@
   align-items: center;
   gap: 0.3rem;
   padding: 2px 8px;
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 700;
   color: #34d399;
   background: rgba(16, 185, 129, 0.12);
@@ -2475,7 +2779,7 @@
 }
 
 .sdHeaderTitle {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f8fafc;
   margin: 0 0 0.25rem 0;
@@ -2483,7 +2787,7 @@
 }
 
 .sdHeaderGoal {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 0;
   overflow: hidden;
@@ -2530,7 +2834,7 @@
 }
 
 .sdKpiLabel {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -2538,7 +2842,7 @@
 }
 
 .sdKpiVal {
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f1f5f9;
 }
@@ -2568,7 +2872,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.9rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #94a3b8;
   background: transparent;
@@ -2620,7 +2924,7 @@
 
 .sdSummaryBoxHeader h4 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -2628,7 +2932,7 @@
 
 .sdSummaryText {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--cc-font-scale));
   line-height: 1.6;
   color: #cbd5e1;
 }
@@ -2642,7 +2946,7 @@
 
 .sdSectionTitle h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f1f5f9;
 }
@@ -2665,7 +2969,7 @@
 
 .sdImpactBadge {
   padding: 2px 7px;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 700;
   border-radius: 4px;
   white-space: nowrap;
@@ -2692,14 +2996,14 @@
 
 .sdConclusionTitle {
   margin: 0 0 0.25rem 0;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   color: #e2e8f0;
 }
 
 .sdConclusionDetail {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   line-height: 1.5;
 }
@@ -2726,13 +3030,13 @@
 }
 
 .sdInsightLabel {
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   font-weight: 600;
   color: #94a3b8;
 }
 
 .sdInsightChange {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 700;
   color: #34d399;
   background: rgba(16, 185, 129, 0.1);
@@ -2741,7 +3045,7 @@
 }
 
 .sdInsightValue {
-  font-size: 1.3rem;
+  font-size: calc(1.3rem * var(--cc-font-scale));
   font-weight: 800;
   color: #f8fafc;
   margin-bottom: 0.35rem;
@@ -2749,7 +3053,7 @@
 
 .sdInsightDesc {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   color: #64748b;
   line-height: 1.45;
 }
@@ -2764,7 +3068,7 @@
 
 .sdChannelTitle {
   margin: 0 0 0.875rem 0;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 700;
   color: #cbd5e1;
   text-transform: uppercase;
@@ -2785,7 +3089,7 @@
 
 .sdChannelName {
   width: 240px;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #94a3b8;
   flex-shrink: 0;
@@ -2819,7 +3123,7 @@
 .sdChannelPercent {
   width: 40px;
   text-align: right;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f1f5f9;
 }
@@ -2850,21 +3154,21 @@
   color: #a78bfa;
   border: 1px solid rgba(139, 92, 246, 0.3);
   padding: 2px 7px;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 700;
   border-radius: 4px;
 }
 
 .sdPhaseTitle {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f1f5f9;
   flex: 1;
 }
 
 .sdPhaseDuration {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   font-weight: 600;
 }
@@ -2882,7 +3186,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.45;
 }
@@ -2920,7 +3224,7 @@
   display: inline-block;
   align-self: flex-start;
   padding: 1px 6px;
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--cc-font-scale));
   font-weight: 700;
   border-radius: 4px;
   text-transform: uppercase;
@@ -2946,7 +3250,7 @@
 
 .sdRiskName {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 600;
   color: #f1f5f9;
   line-height: 1.4;
@@ -2959,7 +3263,7 @@
 }
 
 .sdMitigationLabel {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
@@ -2967,7 +3271,7 @@
 
 .sdMitigationText {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.45;
 }
@@ -2986,7 +3290,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   color: #64748b;
 }
 
@@ -3005,7 +3309,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.5rem 1rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #ffffff;
   background: #2563eb;
@@ -3024,7 +3328,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.5rem 0.85rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #94a3b8;
   background: rgba(255, 255, 255, 0.04);
@@ -3041,7 +3345,7 @@
 
 .sdBtnClose {
   padding: 0.5rem 0.85rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   color: #64748b;
   background: transparent;
@@ -3054,4 +3358,249 @@
 .sdBtnClose:hover {
   color: #94a3b8;
   background: rgba(255, 255, 255, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   LIGHT CONSOLE THEME
+   The shell owns the semantic theme tokens. Keep this redesign scoped to
+   those tokens so switching themes cannot leave a mixed light/dark canvas.
+   -------------------------------------------------------------------------- */
+.consoleLayout[data-theme="light"] .commandCenterWorkspace {
+  background: var(--canvas) !important;
+  color: var(--ink) !important;
+  color-scheme: light;
+}
+
+.consoleLayout[data-theme="light"] .ccHeaderContainer,
+.consoleLayout[data-theme="light"] .ccDeptHeader,
+.consoleLayout[data-theme="light"] .ccCeoBanner,
+.consoleLayout[data-theme="light"] .ccLiveFeedHeader,
+.consoleLayout[data-theme="light"] .ccApprovalsHeader,
+.consoleLayout[data-theme="light"] .supportEmailModalHeader,
+.consoleLayout[data-theme="light"] .supportEmailModalFooter,
+.consoleLayout[data-theme="light"] .sdModalHeader,
+.consoleLayout[data-theme="light"] .sdModalFooter {
+  border-color: var(--hairline);
+}
+
+.consoleLayout[data-theme="light"] .ccStrategicCard,
+.consoleLayout[data-theme="light"] .ccCeoCard,
+.consoleLayout[data-theme="light"] .ccDeptCard,
+.consoleLayout[data-theme="light"] .ccLiveFeedCard,
+.consoleLayout[data-theme="light"] .ccApprovalsCard,
+.consoleLayout[data-theme="light"] .ccResultsCard,
+.consoleLayout[data-theme="light"] .ccDiagnosticsModal,
+.consoleLayout[data-theme="light"] .supportEmailModal,
+.consoleLayout[data-theme="light"] .sdModalContainer {
+  background: var(--surface-1);
+  border-color: var(--hairline);
+  color: var(--ink);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+}
+
+.consoleLayout[data-theme="light"] .ccSloganCard {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.consoleLayout[data-theme="light"] .ccOperatingModeBtn,
+.consoleLayout[data-theme="light"] .ccDirectModeBtn,
+.consoleLayout[data-theme="light"] .ccFilterPill,
+.consoleLayout[data-theme="light"] .ccToolBtn,
+.consoleLayout[data-theme="light"] .ccTargetSelect,
+.consoleLayout[data-theme="light"] .ccLiveDeptSelect,
+.consoleLayout[data-theme="light"] .ccDeptQueueCol,
+.consoleLayout[data-theme="light"] .ccApprovalBox,
+.consoleLayout[data-theme="light"] .ccKpiCard,
+.consoleLayout[data-theme="light"] .ccDeliverableItem,
+.consoleLayout[data-theme="light"] .ccDiagnosticsHeader,
+.consoleLayout[data-theme="light"] .ccDiagnosticsSection,
+.consoleLayout[data-theme="light"] .ccDiagnosticsFooter,
+.consoleLayout[data-theme="light"] .ccSecondaryOutlineBtn,
+.consoleLayout[data-theme="light"] .supportEmailSummary,
+.consoleLayout[data-theme="light"] .supportEmailSummary > div,
+.consoleLayout[data-theme="light"] .supportEmailRow,
+.consoleLayout[data-theme="light"] .supportEmailCloseBtn,
+.consoleLayout[data-theme="light"] .supportEmailPagination button,
+.consoleLayout[data-theme="light"] .supportEmailCancelBtn,
+.consoleLayout[data-theme="light"] .supportEmailSelectedBtn,
+.consoleLayout[data-theme="light"] .sdKpiRibbon,
+.consoleLayout[data-theme="light"] .sdKpiCard,
+.consoleLayout[data-theme="light"] .sdConclusionItem,
+.consoleLayout[data-theme="light"] .sdInsightCard,
+.consoleLayout[data-theme="light"] .sdChannelAnalysisBox,
+.consoleLayout[data-theme="light"] .sdPhaseCard,
+.consoleLayout[data-theme="light"] .sdRiskRow,
+.consoleLayout[data-theme="light"] .sdBtnSecondary {
+  background: var(--surface-2);
+  border-color: var(--hairline);
+  color: var(--ink-muted);
+}
+
+.consoleLayout[data-theme="light"] .ccStrategicTextarea,
+.consoleLayout[data-theme="light"] .ccDeptMiniInput,
+.consoleLayout[data-theme="light"] .supportEmailContent p,
+.consoleLayout[data-theme="light"] .sdModalBody {
+  background: var(--surface-1);
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+
+.consoleLayout[data-theme="light"] .ccFilterPill:hover,
+.consoleLayout[data-theme="light"] .ccToolBtn:hover,
+.consoleLayout[data-theme="light"] .ccDirectModeBtn:hover,
+.consoleLayout[data-theme="light"] .ccApprovalBox:hover,
+.consoleLayout[data-theme="light"] .ccDeliverableItem:hover,
+.consoleLayout[data-theme="light"] .supportEmailRow.is-selected {
+  background: var(--surface-3);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--hairline));
+  color: var(--ink);
+}
+
+.consoleLayout[data-theme="light"] .ccFilterPill.active,
+.consoleLayout[data-theme="light"] .ccFilterPillBadge,
+.consoleLayout[data-theme="light"] .ccFilterPillBadge.badge-all,
+.consoleLayout[data-theme="light"] .ccEmpAvatar,
+.consoleLayout[data-theme="light"] .ccEmpAvatarCompact,
+.consoleLayout[data-theme="light"] .ccDeptQueueBadge,
+.consoleLayout[data-theme="light"] .ccApprovalBtnPreview,
+.consoleLayout[data-theme="light"] .ccApprovalBtnEdit,
+.consoleLayout[data-theme="light"] .ccDeptMiniSendBtn {
+  background: var(--surface-3);
+  border-color: var(--hairline);
+  color: var(--ink-muted);
+}
+
+.consoleLayout[data-theme="light"] .ccTitle,
+.consoleLayout[data-theme="light"] .ccStrategicTitle,
+.consoleLayout[data-theme="light"] .ccOperatingModeValue,
+.consoleLayout[data-theme="light"] .ccCeoName,
+.consoleLayout[data-theme="light"] .ccCeoStep.active,
+.consoleLayout[data-theme="light"] .ccSloganWhite,
+.consoleLayout[data-theme="light"] .ccWorkforceTitle,
+.consoleLayout[data-theme="light"] .ccDeptName,
+.consoleLayout[data-theme="light"] .ccEmpId,
+.consoleLayout[data-theme="light"] .ccEmpIdCompact,
+.consoleLayout[data-theme="light"] .ccLiveFeedTitle,
+.consoleLayout[data-theme="light"] .ccTimelineTitle,
+.consoleLayout[data-theme="light"] .ccApprovalsTitle,
+.consoleLayout[data-theme="light"] .ccApprovalTitle,
+.consoleLayout[data-theme="light"] .ccResultsHeaderTitle,
+.consoleLayout[data-theme="light"] .ccDonutNumber,
+.consoleLayout[data-theme="light"] .ccKpiVal,
+.consoleLayout[data-theme="light"] .ccDelivTitle,
+.consoleLayout[data-theme="light"] .ccDiagnosticsTitle,
+.consoleLayout[data-theme="light"] .ccDiagnosticsSectionTitle,
+.consoleLayout[data-theme="light"] .supportEmailModalHeader h2,
+.consoleLayout[data-theme="light"] .supportEmailSummary strong,
+.consoleLayout[data-theme="light"] .supportEmailRecipient strong,
+.consoleLayout[data-theme="light"] .supportEmailSubjectRow > strong,
+.consoleLayout[data-theme="light"] .supportEmailEmpty strong,
+.consoleLayout[data-theme="light"] .sdHeaderTitle,
+.consoleLayout[data-theme="light"] .sdSectionTitle h3,
+.consoleLayout[data-theme="light"] .sdConclusionTitle,
+.consoleLayout[data-theme="light"] .sdInsightValue,
+.consoleLayout[data-theme="light"] .sdChannelTitle,
+.consoleLayout[data-theme="light"] .sdChannelPercent,
+.consoleLayout[data-theme="light"] .sdPhaseTitle,
+.consoleLayout[data-theme="light"] .sdRiskName {
+  color: var(--ink);
+}
+
+.consoleLayout[data-theme="light"] .ccSubtitle,
+.consoleLayout[data-theme="light"] .ccOperatingModeLabel,
+.consoleLayout[data-theme="light"] .ccStrategicHint,
+.consoleLayout[data-theme="light"] .ccQuickLabel,
+.consoleLayout[data-theme="light"] .ccQuickChip,
+.consoleLayout[data-theme="light"] .ccCeoQuote,
+.consoleLayout[data-theme="light"] .ccCeoStep,
+.consoleLayout[data-theme="light"] .ccCeoBannerFormula,
+.consoleLayout[data-theme="light"] .ccSloganFormula,
+.consoleLayout[data-theme="light"] .ccWorkforceSubtitle,
+.consoleLayout[data-theme="light"] .ccDeptSubtext,
+.consoleLayout[data-theme="light"] .ccEmpRole,
+.consoleLayout[data-theme="light"] .ccEmpRoleCompact,
+.consoleLayout[data-theme="light"] .ccDeptQueueItem,
+.consoleLayout[data-theme="light"] .ccDeptQueueEmpty,
+.consoleLayout[data-theme="light"] .ccTimelineTimeDate,
+.consoleLayout[data-theme="light"] .ccTimelineDesc,
+.consoleLayout[data-theme="light"] .ccApprovalTime,
+.consoleLayout[data-theme="light"] .ccApprovalAuthor,
+.consoleLayout[data-theme="light"] .ccDonutLabel,
+.consoleLayout[data-theme="light"] .ccEffLabelRow,
+.consoleLayout[data-theme="light"] .ccKpiLabel,
+.consoleLayout[data-theme="light"] .ccDelivSubtitle,
+.consoleLayout[data-theme="light"] .ccDiagnosticsSubtitle,
+.consoleLayout[data-theme="light"] .ccDiagnosticsSectionText,
+.consoleLayout[data-theme="light"] .ccDiagnosticsListItem,
+.consoleLayout[data-theme="light"] .supportEmailModalHeader p,
+.consoleLayout[data-theme="light"] .supportEmailRecipient span:not(.supportEmailAvatar),
+.consoleLayout[data-theme="light"] .supportEmailContent p,
+.consoleLayout[data-theme="light"] .supportEmailToolbar,
+.consoleLayout[data-theme="light"] .supportEmailPagination,
+.consoleLayout[data-theme="light"] .supportEmailEmpty,
+.consoleLayout[data-theme="light"] .supportEmailFooterStatus,
+.consoleLayout[data-theme="light"] .sdHeaderGoal,
+.consoleLayout[data-theme="light"] .sdSummaryText,
+.consoleLayout[data-theme="light"] .sdConclusionDetail,
+.consoleLayout[data-theme="light"] .sdInsightLabel,
+.consoleLayout[data-theme="light"] .sdInsightDesc,
+.consoleLayout[data-theme="light"] .sdChannelName,
+.consoleLayout[data-theme="light"] .sdPhaseDuration,
+.consoleLayout[data-theme="light"] .sdTaskItem,
+.consoleLayout[data-theme="light"] .sdMitigationLabel,
+.consoleLayout[data-theme="light"] .sdFooterMeta {
+  color: var(--ink-subtle);
+}
+
+.consoleLayout[data-theme="light"] .ccCeoStep.done,
+.consoleLayout[data-theme="light"] .ccTimelineTimeHour,
+.consoleLayout[data-theme="light"] .ccDonutLegend,
+.consoleLayout[data-theme="light"] .ccColTitle,
+.consoleLayout[data-theme="light"] .ccDeptQueueHeader,
+.consoleLayout[data-theme="light"] .ccDeptQueueTitle,
+.consoleLayout[data-theme="light"] .ccEmpPercent,
+.consoleLayout[data-theme="light"] .ccEmpPercentCompact,
+.consoleLayout[data-theme="light"] .sdMitigationText,
+.consoleLayout[data-theme="light"] .sdFooterMeta strong {
+  color: var(--ink-muted);
+}
+
+.consoleLayout[data-theme="light"] .ccTimelineItem:not(:last-child)::before,
+.consoleLayout[data-theme="light"] .ccEmpTrack,
+.consoleLayout[data-theme="light"] .ccEffBarTrack {
+  background: var(--hairline);
+}
+
+.consoleLayout[data-theme="light"] .ccApprovalsScrollContainer {
+  scrollbar-color: var(--hairline) transparent;
+}
+
+.consoleLayout[data-theme="light"] .ccApprovalsScrollContainer::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+
+.consoleLayout[data-theme="light"] .ccApprovalsScrollContainer::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+}
+
+.consoleLayout[data-theme="light"] .supportEmailModalOverlay,
+.consoleLayout[data-theme="light"] .sdModalOverlay {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.consoleLayout[data-theme="light"] .supportEmailModalHeader,
+.consoleLayout[data-theme="light"] .supportEmailModalFooter,
+.consoleLayout[data-theme="light"] .sdModalHeader,
+.consoleLayout[data-theme="light"] .sdModalFooter {
+  background: var(--surface-1);
+}
+
+.consoleLayout[data-theme="light"] .sdSummaryBox {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-1));
+}
+
+.consoleLayout[data-theme="light"] .sdChannelBarWrap {
+  background: var(--surface-3);
 }

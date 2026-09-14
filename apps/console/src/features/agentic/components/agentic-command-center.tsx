@@ -14,6 +14,7 @@ import {
   Package,
   ShoppingBag,
   Headphones,
+  Mail,
   DollarSign,
   ArrowRight,
   ExternalLink,
@@ -79,6 +80,7 @@ import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel"
 import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
 import { DepartmentDiagnosticsModal } from "./command-center/department-diagnostics-modal";
 import { StrategicDeliverableModal } from "./command-center/strategic-deliverable-modal";
+import { SupportEmailApprovalModal } from "./command-center/support-email-approval-modal";
 import {
   buildStrategicDeliverable,
   downloadDeliverableDocx,
@@ -732,9 +734,28 @@ export function AgenticCommandCenter({
   // Customer Support & CRM State
   const [supportProposal, setSupportProposal] = useState<AiSupportProposalView | null>(null);
   const [supportActionLoading, setSupportActionLoading] = useState(false);
+  const [isSupportEmailApprovalModalOpen, setIsSupportEmailApprovalModalOpen] = useState(false);
   const [isDownloadingSupportDocx, setIsDownloadingSupportDocx] = useState(false);
   const [supportTicketsPage, setSupportTicketsPage] = useState(1);
   const [supportVipPage, setSupportVipPage] = useState(1);
+
+  useEffect(() => {
+    if (!supportApi?.getLatestSupportProposal) return;
+    const controller = new AbortController();
+    void supportApi
+      .getLatestSupportProposal(controller.signal)
+      .then((proposal) => {
+        if (proposal) {
+          setSupportProposal((current) => current ?? proposal);
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error("Failed to hydrate latest Support proposal:", error);
+        }
+      });
+    return () => controller.abort();
+  }, [supportApi]);
 
   // Strategic AI CEO Deliverable State
   const [completedStrategicDeliverable, setCompletedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
@@ -981,7 +1002,12 @@ export function AgenticCommandCenter({
       setCompletedStrategicDeliverable(deliverable);
       setSelectedStrategicDeliverable(deliverable);
       setStrategicDeliverableApproved(false);
-      setIsStrategicModalOpen(true);
+      if (department === "support") {
+        setIsStrategicModalOpen(false);
+        setIsSupportEmailApprovalModalOpen(true);
+      } else {
+        setIsStrategicModalOpen(true);
+      }
       void refreshApprovals();
 
       const deptNameMap: Record<DepartmentType | "ai_ceo", string> = {
@@ -1629,18 +1655,14 @@ export function AgenticCommandCenter({
         date: formatted.date,
         createdAt: formatted.epoch,
         department: "support",
-        title: "CSKH đã lập báo cáo CSKH",
+        title: supportProposal.status === "applied"
+          ? "CSKH đã gửi email phản hồi"
+          : "CSKH đã lập báo cáo CSKH",
         description: supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
-          const deliv = buildStrategicDeliverable(
-            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
-            supportProposal.id,
-            "support",
-          );
-          setSelectedStrategicDeliverable(deliv);
-          setIsStrategicModalOpen(true);
+          setIsSupportEmailApprovalModalOpen(true);
         },
       });
     }
@@ -1739,6 +1761,8 @@ export function AgenticCommandCenter({
         for (const prev of prevEvents) {
           const existing = map.get(prev.id);
           if (!existing) {
+            map.set(prev.id, prev);
+          } else if ((prev.createdAt || 0) > (existing.createdAt || 0)) {
             map.set(prev.id, prev);
           } else if (prev.status === "success" && existing.status !== "success") {
             map.set(prev.id, {
@@ -1952,9 +1976,7 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            const deliv = buildStrategicDeliverable(goalText, proposal?.id, "support");
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
+            setIsSupportEmailApprovalModalOpen(true);
           },
         );
         notifyAndShowStrategicDeliverable(
@@ -3150,9 +3172,7 @@ export function AgenticCommandCenter({
           "success",
           "Xem kết quả",
           () => {
-            const deliv = buildStrategicDeliverable(taskPrompt, proposal?.id, "support");
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
+            setIsSupportEmailApprovalModalOpen(true);
           },
         );
         notifyAndShowStrategicDeliverable(
@@ -3265,48 +3285,69 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleApplySupport = async () => {
+  const handleApplySupport = async (selectedTicketIds?: readonly string[]) => {
     if (!supportProposal?.id || !supportApi) return;
+    const selectedIds = new Set(
+      selectedTicketIds ?? supportProposal.tickets.map((ticket) => ticket.ticketId),
+    );
+    const selectedTickets = supportProposal.tickets.filter((ticket) => selectedIds.has(ticket.ticketId));
+    if (selectedTickets.length === 0) return;
+    const previousProposal = supportProposal;
+    const remainingTickets = supportProposal.tickets.filter(
+      (ticket) => !selectedIds.has(ticket.ticketId),
+    );
+    const completedAll = remainingTickets.length === 0;
+
+    setSupportProposal({
+      ...supportProposal,
+      tickets: completedAll ? supportProposal.tickets : remainingTickets,
+      totalTickets: completedAll ? supportProposal.totalTickets : remainingTickets.length,
+      status: completedAll ? "applied" : "pending_approval",
+    });
+    if (completedAll) {
+      setIsSupportEmailApprovalModalOpen(false);
+    }
+
     try {
       setSupportActionLoading(true);
       setErrorMessage(null);
-      const items = supportProposal.tickets.map((t) => ({
+      const items = selectedTickets.map((t) => ({
         ticketId: t.ticketId,
         responseMessage: t.proposedResponse,
         resolutionStatus: "resolved" as const,
       }));
       await supportApi.applySupportProposal(supportProposal.id, items);
-      setSupportProposal((prev) => (prev ? { ...prev, status: "applied" } : null));
-      setCeoPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
-            }
-          : null,
+
+      if (completedAll) {
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        recordLiveEvent(
+          "support",
+          "CSKH đã gửi email phản hồi",
+          supportProposal.overallSentimentSummary || supportProposal.prompt || "Đã phản hồi toàn bộ ticket CSKH",
+          "success",
+          "Xem kết quả",
+          () => setIsSupportEmailApprovalModalOpen(true),
+          new Date().toISOString(),
+          `support-prop-ev-${supportProposal.id}`,
+        );
+      }
+
+      setSuccessMessage(
+        completedAll
+          ? `✅ Đã phê duyệt và gửi toàn bộ ${selectedTickets.length} email CSKH thành công!`
+          : `✅ Đã gửi ${selectedTickets.length} email. Còn ${remainingTickets.length} email đang chờ phê duyệt.`,
       );
-      recordLiveEvent(
-        "support",
-        "CSKH đã hoàn tất tác vụ",
-        supportProposal.overallSentimentSummary || supportProposal.prompt || "Đã phản hồi toàn bộ ticket CSKH",
-        "success",
-        "Xem kết quả",
-        () => {
-          const deliv = buildStrategicDeliverable(
-            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
-            supportProposal.id,
-            "support",
-          );
-          setSelectedStrategicDeliverable(deliv);
-          setIsStrategicModalOpen(true);
-        },
-        new Date().toISOString(),
-        `support-prop-ev-${supportProposal.id}`,
-      );
-      setSuccessMessage(`✅ Đã phê duyệt và gửi phản hồi CSKH thành công cho toàn bộ ${supportProposal.tickets.length} ticket!`);
       if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply support proposal:", err);
+      setSupportProposal((current) => current?.id === previousProposal.id ? previousProposal : current);
       setErrorMessage(err instanceof Error ? err.message : "Không thể gửi phản hồi CSKH.");
     } finally {
       setSupportActionLoading(false);
@@ -5162,13 +5203,7 @@ export function AgenticCommandCenter({
             riskLevel: "low" as const,
             timestamp: formatTime(Date.now()),
             onPreview: () => {
-              const deliv = buildStrategicDeliverable(
-                supportProposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP",
-                supportProposal.id,
-                "support",
-              );
-              setSelectedStrategicDeliverable(deliv);
-              setIsStrategicModalOpen(true);
+              setIsSupportEmailApprovalModalOpen(true);
             },
             onRequestRevision: () => {
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
@@ -5840,9 +5875,7 @@ export function AgenticCommandCenter({
             setSelectedStrategicDeliverable(deliv);
             setIsStrategicModalOpen(true);
           } else if (supportProposal) {
-            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Báo cáo CSKH", supportProposal.id, "support");
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
+            setIsSupportEmailApprovalModalOpen(true);
           }
         }}
       />
@@ -6191,6 +6224,26 @@ export function AgenticCommandCenter({
                     <Download size={14} /> Tải Word (.docx)
                   </button>
                 </>
+              ) : completionToast.department === "support" && supportProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsSupportEmailApprovalModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Mail size={14} /> Xem nội dung email
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadSupportDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
               ) : (
                 <>
                   <button
@@ -6247,6 +6300,15 @@ export function AgenticCommandCenter({
           initialShowRevisionForm={showRevisionModal}
         />
       )}
+
+      <SupportEmailApprovalModal
+        isOpen={isSupportEmailApprovalModalOpen}
+        proposal={supportProposal}
+        isSubmitting={supportActionLoading}
+        onClose={() => setIsSupportEmailApprovalModalOpen(false)}
+        onApproveSelected={(ticketIds) => handleApplySupport(ticketIds)}
+        onApproveAll={() => handleApplySupport()}
+      />
 
       <StrategicDeliverableModal
         isOpen={isStrategicModalOpen}

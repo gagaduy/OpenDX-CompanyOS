@@ -24,7 +24,7 @@
 }
 
 .ccBrandTitle {
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f59e0b;
   display: flex;
@@ -40,7 +40,7 @@
 }
 
 .ccNavTab {
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 500;
   color: #94a3b8;
   text-decoration: none;
@@ -72,7 +72,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.35rem 0.75rem;
   border-radius: 9999px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 500;
   color: #cbd5e1;
 }
@@ -102,7 +102,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.3rem 0.85rem 0.3rem 0.4rem;
   border-radius: 9999px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 500;
   color: #e2e8f0;
 }
@@ -116,7 +116,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
 }
 
 .ccAvatarOnline {
@@ -142,7 +142,7 @@
 }
 
 .ccStrategicTitle {
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 1.5rem;
@@ -161,7 +161,7 @@
   position: absolute;
   left: 1.25rem;
   color: #38bdf8;
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--cc-font-scale));
   pointer-events: none;
 }
 
@@ -172,7 +172,7 @@
   border-radius: 12px;
   padding: 1.1rem 7.5rem 1.1rem 3.5rem;
   color: #f8fafc;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   outline: none;
   transition: all 0.2s ease;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -191,7 +191,7 @@
   border: none;
   border-radius: 8px;
   padding: 0.65rem 1.4rem;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -227,7 +227,7 @@
   color: #94a3b8;
   border-radius: 9999px;
   padding: 0.45rem 1rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -257,7 +257,7 @@
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
   color: #94a3b8;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.02);
@@ -276,7 +276,7 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   color: #cbd5e1;
   display: flex;
   align-items: flex-start;
@@ -316,7 +316,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.35rem 0.85rem;
   border-radius: 9999px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 500;
   color: #e2e8f0;
   display: flex;
@@ -338,7 +338,7 @@
 
 .ccPipelineArrow {
   color: #64748b;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
 }
 
 .ccPipelineStatus {
@@ -352,7 +352,7 @@
   align-items: center;
   gap: 0.4rem;
   color: #fbbf24;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
 }
 
@@ -376,7 +376,7 @@
   color: #f87171;
   border-radius: 6px;
   padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -478,7 +478,7 @@
 }
 
 .ccDepartmentName {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f8fafc;
   display: flex;
@@ -517,7 +517,7 @@
 }
 
 .ccDeptCountBadge {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.25rem 0.65rem;
   border-radius: 9999px;
@@ -710,7 +710,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -729,7 +729,7 @@
 }
 
 .ccAgentRoleBadge {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #94a3b8;
@@ -794,14 +794,14 @@
 }
 
 .ccAgentName {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
 }
 
 .ccAgentContentText {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   color: #94a3b8;
   line-height: 1.45;
   margin: 0;
@@ -862,7 +862,7 @@
   border-radius: 8px;
   padding: 0.55rem 2.2rem 0.55rem 0.75rem;
   color: #f1f5f9;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   outline: none;
   transition: all 0.2s ease;
 }
@@ -907,7 +907,7 @@
   border-radius: 10px;
   padding: 0.65rem 2.6rem 0.65rem 0.85rem;
   color: #f1f5f9;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   outline: none;
   transition: all 0.2s ease;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -1024,7 +1024,7 @@
 }
 
 .erTitle h2 {
-  font-size: 1.2rem;
+  font-size: calc(1.2rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -1037,7 +1037,7 @@
   gap: 0.4rem;
   padding: 0.35rem 0.85rem;
   border-radius: 9999px;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
 }
 
@@ -1062,7 +1062,7 @@
 }
 
 .erSectionLabel {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #94a3b8;
@@ -1071,7 +1071,7 @@
 }
 
 .erSummaryText {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   line-height: 1.6;
   color: #e2e8f0;
   margin: 0;
@@ -1092,7 +1092,7 @@
   color: #94a3b8;
   border-radius: 8px;
   padding: 0.45rem 0.85rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -1133,7 +1133,7 @@
 }
 
 .erGroupTitle {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   font-weight: 700;
   margin: 0;
   display: flex;
@@ -1194,7 +1194,7 @@
 }
 
 .erItemCode {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 700;
   font-family: monospace;
   color: #94a3b8;
@@ -1204,14 +1204,14 @@
 }
 
 .erItemTag {
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #34d399;
 }
 
 .erSeverityBadge {
-  font-size: 0.65rem;
+  font-size: calc(0.65rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
@@ -1233,7 +1233,7 @@
 }
 
 .erApprovalBadge {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   font-weight: 600;
   color: #fbbf24;
   display: flex;
@@ -1242,7 +1242,7 @@
 }
 
 .erItemStatement {
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   line-height: 1.45;
   color: #cbd5e1;
   margin: 0;
@@ -1257,7 +1257,7 @@
 }
 
 .erUnavailableTitle {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   color: #fbbf24;
   margin: 0 0 0.5rem;
@@ -1274,7 +1274,7 @@
 }
 
 .erUnavailableTag {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #cbd5e1;
   background: rgba(255, 255, 255, 0.04);
   padding: 0.2rem 0.6rem;
@@ -1304,7 +1304,7 @@
 }
 
 .ccMarketingLiveTitle {
-  font-size: 1.2rem;
+  font-size: calc(1.2rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -1313,7 +1313,7 @@
 }
 
 .ccMarketingStatusBadge {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.35rem 0.85rem;
   border-radius: 9999px;
@@ -1364,14 +1364,14 @@
 }
 
 .ccMarketingHeadline {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--cc-font-scale));
   font-weight: 700;
   color: #38bdf8;
   margin: 0;
 }
 
 .ccMarketingBody {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   line-height: 1.6;
   color: #cbd5e1;
   white-space: pre-line;
@@ -1379,7 +1379,7 @@
 }
 
 .ccMarketingHashtags {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   color: #94a3b8;
   font-weight: 500;
   margin: 0;
@@ -1409,7 +1409,7 @@
   align-items: center;
   justify-content: center;
   color: #94a3b8;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   padding: 1rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -1427,7 +1427,7 @@
 .ccMarketingActionBtn {
   padding: 0.65rem 1.35rem;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -1483,7 +1483,7 @@
   color: #cbd5e1;
   padding: 0.35rem 0.75rem;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 500;
   text-decoration: none;
   display: inline-flex;
@@ -1522,13 +1522,13 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   font-weight: 700;
   color: #fbbf24;
 }
 
 .ccCeoPlanGoal {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   color: #cbd5e1;
   background: rgba(0, 0, 0, 0.3);
   padding: 0.6rem 0.9rem;
@@ -1567,7 +1567,7 @@
 
 .ccCeoStepRole {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   color: #f8fafc;
   display: flex;
   align-items: center;
@@ -1575,13 +1575,13 @@
 }
 
 .ccCeoStepTask {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   margin-left: 1.5rem;
 }
 
 .ccCeoStepStatus {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
@@ -1693,12 +1693,12 @@
 .ccSupportHeaderTitle {
   color: #34d399;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
 }
 
 .ccSupportHeaderSubtitle {
   color: #94a3b8;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
 }
 
 .ccProposalRationaleBox {
@@ -1711,14 +1711,14 @@
 
 .ccProposalRationaleTitle {
   color: #38bdf8;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   display: block;
   margin-bottom: 0.25rem;
 }
 
 .ccProposalRationaleText {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   color: #e2e8f0;
   line-height: 1.5;
 }
@@ -1749,13 +1749,13 @@
 
 .ccMerchProductTitle {
   color: #f8fafc;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   margin: 0;
   font-weight: 600;
 }
 
 .ccMerchCategoryBadge {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   background: rgba(56, 189, 248, 0.15);
@@ -1772,7 +1772,7 @@
 }
 
 .ccMerchDescLabel {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   text-transform: uppercase;
   font-weight: 700;
@@ -1782,7 +1782,7 @@
 
 .ccMerchDescText {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.45;
 }
@@ -1795,7 +1795,7 @@
 }
 
 .ccMerchPriceLabel {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   margin-bottom: 0.25rem;
   font-weight: 600;
@@ -1809,19 +1809,19 @@
 }
 
 .ccMerchOriginalPrice {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   text-decoration: line-through;
 }
 
 .ccMerchProposedPrice {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   color: #34d399;
   font-weight: 700;
 }
 
 .ccMerchDiscountPill {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   background: linear-gradient(90deg, #f59e0b, #ea580c);
   color: #ffffff;
   padding: 0.15rem 0.5rem;
@@ -1838,7 +1838,7 @@
   padding: 0.25rem 0.6rem;
   border-radius: 5px;
   color: #34d399;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 700;
   margin-top: 0.4rem;
 }
@@ -1879,7 +1879,7 @@
 .ccProposalSummaryTitle.info,
 .ccProposalSummaryHeader.info {
   color: #38bdf8;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1890,7 +1890,7 @@
 .ccProposalSummaryTitle.danger,
 .ccProposalSummaryHeader.danger {
   color: #f87171;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1901,7 +1901,7 @@
 .ccProposalSummaryTitle.emerald,
 .ccProposalSummaryHeader.emerald {
   color: #34d399;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1911,7 +1911,7 @@
 
 .ccProposalSummaryText {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #e2e8f0;
   line-height: 1.45;
 }
@@ -1927,7 +1927,7 @@
 .ccProposalTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   text-align: left;
 }
 
@@ -1939,7 +1939,7 @@
 
 .ccProposalTableThRow th {
   padding: 0.45rem 0.65rem;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1957,7 +1957,7 @@
 
 .ccProposalTableTr td {
   padding: 0.45rem 0.65rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   vertical-align: top;
 }
 
@@ -1973,7 +1973,7 @@
 }
 
 .ccProposalItemSubtext {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #64748b;
 }
 
@@ -1988,7 +1988,7 @@
 .ccStockBadge {
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
 }
 
@@ -2045,7 +2045,7 @@
 }
 
 .ccIssueCategoryBadge {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
   background: rgba(245, 158, 11, 0.15);
@@ -2057,7 +2057,7 @@
 .ccSentimentBadge {
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
@@ -2080,7 +2080,7 @@
   color: #cbd5e1;
   line-height: 1.45;
   margin-bottom: 0.25rem;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
 }
 
 .ccProposalResponseText.clamped {
@@ -2095,7 +2095,7 @@
   background: transparent;
   border: none;
   color: #38bdf8;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -2118,7 +2118,7 @@
   padding: 0.5rem 0.85rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   color: #94a3b8;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -2146,7 +2146,7 @@
   color: #cbd5e1;
   border-radius: 6px;
   padding: 0.25rem 0.55rem;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2173,7 +2173,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2193,7 +2193,7 @@
 .ccCompensationBadge {
   color: #34d399;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
 }
 
 .ccSentBadge {
@@ -2201,7 +2201,7 @@
   border-radius: 4px;
   background: rgba(16, 185, 129, 0.15);
   color: #10b981;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
@@ -2210,7 +2210,7 @@
   background: rgba(255, 255, 255, 0.03);
   color: #f8fafc;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -2220,7 +2220,7 @@
   background: rgba(245, 158, 11, 0.15);
   color: #fbbf24;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
 }
 
 .ccDeptIconBadge.emerald {
@@ -2257,7 +2257,7 @@
   color: #f8fafc;
   border-radius: 6px;
   padding: 0.5rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   margin-bottom: 0.5rem;
   outline: none;
 }
@@ -3112,7 +3112,7 @@
 }
 
 .ccCampaignModalTitle {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -3125,7 +3125,7 @@
   color: #fda4af;
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
@@ -3135,12 +3135,12 @@
   color: #6ee7b7;
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
 .ccCampaignModalSubtitle {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 0.25rem 0 0;
 }
@@ -3192,7 +3192,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3208,7 +3208,7 @@
 }
 
 .ccCampaignSummaryText {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.45;
   margin: 0;
@@ -3230,7 +3230,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #cbd5e1;
   font-weight: 500;
 }
@@ -3247,7 +3247,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   color: #f1f5f9;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   padding: 0.35rem 0.65rem;
   outline: none;
 }
@@ -3257,7 +3257,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   color: #cbd5e1;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.35rem 0.65rem;
   cursor: pointer;
@@ -3278,7 +3278,7 @@
 }
 
 .ccCampaignListTitle {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f1f5f9;
 }
@@ -3287,7 +3287,7 @@
   background: transparent;
   border: none;
   color: #818cf8;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -3298,7 +3298,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -3400,7 +3400,7 @@
 }
 
 .ccCampaignThumbLabel {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--cc-font-scale));
   color: #94a3b8;
   font-weight: 500;
 }
@@ -3412,7 +3412,7 @@
 
 .ccCampaignCompareArrow {
   color: #64748b;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
@@ -3431,7 +3431,7 @@
 }
 
 .ccCampaignProductName {
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -3444,14 +3444,14 @@
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.3);
   color: #818cf8;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
 }
 
 .ccCampaignSeoTitle {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   color: #cbd5e1;
   margin: 0;
   white-space: nowrap;
@@ -3460,7 +3460,7 @@
 }
 
 .ccCampaignSeoDesc {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #64748b;
   margin: 0;
   display: -webkit-box;
@@ -3480,13 +3480,13 @@
 }
 
 .ccCampaignOrigPrice {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #64748b;
   text-decoration: line-through;
 }
 
 .ccCampaignNewPrice {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   font-weight: 800;
   color: #10b981;
 }
@@ -3495,7 +3495,7 @@
   background: rgba(244, 63, 94, 0.12);
   border: 1px solid rgba(244, 63, 94, 0.3);
   color: #f43f5e;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
@@ -3514,7 +3514,7 @@
 }
 
 .ccCampaignFooterSummary {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -3532,7 +3532,7 @@
   background: #1e2538;
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #cbd5e1;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.6rem 1.25rem;
   border-radius: 8px;
@@ -3549,7 +3549,7 @@
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   color: #ffffff;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 700;
   padding: 0.6rem 1.4rem;
   border-radius: 8px;
@@ -3613,7 +3613,7 @@
 }
 
 .ccActiveCampaignTitle {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 0.75rem;
@@ -3643,7 +3643,7 @@
 .ccActiveCampaignProgressLabels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -3651,7 +3651,7 @@
   background: rgba(244, 63, 94, 0.15);
   border: 1px solid rgba(244, 63, 94, 0.35);
   color: #fda4af;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.45rem 0.85rem;
   border-radius: 6px;
@@ -3682,7 +3682,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   color: #cbd5e1;
 }
 
@@ -3692,14 +3692,14 @@
 
 .ccActiveCampaignCountdownDigits {
   font-family: monospace;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
   color: #fbbf24;
   letter-spacing: 0.05em;
 }
 
 .ccActiveCampaignStatusText {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 700;
   color: #fda4af;
   text-transform: uppercase;
@@ -3707,7 +3707,7 @@
 }
 
 .ccActiveCampaignProductCount {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -3725,7 +3725,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #fecdd3;
 }
 
@@ -3756,7 +3756,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   color: #fb7185;
 }
@@ -3767,7 +3767,7 @@
   border: 1px solid rgba(244, 63, 94, 0.35);
   padding: 2px 8px;
   border-radius: 9999px;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -3791,7 +3791,7 @@
   color: #94a3b8;
   padding: 3px 10px;
   border-radius: 6px;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   cursor: pointer;
   transition: all 0.2s ease;
   max-width: 220px;
@@ -3916,7 +3916,7 @@
 
 .ccActiveCampaignIdentityCol .ccActiveCampaignTitle {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   line-height: 1.35;
   color: #ffffff;
   font-weight: 700;
@@ -3963,7 +3963,7 @@
   background: rgba(59, 130, 246, 0.15);
   border: 1px solid rgba(59, 130, 246, 0.45);
   color: #93c5fd;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.5rem 0.9rem;
   border-radius: 8px;
@@ -4010,12 +4010,12 @@
 }
 
 .ccCampaignDurationText {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
 .ccCampaignPreviewHeading {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -4040,7 +4040,7 @@
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: #ffffff;
   padding: 0.75rem 1rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -4547,7 +4547,7 @@
 }
 
 .ccOperationsModalHeading {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -4555,7 +4555,7 @@
 }
 
 .ccOperationsModalSubheading {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 0.25rem 0 0 0;
 }
@@ -4608,7 +4608,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   margin-bottom: 0.35rem;
 }
@@ -4622,7 +4622,7 @@
 }
 
 .ccOperationsSummaryText {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   line-height: 1.45;
   color: #cbd5e1;
   margin: 0;
@@ -4650,7 +4650,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 500;
   padding: 0.35rem 0.75rem;
   border-radius: 9999px;
@@ -4684,7 +4684,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cbd5e1;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   padding: 0.35rem 0.7rem;
   border-radius: 6px;
   cursor: pointer;
@@ -4706,7 +4706,7 @@
 .ccOperationsTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   margin: 0.75rem 0;
 }
 
@@ -4720,7 +4720,7 @@
   padding: 0.75rem 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -4741,7 +4741,7 @@
 
 .ccOperationsSkuCell {
   font-family: monospace;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #fbbf24;
   font-weight: 600;
 }
@@ -4749,11 +4749,11 @@
 .ccOperationsProductName {
   font-weight: 600;
   color: #f1f5f9;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
 }
 
 .ccOperationsActionRationale {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   color: #94a3b8;
   margin-top: 0.2rem;
 }
@@ -4768,7 +4768,7 @@
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
 }
 
 .ccOperationsStockBadge.critical_low {
@@ -4793,7 +4793,7 @@
   display: inline-block;
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
 }
 
@@ -4852,20 +4852,20 @@
   text-align: center;
   font-weight: 700;
   color: #fbbf24;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   outline: none;
 }
 
 .ccOperationsCostCell {
   color: #94a3b8;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-variant-numeric: tabular-nums;
 }
 
 .ccOperationsTotalCostCell {
   color: #f1f5f9;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-variant-numeric: tabular-nums;
 }
 
@@ -4878,18 +4878,18 @@
 .ccOperationsFooterTotalLabel {
   padding: 0.85rem 0.5rem;
   color: #e2e8f0;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
 }
 
 .ccOperationsFooterQty {
   color: #fbbf24;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 700;
 }
 
 .ccOperationsFooterBudget {
   color: #34d399;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--cc-font-scale));
   padding-right: 0.5rem;
   font-weight: 700;
 }
@@ -4904,7 +4904,7 @@
   border: 1px solid rgba(16, 185, 129, 0.35);
   border-radius: 8px;
   color: #34d399;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--cc-font-scale));
   font-weight: 500;
 }
 
@@ -4936,7 +4936,7 @@
   color: #cbd5e1;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -4956,7 +4956,7 @@
   color: #fbbf24;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -4974,7 +4974,7 @@
   color: #94a3b8;
   padding: 0.6rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--cc-font-scale));
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -4994,7 +4994,7 @@
   color: #000000;
   padding: 0.65rem 1.5rem;
   border-radius: 8px;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--cc-font-scale));
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -5247,7 +5247,7 @@
   gap: 0.35rem;
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
-  font-size: 11px;
+  font-size: calc(11px * var(--cc-font-scale));
   font-weight: 600;
   letter-spacing: 0.02em;
   background: rgba(245, 158, 11, 0.12);
@@ -5269,7 +5269,7 @@
   margin-top: 0.35rem;
   padding: 0.25rem 0.45rem;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: calc(11px * var(--cc-font-scale));
   background: rgba(245, 158, 11, 0.08);
   border: 1px dashed rgba(245, 158, 11, 0.3);
   color: #fcd34d;
@@ -5301,7 +5301,7 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 11px;
+  font-size: calc(11px * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -5317,7 +5317,7 @@
   color: #f87171;
   border-radius: 4px;
   padding: 0.15rem 0.4rem;
-  font-size: 10px;
+  font-size: calc(10px * var(--cc-font-scale));
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -5331,7 +5331,7 @@
 
 .ccWaitingCardPrompt {
   margin: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--cc-font-scale));
   color: #e2e8f0;
   font-style: italic;
   overflow: hidden;
@@ -5343,7 +5343,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 11px;
+  font-size: calc(11px * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -5502,7 +5502,7 @@
   border: 1px solid rgba(168, 85, 247, 0.65);
   box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4), 0 0 12px rgba(56, 189, 248, 0.3);
   color: #f1f5f9;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--cc-font-scale));
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
@@ -5552,7 +5552,7 @@
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.4);
   color: #fbbf24;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.2rem 0.55rem;
   border-radius: 9999px;
@@ -5580,14 +5580,14 @@
 }
 
 .ccOperationsAlertTitle {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   font-weight: 600;
   color: #fbbf24;
   line-height: 1.3;
 }
 
 .ccOperationsAlertSummary {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.4;
   margin: 0;
@@ -5601,7 +5601,7 @@
 }
 
 .ccOperationsAlertBtn {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 500;
   border-radius: 6px;
   padding: 0.35rem 0.65rem;
@@ -5663,7 +5663,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.2rem 0.55rem;
   border-radius: 9999px;
@@ -5729,7 +5729,7 @@
 }
 
 .ccSocialTokenAlertTitle {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 600;
   color: #fde047;
 }
@@ -5739,7 +5739,7 @@
 }
 
 .ccSocialTokenAlertMeta {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   color: #cbd5e1;
   line-height: 1.4;
   margin: 0;
@@ -5757,7 +5757,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.35rem 0.65rem;
   border-radius: 6px;
@@ -5836,7 +5836,7 @@
 }
 
 .ccSocialTokenAlertCard.compact .ccSocialTokenAlertMeta {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -5845,7 +5845,7 @@
 }
 
 .ccSocialTokenAlertCard.compact .ccSocialTokenActionBtn {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--cc-font-scale));
   padding: 0.25rem 0.5rem;
 }
 
@@ -5907,7 +5907,7 @@
 }
 
 .ccSocialTokenGlobalBannerText {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 500;
   color: #f87171;
   line-height: 1.4;
@@ -5964,7 +5964,7 @@
 }
 
 .ccSocialTokenGlobalItem .ccSocialTokenAlertTitle {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 700;
   color: #f59e0b;
 }
@@ -5974,7 +5974,7 @@
 }
 
 .ccSocialTokenItemMsg {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--cc-font-scale));
   color: #94a3b8;
 }
 
@@ -6114,7 +6114,7 @@
 }
 
 .ccCompletionToastDeptTag {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--cc-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -6156,7 +6156,7 @@
 }
 
 .ccCompletionToastStatusBadge {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--cc-font-scale));
   font-weight: 600;
   padding: 0.18rem 0.5rem;
   border-radius: 9999px;
@@ -6193,7 +6193,7 @@
 }
 
 .ccCompletionToastTitle {
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--cc-font-scale));
   font-weight: 600;
   line-height: 1.35;
   color: #ffffff;
@@ -6204,7 +6204,7 @@
 }
 
 .ccCompletionToastGoal {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--cc-font-scale));
   color: #94a3b8;
   line-height: 1.4;
   display: -webkit-box;
@@ -6227,7 +6227,7 @@
   border: 1px solid #3b82f6;
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 600;
   color: #ffffff;
   cursor: pointer;
@@ -6248,7 +6248,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--cc-font-scale));
   font-weight: 500;
   color: #e2e8f0;
   cursor: pointer;

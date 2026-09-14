@@ -14,6 +14,20 @@ const taskId = "00000000-0000-4000-8000-000000000001";
 afterEach(() => { vi.useRealTimers(); });
 
 describe("AgenticTaskDetailPage", () => {
+  it("renders a data-driven operations dashboard for all four departments", async () => {
+    const api = fakeApi(activeOperations());
+
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+
+    expect(await screen.findByRole("region", { name: "Tổng quan tác vụ AI" })).toBeVisible();
+    expect(screen.getByText("Phòng ban tham gia")).toBeVisible();
+    expect(screen.getByText("Tiếp thị & Sáng tạo")).toBeVisible();
+    expect(screen.getByText("Danh mục & Định giá")).toBeVisible();
+    expect(screen.getByText("Vận hành & Kho vận")).toBeVisible();
+    expect(screen.getByText("CSKH & Trải nghiệm")).toBeVisible();
+    expect(screen.getByText("1/4 hoàn tất")).toBeVisible();
+  });
+
   it("lets an operator mark a draft ready and then start its versioned workflow", async () => {
     const api = fakeApi(draftOperations());
     vi.mocked(api.loadOperations)

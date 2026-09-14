@@ -37,6 +37,7 @@ export function createSupportRouter(
 
   // AI Support & CRM Endpoints (Open to authenticated staff)
   r.post("/ai-proposal", c.generateAiProposal);
+  r.get("/ai-proposal/latest", c.getLatestAiProposal);
   r.get("/ai-proposal/:proposalId/docx", c.getAiProposalDocx);
   r.post("/ai-proposal/:proposalId/apply", c.applyAiProposal);
 

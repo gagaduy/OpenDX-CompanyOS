@@ -11,6 +11,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Agentic Task Detail Operations Dashboard:
+  - Redesigned `/agentic/tasks/:taskId` as a responsive operational dashboard with task status, department participation, governed AI cost, pending approval, and synchronization metrics sourced from the live operations response.
+  - Grouped execution branches into stable, data-driven views for Tiếp thị, Danh mục, Vận hành, and CSKH while preserving branch dependencies, tools, data classifications, timeline selection, executive reports, and role-gated workflow actions.
+
+- Agentic Command Center Light Theme:
+  - Removed the redesign stylesheet's forced-dark override in light mode and mapped workspace, workforce, timeline, approval, diagnostics, Support email, and strategic deliverable surfaces to the console's semantic theme tokens.
+  - Increased typography across the complete Command Center workspace and its governed modals by 15% through one shared scale token, without resizing icons or structural layout dimensions.
+
+- Support Email Proposal Preview & Selective Approval ("Xem trước và duyệt email CSKH"):
+  - Added a data-driven completion modal that renders AI-generated recipients, subjects, response bodies, priorities, churn risks, and voucher recommendations directly from the Support proposal.
+  - Added select-per-email and approve-all actions while keeping unselected emails in the centralized human approval inbox until they are processed.
+  - Routed Support completion notifications, live activity results, and approval previews to the same governed email review surface, with a read-only sent state after completion.
+  - Removed fully approved Support proposals from the approval inbox immediately while email dispatch completes, with state restoration when the request fails.
+  - Preserved the newest Support email completion event when polling refreshes and merges the real-time activity feed.
+  - Hydrated the latest Support proposal from the authenticated API on Command Center startup, with PostgreSQL ticket-event recovery when the API process cache has restarted.
+
 - Local Catalog Product Import Utility ("Nhập sản phẩm mẫu từ ảnh cục bộ"):
   - Added `db:import:user-products` for idempotently importing the prepared 50-product catalog, media objects, variants, VND prices, and initial single-location inventory into local PostgreSQL and MinIO services, with local source images supplied through `PRODUCT_IMAGE_DIR`.
 

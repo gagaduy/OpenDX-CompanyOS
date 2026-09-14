@@ -134,6 +134,15 @@ export class SupportController {
     }
   };
 
+  readonly getLatestAiProposal: RequestHandler = async (_q, r, n) => {
+    try {
+      if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
+      r.json(successResponse("Latest Support proposal retrieved", await this.aiService.getLatestSupportProposal()));
+    } catch (e) {
+      n(e);
+    }
+  };
+
   readonly applyAiProposal: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");

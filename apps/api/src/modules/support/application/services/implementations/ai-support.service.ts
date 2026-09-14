@@ -283,6 +283,97 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     return generateSupportReportDocx(proposal);
   }
 
+  async getLatestSupportProposal(): Promise<AiSupportProposalDto | null> {
+    let latest: AiSupportProposalDto | null = null;
+    for (const proposal of this.proposalsCache.values()) {
+      if (!latest || new Date(proposal.createdAt).getTime() > new Date(latest.createdAt).getTime()) {
+        latest = proposal;
+      }
+    }
+    if (latest) return latest;
+
+    const persisted = await this.database.query<{
+      proposal_id: string;
+      applied_at: Date | string;
+      ticket_id: string;
+      customer_name: string;
+      customer_email: string;
+      subject: string;
+      priority: string;
+      response_message: string;
+    }>(
+      `WITH latest_proposal AS (
+         SELECT split_part(idempotency_key, ':', 2) AS proposal_id,
+                MAX(occurred_at) AS applied_at
+         FROM support_ticket_events
+         WHERE actor_id = 'support-ai-steward'
+           AND idempotency_key LIKE 'ai_resolve:%'
+         GROUP BY split_part(idempotency_key, ':', 2)
+         ORDER BY applied_at DESC
+         LIMIT 1
+       )
+       SELECT DISTINCT ON (st.id)
+              lp.proposal_id,
+              lp.applied_at,
+              st.id AS ticket_id,
+              COALESCE(c.full_name, 'Khách hàng') AS customer_name,
+              COALESCE(c.email, '') AS customer_email,
+              st.subject,
+              st.priority,
+              COALESCE(message.body, '') AS response_message
+       FROM latest_proposal lp
+       JOIN support_ticket_events event
+         ON split_part(event.idempotency_key, ':', 2) = lp.proposal_id
+       JOIN support_tickets st ON st.id = event.ticket_id
+       LEFT JOIN customers c ON c.id = st.customer_id
+       LEFT JOIN LATERAL (
+         SELECT body
+         FROM support_ticket_messages
+         WHERE ticket_id = st.id AND author_id = 'support-ai-steward'
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) message ON TRUE
+       ORDER BY st.id, event.occurred_at DESC`,
+    );
+    if (persisted.rows.length === 0) return null;
+
+    const first = persisted.rows[0];
+    const createdAt = new Date(first.applied_at).toISOString();
+    const tickets: AiSupportTicketItemDto[] = persisted.rows.map((row) => {
+      const priority = (["urgent", "high", "normal", "low"] as const).find(
+        (value) => value === row.priority,
+      ) ?? "normal";
+      return {
+        ticketId: row.ticket_id,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        subject: row.subject,
+        sentiment: priority === "urgent" || priority === "high" ? "frustrated" : "neutral",
+        churnRisk: priority === "urgent" ? "high" : priority === "high" ? "medium" : "low",
+        issueCategory: "general_inquiry",
+        proposedResponse: row.response_message.replace(/\n\n🎁 \[VOUCHER:[^\]]+\]$/, ""),
+        suggestedCompensation: row.response_message.includes("[VOUCHER:")
+          ? "Voucher đã được gửi kèm email"
+          : "Không áp dụng voucher",
+        priority,
+      };
+    });
+
+    return {
+      id: first.proposal_id,
+      prompt: "Phản hồi email CSKH đã được phê duyệt",
+      overallSentimentSummary: `Đã gửi phản hồi cho ${tickets.length} khách hàng.`,
+      churnRiskAssessment: "Các ticket đã được xử lý và đang chờ theo dõi mức độ hài lòng.",
+      recommendedAction: "Theo dõi phản hồi tiếp theo của khách hàng.",
+      tickets,
+      vipCustomers: [],
+      totalTickets: tickets.length,
+      status: "applied",
+      createdAt,
+      docxFilename: `bao_cao_cham_soc_khach_hang_${first.proposal_id.slice(0, 8)}.docx`,
+    };
+  }
+
   async generateDraftReply(ticketId: string): Promise<string> {
     const ticketRes = await this.database.query<{
       id: string;
