@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Local `make up` migration compatibility:
+  - Restored the two original Agentic migration definitions for Command Center invalidation events and governed department schedules so a shared local PostgreSQL volume with their applied history passes strict migration-order validation without resetting data.
+  - Updated Agentic migration integration coverage and rollback checkpoints for the restored migration sequence.
+
 - Persistent Command Center Approval Activity:
   - Added an authenticated, append-only PostgreSQL activity record for approved and canceled Marketing, Merchandising, Operations, and Support decisions.
   - Hydrated decision events from the backend on Command Center startup and synchronized them every five seconds so the live feed survives page refreshes and updates across sessions.
