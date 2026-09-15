@@ -44,3 +44,12 @@ export interface EmailCampaignProposalDetailView {
   readonly promotionDetails?: CampaignPromotionDetails;
   readonly recipients: readonly CampaignRecipientItem[];
 }
+
+export interface ApplyEmailCampaignResult {
+  readonly proposalId: string;
+  readonly status: "sent" | "partially_sent";
+  readonly totalDispatched: number;
+  readonly successfulDispatches: number;
+  readonly failedDispatches: number;
+  readonly dispatchedAt: string;
+}

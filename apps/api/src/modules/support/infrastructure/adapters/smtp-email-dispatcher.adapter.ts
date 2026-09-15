@@ -70,4 +70,26 @@ export class SmtpEmailDispatcherAdapter implements EmailDispatcherPort {
       throw err;
     }
   }
+
+  async sendCampaignEmail(input: import("../../application/ports/email-dispatcher.port").SendCampaignEmailInput): Promise<SendEmailResult> {
+    try {
+      const info = await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: input.to,
+        subject: input.subject,
+        text: input.subject,
+        html: input.htmlBody,
+      });
+
+      return {
+        messageId: info.messageId || `smtp-${randomUUID()}`,
+        delivered: true,
+        provider: "smtp",
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      console.error("[SmtpEmailDispatcherAdapter] sendCampaignEmail failed:", err?.message || err);
+      throw err;
+    }
+  }
 }

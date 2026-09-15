@@ -189,4 +189,33 @@ export class SupportEmailComposer {
       </html>
     `;
   }
+
+  composeEmail(options: {
+    type: import("../../../domain/entities/email-campaign.entity").EmailCampaignType;
+    recipientName: string;
+    emailSubject: string;
+    featuredProducts: readonly import("../../../domain/entities/email-campaign.entity").FeaturedProductItem[];
+    promotionDetails?: import("../../../domain/entities/email-campaign.entity").CampaignPromotionDetails;
+    storefrontUrl?: string;
+    brandName?: string;
+  }): string {
+    if (options.type === "promotion_announcement" && options.promotionDetails) {
+      return this.renderPromotionAnnouncement({
+        recipientName: options.recipientName,
+        emailSubject: options.emailSubject,
+        promotion: options.promotionDetails,
+        products: options.featuredProducts,
+        storefrontUrl: options.storefrontUrl,
+        brandName: options.brandName,
+      });
+    }
+
+    return this.renderNewProductAnnouncement({
+      recipientName: options.recipientName,
+      emailSubject: options.emailSubject,
+      products: options.featuredProducts,
+      storefrontUrl: options.storefrontUrl,
+      brandName: options.brandName,
+    });
+  }
 }
