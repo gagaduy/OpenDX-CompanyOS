@@ -49,3 +49,63 @@ export interface AiSupportProposalView {
   readonly createdAt: string;
   readonly docxFilename: string;
 }
+
+export interface SupportCampaignRecipientView {
+  readonly customerId: string;
+  readonly email: string;
+  readonly fullName: string;
+  readonly totalSpentVnd: number;
+  readonly orderCount: number;
+  readonly isSelected: boolean;
+  readonly sentStatus?: "pending" | "sent" | "failed";
+  readonly errorMessage?: string;
+}
+
+export interface SupportCampaignProductView {
+  readonly productId: string;
+  readonly name: string;
+  readonly sku: string;
+  readonly regularPriceVnd: number;
+  readonly salePriceVnd?: number;
+  readonly imageUrl: string;
+  readonly categoryName?: string;
+  readonly storefrontUrl: string;
+}
+
+export interface SupportCampaignPromotionView {
+  readonly campaignId?: string;
+  readonly campaignName: string;
+  readonly discountPercent?: number;
+  readonly voucherCode?: string;
+  readonly startTime?: string;
+  readonly endTime?: string;
+  readonly description?: string;
+}
+
+export interface SupportEmailCampaignProposalView {
+  readonly id: string;
+  readonly type:
+    | "new_product_announcement"
+    | "promotion_announcement"
+    | "customer_care_vip"
+    | "ticket_resolution";
+  readonly title: string;
+  readonly emailSubject: string;
+  readonly targetSegment: "vip_customers" | "recent_buyers" | "all_active_customers";
+  readonly recipients: readonly SupportCampaignRecipientView[];
+  readonly totalRecipients: number;
+  readonly selectedCount: number;
+  readonly featuredProducts: readonly SupportCampaignProductView[];
+  readonly promotionDetails?: SupportCampaignPromotionView;
+  readonly htmlContent: string;
+  readonly docxFilename: string;
+  readonly status: "pending_approval" | "approved" | "rejected" | "sent" | "partially_sent";
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly sentAt?: string;
+  readonly executionSummary?: {
+    readonly successfulDispatches: number;
+    readonly failedDispatches: number;
+    readonly dispatchedAt: string;
+  };
+}

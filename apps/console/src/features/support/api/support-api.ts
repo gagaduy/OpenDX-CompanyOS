@@ -14,6 +14,7 @@ import type {
   SupportTicketView,
   TicketStatus,
   AiSupportProposalView,
+  SupportEmailCampaignProposalView,
 } from "../types/support.types";
 
 export type SupportErrorCode = "UNAUTHORIZED"|"FORBIDDEN"|"STALE_VERSION"|"ALREADY_CLAIMED"|"TICKET_NOT_FOUND"|"VALIDATION_ERROR"|"ATTACHMENT_TOO_LARGE"|"ATTACHMENT_TYPE_NOT_ALLOWED"|"INVALID_RESPONSE"|"UNAVAILABLE";
@@ -34,6 +35,18 @@ export interface SupportOperationsApi {
   cancelSupportProposal(proposalId: string): Promise<AiSupportProposalView>;
   draftAiReply?(id: string, signal?: AbortSignal): Promise<string>;
   subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
+  createEmailCampaignProposal?(input: {
+    type: string;
+    targetSegment?: string;
+    productIds?: string[];
+    promotionId?: string;
+    customSubject?: string;
+  }): Promise<SupportEmailCampaignProposalView>;
+  listEmailCampaignProposals?(filter?: { status?: string; limit?: number }, signal?: AbortSignal): Promise<readonly SupportEmailCampaignProposalView[]>;
+  getEmailCampaignProposal?(proposalId: string, signal?: AbortSignal): Promise<SupportEmailCampaignProposalView>;
+  applyEmailCampaignProposal?(proposalId: string, selectedRecipientIds?: readonly string[]): Promise<any>;
+  cancelEmailCampaignProposal?(proposalId: string): Promise<SupportEmailCampaignProposalView>;
+  downloadEmailCampaignDocx?(proposalId: string, filename?: string): Promise<void>;
 }
 export function createSupportOperationsApi(baseUrl:string, accessToken:string):SupportOperationsApi {
   const request=createRequest(baseUrl,accessToken);
@@ -118,6 +131,53 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
           }
         } catch {}
       })();
+    },
+    async createEmailCampaignProposal(input) {
+      const envelope: any = await request("/v1/admin/support/tickets/email-campaigns/proposals", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async listEmailCampaignProposals(filter, signal) {
+      const p = new URLSearchParams();
+      if (filter?.status) p.set("status", filter.status);
+      if (filter?.limit) p.set("limit", String(filter.limit));
+      const qs = p.toString() ? `?${p.toString()}` : "";
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals${qs}`, { signal });
+      return (envelope.data as SupportEmailCampaignProposalView[]) || [];
+    },
+    async getEmailCampaignProposal(proposalId, signal) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}`, { signal });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async applyEmailCampaignProposal(proposalId, selectedRecipientIds) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/apply`, {
+        method: "POST",
+        body: JSON.stringify({ selectedRecipientIds }),
+      });
+      return envelope.data;
+    },
+    async cancelEmailCampaignProposal(proposalId) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/cancel`, {
+        method: "POST",
+      });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async downloadEmailCampaignDocx(proposalId, filename) {
+      const response = await fetch(`${baseUrl}/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/docx`, {
+        headers: { authorization: `Bearer ${accessToken}`, "x-correlation-id": crypto.randomUUID() },
+      });
+      if (!response.ok) throw new SupportApiError("UNAVAILABLE", "Failed to download DOCX deliverable.");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || `ke_hoach_email_${proposalId.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     },
   };
   function requestBlob(path:string){return fetch(`${baseUrl}${path}`,{headers:{authorization:`Bearer ${accessToken}`,"x-correlation-id":crypto.randomUUID()}}).then(async r=>{if(!r.ok)throw new SupportApiError("UNAVAILABLE","Attachment could not be downloaded."); return r.blob();});}
