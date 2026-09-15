@@ -39,6 +39,13 @@ import { InMemoryRealtimeBroadcasterAdapter } from "./infrastructure/adapters/in
 import { AiLivechatAssistantService } from "./application/services/implementations/ai-livechat-assistant.service";
 import { SupportLivechatService } from "./application/services/implementations/support-livechat.service";
 import { createSupportLivechatRouter } from "./presentation/routers/support-livechat.router";
+import { DatabaseCatalogQueryAdapter } from "./infrastructure/adapters/database-catalog-query.adapter";
+import { DatabasePromotionQueryAdapter } from "./infrastructure/adapters/database-promotion-query.adapter";
+import { DatabaseCustomerSegmentQueryAdapter } from "./infrastructure/adapters/database-customer-segment-query.adapter";
+import { CustomerSegmentationService } from "./application/services/implementations/customer-segmentation.service";
+import { SupportEmailComposer } from "./application/services/implementations/support-email-composer";
+import { PostgresEmailCampaignProposalRepository } from "./infrastructure/repositories/implementations/postgres-email-campaign-proposal.repository";
+import { EmailCampaignService } from "./application/services/implementations/email-campaign.service";
 
 export interface SupportHealthDependencies {
   readonly transactions: TransactionRunner;
@@ -150,8 +157,21 @@ export function createSupportModule(d: {
     ? createSupportInboundEmailRouter(inboundEmailController)
     : undefined;
 
+  const emailCampaignService = d.database
+    ? new EmailCampaignService(
+        new DatabaseCatalogQueryAdapter(d.database),
+        new DatabasePromotionQueryAdapter(d.database),
+        new CustomerSegmentationService(new DatabaseCustomerSegmentQueryAdapter(d.database)),
+        new SupportEmailComposer(),
+        new PostgresEmailCampaignProposalRepository(d.database),
+        emailDispatcher,
+        d.generateId,
+        d.now,
+      )
+    : undefined;
+
   const router = createSupportRouter(
-    new SupportController(service, attachments, aiService),
+    new SupportController(service, attachments, aiService, emailCampaignService),
     authenticateStaff(d.staffTokenVerifier),
     (x) => d.transactions.run((s) => repository.appendDeniedAudit(s, { id: d.generateId(), ...x, occurredAt: d.now() })),
     d.attachmentMaximumBytes,
@@ -163,6 +183,7 @@ export function createSupportModule(d: {
     livechatRouter,
     realtimeBroadcaster,
     inboundEmailRouter,
+    emailCampaignService,
     operationsSummary: service,
     escalationWorker: new SupportEscalationWorker(d.transactions, repository, d.generateId, d.now, d.escalationIntervalMs),
     attachmentScanWorker: new SupportAttachmentScanWorker(d.transactions, repository, storage, scanner, d.generateId, d.now, d.attachmentScanIntervalMs),
