@@ -50,6 +50,11 @@ describe("SupportEmailIngestionService", () => {
     expect(result.ticketId).toBe("62ffbc9e-0d2e-4eac-a71d-19e388463515");
     expect(result.newStatus).toBe("in_progress");
     expect(result.proposalId).toBe("prop-new");
+    expect(mockAiService.generateSupportProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticketIds: ["62ffbc9e-0d2e-4eac-a71d-19e388463515"],
+      }),
+    );
 
     // Verify customer message was inserted
     expect(mockDb.query).toHaveBeenCalledWith(
@@ -93,5 +98,8 @@ describe("SupportEmailIngestionService", () => {
     expect(result.action).toBe("ticket_created");
     expect(result.ticketId).toBe("test-new-id");
     expect(result.proposalId).toBe("prop-created");
+    expect(mockAiService.generateSupportProposal).toHaveBeenCalledWith(
+      expect.objectContaining({ ticketIds: ["test-new-id"] }),
+    );
   });
 });

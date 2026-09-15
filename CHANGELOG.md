@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Support Email Proposal Data Scoping:
+  - Limited AI Support proposals to actionable tickets instead of returning resolved and closed database records.
+  - Scoped inbound-email proposals and customer analysis to the exact ticket being created or reopened, preventing unrelated customer data from entering the AI context.
+  - Removed runtime insertion of hardcoded demonstration tickets when no actionable customer request exists.
+
 - AI CEO Natural-Language Department Routing:
   - Prioritized explicit department mentions over overlapping pricing and promotion keywords, so prompts assigning work to Vận hành route to the Operations workflow and inventory API.
   - Added a Command Center regression test covering an Operations instruction that also mentions a product discount program.

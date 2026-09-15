@@ -40,6 +40,7 @@ export interface AiSupportProposalDto {
 
 export interface GenerateSupportProposalRequestDto {
   readonly prompt: string;
+  readonly ticketIds?: readonly string[];
 }
 
 export interface ApplySupportTicketActionDto {

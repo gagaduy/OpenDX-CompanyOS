@@ -41,10 +41,11 @@ export class AiSupportService {
   ): Promise<AiSupportProposalDto> {
     const proposalId = this.generateId();
 
-    // 1. Ensure sample seed tickets exist if empty
-    await this.ensureSeedTickets();
+    const scopedTicketIds = request.ticketIds?.length
+      ? [...new Set(request.ticketIds)]
+      : null;
 
-    // 2. Query open support tickets joined with customers (ordered by latest activity)
+    // 1. Query actionable support tickets joined with customers (ordered by latest activity)
     const ticketResult = await this.database.query<{
       id: string;
       customer_id: string;
@@ -62,12 +63,14 @@ export class AiSupportService {
               st.subject, st.description, st.priority, st.status, st.created_at, st.updated_at
        FROM support_tickets st
        LEFT JOIN customers c ON c.id = st.customer_id
-       ORDER BY CASE WHEN st.status IN ('resolved', 'closed') THEN 1 ELSE 0 END, 
-                GREATEST(st.created_at, st.updated_at) DESC
+       WHERE st.status NOT IN ('resolved', 'closed')
+         AND ($1::uuid[] IS NULL OR st.id = ANY($1::uuid[]))
+       ORDER BY GREATEST(st.created_at, st.updated_at) DESC
        LIMIT 10`,
+      [scopedTicketIds],
     );
 
-    // 2b. Fetch recent messages for all tickets to provide actual conversation context
+    // 1b. Fetch recent messages for all tickets to provide actual conversation context
     const ticketIds = ticketResult.rows.map((t) => t.id);
     const messagesByTicket = new Map<string, Array<{ author_id: string; body: string; created_at: Date }>>();
 
@@ -95,7 +98,7 @@ export class AiSupportService {
       }
     }
 
-    // 3. Query top spending customers for VIP analysis
+    // 2. Query top spending customers for VIP analysis
     const vipResult = await this.database.query<{
       id: string;
       full_name: string;
@@ -108,9 +111,17 @@ export class AiSupportService {
               COUNT(o.id) as order_count
        FROM customers c
        LEFT JOIN orders o ON o.customer_id = c.id
+       WHERE $1::uuid[] IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM support_tickets scoped_ticket
+            WHERE scoped_ticket.id = ANY($1::uuid[])
+              AND scoped_ticket.customer_id = c.id
+          )
        GROUP BY c.id, c.full_name, c.email
        ORDER BY total_spent DESC
        LIMIT 5`,
+      [scopedTicketIds],
     );
 
     const rawTickets = ticketResult.rows.map((t) => {
@@ -136,7 +147,7 @@ export class AiSupportService {
     });
     const rawVips = vipResult.rows;
 
-    // 4. Call OpenRouter Gemini 2.5 Flash for Sentiment & Churn Analysis
+    // 3. Call OpenRouter Gemini 2.5 Flash for Sentiment & Churn Analysis
     let rawAiResult: any = null;
     const apiKey = this.config.openRouterApiKey || process.env.OPENROUTER_API_KEY;
     if (apiKey) {
@@ -216,7 +227,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
       }
     }
 
-    // 5. Construct ticket items
+    // 4. Construct ticket items
     const tickets: AiSupportTicketItemDto[] = rawTickets.map((t) => {
       const ai = rawAiResult?.tickets?.find((x: any) => x.ticketId === t.ticketId);
       const chosenSubject = (ai?.updatedSubject || t.originalSubject).trim();
@@ -234,7 +245,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
       };
     });
 
-    // 6. Construct VIP items
+    // 5. Construct VIP items
     const vipCustomers: AiSupportVipCustomerDto[] = rawVips.map((v) => {
       const ai = rawAiResult?.vipCustomers?.find((x: any) => x.customerId === v.id);
       const spent = Number(v.total_spent) || 0;
@@ -732,26 +743,4 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
     }
   }
 
-  private async ensureSeedTickets(): Promise<void> {
-    try {
-      const countRes = await this.database.query(
-        "SELECT COUNT(*) FROM support_tickets WHERE status NOT IN ('resolved', 'closed')",
-      );
-      if (parseInt(countRes.rows[0]?.count || "0", 10) > 0) return;
-
-      const customers = await this.database.query<{ id: string }>("SELECT id FROM customers LIMIT 3");
-      const cust1 = customers.rows[0]?.id || this.generateId();
-      const cust2 = customers.rows[1]?.id || this.generateId();
-
-      await this.database.query(
-        `INSERT INTO support_tickets (id, customer_id, created_by_id, subject, description, priority, status, version, created_at, updated_at)
-         VALUES 
-         ($1, $2, 'seed-system', 'Đơn hàng giao trễ hơn dự kiến 2 ngày', 'Tôi cần nhận Laptop trước thứ 6 để đi công tác nhưng hiện tại vận đơn chưa cập nhật.', 'high', 'new', 1, NOW() - INTERVAL '1 day', NOW()),
-         ($3, $4, 'seed-system', 'Yêu cầu hỗ trợ kích hoạt bảo hành điện tử', 'Mình mới mua tai nghe Nova Sound Pro, cần nhân viên hỗ trợ hướng dẫn kích hoạt bảo hành VIP.', 'normal', 'new', 1, NOW() - INTERVAL '2 hours', NOW())`,
-        [this.generateId(), cust1, this.generateId(), cust2],
-      );
-    } catch (err) {
-      console.warn("Could not seed support tickets:", err);
-    }
-  }
 }

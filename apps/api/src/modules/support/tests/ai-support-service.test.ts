@@ -6,6 +6,87 @@ import { describe, expect, it, vi } from "vitest";
 import { AiSupportService } from "../application/services/implementations/ai-support.service";
 
 describe("AiSupportService", () => {
+  it("does not create demo tickets when no actionable customer request exists", async () => {
+    const database = {
+      query: vi.fn(async () => ({ rows: [] })),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    const proposal = await service.generateSupportProposal({
+      prompt: "Xử lý phản hồi khách hàng cần giải quyết",
+    });
+
+    expect(proposal.tickets).toEqual([]);
+    expect(
+      database.query.mock.calls.some(([sql]: [string]) => sql.includes("INSERT INTO support_tickets")),
+    ).toBe(false);
+  });
+
+  it("selects only tickets that still require Support action", async () => {
+    let ticketQuery = "";
+    const database = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("COUNT(*) FROM support_tickets")) {
+          return { rows: [{ count: "1" }] };
+        }
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQuery = sql;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({ prompt: "Xử lý phản hồi khách hàng" });
+
+    expect(ticketQuery).toContain("st.status NOT IN ('resolved', 'closed')");
+  });
+
+  it("limits an inbound-email proposal to its requested ticket", async () => {
+    const requestedTicketId = "62ffbc9e-0d2e-4eac-a71d-19e388463515";
+    let ticketQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("COUNT(*) FROM support_tickets")) {
+          return { rows: [{ count: "1" }] };
+        }
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Giải quyết phản hồi về sản phẩm lỗi",
+      ticketIds: [requestedTicketId],
+    });
+
+    expect(ticketQueryParameters).toEqual([[requestedTicketId]]);
+  });
+
+  it("limits inbound-email customer analysis to the requested ticket owner", async () => {
+    const requestedTicketId = "62ffbc9e-0d2e-4eac-a71d-19e388463515";
+    let customerQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("FROM customers c")) {
+          customerQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Giải quyết phản hồi về sản phẩm lỗi",
+      ticketIds: [requestedTicketId],
+    });
+
+    expect(customerQueryParameters).toEqual([[requestedTicketId]]);
+  });
+
   it("returns the most recently created cached support proposal", async () => {
     const service = new AiSupportService({} as any, {});
     const proposal = (id: string, createdAt: string) => ({
@@ -98,10 +179,7 @@ describe("AiSupportService", () => {
       })),
     };
 
-    const service = new AiSupportService(mockPool, {
-      openRouterApiKey: "test-key",
-      openRouterModel: "google/gemini-2.5-flash",
-    });
+    const service = new AiSupportService(mockPool, {});
 
     const proposal = await service.generateSupportProposal({
       prompt: "Rà soát toàn bộ ticket sự cố giao hàng và chăm sóc khách hàng",
