@@ -11,6 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Support Cross-Department Email Campaigns ("Nâng cấp chiến dịch Email CSKH liên phòng ban"):
+  - Upgraded CSKH & Trải nghiệm (Support & CRM) from reactive ticket replies to a proactive, cross-department campaign engine collaborating with Danh mục (Catalog) and Tiếp thị (Marketing / Promotion).
+  - Implemented customer segmentation (`all_active`, `vip_customers`, `recent_buyers`, `at_risk_or_inactive`) querying real customers and order histories from PostgreSQL with zero hardcoded recipients.
+  - Implemented inward query ports (`CatalogQueryPort`, `PromotionQueryPort`, `CustomerSegmentQueryPort`) and database adapters (`DatabaseCatalogQueryAdapter`, `DatabasePromotionQueryAdapter`, `DatabaseCustomerSegmentQueryAdapter`) to fetch live products, VND pricing, MinIO images, and active/upcoming promotion campaigns.
+  - Built responsive HTML email composition engine (`SupportEmailComposer`) with custom hero banners, promotion discount badges, responsive product grids, and unsubscribe footers.
+  - Built comprehensive Word (`.docx`) deliverable generator (`generateSupportEmailCampaignDocx`) producing campaign strategy reports with executive metadata, target audience metrics, promotion highlights, featured products, and full email previews.
+  - Added persistent PostgreSQL campaign proposals (`support_email_campaign_proposals`), status tracking (`draft`, `pending_approval`, `approved`, `dispatched`, `rejected`), migration `202609150016`, and fail-closed dispatch service with role-gated endpoints.
+  - Added Staff Console human approval modal (`SupportEmailCampaignApprovalModal`) supporting email preview with live HTML iframe, product carousel, deliverable download, selective dispatching, and audit logging.
+  - Integrated with AI Command Center (`AgenticCommandCenter`), preserving top-down AI CEO delegation routing and direct department queue submission.
+
 - Verified Command Center approval history:
   - Projected source-verifiable Marketing, Merchandising, Operations, and Support approval decisions into the live activity API alongside explicit command records, with deterministic deduplication and original business timestamps.
   - Added immutable Support cancellation decisions so new canceled proposals remain visible after refresh or API restart; omitted unknown historical actors rather than attributing decisions to a person without evidence.
