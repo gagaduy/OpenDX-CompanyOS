@@ -31,6 +31,7 @@ export interface SupportOperationsApi {
   getLatestSupportProposal?(signal?: AbortSignal): Promise<AiSupportProposalView | null>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
+  cancelSupportProposal(proposalId: string): Promise<AiSupportProposalView>;
   draftAiReply?(id: string, signal?: AbortSignal): Promise<string>;
   subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
 }
@@ -77,6 +78,12 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
         body: JSON.stringify({ items }),
       });
       return envelope.data;
+    },
+    async cancelSupportProposal(proposalId: string): Promise<AiSupportProposalView> {
+      const envelope: any = await request(`/v1/admin/support/tickets/ai-proposal/${proposalId}/cancel`, {
+        method: "POST",
+      });
+      return envelope.data as AiSupportProposalView;
     },
     async draftAiReply(id: string, signal?: AbortSignal): Promise<string> {
       const envelope: any = await request(`/v1/admin/support/tickets/${id}/ai-draft`, { signal });

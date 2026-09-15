@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added an authenticated, append-only PostgreSQL activity record for approved and canceled Marketing, Merchandising, Operations, and Support decisions.
   - Hydrated decision events from the backend on Command Center startup and synchronized them every five seconds so the live feed survives page refreshes and updates across sessions.
   - Recorded decision events only after the owning business action succeeds, with idempotency protection, server-owned actor/timestamps, bounded validation, and role-gated create/list endpoints.
+  - Added a Support-owned cancellation transition and excluded canceled proposals from approval hydration so rejected email proposals do not return after a browser refresh.
 
 - Support Email Proposal Data Scoping:
   - Limited AI Support proposals to actionable tickets instead of returning resolved and closed database records.

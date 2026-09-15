@@ -108,6 +108,26 @@ describe("AiSupportService", () => {
     await expect(service.getLatestSupportProposal()).resolves.toMatchObject({ id: "latest", status: "applied" });
   });
 
+  it("cancels a pending proposal so refresh does not return it as awaiting approval", async () => {
+    const service = new AiSupportService({} as any, {});
+    (service as any).proposalsCache.set("proposal-to-cancel", {
+      id: "proposal-to-cancel",
+      prompt: "Phản hồi khách hàng",
+      overallSentimentSummary: "Có hai phản hồi cần xử lý.",
+      churnRiskAssessment: "Rủi ro trung bình.",
+      recommendedAction: "Phản hồi khách hàng.",
+      tickets: [], vipCustomers: [], totalTickets: 0,
+      status: "pending_approval",
+      createdAt: "2026-09-15T03:00:00.000Z",
+      docxFilename: "proposal.docx",
+    });
+
+    await expect(service.cancelSupportProposal("proposal-to-cancel"))
+      .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+    await expect(service.getLatestSupportProposal())
+      .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+  });
+
   it("recovers the latest applied support proposal from persisted ticket events", async () => {
     const service = new AiSupportService({
       query: vi.fn(async () => ({

@@ -33,7 +33,7 @@ export interface AiSupportProposalDto {
   readonly tickets: readonly AiSupportTicketItemDto[];
   readonly vipCustomers: readonly AiSupportVipCustomerDto[];
   readonly totalTickets: number;
-  readonly status: "pending_approval" | "applied";
+  readonly status: "pending_approval" | "applied" | "canceled";
   readonly createdAt: string;
   readonly docxFilename: string;
 }

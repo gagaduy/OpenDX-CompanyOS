@@ -154,6 +154,19 @@ export class SupportController {
     }
   };
 
+  readonly cancelAiProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
+      const proposalId = String(q.params.proposalId || "").trim();
+      if (proposalId.length === 0 || proposalId.length > 255) {
+        throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
+      }
+      r.json(successResponse("Support proposal canceled", await this.aiService.cancelSupportProposal(proposalId)));
+    } catch (e) {
+      n(e);
+    }
+  };
+
   readonly generateAiDraftReply: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");

@@ -755,7 +755,7 @@ export function AgenticCommandCenter({
     void supportApi
       .getLatestSupportProposal(controller.signal)
       .then((proposal) => {
-        if (proposal) {
+        if (proposal && proposal.status !== "canceled") {
           setSupportProposal((current) => current ?? proposal);
         }
       })
@@ -5320,7 +5320,7 @@ export function AgenticCommandCenter({
       : []),
 
     // 4. Support: Customer Care Script & VIP Retention Vouchers
-    ...(supportProposal && supportProposal.status !== "applied"
+    ...(supportProposal?.status === "pending_approval"
       ? [
           {
             id: supportProposal.id,
@@ -5338,10 +5338,18 @@ export function AgenticCommandCenter({
             onApprove: () => void handleApplySupport(),
             onReject: async () => {
               const proposal = supportProposal;
-              const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
-              if (!persisted) return;
-              setSupportProposal(null);
-              setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
+              if (!supportApi) {
+                setErrorMessage("Dịch vụ CSKH chưa sẵn sàng để hủy đề xuất.");
+                return;
+              }
+              try {
+                await supportApi.cancelSupportProposal(proposal.id);
+                setSupportProposal(null);
+                const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
+                if (persisted) setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy đề xuất CSKH.");
+              }
             },
           },
         ]

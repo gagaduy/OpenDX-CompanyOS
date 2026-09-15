@@ -291,6 +291,35 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(screen.getByRole("button", { name: "Xem kết quả" })).toBeInTheDocument();
   });
 
+  it("does not restore a canceled Support proposal to the approval inbox after refresh", async () => {
+    const generatedApi = fakeSupportApi(supportEmailDrafts);
+    const supportApi: SupportOperationsApi = {
+      ...generatedApi,
+      getLatestSupportProposal: vi.fn(async () => ({
+        id: "supp-prop-canceled",
+        prompt: "Soạn email chăm sóc khách hàng",
+        overallSentimentSummary: "Hai phản hồi đã bị hủy duyệt.",
+        churnRiskAssessment: "Rủi ro trung bình.",
+        recommendedAction: "Chờ chỉ đạo mới.",
+        docxFilename: "bao_cao_cskh.docx",
+        status: "canceled" as const,
+        tickets: supportEmailDrafts,
+        vipCustomers: [],
+        totalTickets: supportEmailDrafts.length,
+        createdAt: "2026-09-15T03:00:00.000Z",
+      })),
+    };
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    await act(async () => Promise.resolve());
+    expect(screen.queryByText("Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP")).not.toBeInTheDocument();
+  });
+
   it("renders generated customer emails in the completed Support approval modal", async () => {
     vi.useFakeTimers();
     const supportApi = fakeSupportApi(supportEmailDrafts);
@@ -854,6 +883,19 @@ function fakeSupportApi(
       createdAt,
     })),
     applySupportProposal: vi.fn(),
+    cancelSupportProposal: vi.fn(async () => ({
+      id: "supp-prop-1",
+      prompt: "Soạn email chăm sóc khách hàng",
+      overallSentimentSummary: "Hai khách hàng đang chờ phản hồi.",
+      churnRiskAssessment: "Một khách hàng có nguy cơ rời bỏ cao.",
+      recommendedAction: "Phản hồi trong ngày và cấp voucher phù hợp.",
+      docxFilename: "bao_cao_cskh.docx",
+      status: "canceled" as const,
+      tickets,
+      vipCustomers: [],
+      totalTickets: tickets.length,
+      createdAt,
+    })),
     downloadSupportDocx: vi.fn(),
   } as unknown as SupportOperationsApi;
 }

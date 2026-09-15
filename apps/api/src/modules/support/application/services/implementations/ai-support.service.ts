@@ -385,6 +385,19 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     };
   }
 
+  async cancelSupportProposal(proposalId: string): Promise<AiSupportProposalDto> {
+    const proposal = this.proposalsCache.get(proposalId);
+    if (!proposal) {
+      throw new ApplicationError(404, "PROPOSAL_NOT_FOUND", `Support proposal ${proposalId} not found.`);
+    }
+    if (proposal.status === "applied") {
+      throw new ApplicationError(409, "PROPOSAL_ALREADY_APPLIED", "An applied Support proposal cannot be canceled.");
+    }
+    const canceled = { ...proposal, status: "canceled" as const };
+    this.proposalsCache.set(proposalId, canceled);
+    return canceled;
+  }
+
   async generateDraftReply(ticketId: string): Promise<string> {
     const ticketRes = await this.database.query<{
       id: string;

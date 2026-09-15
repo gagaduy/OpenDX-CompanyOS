@@ -123,5 +123,6 @@ function fixture(overrides: Partial<SupportOperationsApi> = {}): SupportOperatio
     downloadSupportDocx: vi.fn(async () => undefined),
     applySupportProposal: vi.fn(async () => ({})),
     ...overrides,
+    cancelSupportProposal: overrides.cancelSupportProposal ?? vi.fn(),
   };
 }

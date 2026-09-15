@@ -40,6 +40,7 @@ export function createSupportRouter(
   r.get("/ai-proposal/latest", c.getLatestAiProposal);
   r.get("/ai-proposal/:proposalId/docx", c.getAiProposalDocx);
   r.post("/ai-proposal/:proposalId/apply", c.applyAiProposal);
+  r.post("/ai-proposal/:proposalId/cancel", c.cancelAiProposal);
 
   // Core Ticket CRUD with Role Guard
   r.get("/", guard, c.list);
