@@ -161,7 +161,9 @@ export class SupportController {
       if (proposalId.length === 0 || proposalId.length > 255) {
         throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
       }
-      r.json(successResponse("Support proposal canceled", await this.aiService.cancelSupportProposal(proposalId)));
+      const actorId = (r.locals.staffPrincipal as StaffPrincipal | undefined)?.subject;
+      if (!actorId) throw new ApplicationError(401, "AUTH_REQUIRED", "Staff authentication is required");
+      r.json(successResponse("Support proposal canceled", await this.aiService.cancelSupportProposal(proposalId, actorId)));
     } catch (e) {
       n(e);
     }

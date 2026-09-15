@@ -385,7 +385,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     };
   }
 
-  async cancelSupportProposal(proposalId: string): Promise<AiSupportProposalDto> {
+  async cancelSupportProposal(proposalId: string, actorId: string): Promise<AiSupportProposalDto> {
     const proposal = this.proposalsCache.get(proposalId);
     if (!proposal) {
       throw new ApplicationError(404, "PROPOSAL_NOT_FOUND", `Support proposal ${proposalId} not found.`);
@@ -393,6 +393,14 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
     if (proposal.status === "applied") {
       throw new ApplicationError(409, "PROPOSAL_ALREADY_APPLIED", "An applied Support proposal cannot be canceled.");
     }
+    if (actorId.trim().length === 0 || actorId.length > 255) {
+      throw new ApplicationError(400, "VALIDATION_ERROR", "A staff actor is required to cancel a Support proposal.");
+    }
+    await this.database.query(
+      `INSERT INTO support_ai_proposal_decisions (id, proposal_id, actor_id, occurred_at)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (proposal_id) DO NOTHING`,
+      [this.generateId(), proposalId, actorId, this.now()],
+    );
     const canceled = { ...proposal, status: "canceled" as const };
     this.proposalsCache.set(proposalId, canceled);
     return canceled;

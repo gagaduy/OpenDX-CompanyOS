@@ -109,7 +109,8 @@ describe("AiSupportService", () => {
   });
 
   it("cancels a pending proposal so refresh does not return it as awaiting approval", async () => {
-    const service = new AiSupportService({} as any, {});
+    const database = { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) } as any;
+    const service = new AiSupportService(database, {});
     (service as any).proposalsCache.set("proposal-to-cancel", {
       id: "proposal-to-cancel",
       prompt: "Phản hồi khách hàng",
@@ -122,10 +123,21 @@ describe("AiSupportService", () => {
       docxFilename: "proposal.docx",
     });
 
-    await expect(service.cancelSupportProposal("proposal-to-cancel"))
+    await expect(service.cancelSupportProposal("proposal-to-cancel", "staff-1"))
       .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+    expect(database.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO support_ai_proposal_decisions"), expect.arrayContaining(["proposal-to-cancel", "staff-1"]));
     await expect(service.getLatestSupportProposal())
       .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+  });
+
+  it("does not change a pending proposal when its durable cancellation write fails", async () => {
+    const database = { query: vi.fn(async () => { throw new Error("database unavailable"); }) } as any;
+    const service = new AiSupportService(database, {});
+    (service as any).proposalsCache.set("proposal-1", {
+      id: "proposal-1", status: "pending_approval", tickets: [], createdAt: "2026-09-15T03:00:00.000Z",
+    });
+    await expect(service.cancelSupportProposal("proposal-1", "staff-1")).rejects.toThrow("database unavailable");
+    expect((service as any).proposalsCache.get("proposal-1").status).toBe("pending_approval");
   });
 
   it("recovers the latest applied support proposal from persisted ticket events", async () => {

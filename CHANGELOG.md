@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Verified Command Center approval history:
+  - Projected source-verifiable Marketing, Merchandising, Operations, and Support approval decisions into the live activity API alongside explicit command records, with deterministic deduplication and original business timestamps.
+  - Added immutable Support cancellation decisions so new canceled proposals remain visible after refresh or API restart; omitted unknown historical actors rather than attributing decisions to a person without evidence.
+  - Kept legacy cancellations without a durable business record out of the projected history.
+  - Reserved bounded history per department instead of letting newer events from other departments evict CSKH entries before the department filter is applied.
+
 - Local `make up` migration compatibility:
   - Restored the two original Agentic migration definitions for Command Center invalidation events and governed department schedules so a shared local PostgreSQL volume with their applied history passes strict migration-order validation without resetting data.
   - Updated Agentic migration integration coverage and rollback checkpoints for the restored migration sequence.

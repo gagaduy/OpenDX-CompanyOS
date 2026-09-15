@@ -22,12 +22,14 @@ export const agenticAuditPageEnvelopeSchema = envelope(z.object({
   totalItems: z.number().int().nonnegative(), refreshedAt: z.iso.datetime({ offset: true }),
 }).strict());
 const commandActivity = z.object({
-  id: z.uuid(), actorId: z.string(),
+  id: z.string().min(1), actorId: z.string().optional(),
   department: z.enum(["marketing", "merchandising", "operations", "support"]),
   decision: z.enum(["approved", "canceled"]),
   resourceType: z.enum(["marketing_campaign", "merchandising_proposal", "operations_proposal", "support_proposal"]),
-  resourceId: z.string(), summary: z.string(), idempotencyKey: z.string(),
+  resourceId: z.string(), summary: z.string(), idempotencyKey: z.string().optional(),
   occurredAt: z.iso.datetime({ offset: true }),
+  source: z.enum(["command_activity", "business_history"]).optional(),
+  sourceTable: z.string().optional(), sourceId: z.string().optional(),
 }).strict();
 export const commandActivityEnvelopeSchema = envelope(commandActivity);
 export const commandActivityListEnvelopeSchema = envelope(z.array(commandActivity));

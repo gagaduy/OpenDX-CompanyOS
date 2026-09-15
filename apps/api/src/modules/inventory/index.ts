@@ -22,3 +22,4 @@ export type {
   InventoryStockRiskInput,
   InventoryStockRiskResult,
 } from "./application/services/interfaces/inventory-health-reader";
+export { createInventoryDecisionHistoryReader } from "./infrastructure/verified-decision-history.reader";

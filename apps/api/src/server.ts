@@ -6,8 +6,8 @@ import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
-import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
+import { createCatalogDecisionHistoryReader, createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
+import { createInventoryDecisionHistoryReader, createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
 import { MinioStorefrontHeroMediaStorage } from "./modules/catalog/infrastructure/storage/minio-storefront-hero-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
@@ -33,9 +33,9 @@ import { createPaymentHealthReader, createPaymentModule, SePayPaymentGateway, Un
 import { createCheckoutModule } from "./modules/checkout";
 import { createCrmHealthReader, createCrmModule } from "./modules/crm";
 import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
-import { createSupportHealthReader, createSupportModule } from "./modules/support";
+import { createSupportDecisionHistoryReader, createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
-import { createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
+import { createMarketingDecisionHistoryReader, createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
 import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
@@ -263,6 +263,12 @@ const toolAdapters = createFixedDepartmentToolAdapterRegistry({
   marketingRepository: marketing.repository,
 }, currentTime, environment.agentic.controlClientSecret);
 const agentic = createAgenticModule({
+  decisionHistoryReaders: [
+    createMarketingDecisionHistoryReader(),
+    createCatalogDecisionHistoryReader(),
+    createInventoryDecisionHistoryReader(),
+    createSupportDecisionHistoryReader(),
+  ],
   transactions,
   staffTokenVerifier,
   workloadTokenVerifier,

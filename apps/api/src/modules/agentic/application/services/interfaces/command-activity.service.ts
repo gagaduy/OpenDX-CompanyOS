@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StaffPrincipal } from "../../../../../shared/auth/staff-principal";
-import type { CommandActivityEvent, CreateCommandActivityInput } from "../../../domain/entities/command-activity-event";
+import type { CommandActivityEvent, CommandActivityFeedEvent, CreateCommandActivityInput } from "../../../domain/entities/command-activity-event";
 
 export interface CommandActivityService {
   record(input: CreateCommandActivityInput, principal: StaffPrincipal): Promise<CommandActivityEvent>;
-  listRecent(limit: number): Promise<readonly CommandActivityEvent[]>;
+  listRecent(limit: number): Promise<readonly CommandActivityFeedEvent[]>;
 }

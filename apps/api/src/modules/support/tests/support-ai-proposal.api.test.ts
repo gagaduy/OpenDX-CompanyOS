@@ -26,6 +26,6 @@ describe("Support AI proposal decisions", () => {
       .expect(200);
 
     expect(response.body.data).toEqual({ id: "proposal-1", status: "canceled" });
-    expect(cancelSupportProposal).toHaveBeenCalledWith("proposal-1");
+    expect(cancelSupportProposal).toHaveBeenCalledWith("proposal-1", "admin");
   });
 });

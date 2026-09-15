@@ -21,6 +21,14 @@ export interface CommandActivityEvent {
   readonly occurredAt: string;
 }
 
+export interface CommandActivityFeedEvent extends Omit<CommandActivityEvent, "actorId" | "idempotencyKey"> {
+  readonly actorId?: string;
+  readonly idempotencyKey?: string;
+  readonly source: "command_activity" | "business_history";
+  readonly sourceTable?: string;
+  readonly sourceId?: string;
+}
+
 export type CreateCommandActivityInput = Pick<
   CommandActivityEvent,
   "department" | "decision" | "resourceType" | "resourceId" | "summary" | "idempotencyKey"

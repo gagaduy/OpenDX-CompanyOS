@@ -32,6 +32,16 @@ describe("Agentic task transition transport", () => {
 });
 
 describe("Command activity transport", () => {
+  it("accepts a source-verified historical cancellation without inventing an actor", async () => {
+    const evidence = {
+      id: "source:marketing_campaigns:campaign-1", department: "marketing", decision: "canceled",
+      resourceType: "marketing_campaign", resourceId: "campaign-1", summary: "Canceled campaign",
+      occurredAt: "2026-09-14T10:00:00.000Z", source: "business_history",
+      sourceTable: "marketing_campaigns", sourceId: "campaign-1",
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => response({ success: true, data: [evidence] })));
+    await expect(createAgenticApi("http://api.test", "staff-token").listCommandActivity()).resolves.toEqual([evidence]);
+  });
   it("loads persisted events and records a decision with an idempotency key", async () => {
     const event = commandActivityEvent();
     const fetchMock = vi.fn()

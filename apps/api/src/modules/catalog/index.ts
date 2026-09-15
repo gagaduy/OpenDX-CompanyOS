@@ -29,3 +29,4 @@ export type {
   StorefrontVariantSummary,
   CheckoutCatalogReader,
 } from "./application/services/interfaces/storefront-variant-reader";
+export { createCatalogDecisionHistoryReader } from "./infrastructure/verified-decision-history.reader";

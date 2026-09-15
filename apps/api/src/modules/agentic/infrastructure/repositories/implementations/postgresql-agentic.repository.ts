@@ -102,8 +102,14 @@ export class PostgresqlAgenticRepository implements AgenticRepository {
 
   async listCommandActivity(session: DatabaseSession, limit: number): Promise<readonly CommandActivityEvent[]> {
     const result = await session.query<Row>(
-      `SELECT * FROM agentic_command_activity_events
-       ORDER BY occurred_at DESC,id DESC LIMIT $1`,
+      `SELECT * FROM (
+         SELECT event.*, ROW_NUMBER() OVER (
+           PARTITION BY department ORDER BY occurred_at DESC, id DESC
+         ) AS department_rank
+         FROM agentic_command_activity_events event
+       ) recent
+       WHERE department_rank <= $1
+       ORDER BY occurred_at DESC, id DESC`,
       [limit],
     );
     return result.rows.map(mapCommandActivity);

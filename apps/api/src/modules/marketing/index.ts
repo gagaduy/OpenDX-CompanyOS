@@ -27,3 +27,4 @@ export * from "./infrastructure/repositories/implementations/postgresql-social-a
 export * from "./application/services/implementations/social-token-manager.service";
 export * from "./application/services/implementations/autonomous-social-token-monitor.service";
 export * from "./marketing.module";
+export { createMarketingDecisionHistoryReader } from "./infrastructure/verified-decision-history.reader";

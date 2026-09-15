@@ -78,6 +78,26 @@ suite("PostgresqlAgenticRepository", () => {
     await expect(pool.query("DELETE FROM agentic_command_activity_events WHERE id=$1", [event.id])).rejects.toThrow();
   });
 
+  it("keeps one recent command decision per department rather than starving CSKH", async () => {
+    const events = [
+      { id: randomUUID(), actorId: "staff-marketing", department: "marketing" as const,
+        decision: "approved" as const, resourceType: "marketing_campaign" as const,
+        resourceId: "campaign-new", summary: "New campaign", idempotencyKey: "marketing:new",
+        occurredAt: "2026-09-15T09:00:00.000Z" },
+      { id: randomUUID(), actorId: "staff-marketing", department: "marketing" as const,
+        decision: "approved" as const, resourceType: "marketing_campaign" as const,
+        resourceId: "campaign-old", summary: "Old campaign", idempotencyKey: "marketing:old",
+        occurredAt: "2026-09-14T09:00:00.000Z" },
+      { id: randomUUID(), actorId: "staff-support", department: "support" as const,
+        decision: "canceled" as const, resourceType: "support_proposal" as const,
+        resourceId: "support-proposal", summary: "Canceled Support proposal", idempotencyKey: "support:canceled",
+        occurredAt: "2026-09-13T09:00:00.000Z" },
+    ];
+    for (const event of events) await transactions.run((session) => repository.appendCommandActivity(session, event));
+    const listed = await transactions.runReadOnly((session) => repository.listCommandActivity(session, 1));
+    expect(listed.map((event) => event.resourceId)).toEqual(["campaign-new", "support-proposal"]);
+  });
+
   it("round-trips an Advanced live execution profile", async () => {
     const at = "2026-08-26T00:00:00.000Z";
     const taskId = randomUUID();

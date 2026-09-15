@@ -31,5 +31,5 @@ export interface AgenticAuditPage { readonly items: readonly AgenticAuditEvent[]
 export type CommandActivityDepartment = "marketing" | "merchandising" | "operations" | "support";
 export type CommandActivityDecision = "approved" | "canceled";
 export type CommandActivityResourceType = "marketing_campaign" | "merchandising_proposal" | "operations_proposal" | "support_proposal";
-export interface CommandActivityEvent { readonly id: string; readonly actorId: string; readonly department: CommandActivityDepartment; readonly decision: CommandActivityDecision; readonly resourceType: CommandActivityResourceType; readonly resourceId: string; readonly summary: string; readonly idempotencyKey: string; readonly occurredAt: string }
+export interface CommandActivityEvent { readonly id: string; readonly actorId?: string; readonly department: CommandActivityDepartment; readonly decision: CommandActivityDecision; readonly resourceType: CommandActivityResourceType; readonly resourceId: string; readonly summary: string; readonly idempotencyKey?: string; readonly occurredAt: string; readonly source?: "command_activity" | "business_history"; readonly sourceTable?: string; readonly sourceId?: string }
 export type CreateCommandActivity = Pick<CommandActivityEvent, "department" | "decision" | "resourceType" | "resourceId" | "summary">;

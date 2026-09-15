@@ -51,6 +51,14 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
         summary: "Đã hủy đề xuất giá.", idempotencyKey: "merchandising:canceled",
         occurredAt: "2026-09-15T01:07:00.000Z",
       },
+      {
+        id: "source:support_ai_proposal_decisions:00000000-0000-4000-8000-000000000034",
+        actorId: "staff-support", department: "support", decision: "canceled",
+        resourceType: "support_proposal", resourceId: "support-proposal-2",
+        summary: "Đã hủy kịch bản phản hồi CSKH.",
+        occurredAt: "2026-09-15T01:06:00.000Z", source: "business_history",
+        sourceTable: "support_ai_proposal_decisions", sourceId: "00000000-0000-4000-8000-000000000034",
+      },
     ]);
 
     render(
@@ -64,7 +72,28 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(await screen.findByText("Vận hành đã hủy duyệt")).toBeInTheDocument();
     expect(await screen.findByText("Marketing đã được phê duyệt")).toBeInTheDocument();
     expect(await screen.findByText("Danh mục & Định giá đã hủy duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("CSKH đã hủy duyệt")).toBeInTheDocument();
     expect(api.listCommandActivity).toHaveBeenCalled();
+  });
+
+  it("retains an older CSKH approval when newer Marketing events fill the feed", async () => {
+    const api = fakeAgenticApi();
+    vi.mocked(api.listCommandActivity).mockResolvedValue([
+      ...Array.from({ length: 31 }, (_, index) => ({
+        id: `marketing-${index}`, actorId: "staff-marketing", department: "marketing" as const,
+        decision: "approved" as const, resourceType: "marketing_campaign" as const,
+        resourceId: `campaign-${index}`, summary: `Campaign ${index}`,
+        occurredAt: `2026-09-15T${String(index % 24).padStart(2, "0")}:00:00.000Z`,
+        source: "business_history" as const,
+      })),
+      { id: "support-historical", department: "support" as const,
+        decision: "approved" as const, resourceType: "support_proposal" as const,
+        resourceId: "support-proposal-older", summary: "Đã gửi phản hồi cho khách hàng.",
+        occurredAt: "2026-09-13T22:50:00.000Z", source: "business_history" as const },
+    ]);
+    render(<AuthProvider client={fakeAuthClient()}><MemoryRouter><AgenticCommandCenter api={api} /></MemoryRouter></AuthProvider>);
+    fireEvent.change(screen.getByDisplayValue("Tất cả phòng ban"), { target: { value: "support" } });
+    expect(await screen.findByText("CSKH đã được phê duyệt")).toBeInTheDocument();
   });
 
   it("keeps all 4 department inputs enabled at all times", () => {
@@ -318,6 +347,31 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
 
     await act(async () => Promise.resolve());
     expect(screen.queryByText("Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP")).not.toBeInTheDocument();
+  });
+
+  it("shows a durable CSKH cancellation immediately when the secondary activity POST fails", async () => {
+    vi.useFakeTimers();
+    const api = fakeAgenticApi();
+    const supportApi = fakeSupportApi();
+    vi.mocked(api.recordCommandActivity).mockRejectedValue(new Error("activity POST unavailable"));
+    vi.mocked(api.listCommandActivity)
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: "source:support_ai_proposal_decisions:decision-1",
+        actorId: "staff-support", department: "support", decision: "canceled",
+        resourceType: "support_proposal", resourceId: "supp-prop-1",
+        summary: "Đã hủy kịch bản phản hồi CSKH.",
+        occurredAt: "2026-09-15T03:01:00.000Z", source: "business_history",
+        sourceTable: "support_ai_proposal_decisions", sourceId: "decision-1" }]);
+    render(<AuthProvider client={fakeAuthClient()}><MemoryRouter><AgenticCommandCenter api={api} supportApi={supportApi} /></MemoryRouter></AuthProvider>);
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    fireEvent.click(screen.getAllByRole("button", { name: "Đóng" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Hủy duyệt" }));
+    await act(async () => Promise.resolve());
+    expect(screen.queryByText("CSKH đã hủy duyệt")).toBeInTheDocument();
+    expect(api.listCommandActivity).toHaveBeenCalledTimes(2);
   });
 
   it("renders generated customer emails in the completed Support approval modal", async () => {

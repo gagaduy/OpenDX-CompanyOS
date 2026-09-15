@@ -6,6 +6,7 @@ import { authenticateStaff } from "../../shared/auth/staff-auth.middleware";
 import type { WorkloadTokenVerifier } from "../../shared/auth/workload-auth.middleware";
 import { authenticateWorkload } from "../../shared/auth/workload-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
+import type { VerifiedDecisionHistoryReader } from "../../shared/verified-decision-evidence";
 import { AgentTaskServiceImpl } from "./application/services/implementations/agent-task.service";
 import { AgenticFileServiceImpl } from "./application/services/implementations/agentic-file.service";
 import { AgenticConsoleServiceImpl } from "./application/services/implementations/agentic-console.service";
@@ -62,6 +63,7 @@ export interface AgenticModuleDependencies {
   readonly logger?: Logger;
   readonly metrics?: MetricsRegistry;
   readonly monotonicNow?: () => number;
+  readonly decisionHistoryReaders?: readonly VerifiedDecisionHistoryReader[];
 }
 
 export function createAgenticModule(dependencies: AgenticModuleDependencies) {
@@ -100,7 +102,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const consoleService = new AgenticConsoleServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
-  const commandActivity = new CommandActivityServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const commandActivity = new CommandActivityServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now, dependencies.decisionHistoryReaders);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
     ? undefined
     : new AgenticFileServiceImpl(repository, dependencies.agenticFileStorage, dependencies.agenticFileScanner, dependencies.agenticFileParser, dependencies.transactions, dependencies.generateId, dependencies.now);

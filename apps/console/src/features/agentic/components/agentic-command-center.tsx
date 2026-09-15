@@ -117,6 +117,20 @@ export interface DepartmentAgentStatus {
   completedAgents: string[];
 }
 
+const LIVE_EVENTS_PER_DEPARTMENT = 30;
+
+function retainRecentLiveEvents(events: readonly LiveEventItem[]): readonly LiveEventItem[] {
+  const counts = new Map<LiveEventItem["department"], number>();
+  return [...events]
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .filter((event) => {
+      const count = counts.get(event.department) ?? 0;
+      if (count >= LIVE_EVENTS_PER_DEPARTMENT) return false;
+      counts.set(event.department, count + 1);
+      return true;
+    });
+}
+
 export function buildFallbackMarketingDetail(camp: MarketingCampaign): MarketingCampaignDetail {
   const artifacts: MarketingArtifact[] = [
     {
@@ -1489,7 +1503,7 @@ export function AgenticCommandCenter({
     setLiveEvents((prev) => {
       const filtered = prev.filter((e) => e.id !== newEvent.id);
       const combined = [newEvent, ...filtered];
-      return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 30);
+      return retainRecentLiveEvents(combined);
     });
   }, [formatLiveEventTimestamp]);
 
@@ -1524,6 +1538,20 @@ export function AgenticCommandCenter({
       return true;
     } catch (error) {
       console.error("Failed to persist command activity:", error);
+      try {
+        const recovered = (await api.listCommandActivity()).find((event) =>
+          event.department === input.department &&
+          event.decision === input.decision &&
+          event.resourceType === input.resourceType &&
+          event.resourceId === input.resourceId,
+        );
+        if (recovered?.source === "business_history") {
+          displayCommandActivity(recovered);
+          return true;
+        }
+      } catch (recoveryError) {
+        console.error("Failed to recover business activity:", recoveryError);
+      }
       setErrorMessage("Tác vụ đã hoàn tất nhưng chưa thể đồng bộ vào luồng công việc. Vui lòng tải lại để thử lại.");
       return false;
     }
@@ -1843,9 +1871,7 @@ export function AgenticCommandCenter({
             });
           }
         }
-        return Array.from(map.values())
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-          .slice(0, 30);
+        return retainRecentLiveEvents(Array.from(map.values()));
       });
     }
   }, [tasks, activeOperations, activeCampaign, activeCampaigns, campaignProposal, operationsProposal, supportProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
