@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI CEO Natural-Language Department Routing:
+  - Prioritized explicit department mentions over overlapping pricing and promotion keywords, so prompts assigning work to Vận hành route to the Operations workflow and inventory API.
+  - Added a Command Center regression test covering an Operations instruction that also mentions a product discount program.
+
 - Agentic Task Detail Operations Dashboard:
   - Redesigned `/agentic/tasks/:taskId` as a responsive operational dashboard with task status, department participation, governed AI cost, pending approval, and synchronization metrics sourced from the live operations response.
   - Grouped execution branches into stable, data-driven views for Tiếp thị, Danh mục, Vận hành, and CSKH while preserving branch dependencies, tools, data classifications, timeline selection, executive reports, and role-gated workflow actions.

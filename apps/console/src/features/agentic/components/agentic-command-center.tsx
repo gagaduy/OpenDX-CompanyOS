@@ -1298,17 +1298,22 @@ export function AgenticCommandCenter({
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
     const lower = text.toLowerCase();
 
-    // 0. Explicit Department Direct Prefix Check (from direct department inputs)
-    if (lower.includes("[phòng danh mục") || lower.includes("[phòng catalog") || lower.includes("[phòng thương mại")) {
+    // 0. Explicit department mentions always outrank overlapping business keywords.
+    // Direct inputs add brackets, while AI CEO prompts use natural language.
+    if (lower.includes("phòng danh mục") || lower.includes("phòng catalog") || lower.includes("phòng thương mại")) {
       return "merchandising";
     }
-    if (lower.includes("[phòng tiếp thị") || lower.includes("[phòng marketing")) {
+    if (lower.includes("phòng tiếp thị") || lower.includes("phòng marketing")) {
       return "marketing";
     }
-    if (lower.includes("[phòng vận hành") || lower.includes("[phòng kho")) {
+    if (
+      lower.includes("phòng vận hành") ||
+      lower.includes("phòng ban vận hành") ||
+      lower.includes("phòng kho")
+    ) {
       return "operations";
     }
-    if (lower.includes("[phòng cskh") || lower.includes("[phòng chăm sóc")) {
+    if (lower.includes("phòng cskh") || lower.includes("phòng chăm sóc")) {
       return "support";
     }
 

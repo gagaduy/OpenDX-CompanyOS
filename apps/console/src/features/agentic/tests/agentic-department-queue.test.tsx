@@ -147,6 +147,46 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(supportApi.generateSupportProposal).toHaveBeenCalled();
   });
 
+  it("routes an explicit natural-language Operations instruction ahead of discount keywords", async () => {
+    vi.useFakeTimers();
+    const inventoryApi = fakeInventoryApi();
+    const catalogApi = fakeCatalogApi();
+    const prompt =
+      "Hiện cửa hàng đang chuẩn bị chạy chương trình giảm giá sản phẩm, bạn hãy giao cho phòng Vận hành kiểm tra lượng tồn kho, tình trạng đơn hàng và khả năng đáp ứng của các sản phẩm tham gia chương trình.";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            inventoryApi={inventoryApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng Vận hành & Kho vận")).toBeInTheDocument();
+    expect(screen.queryByText("Phòng Danh mục & Định giá (Phối hợp Tiếp thị)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(inventoryApi.generateOperationsProposal).toHaveBeenCalledWith(prompt);
+    expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
   it("opens the completed Support report and keeps its action in the approval inbox", async () => {
     vi.useFakeTimers();
     const authClient = fakeAuthClient();
