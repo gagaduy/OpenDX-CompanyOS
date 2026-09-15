@@ -54,7 +54,10 @@ import type { InventoryApi } from "../../inventory/api/inventory-api";
 import { OperationsProposalModal } from "../../inventory/components/operations-proposal-modal";
 import type { OperationsProposal, OperationsProposalItem } from "../../inventory/types/inventory.types";
 import type { SupportOperationsApi } from "../../support/api/support-api";
-import type { AiSupportProposalView } from "../../support/types/support.types";
+import type {
+  AiSupportProposalView,
+  SupportEmailCampaignProposalView,
+} from "../../support/types/support.types";
 import { useAuth } from "../../authentication/hooks/auth-context";
 import { ExecutiveReport } from "./executive-report";
 import type {
@@ -81,6 +84,7 @@ import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
 import { DepartmentDiagnosticsModal } from "./command-center/department-diagnostics-modal";
 import { StrategicDeliverableModal } from "./command-center/strategic-deliverable-modal";
 import { SupportEmailApprovalModal } from "./command-center/support-email-approval-modal";
+import { SupportEmailCampaignApprovalModal } from "./command-center/support-email-campaign-approval-modal";
 import {
   buildStrategicDeliverable,
   downloadDeliverableDocx,
@@ -776,6 +780,32 @@ export function AgenticCommandCenter({
       .catch((error) => {
         if (!controller.signal.aborted) {
           console.error("Failed to hydrate latest Support proposal:", error);
+        }
+      });
+    return () => controller.abort();
+  }, [supportApi]);
+
+  // Proactive Cross-Department Support Email Campaign State
+  const [supportCampaignProposal, setSupportCampaignProposal] = useState<SupportEmailCampaignProposalView | null>(null);
+  const [isSupportCampaignModalOpen, setIsSupportCampaignModalOpen] = useState(false);
+  const [isSupportCampaignSubmitting, setIsSupportCampaignSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!supportApi?.listEmailCampaignProposals) return;
+    const controller = new AbortController();
+    void supportApi
+      .listEmailCampaignProposals({ limit: 1 }, controller.signal)
+      .then((proposals) => {
+        if (proposals && proposals.length > 0) {
+          const latest = proposals[0];
+          if (latest && latest.status !== "rejected") {
+            setSupportCampaignProposal((current) => current ?? latest);
+          }
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error("Failed to hydrate latest Support email campaign proposal:", error);
         }
       });
     return () => controller.abort();
@@ -2041,10 +2071,28 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
-        const proposal = await supportApi.generateSupportProposal(goalText);
-        setSupportProposal(proposal);
-        setSupportTicketsPage(1);
-        setSupportVipPage(1);
+        const isCampaignGoal = /sản phẩm mới|ưu đãi|khuyến mãi|quảng bá|flash sale|gửi mail|chiến dịch email|chiến dịch cskh/i.test(goalText);
+        let supportProposalId = "";
+
+        if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
+          const campType = /sản phẩm mới/i.test(goalText)
+            ? "new_product_announcement"
+            : /ưu đãi|khuyến mãi|flash sale/i.test(goalText)
+              ? "promotion_announcement"
+              : "customer_care_vip";
+          const campProposal = await supportApi.createEmailCampaignProposal({
+            type: campType,
+            prompt: goalText,
+          });
+          setSupportCampaignProposal(campProposal);
+          supportProposalId = campProposal.id;
+        } else {
+          const proposal = await supportApi.generateSupportProposal(goalText);
+          setSupportProposal(proposal);
+          setSupportTicketsPage(1);
+          setSupportVipPage(1);
+          supportProposalId = proposal.id;
+        }
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
         setCeoPlan((prev) =>
@@ -2062,23 +2110,37 @@ export function AgenticCommandCenter({
             : null,
         );
 
+        setDeptStatus((prev) => ({
+          ...prev,
+          support: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["support_steward", "crm_specialist"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
         recordLiveEvent(
           "support",
-          "CSKH đã hoàn tất tác vụ",
+          isCampaignGoal ? "CSKH đã lập xong chiến dịch email" : "CSKH đã hoàn tất tác vụ",
           goalText,
           "success",
           "Xem kết quả",
           () => {
-            setIsSupportEmailApprovalModalOpen(true);
+            if (isCampaignGoal) {
+              setIsSupportCampaignModalOpen(true);
+            } else {
+              setIsSupportEmailApprovalModalOpen(true);
+            }
           },
         );
         notifyAndShowStrategicDeliverable(
           goalText,
-          proposal?.id,
+          supportProposalId,
           "support",
-          "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
+          isCampaignGoal
+            ? "AI CEO & Đội ngũ CSKH đã hoàn tất lập kế hoạch chiến dịch email và file Word (.docx)! Sẵn sàng để bạn duyệt gửi."
+            : "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
         );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
@@ -3453,6 +3515,52 @@ export function AgenticCommandCenter({
       setErrorMessage(err instanceof Error ? err.message : "Không thể gửi phản hồi CSKH.");
     } finally {
       setSupportActionLoading(false);
+    }
+  };
+
+  const handleApplySupportCampaign = async (selectedRecipientIds?: readonly string[]) => {
+    if (!supportCampaignProposal || !supportApi?.applyEmailCampaignProposal) return;
+    setIsSupportCampaignSubmitting(true);
+    try {
+      const result = await supportApi.applyEmailCampaignProposal(
+        supportCampaignProposal.id,
+        selectedRecipientIds,
+      );
+      const dispatchedCount = result?.successfulDispatches ?? supportCampaignProposal.totalRecipients;
+      setSuccessMessage(`✅ Đã phê duyệt và gửi thành công chiến dịch email tới ${dispatchedCount} khách hàng!`);
+
+      recordLiveEvent(
+        "support",
+        "CSKH gửi chiến dịch email",
+        `Đã gửi thành công chiến dịch "${supportCampaignProposal.title}" tới ${dispatchedCount} khách hàng`,
+        "success",
+        "Xem chiến dịch",
+        () => setIsSupportCampaignModalOpen(true),
+        new Date().toISOString(),
+        `campaign-ev-${supportCampaignProposal.id}`,
+      );
+
+      setSupportCampaignProposal((prev) => (prev ? { ...prev, status: "sent" } : null));
+      setIsSupportCampaignModalOpen(false);
+      if (onTaskCreated) onTaskCreated();
+    } catch (err) {
+      console.error("Failed to apply support email campaign:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Không thể gửi chiến dịch email.");
+    } finally {
+      setIsSupportCampaignSubmitting(false);
+    }
+  };
+
+  const handleDownloadSupportCampaignDocx = async () => {
+    if (!supportCampaignProposal || !supportApi?.downloadEmailCampaignDocx) return;
+    try {
+      await supportApi.downloadEmailCampaignDocx(
+        supportCampaignProposal.id,
+        supportCampaignProposal.docxFilename,
+      );
+    } catch (err) {
+      console.error("Failed to download support campaign docx:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Không thể tải file Word kế hoạch email.");
     }
   };
 
@@ -5381,6 +5489,42 @@ export function AgenticCommandCenter({
         ]
       : []),
 
+    // 4b. Support: Proactive Email Campaign (New Products / Flash Sales / VIP)
+    ...(supportCampaignProposal?.status === "pending_approval"
+      ? [
+          {
+            id: supportCampaignProposal.id,
+            title: `${supportCampaignProposal.title} (${supportCampaignProposal.totalRecipients} Khách hàng)`,
+            sourceDepartment: "support" as const,
+            authorName: "Chuyên viên CRM & Quản gia CSKH (SUP-02 & SUP-01)",
+            riskLevel: "low" as const,
+            timestamp: formatTime(supportCampaignProposal.createdAt || Date.now()),
+            onPreview: () => {
+              setIsSupportCampaignModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh chiến dịch email cho Chuyên viên CRM.");
+            },
+            onApprove: () => void handleApplySupportCampaign(),
+            onReject: async () => {
+              const proposal = supportCampaignProposal;
+              if (!supportApi?.cancelEmailCampaignProposal) {
+                setErrorMessage("Dịch vụ chiến dịch email CSKH chưa sẵn sàng.");
+                return;
+              }
+              try {
+                await supportApi.cancelEmailCampaignProposal(proposal.id);
+                setSupportCampaignProposal(null);
+                setIsSupportCampaignModalOpen(false);
+                setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
+              }
+            },
+          },
+        ]
+      : []),
+
     // 5. AI CEO / Executive Deliverable: Strategic Cross-Department Execution Plan
     ...(completedStrategicDeliverable &&
     !strategicDeliverableApproved &&
@@ -5749,6 +5893,20 @@ export function AgenticCommandCenter({
           );
           setSelectedStrategicDeliverable(deliv);
           setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    if (supportCampaignProposal) {
+      list.push({
+        id: supportCampaignProposal.id,
+        title: supportCampaignProposal.docxFilename || `Kế hoạch Email: ${supportCampaignProposal.title}`,
+        departmentName: "CSKH & Trải nghiệm",
+        completedAt: formatTime(supportCampaignProposal.updatedAt || supportCampaignProposal.createdAt || Date.now()),
+        format: "docx",
+        timestamp: new Date(supportCampaignProposal.updatedAt || supportCampaignProposal.createdAt).getTime() || Date.now(),
+        onDownloadOrView: () => {
+          setIsSupportCampaignModalOpen(true);
         },
       });
     }
@@ -6490,6 +6648,26 @@ export function AgenticCommandCenter({
         onClose={() => setIsSupportEmailApprovalModalOpen(false)}
         onApproveSelected={(ticketIds) => handleApplySupport(ticketIds)}
         onApproveAll={() => handleApplySupport()}
+      />
+
+      <SupportEmailCampaignApprovalModal
+        isOpen={isSupportCampaignModalOpen}
+        proposal={supportCampaignProposal}
+        isSubmitting={isSupportCampaignSubmitting}
+        onClose={() => setIsSupportCampaignModalOpen(false)}
+        onApprove={(selectedIds) => void handleApplySupportCampaign(selectedIds)}
+        onReject={async () => {
+          if (!supportCampaignProposal || !supportApi?.cancelEmailCampaignProposal) return;
+          try {
+            await supportApi.cancelEmailCampaignProposal(supportCampaignProposal.id);
+            setSupportCampaignProposal(null);
+            setIsSupportCampaignModalOpen(false);
+            setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
+          } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
+          }
+        }}
+        onDownloadDocx={() => void handleDownloadSupportCampaignDocx()}
       />
 
       <StrategicDeliverableModal
