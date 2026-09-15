@@ -22,6 +22,51 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     vi.useRealTimers();
   });
 
+  it("hydrates approved and canceled decisions from persistent command activity", async () => {
+    const api = fakeAgenticApi();
+    const supportEvent = {
+        id: "00000000-0000-4000-8000-000000000030", actorId: "admin", department: "support",
+        decision: "approved", resourceType: "support_proposal", resourceId: "support-proposal-1",
+        summary: "Đã gửi phản hồi sản phẩm lỗi cho khách hàng.", idempotencyKey: "support:approved",
+        occurredAt: "2026-09-15T01:10:00.000Z",
+      } as const;
+    vi.mocked(api.listCommandActivity).mockResolvedValue([
+      supportEvent,
+      supportEvent,
+      {
+        id: "00000000-0000-4000-8000-000000000031", actorId: "admin", department: "operations",
+        decision: "canceled", resourceType: "operations_proposal", resourceId: "operations-proposal-1",
+        summary: "Đề xuất nhập kho không còn phù hợp.", idempotencyKey: "operations:canceled",
+        occurredAt: "2026-09-15T01:09:00.000Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000032", actorId: "admin", department: "marketing",
+        decision: "approved", resourceType: "marketing_campaign", resourceId: "marketing-campaign-1",
+        summary: "Đã xuất bản chiến dịch.", idempotencyKey: "marketing:approved",
+        occurredAt: "2026-09-15T01:08:00.000Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000033", actorId: "admin", department: "merchandising",
+        decision: "canceled", resourceType: "merchandising_proposal", resourceId: "merchandising-proposal-1",
+        summary: "Đã hủy đề xuất giá.", idempotencyKey: "merchandising:canceled",
+        occurredAt: "2026-09-15T01:07:00.000Z",
+      },
+    ]);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={api} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("CSKH đã được phê duyệt")).toBeInTheDocument();
+    expect(screen.getAllByText("CSKH đã được phê duyệt")).toHaveLength(1);
+    expect(await screen.findByText("Vận hành đã hủy duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("Marketing đã được phê duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("Danh mục & Định giá đã hủy duyệt")).toBeInTheDocument();
+    expect(api.listCommandActivity).toHaveBeenCalled();
+  });
+
   it("keeps all 4 department inputs enabled at all times", () => {
     const authClient = fakeAuthClient();
     const api = fakeAgenticApi();
@@ -658,6 +703,8 @@ function fakeAgenticApi(): AgenticOperationsApi {
     listEmployees: vi.fn(),
     loadEmployee: vi.fn(),
     listAudit: vi.fn(),
+    listCommandActivity: vi.fn(async () => []),
+    recordCommandActivity: vi.fn(),
   };
 }
 

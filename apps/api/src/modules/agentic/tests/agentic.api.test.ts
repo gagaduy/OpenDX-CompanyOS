@@ -20,6 +20,7 @@ import {
   parseCompleteModelRun, parseFailModelRun,
   parseAcceptOrchestrationPlan,
   parseAcceptedOrchestrationResult, parseCollaborationRequest, parseExecutiveReport,
+  parseCommandActivity, parseCommandActivityQuery,
 } from "../presentation/validators/agentic.validator";
 
 describe("Agentic validators", () => {
@@ -35,6 +36,15 @@ describe("Agentic validators", () => {
     expect(parseCreateTask({ goal: "  Review  ", instructions: "Evidence", provenance, subtasks: [], dependencies: [] }).goal).toBe("Review");
     expect(parseDecision({ expectedVersion: 1, decision: "approved", reason: "Valid" }))
       .toEqual({ expectedVersion: 1, decision: "approved", reason: "Valid" });
+  });
+
+  it("accepts only bounded command activity input and query limits", () => {
+    const input = { department: "support", decision: "approved", resourceType: "support_proposal", resourceId: "proposal-1", summary: "  Đã gửi email phản hồi.  " };
+    expect(parseCommandActivity(input)).toEqual({ ...input, summary: "Đã gửi email phản hồi." });
+    expect(parseCommandActivityQuery({})).toEqual({ limit: 30 });
+    expect(() => parseCommandActivity({ ...input, department: "pricing" })).toThrow();
+    expect(() => parseCommandActivity({ ...input, summary: "x".repeat(241) })).toThrow();
+    expect(() => parseCommandActivityQuery({ limit: 51 })).toThrow();
   });
 
   it("accepts only bounded strict workflow and activity DTOs", () => {
@@ -312,6 +322,14 @@ describe("Agentic route authorization", () => {
     expect((await build("agentic_operator", denied).post("/configuration-revisions").send({})).status).toBe(403);
   });
 
+  it("limits activity writes to approvers and allows authenticated workforce readers", async () => {
+    const denied = vi.fn(async () => undefined);
+    await build(undefined, denied).get("/activity-events").expect(401);
+    await build("agentic_operator", denied).post("/activity-events").send({}).expect(403);
+    expect((await build("agentic_approver", denied).post("/activity-events").send({})).body.data.route).toBe("createCommandActivity");
+    expect((await build("agentic_auditor", denied).get("/activity-events")).body.data.route).toBe("listCommandActivity");
+  });
+
   it("maps workflow conflicts and invalid bindings to bounded API errors", async () => {
     const app = express();
     app.get("/:code", (request, _response, next) => {
@@ -427,6 +445,7 @@ function build(role: StaffRole | undefined, appendDenied: () => Promise<void>) {
     listEmployees: handler("listEmployees"), getEmployee: handler("getEmployee"),
     createRevision: handler("createRevision"), updateRevision: handler("updateRevision"), submitRevision: handler("submitRevision"), activateRevision: handler("activateRevision"), getRevisionDiff: handler("getRevisionDiff"), decideRevision: handler("decideRevision"),
     createRevocation: handler("createRevocation"), listAudit: handler("listAudit"),
+    createCommandActivity: handler("createCommandActivity"), listCommandActivity: handler("listCommandActivity"),
     uploadFile: handler("uploadFile"), getFile: handler("getFile"), previewFile: handler("previewFile"),
     approveFile: handler("approveFile"), rejectFile: handler("rejectFile"), deleteFile: handler("deleteFile"),
     startWorkflow: handler("startWorkflow"), getWorkflow: handler("getWorkflow"),

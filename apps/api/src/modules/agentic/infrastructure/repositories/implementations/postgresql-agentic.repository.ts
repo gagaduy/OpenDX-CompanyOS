@@ -77,10 +77,38 @@ import type {
   WorkflowSignalReceipt,
 } from "../../../domain/entities/workflow-run";
 import { validateModelQualityEvidence, validateModelRun } from "../../../domain/services/model-run-rules";
+import type { CommandActivityEvent } from "../../../domain/entities/command-activity-event";
 
 type Row = Record<string, unknown>;
 
 export class PostgresqlAgenticRepository implements AgenticRepository {
+  async appendCommandActivity(session: DatabaseSession, event: CommandActivityEvent): Promise<CommandActivityEvent> {
+    const inserted = await session.query<Row>(
+      `INSERT INTO agentic_command_activity_events
+       (id,actor_id,department,decision,resource_type,resource_id,summary,idempotency_key,occurred_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (idempotency_key) DO NOTHING
+       RETURNING *`,
+      [event.id, event.actorId, event.department, event.decision, event.resourceType,
+        event.resourceId, event.summary, event.idempotencyKey, event.occurredAt],
+    );
+    if (inserted.rows[0] !== undefined) return mapCommandActivity(inserted.rows[0]);
+    const existing = await session.query<Row>(
+      "SELECT * FROM agentic_command_activity_events WHERE idempotency_key=$1",
+      [event.idempotencyKey],
+    );
+    return mapCommandActivity(existing.rows[0]!);
+  }
+
+  async listCommandActivity(session: DatabaseSession, limit: number): Promise<readonly CommandActivityEvent[]> {
+    const result = await session.query<Row>(
+      `SELECT * FROM agentic_command_activity_events
+       ORDER BY occurred_at DESC,id DESC LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapCommandActivity);
+  }
+
   async appendAiCeoExecutionAuthority(
     session: DatabaseSession,
     authority: AiCeoExecutionAuthority,
@@ -2846,6 +2874,20 @@ function mapAudit(row: Row): AuditEventRecord {
     ...(row.duration_ms === null ? {} : { durationMs: Number(row.duration_ms) }),
     ...(row.result_digest === null ? {} : { resultDigest: String(row.result_digest) }),
     ...(row.error_code === null ? {} : { errorCode: String(row.error_code) }),
+  };
+}
+
+function mapCommandActivity(row: Row): CommandActivityEvent {
+  return {
+    id: String(row.id),
+    actorId: String(row.actor_id),
+    department: row.department as CommandActivityEvent["department"],
+    decision: row.decision as CommandActivityEvent["decision"],
+    resourceType: row.resource_type as CommandActivityEvent["resourceType"],
+    resourceId: String(row.resource_id),
+    summary: String(row.summary),
+    idempotencyKey: String(row.idempotency_key),
+    occurredAt: toIso(row.occurred_at),
   };
 }
 

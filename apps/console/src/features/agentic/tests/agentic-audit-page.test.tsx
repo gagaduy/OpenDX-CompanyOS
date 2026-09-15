@@ -41,6 +41,6 @@ describe("AgenticAuditPage", () => {
 function fakeApi(): AgenticApi {
   return {
     overview: vi.fn(), listTasks: vi.fn(), createTask: vi.fn(), uploadFile: vi.fn(), loadFile: vi.fn(), previewFile: vi.fn(), approveFile: vi.fn(), rejectFile: vi.fn(), loadOperations: vi.fn(), cancelWorkflow: vi.fn(), listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(),
-    listAudit: vi.fn(async () => ({ items: [{ id: "00000000-0000-4000-8000-000000000095", actorId: "actor-a", actorType: "staff" as const, action: "configuration.activate", resourceType: "configuration_revision", resourceId: "00000000-0000-4000-8000-000000000099", outcome: "denied" as const, correlationId: "corr-1", parametersDigest: "a".repeat(64), occurredAt: "2026-08-25T00:00:00.000Z" }], totalItems: 1, refreshedAt: "2026-08-25T00:00:00.000Z" })),
+    listAudit: vi.fn(async () => ({ items: [{ id: "00000000-0000-4000-8000-000000000095", actorId: "actor-a", actorType: "staff" as const, action: "configuration.activate", resourceType: "configuration_revision", resourceId: "00000000-0000-4000-8000-000000000099", outcome: "denied" as const, correlationId: "corr-1", parametersDigest: "a".repeat(64), occurredAt: "2026-08-25T00:00:00.000Z" }], totalItems: 1, refreshedAt: "2026-08-25T00:00:00.000Z" })), listCommandActivity: vi.fn(), recordCommandActivity: vi.fn(),
   };
 }

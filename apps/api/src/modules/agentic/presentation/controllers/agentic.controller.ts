@@ -9,6 +9,7 @@ import type { AgentTaskService } from "../../application/services/interfaces/age
 import type { AgenticQueryService } from "../../application/services/interfaces/agentic-query.service";
 import type { AgenticFileService } from "../../application/services/interfaces/agentic-file.service";
 import type { AgenticConsoleService } from "../../application/services/interfaces/agentic-console.service";
+import type { CommandActivityService } from "../../application/services/interfaces/command-activity.service";
 import type { AgenticIntakeFile } from "../../domain/entities/agentic-file";
 import type { ApprovalService } from "../../application/services/interfaces/approval.service";
 import type { ConfigurationService } from "../../application/services/interfaces/configuration.service";
@@ -18,7 +19,7 @@ import {
   parseExpectedVersion, parsePage, parseRevocation, parseUpdateRevision,
   parseUpdateTask, parseUuid,
   parseFileAction, parseFileApproval, parseIdempotencyKey,
-  parseConsoleTaskFilter, parseEmptyQuery, parseTaskIntake,
+  parseCommandActivity, parseCommandActivityQuery, parseConsoleTaskFilter, parseEmptyQuery, parseTaskIntake,
 } from "../validators/agentic.validator";
 
 export class AgenticController {
@@ -30,6 +31,7 @@ export class AgenticController {
     private readonly queries: AgenticQueryService,
     private readonly files?: AgenticFileService,
     private readonly consoleService?: AgenticConsoleService,
+    private readonly commandActivity?: CommandActivityService,
   ) {}
 
   readonly createTaskIntake = handle(async (request, response) => {
@@ -123,6 +125,17 @@ export class AgenticController {
   readonly listAudit = handle(async (request, response) => {
     response.json(successResponse("Agent audit retrieved", await consoleTasks(this.consoleService).listAudit(parseAuditQuery(request.query), principal(response.locals))));
   });
+  readonly createCommandActivity = handle(async (request, response) => {
+    const data = await activities(this.commandActivity).record({
+      ...parseCommandActivity(request.body),
+      idempotencyKey: parseIdempotencyKey(request.headers["idempotency-key"]),
+    }, principal(response.locals));
+    response.status(201).json(successResponse("Command activity recorded", data));
+  });
+  readonly listCommandActivity = handle(async (request, response) => {
+    const { limit } = parseCommandActivityQuery(request.query);
+    response.json(successResponse("Command activity retrieved", await activities(this.commandActivity).listRecent(limit)));
+  });
   readonly uploadFile = handle(async (request, response) => {
     if (request.file === undefined) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
     if (Object.keys(request.body).length !== 0) throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
@@ -168,6 +181,11 @@ function files(service: AgenticFileService | undefined): AgenticFileService {
 
 function consoleTasks(service: AgenticConsoleService | undefined): AgenticConsoleService {
   if (service === undefined) throw new ApplicationError(503, "AGENTIC_CONSOLE_UNAVAILABLE", "Agentic Console is unavailable");
+  return service;
+}
+
+function activities(service: CommandActivityService | undefined): CommandActivityService {
+  if (service === undefined) throw new ApplicationError(503, "COMMAND_ACTIVITY_UNAVAILABLE", "Command activity is unavailable");
   return service;
 }
 

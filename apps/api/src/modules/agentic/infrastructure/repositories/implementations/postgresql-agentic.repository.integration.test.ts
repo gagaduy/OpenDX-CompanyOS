@@ -33,7 +33,7 @@ suite("PostgresqlAgenticRepository", () => {
 
   beforeAll(async () => runAgenticMigrations(databaseUrl!, "up"));
   beforeEach(async () => {
-    await pool.query(`TRUNCATE agentic_staff_intake_idempotency,
+    await pool.query(`TRUNCATE agentic_command_activity_events, agentic_staff_intake_idempotency,
       agentic_executive_report_payloads,
       agentic_accepted_orchestration_result_payloads,
       agentic_ai_ceo_execution_payloads, agentic_ai_ceo_execution_authorities,
@@ -58,6 +58,24 @@ suite("PostgresqlAgenticRepository", () => {
     await pool.query(`INSERT INTO agentic_tools
       (name,version,input_schema_digest,output_schema_digest,execution_cost_micros,maximum_attempts)
       VALUES('catalog.product_completeness',1,$1,$2,1,2)`, ["a".repeat(64), "b".repeat(64)]);
+  });
+
+  it("appends, deduplicates, lists, and protects command activity", async () => {
+    const event = {
+      id: randomUUID(), actorId: "administrator", department: "support" as const,
+      decision: "approved" as const, resourceType: "support_proposal" as const,
+      resourceId: "support-proposal-1", summary: "Đã gửi email phản hồi.",
+      idempotencyKey: "support:support-proposal-1:approved", occurredAt: "2026-09-15T01:00:00.000Z",
+    };
+    const first = await transactions.run((session) => repository.appendCommandActivity(session, event));
+    const duplicate = await transactions.run((session) => repository.appendCommandActivity(session, { ...event, id: randomUUID() }));
+    const listed = await transactions.runReadOnly((session) => repository.listCommandActivity(session, 30));
+
+    expect(first).toEqual(event);
+    expect(duplicate).toEqual(event);
+    expect(listed).toEqual([event]);
+    await expect(pool.query("UPDATE agentic_command_activity_events SET summary='changed' WHERE id=$1", [event.id])).rejects.toThrow();
+    await expect(pool.query("DELETE FROM agentic_command_activity_events WHERE id=$1", [event.id])).rejects.toThrow();
   });
 
   it("round-trips an Advanced live execution profile", async () => {

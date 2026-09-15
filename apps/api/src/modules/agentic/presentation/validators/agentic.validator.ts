@@ -297,6 +297,18 @@ const fileApproval = z.object({
   previewPayloadDigest: digest,
 }).strict();
 const idempotencyKey = z.string().trim().min(1).max(255);
+const commandActivity = z.object({
+  department: z.enum(["marketing", "merchandising", "operations", "support"]),
+  decision: z.enum(["approved", "canceled"]),
+  resourceType: z.enum([
+    "marketing_campaign", "merchandising_proposal", "operations_proposal", "support_proposal",
+  ]),
+  resourceId: z.string().trim().min(1).max(255),
+  summary: z.string().trim().min(1).max(240),
+}).strict();
+const commandActivityQuery = z.object({
+  limit: z.coerce.number().int().positive().max(50).default(30),
+}).strict();
 
 export const parseUuid = (value: unknown): string => parse(uuid, value);
 export const parseAgentKind = (value: unknown) => parse(agentKind, value);
@@ -305,6 +317,8 @@ export const parseConsoleTaskFilter = (value: unknown) => parse(consoleTaskFilte
 export const parseTaskIntake = (value: unknown) => parse(taskIntake, value);
 export const parseEmptyQuery = (value: unknown) => parse(emptyQuery, value);
 export const parseAuditQuery = (value: unknown) => parse(auditQuery, value);
+export const parseCommandActivity = (value: unknown) => parse(commandActivity, value);
+export const parseCommandActivityQuery = (value: unknown) => parse(commandActivityQuery, value);
 export const parseCreateTask = (value: unknown) => parse(task, value);
 export const parseUpdateTask = (value: unknown) => parse(taskUpdate, value);
 export const parseExpectedVersion = (value: unknown) => parse(expectedVersion, value);

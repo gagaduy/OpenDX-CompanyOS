@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Persistent Command Center Approval Activity:
+  - Added an authenticated, append-only PostgreSQL activity record for approved and canceled Marketing, Merchandising, Operations, and Support decisions.
+  - Hydrated decision events from the backend on Command Center startup and synchronized them every five seconds so the live feed survives page refreshes and updates across sessions.
+  - Recorded decision events only after the owning business action succeeds, with idempotency protection, server-owned actor/timestamps, bounded validation, and role-gated create/list endpoints.
+
 - Support Email Proposal Data Scoping:
   - Limited AI Support proposals to actionable tickets instead of returning resolved and closed database records.
   - Scoped inbound-email proposals and customer analysis to the exact ticket being created or reopened, preventing unrelated customer data from entering the AI context.

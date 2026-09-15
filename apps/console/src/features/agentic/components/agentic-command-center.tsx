@@ -39,7 +39,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
-import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations, AgenticApproval } from "../types/agentic.types";
+import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations, AgenticApproval, CommandActivityEvent, CreateCommandActivity } from "../types/agentic.types";
 import type {
   MarketingApi,
   SocialTokensSummaryView,
@@ -283,6 +283,16 @@ export function buildCampaignProposalFromMerchandising(prop: MerchandisingPropos
     pricingRationale: prop.pricingRationale || "Tối ưu hóa lợi nhuận dựa trên dữ liệu nhu cầu thị trường",
     salesProjection: prop.salesProjection || "Dự kiến tăng 25% doanh số trong thời gian áp dụng",
   };
+}
+
+function activityResourceType(department: DepartmentType): CreateCommandActivity["resourceType"] {
+  const resources: Record<DepartmentType, CreateCommandActivity["resourceType"]> = {
+    marketing: "marketing_campaign",
+    merchandising: "merchandising_proposal",
+    operations: "operations_proposal",
+    support: "support_proposal",
+  };
+  return resources[department];
 }
 
 interface AgenticCommandCenterProps {
@@ -1482,6 +1492,60 @@ export function AgenticCommandCenter({
       return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 30);
     });
   }, [formatLiveEventTimestamp]);
+
+  const displayCommandActivity = useCallback((event: CommandActivityEvent) => {
+    const departmentNames: Record<CommandActivityEvent["department"], string> = {
+      marketing: "Marketing",
+      merchandising: "Danh mục & Định giá",
+      operations: "Vận hành",
+      support: "CSKH",
+    };
+    const decisionText = event.decision === "approved" ? "đã được phê duyệt" : "đã hủy duyệt";
+    recordLiveEvent(
+      event.department,
+      `${departmentNames[event.department]} ${decisionText}`,
+      event.summary,
+      event.decision === "approved" ? "success" : "error",
+      undefined,
+      undefined,
+      event.occurredAt,
+      `command-activity-${event.id}`,
+    );
+  }, [recordLiveEvent]);
+
+  const persistCommandActivity = useCallback(async (input: CreateCommandActivity) => {
+    try {
+      const boundedInput = { ...input, summary: input.summary.trim().slice(0, 240) };
+      const event = await api.recordCommandActivity(
+        boundedInput,
+        `command-center:${input.resourceType}:${input.resourceId}:${input.decision}`,
+      );
+      displayCommandActivity(event);
+      return true;
+    } catch (error) {
+      console.error("Failed to persist command activity:", error);
+      setErrorMessage("Tác vụ đã hoàn tất nhưng chưa thể đồng bộ vào luồng công việc. Vui lòng tải lại để thử lại.");
+      return false;
+    }
+  }, [api, displayCommandActivity]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const events = await api.listCommandActivity(controller.signal);
+        if (!controller.signal.aborted) events.forEach(displayCommandActivity);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Failed to hydrate command activity:", error);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [api, displayCommandActivity]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -3342,6 +3406,13 @@ export function AgenticCommandCenter({
           new Date().toISOString(),
           `support-prop-ev-${supportProposal.id}`,
         );
+        await persistCommandActivity({
+          department: "support",
+          decision: "approved",
+          resourceType: "support_proposal",
+          resourceId: supportProposal.id,
+          summary: supportProposal.overallSentimentSummary || `Đã gửi phản hồi cho ${selectedTickets.length} khách hàng.`,
+        });
       }
 
       setSuccessMessage(
@@ -3402,6 +3473,13 @@ export function AgenticCommandCenter({
           detail.campaign.updatedAt,
           `marketing-camp-${campId}`,
         );
+        await persistCommandActivity({
+          department: "marketing",
+          decision: "approved",
+          resourceType: "marketing_campaign",
+          resourceId: campId,
+          summary: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+        });
         setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
         if (onTaskCreated) onTaskCreated();
       } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
@@ -3507,27 +3585,34 @@ export function AgenticCommandCenter({
   const handleCancelMarketingCampaign = async (targetId?: string) => {
     const campId = targetId || activeCampaignId;
     if (!campId) return;
-
-    markCampaignCanceled(campId);
-    setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
-    if (activeCampaignId === campId) {
-      setActiveCampaignId(null);
-      setActiveCampaignDetail(null);
-    } else if (activeCampaignDetail?.campaign.id === campId) {
-      setActiveCampaignDetail(null);
-    }
-    if (previewCampaignDetail?.campaign.id === campId) {
-      setPreviewCampaignDetail(null);
-    }
-    setMarketingCampaignModalOpen(false);
-    setShowRevisionModal(false);
-    setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
-
+    const campaignSummary = activeCampaignDetail?.campaign.id === campId
+      ? activeCampaignDetail.campaign.campaignName
+      : campaignsList.find((campaign) => campaign.id === campId)?.campaignName;
     try {
       setMarketingActionLoading(true);
       if (marketingApi?.cancelCampaign) {
         await marketingApi.cancelCampaign(campId, "Hủy duyệt bởi Quản trị viên");
       }
+      const persisted = await persistCommandActivity({
+        department: "marketing",
+        decision: "canceled",
+        resourceType: "marketing_campaign",
+        resourceId: campId,
+        summary: campaignSummary || "Đề xuất chiến dịch Marketing",
+      });
+      if (!persisted) return;
+      markCampaignCanceled(campId);
+      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
+      if (activeCampaignId === campId) {
+        setActiveCampaignId(null);
+        setActiveCampaignDetail(null);
+      } else if (activeCampaignDetail?.campaign.id === campId) {
+        setActiveCampaignDetail(null);
+      }
+      if (previewCampaignDetail?.campaign.id === campId) setPreviewCampaignDetail(null);
+      setMarketingCampaignModalOpen(false);
+      setShowRevisionModal(false);
+      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
       const res = await marketingApi?.listCampaigns({ limit: 20 });
       if (res?.items) {
         setCampaignsList(
@@ -3566,6 +3651,7 @@ export function AgenticCommandCenter({
       setErrorMessage(null);
 
       if (campaignProposal) {
+        const approvedProposal = campaignProposal;
         await catalogApi.activateCampaign(campaignProposal.id);
         const active = await catalogApi.getActiveCampaign();
         setActiveCampaign(active);
@@ -3588,6 +3674,13 @@ export function AgenticCommandCenter({
             : null,
         );
         setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+        await persistCommandActivity({
+          department: "merchandising",
+          decision: "approved",
+          resourceType: "merchandising_proposal",
+          resourceId: approvedProposal.id,
+          summary: approvedProposal.name,
+        });
         return;
       }
 
@@ -3622,6 +3715,13 @@ export function AgenticCommandCenter({
           ? `Đã cập nhật giá bán mới và mô tả tối ưu cho ${result.items.length} sản phẩm trực tiếp lên Cửa hàng Storefront!`
           : `Đã cập nhật giá bán mới (${(result.newPriceVnd || result.items?.[0]?.newPriceVnd || 0).toLocaleString("vi-VN")} đ) và mô tả tối ưu trực tiếp lên Cửa hàng Storefront!`;
       setSuccessMessage(msg);
+      await persistCommandActivity({
+        department: "merchandising",
+        decision: "approved",
+        resourceType: "merchandising_proposal",
+        resourceId: merchandisingProposal.id,
+        summary: merchandisingProposal.pricingRationale || "Đã áp dụng đề xuất giá và danh mục lên Storefront.",
+      });
     } catch (err: any) {
       console.error("Apply merchandising proposal failed:", err);
       setErrorMessage(err.message || "Không thể áp dụng đề xuất lên Storefront.");
@@ -3682,6 +3782,13 @@ export function AgenticCommandCenter({
         new Date().toISOString(),
         `camp-ev-${campaignProposal.id}`,
       );
+      await persistCommandActivity({
+        department: "merchandising",
+        decision: "approved",
+        resourceType: "merchandising_proposal",
+        resourceId: approvedCampId,
+        summary: `Chiến dịch: ${campaignProposal.name}`,
+      });
 
       setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
       if (onTaskCreated) onTaskCreated();
@@ -3780,6 +3887,13 @@ export function AgenticCommandCenter({
         new Date().toISOString(),
         `ops-prop-ev-${operationsProposal.id}`,
       );
+      await persistCommandActivity({
+        department: "operations",
+        decision: "approved",
+        resourceType: "operations_proposal",
+        resourceId: operationsProposal.id,
+        summary: operationsProposal.summary || `Đã nhập kho bổ sung +${totalRestocked} đơn vị hàng`,
+      });
 
       setSuccessMessage(`✅ Đã phê duyệt và nhập kho thành công +${totalRestocked} đơn vị hàng vào cơ sở dữ liệu PostgreSQL!`);
       if (onTaskCreated) onTaskCreated();
@@ -5009,7 +5123,9 @@ export function AgenticCommandCenter({
               void handleTriggerClearanceCampaign(operationsProposal.items);
             },
             onApprove: () => void handleApplyOperations(),
-            onReject: () => {
+            onReject: async () => {
+              const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: operationsProposal.id, summary: operationsProposal.summary || "Đề xuất nhập kho" });
+              if (!persisted) return;
               setOperationsProposal(null);
               setSuccessMessage("Đã hủy đề xuất nhập kho.");
             },
@@ -5035,7 +5151,9 @@ export function AgenticCommandCenter({
               setOperationsProposal(pendingReplenishment);
               void handleApplyOperations();
             },
-            onReject: () => {
+            onReject: async () => {
+              const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: pendingReplenishment.id, summary: pendingReplenishment.summary || "Kế hoạch nhập kho tự động" });
+              if (!persisted) return;
               setPendingReplenishment(null);
               setSuccessMessage("Đã hủy đề xuất nhập kho tự động.");
             },
@@ -5187,7 +5305,11 @@ export function AgenticCommandCenter({
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh biên lợi nhuận cho Chuyên gia Định giá.");
             },
             onApprove: () => void handleApplyMerchandisingProposal(),
-            onReject: () => {
+            onReject: async () => {
+              const proposalId = campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval";
+              const proposalSummary = campaignProposal?.name || merchandisingProposal?.pricingRationale || "Đề xuất Flash Sale & Tối ưu Danh mục";
+              const persisted = await persistCommandActivity({ department: "merchandising", decision: "canceled", resourceType: "merchandising_proposal", resourceId: proposalId, summary: proposalSummary });
+              if (!persisted) return;
               setCampaignProposal(null);
               setMerchandisingProposal(null);
               setCampaignProposalModalOpen(false);
@@ -5214,7 +5336,10 @@ export function AgenticCommandCenter({
               setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
             },
             onApprove: () => void handleApplySupport(),
-            onReject: () => {
+            onReject: async () => {
+              const proposal = supportProposal;
+              const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
+              if (!persisted) return;
               setSupportProposal(null);
               setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
             },
@@ -5244,7 +5369,10 @@ export function AgenticCommandCenter({
             onRequestRevision: () => {
               setSuccessMessage("Đã gửi yêu cầu AI CEO điều chỉnh kế hoạch thực thi.");
             },
-            onApprove: () => {
+            onApprove: async () => {
+              const deliverableDepartment = completedStrategicDeliverable.department === "ai_ceo" ? "operations" : completedStrategicDeliverable.department;
+              const persisted = await persistCommandActivity({ department: deliverableDepartment, decision: "approved", resourceType: activityResourceType(deliverableDepartment), resourceId: completedStrategicDeliverable.id, summary: completedStrategicDeliverable.title });
+              if (!persisted) return;
               setStrategicDeliverableApproved(true);
               setCeoPlan((prev) =>
                 prev
@@ -5262,7 +5390,11 @@ export function AgenticCommandCenter({
               );
               setSuccessMessage(`Đã phê duyệt kế hoạch thực thi "${completedStrategicDeliverable.title}" thành công!`);
             },
-            onReject: () => {
+            onReject: async () => {
+              const deliverable = completedStrategicDeliverable;
+              const deliverableDepartment = deliverable.department === "ai_ceo" ? "operations" : deliverable.department;
+              const persisted = await persistCommandActivity({ department: deliverableDepartment, decision: "canceled", resourceType: activityResourceType(deliverableDepartment), resourceId: deliverable.id, summary: deliverable.title });
+              if (!persisted) return;
               setCompletedStrategicDeliverable(null);
               setStrategicDeliverableApproved(false);
               setSuccessMessage("Đã hủy đề xuất kế hoạch thực thi.");
@@ -5289,11 +5421,13 @@ export function AgenticCommandCenter({
         app.requesterId === "system:workflow"
           ? "Bộ điều phối Quy trình Tự động (Workflow Engine)"
           : `Hệ thống (${app.requesterId || "AI Agent"})`;
+      const approvalIntent = detectStrategicIntent(foundTask?.goal || `${app.action} ${app.resourceType}`);
+      const approvalDepartment = (approvalIntent === "orchestration" ? "operations" : approvalIntent) as DepartmentType;
 
       return {
         id: app.id,
         title: friendlyTitle,
-        sourceDepartment: (app.approverScope === "workflow_execution" ? "operations" : "support") as DepartmentType,
+        sourceDepartment: approvalDepartment,
         authorName: friendlyAuthor,
         riskLevel: "medium" as const,
         timestamp: formatTime(app.createdAt),
@@ -5323,6 +5457,7 @@ export function AgenticCommandCenter({
         onApprove: async () => {
           try {
             await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
+            await persistCommandActivity({ department: approvalDepartment, decision: "approved", resourceType: activityResourceType(approvalDepartment), resourceId: app.id, summary: friendlyTitle });
             setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
             void refreshApprovals();
             setSuccessMessage("Đã phê duyệt đề xuất thành công!");
@@ -5342,6 +5477,7 @@ export function AgenticCommandCenter({
               decision: "rejected",
               reason: "Hủy duyệt từ AI Command Center",
             });
+            await persistCommandActivity({ department: approvalDepartment, decision: "canceled", resourceType: activityResourceType(approvalDepartment), resourceId: app.id, summary: friendlyTitle });
             setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
             void refreshApprovals();
             setSuccessMessage("Đã hủy duyệt đề xuất.");
@@ -5382,13 +5518,16 @@ export function AgenticCommandCenter({
               if (api?.startTask) {
                 await api.startTask(t.id, t.version, 1);
               }
+              await persistCommandActivity({ department: dept, decision: "approved", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
               if (onTaskCreated) onTaskCreated();
               setSuccessMessage(`Đã phê duyệt và tiếp tục thực thi tác vụ "${t.goal.slice(0, 40)}..."!`);
             } catch (err: any) {
               setErrorMessage(err?.message || "Lỗi phê duyệt tác vụ.");
             }
           },
-          onReject: () => {
+          onReject: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "canceled", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
             markTaskReviewed(t.id);
             setSuccessMessage(`Đã hủy duyệt tác vụ "${t.goal.slice(0, 40)}...".`);
           },
@@ -5425,11 +5564,15 @@ export function AgenticCommandCenter({
             markTaskReviewed(t.id);
             setSuccessMessage("Đã chuyển phản hồi nghiệm thu cho nhân sự số.");
           },
-          onApprove: () => {
+          onApprove: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "approved", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
             markTaskReviewed(t.id);
             setSuccessMessage(`Đã nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}..." thành công!`);
           },
-          onReject: () => {
+          onReject: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "canceled", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
             markTaskReviewed(t.id);
             setSuccessMessage(`Đã bỏ qua nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}...".`);
           },

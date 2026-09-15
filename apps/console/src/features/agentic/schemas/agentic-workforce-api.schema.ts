@@ -21,3 +21,13 @@ export const agenticAuditPageEnvelopeSchema = envelope(z.object({
   items: z.array(z.object({ id: z.uuid(), actorId: z.string(), actorType: z.enum(["staff", "agent", "system"]), taskId: z.uuid().optional(), action: z.string(), resourceType: z.string(), resourceId: z.string(), outcome: z.enum(["allowed", "denied", "failed"]), policyVersion: z.number().int().positive().optional(), modelVersion: z.number().int().positive().optional(), toolVersion: z.number().int().positive().optional(), correlationId: z.string(), causationId: z.string().optional(), parametersDigest: digest.optional(), attempt: z.number().int().nonnegative().optional(), durationMs: z.number().int().nonnegative().optional(), resultDigest: digest.optional(), errorCode: z.string().optional(), occurredAt: z.iso.datetime({ offset: true }) }).strict()),
   totalItems: z.number().int().nonnegative(), refreshedAt: z.iso.datetime({ offset: true }),
 }).strict());
+const commandActivity = z.object({
+  id: z.uuid(), actorId: z.string(),
+  department: z.enum(["marketing", "merchandising", "operations", "support"]),
+  decision: z.enum(["approved", "canceled"]),
+  resourceType: z.enum(["marketing_campaign", "merchandising_proposal", "operations_proposal", "support_proposal"]),
+  resourceId: z.string(), summary: z.string(), idempotencyKey: z.string(),
+  occurredAt: z.iso.datetime({ offset: true }),
+}).strict();
+export const commandActivityEnvelopeSchema = envelope(commandActivity);
+export const commandActivityListEnvelopeSchema = envelope(z.array(commandActivity));
