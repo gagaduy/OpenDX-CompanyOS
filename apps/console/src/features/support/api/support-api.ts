@@ -37,6 +37,7 @@ export interface SupportOperationsApi {
   subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
   createEmailCampaignProposal?(input: {
     type: string;
+    prompt?: string;
     targetSegment?: string;
     productIds?: string[];
     promotionId?: string;

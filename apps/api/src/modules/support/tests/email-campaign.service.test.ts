@@ -14,45 +14,43 @@ import type { EmailDispatcherPort } from "../application/ports/email-dispatcher.
 
 describe("EmailCampaignService", () => {
   const mockCatalogQuery: CatalogQueryPort = {
-    getRecentProducts: vi.fn().mockResolvedValue([
+    getLatestProducts: vi.fn().mockResolvedValue([
       {
-        id: "prod-1",
+        productId: "prod-1",
         name: "Bàn phím cơ Không dây Nova Mech Pro",
         sku: "PROD-KB-001",
         regularPriceVnd: 1500000,
         imageUrl: "https://minio.novacommerce.vn/products/mech-kb.jpg",
         categoryName: "Phụ kiện",
-        stockQuantity: 15,
+        storefrontUrl: "https://novacommerce.vn/products/prod-1",
       },
     ]),
     getProductsByIds: vi.fn().mockResolvedValue([
       {
-        id: "prod-1",
+        productId: "prod-1",
         name: "Bàn phím cơ Không dây Nova Mech Pro",
         sku: "PROD-KB-001",
         regularPriceVnd: 1500000,
         imageUrl: "https://minio.novacommerce.vn/products/mech-kb.jpg",
         categoryName: "Phụ kiện",
-        stockQuantity: 15,
+        storefrontUrl: "https://novacommerce.vn/products/prod-1",
       },
     ]),
-    searchProducts: vi.fn().mockResolvedValue([]),
   };
 
   const mockPromotionQuery: PromotionQueryPort = {
-    getActivePromotions: vi.fn().mockResolvedValue([
+    getActiveAndUpcomingCampaigns: vi.fn().mockResolvedValue([
       {
-        id: "promo-1",
-        name: "Flash Sale Giữa Tháng",
-        code: "MIDMONTH20",
+        campaignId: "promo-1",
+        campaignName: "Flash Sale Giữa Tháng",
+        voucherCode: "MIDMONTH20",
         discountPercent: 20,
-        startsAt: "2026-09-15T00:00:00Z",
-        endsAt: "2026-09-20T23:59:59Z",
+        startTime: "2026-09-15T00:00:00Z",
+        endTime: "2026-09-20T23:59:59Z",
         description: "Giảm 20% toàn bộ phụ kiện",
       },
     ]),
-    getUpcomingPromotions: vi.fn().mockResolvedValue([]),
-    getPromotionById: vi.fn().mockResolvedValue(undefined),
+    getCampaignById: vi.fn().mockResolvedValue(null),
   };
 
   const mockCustomerSegmentQuery: CustomerSegmentQueryPort = {

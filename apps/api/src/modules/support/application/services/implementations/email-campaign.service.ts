@@ -63,59 +63,21 @@ export class EmailCampaignService {
       }
 
       if (input.productIds && input.productIds.length > 0) {
-        const prods = await this.catalogQueryPort.getProductsByIds(input.productIds);
-        featuredProducts = prods.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          sku: p.sku,
-          regularPriceVnd: p.regularPriceVnd,
-          salePriceVnd: p.salePriceVnd,
-          imageUrl: p.imageUrl,
-          categoryName: p.categoryName,
-          storefrontUrl: `https://novacommerce.vn/products/${p.id}`,
-        }));
+        featuredProducts = await this.catalogQueryPort.getProductsByIds(input.productIds);
       }
 
       if (featuredProducts.length === 0) {
-        const recents = await this.catalogQueryPort.getRecentProducts(6);
-        featuredProducts = recents.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          sku: p.sku,
-          regularPriceVnd: p.regularPriceVnd,
-          salePriceVnd: p.salePriceVnd,
-          imageUrl: p.imageUrl,
-          categoryName: p.categoryName,
-          storefrontUrl: `https://novacommerce.vn/products/${p.id}`,
-        }));
+        featuredProducts = await this.catalogQueryPort.getLatestProducts(6);
       }
     } else if (type === "promotion_announcement") {
-      let promo;
       if (input.promotionId) {
-        promo = await this.promotionQueryPort.getPromotionById(input.promotionId);
+        promotionDetails = (await this.promotionQueryPort.getCampaignById(input.promotionId)) || undefined;
       }
-      if (!promo) {
-        const active = await this.promotionQueryPort.getActivePromotions();
-        if (active.length > 0) {
-          promo = active[0];
-        } else {
-          const upcoming = await this.promotionQueryPort.getUpcomingPromotions();
-          if (upcoming.length > 0) {
-            promo = upcoming[0];
-          }
+      if (!promotionDetails) {
+        const campaigns = await this.promotionQueryPort.getActiveAndUpcomingCampaigns();
+        if (campaigns.length > 0) {
+          promotionDetails = campaigns[0];
         }
-      }
-
-      if (promo) {
-        promotionDetails = {
-          campaignId: promo.id,
-          campaignName: promo.name,
-          discountPercent: promo.discountPercent,
-          voucherCode: promo.code,
-          startTime: promo.startsAt,
-          endTime: promo.endsAt,
-          description: promo.description,
-        };
       }
 
       title = `Ưu Đãi Đặc Biệt: ${promotionDetails?.campaignName || "Chương trình khuyến mãi"}`;
@@ -123,18 +85,12 @@ export class EmailCampaignService {
         emailSubject = `[Ưu Đãi Đặc Biệt] Nhận ngay voucher giảm giá tại NovaCommerce`;
       }
 
-      const recents = await this.catalogQueryPort.getRecentProducts(4);
+      const recents = await this.catalogQueryPort.getLatestProducts(4);
       featuredProducts = recents.map((p) => ({
-        productId: p.id,
-        name: p.name,
-        sku: p.sku,
-        regularPriceVnd: p.regularPriceVnd,
+        ...p,
         salePriceVnd: promotionDetails?.discountPercent
           ? Math.round(p.regularPriceVnd * (1 - promotionDetails.discountPercent / 100))
           : p.salePriceVnd,
-        imageUrl: p.imageUrl,
-        categoryName: p.categoryName,
-        storefrontUrl: `https://novacommerce.vn/products/${p.id}`,
       }));
     } else if (type === "customer_care_vip") {
       title = "Tri Ân Khách Hàng Thân Thiết & VIP";
@@ -142,17 +98,7 @@ export class EmailCampaignService {
         emailSubject = "[NovaCommerce] Món quà tri ân đặc quyền dành riêng cho bạn";
       }
 
-      const recents = await this.catalogQueryPort.getRecentProducts(3);
-      featuredProducts = recents.map((p) => ({
-        productId: p.id,
-        name: p.name,
-        sku: p.sku,
-        regularPriceVnd: p.regularPriceVnd,
-        salePriceVnd: p.salePriceVnd,
-        imageUrl: p.imageUrl,
-        categoryName: p.categoryName,
-        storefrontUrl: `https://novacommerce.vn/products/${p.id}`,
-      }));
+      featuredProducts = await this.catalogQueryPort.getLatestProducts(3);
     }
 
     // Segment customers
