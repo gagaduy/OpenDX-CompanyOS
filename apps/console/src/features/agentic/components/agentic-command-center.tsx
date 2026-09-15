@@ -1367,7 +1367,16 @@ export function AgenticCommandCenter({
     ) {
       return "operations";
     }
-    if (lower.includes("phòng cskh") || lower.includes("phòng chăm sóc")) {
+    if (
+      lower.includes("phòng cskh") ||
+      lower.includes("phòng chăm sóc") ||
+      lower.includes("cskh") ||
+      lower.includes("chăm sóc khách hàng") ||
+      lower.includes("bên cskh") ||
+      lower.includes("bộ phận cskh") ||
+      lower.includes("đội cskh") ||
+      lower.includes("bên chăm sóc")
+    ) {
       return "support";
     }
 
