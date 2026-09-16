@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Check,
   CheckSquare,
@@ -48,6 +48,15 @@ export const SupportEmailCampaignApprovalModal: React.FC<SupportEmailCampaignApp
     setSelectedIds(initialSelected);
     setActiveTab("preview");
   }, [proposal?.id, proposal?.recipients]);
+
+  const previewHtml = useMemo(() => {
+    if (!proposal?.htmlContent) return "";
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000").replace(/\/+$/, "");
+    return proposal.htmlContent.replace(
+      /https?:\/\/[^/]+(?::9000)?\/catalog-media\//g,
+      `${apiBase}/v1/storefront/media-content?key=`,
+    );
+  }, [proposal?.htmlContent]);
 
   if (!isOpen || !proposal) return null;
 
@@ -304,7 +313,7 @@ export const SupportEmailCampaignApprovalModal: React.FC<SupportEmailCampaignApp
               >
                 <iframe
                   title="Email HTML Preview"
-                  srcDoc={proposal.htmlContent}
+                  srcDoc={previewHtml}
                   style={{
                     width: "100%",
                     height: "460px",

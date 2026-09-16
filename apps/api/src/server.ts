@@ -225,6 +225,8 @@ const support = createSupportModule({
   escalationIntervalMs: environment.supportEscalationIntervalSeconds * 1_000,
   attachmentScanIntervalMs: environment.supportAttachmentScanIntervalSeconds * 1_000,
   attachmentRetentionIntervalMs: environment.supportAttachmentRetentionIntervalSeconds * 1_000,
+  apiBaseUrl: process.env.API_BASE_URL || `http://localhost:${environment.apiPort}`,
+  storefrontUrl: environment.storefrontOrigin,
 });
 const reporting = createReportingModule({
   database: pool,

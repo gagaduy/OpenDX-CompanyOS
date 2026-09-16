@@ -40,7 +40,7 @@ export class SupportEmailComposer {
         return `
           <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="text-align: center; background: #f8fafc; padding: 12px;">
-              <img src="${p.imageUrl}" alt="${p.name}" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 6px;" />
+              <img src="${p.imageUrl}" alt="${p.name}" border="0" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto;" />
             </div>
             <div style="padding: 16px;">
               <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">${p.categoryName || "Sản phẩm"} • ${p.sku}</div>
@@ -134,7 +134,7 @@ export class SupportEmailComposer {
 
         return `
           <div style="display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px;">
-            <img src="${p.imageUrl}" alt="${p.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px;" />
+            <img src="${p.imageUrl}" alt="${p.name}" width="60" height="60" border="0" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; display: block; flex-shrink: 0;" />
             <div style="flex: 1;">
               <div style="font-size: 14px; font-weight: 600; color: #0f172a;">${p.name}</div>
               <div style="font-size: 13px; margin-top: 2px;">${salePrice}</div>

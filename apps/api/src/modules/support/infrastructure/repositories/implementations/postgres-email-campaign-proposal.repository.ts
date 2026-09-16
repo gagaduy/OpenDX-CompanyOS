@@ -140,6 +140,30 @@ export class PostgresEmailCampaignProposalRepository
   }
 
   private mapRow(row: ProposalRow): SupportEmailCampaignProposal {
+    const sanitizeMediaUrl = (contentOrUrl: string): string => {
+      if (!contentOrUrl) return contentOrUrl;
+      const apiBase = (
+        process.env.API_BASE_URL ||
+        process.env.API_PUBLIC_URL ||
+        `http://localhost:${process.env.API_PORT || 4000}`
+      ).replace(/\/+$/, "");
+      return contentOrUrl.replace(
+        /https?:\/\/[^/]+(?::9000)?\/catalog-media\//g,
+        `${apiBase}/v1/storefront/media-content?key=`,
+      );
+    };
+
+    const rawFeatured = typeof row.featured_products === "string"
+      ? JSON.parse(row.featured_products)
+      : (row.featured_products || []);
+
+    const featuredProducts = Array.isArray(rawFeatured)
+      ? rawFeatured.map((p: any) => ({
+          ...p,
+          imageUrl: p?.imageUrl ? sanitizeMediaUrl(p.imageUrl) : p?.imageUrl,
+        }))
+      : [];
+
     return {
       id: row.id,
       type: row.type as any,
@@ -149,11 +173,11 @@ export class PostgresEmailCampaignProposalRepository
       recipients: typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients,
       totalRecipients: Number(row.total_recipients),
       selectedCount: Number(row.selected_count),
-      featuredProducts: typeof row.featured_products === "string" ? JSON.parse(row.featured_products) : (row.featured_products || []),
+      featuredProducts,
       promotionDetails: row.promotion_details
         ? (typeof row.promotion_details === "string" ? JSON.parse(row.promotion_details) : row.promotion_details)
         : undefined,
-      htmlContent: row.html_content,
+      htmlContent: sanitizeMediaUrl(row.html_content),
       docxFilename: row.docx_filename,
       status: row.status as any,
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),

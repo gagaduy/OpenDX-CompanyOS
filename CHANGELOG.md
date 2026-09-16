@@ -14,9 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Support: Mass customer email campaign audience auto-detection & direct card integration:
   - Auto-detected target audience segments (`all_active_customers`, `vip_customers`, `recent_buyers`) from prompt text in both top AI CEO goal intake and direct CSKH department task submissions.
   - Resolved reactive ticket fallback where mass email campaign requests incorrectly triggered ticket resolution drafts showing only 2 open tickets instead of all 51 active customers.
-  - Fixed segment enum mapping to `all_active_customers` in email campaign application service.
   - Normalized irregular whitespace in intent classification and campaign detection to prevent misrouting prompts with consecutive spaces to Merchandising/Catalog.
   - Prioritized newly generated proactive email campaigns (`SupportEmailCampaignApprovalModal`) over reactive ticket resolution drafts (`SupportEmailApprovalModal`) in strategic deliverable notifications, completion toasts, live activity events, and approval inboxes.
+  - Fixed broken product images in support email campaigns by replacing invalid private MinIO URLs (`localhost:9000/catalog-media/...`) with the public streaming endpoint (`/v1/storefront/media-content?key=...`), ensuring reliable image rendering across both the Staff Console preview iframe and recipient email clients.
   - Removed exported non-component helper from `AgenticCommandCenter` to maintain seamless Vite React Fast Refresh.
 
 - Support Cross-Department Email Campaigns ("Nâng cấp chiến dịch Email CSKH liên phòng ban"):

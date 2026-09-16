@@ -6,11 +6,19 @@ import type { CatalogQueryPort } from "../../application/ports/catalog-query.por
 import type { FeaturedProductItem } from "../../domain/entities/email-campaign.entity";
 
 export class DatabaseCatalogQueryAdapter implements CatalogQueryPort {
+  private readonly apiBaseUrl: string;
+
   constructor(
     private readonly database: Pool,
-    private readonly minioPublicBaseUrl: string = process.env.MINIO_PUBLIC_URL ||
-      "http://localhost:9000",
-  ) {}
+    apiBaseUrl?: string,
+  ) {
+    this.apiBaseUrl = (
+      apiBaseUrl ||
+      process.env.API_BASE_URL ||
+      process.env.API_PUBLIC_URL ||
+      `http://localhost:${process.env.API_PORT || 4000}`
+    ).replace(/\/+$/, "");
+  }
 
   async getLatestProducts(limit: number = 4): Promise<FeaturedProductItem[]> {
     const query = `
@@ -104,7 +112,7 @@ export class DatabaseCatalogQueryAdapter implements CatalogQueryPort {
         if (r.object_key.startsWith("http://") || r.object_key.startsWith("https://")) {
           imageUrl = r.object_key;
         } else {
-          imageUrl = `${this.minioPublicBaseUrl}/catalog-media/${r.object_key}`;
+          imageUrl = `${this.apiBaseUrl}/v1/storefront/media-content?key=${encodeURIComponent(r.object_key)}`;
         }
       }
 

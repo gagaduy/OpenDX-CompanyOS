@@ -73,6 +73,8 @@ export function createSupportModule(d: {
   attachmentRetentionIntervalMs?: number;
   emailDispatcher?: EmailDispatcherPort;
   emailReceiver?: EmailReceiverPort;
+  apiBaseUrl?: string;
+  storefrontUrl?: string;
 }) {
   const repository = new PostgresqlSupportRepository();
   const storage = d.attachmentStorage ?? unavailableStorage();
@@ -159,7 +161,7 @@ export function createSupportModule(d: {
 
   const emailCampaignService = d.database
     ? new EmailCampaignService(
-        new DatabaseCatalogQueryAdapter(d.database),
+        new DatabaseCatalogQueryAdapter(d.database, d.apiBaseUrl),
         new DatabasePromotionQueryAdapter(d.database),
         new CustomerSegmentationService(new DatabaseCustomerSegmentQueryAdapter(d.database)),
         new SupportEmailComposer(),
