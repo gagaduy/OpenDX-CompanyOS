@@ -1659,7 +1659,24 @@ export function AgenticCommandCenter({
   useEffect(() => {
     const initialEvents: LiveEventItem[] = [];
     if (tasks?.items && tasks.items.length > 0) {
-      for (const t of tasks.items.slice(0, 30)) {
+      const isTaskActive = (t: { state: string; updatedAt?: string; createdAt?: string }) => {
+        if (!["department_analysis", "planning", "dispatching", "received", "quality_review", "collaboration", "executive_synthesis", "retrying", "awaiting_human_approval", "awaiting_plan_approval"].includes(t.state)) {
+          return false;
+        }
+        if (t.state.startsWith("awaiting_")) return true;
+        const tTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+        return !(tTime > 0 && Date.now() - tTime > 4 * 3600 * 1000);
+      };
+
+      const sortedTasks = [...tasks.items].sort((a, b) => {
+        const aActive = isTaskActive(a) ? 1 : 0;
+        const bActive = isTaskActive(b) ? 1 : 0;
+        if (aActive !== bActive) return bActive - aActive;
+        const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+      for (const t of sortedTasks.slice(0, 30)) {
         const intent = detectStrategicIntent(t.goal);
         const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
         const deptDisplayMap: Record<DepartmentType | "ai_ceo", string> = {
@@ -1693,7 +1710,13 @@ export function AgenticCommandCenter({
         } else if (t.state === "partially_completed") {
           title = `${deptDisplayName} hoàn thành 1 phần`;
           description = `Đã có bản dự thảo sơ bộ: ${shortGoal}`;
-          status = "info";
+          status = "success";
+          actionLabel = "Xem kết quả";
+          onActionClick = () => {
+            const deliv = buildStrategicDeliverable(t.goal, t.id, dept);
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          };
         } else if (t.state === "failed") {
           title = `${deptDisplayName} báo lỗi`;
           description = `Lỗi thực thi: ${shortGoal}`;
@@ -1710,10 +1733,27 @@ export function AgenticCommandCenter({
           status = "warning";
           actionLabel = "Xem đề xuất";
           onActionClick = () => navigate("/agentic/approvals");
-        } else if (t.state === "department_analysis" || t.state === "planning" || t.state === "dispatching") {
-          title = `${deptDisplayName} bắt đầu thực thi`;
-          description = `Đang xử lý: ${shortGoal}`;
-          status = "info";
+        } else if (
+          t.state === "department_analysis" ||
+          t.state === "planning" ||
+          t.state === "dispatching" ||
+          t.state === "received" ||
+          t.state === "quality_review" ||
+          t.state === "collaboration" ||
+          t.state === "executive_synthesis" ||
+          t.state === "retrying"
+        ) {
+          const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          const isStale = taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000;
+          if (isStale) {
+            title = `${deptDisplayName} quá hạn / gián đoạn`;
+            description = `Tác vụ gián đoạn: ${shortGoal}`;
+            status = "error";
+          } else {
+            title = `${deptDisplayName} đang xử lý tác vụ`;
+            description = `Đang xử lý: ${shortGoal}`;
+            status = "info";
+          }
         }
 
         const formatted = formatLiveEventTimestamp(t.updatedAt || t.createdAt);
@@ -4531,7 +4571,12 @@ export function AgenticCommandCenter({
         } else if (
           ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)
         ) {
-          status = "running";
+          const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          if (taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000) {
+            status = "failed";
+          } else {
+            status = "running";
+          }
         } else {
           status = "queued";
         }
@@ -6198,18 +6243,24 @@ export function AgenticCommandCenter({
     marketingApi,
   ]);
 
-  const dbRunningCount = (tasks?.items ?? []).filter((t) =>
-    ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)
-  ).length;
+  const dbRunningCount = (tasks?.items ?? []).filter((t) => {
+    if (!["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)) {
+      return false;
+    }
+    const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+    if (taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000) {
+      return false;
+    }
+    return true;
+  }).length;
   const inMemRunningCount = Object.values(departmentQueues)
     .flat()
     .filter((t) => t.status === "running" && !tasks?.items?.some((db) => db.id === t.id)).length;
   const hasActiveAgentRunning = (Object.values(deptStatus).some((d) => d.activeAgent !== null) || isRunning) ? 1 : 0;
 
-  const runningCount = Math.max(
-    overview?.counts?.running ?? 0,
-    dbRunningCount + inMemRunningCount + hasActiveAgentRunning
-  );
+  const runningCount = (tasks?.items && tasks.items.length > 0)
+    ? (dbRunningCount + inMemRunningCount + hasActiveAgentRunning)
+    : Math.max(overview?.counts?.running ?? 0, dbRunningCount + inMemRunningCount + hasActiveAgentRunning);
 
   const dbWaitingApprovalCount = (tasks?.items ?? []).filter(
     (t) => t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval"
@@ -6342,17 +6393,33 @@ export function AgenticCommandCenter({
       if (liveFeedFilter !== "all" && ev.department !== liveFeedFilter) {
         return false;
       }
+      const titleLower = ev.title.toLowerCase();
+      const descLower = ev.description.toLowerCase();
+
       if (taskFilter === "running") {
-        return ev.status === "info" || ev.description.toLowerCase().includes("running") || ev.description.toLowerCase().includes("planning");
+        const isCompleted = titleLower.includes("hoàn tất") || titleLower.includes("hoàn thành") || descLower.includes("completed");
+        const isError = titleLower.includes("lỗi") || titleLower.includes("hủy") || titleLower.includes("quá hạn") || titleLower.includes("gián đoạn") || descLower.includes("failed") || ev.status === "error";
+        const isWaiting = titleLower.includes("phê duyệt") || titleLower.includes("chờ") || descLower.includes("approval") || ev.status === "warning";
+        if (isCompleted || isError || isWaiting) return false;
+
+        return (
+          ev.status === "info" ||
+          titleLower.includes("đang") ||
+          titleLower.includes("thực thi") ||
+          titleLower.includes("tiếp nhận") ||
+          descLower.includes("đang") ||
+          descLower.includes("running") ||
+          descLower.includes("planning")
+        );
       }
       if (taskFilter === "waiting_approval") {
-        return ev.status === "warning" || ev.description.toLowerCase().includes("approval");
+        return ev.status === "warning" || descLower.includes("approval") || titleLower.includes("phê duyệt") || titleLower.includes("chờ");
       }
       if (taskFilter === "completed") {
-        return ev.status === "success" || ev.description.toLowerCase().includes("completed");
+        return ev.status === "success" || descLower.includes("completed") || titleLower.includes("hoàn thành") || titleLower.includes("hoàn tất");
       }
       if (taskFilter === "failed") {
-        return ev.status === "error" || ev.description.toLowerCase().includes("failed");
+        return ev.status === "error" || descLower.includes("failed") || titleLower.includes("lỗi") || titleLower.includes("hủy") || titleLower.includes("quá hạn") || titleLower.includes("gián đoạn");
       }
       return true;
     });

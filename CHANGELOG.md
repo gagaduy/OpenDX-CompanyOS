@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Stale running tasks guard & accurate live event filtering:
+  - Excluded abandoned/stale tasks older than 4 hours from the running count (`runningCount`) and department task states, preventing historical interrupted runs from artificially inflating the active task badge.
+  - Fixed live event feed filtering when selecting "Đang xử lý" to strictly show active/in-progress tasks and exclude completed, failed, canceled, or pending approval events.
+  - Reclassified "hoàn thành 1 phần" (`partially_completed`) events with `status: "success"` and action button "Xem kết quả" so they appear under "Đã hoàn thành" instead of "Đang xử lý".
+  - Cleaned up 4 abandoned workflow runs from August 2026 stuck in `department_analysis` state in PostgreSQL.
+
 - Command Center: Filter pills light mode theme and metrics synchronization:
   - Restored distinct, themed color-coding for status filter pills and count badges in Light Mode (`data-theme="light"`), eliminating washed-out monochrome gray styles across "Tất cả", "Đang xử lý", "Chờ phê duyệt", "Đã hoàn thành", and "Lỗi".
   - Added dedicated active pill background and border accents (indigo for all, blue for running, amber for waiting approval, emerald for completed, and red for failed) along with high-contrast badge styling in both light and dark modes.
