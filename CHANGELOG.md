@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Normalized irregular whitespace in intent classification and campaign detection to prevent misrouting prompts with consecutive spaces to Merchandising/Catalog.
   - Prioritized newly generated proactive email campaigns (`SupportEmailCampaignApprovalModal`) over reactive ticket resolution drafts (`SupportEmailApprovalModal`) in strategic deliverable notifications, completion toasts, live activity events, and approval inboxes.
   - Fixed broken product images in support email campaigns by replacing invalid private MinIO URLs (`localhost:9000/catalog-media/...`) with the public streaming endpoint (`/v1/storefront/media-content?key=...`), ensuring reliable image rendering across both the Staff Console preview iframe and recipient email clients.
+  - Implemented email-safe 3-column table layout (`<table role="presentation">`) in `SupportEmailComposer.renderPromotionAnnouncement` to replace fragile CSS flexbox, preventing Gmail from stripping flex properties and misaligning or overlapping the "Xem" button.
+  - Added MIME inline CID attachments (`multipart/related`) with local in-memory media caching in `SmtpEmailDispatcherAdapter`, ensuring product images hosted locally render natively in Gmail without failing Google Image Proxy fetches.
   - Removed exported non-component helper from `AgenticCommandCenter` to maintain seamless Vite React Fast Refresh.
 
 - Support Cross-Department Email Campaigns ("Nâng cấp chiến dịch Email CSKH liên phòng ban"):

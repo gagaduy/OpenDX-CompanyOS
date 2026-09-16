@@ -53,4 +53,48 @@ describe("EmailDispatcherAdapters", () => {
       }),
     );
   });
+
+  it("SmtpEmailDispatcherAdapter inlines local images as CID attachments", async () => {
+    const mockSendMail = vi.fn().mockResolvedValue({ messageId: "<campaign-123@test>" });
+    const mockTransport = { sendMail: mockSendMail } as any;
+
+    const fakeImageBytes = Buffer.from("fake-png-data");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "image/png" }),
+      arrayBuffer: async () => fakeImageBytes.buffer,
+    } as any);
+
+    try {
+      const adapter = new SmtpEmailDispatcherAdapter({
+        transport: mockTransport,
+        fromAddress: "NovaCommerce <support@example.com>",
+      });
+
+      const result = await adapter.sendCampaignEmail({
+        to: "recipient@example.com",
+        recipientName: "Recipient A",
+        subject: "New Products",
+        htmlBody: `
+          <div>
+            <img src="http://localhost:4000/v1/storefront/media-content?key=products%2Ftest.png" alt="Product" />
+          </div>
+        `,
+      });
+
+      expect(result.delivered).toBe(true);
+      expect(mockSendMail).toHaveBeenCalled();
+      const sendMailArgs = mockSendMail.mock.calls[0][0];
+      expect(sendMailArgs.html).toContain('src="cid:img_1_');
+      expect(sendMailArgs.attachments).toHaveLength(1);
+      expect(sendMailArgs.attachments[0].cid).toMatch(/^img_1_/);
+      expect(sendMailArgs.attachments[0].contentType).toBe("image/png");
+      expect(sendMailArgs.attachments[0].contentDisposition).toBe("inline");
+      expect(sendMailArgs.attachments[0].filename).toBe("test.png");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

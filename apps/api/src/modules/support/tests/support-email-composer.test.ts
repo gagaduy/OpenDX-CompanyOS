@@ -63,5 +63,8 @@ describe("SupportEmailComposer", () => {
     expect(html).toContain("WEEKEND20");
     expect(html).toContain("Giảm 20%");
     expect(html).toContain("Bàn Phím Cơ Không Dây RGB");
+    expect(html).toContain('<table role="presentation"');
+    expect(html).toContain('width="60" height="60"');
+    expect(html).toContain(">Xem</a>");
   });
 });

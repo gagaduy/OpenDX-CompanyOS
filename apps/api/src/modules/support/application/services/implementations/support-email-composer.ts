@@ -133,14 +133,20 @@ export class SupportEmailComposer {
           : `<span style="font-weight: 700; color: #0f172a;">${p.regularPriceVnd.toLocaleString("vi-VN")} đ</span>`;
 
         return `
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px;">
-            <img src="${p.imageUrl}" alt="${p.name}" width="60" height="60" border="0" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; display: block; flex-shrink: 0;" />
-            <div style="flex: 1;">
-              <div style="font-size: 14px; font-weight: 600; color: #0f172a;">${p.name}</div>
-              <div style="font-size: 13px; margin-top: 2px;">${salePrice}</div>
-            </div>
-            <a href="${fullProductUrl}" style="background: #5e6ad2; color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">Xem</a>
-          </div>
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; background-color: #ffffff;">
+            <tr>
+              <td style="width: 60px; padding: 10px; vertical-align: middle;">
+                <img src="${p.imageUrl}" alt="${p.name}" width="60" height="60" border="0" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; display: block;" />
+              </td>
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="font-size: 14px; font-weight: 600; color: #0f172a; line-height: 1.3;">${p.name}</div>
+                <div style="font-size: 13px; margin-top: 4px;">${salePrice}</div>
+              </td>
+              <td style="width: 70px; padding: 10px 12px 10px 0; text-align: right; vertical-align: middle; white-space: nowrap;">
+                <a href="${fullProductUrl}" style="display: inline-block; background: #5e6ad2; color: #ffffff; text-decoration: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; text-align: center;">Xem</a>
+              </td>
+            </tr>
+          </table>
         `;
       })
       .join("\n");
