@@ -3686,31 +3686,60 @@ export function AgenticCommandCenter({
 
   const handleApplySupportCampaign = async (selectedRecipientIds?: readonly string[]) => {
     if (!supportCampaignProposal || !supportApi?.applyEmailCampaignProposal) return;
+    const previousProposal = supportCampaignProposal;
+    const targetCount = selectedRecipientIds && selectedRecipientIds.length > 0
+      ? selectedRecipientIds.length
+      : previousProposal.totalRecipients;
+
+    // Optimistic UI: immediately mark sent, clear deliverable, and close modal so approval leaves inbox instantly
+    setSupportCampaignProposal((prev) => (prev ? { ...prev, status: "sent" } : null));
+    setCompletedStrategicDeliverable(null);
+    setStrategicDeliverableApproved(true);
+    setIsSupportCampaignModalOpen(false);
     setIsSupportCampaignSubmitting(true);
+
     try {
       const result = await supportApi.applyEmailCampaignProposal(
-        supportCampaignProposal.id,
+        previousProposal.id,
         selectedRecipientIds,
       );
-      const dispatchedCount = result?.successfulDispatches ?? supportCampaignProposal.totalRecipients;
+      const dispatchedCount = result?.successfulDispatches ?? targetCount;
       setSuccessMessage(`✅ Đã phê duyệt và gửi thành công chiến dịch email tới ${dispatchedCount} khách hàng!`);
+
+      setCeoPlan((prev) =>
+        prev
+          ? {
+              ...prev,
+              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+            }
+          : null,
+      );
 
       recordLiveEvent(
         "support",
         "CSKH gửi chiến dịch email",
-        `Đã gửi thành công chiến dịch "${supportCampaignProposal.title}" tới ${dispatchedCount} khách hàng`,
+        `Đã gửi thành công chiến dịch "${previousProposal.title}" tới ${dispatchedCount} khách hàng`,
         "success",
         "Xem chiến dịch",
         () => setIsSupportCampaignModalOpen(true),
         new Date().toISOString(),
-        `campaign-ev-${supportCampaignProposal.id}`,
+        `campaign-ev-${previousProposal.id}`,
       );
 
-      setSupportCampaignProposal((prev) => (prev ? { ...prev, status: "sent" } : null));
-      setIsSupportCampaignModalOpen(false);
+      await persistCommandActivity({
+        department: "support",
+        decision: "approved",
+        resourceType: "support_proposal",
+        resourceId: previousProposal.id,
+        summary: `Đã gửi chiến dịch email "${previousProposal.title}" tới ${dispatchedCount} khách hàng.`,
+      });
+
       if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply support email campaign:", err);
+      // Revert optimistic state on error
+      setSupportCampaignProposal(previousProposal);
+      setStrategicDeliverableApproved(false);
       setErrorMessage(err instanceof Error ? err.message : "Không thể gửi chiến dịch email.");
     } finally {
       setIsSupportCampaignSubmitting(false);
@@ -5657,7 +5686,16 @@ export function AgenticCommandCenter({
               try {
                 await supportApi.cancelEmailCampaignProposal(proposal.id);
                 setSupportCampaignProposal(null);
+                setCompletedStrategicDeliverable(null);
+                setStrategicDeliverableApproved(false);
                 setIsSupportCampaignModalOpen(false);
+                await persistCommandActivity({
+                  department: "support",
+                  decision: "canceled",
+                  resourceType: "support_proposal",
+                  resourceId: proposal.id,
+                  summary: `Đã từ chối chiến dịch email: ${proposal.title}`,
+                });
                 setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
               } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
@@ -5708,7 +5746,7 @@ export function AgenticCommandCenter({
     ...(completedStrategicDeliverable &&
     !strategicDeliverableApproved &&
     (completedStrategicDeliverable.department === "ai_ceo" ||
-      (!operationsProposal && !campaignProposal && !supportProposal && !activeCampaignDetail))
+      (!operationsProposal && !campaignProposal && !supportProposal && !supportCampaignProposal && !activeCampaignDetail))
       ? [
           {
             id: completedStrategicDeliverable.id,
@@ -6867,7 +6905,16 @@ export function AgenticCommandCenter({
           try {
             await supportApi.cancelEmailCampaignProposal(supportCampaignProposal.id);
             setSupportCampaignProposal(null);
+            setCompletedStrategicDeliverable(null);
+            setStrategicDeliverableApproved(false);
             setIsSupportCampaignModalOpen(false);
+            await persistCommandActivity({
+              department: "support",
+              decision: "canceled",
+              resourceType: "support_proposal",
+              resourceId: supportCampaignProposal.id,
+              summary: `Đã từ chối chiến dịch email: ${supportCampaignProposal.title}`,
+            });
             setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
           } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");

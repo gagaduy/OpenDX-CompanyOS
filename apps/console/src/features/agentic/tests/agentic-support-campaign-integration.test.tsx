@@ -86,6 +86,16 @@ describe("AgenticCommandCenter Support Email Campaign Integration", () => {
       listEmployees: vi.fn().mockResolvedValue({ items: [] }),
       loadEmployee: vi.fn(),
       listAudit: vi.fn().mockResolvedValue({ items: [] }),
+      recordCommandActivity: vi.fn().mockResolvedValue({
+        id: "cmd-1",
+        occurredAt: new Date().toISOString(),
+        department: "support",
+        decision: "approved",
+        resourceType: "support_proposal",
+        resourceId: "prop-1",
+        summary: "test",
+      }),
+      listCommandActivity: vi.fn().mockResolvedValue([]),
     };
 
     return {
@@ -134,5 +144,73 @@ describe("AgenticCommandCenter Support Email Campaign Integration", () => {
       expect(screen.getByText("Xem trước Email")).toBeDefined();
       expect(screen.getByText(/Danh sách người nhận/)).toBeDefined();
     });
+  });
+
+  it("approves email campaign from inside the preview modal and removes the task from Pending Approvals immediately", async () => {
+    const user = userEvent.setup();
+    const { render, mockSupportApi } = setup();
+    render();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Chuyên viên CRM & Quản gia CSKH \(SUP-02 & SUP-01\)/),
+      ).toBeDefined();
+    });
+
+    // Open modal
+    const previewBtn = screen.getByText("Xem trước");
+    await user.click(previewBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Xem trước Email")).toBeDefined();
+    });
+
+    // Click approve button inside the modal
+    const modalApproveBtn = screen.getByRole("button", { name: /Phê duyệt & Gửi Email/ });
+    await user.click(modalApproveBtn);
+
+    // Modal closes
+    await waitFor(() => {
+      expect(screen.queryByText("Xem trước Email")).toBeNull();
+    });
+
+    // Approval card is removed from Pending Approvals panel
+    expect(
+      screen.queryByText(/Chuyên viên CRM & Quản gia CSKH \(SUP-02 & SUP-01\)/),
+    ).toBeNull();
+    expect(screen.getByText("Không có đề xuất nào đang chờ phê duyệt")).toBeDefined();
+
+    expect(mockSupportApi.applyEmailCampaignProposal).toHaveBeenCalledWith(
+      sampleCampaignProposal.id,
+      ["cust-1"],
+    );
+  });
+
+  it("approves email campaign directly from the Pending Approvals card", async () => {
+    const user = userEvent.setup();
+    const { render, mockSupportApi } = setup();
+    render();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Chuyên viên CRM & Quản gia CSKH \(SUP-02 & SUP-01\)/),
+      ).toBeDefined();
+    });
+
+    // Find the approval button on the card
+    const cardApproveBtn = screen.getByRole("button", { name: "Phê duyệt" });
+    await user.click(cardApproveBtn);
+
+    // Immediately leaves inbox
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Chuyên viên CRM & Quản gia CSKH \(SUP-02 & SUP-01\)/),
+      ).toBeNull();
+    });
+
+    expect(mockSupportApi.applyEmailCampaignProposal).toHaveBeenCalledWith(
+      sampleCampaignProposal.id,
+      undefined,
+    );
   });
 });
