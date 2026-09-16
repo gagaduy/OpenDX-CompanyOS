@@ -1380,6 +1380,37 @@ export function AgenticCommandCenter({
       return "support";
     }
 
+    const isExplicitSocialPublishing =
+      lower.includes("đăng bài") ||
+      lower.includes("lên facebook") ||
+      lower.includes("lên instagram") ||
+      lower.includes("lên fanpage") ||
+      lower.includes("fanpage") ||
+      lower.includes("mạng xã hội") ||
+      lower.includes("viết bài") ||
+      lower.includes("poster");
+
+    // 0.5. Customer email composition & dispatch actions belong exclusively to Support & CRM,
+    // even when referencing new products from catalog or promotions from marketing.
+    const isExplicitEmailDispatch =
+      lower.includes("soạn mail") ||
+      lower.includes("gửi mail") ||
+      lower.includes("soạn email") ||
+      lower.includes("gửi email") ||
+      lower.includes("chiến dịch email") ||
+      lower.includes("chiến dịch mail") ||
+      lower.includes("bắn mail") ||
+      lower.includes("bắn email") ||
+      lower.includes("soạn thư") ||
+      lower.includes("gửi thư cho khách") ||
+      lower.includes("gửi thư tri ân") ||
+      lower.includes("gửi thư thông báo") ||
+      lower.includes("gửi thư quảng bá");
+
+    if (isExplicitEmailDispatch && !isExplicitSocialPublishing) {
+      return "support";
+    }
+
     // 1. Merchandising / Catalog & Pricing keywords (Prioritize pricing, discounts, promotions)
     const merchandisingKeywords = [
       "phòng thương mại",
@@ -1401,16 +1432,6 @@ export function AgenticCommandCenter({
       "bảng giá",
       "hạ giá",
     ];
-
-    const isExplicitSocialPublishing =
-      lower.includes("đăng bài") ||
-      lower.includes("lên facebook") ||
-      lower.includes("lên instagram") ||
-      lower.includes("lên fanpage") ||
-      lower.includes("fanpage") ||
-      lower.includes("mạng xã hội") ||
-      lower.includes("viết bài") ||
-      lower.includes("poster");
 
     if (!isExplicitSocialPublishing && (
       merchandisingKeywords.some((kw) => lower.includes(kw)) ||
