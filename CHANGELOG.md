@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Filter pills light mode theme and metrics synchronization:
+  - Restored distinct, themed color-coding for status filter pills and count badges in Light Mode (`data-theme="light"`), eliminating washed-out monochrome gray styles across "Tất cả", "Đang xử lý", "Chờ phê duyệt", "Đã hoàn thành", and "Lỗi".
+  - Added dedicated active pill background and border accents (indigo for all, blue for running, amber for waiting approval, emerald for completed, and red for failed) along with high-contrast badge styling in both light and dark modes.
+  - Fixed "Chờ phê duyệt" metric calculation to strictly count active deliverables in the approval queue, database pending approvals (`overview.pendingApprovals`), and tasks in `awaiting_plan_approval` / `awaiting_human_approval` states, resolving the desynchronization where unstarted draft/ready test fixtures caused the badge to erroneously display 21.
+  - Aligned "Tất cả" count to equal the exact mathematical sum of running, waiting approval, completed, and failed tasks, ensuring badge metrics and department queue filters remain consistent.
+
+
 - Support: Mass customer email campaign audience auto-detection & direct card integration:
   - Auto-detected target audience segments (`all_active_customers`, `vip_customers`, `recent_buyers`) from prompt text in both top AI CEO goal intake and direct CSKH department task submissions.
   - Resolved reactive ticket fallback where mass email campaign requests incorrectly triggered ticket resolution drafts showing only 2 open tickets instead of all 51 active customers.

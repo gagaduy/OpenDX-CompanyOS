@@ -67,7 +67,7 @@ export const CommandCenterHeader: React.FC<CommandCenterHeaderProps> = ({
               key={pill.id}
               type="button"
               onClick={() => onFilterChange(pill.id)}
-              className={`ccFilterPill ${isActive ? "active" : ""}`}
+              className={`ccFilterPill ${pill.id} ${isActive ? "active" : ""}`}
             >
               <span>{pill.label}</span>
               <span className={`ccFilterPillBadge ${pill.badgeClass}`}>

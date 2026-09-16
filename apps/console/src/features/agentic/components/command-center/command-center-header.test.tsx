@@ -40,4 +40,26 @@ describe("CommandCenterHeader", () => {
     fireEvent.click(screen.getByText("Tác vụ mới"));
     expect(defaultProps.onNewTaskClick).toHaveBeenCalledTimes(1);
   });
+
+  it("applies status-specific class names and active state to filter pills", () => {
+    const { rerender } = render(<CommandCenterHeader {...defaultProps} activeFilter="waiting_approval" />);
+    const waitingBtn = screen.getByText("Chờ phê duyệt").closest("button");
+    const runningBtn = screen.getByText("Đang xử lý").closest("button");
+    const allBtn = screen.getByText("Tất cả").closest("button");
+
+    expect(waitingBtn?.className).toContain("ccFilterPill");
+    expect(waitingBtn?.className).toContain("waiting_approval");
+    expect(waitingBtn?.className).toContain("active");
+
+    expect(runningBtn?.className).toContain("ccFilterPill");
+    expect(runningBtn?.className).toContain("running");
+    expect(runningBtn?.className).not.toContain("active");
+
+    expect(allBtn?.className).toContain("all");
+    expect(allBtn?.className).not.toContain("active");
+
+    rerender(<CommandCenterHeader {...defaultProps} activeFilter="running" />);
+    expect(runningBtn?.className).toContain("active");
+    expect(waitingBtn?.className).not.toContain("active");
+  });
 });

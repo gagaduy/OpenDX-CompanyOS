@@ -1607,7 +1607,9 @@ export function AgenticCommandCenter({
         boundedInput,
         `command-center:${input.resourceType}:${input.resourceId}:${input.decision}`,
       );
-      displayCommandActivity(event);
+      if (event?.decision) {
+        displayCommandActivity(event);
+      }
       return true;
     } catch (error) {
       console.error("Failed to persist command activity:", error);
@@ -1825,7 +1827,7 @@ export function AgenticCommandCenter({
         date: formatted.date,
         createdAt: formatted.epoch,
         department: "support",
-        title: supportCampaignProposal.status === "applied"
+        title: (supportCampaignProposal.status === "sent" || supportCampaignProposal.status === "approved")
           ? "CSKH đã gửi chiến dịch email"
           : "CSKH đã lập kế hoạch chiến dịch email",
         description: supportCampaignProposal.title || "Kế hoạch chiến dịch email khách hàng",
@@ -4519,15 +4521,19 @@ export function AgenticCommandCenter({
         return intent === dept || (dept === "operations" && intent === "orchestration");
       })
       .map((t): DepartmentTask => {
-        let status: DepartmentTask["status"] = "running";
+        let status: DepartmentTask["status"] = "queued";
         if (t.state === "completed" || t.state === "partially_completed") {
           status = "completed";
         } else if (t.state === "failed" || t.state === "canceled") {
           status = "failed";
         } else if (t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval") {
           status = "queued";
-        } else {
+        } else if (
+          ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)
+        ) {
           status = "running";
+        } else {
+          status = "queued";
         }
         return {
           id: t.id,
@@ -4552,7 +4558,14 @@ export function AgenticCommandCenter({
       return allDeptTasks.filter((t) => t.status === "running");
     }
     if (taskFilter === "waiting_approval") {
-      return allDeptTasks.filter((t) => t.status === "queued");
+      return allDeptTasks.filter((t) => {
+        if (t.status !== "queued") return false;
+        const dbTask = (tasks?.items || []).find((db) => db.id === t.id);
+        if (dbTask) {
+          return dbTask.state === "awaiting_plan_approval" || dbTask.state === "awaiting_human_approval";
+        }
+        return true;
+      });
     }
     if (taskFilter === "completed") {
       return allDeptTasks.filter((t) => t.status === "completed");
@@ -6185,17 +6198,30 @@ export function AgenticCommandCenter({
     marketingApi,
   ]);
 
+  const dbRunningCount = (tasks?.items ?? []).filter((t) =>
+    ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)
+  ).length;
+  const inMemRunningCount = Object.values(departmentQueues)
+    .flat()
+    .filter((t) => t.status === "running" && !tasks?.items?.some((db) => db.id === t.id)).length;
+  const hasActiveAgentRunning = (Object.values(deptStatus).some((d) => d.activeAgent !== null) || isRunning) ? 1 : 0;
+
   const runningCount = Math.max(
     overview?.counts?.running ?? 0,
-    (tasks?.items?.filter((t) => ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)).length || 0) +
-      Object.values(departmentQueues).flat().filter((t) => t.status === "running").length +
-      (Object.values(deptStatus).some((d) => d.activeAgent !== null) ? 1 : 0)
+    dbRunningCount + inMemRunningCount + hasActiveAgentRunning
   );
 
+  const dbWaitingApprovalCount = (tasks?.items ?? []).filter(
+    (t) => t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval"
+  ).length;
+  const inMemWaitingApprovalCount = Object.values(departmentQueues)
+    .flat()
+    .filter((t) => t.status === "queued" && !tasks?.items?.some((db) => db.id === t.id)).length;
+
   const waitingApprovalCount = Math.max(
-    overview?.counts?.waiting ?? 0,
+    overview?.pendingApprovals ?? 0,
     redesignedApprovals.length,
-    Object.values(departmentQueues).flat().filter((t) => t.status === "queued").length,
+    dbWaitingApprovalCount + inMemWaitingApprovalCount
   );
 
   const completedTasksList = (tasks?.items ?? []).filter(
@@ -6203,41 +6229,39 @@ export function AgenticCommandCenter({
   );
   const canceledTasksList = (tasks?.items ?? []).filter((t) => t.state === "canceled");
 
-  // Non-agentic tasks completed across departments
+  // Non-agentic completed deliverables across departments
   const completedMarketingCount = campaignsList.filter(
     (c) => c.state === "completed" && !tasks?.items?.some((t) => t.id === c.id)
   ).length;
   const completedStrategicCount =
     completedStrategicDeliverable && !tasks?.items?.some((t) => t.id === completedStrategicDeliverable.id) ? 1 : 0;
-  const completedMerchCount =
-    activeCampaign && !tasks?.items?.some((t) => t.id === activeCampaign.id) ? 1 : 0;
   const completedOpsCount =
-    operationsProposal && !tasks?.items?.some((t) => t.id === operationsProposal.id) ? 1 : 0;
+    operationsProposal?.status === "applied" && !tasks?.items?.some((t) => t.id === operationsProposal.id) ? 1 : 0;
   const completedSupportCount =
-    supportProposal && !tasks?.items?.some((t) => t.id === supportProposal.id) ? 1 : 0;
-  const completedAgentsCount = Object.values(deptStatus).reduce((acc, d) => acc + d.completedAgents.length, 0);
+    ((supportProposal?.status === "applied" && !tasks?.items?.some((t) => t.id === supportProposal.id)) ? 1 : 0) +
+    (((supportCampaignProposal?.status === "sent" || supportCampaignProposal?.status === "approved") && !tasks?.items?.some((t) => t.id === supportCampaignProposal.id)) ? 1 : 0);
 
   const extraCompletedCount =
     completedMarketingCount +
     completedStrategicCount +
-    completedMerchCount +
     completedOpsCount +
-    completedSupportCount +
-    completedAgentsCount;
+    completedSupportCount;
 
-  const completedCount = Math.max(
-    (overview?.counts?.completed ?? 0) + extraCompletedCount,
-    completedTasksList.length + extraCompletedCount
-  );
+  const baseCompletedCount = overview?.counts?.completed !== undefined
+    ? Math.max(overview.counts.completed + ((tasks?.items ?? []).filter((t) => t.state === "partially_completed").length), completedTasksList.length)
+    : completedTasksList.length;
 
-  const failedCount = overview?.counts?.failed ?? (
-    (tasks?.items?.filter((t) => t.state === "failed" || t.state === "canceled").length || 0) +
-    (errorMessage ? 1 : 0)
-  );
+  const completedCount = baseCompletedCount + extraCompletedCount;
 
-  const allCount = (overview?.counts
-    ? (overview.counts.running + overview.counts.waiting + overview.counts.completed + overview.counts.failed)
-    : (runningCount + waitingApprovalCount + completedCount + failedCount)) + extraCompletedCount;
+  const dbFailedCount = (tasks?.items ?? []).filter(
+    (t) => t.state === "failed" || t.state === "canceled"
+  ).length;
+
+  const failedCount = (tasks?.items && tasks.items.length > 0)
+    ? dbFailedCount + (errorMessage ? 1 : 0)
+    : (overview?.counts?.failed ?? 0) + (overview?.counts?.canceled ?? 0) + (errorMessage ? 1 : 0);
+
+  const allCount = runningCount + waitingApprovalCount + completedCount + failedCount;
 
   // Determine SLA on-time vs delayed among completed tasks
   const onTimeCompleted = completedTasksList.filter((t) => t.state === "completed").length + extraCompletedCount;

@@ -213,4 +213,25 @@ describe("AgenticCommandCenter Support Email Campaign Integration", () => {
       undefined,
     );
   });
+
+  it("synchronizes CommandCenterHeader waiting_approval badge when proposal is approved", async () => {
+    const user = userEvent.setup();
+    const { render } = setup();
+    render();
+
+    await waitFor(() => {
+      const waitingPill = screen.getByText("Chờ phê duyệt").closest("button");
+      const badge = waitingPill?.querySelector(".badge-waiting");
+      expect(badge?.textContent).toBe("1");
+    });
+
+    const cardApproveBtn = screen.getByRole("button", { name: "Phê duyệt" });
+    await user.click(cardApproveBtn);
+
+    await waitFor(() => {
+      const waitingPill = screen.getByText("Chờ phê duyệt").closest("button");
+      const badge = waitingPill?.querySelector(".badge-waiting");
+      expect(badge?.textContent).toBe("0");
+    });
+  });
 });
