@@ -2992,6 +2992,9 @@ export function AgenticCommandCenter({
       support: { activeAgent: null, agentMessage: null, completedAgents: [] },
     });
     setCeoPlan(null);
+    setActiveWorkflowKind("orchestration");
+    setCompletedStrategicDeliverable(null);
+    setSelectedStrategicDeliverable(null);
 
     if (activeRunId) {
       void api.cancelWorkflow(activeRunId, 1, "CANCELED_BY_STAFF").catch(() => {});
@@ -4048,8 +4051,14 @@ export function AgenticCommandCenter({
       if (activeCampaignId === campId) {
         setActiveCampaignId(null);
         setActiveCampaignDetail(null);
+        setCeoPlan(null);
+        setActiveWorkflowKind("orchestration");
+        setCompletedStrategicDeliverable(null);
       } else if (activeCampaignDetail?.campaign.id === campId) {
         setActiveCampaignDetail(null);
+        setCeoPlan(null);
+        setActiveWorkflowKind("orchestration");
+        setCompletedStrategicDeliverable(null);
       }
       if (previewCampaignDetail?.campaign.id === campId) setPreviewCampaignDetail(null);
       setMarketingCampaignModalOpen(false);
@@ -5596,6 +5605,12 @@ export function AgenticCommandCenter({
               const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: operationsProposal.id, summary: operationsProposal.summary || "Đề xuất nhập kho" });
               if (!persisted) return;
               setOperationsProposal(null);
+              setPendingReplenishment(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsOperationsModalOpen(false);
               setSuccessMessage("Đã hủy đề xuất nhập kho.");
             },
           },
@@ -5624,6 +5639,12 @@ export function AgenticCommandCenter({
               const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: pendingReplenishment.id, summary: pendingReplenishment.summary || "Kế hoạch nhập kho tự động" });
               if (!persisted) return;
               setPendingReplenishment(null);
+              setOperationsProposal(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsOperationsModalOpen(false);
               setSuccessMessage("Đã hủy đề xuất nhập kho tự động.");
             },
           },
@@ -5781,6 +5802,10 @@ export function AgenticCommandCenter({
               if (!persisted) return;
               setCampaignProposal(null);
               setMerchandisingProposal(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
               setCampaignProposalModalOpen(false);
               setSuccessMessage("Đã hủy đề xuất Flash Sale & Tối ưu Danh mục.");
             },
@@ -5817,6 +5842,8 @@ export function AgenticCommandCenter({
                 setSupportCampaignProposal(null);
                 setCompletedStrategicDeliverable(null);
                 setStrategicDeliverableApproved(false);
+                setCeoPlan(null);
+                setActiveWorkflowKind("orchestration");
                 setIsSupportCampaignModalOpen(false);
                 await persistCommandActivity({
                   department: "support",
@@ -5861,6 +5888,11 @@ export function AgenticCommandCenter({
               try {
                 await supportApi.cancelSupportProposal(proposal.id);
                 setSupportProposal(null);
+                setCompletedStrategicDeliverable(null);
+                setStrategicDeliverableApproved(false);
+                setCeoPlan(null);
+                setActiveWorkflowKind("orchestration");
+                setIsSupportEmailApprovalModalOpen(false);
                 const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
                 if (persisted) setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
               } catch (error) {
@@ -5920,7 +5952,11 @@ export function AgenticCommandCenter({
               const persisted = await persistCommandActivity({ department: deliverableDepartment, decision: "canceled", resourceType: activityResourceType(deliverableDepartment), resourceId: deliverable.id, summary: deliverable.title });
               if (!persisted) return;
               setCompletedStrategicDeliverable(null);
+              setSelectedStrategicDeliverable(null);
               setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsStrategicModalOpen(false);
               setSuccessMessage("Đã hủy đề xuất kế hoạch thực thi.");
             },
           },
@@ -6579,21 +6615,131 @@ export function AgenticCommandCenter({
           setCeoPlan(null);
           setElapsedSeconds(0);
           setAnalysisStep(0);
+          setCompletedStrategicDeliverable(null);
+          setSelectedStrategicDeliverable(null);
+          setActiveWorkflowKind("orchestration");
         }}
         onViewDeliverable={() => {
-          if (activeCampaignDetail) {
-            setMarketingCampaignModalOpen(true);
-          } else if (campaignProposal || activeCampaign) {
-            void handleOpenCampaignDeliverable(campaignProposal?.id || activeCampaign?.id, !campaignProposal && !!activeCampaign);
-          } else if (selectedStrategicDeliverable) {
-            setIsStrategicModalOpen(true);
-          } else if (operationsProposal) {
-            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Kiểm toán vận hành", operationsProposal.id, "operations");
-            setSelectedStrategicDeliverable(deliv);
-            setIsStrategicModalOpen(true);
-          } else if (merchandisingProposal) {
-            const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Đề xuất danh mục", merchandisingProposal.id, "merchandising");
-            setSelectedStrategicDeliverable(deliv);
+          const dept = activeWorkflowKind || "";
+          const targetDept = ceoPlan?.targetDept || "";
+          const isSupport =
+            dept === "support" ||
+            targetDept.includes("CSKH") ||
+            targetDept.includes("Chăm sóc") ||
+            targetDept.includes("CRM");
+          const isOperations =
+            dept === "operations" ||
+            targetDept.includes("Vận hành") ||
+            targetDept.includes("Kho") ||
+            targetDept.includes("Cung ứng");
+          const isMarketing =
+            dept === "marketing" ||
+            targetDept.includes("Tiếp thị") ||
+            targetDept.includes("Truyền thông") ||
+            targetDept.includes("Sáng tạo");
+          const isMerchandising =
+            dept === "merchandising" ||
+            targetDept.includes("Kinh doanh") ||
+            targetDept.includes("Định giá") ||
+            targetDept.includes("Danh mục");
+
+          // 1. Support Department: CSKH Email Campaigns & Support Tickets
+          if (isSupport) {
+            if (supportCampaignProposal) {
+              setIsSupportEmailApprovalModalOpen(false);
+              setIsSupportCampaignModalOpen(true);
+            } else if (supportProposal) {
+              setIsSupportCampaignModalOpen(false);
+              setIsSupportEmailApprovalModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "support" ||
+              selectedStrategicDeliverable?.department === "support"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Chiến dịch CSKH & CRM",
+                undefined,
+                "support",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 2. Operations Department: Replenishment & Inventory Audits
+          if (isOperations) {
+            if (operationsProposal) {
+              setIsOperationsModalOpen(true);
+            } else if (pendingReplenishment) {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "operations" ||
+              selectedStrategicDeliverable?.department === "operations"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Kiểm toán vận hành & tồn kho",
+                undefined,
+                "operations",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 3. Marketing Department: Content, Visual, Publishing Campaigns
+          if (isMarketing) {
+            if (activeCampaignDetail) {
+              setMarketingCampaignModalOpen(true);
+            } else if (activeCampaignId) {
+              setMarketingCampaignModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "marketing" ||
+              selectedStrategicDeliverable?.department === "marketing"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Kế hoạch Tiếp thị & Truyền thông",
+                activeCampaignId || undefined,
+                "marketing",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 4. Merchandising Department: Flash Sales, Pricing, Catalog
+          if (isMerchandising) {
+            if (campaignProposal) {
+              setCampaignProposalModalOpen(true);
+            } else if (merchandisingProposal) {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Đề xuất danh mục & Flash Sale",
+                merchandisingProposal.id,
+                "merchandising",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            } else if (activeCampaign) {
+              void handleOpenCampaignDeliverable(activeCampaign.id, true);
+            } else if (
+              completedStrategicDeliverable?.department === "merchandising" ||
+              selectedStrategicDeliverable?.department === "merchandising"
+            ) {
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 5. Fallback / AI CEO Orchestration
+          if (completedStrategicDeliverable || selectedStrategicDeliverable) {
             setIsStrategicModalOpen(true);
           } else if (supportCampaignProposal) {
             setIsSupportEmailApprovalModalOpen(false);
@@ -6601,6 +6747,15 @@ export function AgenticCommandCenter({
           } else if (supportProposal) {
             setIsSupportCampaignModalOpen(false);
             setIsSupportEmailApprovalModalOpen(true);
+          } else if (operationsProposal || pendingReplenishment) {
+            if (pendingReplenishment && !operationsProposal) {
+              setOperationsProposal(pendingReplenishment);
+            }
+            setIsOperationsModalOpen(true);
+          } else if (activeCampaignDetail) {
+            setMarketingCampaignModalOpen(true);
+          } else if (campaignProposal) {
+            setCampaignProposalModalOpen(true);
           }
         }}
       />
@@ -7070,6 +7225,8 @@ export function AgenticCommandCenter({
             setSupportCampaignProposal(null);
             setCompletedStrategicDeliverable(null);
             setStrategicDeliverableApproved(false);
+            setCeoPlan(null);
+            setActiveWorkflowKind("orchestration");
             setIsSupportCampaignModalOpen(false);
             await persistCommandActivity({
               department: "support",

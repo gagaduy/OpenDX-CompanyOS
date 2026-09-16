@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Department-isolated deliverable routing & CEO plan cleanup on cancellation:
+  - Resolved cross-department deliverable leak where clicking "Xem kết quả" in `CommandComposerPanel` unconditionally opened the Merchandising Flash Sale proposal modal due to stale `activeCampaign` state in the store.
+  - Implemented department-aware routing in `onViewDeliverable`, routing Support tasks exclusively to `SupportEmailCampaignApprovalModal` / `SupportEmailApprovalModal`, Operations to `OperationsProposalModal`, Marketing to `MarketingCampaignApprovalModal`, and Merchandising to `CampaignProposalModal`.
+  - Added comprehensive state cleanup (`setCeoPlan(null)`, `setActiveWorkflowKind("orchestration")`, deliverable resets) across all proposal rejection and cancellation handlers, ensuring cancelled or rejected tasks do not leave stale Stepper cards or "Xem kết quả" buttons.
+
 - Command Center: Dynamic "Dừng lại" stop button with abort handling:
   - Transformed the "Giao việc" button in `CommandComposerPanel` to dynamically switch to a high-contrast "Dừng lại" button with a stop icon (`Square`) while a task is actively running.
   - Implemented interruptible execution with `AbortController` (`handleStopStrategicTask`), enabling operators to abort ongoing intake, analysis, or department dispatches safely at any time.

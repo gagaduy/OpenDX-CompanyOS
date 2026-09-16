@@ -393,6 +393,66 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     );
   });
 
+  it("routes 'Xem kết quả' to Support Email Campaign modal instead of Merchandising when active campaign exists in store", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const catalogApi = fakeCatalogApi();
+    (catalogApi.getActiveCampaign as any).mockResolvedValue({
+      id: "flash-sale-1",
+      name: "FLASH SALE CHỚP NHOÁNG - SĂN ĐIỆN THOẠI MỚI GIÁ SỐC!",
+      badgeText: "FLASH SALE",
+      discountPercent: 20,
+      startTime: "2026-09-10T00:00:00Z",
+      endTime: "2026-09-20T00:00:00Z",
+      totalProducts: 8,
+      remainingMs: 86400000,
+    });
+    const prompt = "lên ý tưởng gửi mail cho toàn bộ khách hàng";
+
+    const { container } = render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    // Initial mount and active campaign hydration
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    // Advance through intake & employee stages
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalled();
+
+    // The AI CEO Stepper card should show "Xem kết quả"
+    const viewResultBtn = container.querySelector(".ccCeoActionBtn.primary") as HTMLButtonElement;
+    expect(viewResultBtn).not.toBeNull();
+
+    // Click "Xem kết quả" on the AI CEO card
+    fireEvent.click(viewResultBtn);
+
+    // It must open Support Email Campaign Modal and NOT Merchandising Campaign Proposal modal
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Chiến dịch sản phẩm mới" })).toBeInTheDocument();
+    expect(screen.queryByText(/Chiến dịch đang kích hoạt trực tiếp trên Storefront/i)).not.toBeInTheDocument();
+  });
+
   it("opens the completed Support report and keeps its action in the approval inbox", async () => {
     vi.useFakeTimers();
     const authClient = fakeAuthClient();
@@ -1085,15 +1145,22 @@ function fakeSupportApi(
     downloadSupportDocx: vi.fn(),
     createEmailCampaignProposal: vi.fn(async (input: { type: string; prompt: string; targetSegment?: string }) => ({
       id: "camp-prop-1",
+      title: "Chiến dịch sản phẩm mới",
       name: "Chiến dịch sản phẩm mới",
       type: input.type,
       prompt: input.prompt,
       targetSegment: (input.targetSegment || "all_active_customers") as any,
       recipientCount: 10,
+      totalRecipients: 10,
+      selectedCount: 10,
       subject: "Khám phá sản phẩm mới",
+      emailSubject: "Khám phá sản phẩm mới",
+      htmlContent: "<p>Kính chào quý khách</p>",
       emailBodyHtml: "<p>Kính chào quý khách</p>",
+      docxFilename: "chien_dich_san_pham_moi.docx",
       status: "pending_approval",
       createdAt,
+      updatedAt: createdAt,
       recipients: [],
       featuredProducts: [],
     })),
