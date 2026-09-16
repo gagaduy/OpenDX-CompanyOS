@@ -11,11 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Command Center: Symmetrical 4-column workforce layout & compact employee status integration:
-  - Transitioned the department workforce grid from a tall, asymmetrical 2x2 layout (~1400px height) to an aligned 4-column horizontal layout (`repeat(4, minmax(0, 1fr))`) with responsive fallback to 2 columns on tablet/medium viewports and 1 column on mobile.
-  - Eliminated bulky, redundant bottom `AgentCard`s by integrating active thinking status messages, collaboration badges, waiting task counts, and animated progress bars directly into the employee rows in `DepartmentCard`.
-  - Added a compact max-height (`95px`) with a smooth custom scrollbar to department task queues, preventing high-volume queues (such as Operations) from disproportionately distorting card heights.
-  - Reduced total vertical height of the workforce section from ~1400px down to ~400px, keeping all 4 departments visible simultaneously without vertical scrolling.
+- Command Center: Balanced 2x2 workforce grid with aligned compact cards & unconstrained card width:
+  - Transitioned the department workforce grid to a balanced 2x2 grid (`repeat(2, minmax(0, 1fr))`), providing ~400px of comfortable horizontal width per card within the main content column and completely eliminating horizontal text squishing, awkward word-by-word wrapping, and badge collisions.
+  - Aligned cards symmetrically using `align-items: stretch` and structured `DepartmentCard` with a pinned bottom direct task input form, ensuring both cards in each row share identical heights and horizontal baseline alignment.
+  - Organized department card bodies into a side-by-side 2-column grid (`1.25fr 1fr`), placing compact digital employee rows on the left and scrollable department queues on the right.
+  - Maintained an ultra-compact total vertical footprint of ~410px for the entire 4-department section without requiring vertical scrolling, keeping all departments, the strategic slogan, and the composer simultaneously visible.
 
 
 - Command Center: Stale agent status reset & applied deliverable button cleanup:

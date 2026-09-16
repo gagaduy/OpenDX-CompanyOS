@@ -776,15 +776,9 @@
 
 .ccDeptGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
   align-items: stretch;
-}
-
-@media (max-width: 1350px) {
-  .ccDeptGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 768px) {
@@ -797,7 +791,7 @@
   background: #0d121f;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 0.95rem;
+  padding: 0.85rem 0.95rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -806,6 +800,14 @@
   min-width: 0;
   overflow: hidden;
   box-sizing: border-box;
+  height: 100%;
+}
+
+.ccDeptMainBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .ccDeptCard:hover {
@@ -869,17 +871,19 @@
 }
 
 .ccDeptName {
-  font-size: calc(0.85rem * var(--cc-font-scale));
+  font-size: calc(0.86rem * var(--cc-font-scale));
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.2;
+  line-height: 1.25;
   margin: 0;
+  white-space: nowrap;
 }
 
 .ccDeptSubtext {
   font-size: calc(0.72rem * var(--cc-font-scale));
   color: #94a3b8;
   margin: 2px 0 0 0;
+  white-space: nowrap;
 }
 
 .ccDeptStatusBadge {
@@ -1012,12 +1016,19 @@
 }
 
 .ccDeptBodyGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.5rem 0 0.35rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.55rem 0 0.35rem;
+  align-items: start;
   min-width: 0;
   flex: 1;
+}
+
+@media (max-width: 580px) {
+  .ccDeptBodyGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ccDeptEmpCol {
@@ -1199,8 +1210,10 @@
   flex-direction: column;
   gap: 0.3rem;
   min-width: 0;
-  max-height: 95px;
+  max-height: 110px;
+  height: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .ccDeptQueueCol::-webkit-scrollbar {

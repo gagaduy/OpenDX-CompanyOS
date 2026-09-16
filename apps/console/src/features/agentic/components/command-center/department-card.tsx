@@ -109,7 +109,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
       id={`dept-column-${department}`}
       className={`ccDeptCard ${status === "error" ? "status-error" : ""}`}
     >
-      <div>
+      <div className="ccDeptMainBody">
         {/* Header */}
         <div className="ccDeptHeader">
           <div className="ccDeptInfo">
@@ -353,40 +353,40 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
             )}
           </div>
         )}
-
-        {/* Direct Input Field if provided */}
-        {directInputPlaceholder && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (directInput.trim() && onSendDirectTask) {
-                const val = directInput.trim();
-                setDirectInput("");
-                void onSendDirectTask(val);
-              }
-            }}
-            className={`ccDeptInputWrap ${directInputMode ? "directInputActive" : ""}`}
-            style={directInputMode ? { border: `1px solid ${theme.accentColor}60`, borderRadius: 6, padding: "2px" } : undefined}
-          >
-            <input
-              type="text"
-              value={directInput}
-              onChange={(e) => setDirectInput(e.target.value)}
-              placeholder={directInputPlaceholder}
-              className="ccDeptMiniInput"
-              style={directInputMode ? { borderColor: theme.accentColor } : undefined}
-            />
-            <button
-              type="submit"
-              disabled={!directInput.trim()}
-              className="ccDeptMiniSendBtn"
-              style={{ opacity: !directInput.trim() ? 0.4 : 1 }}
-            >
-              <Send size={11} />
-            </button>
-          </form>
-        )}
       </div>
+
+      {/* Direct Input Field if provided */}
+      {directInputPlaceholder && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (directInput.trim() && onSendDirectTask) {
+              const val = directInput.trim();
+              setDirectInput("");
+              void onSendDirectTask(val);
+            }
+          }}
+          className={`ccDeptInputWrap ${directInputMode ? "directInputActive" : ""}`}
+          style={directInputMode ? { border: `1px solid ${theme.accentColor}60`, borderRadius: 6, padding: "2px" } : undefined}
+        >
+          <input
+            type="text"
+            value={directInput}
+            onChange={(e) => setDirectInput(e.target.value)}
+            placeholder={directInputPlaceholder}
+            className="ccDeptMiniInput"
+            style={directInputMode ? { borderColor: theme.accentColor } : undefined}
+          />
+          <button
+            type="submit"
+            disabled={!directInput.trim()}
+            className="ccDeptMiniSendBtn"
+            style={{ opacity: !directInput.trim() ? 0.4 : 1 }}
+          >
+            <Send size={11} />
+          </button>
+        </form>
+      )}
     </div>
   );
 };
