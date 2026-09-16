@@ -2101,18 +2101,38 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
-        const isCampaignGoal = /sản phẩm mới|ưu đãi|khuyến mãi|quảng bá|flash sale|gửi mail|chiến dịch email|chiến dịch cskh/i.test(goalText);
+        const isCampaignGoal =
+          /chiến dịch|toàn bộ|tất cả khách|mọi khách|bắn mail|bắn email|ý tưởng gửi/i.test(
+            goalText,
+          ) ||
+          (/sản phẩm mới|bộ sưu tập|hàng mới|khuyến mãi|ưu đãi|flash sale/i.test(goalText) &&
+            /gửi|mail|email|bắn/i.test(goalText));
         let supportProposalId = "";
 
         if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
-          const campType = /sản phẩm mới/i.test(goalText)
+          const campType = /sản phẩm mới|bộ sưu tập|hàng mới/i.test(goalText)
             ? "new_product_announcement"
-            : /ưu đãi|khuyến mãi|flash sale/i.test(goalText)
+            : /ưu đãi|khuyến mãi|flash sale|giảm giá|voucher/i.test(goalText)
               ? "promotion_announcement"
               : "customer_care_vip";
+
+          let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
+          if (/toàn bộ|tất cả|mọi khách|all/i.test(goalText)) {
+            targetSegment = "all_active_customers";
+          } else if (/vip|thân thiết|chi tiêu cao/i.test(goalText)) {
+            targetSegment = "vip_customers";
+          } else if (/gần đây|mới mua|vừa mua/i.test(goalText)) {
+            targetSegment = "recent_buyers";
+          } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
+            targetSegment = "all_active_customers";
+          } else {
+            targetSegment = "vip_customers";
+          }
+
           const campProposal = await supportApi.createEmailCampaignProposal({
             type: campType,
             prompt: goalText,
+            targetSegment,
           });
           setSupportCampaignProposal(campProposal);
           supportProposalId = campProposal.id;
@@ -3326,49 +3346,123 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
         await new Promise((r) => setTimeout(r, 800));
 
-        const proposal = await supportApi.generateSupportProposal(taskPrompt);
-        setSupportProposal(proposal);
-        setSupportTicketsPage(1);
-        setSupportVipPage(1);
+        const isCampaignGoal =
+          /chiến dịch|toàn bộ|tất cả khách|mọi khách|bắn mail|bắn email|ý tưởng gửi/i.test(
+            taskPrompt,
+          ) ||
+          (/sản phẩm mới|bộ sưu tập|hàng mới|khuyến mãi|ưu đãi|flash sale/i.test(taskPrompt) &&
+            /gửi|mail|email|bắn/i.test(taskPrompt));
 
-        setCeoPlan((prev) =>
-          prev
-            ? {
-                ...prev,
-                steps: prev.steps.map((s, idx) =>
-                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
-                ),
-              }
-            : null,
-        );
+        if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
+          const campType = /sản phẩm mới|bộ sưu tập|hàng mới/i.test(taskPrompt)
+            ? "new_product_announcement"
+            : /ưu đãi|khuyến mãi|flash sale|giảm giá|voucher/i.test(taskPrompt)
+              ? "promotion_announcement"
+              : "customer_care_vip";
 
-        setDeptStatus((prev) => ({
-          ...prev,
-          support: {
-            activeAgent: null,
-            agentMessage: null,
-            completedAgents: ["support_steward", "crm_specialist"],
-          },
-        }));
-        setMarketingActiveAgent(null);
-        setMarketingAgentMessage(null);
-        recordLiveEvent(
-          "support",
-          "CSKH đã hoàn tất tác vụ",
-          taskPrompt,
-          "success",
-          "Xem kết quả",
-          () => {
-            setIsSupportEmailApprovalModalOpen(true);
-          },
-        );
-        notifyAndShowStrategicDeliverable(
-          taskPrompt,
-          proposal?.id,
-          "support",
-          "Đã lập xong Đề xuất Xử lý CSKH, Phân tích VIP & Báo cáo Giữ chân Khách hàng Word (.docx)!",
-        );
-        if (onTaskCreated) onTaskCreated();
+          let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
+          if (/toàn bộ|tất cả|mọi khách|all/i.test(taskPrompt)) {
+            targetSegment = "all_active_customers";
+          } else if (/vip|thân thiết|chi tiêu cao/i.test(taskPrompt)) {
+            targetSegment = "vip_customers";
+          } else if (/gần đây|mới mua|vừa mua/i.test(taskPrompt)) {
+            targetSegment = "recent_buyers";
+          } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
+            targetSegment = "all_active_customers";
+          } else {
+            targetSegment = "vip_customers";
+          }
+
+          const campProposal = await supportApi.createEmailCampaignProposal({
+            type: campType,
+            prompt: taskPrompt,
+            targetSegment,
+          });
+          setSupportCampaignProposal(campProposal);
+
+          setCeoPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  steps: prev.steps.map((s, idx) =>
+                    idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                  ),
+                }
+              : null,
+          );
+
+          setDeptStatus((prev) => ({
+            ...prev,
+            support: {
+              activeAgent: null,
+              agentMessage: null,
+              completedAgents: ["support_steward", "crm_specialist"],
+            },
+          }));
+          setMarketingActiveAgent(null);
+          setMarketingAgentMessage(null);
+          recordLiveEvent(
+            "support",
+            "CSKH đã lập xong chiến dịch email",
+            taskPrompt,
+            "success",
+            "Xem kết quả",
+            () => {
+              setIsSupportCampaignModalOpen(true);
+            },
+          );
+          notifyAndShowStrategicDeliverable(
+            taskPrompt,
+            campProposal?.id,
+            "support",
+            "Đã lập xong Kế Hoạch Chiến Dịch Email CSKH & Báo Cáo Chiến Lược Word (.docx)!",
+          );
+          if (onTaskCreated) onTaskCreated();
+        } else {
+          const proposal = await supportApi.generateSupportProposal(taskPrompt);
+          setSupportProposal(proposal);
+          setSupportTicketsPage(1);
+          setSupportVipPage(1);
+
+          setCeoPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  steps: prev.steps.map((s, idx) =>
+                    idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                  ),
+                }
+              : null,
+          );
+
+          setDeptStatus((prev) => ({
+            ...prev,
+            support: {
+              activeAgent: null,
+              agentMessage: null,
+              completedAgents: ["support_steward", "crm_specialist"],
+            },
+          }));
+          setMarketingActiveAgent(null);
+          setMarketingAgentMessage(null);
+          recordLiveEvent(
+            "support",
+            "CSKH đã hoàn tất tác vụ",
+            taskPrompt,
+            "success",
+            "Xem kết quả",
+            () => {
+              setIsSupportEmailApprovalModalOpen(true);
+            },
+          );
+          notifyAndShowStrategicDeliverable(
+            taskPrompt,
+            proposal?.id,
+            "support",
+            "Đã lập xong Đề xuất Xử lý CSKH, Phân tích VIP & Báo cáo Giữ chân Khách hàng Word (.docx)!",
+          );
+          if (onTaskCreated) onTaskCreated();
+        }
       }
     } catch (err: any) {
       console.error(`Execution error in ${dept}:`, err);

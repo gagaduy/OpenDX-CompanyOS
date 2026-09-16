@@ -300,10 +300,51 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "new_product_announcement",
+        targetSegment: "all_active_customers",
         prompt,
       }),
     );
     expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
+  it("routes 'lên ý tưởng gửi mail cho toàn bộ khách hàng' to Support and selects all_active_customers segment", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const prompt = "lên ý tưởng gửi mail cho toàn bộ khách hàng";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSegment: "all_active_customers",
+        prompt,
+      }),
+    );
   });
 
   it("opens the completed Support report and keeps its action in the approval inbox", async () => {
@@ -996,12 +1037,12 @@ function fakeSupportApi(
       createdAt,
     })),
     downloadSupportDocx: vi.fn(),
-    createEmailCampaignProposal: vi.fn(async (input: { type: string; prompt: string }) => ({
+    createEmailCampaignProposal: vi.fn(async (input: { type: string; prompt: string; targetSegment?: string }) => ({
       id: "camp-prop-1",
       name: "Chiến dịch sản phẩm mới",
       type: input.type,
       prompt: input.prompt,
-      targetSegment: "all_active",
+      targetSegment: (input.targetSegment || "all_active_customers") as any,
       recipientCount: 10,
       subject: "Khám phá sản phẩm mới",
       emailBodyHtml: "<p>Kính chào quý khách</p>",

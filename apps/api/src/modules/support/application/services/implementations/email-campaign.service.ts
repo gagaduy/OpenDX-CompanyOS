@@ -43,13 +43,23 @@ export class EmailCampaignService {
   ): Promise<SupportEmailCampaignProposal> {
     const proposalId = this.generateId();
     const type: EmailCampaignType = input.type || "new_product_announcement";
-    const segment: CustomerSegmentType =
-      input.targetSegment ||
-      (type === "customer_care_vip"
-        ? "vip_customers"
-        : type === "new_product_announcement"
-          ? "recent_buyers"
-          : "vip_customers");
+    let segment: CustomerSegmentType = input.targetSegment as CustomerSegmentType;
+    if (!segment) {
+      const prompt = (input.prompt || "").toLowerCase();
+      if (prompt.includes("toàn bộ") || prompt.includes("tất cả") || prompt.includes("mọi khách") || prompt.includes("all")) {
+        segment = "all_active_customers";
+      } else if (prompt.includes("vip") || prompt.includes("thân thiết") || prompt.includes("chi tiêu cao")) {
+        segment = "vip_customers";
+      } else if (prompt.includes("gần đây") || prompt.includes("mới mua") || prompt.includes("vừa mua")) {
+        segment = "recent_buyers";
+      } else if (type === "customer_care_vip") {
+        segment = "vip_customers";
+      } else if (type === "promotion_announcement") {
+        segment = "all_active_customers";
+      } else {
+        segment = "all_active_customers";
+      }
+    }
 
     let featuredProducts: FeaturedProductItem[] = [];
     let promotionDetails: CampaignPromotionDetails | undefined;
