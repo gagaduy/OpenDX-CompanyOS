@@ -3766,6 +3766,10 @@ export function AgenticCommandCenter({
               }
             : null,
         );
+        setDeptStatus((prev) => ({
+          ...prev,
+          support: { activeAgent: null, agentMessage: null, completedAgents: [] },
+        }));
         recordLiveEvent(
           "support",
           "CSKH đã gửi email phản hồi",
@@ -5293,7 +5297,7 @@ export function AgenticCommandCenter({
                 ? "running"
                 : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
                   marketingActiveAgent === "order_coordinator" ||
-                  operationsProposal ||
+                  (operationsProposal && operationsProposal.status !== "applied") ||
                   marketingActiveAgent === "merchandising_clearance_calc" ||
                   marketingActiveAgent === "merchandising_visual_collab" ||
                   campaignProposal
@@ -5308,7 +5312,7 @@ export function AgenticCommandCenter({
                 : marketingActiveAgent === "inventory_specialist"
                 ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
                 : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
-                  operationsProposal ||
+                  (operationsProposal && operationsProposal.status !== "applied") ||
                   marketingActiveAgent === "merchandising_clearance_calc" ||
                   marketingActiveAgent === "merchandising_visual_collab" ||
                   campaignProposal
@@ -5331,7 +5335,7 @@ export function AgenticCommandCenter({
               marketingActiveAgent === "order_coordinator"
                 ? "running"
                 : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  operationsProposal
+                  (operationsProposal && operationsProposal.status !== "applied")
                 ? "completed"
                 : getBranchState("fulfillment")
             }
@@ -5341,7 +5345,7 @@ export function AgenticCommandCenter({
                 : marketingActiveAgent === "order_coordinator"
                 ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
                 : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  operationsProposal
+                  (operationsProposal && operationsProposal.status !== "applied")
                 ? "Đã hoàn thành lập dự toán ngân sách và xuất báo cáo kiểm toán Word"
                 : undefined
             }
@@ -5377,7 +5381,7 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-          {operationsProposal && (
+          {operationsProposal && operationsProposal.status !== "applied" && (
             <button
               type="button"
               className="ccOperationsQuickBtn"
@@ -5466,7 +5470,7 @@ export function AgenticCommandCenter({
                 ? "running"
                 : deptStatus.support.completedAgents.includes("support_steward") ||
                   marketingActiveAgent === "crm_specialist" ||
-                  supportProposal
+                  (supportProposal && supportProposal.status === "pending_approval")
                 ? "completed"
                 : "idle"
             }
@@ -5477,7 +5481,7 @@ export function AgenticCommandCenter({
                 ? marketingAgentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT..."
                 : deptStatus.support.completedAgents.includes("support_steward") ||
                   marketingActiveAgent === "crm_specialist" ||
-                  supportProposal
+                  (supportProposal && supportProposal.status === "pending_approval")
                 ? "Đã phân tích toàn bộ khiếu nại & tính toán CSAT"
                 : undefined
             }
@@ -5496,7 +5500,7 @@ export function AgenticCommandCenter({
               marketingActiveAgent === "crm_specialist"
                 ? "running"
                 : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  supportProposal
+                  (supportProposal && supportProposal.status === "pending_approval")
                 ? "completed"
                 : "idle"
             }
@@ -5506,7 +5510,7 @@ export function AgenticCommandCenter({
                 : marketingActiveAgent === "crm_specialist"
                 ? marketingAgentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher..."
                 : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  supportProposal
+                  (supportProposal && supportProposal.status === "pending_approval")
                 ? "Đã lập kịch bản chăm sóc & đề xuất voucher cho khách VIP"
                 : undefined
             }
@@ -5542,7 +5546,7 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-          {supportCampaignProposal && (
+          {supportCampaignProposal && supportCampaignProposal.status === "pending_approval" && (
             <button
               type="button"
               className="ccOperationsQuickBtn"
@@ -5553,7 +5557,7 @@ export function AgenticCommandCenter({
               <span>Tải Kế Hoạch Chiến Dịch Email Word ({supportCampaignProposal.totalRecipients} KH)</span>
             </button>
           )}
-          {supportProposal && (
+          {supportProposal && supportProposal.status === "pending_approval" && (
             <button
               type="button"
               className="ccOperationsQuickBtn"

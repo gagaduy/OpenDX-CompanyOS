@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Stale agent status reset & applied deliverable button cleanup:
+  - Guarded CSKH & CRM and Operations agent status cards (`support_steward`, `crm_specialist`, `inventory_specialist`, `order_coordinator`) against displaying stale `completed` states by checking that proposals are strictly pending approval (`pending_approval` / `status !== "applied"`), resetting agents to `idle` once actions are applied or completed.
+  - Guarded department quick-action deliverable download buttons (`[Tải Báo Cáo CSKH Word]`, `[Tải Kế Hoạch Chiến Dịch Email Word]`, and `[Tải Báo Cáo Tồn Kho & Xuất Nhập Tồn Word]`) to render strictly when proposals are in `pending_approval` status, preventing permanently lingering buttons after tickets or plans have been applied.
+  - Cleared `deptStatus.support.completedAgents` upon ticket application to prevent completed employee indicators from persisting indefinitely.
+
+
 - Command Center: Department-isolated deliverable routing & CEO plan cleanup on cancellation:
   - Resolved cross-department deliverable leak where clicking "Xem kết quả" in `CommandComposerPanel` unconditionally opened the Merchandising Flash Sale proposal modal due to stale `activeCampaign` state in the store.
   - Implemented department-aware routing in `onViewDeliverable`, routing Support tasks exclusively to `SupportEmailCampaignApprovalModal` / `SupportEmailApprovalModal`, Operations to `OperationsProposalModal`, Marketing to `MarketingCampaignApprovalModal`, and Merchandising to `CampaignProposalModal`.
