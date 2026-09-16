@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Auto-detected target audience segments (`all_active_customers`, `vip_customers`, `recent_buyers`) from prompt text in both top AI CEO goal intake and direct CSKH department task submissions.
   - Resolved reactive ticket fallback where mass email campaign requests incorrectly triggered ticket resolution drafts showing only 2 open tickets instead of all 51 active customers.
   - Fixed segment enum mapping to `all_active_customers` in email campaign application service.
+  - Normalized irregular whitespace in intent classification and campaign detection to prevent misrouting prompts with consecutive spaces to Merchandising/Catalog.
+  - Removed exported non-component helper from `AgenticCommandCenter` to maintain seamless Vite React Fast Refresh.
 
 - Support Cross-Department Email Campaigns ("Nâng cấp chiến dịch Email CSKH liên phòng ban"):
   - Upgraded CSKH & Trải nghiệm (Support & CRM) from reactive ticket replies to a proactive, cross-department campaign engine collaborating with Danh mục (Catalog) and Tiếp thị (Marketing / Promotion).

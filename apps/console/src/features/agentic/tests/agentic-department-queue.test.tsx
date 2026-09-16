@@ -307,6 +307,52 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
   });
 
+  it("routes 'hãy lên chiến  dịch email' with irregular whitespace to Support and all_active_customers segment", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const catalogApi = fakeCatalogApi();
+    const prompt =
+      "Đợt này bên danh mục vừa cập nhật các sản phẩm mới ra mắt, hãy lên chiến  dịch email và gửi cho tất cả khách hàng nha";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeInTheDocument();
+    expect(screen.queryByText("Phòng Danh mục & Định giá (Phối hợp Tiếp thị)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "new_product_announcement",
+        targetSegment: "all_active_customers",
+        prompt,
+      }),
+    );
+    expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
   it("routes 'lên ý tưởng gửi mail cho toàn bộ khách hàng' to Support and selects all_active_customers segment", async () => {
     vi.useFakeTimers();
     const supportApi = fakeSupportApi();

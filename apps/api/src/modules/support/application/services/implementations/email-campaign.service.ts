@@ -45,12 +45,12 @@ export class EmailCampaignService {
     const type: EmailCampaignType = input.type || "new_product_announcement";
     let segment: CustomerSegmentType = input.targetSegment as CustomerSegmentType;
     if (!segment) {
-      const prompt = (input.prompt || "").toLowerCase();
-      if (prompt.includes("toàn bộ") || prompt.includes("tất cả") || prompt.includes("mọi khách") || prompt.includes("all")) {
+      const prompt = (input.prompt || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (/toàn\s*bộ|tất\s*cả|mọi\s*khách|all/i.test(prompt)) {
         segment = "all_active_customers";
-      } else if (prompt.includes("vip") || prompt.includes("thân thiết") || prompt.includes("chi tiêu cao")) {
+      } else if (/vip|thân\s*thiết|chi\s*tiêu\s*cao/i.test(prompt)) {
         segment = "vip_customers";
-      } else if (prompt.includes("gần đây") || prompt.includes("mới mua") || prompt.includes("vừa mua")) {
+      } else if (/gần\s*đây|mới\s*mua|vừa\s*mua/i.test(prompt)) {
         segment = "recent_buyers";
       } else if (type === "customer_care_vip") {
         segment = "vip_customers";

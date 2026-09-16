@@ -263,7 +263,7 @@ export function buildFallbackMarketingDetail(camp: MarketingCampaign): Marketing
   };
 }
 
-export function buildCampaignProposalFromMerchandising(prop: MerchandisingProposal): CampaignProposal {
+function buildCampaignProposalFromMerchandising(prop: MerchandisingProposal): CampaignProposal {
   const items = (prop.items || []).map((it, idx) => ({
     id: `item-${it.targetProductId || it.targetVariantId || idx}`,
     productId: it.targetProductId || `prod-${idx}`,
@@ -1350,7 +1350,8 @@ export function AgenticCommandCenter({
 
   // Helper: Intent classifier for AI CEO
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
-    const lower = text.toLowerCase();
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    const lower = normalized;
 
     // 0. Explicit department mentions always outrank overlapping business keywords.
     // Direct inputs add brackets, while AI CEO prompts use natural language.
@@ -1393,6 +1394,11 @@ export function AgenticCommandCenter({
     // 0.5. Customer email composition & dispatch actions belong exclusively to Support & CRM,
     // even when referencing new products from catalog or promotions from marketing.
     const isExplicitEmailDispatch =
+      /(?:soạn|gửi|bắn|lên|triển khai|chạy)\s+(?:chiến\s*dịch\s+)?(?:email|mail|thư)/i.test(normalized) ||
+      /chiến\s*dịch\s+(?:gửi\s+)?(?:email|mail)/i.test(normalized) ||
+      /(?:email|mail|thư)\s+(?:cho|tới|đến)\s+(?:toàn bộ|tất cả|mọi|các)?\s*khách/i.test(normalized) ||
+      /(?:gửi|soạn|bắn|thông báo).*(?:email|mail).*(?:khách hàng|toàn bộ|tất cả)/i.test(normalized) ||
+      /(?:email|mail).*(?:cho|tới|đến).*(?:khách hàng|toàn bộ|tất cả)/i.test(normalized) ||
       lower.includes("soạn mail") ||
       lower.includes("gửi mail") ||
       lower.includes("soạn email") ||
@@ -2101,27 +2107,28 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
+        const normalizedGoal = goalText.replace(/\s+/g, " ").trim();
         const isCampaignGoal =
-          /chiến dịch|toàn bộ|tất cả khách|mọi khách|bắn mail|bắn email|ý tưởng gửi/i.test(
-            goalText,
+          /chiến\s*dịch|toàn\s*bộ|tất\s*cả\s*khách|mọi\s*khách|bắn\s*mail|bắn\s*email|ý\s*tưởng\s*gửi/i.test(
+            normalizedGoal,
           ) ||
-          (/sản phẩm mới|bộ sưu tập|hàng mới|khuyến mãi|ưu đãi|flash sale/i.test(goalText) &&
-            /gửi|mail|email|bắn/i.test(goalText));
+          (/sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới|khuyến\s*mãi|ưu\s*đãi|flash\s*sale/i.test(normalizedGoal) &&
+            /gửi|mail|email|bắn/i.test(normalizedGoal));
         let supportProposalId = "";
 
         if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
-          const campType = /sản phẩm mới|bộ sưu tập|hàng mới/i.test(goalText)
+          const campType = /sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới/i.test(normalizedGoal)
             ? "new_product_announcement"
-            : /ưu đãi|khuyến mãi|flash sale|giảm giá|voucher/i.test(goalText)
+            : /ưu\s*đãi|khuyến\s*mãi|flash\s*sale|giảm\s*giá|voucher/i.test(normalizedGoal)
               ? "promotion_announcement"
               : "customer_care_vip";
 
           let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
-          if (/toàn bộ|tất cả|mọi khách|all/i.test(goalText)) {
+          if (/toàn\s*bộ|tất\s*cả|mọi\s*khách|all/i.test(normalizedGoal)) {
             targetSegment = "all_active_customers";
-          } else if (/vip|thân thiết|chi tiêu cao/i.test(goalText)) {
+          } else if (/vip|thân\s*thiết|chi\s*tiêu\s*cao/i.test(normalizedGoal)) {
             targetSegment = "vip_customers";
-          } else if (/gần đây|mới mua|vừa mua/i.test(goalText)) {
+          } else if (/gần\s*đây|mới\s*mua|vừa\s*mua/i.test(normalizedGoal)) {
             targetSegment = "recent_buyers";
           } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
             targetSegment = "all_active_customers";
@@ -3346,26 +3353,27 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
         await new Promise((r) => setTimeout(r, 800));
 
+        const normalizedPrompt = taskPrompt.replace(/\s+/g, " ").trim();
         const isCampaignGoal =
-          /chiến dịch|toàn bộ|tất cả khách|mọi khách|bắn mail|bắn email|ý tưởng gửi/i.test(
-            taskPrompt,
+          /chiến\s*dịch|toàn\s*bộ|tất\s*cả\s*khách|mọi\s*khách|bắn\s*mail|bắn\s*email|ý\s*tưởng\s*gửi/i.test(
+            normalizedPrompt,
           ) ||
-          (/sản phẩm mới|bộ sưu tập|hàng mới|khuyến mãi|ưu đãi|flash sale/i.test(taskPrompt) &&
-            /gửi|mail|email|bắn/i.test(taskPrompt));
+          (/sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới|khuyến\s*mãi|ưu\s*đãi|flash\s*sale/i.test(normalizedPrompt) &&
+            /gửi|mail|email|bắn/i.test(normalizedPrompt));
 
         if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
-          const campType = /sản phẩm mới|bộ sưu tập|hàng mới/i.test(taskPrompt)
+          const campType = /sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới/i.test(normalizedPrompt)
             ? "new_product_announcement"
-            : /ưu đãi|khuyến mãi|flash sale|giảm giá|voucher/i.test(taskPrompt)
+            : /ưu\s*đãi|khuyến\s*mãi|flash\s*sale|giảm\s*giá|voucher/i.test(normalizedPrompt)
               ? "promotion_announcement"
               : "customer_care_vip";
 
           let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
-          if (/toàn bộ|tất cả|mọi khách|all/i.test(taskPrompt)) {
+          if (/toàn\s*bộ|tất\s*cả|mọi\s*khách|all/i.test(normalizedPrompt)) {
             targetSegment = "all_active_customers";
-          } else if (/vip|thân thiết|chi tiêu cao/i.test(taskPrompt)) {
+          } else if (/vip|thân\s*thiết|chi\s*tiêu\s*cao/i.test(normalizedPrompt)) {
             targetSegment = "vip_customers";
-          } else if (/gần đây|mới mua|vừa mua/i.test(taskPrompt)) {
+          } else if (/gần\s*đây|mới\s*mua|vừa\s*mua/i.test(normalizedPrompt)) {
             targetSegment = "recent_buyers";
           } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
             targetSegment = "all_active_customers";
