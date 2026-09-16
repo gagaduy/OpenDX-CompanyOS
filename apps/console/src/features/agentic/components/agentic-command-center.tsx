@@ -135,7 +135,7 @@ function retainRecentLiveEvents(events: readonly LiveEventItem[]): readonly Live
     });
 }
 
-export function buildFallbackMarketingDetail(camp: MarketingCampaign): MarketingCampaignDetail {
+function buildFallbackMarketingDetail(camp: MarketingCampaign): MarketingCampaignDetail {
   const artifacts: MarketingArtifact[] = [
     {
       id: `art-brief-${camp.id}`,
