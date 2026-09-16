@@ -77,6 +77,10 @@ export interface DigitalEmployeeProgress {
   readonly role: string;
   readonly status: "working" | "waiting" | "failed" | "idle";
   readonly progressPercent: number;
+  readonly statusText?: string;
+  readonly isCollaborating?: boolean;
+  readonly collabTag?: string;
+  readonly waitingTasksCount?: number;
 }
 
 export interface DepartmentCardProps {

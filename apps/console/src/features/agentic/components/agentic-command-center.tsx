@@ -4738,9 +4738,17 @@ export function AgenticCommandCenter({
         {
           id: "marketing_copywriter",
           name: "MKT-01",
-          role: "Cây bút Tiếp thị",
+          role: "Cây bút Sáng tạo",
           status: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter" || activeLocks["marketing_copywriter"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
+               marketingActiveAgent === "marketing_visual" ||
+               marketingActiveAgent === "marketing_publisher")
+            ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_copywriter"),
         },
         {
           id: "marketing_visual",
@@ -4748,6 +4756,21 @@ export function AgenticCommandCenter({
           role: "Thiết kế Đồ họa",
           status: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab" || activeLocks["marketing_visual"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab") ? Math.min(95, 20 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner...")
+            : marketingActiveAgent === "merchandising_visual_collab"
+            ? (marketingAgentMessage ?? "Đang phối hợp vẽ poster ưu đãi & badge 3D...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_visual") ||
+               (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
+               marketingActiveAgent === "marketing_publisher")
+            ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
+            : undefined,
+          isCollaborating:
+            (activeCollaboration?.fromDept === "merchandising" && activeCollaboration.toDept === "marketing") ||
+            (activeCollaboration?.fromDept === "marketing" && activeCollaboration.toDept === "merchandising") ||
+            marketingActiveAgent === "merchandising_visual_collab",
+          collabTag: "Phối hợp cùng Danh mục",
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_visual"),
         },
         {
           id: "marketing_publisher",
@@ -4755,6 +4778,13 @@ export function AgenticCommandCenter({
           role: "Điều phối Xuất bản",
           status: (activeCampaignDetail?.campaign.state === "failed") ? "failed" : (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher" || activeLocks["marketing_publisher"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
+               activeCampaignDetail?.campaign.state === "completed")
+            ? "Đã hoàn tất đăng bài lên Fanpage thành công"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_publisher"),
         },
       ],
       queue: marketingTasks,
@@ -4849,113 +4879,8 @@ export function AgenticCommandCenter({
             })}
         </div>
       ) : null,
-      children: (
+      children: departmentQueues.marketing.length > 0 ? (
         <>
-          <AgentCard
-            name="Cây bút Sáng tạo"
-            roleTag="SKILL"
-            theme="blue"
-            status={
-              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_copywriter"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
-                  activeCampaignDetail ||
-                  marketingActiveAgent === "marketing_visual" ||
-                  marketingActiveAgent === "marketing_publisher"
-                ? "completed"
-                : getBranchState("marketing_content")
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_copywriter"
-                ? deptStatus.marketing.agentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag..."
-                : marketingActiveAgent === "marketing_copywriter"
-                ? marketingAgentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag..."
-                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
-                  marketingActiveAgent === "marketing_visual" ||
-                  marketingActiveAgent === "marketing_publisher"
-                ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_copywriter"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_copywriter")}
-          />
-          <AgentCard
-            name="Thiết kế Đồ họa"
-            roleTag="SKILL"
-            theme="blue"
-            isCollaborating={
-              (activeCollaboration?.fromDept === "merchandising" && activeCollaboration.toDept === "marketing") ||
-              (activeCollaboration?.fromDept === "marketing" && activeCollaboration.toDept === "merchandising") ||
-              marketingActiveAgent === "merchandising_visual_collab"
-            }
-            collabTag="Phối hợp cùng Danh mục"
-            status={
-              deptStatus.marketing.activeAgent === "marketing_visual" ||
-              marketingActiveAgent === "marketing_visual" ||
-              marketingActiveAgent === "merchandising_visual_collab"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
-                  (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
-                  marketingActiveAgent === "marketing_publisher"
-                ? "completed"
-                : getBranchState("marketing_visual")
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_visual"
-                ? deptStatus.marketing.agentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner..."
-                : marketingActiveAgent === "marketing_visual"
-                ? marketingAgentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner..."
-                : marketingActiveAgent === "merchandising_visual_collab"
-                ? marketingAgentMessage ?? "Đang phối hợp vẽ poster ưu đãi & badge 3D..."
-                : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
-                  (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
-                  marketingActiveAgent === "marketing_publisher"
-                ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_visual" ||
-              marketingActiveAgent === "marketing_visual" ||
-              marketingActiveAgent === "merchandising_visual_collab"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_visual")}
-          />
-          <AgentCard
-            name="Điều phối Đăng bài"
-            roleTag="DEPLOY"
-            theme="blue"
-            status={
-              deptStatus.marketing.activeAgent === "marketing_publisher" ||
-              marketingActiveAgent === "marketing_publisher"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
-                  activeCampaignDetail?.campaign.state === "completed"
-                ? "completed"
-                : activeCampaignDetail?.campaign.state === "failed" ||
-                  activeCampaignDetail?.campaign.state === "partial_failure"
-                ? "failed"
-                : getBranchState("marketing_publisher")
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_publisher"
-                ? deptStatus.marketing.agentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage..."
-                : marketingActiveAgent === "marketing_publisher"
-                ? marketingAgentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage..."
-                : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
-                  activeCampaignDetail?.campaign.state === "completed"
-                ? "Đã hoàn tất đăng bài lên Fanpage thành công"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_publisher" ||
-              marketingActiveAgent === "marketing_publisher"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_publisher")}
-          />
           {departmentQueues.marketing.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -4983,7 +4908,7 @@ export function AgenticCommandCenter({
             </div>
           ))}
         </>
-      ),
+      ) : null,
       directInputPlaceholder: "Giao việc cho Tiếp thị & Sáng tạo...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("marketing", text),
       onDirectDispatch: () => setDirectInputMode(true),
@@ -5029,6 +4954,16 @@ export function AgenticCommandCenter({
           role: "Cây bút Sản phẩm",
           status: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter" || activeLocks["catalog_copywriter"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter")
+            ? (deptStatus.merchandising.agentMessage ?? marketingAgentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO...")
+            : (deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
+               marketingActiveAgent === "pricing_strategist" ||
+               marketingActiveAgent === "merchandising_visual_collab" ||
+               (campaignProposal && !activeCampaign) ||
+               (merchandisingProposal && merchandisingProposal.status !== "applied"))
+            ? "Đã hoàn tất tối ưu tên & mô tả SEO"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("catalog_copywriter"),
         },
         {
           id: "pricing_strategist",
@@ -5036,6 +4971,14 @@ export function AgenticCommandCenter({
           role: "Chuyên viên Định giá",
           status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist")
+            ? (deptStatus.merchandising.agentMessage ?? marketingAgentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận...")
+            : (deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
+               (campaignProposal && !activeCampaign) ||
+               (merchandisingProposal && merchandisingProposal.status !== "applied"))
+            ? "Đã hoàn thành phân tích biên lợi nhuận & lập đề xuất Flash Sale"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("pricing_strategist"),
         },
       ],
       queue: merchandisingTasks,
@@ -5048,70 +4991,8 @@ export function AgenticCommandCenter({
           <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
         </span>
       ) : null,
-      children: (
+      children: (pendingHandoff?.dept === "merchandising" || departmentQueues.merchandising.length > 0) ? (
         <>
-          <AgentCard
-            name="Cây bút Sản phẩm"
-            roleTag="SKILL"
-            theme="cyan"
-            status={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
-              marketingActiveAgent === "catalog_copywriter"
-                ? "running"
-                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "completed"
-                : getBranchState("catalog")
-            }
-            statusText={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter"
-                ? deptStatus.merchandising.agentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO..."
-                : marketingActiveAgent === "catalog_copywriter"
-                ? marketingAgentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO..."
-                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "Đã hoàn tất tối ưu tên & mô tả SEO"
-                : undefined
-            }
-            showProgress={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
-              marketingActiveAgent === "catalog_copywriter"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("catalog_copywriter")}
-          />
-          <AgentCard
-            name="Chuyên gia Định giá"
-            roleTag="SKILL"
-            theme="cyan"
-            status={
-              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist"
-                ? "running"
-                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  campaignProposal
-                ? "completed"
-                : getBranchState("pricing")
-            }
-            statusText={
-              deptStatus.merchandising.activeAgent === "pricing_strategist"
-                ? deptStatus.merchandising.agentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận..."
-                : marketingActiveAgent === "pricing_strategist"
-                ? marketingAgentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận..."
-                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  campaignProposal
-                ? "Đã hoàn thành phân tích biên lợi nhuận & lập đề xuất Flash Sale"
-                : undefined
-            }
-            showProgress={
-              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
-          />
           {pendingHandoff?.dept === "merchandising" && (
             <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
               <div className="ccWaitingCardHeader">
@@ -5165,7 +5046,7 @@ export function AgenticCommandCenter({
             </div>
           ))}
         </>
-      ),
+      ) : null,
       directInputPlaceholder: "Giao việc cho Danh mục & Định giá...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("merchandising", text),
       onDirectDispatch: () => setDirectInputMode(true),
@@ -5218,6 +5099,20 @@ export function AgenticCommandCenter({
             ? "working"
             : "idle",
           progressPercent: (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: deptStatus.operations.activeAgent === "inventory_specialist"
+            ? deptStatus.operations.agentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
+            : marketingActiveAgent === "inventory_clearance_handoff"
+            ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
+            : marketingActiveAgent === "inventory_specialist"
+            ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
+            : (operationsProposal && operationsProposal.status !== "applied")
+            ? "Đã kiểm toán dữ liệu SKU và phân loại rủi ro tồn kho"
+            : undefined,
+          isCollaborating:
+            (activeCollaboration?.fromDept === "operations" && activeCollaboration.toDept === "merchandising") ||
+            marketingActiveAgent === "inventory_clearance_handoff",
+          collabTag: "Bàn giao liên phòng",
+          waitingTasksCount: getAgentWaitingTasksCount("inventory_specialist"),
         },
         {
           id: "order_coordinator",
@@ -5225,6 +5120,14 @@ export function AgenticCommandCenter({
           role: "Điều phối Đơn hàng",
           status: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator" || activeLocks["order_coordinator"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: deptStatus.operations.activeAgent === "order_coordinator"
+            ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
+            : marketingActiveAgent === "order_coordinator"
+            ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
+            : (operationsProposal && operationsProposal.status !== "applied")
+            ? "Đã hoàn thành lập dự toán ngân sách và xuất báo cáo kiểm toán Word"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("order_coordinator"),
         },
       ],
       queue: operationsTasks,
@@ -5279,82 +5182,8 @@ export function AgenticCommandCenter({
           </div>
         </div>
       ) : null,
-      children: (
+      children: (departmentQueues.operations.length > 0 || (operationsProposal && operationsProposal.status !== "applied")) ? (
         <>
-          <AgentCard
-            name="Kỹ sư Tồn kho"
-            roleTag="SKILL"
-            theme="amber"
-            isCollaborating={
-              (activeCollaboration?.fromDept === "operations" && activeCollaboration.toDept === "merchandising") ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-            }
-            collabTag="Bàn giao liên phòng"
-            status={
-              deptStatus.operations.activeAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-                ? "running"
-                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
-                  marketingActiveAgent === "order_coordinator" ||
-                  (operationsProposal && operationsProposal.status !== "applied") ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "completed"
-                : getBranchState("inventory")
-            }
-            statusText={
-              deptStatus.operations.activeAgent === "inventory_specialist"
-                ? deptStatus.operations.agentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
-                : marketingActiveAgent === "inventory_clearance_handoff"
-                ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
-                : marketingActiveAgent === "inventory_specialist"
-                ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
-                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
-                  (operationsProposal && operationsProposal.status !== "applied") ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "Đã kiểm toán dữ liệu SKU và phân loại rủi ro tồn kho"
-                : undefined
-            }
-            showProgress={
-              deptStatus.operations.activeAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("inventory_specialist")}
-          />
-          <AgentCard
-            name="Điều phối Đơn hàng"
-            roleTag="SKILL"
-            theme="amber"
-            status={
-              deptStatus.operations.activeAgent === "order_coordinator" ||
-              marketingActiveAgent === "order_coordinator"
-                ? "running"
-                : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  (operationsProposal && operationsProposal.status !== "applied")
-                ? "completed"
-                : getBranchState("fulfillment")
-            }
-            statusText={
-              deptStatus.operations.activeAgent === "order_coordinator"
-                ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
-                : marketingActiveAgent === "order_coordinator"
-                ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
-                : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  (operationsProposal && operationsProposal.status !== "applied")
-                ? "Đã hoàn thành lập dự toán ngân sách và xuất báo cáo kiểm toán Word"
-                : undefined
-            }
-            showProgress={
-              deptStatus.operations.activeAgent === "order_coordinator" ||
-              marketingActiveAgent === "order_coordinator"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("order_coordinator")}
-          />
           {departmentQueues.operations.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -5393,7 +5222,7 @@ export function AgenticCommandCenter({
             </button>
           )}
         </>
-      ),
+      ) : null,
       directInputPlaceholder: "Giao việc cho Vận hành & Kho...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("operations", text),
       onDirectDispatch: () => setDirectInputMode(true),
@@ -5439,6 +5268,12 @@ export function AgenticCommandCenter({
           role: "Quản gia CSKH",
           status: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward" || activeLocks["support_steward"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward")
+            ? (deptStatus.support.agentMessage ?? marketingAgentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT...")
+            : (supportProposal && supportProposal.status === "pending_approval")
+            ? "Đã phân tích toàn bộ khiếu nại & tính toán CSAT"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("support_steward"),
         },
         {
           id: "crm_specialist",
@@ -5446,6 +5281,12 @@ export function AgenticCommandCenter({
           role: "Chuyên viên CRM",
           status: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist" || activeLocks["crm_specialist"] !== undefined) ? "working" : "idle",
           progressPercent: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist")
+            ? (deptStatus.support.agentMessage ?? marketingAgentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher...")
+            : (supportProposal && supportProposal.status === "pending_approval")
+            ? "Đã lập kịch bản chăm sóc & đề xuất voucher cho khách VIP"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("crm_specialist"),
         },
       ],
       queue: supportTasks,
@@ -5459,67 +5300,11 @@ export function AgenticCommandCenter({
         </span>
       ) : null,
       children: (
+        departmentQueues.support.length > 0 ||
+        (supportCampaignProposal && supportCampaignProposal.status === "pending_approval") ||
+        (supportProposal && supportProposal.status === "pending_approval")
+      ) ? (
         <>
-          <AgentCard
-            name="Quản gia CSKH"
-            roleTag="SKILL"
-            theme="emerald"
-            status={
-              deptStatus.support.activeAgent === "support_steward" ||
-              marketingActiveAgent === "support_steward"
-                ? "running"
-                : deptStatus.support.completedAgents.includes("support_steward") ||
-                  marketingActiveAgent === "crm_specialist" ||
-                  (supportProposal && supportProposal.status === "pending_approval")
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.support.activeAgent === "support_steward"
-                ? deptStatus.support.agentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT..."
-                : marketingActiveAgent === "support_steward"
-                ? marketingAgentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT..."
-                : deptStatus.support.completedAgents.includes("support_steward") ||
-                  marketingActiveAgent === "crm_specialist" ||
-                  (supportProposal && supportProposal.status === "pending_approval")
-                ? "Đã phân tích toàn bộ khiếu nại & tính toán CSAT"
-                : undefined
-            }
-            showProgress={
-              deptStatus.support.activeAgent === "support_steward" ||
-              marketingActiveAgent === "support_steward"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("support_steward")}
-          />
-          <AgentCard
-            name="Chuyên viên CRM"
-            roleTag="SKILL"
-            theme="emerald"
-            status={
-              deptStatus.support.activeAgent === "crm_specialist" ||
-              marketingActiveAgent === "crm_specialist"
-                ? "running"
-                : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  (supportProposal && supportProposal.status === "pending_approval")
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.support.activeAgent === "crm_specialist"
-                ? deptStatus.support.agentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher..."
-                : marketingActiveAgent === "crm_specialist"
-                ? marketingAgentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher..."
-                : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  (supportProposal && supportProposal.status === "pending_approval")
-                ? "Đã lập kịch bản chăm sóc & đề xuất voucher cho khách VIP"
-                : undefined
-            }
-            showProgress={
-              deptStatus.support.activeAgent === "crm_specialist" ||
-              marketingActiveAgent === "crm_specialist"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("crm_specialist")}
-          />
           {departmentQueues.support.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -5569,7 +5354,7 @@ export function AgenticCommandCenter({
             </button>
           )}
         </>
-      ),
+      ) : null,
       directInputPlaceholder: "Giao việc cho CSKH & CRM...",
       onSendDirectTask: (text) => handleDepartmentDirectTask("support", text),
       onDirectDispatch: () => setDirectInputMode(true),
@@ -7302,86 +7087,6 @@ function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInp
   );
 }
 
-interface AgentCardProps {
-  readonly name: string;
-  readonly roleTag: string;
-  readonly status: "idle" | "running" | "completed" | "failed";
-  readonly statusText?: string;
-  readonly showProgress?: boolean;
-  readonly theme?: "blue" | "cyan" | "amber" | "emerald" | "purple";
-  readonly isCollaborating?: boolean;
-  readonly collabTag?: string;
-  readonly waitingTasksCount?: number;
-}
-
-function AgentCard({
-  name,
-  roleTag,
-  status,
-  statusText,
-  showProgress,
-  theme = "blue",
-  isCollaborating = false,
-  collabTag,
-  waitingTasksCount,
-}: AgentCardProps) {
-  const isRunning = status === "running";
-
-  return (
-    <div
-      className={`ccAgentCard ${isRunning ? "activeThinking" : ""} ${
-        isRunning ? `activeBorder-${theme}` : ""
-      } ${isCollaborating && isRunning ? "ccAgentCollaborating" : ""}`}
-    >
-      <div className="ccAgentCardHeader">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
-          <span className="ccAgentRoleBadge">{roleTag}</span>
-          {isCollaborating && (
-            <span className="ccCollabPill">
-              ⚡ {collabTag || "Phối hợp liên phòng"}
-            </span>
-          )}
-        </div>
-        {isRunning ? (
-          <span className="ccStatusIndicatorIcon" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            <span className={`ccStatusIndicatorDot running ${theme}`} />
-          </span>
-        ) : status === "completed" ? (
-          <span className="ccStatusIndicatorIcon">
-            <CheckCircle2 size={15} color="#10b981" />
-          </span>
-        ) : status === "failed" ? (
-          <span className="ccStatusIndicatorIcon">
-            <AlertTriangle size={15} color="#ef4444" />
-          </span>
-        ) : (
-          <span className="ccStatusIndicatorDot gray" />
-        )}
-      </div>
-
-      <h3 className="ccAgentName">{name}</h3>
-
-      {statusText && (
-        <p className={`ccAgentContentText ${isRunning ? "activeCalc" : ""}`}>
-          {statusText}
-        </p>
-      )}
-
-      {waitingTasksCount !== undefined && waitingTasksCount > 0 && (
-        <div className="ccAgentQueueNotice" title="Nhiệm vụ đang xếp hàng chờ tài nguyên này">
-          <Clock size={11} />
-          <span>{waitingTasksCount} nhiệm vụ đang chờ nhân sự này</span>
-        </div>
-      )}
-
-      {(showProgress || isRunning) && (
-        <div className={`ccProgressBarContainer theme-${theme}`}>
-          <div className="ccProgressBarFill" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface ProposalPaginationProps {
   currentPage: number;

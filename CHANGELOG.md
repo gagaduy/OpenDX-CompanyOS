@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Symmetrical 4-column workforce layout & compact employee status integration:
+  - Transitioned the department workforce grid from a tall, asymmetrical 2x2 layout (~1400px height) to an aligned 4-column horizontal layout (`repeat(4, minmax(0, 1fr))`) with responsive fallback to 2 columns on tablet/medium viewports and 1 column on mobile.
+  - Eliminated bulky, redundant bottom `AgentCard`s by integrating active thinking status messages, collaboration badges, waiting task counts, and animated progress bars directly into the employee rows in `DepartmentCard`.
+  - Added a compact max-height (`95px`) with a smooth custom scrollbar to department task queues, preventing high-volume queues (such as Operations) from disproportionately distorting card heights.
+  - Reduced total vertical height of the workforce section from ~1400px down to ~400px, keeping all 4 departments visible simultaneously without vertical scrolling.
+
+
 - Command Center: Stale agent status reset & applied deliverable button cleanup:
   - Guarded CSKH & CRM and Operations agent status cards (`support_steward`, `crm_specialist`, `inventory_specialist`, `order_coordinator`) against displaying stale `completed` states by checking that proposals are strictly pending approval (`pending_approval` / `status !== "applied"`), resetting agents to `idle` once actions are applied or completed.
   - Guarded department quick-action deliverable download buttons (`[Tải Báo Cáo CSKH Word]`, `[Tải Kế Hoạch Chiến Dịch Email Word]`, and `[Tải Báo Cáo Tồn Kho & Xuất Nhập Tồn Word]`) to render strictly when proposals are in `pending_approval` status, preventing permanently lingering buttons after tickets or plans have been applied.

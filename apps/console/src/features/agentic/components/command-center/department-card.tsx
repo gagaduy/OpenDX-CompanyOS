@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Zap,
+  Clock,
 } from "lucide-react";
 import type { DepartmentCardProps } from "./types";
 import type { DepartmentType } from "../../types/department-task-queue.types";
@@ -209,41 +210,81 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
         {/* Proactive / custom alert banner if present */}
         {alertBanner}
 
-        {/* 2-Column Department Body: Employees on Left, Queue on Right */}
+        {/* Department Body: Employees on Top, Queue on Bottom */}
         <div className="ccDeptBodyGrid">
-          {/* Left Column: Digital Employees */}
+          {/* Section 1: Digital Employees */}
           <div className="ccDeptEmpCol">
             {employees.map((emp) => (
-              <div key={emp.id} className="ccEmpRowCompact">
-                <div className="ccEmpRowLeft">
-                  <span className="ccEmpAvatarCompact">
-                    {emp.name.slice(0, 2).toUpperCase()}
-                  </span>
-                  <div className="ccEmpInfoCompact">
-                    <span className="ccEmpIdCompact">{emp.name}</span>
-                    <span className="ccEmpRoleCompact">{emp.role}</span>
+              <div key={emp.id} className="ccEmpRowWrapper">
+                <div className="ccEmpRowCompact">
+                  <div className="ccEmpRowLeft">
+                    <span
+                      className="ccEmpAvatarCompact"
+                      style={{
+                        background: `${theme.accentColor}18`,
+                        color: theme.accentColor,
+                        borderColor: `${theme.accentColor}35`,
+                      }}
+                    >
+                      {emp.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="ccEmpInfoCompact">
+                      <span className="ccEmpIdCompact">{emp.name}</span>
+                      <span className="ccEmpRoleCompact" title={emp.role}>{emp.role}</span>
+                    </div>
+                  </div>
+                  <div className="ccEmpRowRight">
+                    <span className={`ccEmpStatusCompact status-${emp.status}`}>
+                      <span className="ccStatusDot" />
+                      <span>
+                        {emp.status === "failed"
+                          ? "Lỗi xử lý"
+                          : emp.status === "working"
+                          ? "Đang làm việc"
+                          : "Chờ nhiệm vụ"}
+                      </span>
+                    </span>
+                    <span className="ccEmpPercentCompact">
+                      {emp.status === "working" ? `${emp.progressPercent}%` : emp.status === "failed" ? "0%" : "--"}
+                    </span>
                   </div>
                 </div>
-                <div className="ccEmpRowRight">
-                  <span className={`ccEmpStatusCompact status-${emp.status}`}>
-                    <span className="ccStatusDot" />
-                    <span>
-                      {emp.status === "failed"
-                        ? "Lỗi xử lý"
-                        : emp.status === "working"
-                        ? "Đang làm việc"
-                        : "Chờ nhiệm vụ"}
-                    </span>
-                  </span>
-                  <span className="ccEmpPercentCompact">
-                    {emp.status === "working" ? `${emp.progressPercent}%` : emp.status === "failed" ? "0%" : "--"}
-                  </span>
-                </div>
+
+                {/* Live Task Message / Activity / Collaboration / Waiting */}
+                {(emp.statusText || emp.isCollaborating || (emp.waitingTasksCount !== undefined && emp.waitingTasksCount > 0)) && (
+                  <div className={`ccEmpStatusMessage ${emp.status === "working" ? "activeCalc" : ""}`}>
+                    {emp.isCollaborating && (
+                      <span className="ccCollabPillSmall">
+                        ⚡ {emp.collabTag || "Phối hợp liên phòng"}
+                      </span>
+                    )}
+                    {emp.statusText && <span>{emp.statusText}</span>}
+                    {emp.waitingTasksCount !== undefined && emp.waitingTasksCount > 0 && (
+                      <div className="ccAgentQueueNotice" title="Nhiệm vụ đang xếp hàng chờ tài nguyên này" style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.65rem", color: "#fbbf24", marginTop: "2px" }}>
+                        <Clock size={11} />
+                        <span>{emp.waitingTasksCount} nhiệm vụ đang chờ nhân sự này</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mini animated progress bar if working */}
+                {emp.status === "working" && (
+                  <div className="ccEmpTrack" style={{ marginTop: "2px" }}>
+                    <div
+                      className="ccEmpFill"
+                      style={{
+                        width: `${emp.progressPercent}%`,
+                        backgroundColor: theme.accentColor,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          {/* Right Column: Hàng đợi (Queue) & Tác vụ */}
+          {/* Section 2: Hàng đợi (Queue) & Tác vụ */}
           <div className="ccDeptQueueCol">
             <div className="ccDeptQueueHeader">
               <span className="ccDeptQueueTitle">{queueTitle}</span>
@@ -257,7 +298,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
                   {taskFilter === "all" ? "Trống" : `Không có tác vụ nào`}
                 </div>
               ) : (
-                queue.slice(0, 4).map((q) => (
+                queue.slice(0, 5).map((q) => (
                   <div
                     key={q.id}
                     id={`dept-task-${q.id}`}
