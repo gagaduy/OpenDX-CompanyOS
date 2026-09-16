@@ -68,6 +68,7 @@ export interface CommandComposerProps {
   readonly ceoPlan?: CeoPlan | null;
   readonly onResetCeoPlan?: () => void;
   readonly onViewDeliverable?: () => void;
+  readonly onStop?: () => void;
 }
 
 export interface DigitalEmployeeProgress {

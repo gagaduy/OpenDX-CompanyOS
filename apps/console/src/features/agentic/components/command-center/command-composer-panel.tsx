@@ -4,6 +4,7 @@
 import React, { useState, useRef } from "react";
 import {
   Send,
+  Square,
   Sparkles,
   Paperclip,
   Globe,
@@ -66,6 +67,7 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
   ceoPlan,
   onResetCeoPlan,
   onViewDeliverable,
+  onStop,
 }) => {
   const [activeMetaTab, setActiveMetaTab] = useState<"none" | "context" | "goal">("none");
   const [contextValue, setContextValue] = useState("");
@@ -328,20 +330,28 @@ export const CommandComposerPanel: React.FC<CommandComposerProps> = ({
               <ChevronDown size={12} style={{ position: "absolute", right: "7px", pointerEvents: "none", color: "#64748b" }} />
             </div>
 
-            <button
-              type="button"
-              aria-label={isSubmitting ? "Đang gửi..." : "Gửi"}
-              disabled={isSubmitting || !prompt.trim()}
-              onClick={handleSubmit}
-              className="ccSubmitBtn"
-            >
-              {isSubmitting ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
+            {isSubmitting ? (
+              <button
+                type="button"
+                aria-label="Dừng lại"
+                onClick={() => onStop?.()}
+                className="ccStopBtn"
+              >
+                <Square size={13} fill="currentColor" />
+                <span>Dừng lại</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label="Gửi"
+                disabled={!prompt.trim()}
+                onClick={handleSubmit}
+                className="ccSubmitBtn"
+              >
                 <Send size={13} />
-              )}
-              <span>Giao việc</span>
-            </button>
+                <span>Giao việc</span>
+              </button>
+            )}
           </div>
         </div>
 

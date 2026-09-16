@@ -67,6 +67,15 @@ describe("CommandComposerPanel", () => {
     });
   });
 
+  it("renders 'Dừng lại' button when isSubmitting is true and triggers onStop when clicked", () => {
+    const onStop = vi.fn();
+    render(<CommandComposerPanel {...defaultProps} isSubmitting={true} onStop={onStop} />);
+    expect(screen.getByText("Dừng lại")).toBeDefined();
+    expect(screen.queryByText("Giao việc")).toBeNull();
+    fireEvent.click(screen.getByText("Dừng lại"));
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("handles file attachments and includes them in submit meta", () => {
     render(<CommandComposerPanel {...defaultProps} prompt="Phân tích báo cáo" />);
     const fileInput = screen.getByTestId("cc-file-input");

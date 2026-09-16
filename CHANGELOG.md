@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Command Center: Dynamic "Dừng lại" stop button with abort handling:
+  - Transformed the "Giao việc" button in `CommandComposerPanel` to dynamically switch to a high-contrast "Dừng lại" button with a stop icon (`Square`) while a task is actively running.
+  - Implemented interruptible execution with `AbortController` (`handleStopStrategicTask`), enabling operators to abort ongoing intake, analysis, or department dispatches safely at any time.
+  - Cleaned up active locks, agent status, and canceled associated backend workflow runs or proposals upon stop request, recording a warning event in the live feed and returning the composer to ready state while preserving the prompt text for further edits.
+
 - Command Center: Stale running tasks guard & accurate live event filtering:
   - Excluded abandoned/stale tasks older than 4 hours from the running count (`runningCount`) and department task states, preventing historical interrupted runs from artificially inflating the active task badge.
   - Fixed live event feed filtering when selecting "Đang xử lý" to strictly show active/in-progress tasks and exclude completed, failed, canceled, or pending approval events.

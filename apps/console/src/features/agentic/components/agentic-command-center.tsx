@@ -1036,11 +1036,33 @@ export function AgenticCommandCenter({
     readonly timestamp: string;
   } | null>(null);
   const completionToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const strategicAbortRef = useRef<AbortController | null>(null);
+
+  const interruptibleDelay = useCallback((ms: number) => {
+    return new Promise<void>((resolve, reject) => {
+      const signal = strategicAbortRef.current?.signal;
+      if (signal?.aborted) {
+        reject(new DOMException("Aborted", "AbortError"));
+        return;
+      }
+      const timer = setTimeout(() => {
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
       if (completionToastTimerRef.current) {
         clearTimeout(completionToastTimerRef.current);
+      }
+      if (strategicAbortRef.current) {
+        strategicAbortRef.current.abort();
       }
     };
   }, []);
@@ -2056,6 +2078,7 @@ export function AgenticCommandCenter({
 
     let strategicAgents: string[] = [];
     try {
+      strategicAbortRef.current = new AbortController();
       setIsSubmitting(true);
       setErrorMessage(null);
       setSuccessMessage(null);
@@ -2067,11 +2090,11 @@ export function AgenticCommandCenter({
       setIsCeoThinking(true);
       setAnalysisStep(1); // 1. Phân tích yêu cầu
       setCeoThinkingText("👑 AI CEO đang phân tích yêu cầu chiến lược...");
-      await new Promise((r) => setTimeout(r, 300));
+      await interruptibleDelay(300);
 
       setAnalysisStep(2); // 2. Xác định phạm vi & mục tiêu
       setCeoThinkingText("👑 AI CEO đang xác định phạm vi thực hiện & chỉ số mục tiêu...");
-      await new Promise((r) => setTimeout(r, 300));
+      await interruptibleDelay(300);
 
       const intent = (metaTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(metaTarget))
         ? (metaTarget as DepartmentType)
@@ -2079,11 +2102,11 @@ export function AgenticCommandCenter({
 
       setAnalysisStep(3); // 3. Lựa chọn phòng ban phù hợp
       setCeoThinkingText(`👑 AI CEO đã xác định phòng ban phụ trách: ${intent}...`);
-      await new Promise((r) => setTimeout(r, 300));
+      await interruptibleDelay(300);
 
       setAnalysisStep(4); // 4. Phân công nhân sự AI
       setCeoThinkingText("👑 AI CEO đang phân công nhân sự AI chuyên trách...");
-      await new Promise((r) => setTimeout(r, 300));
+      await interruptibleDelay(300);
 
       setIsCeoThinking(false);
       const strategicTaskId = crypto.randomUUID();
@@ -2156,7 +2179,7 @@ export function AgenticCommandCenter({
         // Stage 1: Quản gia CSKH rà soát ticket & tâm lý
         setMarketingActiveAgent("support_steward");
         setMarketingAgentMessage("🔍 Quản gia CSKH đang rà soát dữ liệu ticket sự cố và đánh giá tâm lý khách hàng...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Step 1 done -> Step 2 running
         setCeoPlan((prev) =>
@@ -2317,7 +2340,7 @@ export function AgenticCommandCenter({
         // Stage 1: Kỹ sư Tồn kho rà soát
         setMarketingActiveAgent("inventory_specialist");
         setMarketingAgentMessage("🔍 Kỹ sư Tồn kho đang rà soát dữ liệu tồn kho thực tế & đối soát lượng giữ chỗ trong database...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Step 1 done -> Step 2 running
         setCeoPlan((prev) =>
@@ -2429,7 +2452,7 @@ export function AgenticCommandCenter({
         // Stage 1: Cây bút Sản phẩm (Catalog Copywriter) tối ưu SEO & mô tả
         setMarketingActiveAgent("catalog_copywriter");
         setMarketingAgentMessage("✍️ Cây bút Sản phẩm đang nghiên cứu danh mục, tối ưu tiêu đề chuẩn SEO & viết mô tả ưu đãi...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Cây bút Sản phẩm done -> Thiết kế Đồ họa (Phòng Tiếp thị) running
         setCeoPlan((prev) =>
@@ -2473,7 +2496,7 @@ export function AgenticCommandCenter({
           toDept: "merchandising",
           label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
         });
-        await new Promise((r) => setTimeout(r, 1000));
+        await interruptibleDelay(1000);
         setActiveCollaboration(null);
         setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
@@ -2496,7 +2519,7 @@ export function AgenticCommandCenter({
         // Stage 3: Chuyên gia Định giá tính toán giá Flash Sale & biên lợi nhuận
         setMarketingActiveAgent("pricing_strategist");
         setMarketingAgentMessage("📊 Chuyên gia Định giá đang phân tích biên lợi nhuận, chiết khấu và thiết lập bảng giá Flash Sale...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         if (cProposal) {
           setCampaignProposal(cProposal);
@@ -2682,7 +2705,7 @@ export function AgenticCommandCenter({
         );
 
         await marketingApi.markReady(createdCampaign.id);
-        await new Promise((r) => setTimeout(r, 1400));
+        await interruptibleDelay(1400);
 
         // Stage 3: Visual Designer generating creative
         setDeptActiveAgent("marketing", "marketing_visual", `🎨 Thiết kế Đồ họa đang dựng đồ họa sản phẩm vuông 1:1 ánh sáng studio cho "${cleanName}"...`, "marketing_copywriter");
@@ -2702,7 +2725,7 @@ export function AgenticCommandCenter({
         await marketingApi.requestRevision(createdCampaign.id, {
           feedback: `Triển khai sáng tạo bài viết và hình ảnh theo đúng yêu cầu: ${goalText}`,
         });
-        await new Promise((r) => setTimeout(r, 1400));
+        await interruptibleDelay(1400);
 
         // Stage 4: Publisher packaging
         setDeptActiveAgent("marketing", "marketing_publisher", `📦 Điều phối Xuất bản đang kiểm tra checklist an toàn và đóng gói bản thảo...`, "marketing_visual");
@@ -2718,7 +2741,7 @@ export function AgenticCommandCenter({
               }
             : null,
         );
-        await new Promise((r) => setTimeout(r, 1000));
+        await interruptibleDelay(1000);
 
         // Stage 5: Ready for Human Approval
         setDeptStatus((prev) => ({
@@ -2870,7 +2893,7 @@ export function AgenticCommandCenter({
         // Stage 2: Research & Pricing Strategist
         setMarketingActiveAgent("pricing_strategist");
         setMarketingAgentMessage("📊 Chuyên viên Nghiên cứu đang phân tích số liệu thị trường Đông Nam Á và phân khúc mục tiêu...");
-        await new Promise((r) => setTimeout(r, 1100));
+        await interruptibleDelay(1100);
 
         // Transition: Step 2 done -> Step 3 running
         setCeoPlan((prev) =>
@@ -2887,7 +2910,7 @@ export function AgenticCommandCenter({
         // Stage 3: Operations & Multi-channel Coordinator
         setMarketingActiveAgent("order_coordinator");
         setMarketingAgentMessage("📦 Điều phối Vận hành đang tính toán kế hoạch ra mắt đa kênh, dự toán ngân sách & ma trận rủi ro...");
-        await new Promise((r) => setTimeout(r, 1000));
+        await interruptibleDelay(1000);
 
         // Transition: Step 3 done -> Step 4 ready
         setCeoPlan((prev) =>
@@ -2928,10 +2951,17 @@ export function AgenticCommandCenter({
         if (onTaskCreated) onTaskCreated();
       }
     } catch (error) {
+      if (
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && (error.name === "AbortError" || error.message === "Aborted"))
+      ) {
+        return;
+      }
       console.error("Failed to execute strategic task:", error);
       setErrorMessage(error instanceof Error ? error.message : "Không thể gửi tác vụ đến hệ thống.");
     } finally {
       setIsSubmitting(false);
+      strategicAbortRef.current = null;
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(strategicAgents, prevLocks);
         notifyResourceWaiters(strategicAgents);
@@ -2940,6 +2970,47 @@ export function AgenticCommandCenter({
       });
     }
   };
+
+  const handleStopStrategicTask = useCallback(() => {
+    if (strategicAbortRef.current) {
+      strategicAbortRef.current.abort();
+      strategicAbortRef.current = null;
+    }
+    setIsSubmitting(false);
+    setIsCeoThinking(false);
+    setCeoThinkingText("");
+    setAnalysisStep(0);
+    setElapsedSeconds(0);
+    setMarketingActiveAgent(null);
+    setMarketingAgentMessage(null);
+    setActiveCollaboration(null);
+    setActiveLocks({});
+    setDeptStatus({
+      marketing: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      merchandising: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      operations: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      support: { activeAgent: null, agentMessage: null, completedAgents: [] },
+    });
+    setCeoPlan(null);
+
+    if (activeRunId) {
+      void api.cancelWorkflow(activeRunId, 1, "CANCELED_BY_STAFF").catch(() => {});
+    }
+    if (activeCampaignId && marketingApi?.cancelCampaign) {
+      void marketingApi.cancelCampaign(activeCampaignId, "Dừng bởi người vận hành").catch(() => {});
+    }
+    if (supportCampaignProposal?.id && supportApi?.cancelEmailCampaignProposal) {
+      void supportApi.cancelEmailCampaignProposal(supportCampaignProposal.id).catch(() => {});
+    }
+
+    recordLiveEvent(
+      "ai_ceo",
+      "Đã dừng tác vụ",
+      "Người điều hành đã dừng tiến trình thực thi tác vụ.",
+      "warning",
+    );
+    setSuccessMessage("Đã dừng thực thi tác vụ thành công.");
+  }, [api, activeRunId, activeCampaignId, marketingApi, supportCampaignProposal, supportApi, recordLiveEvent]);
 
   // Auto-process next queued task whose resources are completely free
   const processNextQueuedTask = (currentLocks: Record<string, ResourceLock>) => {
@@ -6484,6 +6555,7 @@ export function AgenticCommandCenter({
         prompt={prompt}
         onPromptChange={setPrompt}
         onSubmit={(meta) => handleSendStrategicTask(meta)}
+        onStop={handleStopStrategicTask}
         isSubmitting={isSubmitting}
         isAnalyzing={isCurrentlyAnalyzing}
         analysisStep={activeAnalysisStep}
