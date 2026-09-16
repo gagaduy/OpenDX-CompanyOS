@@ -1051,6 +1051,7 @@ export function AgenticCommandCenter({
       taskId?: string,
       department?: "ai_ceo" | DepartmentType,
       customSuccessMsg?: string,
+      isCampaign?: boolean,
     ) => {
       const deliverable = buildStrategicDeliverable(goalText, taskId, department);
       setCompletedStrategicDeliverable(deliverable);
@@ -1058,7 +1059,13 @@ export function AgenticCommandCenter({
       setStrategicDeliverableApproved(false);
       if (department === "support") {
         setIsStrategicModalOpen(false);
-        setIsSupportEmailApprovalModalOpen(true);
+        if (isCampaign) {
+          setIsSupportEmailApprovalModalOpen(false);
+          setIsSupportCampaignModalOpen(true);
+        } else {
+          setIsSupportCampaignModalOpen(false);
+          setIsSupportEmailApprovalModalOpen(true);
+        }
       } else {
         setIsStrategicModalOpen(true);
       }
@@ -1809,6 +1816,27 @@ export function AgenticCommandCenter({
         },
       });
     }
+    if (supportCampaignProposal) {
+      const formatted = formatLiveEventTimestamp(supportCampaignProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `support-camp-ev-${supportCampaignProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "support",
+        title: supportCampaignProposal.status === "applied"
+          ? "CSKH đã gửi chiến dịch email"
+          : "CSKH đã lập kế hoạch chiến dịch email",
+        description: supportCampaignProposal.title || "Kế hoạch chiến dịch email khách hàng",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setIsSupportEmailApprovalModalOpen(false);
+          setIsSupportCampaignModalOpen(true);
+        },
+      });
+    }
     if (supportProposal) {
       const formatted = formatLiveEventTimestamp(supportProposal.createdAt || Date.now());
       initialEvents.push({
@@ -1825,6 +1853,7 @@ export function AgenticCommandCenter({
         status: "success",
         actionLabel: "Xem kết quả",
         onActionClick: () => {
+          setIsSupportCampaignModalOpen(false);
           setIsSupportEmailApprovalModalOpen(true);
         },
       });
@@ -1940,7 +1969,7 @@ export function AgenticCommandCenter({
         return retainRecentLiveEvents(Array.from(map.values()));
       });
     }
-  }, [tasks, activeOperations, activeCampaign, activeCampaigns, campaignProposal, operationsProposal, supportProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
+  }, [tasks, activeOperations, activeCampaign, activeCampaigns, campaignProposal, operationsProposal, supportProposal, supportCampaignProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
 
   // Strategic AI CEO Dispatch
   const handleSendStrategicTask = async (
@@ -2185,8 +2214,10 @@ export function AgenticCommandCenter({
           "Xem kết quả",
           () => {
             if (isCampaignGoal) {
+              setIsSupportEmailApprovalModalOpen(false);
               setIsSupportCampaignModalOpen(true);
             } else {
+              setIsSupportCampaignModalOpen(false);
               setIsSupportEmailApprovalModalOpen(true);
             }
           },
@@ -2198,6 +2229,7 @@ export function AgenticCommandCenter({
           isCampaignGoal
             ? "AI CEO & Đội ngũ CSKH đã hoàn tất lập kế hoạch chiến dịch email và file Word (.docx)! Sẵn sàng để bạn duyệt gửi."
             : "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
+          isCampaignGoal,
         );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
@@ -3416,6 +3448,7 @@ export function AgenticCommandCenter({
             "success",
             "Xem kết quả",
             () => {
+              setIsSupportEmailApprovalModalOpen(false);
               setIsSupportCampaignModalOpen(true);
             },
           );
@@ -3424,6 +3457,7 @@ export function AgenticCommandCenter({
             campProposal?.id,
             "support",
             "Đã lập xong Kế Hoạch Chiến Dịch Email CSKH & Báo Cáo Chiến Lược Word (.docx)!",
+            true,
           );
           if (onTaskCreated) onTaskCreated();
         } else {
@@ -5341,6 +5375,17 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
+          {supportCampaignProposal && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
+              onClick={handleDownloadSupportCampaignDocx}
+            >
+              <FileText size={14} color="#10b981" />
+              <span>Tải Kế Hoạch Chiến Dịch Email Word ({supportCampaignProposal.totalRecipients} KH)</span>
+            </button>
+          )}
           {supportProposal && (
             <button
               type="button"
@@ -5585,43 +5630,7 @@ export function AgenticCommandCenter({
         ]
       : []),
 
-    // 4. Support: Customer Care Script & VIP Retention Vouchers
-    ...(supportProposal?.status === "pending_approval"
-      ? [
-          {
-            id: supportProposal.id,
-            title: `Kịch bản phản hồi CSKH (${supportProposal.tickets.length} Ticket) & Voucher VIP`,
-            sourceDepartment: "support" as const,
-            authorName: "Chuyên viên CRM (SUP-02)",
-            riskLevel: "low" as const,
-            timestamp: formatTime(Date.now()),
-            onPreview: () => {
-              setIsSupportEmailApprovalModalOpen(true);
-            },
-            onRequestRevision: () => {
-              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
-            },
-            onApprove: () => void handleApplySupport(),
-            onReject: async () => {
-              const proposal = supportProposal;
-              if (!supportApi) {
-                setErrorMessage("Dịch vụ CSKH chưa sẵn sàng để hủy đề xuất.");
-                return;
-              }
-              try {
-                await supportApi.cancelSupportProposal(proposal.id);
-                setSupportProposal(null);
-                const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
-                if (persisted) setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
-              } catch (error) {
-                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy đề xuất CSKH.");
-              }
-            },
-          },
-        ]
-      : []),
-
-    // 4b. Support: Proactive Email Campaign (New Products / Flash Sales / VIP)
+    // 4a. Support: Proactive Email Campaign (New Products / Flash Sales / VIP)
     ...(supportCampaignProposal?.status === "pending_approval"
       ? [
           {
@@ -5632,6 +5641,7 @@ export function AgenticCommandCenter({
             riskLevel: "low" as const,
             timestamp: formatTime(supportCampaignProposal.createdAt || Date.now()),
             onPreview: () => {
+              setIsSupportEmailApprovalModalOpen(false);
               setIsSupportCampaignModalOpen(true);
             },
             onRequestRevision: () => {
@@ -5651,6 +5661,43 @@ export function AgenticCommandCenter({
                 setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
               } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
+              }
+            },
+          },
+        ]
+      : []),
+
+    // 4b. Support: Customer Care Script & VIP Retention Vouchers
+    ...(supportProposal?.status === "pending_approval"
+      ? [
+          {
+            id: supportProposal.id,
+            title: `Kịch bản phản hồi CSKH (${supportProposal.tickets.length} Ticket) & Voucher VIP`,
+            sourceDepartment: "support" as const,
+            authorName: "Chuyên viên CRM (SUP-02)",
+            riskLevel: "low" as const,
+            timestamp: formatTime(Date.now()),
+            onPreview: () => {
+              setIsSupportCampaignModalOpen(false);
+              setIsSupportEmailApprovalModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
+            },
+            onApprove: () => void handleApplySupport(),
+            onReject: async () => {
+              const proposal = supportProposal;
+              if (!supportApi) {
+                setErrorMessage("Dịch vụ CSKH chưa sẵn sàng để hủy đề xuất.");
+                return;
+              }
+              try {
+                await supportApi.cancelSupportProposal(proposal.id);
+                setSupportProposal(null);
+                const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
+                if (persisted) setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy đề xuất CSKH.");
               }
             },
           },
@@ -6038,6 +6085,7 @@ export function AgenticCommandCenter({
         format: "docx",
         timestamp: new Date(supportCampaignProposal.updatedAt || supportCampaignProposal.createdAt).getTime() || Date.now(),
         onDownloadOrView: () => {
+          setIsSupportEmailApprovalModalOpen(false);
           setIsSupportCampaignModalOpen(true);
         },
       });
@@ -6346,7 +6394,11 @@ export function AgenticCommandCenter({
             const deliv = buildStrategicDeliverable(ceoPlan?.goal || "Đề xuất danh mục", merchandisingProposal.id, "merchandising");
             setSelectedStrategicDeliverable(deliv);
             setIsStrategicModalOpen(true);
+          } else if (supportCampaignProposal) {
+            setIsSupportEmailApprovalModalOpen(false);
+            setIsSupportCampaignModalOpen(true);
           } else if (supportProposal) {
+            setIsSupportCampaignModalOpen(false);
             setIsSupportEmailApprovalModalOpen(true);
           }
         }}
@@ -6696,12 +6748,34 @@ export function AgenticCommandCenter({
                     <Download size={14} /> Tải Word (.docx)
                   </button>
                 </>
+              ) : completionToast.department === "support" && supportCampaignProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsSupportEmailApprovalModalOpen(false);
+                      setIsSupportCampaignModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Mail size={14} /> Xem chiến dịch email
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadSupportCampaignDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
               ) : completionToast.department === "support" && supportProposal ? (
                 <>
                   <button
                     type="button"
                     className="ccCompletionToastBtnPrimary"
                     onClick={() => {
+                      setIsSupportCampaignModalOpen(false);
                       setIsSupportEmailApprovalModalOpen(true);
                       setCompletionToast(null);
                     }}
