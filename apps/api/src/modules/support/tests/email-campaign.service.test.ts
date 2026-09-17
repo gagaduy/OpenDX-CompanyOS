@@ -153,6 +153,18 @@ describe("EmailCampaignService", () => {
   });
 
   it("creates a promotion announcement proposal successfully", async () => {
+    vi.mocked(mockPromotionQuery.getActiveAndUpcomingCampaigns).mockResolvedValueOnce([
+      {
+        campaignId: "promo-1",
+        campaignName: "Flash Sale Giữa Tháng",
+        voucherCode: "MIDMONTH20",
+        discountPercent: 20,
+        startTime: "2026-09-15T00:00:00Z",
+        endTime: "2026-09-20T23:59:59Z",
+        description: "Giảm 20% toàn bộ phụ kiện",
+        productIds: ["prod-1"],
+      } as any,
+    ]);
     const service = createService();
     const proposal = await service.createProposal({
       type: "promotion_announcement",
@@ -163,6 +175,38 @@ describe("EmailCampaignService", () => {
     expect(proposal.promotionDetails?.voucherCode).toBe("MIDMONTH20");
     expect(proposal.promotionDetails?.discountPercent).toBe(20);
     expect(proposal.recipients[0].email).toBe("nguyenvana@gmail.com");
+    expect(mockCatalogQuery.getProductsByIds).toHaveBeenCalledWith(["prod-1"]);
+  });
+
+  it("refuses to invent a promotion email when no active campaign exists", async () => {
+    vi.mocked(mockPromotionQuery.getActiveAndUpcomingCampaigns).mockResolvedValueOnce([]);
+    const service = createService();
+
+    await expect(
+      service.createProposal({
+        type: "promotion_announcement",
+        targetSegment: "all_active_customers",
+      }),
+    ).rejects.toMatchObject({ errorCode: "NO_ACTIVE_PROMOTION" });
+  });
+
+  it("refuses a promotion email when the active campaign has no assigned products", async () => {
+    vi.mocked(mockPromotionQuery.getActiveAndUpcomingCampaigns).mockResolvedValueOnce([
+      {
+        campaignId: "promo-without-products",
+        campaignName: "Flash Sale chưa cấu hình sản phẩm",
+        discountPercent: 20,
+        productIds: [],
+      },
+    ]);
+    const service = createService();
+
+    await expect(
+      service.createProposal({
+        type: "promotion_announcement",
+        targetSegment: "all_active_customers",
+      }),
+    ).rejects.toMatchObject({ errorCode: "PROMOTION_HAS_NO_PRODUCTS" });
   });
 
   it("applies and dispatches a proposal to selected recipients", async () => {

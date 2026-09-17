@@ -75,7 +75,8 @@ describe("EmailDispatcherAdapters", () => {
 
       const result = await adapter.sendCampaignEmail({
         to: "recipient@example.com",
-        recipientName: "Recipient A",
+        toName: "Recipient A",
+        campaignId: "test-campaign-1",
         subject: "New Products",
         htmlBody: `
           <div>

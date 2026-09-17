@@ -49,6 +49,7 @@ export interface CampaignPromotionDetails {
   readonly startTime?: string;
   readonly endTime?: string;
   readonly description?: string;
+  readonly productIds?: readonly string[];
 }
 
 export interface SupportEmailCampaignProposal {

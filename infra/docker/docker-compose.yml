@@ -195,6 +195,7 @@ services:
 
   temporal:
     image: temporalio/server:1.31.2@sha256:b5ecdb8282bededae2a10c36e8d862e27d0bc2d247fc73c5416025997ab4a1da
+    command: ["/bin/sh", "/opt/opendx/start-temporal-server.sh"]
     environment:
       DB: postgres12
       DB_PORT: "5432"
@@ -205,11 +206,15 @@ services:
       VISIBILITY_DBNAME: temporal_visibility
       DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
       TEMPORAL_ALLOW_NO_AUTH: "true"
+      TEMPORAL_DATABASE_WAIT_MAX_ATTEMPTS: "60"
     expose:
       - "7233"
     volumes:
       - ../temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+      - ../temporal/scripts/start-server.sh:/opt/opendx/start-temporal-server.sh:ro
     depends_on:
+      postgres:
+        condition: service_healthy
       temporal-schema:
         condition: service_completed_successfully
     restart: unless-stopped

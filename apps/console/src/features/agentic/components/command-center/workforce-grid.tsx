@@ -13,7 +13,7 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
   containerRef,
 }) => {
   return (
-    <div className="ccWorkforceSection">
+    <div ref={containerRef} className="ccWorkforceSection">
       {/* Header */}
       <div className="ccWorkforceHeader">
         <div>
@@ -36,9 +36,10 @@ export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
         </button>
       </div>
 
+      {children}
+
       {/* 2x2 Grid Container */}
-      <div ref={containerRef} className="ccDeptGrid" style={{ position: "relative" }}>
-        {children}
+      <div className="ccDeptGrid">
         {departments.length === 0 ? (
           <div style={{ gridColumn: "1 / -1", padding: "3rem 1rem", textAlign: "center", background: "rgba(15, 23, 42, 0.4)", borderRadius: 10, border: "1px dashed rgba(255, 255, 255, 0.1)", color: "#94a3b8", fontSize: "0.85rem" }}>
             Không có phòng ban nào ở trạng thái đã chọn.

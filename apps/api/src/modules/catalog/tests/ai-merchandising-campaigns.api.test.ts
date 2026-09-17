@@ -8,12 +8,14 @@ import { createAiMerchandisingRouter } from "../presentation/routes/ai-merchandi
 import { AiMerchandisingController } from "../presentation/controllers/ai-merchandising.controller";
 
 describe("AI Merchandising Campaigns API Routes", () => {
-  it("mounts generate, activate, revert, and active campaign endpoints", async () => {
+  it("mounts generate, activate, reject, revert, active, and latest draft campaign endpoints", async () => {
     const mockService = {
       generateCampaignProposal: vi.fn().mockResolvedValue({ id: "camp-1", discountPercent: 20 }),
       activateCampaign: vi.fn().mockResolvedValue({ success: true }),
+      rejectCampaign: vi.fn().mockResolvedValue({ success: true, campaignId: "camp-1" }),
       revertCampaign: vi.fn().mockResolvedValue({ success: true }),
       getActiveCampaign: vi.fn().mockResolvedValue({ id: "camp-1", remainingMs: 50000 }),
+      getLatestDraftCampaign: vi.fn().mockResolvedValue({ id: "draft-1", status: "draft" }),
     };
 
     const controller = new AiMerchandisingController(mockService as any);
@@ -38,6 +40,16 @@ describe("AI Merchandising Campaigns API Routes", () => {
     expect(activateRes.status).toBe(200);
     expect(activateRes.body.success).toBe(true);
 
+    const rejectRes = await request(app)
+      .post("/v1/admin/catalog/ai-merchandising/campaigns/camp-1/reject")
+      .send({ reason: "Không còn phù hợp" });
+    expect(rejectRes.status).toBe(200);
+    expect(rejectRes.body).toMatchObject({ success: true, campaignId: "camp-1" });
+    expect(mockService.rejectCampaign).toHaveBeenCalledWith("camp-1", expect.objectContaining({
+      actorId: "staff-1",
+      reason: "Không còn phù hợp",
+    }));
+
     const revertRes = await request(app)
       .post("/v1/admin/catalog/ai-merchandising/campaigns/camp-1/revert")
       .send({});
@@ -48,5 +60,10 @@ describe("AI Merchandising Campaigns API Routes", () => {
       .get("/v1/admin/catalog/ai-merchandising/campaigns/active");
     expect(activeRes.status).toBe(200);
     expect(activeRes.body.id).toBe("camp-1");
+
+    const draftRes = await request(app)
+      .get("/v1/admin/catalog/ai-merchandising/campaigns/draft/latest");
+    expect(draftRes.status).toBe(200);
+    expect(draftRes.body).toMatchObject({ id: "draft-1", status: "draft" });
   });
 });

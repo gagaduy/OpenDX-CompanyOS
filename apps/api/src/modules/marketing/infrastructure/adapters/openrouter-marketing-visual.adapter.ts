@@ -48,6 +48,12 @@ export function createMarketingVisualMaterializer(options: VisualMaterializerOpt
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (!response.ok) {
+          const transientResponse =
+            response.status === 408 ||
+            response.status === 425 ||
+            response.status === 429 ||
+            response.status >= 500;
+          if (transientResponse && attempt === 0) continue;
           throw new MarketingApplicationError(502, "MARKETING_VISUAL_GENERATION_FAILED", `Image provider returned HTTP ${response.status}. No image was saved.`);
         }
         try {

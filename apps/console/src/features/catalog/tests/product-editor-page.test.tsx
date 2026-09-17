@@ -15,12 +15,13 @@ function api(overrides: Partial<CatalogApi> = {}): CatalogApi {
   return {
     listProducts: vi.fn(), listCategories: vi.fn(async () => [category]), getProduct: vi.fn(async () => product),
     createProduct: vi.fn(async (input) => ({ ...product, ...input })), updateProduct: vi.fn(async () => product), archiveProduct: vi.fn(),
-    createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(), ...overrides,
+    createCategory: vi.fn(), updateCategory: vi.fn(), archiveCategory: vi.fn(),
     createVariant: vi.fn(), updateVariant: vi.fn(), archiveVariant: vi.fn(), replacePrice: vi.fn(),
     uploadMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn(), loadMediaPreview: vi.fn(), getProductAudit: vi.fn(async () => []),
     checkPublicationReadiness: vi.fn(async () => ({ ready: true, missing: [] })), publishProduct: vi.fn(async () => ({ ...product, status: "published" as const, version: 4 })), unpublishProduct: vi.fn(async () => product),
     generateMerchandisingProposal: vi.fn(), applyMerchandisingProposal: vi.fn(),
-    generateCampaignProposal: vi.fn(), activateCampaign: vi.fn(), revertCampaign: vi.fn(), getActiveCampaign: vi.fn(),
+    generateCampaignProposal: vi.fn(), activateCampaign: vi.fn(), revertCampaign: vi.fn(), getActiveCampaign: vi.fn(), getLatestDraftCampaign: vi.fn(),
+    ...overrides,
   };
 }
 

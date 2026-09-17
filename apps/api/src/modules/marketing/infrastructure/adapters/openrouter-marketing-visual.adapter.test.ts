@@ -42,8 +42,22 @@ describe("Marketing image materialization", () => {
     expect(storageWriter).toHaveBeenCalledTimes(1);
   });
 
+  it("retries once when the image provider returns a transient response", async () => {
+    const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: "green" } }).png().toBuffer();
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "rate limited" } }), { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { images: [{ image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }] } }] })));
+    const storageWriter = vi.fn();
+    const materialize = createMarketingVisualMaterializer({ enabled: true, apiKey: "test-key", models: "test/image-model", timeoutMs: 120000, fetcher, storageWriter });
+
+    await expect(materialize(input)).resolves.toMatchObject({ width: 32, height: 32 });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(storageWriter).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
-    new Response(JSON.stringify({ error: { message: "private provider details" } }), { status: 429 }),
+    new Response(JSON.stringify({ error: { message: "private provider details" } }), { status: 401 }),
     new Response(JSON.stringify({ choices: [{ message: { content: "No image available" } }] })),
     new Response(JSON.stringify({ choices: [{ message: { images: [{ image_url: { url: "data:image/png;base64,YmFk" } }] } }] })),
   ])("rejects unsuccessful or invalid output without storing a placeholder", async (response) => {

@@ -20,7 +20,7 @@ export interface CreateCampaignRecordInput {
   readonly startTime: Date;
   readonly endTime: Date;
   readonly heroBannerStorageKey?: string;
-  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted";
+  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted" | "rejected";
   readonly createdBy: string;
   readonly items: ReadonlyArray<{
     readonly id: string;
@@ -197,7 +197,19 @@ export class PostgresqlCampaignRepository {
     return all[0] ?? null;
   }
 
-  async updateStatus(session: DatabaseSession, id: string, status: "draft" | "active" | "scheduled" | "completed" | "reverted"): Promise<void> {
+  async findLatestDraft(session: DatabaseSession): Promise<CampaignProposalDto | null> {
+    const { rows } = await session.query<{ id: string }>(
+      `SELECT id
+       FROM merchandising_campaigns
+       WHERE status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+    );
+
+    return rows[0] ? this.getById(session, rows[0].id) : null;
+  }
+
+  async updateStatus(session: DatabaseSession, id: string, status: "draft" | "active" | "scheduled" | "completed" | "reverted" | "rejected"): Promise<void> {
     await session.query(
       `UPDATE merchandising_campaigns SET status = $1, updated_at = NOW() WHERE id = $2`,
       [status, id],

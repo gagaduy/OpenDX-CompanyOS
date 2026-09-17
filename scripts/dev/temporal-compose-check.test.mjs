@@ -61,7 +61,13 @@ test("orders database schema namespace API and worker by truthful health", () =>
   assert.equal(services.migrate.depends_on["postgres-role-init"].condition, "service_completed_successfully");
   assert.equal(services["temporal-db-init"].depends_on["postgres-role-init"].condition, "service_completed_successfully");
   assert.equal(services["temporal-schema"].depends_on["temporal-db-init"].condition, "service_completed_successfully");
+  assert.equal(services.temporal.depends_on.postgres.condition, "service_healthy");
   assert.equal(services.temporal.depends_on["temporal-schema"].condition, "service_completed_successfully");
+  assert.deepEqual(services.temporal.command, ["/bin/sh", "/opt/opendx/start-temporal-server.sh"]);
+  assert.ok(
+    services.temporal.volumes.some(({ target }) => target === "/opt/opendx/start-temporal-server.sh"),
+    "Temporal startup gate must be mounted into the server container",
+  );
   assert.equal(services["temporal-namespace"].depends_on.temporal.condition, "service_healthy");
   assert.equal(services["ai-runtime"].depends_on["temporal-namespace"].condition, "service_completed_successfully");
   assert.equal(services["ai-worker"].depends_on["ai-runtime"].condition, "service_healthy");
@@ -77,6 +83,7 @@ test("uses idempotent separate database schema and namespace scripts", () => {
   const create = readFileSync("infra/temporal/scripts/create-databases.sh", "utf8");
   const schema = readFileSync("infra/temporal/scripts/setup-schema.sh", "utf8");
   const namespace = readFileSync("infra/temporal/scripts/register-namespace.sh", "utf8");
+  const startServer = readFileSync("infra/temporal/scripts/start-server.sh", "utf8");
 
   assert.match(roles, /POSTGRES_LEGACY_USER="\$\{POSTGRES_APP_USER\}_bootstrap_legacy"/);
   assert.match(roles, /ALTER DATABASE %I OWNER TO %I/);
@@ -103,6 +110,10 @@ test("uses idempotent separate database schema and namespace scripts", () => {
   assert.match(namespace, /MAX_ATTEMPTS=30/);
   assert.match(namespace, /TEMPORAL_TLS_ENABLED/);
   assert.match(namespace, /--tls-server-name/);
+  assert.match(startServer, /getent hosts "\$POSTGRES_SEEDS"/);
+  assert.match(startServer, /nc -z "\$POSTGRES_SEEDS" "\$DB_PORT"/);
+  assert.match(startServer, /TEMPORAL_DATABASE_WAIT_MAX_ATTEMPTS/);
+  assert.match(startServer, /exec \/etc\/temporal\/entrypoint\.sh/);
 });
 
 test("converges when a restored namespace is initially invisible but already exists", () => {

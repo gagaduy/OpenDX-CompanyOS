@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketingCampaignModal } from "../components/marketing-campaign-modal";
 import type { MarketingCampaignDetail } from "../types";
 
@@ -105,6 +106,44 @@ const sampleDetail: MarketingCampaignDetail = {
 };
 
 describe("MarketingCampaignModal", () => {
+  afterEach(() => {
+    document.head.querySelector("style[data-marketing-modal-theme-test]")?.remove();
+  });
+
+  it("uses semantic light surfaces instead of inline dark modal colors", () => {
+    const style = document.createElement("style");
+    style.dataset.marketingModalThemeTest = "true";
+    style.textContent = `${readFileSync("src/features/agentic/styles/agentic-command-center.css", "utf8")}\n${readFileSync("src/features/marketing/styles/marketing.css", "utf8")}`;
+    document.head.appendChild(style);
+
+    const { container } = render(
+      <div className="consoleLayout" data-theme="light">
+        <MarketingCampaignModal isOpen={true} onClose={vi.fn()} detail={sampleDetail} />
+      </div>,
+    );
+
+    const header = container.querySelector(".ccMarketingCampaignModalHeader") as HTMLElement;
+    const summary = container.querySelector(".ccMarketingCampaignSummary") as HTMLElement;
+    const tabs = container.querySelector(".ccMarketingCampaignTabs") as HTMLElement;
+    const body = container.querySelector(".ccMarketingCampaignBody") as HTMLElement;
+    const footer = container.querySelector(".ccMarketingCampaignFooter") as HTMLElement;
+    expect(header).not.toBeNull();
+    expect(summary).not.toBeNull();
+    expect(tabs).not.toBeNull();
+    expect(body).not.toBeNull();
+    expect(footer).not.toBeNull();
+    expect(header.style.background).toBe("");
+    expect(summary.style.background).toBe("");
+    expect(tabs.style.background).toBe("");
+    expect(body.style.background).toBe("");
+    expect(footer.style.background).toBe("");
+    expect(getComputedStyle(header).backgroundColor).toBe("rgb(248, 250, 252)");
+    expect(getComputedStyle(summary).backgroundColor).toBe("rgb(241, 245, 249)");
+    expect(getComputedStyle(tabs).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(body).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(footer).backgroundColor).toBe("rgb(248, 250, 252)");
+  });
+
   it("renders the completed marketing work including headline, copywriter body, and visual specs", () => {
     render(
       <MarketingCampaignModal
@@ -176,6 +215,64 @@ describe("MarketingCampaignModal", () => {
     const approveBtn = screen.getByRole("button", { name: /Phê duyệt & Đăng Fanpage/i });
     fireEvent.click(approveBtn);
     expect(handleApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows separate Facebook and Instagram post links after publication", () => {
+    const publishedDetail: MarketingCampaignDetail = {
+      ...sampleDetail,
+      campaign: {
+        ...sampleDetail.campaign,
+        state: "completed",
+      },
+      publicationRecord: null,
+      publicationRecords: [
+        {
+          id: "publication-facebook",
+          packageId: "package-001",
+          platform: "facebook",
+          pageId: "facebook-page-001",
+          externalPostId: "facebook-post-001",
+          postUrl: "https://www.facebook.com/nova/posts/facebook-post-001",
+          packageDigest: "a".repeat(64),
+          contentDigest: "b".repeat(64),
+          verifiedAt: "2026-09-17T00:30:00Z",
+          providerReceiptDigest: "c".repeat(64),
+          createdAt: "2026-09-17T00:30:00Z",
+        },
+        {
+          id: "publication-instagram",
+          packageId: "package-001",
+          platform: "instagram",
+          pageId: "instagram-business-001",
+          externalPostId: "instagram-post-001",
+          postUrl: "https://www.instagram.com/p/instagram-post-001/",
+          packageDigest: "a".repeat(64),
+          contentDigest: "b".repeat(64),
+          verifiedAt: "2026-09-17T00:30:00Z",
+          providerReceiptDigest: "d".repeat(64),
+          createdAt: "2026-09-17T00:30:00Z",
+        },
+      ],
+    };
+
+    render(
+      <MarketingCampaignModal
+        isOpen={true}
+        onClose={vi.fn()}
+        detail={publishedDetail}
+        onApprove={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /Phê duyệt & Đăng Fanpage/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Xem bài đăng Facebook/i })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/nova/posts/facebook-post-001",
+    );
+    expect(screen.getByRole("link", { name: /Xem bài đăng Instagram/i })).toHaveAttribute(
+      "href",
+      "https://www.instagram.com/p/instagram-post-001/",
+    );
   });
 
   it("renders failed state alert banner and triggers retry publication handler", () => {

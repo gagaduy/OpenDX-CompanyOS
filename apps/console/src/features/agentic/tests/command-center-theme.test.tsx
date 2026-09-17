@@ -57,6 +57,10 @@ describe("Agentic Command Center theme", () => {
           <article className="ccLiveFeedCard">Timeline</article>
           <article className="ccDiagnosticsModal">Diagnostics</article>
           <article className="sdModalContainer">Deliverable</article>
+          <span className="ccDeptStatusBadge status-idle">Sẵn sàng</span>
+          <span className="ccDeptStatusBadge status-waiting">Chờ duyệt</span>
+          <button className="ccDeptDetailsActionBtn">Xem chiến dịch</button>
+          <span className="ccTokenAlertBadge status-healthy">Social Token: OK</span>
         </section>
       </div>,
     );
@@ -82,6 +86,10 @@ describe("Agentic Command Center theme", () => {
     expect(panelRule?.selectorText).toContain(
       '.consoleLayout[data-theme="light"] .sdModalContainer',
     );
+    expect(getComputedStyle(container.querySelector(".ccDeptStatusBadge.status-idle")!).color).toBe("var(--ink-muted)");
+    expect(getComputedStyle(container.querySelector(".ccDeptStatusBadge.status-waiting")!).color).toBe("rgb(180, 83, 9)");
+    expect(getComputedStyle(container.querySelector(".ccDeptDetailsActionBtn")!).color).toBe("var(--ink-muted)");
+    expect(getComputedStyle(container.querySelector(".ccTokenAlertBadge.status-healthy")!).color).toBe("rgb(4, 120, 87)");
   });
 
   it("scales Command Center typography by twenty percent", () => {

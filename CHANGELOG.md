@@ -11,6 +11,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Temporal local startup reliability:
+  - Added a bounded DNS and PostgreSQL readiness gate before starting the Temporal server, preventing transient Docker DNS failures from making `make up --wait` fail while the container restart loop later recovers on its own.
+
+- Command Center approval lifecycle and light-theme reliability:
+  - Persisted rejected Catalog campaign proposals as a terminal, audited backend state and excluded previously approved or canceled drafts when rebuilding the Approval inbox after reload.
+  - Replaced dark-only inline Marketing campaign modal surfaces with semantic light/dark styles.
+  - Added light-theme contrast rules for department status, queue action, and Social Token health badges, with focused API and Console regression coverage.
+  - Refreshed an open Marketing campaign preview immediately after publication and replaced approval controls with direct Facebook and Instagram post links from verified publication records.
+
+- Catalog proposal recovery in the AI Command Center:
+  - Added an authenticated latest-draft campaign query backed by PostgreSQL so completed Catalog & Pricing proposals survive reloads.
+  - Restored persisted draft proposals into both the human Approval inbox and the real-time activity feed without opening result modals automatically.
+  - Decoupled draft approval visibility from unrelated active campaigns, allowing a new pricing proposal and a currently running campaign to coexist.
+  - Added repository, API-route, and Console regression coverage for draft recovery and trace visibility.
+
+- Command Center completion and cross-department handoff reliability:
+  - Replaced automatic result-modal opening on task completion with a top-right completion notification that remains for ten seconds; approval-required deliverables continue to stay in the Approval inbox until acted on.
+  - Scoped collaboration connector ownership to the running task so an unrelated workflow cannot erase an active or waiting inter-department handoff.
+  - Added visible Support-to-Merchandising campaign verification handoffs, including the waiting state when the shared pricing specialist is busy.
+
+- Support task data scoping and campaign verification:
+  - Restricted customer-reply proposals to unresolved inbound-email tickets whose latest customer message still requires a Support response, instead of loading every unresolved ticket.
+  - Required promotion email proposals to use a currently active database campaign and its authoritative assigned product IDs; proposals now fail closed when the campaign or its products do not exist.
+  - Added request validation and focused API/Console regression coverage for customer-email scope, promotion product selection, notification behavior, and collaboration visibility.
+
+- Command Center cross-department collaboration visibility:
+  - Anchored the animated collaboration connector to the complete workforce section instead of the clipped department grid, preserving the Marketing-to-Merchandising handoff wire and badge after a queued shared designer becomes available.
+  - Added regression coverage for both the queued handoff transition and the connector's layout ownership.
+
+- Marketing campaign assignment reliability:
+  - Retried one transient OpenRouter image response (`408`, `425`, `429`, or `5xx`) before failing closed, while keeping authentication and configuration failures non-retryable and never saving placeholder artwork.
+  - Distinguished pre-publication content or image failures from Facebook publication failures in the Command Center instead of incorrectly directing operators to Meta token recovery.
+  - Added focused API adapter and Console regression coverage for the retry and failure-stage presentation behavior.
+
 - Command Center: Balanced 2x2 workforce grid with aligned compact cards & unconstrained card width:
   - Transitioned the department workforce grid to a balanced 2x2 grid (`repeat(2, minmax(0, 1fr))`), providing ~400px of comfortable horizontal width per card within the main content column and completely eliminating horizontal text squishing, awkward word-by-word wrapping, and badge collisions.
   - Aligned cards symmetrically using `align-items: stretch` and structured `DepartmentCard` with a pinned bottom direct task input form, ensuring both cards in each row share identical heights and horizontal baseline alignment.

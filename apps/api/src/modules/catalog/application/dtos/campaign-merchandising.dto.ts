@@ -37,7 +37,7 @@ export interface CampaignProposalDto {
   readonly startTime: string;
   readonly endTime: string;
   readonly durationDays: number;
-  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted";
+  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted" | "rejected";
   readonly items: readonly CampaignItemDto[];
   readonly totalProducts: number;
   readonly pricingRationale: string;

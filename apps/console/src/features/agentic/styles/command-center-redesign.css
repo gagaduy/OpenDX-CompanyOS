@@ -720,6 +720,7 @@
 }
 
 .ccWorkforceSection {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -3838,4 +3839,66 @@
 
 .consoleLayout[data-theme="light"] .sdChannelBarWrap {
   background: var(--surface-3);
+}
+
+.ccTokenAlertBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: calc(0.68rem * var(--cc-font-scale));
+  font-weight: 500;
+}
+
+.ccTokenAlertBadge.status-invalid {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.ccTokenAlertBadge.status-warning {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.ccTokenAlertBadge.status-healthy {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.consoleLayout[data-theme="light"] .ccDeptStatusBadge.status-idle,
+.consoleLayout[data-theme="light"] .ccDeptDetailsActionBtn {
+  color: var(--ink-muted);
+  background: var(--surface-3);
+  border-color: var(--hairline);
+}
+
+.consoleLayout[data-theme="light"] .ccDeptStatusBadge.status-waiting {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptStatusBadge.status-running,
+.consoleLayout[data-theme="light"] .ccTokenAlertBadge.status-healthy {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.consoleLayout[data-theme="light"] .ccDeptStatusBadge.status-error,
+.consoleLayout[data-theme="light"] .ccTokenAlertBadge.status-invalid {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.consoleLayout[data-theme="light"] .ccTokenAlertBadge.status-warning {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
 }

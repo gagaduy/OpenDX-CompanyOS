@@ -150,6 +150,28 @@ export class AiMerchandisingController {
     }
   };
 
+  rejectCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Cần đăng nhập nhân sự để thực hiện tác vụ này.");
+      }
+
+      const campaignId = String(req.params.campaignId);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : undefined;
+      const correlationId = String(req.headers["x-correlation-id"] || `campaign-reject-${Date.now()}`);
+      const result = await this.service.rejectCampaign(campaignId, {
+        actorId: principal.subject,
+        correlationId,
+        reason,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
   revertCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
@@ -175,6 +197,15 @@ export class AiMerchandisingController {
     try {
       const active = await this.service.getActiveCampaign();
       res.status(200).json(active);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
+  getLatestDraftCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const draft = await this.service.getLatestDraftCampaign();
+      res.status(200).json(draft);
     } catch (error) {
       next(toHttpError(error));
     }

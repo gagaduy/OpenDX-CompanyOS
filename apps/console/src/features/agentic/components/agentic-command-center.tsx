@@ -75,6 +75,7 @@ import {
   getNextEligibleTask,
   releaseLocks,
 } from "../utils/department-task-scheduler";
+import { analyzeSupportTaskIntent } from "../utils/support-task-intent";
 import { CommandCenterHeader } from "./command-center/command-center-header";
 import { CommandComposerPanel } from "./command-center/command-composer-panel";
 import { WorkforceGrid } from "./command-center/workforce-grid";
@@ -101,6 +102,7 @@ import "../styles/agentic-command-center.css";
 import "../styles/command-center-redesign.css";
 
 export interface ActiveCollaboration {
+  taskId?: string;
   fromDept: DepartmentType;
   toDept: DepartmentType;
   label: string;
@@ -122,6 +124,7 @@ export interface DepartmentAgentStatus {
 }
 
 const LIVE_EVENTS_PER_DEPARTMENT = 30;
+const COMPLETION_TOAST_DURATION_MS = 10_000;
 
 function retainRecentLiveEvents(events: readonly LiveEventItem[]): readonly LiveEventItem[] {
   const counts = new Map<LiveEventItem["department"], number>();
@@ -635,6 +638,7 @@ export function AgenticCommandCenter({
   const [activeCampaign, setActiveCampaign] = useState<ActiveCampaign | null>(null);
   const [activeCampaigns, setActiveCampaigns] = useState<readonly ActiveCampaign[]>([]);
   const [campaignProposal, setCampaignProposal] = useState<CampaignProposal | null>(null);
+  const terminalMerchandisingProposalIdsRef = useRef(new Set<string>());
   const [viewingCampaignProposal, setViewingCampaignProposal] = useState<CampaignProposal | null>(null);
   const [isCampaignModalReadOnly, setIsCampaignModalReadOnly] = useState(false);
   const campaignProposalsCache = useRef<Record<string, CampaignProposal>>({});
@@ -706,8 +710,22 @@ export function AgenticCommandCenter({
           setActiveCampaigns([]);
         }
       }).catch(console.error);
+
+      void Promise.all([
+        catalogApi.getLatestDraftCampaign(),
+        api.listCommandActivity(),
+      ]).then(([draft, events]) => {
+        terminalMerchandisingProposalIdsRef.current = new Set(
+          events
+            .filter((event) => event.resourceType === "merchandising_proposal")
+            .map((event) => event.resourceId),
+        );
+        if (draft?.status === "draft" && !terminalMerchandisingProposalIdsRef.current.has(draft.id)) {
+          setCampaignProposal(draft);
+        }
+      }).catch(console.error);
     }
-  }, [catalogApi]);
+  }, [api, catalogApi]);
 
   // Safeguard: if campaign proposal modal is requested but neither campaignProposal nor viewingCampaignProposal is present,
   // automatically fallback to StrategicDeliverableModal with activeCampaign deliverable
@@ -950,6 +968,9 @@ export function AgenticCommandCenter({
 
   // Active Cross-Department Collaboration Bridge ("Sợi dây kết nối")
   const [activeCollaboration, setActiveCollaboration] = useState<ActiveCollaboration | null>(null);
+  const clearTaskCollaboration = useCallback((taskId: string) => {
+    setActiveCollaboration((current) => current?.taskId === taskId ? null : current);
+  }, []);
   const departmentsGridRef = useRef<HTMLDivElement | null>(null);
   const workforceColumnRef = useRef<HTMLDivElement | null>(null);
   const liveFeedContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1021,6 +1042,78 @@ export function AgenticCommandCenter({
     });
   };
 
+  const runSupportCampaignCollaboration = async <T,>(
+    collaborationTaskId: string,
+    taskPrompt: string,
+    createProposal: () => Promise<T>,
+    delay: (ms: number) => Promise<void>,
+  ): Promise<T> => {
+    const sharedAgentId = "pricing_strategist";
+    const heldLock = activeLocksRef.current[sharedAgentId];
+
+    if (heldLock) {
+      setPendingHandoff({
+        dept: "support",
+        taskId: collaborationTaskId,
+        prompt: taskPrompt,
+        waitingForAgent: sharedAgentId,
+        waitingForDept: heldLock.lockedByDepartment,
+        stepName: "Xác minh chương trình & sản phẩm Flash Sale",
+      });
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "support",
+        toDept: "merchandising",
+        label: "⏳ Chờ Chuyên gia Định giá sẵn sàng phối hợp",
+      });
+      await waitForResource(sharedAgentId, collaborationTaskId);
+      setPendingHandoff(null);
+    }
+
+    setActiveLocks((active) =>
+      acquireLocks(collaborationTaskId, "support", [sharedAgentId], taskPrompt, active),
+    );
+
+    try {
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "support",
+        toDept: "merchandising",
+        label: "⚡ Bàn giao: Xác minh chương trình & sản phẩm Flash Sale",
+      });
+      setDeptActiveAgent(
+        "merchandising",
+        "pricing_strategist",
+        "Phối hợp cùng CSKH: Đang đối chiếu chiến dịch đang hoạt động và sản phẩm tham gia...",
+      );
+
+      const proposal = await createProposal();
+      setDeptActiveAgent(
+        "merchandising",
+        null,
+        "Đã xác minh dữ liệu chiến dịch, đang bàn giao lại cho CSKH...",
+        "pricing_strategist",
+      );
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "merchandising",
+        toDept: "support",
+        label: "⚡ Bàn giao lại: Chiến dịch & sản phẩm đã xác minh ➔ CSKH",
+      });
+      await delay(700);
+      return proposal;
+    } finally {
+      clearTaskCollaboration(collaborationTaskId);
+      setPendingHandoff((current) => current?.taskId === collaborationTaskId ? null : current);
+      setDeptActiveAgent("merchandising", null, null);
+      setActiveLocks((active) => {
+        const remaining = releaseLocks([sharedAgentId], active);
+        notifyResourceWaiters([sharedAgentId]);
+        return remaining;
+      });
+    }
+  };
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1073,24 +1166,10 @@ export function AgenticCommandCenter({
       taskId?: string,
       department?: "ai_ceo" | DepartmentType,
       customSuccessMsg?: string,
-      isCampaign?: boolean,
     ) => {
       const deliverable = buildStrategicDeliverable(goalText, taskId, department);
       setCompletedStrategicDeliverable(deliverable);
-      setSelectedStrategicDeliverable(deliverable);
       setStrategicDeliverableApproved(false);
-      if (department === "support") {
-        setIsStrategicModalOpen(false);
-        if (isCampaign) {
-          setIsSupportEmailApprovalModalOpen(false);
-          setIsSupportCampaignModalOpen(true);
-        } else {
-          setIsSupportCampaignModalOpen(false);
-          setIsSupportEmailApprovalModalOpen(true);
-        }
-      } else {
-        setIsStrategicModalOpen(true);
-      }
       void refreshApprovals();
 
       const deptNameMap: Record<DepartmentType | "ai_ceo", string> = {
@@ -1122,7 +1201,7 @@ export function AgenticCommandCenter({
 
       completionToastTimerRef.current = setTimeout(() => {
         setCompletionToast(null);
-      }, 20000);
+      }, COMPLETION_TOAST_DURATION_MS);
 
       setSuccessMessage(
         customSuccessMsg ||
@@ -1659,7 +1738,16 @@ export function AgenticCommandCenter({
     const load = async () => {
       try {
         const events = await api.listCommandActivity(controller.signal);
-        if (!controller.signal.aborted) events.forEach(displayCommandActivity);
+        if (!controller.signal.aborted) {
+          const terminalMerchandisingIds = events
+            .filter((event) => event.resourceType === "merchandising_proposal")
+            .map((event) => event.resourceId);
+          terminalMerchandisingProposalIdsRef.current = new Set(terminalMerchandisingIds);
+          setCampaignProposal((current) =>
+            current && terminalMerchandisingProposalIdsRef.current.has(current.id) ? null : current,
+          );
+          events.forEach(displayCommandActivity);
+        }
       } catch (error) {
         if (!controller.signal.aborted) console.error("Failed to hydrate command activity:", error);
       }
@@ -1997,7 +2085,7 @@ export function AgenticCommandCenter({
             createdAt: formatted.epoch,
             department: "marketing",
             title: "Marketing báo lỗi",
-            description: `Lỗi xuất bản: ${campTitle}`,
+            description: `Lỗi xử lý chiến dịch: ${campTitle}`,
             status: "error",
             actionLabel: "Cần xử lý",
             onActionClick: () => {
@@ -2201,44 +2289,28 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
-        const normalizedGoal = goalText.replace(/\s+/g, " ").trim();
-        const isCampaignGoal =
-          /chiến\s*dịch|toàn\s*bộ|tất\s*cả\s*khách|mọi\s*khách|bắn\s*mail|bắn\s*email|ý\s*tưởng\s*gửi/i.test(
-            normalizedGoal,
-          ) ||
-          (/sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới|khuyến\s*mãi|ưu\s*đãi|flash\s*sale/i.test(normalizedGoal) &&
-            /gửi|mail|email|bắn/i.test(normalizedGoal));
+        const supportIntent = analyzeSupportTaskIntent(goalText);
+        const isCampaignGoal = supportIntent.kind === "email_campaign";
         let supportProposalId = "";
 
         if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
-          const campType = /sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới/i.test(normalizedGoal)
-            ? "new_product_announcement"
-            : /ưu\s*đãi|khuyến\s*mãi|flash\s*sale|giảm\s*giá|voucher/i.test(normalizedGoal)
-              ? "promotion_announcement"
-              : "customer_care_vip";
-
-          let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
-          if (/toàn\s*bộ|tất\s*cả|mọi\s*khách|all/i.test(normalizedGoal)) {
-            targetSegment = "all_active_customers";
-          } else if (/vip|thân\s*thiết|chi\s*tiêu\s*cao/i.test(normalizedGoal)) {
-            targetSegment = "vip_customers";
-          } else if (/gần\s*đây|mới\s*mua|vừa\s*mua/i.test(normalizedGoal)) {
-            targetSegment = "recent_buyers";
-          } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
-            targetSegment = "all_active_customers";
-          } else {
-            targetSegment = "vip_customers";
-          }
-
-          const campProposal = await supportApi.createEmailCampaignProposal({
-            type: campType,
-            prompt: goalText,
-            targetSegment,
-          });
+          const campProposal = await runSupportCampaignCollaboration(
+            strategicTaskId,
+            goalText,
+            () => supportApi.createEmailCampaignProposal!({
+              type: supportIntent.campaignType,
+              prompt: goalText,
+              targetSegment: supportIntent.targetSegment,
+            }),
+            interruptibleDelay,
+          );
           setSupportCampaignProposal(campProposal);
           supportProposalId = campProposal.id;
         } else {
-          const proposal = await supportApi.generateSupportProposal(goalText);
+          const proposal = await supportApi.generateSupportProposal({
+            prompt: goalText,
+            ticketScope: "customer_email_pending",
+          });
           setSupportProposal(proposal);
           setSupportTicketsPage(1);
           setSupportVipPage(1);
@@ -2294,7 +2366,6 @@ export function AgenticCommandCenter({
           isCampaignGoal
             ? "AI CEO & Đội ngũ CSKH đã hoàn tất lập kế hoạch chiến dịch email và file Word (.docx)! Sẵn sàng để bạn duyệt gửi."
             : "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
-          isCampaignGoal,
         );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
@@ -2472,6 +2543,7 @@ export function AgenticCommandCenter({
 
         // Stage 2: Chiều đi (Bàn giao: Danh mục -> Tiếp thị)
         setActiveCollaboration({
+          taskId: strategicTaskId,
           fromDept: "merchandising",
           toDept: "marketing",
           label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
@@ -2492,12 +2564,13 @@ export function AgenticCommandCenter({
         // Stage 2 hoàn tất -> Chiều về (Bàn giao lại: Tiếp thị -> Danh mục)
         setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
         setActiveCollaboration({
+          taskId: strategicTaskId,
           fromDept: "marketing",
           toDept: "merchandising",
           label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
         });
         await interruptibleDelay(1000);
-        setActiveCollaboration(null);
+        clearTaskCollaboration(strategicTaskId);
         setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
         // Transition: Thiết kế Đồ họa done -> Chuyên gia Định giá running
@@ -2523,7 +2596,6 @@ export function AgenticCommandCenter({
 
         if (cProposal) {
           setCampaignProposal(cProposal);
-          setCampaignProposalModalOpen(true);
           setMerchandisingProposal({
             id: cProposal.id,
             prompt: cProposal.prompt,
@@ -2774,7 +2846,6 @@ export function AgenticCommandCenter({
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
         setActiveCampaignId(createdCampaign.id);
-        setMarketingCampaignModalOpen(true);
 
         const marketingDeliv = buildStrategicDeliverable(goalText, createdCampaign.id, "marketing");
         recordLiveEvent(
@@ -2806,7 +2877,7 @@ export function AgenticCommandCenter({
         }
         completionToastTimerRef.current = setTimeout(() => {
           setCompletionToast(null);
-        }, 12000);
+        }, COMPLETION_TOAST_DURATION_MS);
         void refreshApprovals();
         setSuccessMessage("AI CEO đã điều phối hoàn tất bản thảo bài viết và thiết kế poster chiến dịch!");
         setPrompt("");
@@ -3159,7 +3230,6 @@ export function AgenticCommandCenter({
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
         setActiveCampaignId(createdCampaign.id);
-        setMarketingCampaignModalOpen(true);
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -3201,7 +3271,7 @@ export function AgenticCommandCenter({
         }
         completionToastTimerRef.current = setTimeout(() => {
           setCompletionToast(null);
-        }, 12000);
+        }, COMPLETION_TOAST_DURATION_MS);
         void refreshApprovals();
         setSuccessMessage("Đã hoàn tất soạn thảo bài viết & thiết kế poster chiến dịch Marketing!");
         if (onTaskCreated) onTaskCreated();
@@ -3268,6 +3338,12 @@ export function AgenticCommandCenter({
               waitingForDept: heldLock.lockedByDepartment,
               stepName: "Thiết kế Poster & Banner 3D",
             });
+            setActiveCollaboration({
+              taskId,
+              fromDept: "merchandising",
+              toDept: "marketing",
+              label: "⏳ Chờ Thiết kế Đồ họa sẵn sàng phối hợp",
+            });
             try {
               await waitForResource("marketing_visual", taskId);
             } catch (e: any) {
@@ -3284,6 +3360,7 @@ export function AgenticCommandCenter({
 
           // Chiều đi: Merchandising -> Marketing
           setActiveCollaboration({
+            taskId,
             fromDept: "merchandising",
             toDept: "marketing",
             label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
@@ -3297,12 +3374,13 @@ export function AgenticCommandCenter({
           // Chiều về: Marketing -> Merchandising
           setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
           setActiveCollaboration({
+            taskId,
             fromDept: "marketing",
             toDept: "merchandising",
             label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
           });
           await new Promise((r) => setTimeout(r, 1000));
-          setActiveCollaboration(null);
+          clearTaskCollaboration(taskId);
           setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
           // Release marketing_visual lock and notify waiters
@@ -3501,39 +3579,20 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
         await new Promise((r) => setTimeout(r, 800));
 
-        const normalizedPrompt = taskPrompt.replace(/\s+/g, " ").trim();
-        const isCampaignGoal =
-          /chiến\s*dịch|toàn\s*bộ|tất\s*cả\s*khách|mọi\s*khách|bắn\s*mail|bắn\s*email|ý\s*tưởng\s*gửi/i.test(
-            normalizedPrompt,
-          ) ||
-          (/sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới|khuyến\s*mãi|ưu\s*đãi|flash\s*sale/i.test(normalizedPrompt) &&
-            /gửi|mail|email|bắn/i.test(normalizedPrompt));
+        const supportIntent = analyzeSupportTaskIntent(taskPrompt);
+        const isCampaignGoal = supportIntent.kind === "email_campaign";
 
         if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
-          const campType = /sản\s*phẩm\s*mới|bộ\s*sưu\s*tập|hàng\s*mới/i.test(normalizedPrompt)
-            ? "new_product_announcement"
-            : /ưu\s*đãi|khuyến\s*mãi|flash\s*sale|giảm\s*giá|voucher/i.test(normalizedPrompt)
-              ? "promotion_announcement"
-              : "customer_care_vip";
-
-          let targetSegment: "all_active_customers" | "vip_customers" | "recent_buyers" | undefined;
-          if (/toàn\s*bộ|tất\s*cả|mọi\s*khách|all/i.test(normalizedPrompt)) {
-            targetSegment = "all_active_customers";
-          } else if (/vip|thân\s*thiết|chi\s*tiêu\s*cao/i.test(normalizedPrompt)) {
-            targetSegment = "vip_customers";
-          } else if (/gần\s*đây|mới\s*mua|vừa\s*mua/i.test(normalizedPrompt)) {
-            targetSegment = "recent_buyers";
-          } else if (campType === "new_product_announcement" || campType === "promotion_announcement") {
-            targetSegment = "all_active_customers";
-          } else {
-            targetSegment = "vip_customers";
-          }
-
-          const campProposal = await supportApi.createEmailCampaignProposal({
-            type: campType,
-            prompt: taskPrompt,
-            targetSegment,
-          });
+          const campProposal = await runSupportCampaignCollaboration(
+            taskId,
+            taskPrompt,
+            () => supportApi.createEmailCampaignProposal!({
+              type: supportIntent.campaignType,
+              prompt: taskPrompt,
+              targetSegment: supportIntent.targetSegment,
+            }),
+            (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          );
           setSupportCampaignProposal(campProposal);
 
           setCeoPlan((prev) =>
@@ -3573,11 +3632,13 @@ export function AgenticCommandCenter({
             campProposal?.id,
             "support",
             "Đã lập xong Kế Hoạch Chiến Dịch Email CSKH & Báo Cáo Chiến Lược Word (.docx)!",
-            true,
           );
           if (onTaskCreated) onTaskCreated();
         } else {
-          const proposal = await supportApi.generateSupportProposal(taskPrompt);
+          const proposal = await supportApi.generateSupportProposal({
+            prompt: taskPrompt,
+            ticketScope: "customer_email_pending",
+          });
           setSupportProposal(proposal);
           setSupportTicketsPage(1);
           setSupportVipPage(1);
@@ -3625,12 +3686,12 @@ export function AgenticCommandCenter({
     } catch (err: any) {
       console.error(`Execution error in ${dept}:`, err);
       setErrorMessage(err?.message || `Thực thi nhiệm vụ cho phòng ban ${dept} thất bại.`);
-      setActiveCollaboration(null);
+      clearTaskCollaboration(taskId);
       setDeptActiveAgent(dept, null);
       setMarketingActiveAgent(null);
       setMarketingAgentMessage(null);
     } finally {
-      setActiveCollaboration(null);
+      clearTaskCollaboration(taskId);
       // Guaranteed lock release and auto-dequeue check
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(reqAgents, prevLocks);
@@ -4533,7 +4594,6 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        setCampaignProposalModalOpen(true);
         setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho theo Chỉ thị của CEO! Sẵn sàng để bạn phê duyệt.");
       } catch (err: any) {
         setActiveCollaboration(null);
@@ -4710,6 +4770,14 @@ export function AgenticCommandCenter({
   const operationsTasks = getDepartmentTasks("operations");
   const supportTasks = getDepartmentTasks("support");
 
+  const activeMarketingFailureMessage =
+    activeCampaignDetail?.campaign.state === "failed" ||
+    activeCampaignDetail?.campaign.state === "partial_failure"
+      ? activeCampaignDetail.currentPackage || activeCampaignDetail.publicationAttempts.length > 0
+        ? "Chiến dịch tiếp thị gặp sự cố khi xuất bản lên Facebook Page."
+        : "Chiến dịch tiếp thị gặp sự cố khi tạo nội dung hoặc hình ảnh."
+      : undefined;
+
   const redesignedDepartmentCards: DepartmentCardProps[] = [
     {
       department: "marketing",
@@ -4732,7 +4800,7 @@ export function AgenticCommandCenter({
           ? "running"
           : "idle"),
       errorMessage: (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
-        ? (errorMessage || "Chiến dịch tiếp thị gặp sự cố khi xuất bản lên Facebook Page.")
+        ? (errorMessage || activeMarketingFailureMessage)
         : (isFbTokenInvalid ? "Token kết nối Facebook Page đã hết hạn" : undefined),
       employees: [
         {
@@ -4937,12 +5005,12 @@ export function AgenticCommandCenter({
       status: taskFilter === "running"
         ? (merchandisingTasks.length > 0 || deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist" ? "running" : "idle")
         : taskFilter === "waiting_approval"
-        ? (merchandisingTasks.length > 0 || ((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied")) ? "waiting_approval" : "idle")
+        ? (merchandisingTasks.length > 0 || (campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied")) ? "waiting_approval" : "idle")
         : taskFilter === "failed"
         ? (merchandisingTasks.length > 0 ? "error" : "idle")
         : taskFilter === "completed"
         ? "idle"
-        : (((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied"))
+        : ((campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied"))
           ? "waiting_approval"
           : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
           ? "running"
@@ -4959,7 +5027,7 @@ export function AgenticCommandCenter({
             : (deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
                marketingActiveAgent === "pricing_strategist" ||
                marketingActiveAgent === "merchandising_visual_collab" ||
-               (campaignProposal && !activeCampaign) ||
+               campaignProposal?.status === "draft" ||
                (merchandisingProposal && merchandisingProposal.status !== "applied"))
             ? "Đã hoàn tất tối ưu tên & mô tả SEO"
             : undefined,
@@ -4974,7 +5042,7 @@ export function AgenticCommandCenter({
           statusText: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist")
             ? (deptStatus.merchandising.agentMessage ?? marketingAgentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận...")
             : (deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-               (campaignProposal && !activeCampaign) ||
+               campaignProposal?.status === "draft" ||
                (merchandisingProposal && merchandisingProposal.status !== "applied"))
             ? "Đã hoàn thành phân tích biên lợi nhuận & lập đề xuất Flash Sale"
             : undefined,
@@ -5467,10 +5535,10 @@ export function AgenticCommandCenter({
         items.push({
           id: activeCampaignDetail.campaign.id,
           title: isFailed
-            ? `⚠️ [Cần xử lý] ${activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xuất bản)`
+            ? `⚠️ [Cần xử lý] ${activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xử lý)`
             : (activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"),
           sourceDepartment: "marketing" as const,
-          authorName: isFailed ? "Hệ thống Xuất bản (Cần kiểm tra Token)" : "Cây bút Sáng tạo (MKT-01)",
+          authorName: isFailed ? "Hệ thống chiến dịch (Cần kiểm tra)" : "Cây bút Sáng tạo (MKT-01)",
           riskLevel: isFailed ? ("high" as const) : ("medium" as const),
           timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
           onPreview: () => {
@@ -5508,10 +5576,10 @@ export function AgenticCommandCenter({
           items.push({
             id: camp.id,
             title: isFailed
-              ? `⚠️ [Cần xử lý] ${camp.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xuất bản)`
+              ? `⚠️ [Cần xử lý] ${camp.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xử lý)`
               : (camp.campaignName || "Chiến dịch Marketing Fanpage"),
             sourceDepartment: "marketing" as const,
-            authorName: isFailed ? "Hệ thống Xuất bản (Cần kiểm tra Token)" : "Cây bút Sáng tạo (MKT-01)",
+            authorName: isFailed ? "Hệ thống chiến dịch (Cần kiểm tra)" : "Cây bút Sáng tạo (MKT-01)",
             riskLevel: isFailed ? ("high" as const) : ("medium" as const),
             timestamp: formatTime(camp.updatedAt),
             onPreview: () => {
@@ -5565,7 +5633,7 @@ export function AgenticCommandCenter({
     })(),
 
     // 3. Merchandising: Flash Sale & Pricing Optimization Proposal
-    ...((campaignProposal && !activeCampaign) || (merchandisingProposal && merchandisingProposal.status !== "applied")
+    ...(campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied")
       ? [
           {
             id: campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval",
@@ -5587,8 +5655,19 @@ export function AgenticCommandCenter({
             onReject: async () => {
               const proposalId = campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval";
               const proposalSummary = campaignProposal?.name || merchandisingProposal?.pricingRationale || "Đề xuất Flash Sale & Tối ưu Danh mục";
-              const persisted = await persistCommandActivity({ department: "merchandising", decision: "canceled", resourceType: "merchandising_proposal", resourceId: proposalId, summary: proposalSummary });
-              if (!persisted) return;
+              try {
+                if (campaignProposal) {
+                  if (!catalogApi?.rejectCampaign) {
+                    throw new Error("Dịch vụ hủy duyệt chiến dịch chưa sẵn sàng.");
+                  }
+                  await catalogApi.rejectCampaign(campaignProposal.id, "Hủy duyệt từ AI Command Center");
+                }
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy duyệt đề xuất.");
+                return;
+              }
+              terminalMerchandisingProposalIdsRef.current.add(proposalId);
+              await persistCommandActivity({ department: "merchandising", decision: "canceled", resourceType: "merchandising_proposal", resourceId: proposalId, summary: proposalSummary });
               setCampaignProposal(null);
               setMerchandisingProposal(null);
               setCompletedStrategicDeliverable(null);
@@ -6969,7 +7048,13 @@ export function AgenticCommandCenter({
             setShowRevisionModal(false);
             setPreviewCampaignDetail(null);
           }}
-          detail={previewCampaignDetail || activeCampaignDetail || buildFallbackMarketingDetail(campaignsList[0])}
+          detail={
+            previewCampaignDetail &&
+            activeCampaignDetail &&
+            previewCampaignDetail.campaign.id === activeCampaignDetail.campaign.id
+              ? activeCampaignDetail
+              : previewCampaignDetail || activeCampaignDetail || buildFallbackMarketingDetail(campaignsList[0])
+          }
           api={marketingApi}
           onApprove={() => {
             const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;

@@ -19,8 +19,10 @@ export function createAiMerchandisingRouter(
   // Dynamic Multi-Modal Campaign Engine endpoints
   router.post("/ai-merchandising/campaigns/generate-proposal", authenticate, controller.generateCampaignProposal);
   router.post("/ai-merchandising/campaigns/:campaignId/activate", authenticate, controller.activateCampaign);
+  router.post("/ai-merchandising/campaigns/:campaignId/reject", authenticate, controller.rejectCampaign);
   router.post("/ai-merchandising/campaigns/:campaignId/revert", authenticate, controller.revertCampaign);
   router.get("/ai-merchandising/campaigns/active", authenticate, controller.getActiveCampaign);
+  router.get("/ai-merchandising/campaigns/draft/latest", authenticate, controller.getLatestDraftCampaign);
   router.get("/ai-merchandising/campaigns/:campaignId", authenticate, controller.getCampaign);
 
   // Direct media content delivery for campaign and product visual previews

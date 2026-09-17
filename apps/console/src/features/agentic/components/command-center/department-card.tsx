@@ -169,30 +169,7 @@ export const DepartmentCard: React.FC<DepartmentCardProps> = ({
             {/* Token alert badge for marketing if present */}
             {tokenAlert && (
               <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  padding: "2px 6px",
-                  borderRadius: "4px",
-                  fontSize: "0.68rem",
-                  fontWeight: 500,
-                  border: tokenAlert.status === "invalid"
-                    ? "1px solid rgba(239, 68, 68, 0.4)"
-                    : tokenAlert.status === "warning"
-                    ? "1px solid rgba(245, 158, 11, 0.4)"
-                    : "1px solid rgba(16, 185, 129, 0.4)",
-                  background: tokenAlert.status === "invalid"
-                    ? "rgba(239, 68, 68, 0.15)"
-                    : tokenAlert.status === "warning"
-                    ? "rgba(245, 158, 11, 0.15)"
-                    : "rgba(16, 185, 129, 0.15)",
-                  color: tokenAlert.status === "invalid"
-                    ? "#fca5a5"
-                    : tokenAlert.status === "warning"
-                    ? "#fcd34d"
-                    : "#6ee7b7",
-                }}
+                className={`ccTokenAlertBadge status-${tokenAlert.status}`}
               >
                 {tokenAlert.status === "invalid" ? (
                   <ShieldAlert size={10} />

@@ -41,6 +41,7 @@ export interface AiSupportProposalDto {
 export interface GenerateSupportProposalRequestDto {
   readonly prompt: string;
   readonly ticketIds?: readonly string[];
+  readonly ticketScope?: "all_actionable" | "customer_email_pending";
 }
 
 export interface ApplySupportTicketActionDto {

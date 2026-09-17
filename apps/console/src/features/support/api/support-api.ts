@@ -28,7 +28,7 @@ export interface SupportOperationsApi {
   message(ticketId:string, body:string):Promise<SupportMessageView>;
   uploadAttachment(ticketId:string, file:File):Promise<SupportAttachmentView>;
   downloadAttachment(ticketId:string, attachmentId:string):Promise<Blob>;
-  generateSupportProposal(prompt: string): Promise<AiSupportProposalView>;
+  generateSupportProposal(input: { readonly prompt: string; readonly ticketScope?: "all_actionable" | "customer_email_pending" }): Promise<AiSupportProposalView>;
   getLatestSupportProposal?(signal?: AbortSignal): Promise<AiSupportProposalView | null>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
@@ -60,10 +60,10 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
     async message(id,body){return mapMessage(parse(supportMessageEnvelopeSchema,await request(`/v1/admin/support/tickets/${id}/messages`,{method:"POST",body:JSON.stringify({body})})).data as SupportMessageView);},
     async uploadAttachment(id,file){const body=new FormData(); body.append("file",file); return mapAttachment(parse(supportAttachmentEnvelopeSchema,await request(`/v1/admin/support/tickets/${id}/attachments`,{method:"POST",body,skipJson:true})).data as SupportAttachmentView);},
     async downloadAttachment(id,attachmentId){return requestBlob(`/v1/admin/support/tickets/${id}/attachments/${attachmentId}/content`);},
-    async generateSupportProposal(prompt: string): Promise<AiSupportProposalView> {
+    async generateSupportProposal(input: { readonly prompt: string; readonly ticketScope?: "all_actionable" | "customer_email_pending" }): Promise<AiSupportProposalView> {
       const envelope: any = await request("/v1/admin/support/tickets/ai-proposal", {
         method: "POST",
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(input),
       });
       return envelope.data as AiSupportProposalView;
     },

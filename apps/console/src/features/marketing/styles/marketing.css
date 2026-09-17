@@ -1420,4 +1420,139 @@
   color: #0f172a;
 }
 
+.ccMarketingCampaignModalHeader {
+  background: linear-gradient(180deg, #0d1527 0%, #0a0f1d 100%);
+  border-bottom-color: rgba(59, 130, 246, 0.2);
+}
 
+.ccMarketingCampaignSummary {
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ccMarketingCampaignSummaryLabel {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ccMarketingCampaignSummaryValue {
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.ccMarketingCampaignTabs,
+.ccMarketingCampaignBody {
+  background: #08090c;
+}
+
+.ccMarketingCampaignTabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ccMarketingCampaignTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ccMarketingCampaignTab.is-active {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.ccMarketingCampaignFooter {
+  background: #0b0f19;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.ccMarketingPublishedActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ccMarketingFacebookAction,
+.ccMarketingInstagramAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.55rem 1rem;
+  color: #ffffff;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.ccMarketingFacebookAction {
+  background: #1877f2;
+}
+
+.ccMarketingInstagramAction {
+  background: #c13584;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignModalHeader,
+[data-theme="light"] .ccMarketingCampaignModalHeader {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignSummary,
+[data-theme="light"] .ccMarketingCampaignSummary {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignSummaryLabel,
+[data-theme="light"] .ccMarketingCampaignSummaryLabel {
+  color: #64748b;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignSummaryValue,
+[data-theme="light"] .ccMarketingCampaignSummaryValue {
+  color: #1e293b;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignTabs,
+[data-theme="light"] .ccMarketingCampaignTabs,
+.consoleLayout[data-theme="light"] .ccMarketingCampaignBody,
+[data-theme="light"] .ccMarketingCampaignBody {
+  background: #ffffff;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignTabs,
+[data-theme="light"] .ccMarketingCampaignTabs {
+  border-bottom-color: #e2e8f0;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignTab,
+[data-theme="light"] .ccMarketingCampaignTab {
+  color: #475569;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignTab.is-active,
+[data-theme="light"] .ccMarketingCampaignTab.is-active {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.consoleLayout[data-theme="light"] .ccMarketingCampaignFooter,
+[data-theme="light"] .ccMarketingCampaignFooter {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}

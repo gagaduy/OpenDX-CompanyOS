@@ -44,6 +44,7 @@ export class AiSupportService {
     const scopedTicketIds = request.ticketIds?.length
       ? [...new Set(request.ticketIds)]
       : null;
+    const ticketScope = request.ticketScope ?? "all_actionable";
 
     // 1. Query actionable support tickets joined with customers (ordered by latest activity)
     const ticketResult = await this.database.query<{
@@ -65,9 +66,34 @@ export class AiSupportService {
        LEFT JOIN customers c ON c.id = st.customer_id
        WHERE st.status NOT IN ('resolved', 'closed')
          AND ($1::uuid[] IS NULL OR st.id = ANY($1::uuid[]))
+         AND (
+           $2::text <> 'customer_email_pending'
+           OR (
+             st.created_by_id = 'email-inbound'
+             AND NOT EXISTS (
+               SELECT 1
+               FROM support_ticket_messages existing_support_reply
+               WHERE existing_support_reply.ticket_id = st.id
+                 AND existing_support_reply.author_id <> 'customer'
+             )
+           )
+           OR EXISTS (
+             SELECT 1
+             FROM support_ticket_messages latest_customer_message
+             WHERE latest_customer_message.ticket_id = st.id
+               AND latest_customer_message.author_id = 'customer'
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM support_ticket_messages later_support_message
+                 WHERE later_support_message.ticket_id = st.id
+                   AND later_support_message.author_id <> 'customer'
+                   AND later_support_message.created_at > latest_customer_message.created_at
+               )
+           )
+         )
        ORDER BY GREATEST(st.created_at, st.updated_at) DESC
        LIMIT 10`,
-      [scopedTicketIds],
+      [scopedTicketIds, ticketScope],
     );
 
     // 1b. Fetch recent messages for all tickets to provide actual conversation context

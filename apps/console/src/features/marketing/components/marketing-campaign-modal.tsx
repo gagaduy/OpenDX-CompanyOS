@@ -107,17 +107,22 @@ export function MarketingCampaignModal({
   const artifacts = detail.artifacts ?? [];
   const latestContent = contentVersions?.[contentVersions.length - 1];
   const latestVisual = visualAssets?.[visualAssets.length - 1];
-  const facebookRecord =
-    detail.publicationRecord?.platform === "facebook"
-      ? detail.publicationRecord
-      : (detail.publicationRecords || []).find((r) => r.platform === "facebook");
+  const publicationRecords = detail.publicationRecords?.length
+    ? detail.publicationRecords
+    : detail.publicationRecord
+      ? [detail.publicationRecord]
+      : [];
+  const facebookRecord = publicationRecords.find((record) => record.platform === "facebook");
+  const instagramRecord = publicationRecords.find((record) => record.platform === "instagram");
   const isFacebookPublished = Boolean(facebookRecord?.postUrl || facebookRecord?.externalPostId);
+  const isInstagramPublished = Boolean(instagramRecord?.postUrl || instagramRecord?.externalPostId);
+  const isPublished = isFacebookPublished || isInstagramPublished;
   const isApprovedOrPublished =
     campaign.state === "completed" ||
     campaign.state === "publishing" ||
     campaign.state === "verifying_publication" ||
-    isFacebookPublished;
-  const isFailed = (campaign.state === "failed" || campaign.state === "partial_failure") && !isFacebookPublished;
+    isPublished;
+  const isFailed = (campaign.state === "failed" || campaign.state === "partial_failure") && !isPublished;
 
   const handleCopyPostText = async () => {
     if (!latestContent) return;
@@ -160,7 +165,7 @@ export function MarketingCampaignModal({
       style={{ zIndex: 10000 }}
     >
       <div
-        className="ccOperationsModalContainer"
+        className="ccOperationsModalContainer ccMarketingCampaignModal"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(1140px, 95vw)",
@@ -171,11 +176,7 @@ export function MarketingCampaignModal({
       >
         {/* Modal Header */}
         <div
-          className="ccOperationsModalHeader"
-          style={{
-            background: "linear-gradient(180deg, #0d1527 0%, #0a0f1d 100%)",
-            borderBottom: "1px solid rgba(59, 130, 246, 0.2)",
-          }}
+          className="ccOperationsModalHeader ccMarketingCampaignModalHeader"
         >
           <div className="ccOperationsModalHeaderTitle">
             <div
@@ -250,7 +251,7 @@ export function MarketingCampaignModal({
               <h2 className="ccOperationsModalHeading" style={{ marginTop: "0.25rem", fontSize: "1.2rem" }}>
                 {campaign.campaignName || "Chiến dịch Tiếp thị & Truyền thông Sáng tạo"}
               </h2>
-              <p className="ccOperationsModalSubheading" style={{ color: "#94a3b8" }}>
+              <p className="ccOperationsModalSubheading">
                 Chỉ đạo thực thi: &ldquo;{brief?.objective || campaign.campaignName}&rdquo;
               </p>
             </div>
@@ -268,34 +269,33 @@ export function MarketingCampaignModal({
 
         {/* Highlight Stats Bar */}
         <div
+          className="ccMarketingCampaignSummary"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: "0.75rem",
             padding: "0.85rem 1.75rem",
-            background: "rgba(15, 23, 42, 0.7)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span style={{ fontSize: "1.1rem" }}>🎯</span>
             <div>
-              <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Kênh mục tiêu</div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#e2e8f0" }}>Facebook Fanpage & Instagram</div>
+              <div className="ccMarketingCampaignSummaryLabel">Kênh mục tiêu</div>
+              <div className="ccMarketingCampaignSummaryValue">Facebook Fanpage & Instagram</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span style={{ fontSize: "1.1rem" }}>🤖</span>
             <div>
-              <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Nhân sự số thực thi</div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#e2e8f0" }}>3 AI Agents (Copy, Visual, Publish)</div>
+              <div className="ccMarketingCampaignSummaryLabel">Nhân sự số thực thi</div>
+              <div className="ccMarketingCampaignSummaryValue">3 AI Agents (Copy, Visual, Publish)</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span style={{ fontSize: "1.1rem" }}>📐</span>
             <div>
-              <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Quy chuẩn Đồ họa</div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#e2e8f0" }}>
+              <div className="ccMarketingCampaignSummaryLabel">Quy chuẩn Đồ họa</div>
+              <div className="ccMarketingCampaignSummaryValue">
                 {latestVisual ? `${latestVisual.width}x${latestVisual.height} (${latestVisual.aspectRatio})` : "1024x1024 (1:1)"}
               </div>
             </div>
@@ -303,13 +303,13 @@ export function MarketingCampaignModal({
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span style={{ fontSize: "1.1rem" }}>📦</span>
             <div>
-              <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Hồ sơ Bàn giao</div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#e2e8f0" }}>{artifacts.length} file tài liệu kiểm toán</div>
+              <div className="ccMarketingCampaignSummaryLabel">Hồ sơ Bàn giao</div>
+              <div className="ccMarketingCampaignSummaryValue">{artifacts.length} file tài liệu kiểm toán</div>
             </div>
           </div>
         </div>
 
-        {isFacebookPublished && (
+        {isPublished && (
           <div
             style={{
               padding: "0.75rem 1.75rem",
@@ -325,28 +325,9 @@ export function MarketingCampaignModal({
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#86efac", fontSize: "0.82rem" }}>
               <CheckCircle2 size={16} style={{ flexShrink: 0, color: "#22c55e" }} />
               <span>
-                Bài viết và poster đã được phê duyệt & xuất bản thành công lên Fanpage Facebook!
+                Bài viết và poster đã được phê duyệt & xuất bản thành công lên các kênh mạng xã hội!
               </span>
             </div>
-            {facebookRecord?.postUrl && (
-              <a
-                href={facebookRecord.postUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                style={{
-                  fontSize: "0.78rem",
-                  color: "#60a5fa",
-                  textDecoration: "underline",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  fontWeight: 600,
-                }}
-              >
-                <span>Xem bài đăng trên Facebook ↗</span>
-                <ExternalLink size={12} />
-              </a>
-            )}
           </div>
         )}
 
@@ -391,97 +372,40 @@ export function MarketingCampaignModal({
 
         {/* Navigation Tabs */}
         <div
+          className="ccMarketingCampaignTabs"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
             padding: "0.5rem 1.75rem",
-            background: "#080c16",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
             overflowX: "auto",
           }}
         >
           <button
             type="button"
             onClick={() => setActiveTab("creative")}
-            style={{
-              padding: "0.55rem 1rem",
-              background: activeTab === "creative" ? "rgba(59, 130, 246, 0.15)" : "transparent",
-              border: "1px solid",
-              borderColor: activeTab === "creative" ? "rgba(59, 130, 246, 0.4)" : "transparent",
-              borderRadius: "8px",
-              color: activeTab === "creative" ? "#60a5fa" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.84rem",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`ccMarketingCampaignTab ${activeTab === "creative" ? "is-active" : ""}`}
           >
             <span>✍️</span> Bài viết & Poster Đồ họa
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("social")}
-            style={{
-              padding: "0.55rem 1rem",
-              background: activeTab === "social" ? "rgba(59, 130, 246, 0.15)" : "transparent",
-              border: "1px solid",
-              borderColor: activeTab === "social" ? "rgba(59, 130, 246, 0.4)" : "transparent",
-              borderRadius: "8px",
-              color: activeTab === "social" ? "#60a5fa" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.84rem",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`ccMarketingCampaignTab ${activeTab === "social" ? "is-active" : ""}`}
           >
             <span>📱</span> Xem trước Facebook Feed
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("deliverables")}
-            style={{
-              padding: "0.55rem 1rem",
-              background: activeTab === "deliverables" ? "rgba(59, 130, 246, 0.15)" : "transparent",
-              border: "1px solid",
-              borderColor: activeTab === "deliverables" ? "rgba(59, 130, 246, 0.4)" : "transparent",
-              borderRadius: "8px",
-              color: activeTab === "deliverables" ? "#60a5fa" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.84rem",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`ccMarketingCampaignTab ${activeTab === "deliverables" ? "is-active" : ""}`}
           >
             <span>📦</span> Bộ 5 Tài liệu Bàn giao ({artifacts.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("brief")}
-            style={{
-              padding: "0.55rem 1rem",
-              background: activeTab === "brief" ? "rgba(59, 130, 246, 0.15)" : "transparent",
-              border: "1px solid",
-              borderColor: activeTab === "brief" ? "rgba(59, 130, 246, 0.4)" : "transparent",
-              borderRadius: "8px",
-              color: activeTab === "brief" ? "#60a5fa" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.84rem",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`ccMarketingCampaignTab ${activeTab === "brief" ? "is-active" : ""}`}
           >
             <span>📋</span> Bản mô tả Brief
           </button>
@@ -489,11 +413,11 @@ export function MarketingCampaignModal({
 
         {/* Modal Scrollable Body */}
         <div
+          className="ccMarketingCampaignBody"
           style={{
             flex: 1,
             overflowY: "auto",
             padding: "1.5rem 1.75rem",
-            background: "#08090c",
           }}
         >
           {/* TAB 1: Creative Work (Draft + Poster) */}
@@ -726,10 +650,8 @@ export function MarketingCampaignModal({
 
         {/* Modal Footer Actions */}
         <div
-          className="ccOperationsModalFooter"
+          className="ccOperationsModalFooter ccMarketingCampaignFooter"
           style={{
-            background: "#0b0f19",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
             padding: "1rem 1.75rem",
           }}
         >
@@ -825,26 +747,31 @@ export function MarketingCampaignModal({
             )}
 
             {isApprovedOrPublished && (
-              facebookRecord?.postUrl ? (
-                <a
-                  href={facebookRecord.postUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="marketingBtnPrimary"
-                  style={{
-                    fontSize: "0.85rem",
-                    padding: "0.55rem 1.25rem",
-                    background: "linear-gradient(135deg, #1877f2 0%, #1d4ed8 100%)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    textDecoration: "none",
-                    color: "#ffffff",
-                  }}
-                >
-                  <CheckCircle2 size={16} />
-                  <span>Đã xuất bản (Xem trên Fanpage ↗)</span>
-                </a>
+              facebookRecord?.postUrl || instagramRecord?.postUrl ? (
+                <div className="ccMarketingPublishedActions">
+                  {facebookRecord?.postUrl && (
+                    <a
+                      href={facebookRecord.postUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="marketingBtnPrimary ccMarketingFacebookAction"
+                    >
+                      <ExternalLink size={16} />
+                      <span>Xem bài đăng Facebook</span>
+                    </a>
+                  )}
+                  {instagramRecord?.postUrl && (
+                    <a
+                      href={instagramRecord.postUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="marketingBtnPrimary ccMarketingInstagramAction"
+                    >
+                      <ExternalLink size={16} />
+                      <span>Xem bài đăng Instagram</span>
+                    </a>
+                  )}
+                </div>
               ) : (
                 <span
                   style={{
@@ -856,7 +783,7 @@ export function MarketingCampaignModal({
                     gap: "0.4rem",
                   }}
                 >
-                  <CheckCircle2 size={16} /> Đã xuất bản lên Fanpage thành công
+                  <CheckCircle2 size={16} /> Đã xuất bản thành công
                 </span>
               )
             )}

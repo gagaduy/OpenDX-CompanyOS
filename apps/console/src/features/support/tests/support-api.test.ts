@@ -7,6 +7,30 @@ import { createSupportOperationsApi } from "../api/support-api";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Support proposal transport", () => {
+  it("sends the requested customer-email scope to the Support proposal endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      success: true,
+      data: { id: "proposal-1", status: "pending_approval" },
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createSupportOperationsApi("http://api.test", "staff-token").generateSupportProposal({
+      prompt: "Phản hồi email khách hàng đang cần xử lý",
+      ticketScope: "customer_email_pending",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/v1/admin/support/tickets/ai-proposal",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          prompt: "Phản hồi email khách hàng đang cần xử lý",
+          ticketScope: "customer_email_pending",
+        }),
+      }),
+    );
+  });
+
   it("posts a proposal cancellation to the authenticated Support endpoint", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       success: true,

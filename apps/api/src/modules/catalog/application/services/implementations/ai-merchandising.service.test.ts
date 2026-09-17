@@ -5,6 +5,39 @@ import { describe, expect, it, vi } from "vitest";
 import { AiMerchandisingService } from "./ai-merchandising.service";
 
 describe("AiMerchandisingService Campaign Engine", () => {
+  it("rejects a draft campaign so it cannot be restored as pending approval", async () => {
+    const session = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const mockTx = {
+      run: vi.fn().mockImplementation(async (cb) => cb(session)),
+      runReadOnly: vi.fn(),
+    };
+    const mockRepo = {
+      getById: vi.fn().mockResolvedValue({ id: "camp-1", name: "Flash Sale", status: "draft" }),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+    const mockAudit = { append: vi.fn().mockResolvedValue(undefined) };
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      mockAudit as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const result = await service.rejectCampaign("camp-1", {
+      actorId: "staff-1",
+      correlationId: "corr-1",
+      reason: "Không còn phù hợp",
+    });
+
+    expect(result).toMatchObject({ success: true, campaignId: "camp-1" });
+    expect(mockRepo.updateStatus).toHaveBeenCalledWith(session, "camp-1", "rejected");
+    expect(mockAudit.append).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ action: "catalog.campaign.rejected", actorId: "staff-1" }),
+    );
+  });
+
   it("calculates exact discount prices and extracts duration from prompt", async () => {
     const mockTx = {
       runReadOnly: vi.fn().mockImplementation(async (cb) => cb({

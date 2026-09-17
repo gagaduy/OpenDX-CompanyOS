@@ -42,6 +42,30 @@ describe("AiSupportService", () => {
     expect(ticketQuery).toContain("st.status NOT IN ('resolved', 'closed')");
   });
 
+  it("limits customer-email review to tickets whose latest inbound message still needs a reply", async () => {
+    let ticketQuery = "";
+    let ticketQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQuery = sql;
+          ticketQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Gửi mail phản hồi các email khách hàng đang cần xử lý",
+      ticketScope: "customer_email_pending",
+    } as any);
+
+    expect(ticketQuery).toContain("st.created_by_id = 'email-inbound'");
+    expect(ticketQuery).toContain("latest_customer_message");
+    expect(ticketQueryParameters).toEqual([null, "customer_email_pending"]);
+  });
+
   it("limits an inbound-email proposal to its requested ticket", async () => {
     const requestedTicketId = "62ffbc9e-0d2e-4eac-a71d-19e388463515";
     let ticketQueryParameters: readonly unknown[] | undefined;
@@ -63,7 +87,7 @@ describe("AiSupportService", () => {
       ticketIds: [requestedTicketId],
     });
 
-    expect(ticketQueryParameters).toEqual([[requestedTicketId]]);
+    expect(ticketQueryParameters).toEqual([[requestedTicketId], "all_actionable"]);
   });
 
   it("limits inbound-email customer analysis to the requested ticket owner", async () => {

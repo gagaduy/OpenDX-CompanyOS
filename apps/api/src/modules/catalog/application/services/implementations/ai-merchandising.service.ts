@@ -633,6 +633,41 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
     };
   }
 
+  async rejectCampaign(
+    campaignId: string,
+    context: CatalogCommandContext & { readonly reason?: string },
+  ): Promise<{ success: boolean; campaignId: string; rejectedAt: string }> {
+    const rejectedAt = this.now();
+
+    await this.transactions.run(async (session) => {
+      const campaign = await this.campaignRepository.getById(session, campaignId);
+      if (!campaign) {
+        throw new CatalogApplicationError("NOT_FOUND", `Không tìm thấy chiến dịch ID: ${campaignId}`);
+      }
+      if (campaign.status !== "draft") {
+        throw new CatalogApplicationError("CONFLICT", `Chỉ có thể hủy duyệt chiến dịch nháp (trạng thái: ${campaign.status})`);
+      }
+
+      await this.campaignRepository.updateStatus(session, campaignId, "rejected");
+      await this.audit.append(session, {
+        id: this.generateId(),
+        actorId: context.actorId,
+        action: "catalog.campaign.rejected",
+        resourceType: "campaign",
+        resourceId: campaignId,
+        outcome: "success",
+        correlationId: context.correlationId,
+        metadata: {
+          campaignName: campaign.name,
+          reason: context.reason?.trim().slice(0, 500) || "Hủy duyệt bởi nhân sự",
+        },
+        occurredAt: rejectedAt,
+      });
+    });
+
+    return { success: true, campaignId, rejectedAt };
+  }
+
   async revertCampaign(
     campaignId: string,
     context: CatalogCommandContext,
@@ -865,6 +900,12 @@ Yêu cầu định dạng trả về DUY NHẤT một chuỗi JSON hợp lệ:
   async getCampaign(campaignId: string): Promise<CampaignProposalDto | null> {
     return this.transactions.runReadOnly(async (session) => {
       return this.campaignRepository.getById(session, campaignId);
+    });
+  }
+
+  async getLatestDraftCampaign(): Promise<CampaignProposalDto | null> {
+    return this.transactions.runReadOnly(async (session) => {
+      return this.campaignRepository.findLatestDraft(session);
     });
   }
 

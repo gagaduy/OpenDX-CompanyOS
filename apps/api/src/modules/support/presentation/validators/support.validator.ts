@@ -3,6 +3,7 @@
 import { z } from "zod";
 const id=z.string().uuid(); const body=z.object({customerId:id,orderId:id.optional(),subject:z.string().trim().min(1).max(240),description:z.string().trim().min(1).max(4000),priority:z.enum(["urgent","high","normal","low"])});
 export const parseCreate=(v:unknown)=>body.parse(v);export const parseTicketId=(v:unknown)=>id.parse(v);export const parseAttachmentId=(v:unknown)=>id.parse(v);export const parseClaim=(v:unknown)=>z.object({version:z.number().int().positive()}).parse(v);export const parseTransition=(v:unknown)=>z.object({status:z.enum(["new","assigned","in_progress","waiting_customer","waiting_internal","escalated","resolved","closed"]),version:z.number().int().positive(),idempotencyKey:z.string().trim().min(1).max(255)}).parse(v);export const parseReassign=(v:unknown)=>z.object({assigneeId:z.string().trim().min(1).max(255).optional(),version:z.number().int().positive(),idempotencyKey:z.string().trim().min(1).max(255)}).parse(v);export const parseMessage=(v:unknown)=>z.object({body:z.string().trim().min(1).max(4000)}).parse(v);export const parsePage=(v:unknown)=>z.object({page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(1).max(100).default(20)}).parse(v);
+export const parseGenerateAiProposal=(v:unknown)=>z.object({prompt:z.string().trim().min(1).max(4000),ticketScope:z.enum(["all_actionable","customer_email_pending"]).default("all_actionable")}).parse(v);
 const emailCampaignCreateSchema = z.object({
   type: z.enum(["new_product_announcement", "promotion_announcement", "customer_care_vip", "ticket_resolution"]),
   prompt: z.string().trim().optional(),
@@ -12,4 +13,3 @@ const emailCampaignCreateSchema = z.object({
   customSubject: z.string().trim().max(255).optional(),
 });
 export const parseCreateEmailCampaign = (v: unknown) => emailCampaignCreateSchema.parse(v);
-

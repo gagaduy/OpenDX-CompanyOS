@@ -90,13 +90,31 @@ export class EmailCampaignService {
         }
       }
 
+      if (!promotionDetails) {
+        throw new ApplicationError(
+          409,
+          "NO_ACTIVE_PROMOTION",
+          "Không có chương trình khuyến mãi nào đang hoạt động để CSKH lập email.",
+        );
+      }
+
+      if (!promotionDetails.productIds?.length) {
+        throw new ApplicationError(
+          409,
+          "PROMOTION_HAS_NO_PRODUCTS",
+          "Chương trình khuyến mãi đang hoạt động chưa có sản phẩm để CSKH lập email.",
+        );
+      }
+
       title = `Ưu Đãi Đặc Biệt: ${promotionDetails?.campaignName || "Chương trình khuyến mãi"}`;
       if (!emailSubject) {
         emailSubject = `[Ưu Đãi Đặc Biệt] Nhận ngay voucher giảm giá tại NovaCommerce`;
       }
 
-      const recents = await this.catalogQueryPort.getLatestProducts(4);
-      featuredProducts = recents.map((p) => ({
+      const campaignProducts = await this.catalogQueryPort.getProductsByIds([
+        ...promotionDetails.productIds,
+      ]);
+      featuredProducts = campaignProducts.map((p) => ({
         ...p,
         salePriceVnd: promotionDetails?.discountPercent
           ? Math.round(p.regularPriceVnd * (1 - promotionDetails.discountPercent / 100))

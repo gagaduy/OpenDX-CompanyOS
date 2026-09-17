@@ -14,6 +14,7 @@ import {
   parseClaim,
   parseCreate,
   parseCreateEmailCampaign,
+  parseGenerateAiProposal,
   parseMessage,
   parsePage,
   parseReassign,
@@ -118,7 +119,7 @@ export class SupportController {
   readonly generateAiProposal: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
-      const proposal = await this.aiService.generateSupportProposal({ prompt: String(q.body?.prompt || "") });
+      const proposal = await this.aiService.generateSupportProposal(parseGenerateAiProposal(q.body));
       r.json(successResponse("Support proposal generated", proposal));
     } catch (e) {
       n(e);
