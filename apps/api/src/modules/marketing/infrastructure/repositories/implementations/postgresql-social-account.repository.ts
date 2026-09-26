@@ -128,18 +128,22 @@ export class PostgresqlSocialAccountRepository implements SocialAccountRepositor
     input: UpdateSocialHealthInput,
   ): Promise<void> {
     const scopesJson = input.scopes ? JSON.stringify(input.scopes) : null;
+    const hasExpiresAt = input.tokenExpiresAt !== undefined;
+    const hasDataAccessExpiresAt = input.dataAccessExpiresAt !== undefined;
+    const hasScopes = input.scopes !== undefined;
+    const hasIsLongLived = input.isLongLived !== undefined;
 
     await this.pool.query(
       `
       UPDATE marketing_social_accounts
       SET
         token_status = $3,
-        token_expires_at = CASE WHEN $4::text IS NOT NULL THEN $4::timestamptz ELSE token_expires_at END,
-        data_access_expires_at = CASE WHEN $5::text IS NOT NULL THEN $5::timestamptz ELSE data_access_expires_at END,
-        scopes = CASE WHEN $6::jsonb IS NOT NULL THEN $6::jsonb ELSE scopes END,
-        is_long_lived = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_long_lived END,
-        last_checked_at = $8::timestamptz,
-        last_error = $9,
+        token_expires_at = CASE WHEN $4::boolean THEN $5::timestamptz ELSE token_expires_at END,
+        data_access_expires_at = CASE WHEN $6::boolean THEN $7::timestamptz ELSE data_access_expires_at END,
+        scopes = CASE WHEN $8::boolean THEN $9::jsonb ELSE scopes END,
+        is_long_lived = CASE WHEN $10::boolean THEN $11::boolean ELSE is_long_lived END,
+        last_checked_at = $12::timestamptz,
+        last_error = $13,
         updated_at = now()
       WHERE platform = $1 AND account_id = $2
       `,
@@ -147,11 +151,15 @@ export class PostgresqlSocialAccountRepository implements SocialAccountRepositor
         platform,
         accountId,
         input.tokenStatus,
-        input.tokenExpiresAt ?? null,
-        input.dataAccessExpiresAt ?? null,
+        hasExpiresAt,
+        input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+        hasDataAccessExpiresAt,
+        input.dataAccessExpiresAt ? new Date(input.dataAccessExpiresAt) : null,
+        hasScopes,
         scopesJson,
+        hasIsLongLived,
         input.isLongLived ?? null,
-        input.lastCheckedAt,
+        input.lastCheckedAt ? new Date(input.lastCheckedAt) : null,
         input.lastError ?? null,
       ],
     );

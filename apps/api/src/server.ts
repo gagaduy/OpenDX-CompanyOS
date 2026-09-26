@@ -265,6 +265,7 @@ const toolAdapters = createFixedDepartmentToolAdapterRegistry({
   marketingRepository: marketing.repository,
 }, currentTime, environment.agentic.controlClientSecret);
 const agentic = createAgenticModule({
+  database: pool,
   decisionHistoryReaders: [
     createMarketingDecisionHistoryReader(),
     createCatalogDecisionHistoryReader(),

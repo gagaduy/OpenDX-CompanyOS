@@ -25,6 +25,8 @@ export interface AiSupportTicketItemView {
   readonly proposedResponse: string;
   readonly suggestedCompensation: string;
   readonly priority: "urgent" | "high" | "normal" | "low";
+  readonly estimatedCompensationAmount?: number;
+  readonly requiresApproval?: boolean;
 }
 
 export interface AiSupportVipCustomerView {

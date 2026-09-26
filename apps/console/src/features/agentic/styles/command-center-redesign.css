@@ -1958,6 +1958,86 @@
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
+.supportEmailPolicyBadge {
+  padding: 0.16rem 0.45rem;
+  border-radius: 5px;
+  font-size: calc(0.61rem * var(--cc-font-scale));
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.supportEmailPolicyBadge.auto {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.supportEmailPolicyBadge.review {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.supportEmailAutoBadgeCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.supportEmailAutoIcon {
+  color: #34d399;
+}
+
+.supportEmailSummary .supportEmailStatAuto svg {
+  color: #34d399 !important;
+}
+
+.supportEmailSummary .supportEmailStatManual svg {
+  color: #fbbf24 !important;
+}
+
+.supportEmailRow.is-auto-approved {
+  border-left: 3px solid rgba(16, 185, 129, 0.5);
+}
+
+.supportEmailRow.is-requires-approval {
+  border-left: 3px solid rgba(245, 158, 11, 0.5);
+}
+
+.supportEmailVoucher.voucher-auto {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.supportEmailVoucher.voucher-review {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.supportEmailAmountTag {
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: calc(0.6rem * var(--cc-font-scale));
+}
+
+.voucher-auto .supportEmailAmountTag {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+
+.voucher-review .supportEmailAmountTag {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
 .supportEmailEmpty {
   min-height: 220px;
   display: flex;

@@ -345,11 +345,13 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
     // If App ID/Secret is not configured or extendToken failed (e.g. Page Access Token or local env),
     // check if a default token is configured in .env or renew the current token with a fresh 24h validity window.
     if (!newExpiresAt) {
-      const defaultToken = platform === "facebook"
-        ? (process.env.FACEBOOK_PAGE_ACCESS_TOKEN || this.defaultFacebookToken)
-        : (process.env.INSTAGRAM_ACCESS_TOKEN || this.defaultInstagramToken);
-      if (defaultToken && defaultToken.trim().length >= 10) {
-        newAccessToken = defaultToken.trim();
+      if (!newAccessToken || newAccessToken.trim().length < 10) {
+        const defaultToken = platform === "facebook"
+          ? (process.env.FACEBOOK_PAGE_ACCESS_TOKEN || this.defaultFacebookToken)
+          : (process.env.INSTAGRAM_ACCESS_TOKEN || this.defaultInstagramToken);
+        if (defaultToken && defaultToken.trim().length >= 10) {
+          newAccessToken = defaultToken.trim();
+        }
       }
 
       // Renew expiration date by +24 hours (1-day default lifetime) for continuous operation without manual copy-paste
@@ -387,6 +389,11 @@ export class SocialTokenManagerServiceImpl implements SocialTokenManagerService 
           const diffHours = (expiresMs - currentDate.getTime()) / (1000 * 3600);
           hoursRemaining = Math.max(0, Math.round(diffHours * 10) / 10);
           daysRemaining = Math.max(0, Math.ceil(diffHours / 24));
+        } else {
+          newExpiresAt = null;
+          hoursRemaining = null;
+          daysRemaining = null;
+          isLongLived = true;
         }
       } catch (err: any) {
         if (err?.message?.includes("Không thể tự động gia hạn token")) {

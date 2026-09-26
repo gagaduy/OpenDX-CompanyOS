@@ -8,5 +8,20 @@ export interface CommerceComparisonView { readonly previousGrossPaidRevenueVnd:n
 export interface CommerceReportView { readonly grossPaidRevenueVnd:number; readonly paidOrderCount:number; readonly averageOrderValueVnd:number; readonly conversionRateBasisPoints:number; readonly comparison:CommerceComparisonView; readonly daily:readonly CommerceDailyPointView[]; readonly paymentStatuses:readonly {readonly status:string;readonly count:number}[]; }
 export interface ProductReportView { readonly items:readonly {readonly sku:string;readonly productTitle:string;readonly quantitySold:number;readonly paidRevenueVnd:number}[]; readonly inventory:{readonly onHand:number;readonly reserved:number;readonly available:number;readonly soldOutCount:number}; }
 export interface CustomerReportView { readonly totalRegisteredCustomers:number; readonly repeatCustomers:number; readonly lifetimeValueVnd:number; readonly lifetimeValueBuckets:readonly {readonly bucket:"zero"|"low"|"mid"|"high";readonly count:number}[]; readonly newCustomersInRange:number; readonly previousNewCustomersInRange:number; readonly newCustomersChangeBasisPoints:number|null; readonly dailyNewCustomers:readonly {readonly date:string;readonly newCustomerCount:number}[]; }
-export interface OperationsReportView { readonly openTickets:number; readonly overdueFollowups:number; readonly slaBreaches:number; }
+export interface AiUsageView {
+  readonly totalTokens: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly settledCostMicros: number;
+  readonly estimatedCostVnd: number;
+  readonly modelRuns: number;
+  readonly rangeTokens?: number;
+  readonly rangeCostVnd?: number;
+}
+export interface OperationsReportView {
+  readonly openTickets: number;
+  readonly overdueFollowups: number;
+  readonly slaBreaches: number;
+  readonly aiUsage?: AiUsageView;
+}
 export interface DashboardView { readonly range:ReportingRangeView; readonly refreshedAt:string; readonly commerce:CommerceReportView; readonly products:ProductReportView; readonly customers:CustomerReportView; readonly operations:OperationsReportView; }

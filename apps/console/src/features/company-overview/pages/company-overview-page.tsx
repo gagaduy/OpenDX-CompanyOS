@@ -15,7 +15,7 @@ export function CompanyOverviewPage() {
         eyebrow="OpenDX CompanyOS"
         title="Company operating console"
         description="A dark, dense product surface for governing the company, workflows, digital employees, approvals, graph memory, and audit trails."
-        metadata={<span className="status"><ShieldCheck aria-hidden="true" size={16} />Alpha foundation</span>}
+        metadata={<span className="status"><ShieldCheck aria-hidden="true" size={16} />Live operations</span>}
       />
       <section className="grid" aria-label="Mission control panels">
         {overviewPanels.map((panel) => <OverviewPanel key={panel.label} {...panel} />)}

@@ -5,13 +5,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Gift,
   Mail,
   Send,
   ShieldCheck,
-  Users,
   X,
 } from "lucide-react";
 import type {
@@ -30,6 +30,27 @@ export interface SupportEmailApprovalModalProps {
   readonly onApproveAll: () => void | Promise<void>;
 }
 
+export function isTicketRequiringApproval(ticket: AiSupportTicketItemView): boolean {
+  if (typeof ticket.requiresApproval === "boolean") {
+    return ticket.requiresApproval;
+  }
+  if (typeof ticket.estimatedCompensationAmount === "number") {
+    return ticket.estimatedCompensationAmount > 2_000_000;
+  }
+  const comp = ticket.suggestedCompensation?.toLowerCase() ?? "";
+  if (comp.includes("miễn phí vận chuyển") || comp.includes("freeship") || comp.includes("không áp dụng")) {
+    return false;
+  }
+  if (comp.includes("10%") || comp.includes("15%") || comp.includes("20%")) {
+    return true;
+  }
+  return false;
+}
+
+export function formatVnd(amount: number): string {
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
+}
+
 export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps> = ({
   isOpen,
   proposal,
@@ -41,13 +62,29 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
   const [selectedTicketIds, setSelectedTicketIds] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(1);
 
+  const { autoApprovedTickets, manualReviewTickets } = useMemo(() => {
+    if (!proposal) return { autoApprovedTickets: [], manualReviewTickets: [] };
+    const auto: AiSupportTicketItemView[] = [];
+    const manual: AiSupportTicketItemView[] = [];
+    for (const ticket of proposal.tickets) {
+      if (isTicketRequiringApproval(ticket)) {
+        manual.push(ticket);
+      } else {
+        auto.push(ticket);
+      }
+    }
+    return { autoApprovedTickets: auto, manualReviewTickets: manual };
+  }, [proposal?.tickets]);
+
   useEffect(() => {
     if (!proposal) return;
-    setSelectedTicketIds(new Set(
-      proposal.status === "applied" ? [] : proposal.tickets.map((ticket) => ticket.ticketId),
-    ));
+    setSelectedTicketIds(
+      new Set(
+        proposal.status === "applied" ? [] : proposal.tickets.map((ticket) => ticket.ticketId),
+      ),
+    );
     setPage(1);
-  }, [proposal?.id, proposal?.tickets]);
+  }, [proposal?.id, proposal?.tickets, proposal?.status]);
 
   const pageCount = Math.max(1, Math.ceil((proposal?.tickets.length ?? 0) / EMAILS_PER_PAGE));
   const pageTickets = useMemo(
@@ -99,7 +136,7 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
                   {isApplied ? "Đã gửi" : "Chờ phê duyệt"}
                 </span>
               </div>
-              <p>Kịch bản phản hồi khách hàng và voucher do AI CSKH đề xuất</p>
+              <p>Chính sách WF-CSKH-RECOVERY: Ngưỡng tự động duyệt 2.000.000 ₫ (Nhánh 4A ≤ 2M, Nhánh 4B &gt; 2M)</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="supportEmailCloseBtn" aria-label="Đóng">
@@ -108,10 +145,22 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
         </header>
 
         <section className="supportEmailSummary" aria-label="Tóm tắt đề xuất CSKH">
-          <div><Mail size={15} /><span><strong>{proposal.tickets.length}</strong> email còn lại</span></div>
-          <div><Users size={15} /><span><strong>{proposal.vipCustomers.length}</strong> khách VIP</span></div>
-          <div><AlertTriangle size={15} /><span>{proposal.churnRiskAssessment}</span></div>
-          <div><ShieldCheck size={15} /><span>Chỉ gửi sau khi được phê duyệt</span></div>
+          <div>
+            <Mail size={15} />
+            <span><strong>{proposal.tickets.length}</strong> email đề xuất</span>
+          </div>
+          <div className="supportEmailStatAuto">
+            <CheckCircle2 size={15} />
+            <span><strong>{autoApprovedTickets.length}</strong> ca tự động duyệt (Nhánh 4A ≤ 2M)</span>
+          </div>
+          <div className="supportEmailStatManual">
+            <AlertTriangle size={15} />
+            <span><strong>{manualReviewTickets.length}</strong> ca cần Sếp duyệt (Nhánh 4B &gt; 2M)</span>
+          </div>
+          <div>
+            <ShieldCheck size={15} />
+            <span>{proposal.churnRiskAssessment}</span>
+          </div>
         </section>
 
         <div className="supportEmailToolbar">
@@ -119,7 +168,9 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
             <strong>
               {isApplied
                 ? `Danh sách email đã gửi (${proposal.tickets.length})`
-                : `Danh sách email đề xuất (${selectedCount}/${proposal.tickets.length} đã chọn)`}
+                : manualReviewTickets.length > 0 && autoApprovedTickets.length > 0
+                  ? `Danh sách email đề xuất (${selectedCount}/${proposal.tickets.length} đã chọn: ${manualReviewTickets.length} ca cần duyệt, ${autoApprovedTickets.length} ca tự động duyệt)`
+                  : `Danh sách email đề xuất (${selectedCount}/${proposal.tickets.length} đã chọn)`}
             </strong>
             {!isApplied && pageTickets.length > 0 && (
               <button type="button" onClick={toggleCurrentPage} className="supportEmailSelectPageBtn">
@@ -151,6 +202,7 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
               ticket={ticket}
               selected={selectedTicketIds.has(ticket.ticketId)}
               readOnly={isApplied}
+              requiresApproval={isTicketRequiringApproval(ticket)}
               onToggle={() => toggleTicket(ticket.ticketId)}
             />
           ))}
@@ -162,7 +214,9 @@ export const SupportEmailApprovalModal: React.FC<SupportEmailApprovalModalProps>
             <span>
               {isApplied
                 ? `${proposal.tickets.length} email đã được phê duyệt và gửi.`
-                : `${selectedCount} email sẽ được gửi sau xác nhận của bạn.`}
+                : manualReviewTickets.length > 0
+                  ? `${manualReviewTickets.length} ca vượt hạn mức cần bạn phê duyệt (> 2M). ${autoApprovedTickets.length} ca đã được AI tự động duyệt (≤ 2M).`
+                  : `Tất cả ${autoApprovedTickets.length} ca đều đã được AI tự động duyệt theo chính sách.`}
             </span>
           </div>
           <div className="supportEmailFooterActions">
@@ -202,40 +256,77 @@ interface EmailApprovalRowProps {
   readonly ticket: AiSupportTicketItemView;
   readonly selected: boolean;
   readonly readOnly: boolean;
+  readonly requiresApproval: boolean;
   readonly onToggle: () => void;
 }
 
-const EmailApprovalRow: React.FC<EmailApprovalRowProps> = ({ ticket, selected, readOnly, onToggle }) => (
-  <article className={`supportEmailRow ${selected ? "is-selected" : ""}`}>
-    <label className="supportEmailCheckboxWrap">
-      <input
-        type="checkbox"
-        checked={selected}
-        disabled={readOnly}
-        onChange={onToggle}
-        aria-label={`Chọn email gửi tới ${ticket.customerName}`}
-      />
-    </label>
-    <div className="supportEmailRecipient">
-      <span className="supportEmailAvatar">{initials(ticket.customerName)}</span>
-      <div>
-        <strong>{ticket.customerName}</strong>
-        <span>{ticket.customerEmail}</span>
+const EmailApprovalRow: React.FC<EmailApprovalRowProps> = ({
+  ticket,
+  selected,
+  readOnly,
+  requiresApproval,
+  onToggle,
+}) => {
+  const isAuto = !requiresApproval;
+  const compAmount = ticket.estimatedCompensationAmount;
+
+  return (
+    <article
+      className={`supportEmailRow ${selected ? "is-selected" : ""} ${
+        isAuto ? "is-auto-approved" : "is-requires-approval"
+      }`}
+    >
+      <label className="supportEmailCheckboxWrap">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={readOnly}
+          onChange={onToggle}
+          aria-label={`Chọn email gửi tới ${ticket.customerName}`}
+        />
+      </label>
+      <div className="supportEmailRecipient">
+        <span className="supportEmailAvatar">{initials(ticket.customerName)}</span>
+        <div>
+          <strong>{ticket.customerName}</strong>
+          <span>{ticket.customerEmail}</span>
+        </div>
       </div>
-    </div>
-    <div className="supportEmailContent">
-      <div className="supportEmailSubjectRow">
-        <strong>{ticket.subject}</strong>
-        <span className={`supportEmailPriority priority-${ticket.priority}`}>{priorityLabel(ticket.priority)}</span>
-        <span className={`supportEmailRisk risk-${ticket.churnRisk}`}>Rời bỏ: {riskLabel(ticket.churnRisk)}</span>
+      <div className="supportEmailContent">
+        <div className="supportEmailSubjectRow">
+          <strong>{ticket.subject}</strong>
+          {isAuto ? (
+            <span className="supportEmailPolicyBadge auto">
+              <CheckCircle2 size={12} /> Tự động duyệt (Nhánh 4A ≤ 2M)
+            </span>
+          ) : (
+            <span className="supportEmailPolicyBadge review">
+              <AlertTriangle size={12} /> Cần Sếp duyệt (Nhánh 4B &gt; 2M)
+            </span>
+          )}
+          <span className={`supportEmailPriority priority-${ticket.priority}`}>
+            {priorityLabel(ticket.priority)}
+          </span>
+          <span className={`supportEmailRisk risk-${ticket.churnRisk}`}>
+            Rời bỏ: {riskLabel(ticket.churnRisk)}
+          </span>
+        </div>
+        <p>{ticket.proposedResponse}</p>
+        {ticket.suggestedCompensation && (
+          <div className={`supportEmailVoucher ${isAuto ? "voucher-auto" : "voucher-review"}`}>
+            <Gift size={13} />
+            <span>{ticket.suggestedCompensation}</span>
+            {compAmount !== undefined && (
+              <strong className="supportEmailAmountTag">
+                ~{formatVnd(compAmount)} {isAuto ? "(≤ 2M: Đủ chuẩn duyệt)" : "(&gt; 2M: Vượt hạn mức)"}
+              </strong>
+            )}
+          </div>
+        )}
       </div>
-      <p>{ticket.proposedResponse}</p>
-      {ticket.suggestedCompensation && (
-        <div className="supportEmailVoucher"><Gift size={13} />{ticket.suggestedCompensation}</div>
-      )}
-    </div>
-  </article>
-);
+    </article>
+  );
+};
 
 function initials(name: string): string {
   return name

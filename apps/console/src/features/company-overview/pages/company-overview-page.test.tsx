@@ -28,8 +28,8 @@ describe("CompanyOverviewPage", () => {
     for (const panel of panels) {
       expect(panel).toHaveTextContent(/Live|Foundation|Alpha|Planned/);
     }
-    expect(screen.getByRole("article", { name: "Digital Workforce" })).toHaveTextContent("Planned");
-    expect(screen.getByRole("article", { name: "Workflow Operations" })).toHaveTextContent("Planned");
-    expect(screen.getByRole("article", { name: "Approval Inbox" })).toHaveTextContent("Planned");
+    expect(screen.getByRole("article", { name: "Digital Workforce" })).toHaveTextContent("Live");
+    expect(screen.getByRole("article", { name: "Workflow Operations" })).toHaveTextContent("Live");
+    expect(screen.getByRole("article", { name: "Approval Inbox" })).toHaveTextContent("Live");
   });
 });

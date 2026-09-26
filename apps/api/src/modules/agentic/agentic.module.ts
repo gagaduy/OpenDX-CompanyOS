@@ -42,8 +42,15 @@ import { ZodDepartmentToolSchemaRegistry } from "./infrastructure/tools/zod-depa
 import type { Logger } from "../../shared/observability/logger";
 import type { MetricsRegistry } from "../../shared/observability/metrics";
 
+import type { Pool } from "pg";
+import type { WorkflowBlueprintRepository } from "./application/repositories/interfaces/workflow-blueprint.repository";
+import { PostgresqlWorkflowBlueprintRepository } from "./infrastructure/repositories/implementations/postgresql-workflow-blueprint.repository";
+import { WorkflowBlueprintController } from "./presentation/controllers/workflow-blueprint.controller";
+
 export interface AgenticModuleDependencies {
   readonly transactions: TransactionRunner;
+  readonly database?: Pool;
+  readonly workflowBlueprintRepository?: WorkflowBlueprintRepository;
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly workloadTokenVerifier: WorkloadTokenVerifier;
   readonly workflowGateway: WorkflowGateway;
@@ -68,6 +75,9 @@ export interface AgenticModuleDependencies {
 
 export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   const repository = new PostgresqlAgenticRepository();
+  const blueprintRepository = dependencies.workflowBlueprintRepository
+    ?? (dependencies.database ? new PostgresqlWorkflowBlueprintRepository(dependencies.database) : undefined);
+  const blueprintController = blueprintRepository ? new WorkflowBlueprintController(blueprintRepository) : undefined;
   const onDispatcherError = dependencies.onDispatcherError ?? (() => undefined);
   const policy = new PolicyService(repository, dependencies.transactions, dependencies.now);
   const dispatcher = new WorkflowCommandDispatcher(
@@ -146,7 +156,13 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
         : { agentKind: agent.kind, active: agent.active };
     }),
   });
-  const adminRouter = createAgenticRouter(controller, workflowController, authenticateStaff(dependencies.staffTokenVerifier), appendDenied);
+  const adminRouter = createAgenticRouter(
+    controller,
+    workflowController,
+    authenticateStaff(dependencies.staffTokenVerifier),
+    appendDenied,
+    blueprintController,
+  );
   adminRouter.use(agenticErrorMiddleware);
   const internalRouter = createAgenticWorkloadRouter(
     workloadController,
@@ -166,6 +182,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dispatcher,
     tasks,
     consoleService,
+    ...(blueprintRepository ? { blueprintRepository } : {}),
     ...(files === undefined ? {} : { files }),
     ...(fileLifecycleWorker === undefined ? {} : { fileLifecycleWorker }),
     approvals,

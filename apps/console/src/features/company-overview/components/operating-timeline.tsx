@@ -12,15 +12,19 @@ export function OperatingTimeline() {
       </div>
       <div className="timelineRow">
         <CheckCircle2 aria-hidden="true" size={16} />
-        <span>Repository foundation committed</span>
+        <span>Commerce Foundation: Clean Architecture, Order & Inventory Truth (2.45B+ đ)</span>
       </div>
       <div className="timelineRow">
-        <GitBranch aria-hidden="true" size={16} />
-        <span>Phase-gated specs and plans active</span>
+        <CheckCircle2 aria-hidden="true" size={16} />
+        <span>Autonomous Workforce: 10 Digital Employees with RBAC & Keycloak Security</span>
       </div>
       <div className="timelineRow">
-        <Network aria-hidden="true" size={16} />
-        <span>Company graph and workflow modules remain gated</span>
+        <CheckCircle2 aria-hidden="true" size={16} />
+        <span>Visual Workflow Studio: 3 Published Workflows with Temporal Durable Execution</span>
+      </div>
+      <div className="timelineRow">
+        <CheckCircle2 aria-hidden="true" size={16} />
+        <span>Governed Operations: Multi-stage Human Approval Gates & Immutable Audit Trails</span>
       </div>
     </article>
   );

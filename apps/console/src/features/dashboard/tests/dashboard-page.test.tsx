@@ -129,6 +129,31 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("img", { name: "Revenue trend" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Paid order volume" })).toBeInTheDocument();
   });
+
+  it("renders AI workforce tokens consumed and converted cost metrics when available", async () => {
+    const aiView: DashboardView = {
+      ...view,
+      operations: {
+        ...view.operations,
+        aiUsage: {
+          totalTokens: 830839,
+          inputTokens: 325898,
+          outputTokens: 504941,
+          settledCostMicros: 1091456,
+          estimatedCostVnd: 27723,
+          modelRuns: 317,
+          rangeTokens: 177207,
+          rangeCostVnd: 6220,
+        },
+      },
+    };
+    render(<MemoryRouter><DashboardPage api={fixture({ load: vi.fn(async () => aiView) })} /></MemoryRouter>);
+
+    expect(await screen.findByRole("heading", { name: "AI Tokens Consumed" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Chi phí AI quy đổi" })).toBeVisible();
+    expect(screen.getByText("177.207")).toBeVisible();
+    expect(screen.getByText(/6\.220\s*₫/)).toBeVisible();
+  });
 });
 
 function fixture(overrides: Partial<DashboardApi> = {}): DashboardApi {

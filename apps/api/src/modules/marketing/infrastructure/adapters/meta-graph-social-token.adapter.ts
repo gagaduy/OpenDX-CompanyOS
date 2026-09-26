@@ -92,11 +92,12 @@ export class MetaGraphSocialTokenAdapter implements SocialTokenInspectorPort, So
     let accountName = "";
     let pageCanPost = false;
     try {
-      const pageEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}?fields=id,name,can_post&access_token=${encodeURIComponent(token)}`;
+      const pageFields = platform === "instagram" ? "id,name,username" : "id,name,can_post";
+      const pageEndpoint = `${this.graphApiBaseUrl}/${encodeURIComponent(accountId)}?fields=${pageFields}&access_token=${encodeURIComponent(token)}`;
       const response = await this.fetchWithTimeout(pageEndpoint);
       if (response.ok) {
-        const parsed = (await response.json()) as { id?: string; name?: string; can_post?: boolean };
-        accountName = parsed.name ?? "";
+        const parsed = (await response.json()) as { id?: string; name?: string; username?: string; can_post?: boolean };
+        accountName = parsed.name || parsed.username || "";
         pageCanPost = parsed.can_post ?? true;
       } else if (!debugError) {
         const parsed = (await response.json().catch(() => ({}))) as { error?: { message?: string } };

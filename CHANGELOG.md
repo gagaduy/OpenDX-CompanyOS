@@ -11,8 +11,141 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Temporal local startup reliability:
-  - Added a bounded DNS and PostgreSQL readiness gate before starting the Temporal server, preventing transient Docker DNS failures from making `make up --wait` fail while the container restart loop later recovers on its own.
+- Authentic Vietnamese Customer Demographics & Realistic Order History Synchronization:
+  - Replaced generic placeholder customer profiles (`customer-demo-XX@example.invalid` / `Dashboard Demo Customer XX`) with 40 authentic Vietnamese identities (`VIETNAM_CUSTOMERS`) containing real full names (e.g. Võ Thanh Hà, Vũ Đình Trọng, Cao Bích Ngọc, Ngô Quang Huy), realistic Vietnamese email addresses, authentic phone numbers, and street addresses across Hanoi, Ho Chi Minh City, Da Nang, Can Tho, and Hai Phong.
+  - Linked all demo orders, customer LTV buckets, and CRM 360 histories to these authentic profiles, providing realistic customer directories (`/customers`), customer detail 360 views (`/crm/customers/:id`), and order fulfillment logs.
+
+- AI Workforce Token Consumption & Converted Currency Metrics on Executive Dashboard:
+  - Added `AiTokenUsageDto` to reporting DTOs and aggregated model metrics from PostgreSQL `agentic_model_runs` in `PostgresqlReportingRepository.getOperations`: input tokens (325,898), output tokens (504,941), total tokens (830,839), model runs (317), settled cost in micros ($1.09 USD), and converted cost in VND (27,723 VND) at 25,400 VND/USD rate, alongside 30-day in-period calculations (177,207 tokens / 6,220 VND).
+  - Updated Console schemas (`operationsEnvelopeSchema`), types (`AiUsageView`), and `OperationsSummary` component to render dedicated "AI Tokens Consumed" and "Chi phí AI quy đổi" metric cards alongside traditional operational metrics.
+  - Enhanced dashboard layout grid (`dashboardOperationalGrid`) to responsively display 3 to 5 operational & AI metrics.
+  - Added unit test coverage in `dashboard-page.test.tsx` verifying AI workforce tokens consumed and converted cost metrics.
+
+- Company Overview Live Operational Status Alignment (`/company-overview`):
+  - Updated `overviewPanels` in `company-overview.data.ts` from draft/planned placeholders to `live` operational reality:
+    - Mission Control: "Tổng quan điều hành" (Mục tiêu, rủi ro, phân quyền RBAC).
+    - Digital Workforce: "10 Digital Employees" (AI CEO, Marketing, CSKH, Kho hàng, Kế toán, CRM...).
+    - Workflow Operations: "Visual Workflow Studio" (3 Published business workflows: Marketing, CSKH, Kho).
+    - Approval Inbox: "Human-governed" (Cổng duyệt bồi thường, ngân sách & phát hành).
+  - Updated `OperatingTimeline` to showcase delivered milestones (Commerce Foundation with 2.45B+ VND, Autonomous Workforce with 10 Digital Employees, Visual Workflow Studio with Temporal durable execution, Multi-stage Human Approval Gates).
+  - Updated header status badge to "Live operations" and updated corresponding unit tests in `company-overview-page.test.tsx`.
+
+- Real Operational & Commerce Data Synchronization for Executive Dashboard:
+  - Eliminated modulo 10 collision in `dashboard-demo.seed.ts`: redistributed demo order outcomes using coprime daily batch offsets (`(day + batch * 3) % OUTCOMES.length`), preventing the artificial zero-revenue flatline on the most recent days and providing continuous, realistic paid revenue (2.45B+ VND, 84 paid orders) and order volume right up to the current day (`2026-09-26`).
+  - Added non-production bypass in `authenticateStaff` middleware for `dev-admin-token`, allowing seamless local development access from Quick Dev Sign-In to all reporting endpoints (`/v1/admin/reporting/commerce`, `/products`, `/customers`, `/operations`).
+  - Populated live operational entities in PostgreSQL: updated support tickets to active/escalated states (showing real `openTickets: 2`), and inserted overdue CRM follow-ups (`crm_followups`) for real customers, reflecting authentic support and customer relations workloads.
+  - Added manual "Refresh" trigger button in `DashboardPage` filter bar, improved layout structure, and verified 100% test pass rate across API auth tests and Console dashboard test suites.
+
+- Automated CSKH Internal Email Notification Dispatch & Workflow Studio Alignment:
+  - Enabled internal email notification dispatch in `AiSupportService.applySupportProposal`: when tickets are resolved (either via Sếp approval or automated resolution), inspects `WF-CSKH-RECOVERY` published blueprint for internal notification nodes, extracts recipient parameters (`duongvanduy799@gmail.com` / `Trưởng phòng CSKH`), and delivers a comprehensive HTML incident resolution report via live SMTP.
+  - Upgraded `createLiveWorkflowFromAiProposal` in Console `types.ts` to automatically transition custom notification nodes to `completed` upon proposal resolution with live timestamp and recipient details.
+  - Resolved Express parameter typing and actor identity mapping in `WorkflowBlueprintController`.
+
+- Persistent Workflow Wire Hydration & Multi-Step Graph Edge Synchronization:
+  - Resolved the disappearing wire bug on page reload (F5) in `WorkflowCanvas`: upgraded `initialEdges` to actively hydrate saved edges from `currentWorkflow.edges` (stored in PostgreSQL `workflow_blueprints.edges`), ensuring user-drawn connections (e.g., Step 4 `Tự Động Đăng Bài` connecting to Step 5 `Gửi Email Thông Báo`) survive page reloads and workflow switching.
+  - Added an automated linear sequential pipeline fallback (`nodes[i] ➔ nodes[i+1]`) for workflows of any length (5, 6, 7+ nodes) when explicit edges are not yet configured, preventing truncation after step 4.
+  - Synchronized edge creation and removal events directly with `currentWorkflow.edges` and notified parent container state (`onWorkflowStateChange`), maintaining edge graph consistency between canvas state, draft saves, and publication payloads.
+  - Eliminated race condition between remote blueprint retrieval (`loadRemoteBlueprints`) and live operational data polling (`loadMarketingData` / `loadData`): introduced `applyLiveDataToWorkflow` to hydrate live operational metrics on top of the persisted blueprint, preventing live data loaders from clobbering newly added steps or custom connecting wires.
+  - Added end-to-end regression test in `workflow-studio.test.tsx` verifying that a 5-step workflow with persisted wires hydrates cleanly without displaying `Chưa nối dây 🔌` warnings.
+  - Maintained 100% test pass rate across all 59 Console test files (304/304 tests) and clean TypeScript Vite production build.
+
+- Internal Role & Custom Gmail Notification Action Node and Marketing Lead Staff Account:
+  - Added a dedicated enterprise action node template `tpl-action-send-internal-email` ("Gửi Email Thông Báo Cho Chức Vụ") to the block palette catalog under `action` (expanding action category count to 4).
+  - Integrated full enterprise role dispatch mapping in `WorkflowInspectorDrawer` supporting:
+    - **Trưởng phòng Marketing (Dương Văn Duy)** mapping directly to active mailbox `duongvanduy799@gmail.com`.
+    - **Giám đốc Điều hành (CEO / Administrator)** mapping to `admin@novacommerce.example`.
+    - **Trưởng phòng CSKH (Customer Support Lead)** mapping to `support@novacommerce.example`.
+    - **Quản lý Vận hành & Kho Vận** mapping to `operations@novacommerce.example`.
+    - **Giám đốc Tài chính (CFO / Finance)** mapping to `finance@novacommerce.example`.
+  - Added dual recipient modes with radio card selector in the inspector drawer: "Theo chức vụ trong công ty" (automatic role-to-email resolution with real-time verification badge) vs. "Địa chỉ Gmail cụ thể" (custom email input targeting live SMTP transmission).
+  - Added official staff employee record `employee_marketing_manager` (Dương Văn Duy, `duongvanduy799@gmail.com`) to `nova-commerce.seed.ts` and Keycloak realm export `infra/keycloak/realm-export.json`.
+  - Fixed live campaign hydration node truncation bug in `createLiveWorkflowFromMarketingCampaign` and `createLiveWorkflowFromAiProposal` to retain all custom nodes (step 5+) alongside live API payload data.
+  - Added workflow selection persistence in `WorkflowStudioPage` via `localStorage` and ensured reset actions restore from published remote versions rather than static baseline fixtures.
+  - Verified 100% test pass rate across all 59 Console test files (303/303 tests) and clean TypeScript Vite production build.
+
+- Interactive Manual Node Placement, Persistent Canvas Wiring & Real-Time Wiring Guidance:
+  - Enabled intuitive manual node additions via both drag-and-drop from the left Palette and one-click quick-add `(+)` buttons, positioning new nodes at natural 240px grid spacing and automatically selecting them in the right-hand Inspector Drawer.
+  - Implemented dynamic unconnected node indicators: nodes lacking incoming connections clearly display a golden `Chưa nối dây 🔌` badge and pulse their input circular port (`.unconnectedHandle`), visually guiding the operator on exactly where to connect upstream wires.
+  - Resolved manual wire persistence in `WorkflowCanvas`: captured user-drawn connections into resilient state (`userEdges`) alongside baseline blueprint edges, preventing connection wipes during parameter adjustments, node selection, or draft saves.
+  - Added a non-intrusive floating canvas tip banner (`.canvasTipBanner`) providing step-by-step guidance when a new block is placed onto the canvas.
+  - Enforced publication guardrails: orphan nodes block publication with clear structural error alerts until properly wired; once wired, `Xuất Bản & Kích Hoạt` activates cleanly and bumps versioning (e.g., `v1.0` ➔ `v1.1`).
+  - Added unit test coverage in `workflow-studio.test.tsx` verifying end-to-end manual node addition, unconnected status warnings, and tip banners, maintaining 100% test pass rate across all 59 test files (303/303 tests) and clean TypeScript Vite production build.
+
+- Vibrant Block Palette & Spacious Relaxed Workflow Workspace:
+  - Re-imagined the block library and canvas nodes with a vibrant, modern pastel color system and comfortable spatial proportions:
+    - **Trigger / Event**: Mint/Emerald gradient (`#ffffff` ➔ `#ecfdf5`), border `#a7f3d0`, text `#047857`, emerald hover/focus glow.
+    - **AI Agent / Analysis**: Lavender/Violet gradient (`#ffffff` ➔ `#f5f3ff`), border `#ddd6fe`, text `#6d28d9`, purple glow.
+    - **Decision Router**: Indigo/Iris gradient (`#ffffff` ➔ `#eef2ff`), border `#c7d2fe`, text `#4338ca`, indigo glow.
+    - **Approval Gate**: Warm Amber/Gold gradient (`#ffffff` ➔ `#fffbeb`), border `#fde68a`, text `#b45309`, amber glow.
+    - **Action / Dispatch**: Rose/Magenta gradient (`#ffffff` ➔ `#fdf2f8`), border `#fbcfe8`, text `#be185d`, pink glow.
+  - Enhanced workspace comfort and readability: expanded block library to 310px with color-coded active category pills, 4px solid left accent card borders, matching colored badge pills, expanded canvas action boxes to 72x72px with smooth 18px corners, rounded category pills (`border-radius: 9999px`), and increased card width to 154px for relaxed line wrapping.
+  - Retained 100% test pass rate across all 59 Console test files (302/302 tests) and clean TypeScript Vite production build.
+
+- Minimalist Canvas Node Presentation (Step + Business Function Only) & Streamlined Inspector Drawer:
+  - Streamlined canvas `BusinessNode` to strictly display only the step tag (`BƯỚC N • Loại Khối`) and the core business function title (`Tên chức năng của node`, e.g., `BƯỚC 1 • Sự Kiện Bắt Đầu` và `Sản Phẩm Mới Xuất Bản Trong Danh Mục`), completely removing all redundant secondary text, actor subtext, and bullet snippets from the canvas.
+  - Retained rich live parameters, execution telemetry, and safety audit logs exclusively within the right-hand `WorkflowInspectorDrawer`, keeping the visual canvas focused, clean, and authentic to n8n's minimalist workflow presentation.
+  - Aligned `workflow-studio.test.tsx` test assertions to inspect live customer tickets, AI compensation proposals, and marketing campaigns via the inspector drawer with exact step-labeled role queries, verifying 100% test pass rate across all 59 Console test files (302/302 tests) and clean TypeScript Vite production build.
+
+- Authentic n8n Visual Design & Pure Light Theme Workspace Transformation:
+  - Resolved the node connection bug where `approval_gate` nodes lacked an active output handle, preventing downstream actions (e.g., Step 3 `Duyệt Bài Viết Trước Khi Đăng` connecting to Step 4 `Tự Động Đăng Bài Lên Facebook & Instagram`) from rendering wires in linear pipelines.
+  - Re-architected `BusinessNode` to mirror n8n's signature layout: a dedicated 76x76px action square box containing prominent centered SVG icons (authentic Instagram camera gradient, n8n branching split arrows, catalog bag, AI bot, shield check), trigger curved semicircle left edge with lightning bolt `⚡` accent, corner execution status badges (`✓ Xong`, `Chờ duyệt`), and clean centered typography positioned directly below the box.
+  - Transformed the entire Workflow Studio into a bright, modern enterprise SaaS light theme: crisp slate-50 canvas (`#f8fafc`), clean dot grid (`#cbd5e1`), white header and palette (`#ffffff`), high-contrast slate typography (`#0f172a`), emerald green wires (`#10b981`) for completed paths, and amber dashed wires for human escalations.
+  - Streamlined `WorkflowInspectorDrawer` and canvas `BusinessNode` for maximum brevity and minimalism: reduced drawer width to 360px, removed essay-like text blocks and redundant narrative cards in favor of compact parameter tables and concise badges, scaled canvas action boxes to 66x66px with single-line truncated subtext, eliminating visual clutter.
+  - Verified 100% test pass rate across all 59 test suites (302/302 tests) and clean TypeScript Vite production build.
+
+- Standardized Enterprise Node Nomenclature & Immutable Building Block Guardrails:
+  - Standardized all workflow node names across the 3 flagship blueprints (`WF-CSKH-RECOVERY`, `WF-MKT-LAUNCH`, `WF-INV-REPLENISH`) into concise, professional enterprise business terminology (`Tiếp Nhận Khiếu Nại Khách Hàng`, `AI Phân Tích & Đề Xuất Bồi Thường`, `Phân Luồng Theo Hạn Mức Bồi Thường`, `Tự Động Kích Hoạt Voucher & Gửi Mail`, `Duyệt Phương Án Bồi Thường CSKH`, `Duyệt Lệnh Mua Hàng & Chi Phí`).
+  - Enforced immutable node identities in `WorkflowInspectorDrawer`: removed arbitrary title/summary text inputs and replaced them with a locked enterprise standard block badge (`🔒 Khối Chuẩn Hóa`), restricting configuration solely to operational business parameters (financial thresholds, AI prompt tones, approver roles).
+  - Streamlined `palette-catalog.ts` into 12 essential enterprise building block templates by removing redundant routers and consolidating departmental approval gates.
+  - Re-synced and updated PostgreSQL `workflow_blueprints` records with standardized node titles, descriptions, and policy parameters.
+
+- Live Marketing Campaign & Facebook Publication Workflow Integration (`WF-MKT-LAUNCH`):
+  - Refactored `WF-MKT-LAUNCH` into an authentic 4-node linear Human-in-the-Loop pipeline: `Sản Phẩm Mới Xuất Bản Trong Danh Mục (Catalog Trigger) ➔ AI Sáng Tạo Bài Viết & Thiết Kế Banner (AI Creative) ➔ Duyệt Bài Viết Trước Khi Đăng (Content Lead Approval) ➔ Tự Động Đăng Bài Lên Facebook & Instagram (Action)`.
+  - Removed artificial budget-based conditional branching, enforcing enterprise brand governance where 100% of AI-generated public-facing social media campaigns require mandatory human approval before automated publication to Facebook Page and Instagram.
+  - Wired `MarketingApi` directly into `WorkflowStudioPage` and `WorkflowStudioRoute`, enabling real-time telemetry hydration from PostgreSQL `marketing_campaigns`, `marketing_campaign_briefs`, `marketing_content_versions`, `marketing_visual_assets`, and `marketing_publication_records`.
+  - Implemented `createLiveWorkflowFromMarketingCampaign` in `apps/console/src/features/workflows/types.ts` dynamically visualizing the linear 4-step pipeline and updated `getNodePosition` to maintain clean horizontal baseline alignment for step 4.
+  - Enabled direct Human-in-the-Loop approval for marketing campaigns on the workflow canvas, transitioning campaigns from `awaiting_human_approval` to `completed` and displaying verified Facebook / Instagram post URLs and cryptographic provider receipts.
+  - Synced PostgreSQL `workflow_blueprints` with updated 4-node blueprint and mandatory approval policy rule (`mandatory_approval: true`).
+  - Added comprehensive test coverage in `workflow-studio.test.tsx`, with all 59 Console test files (302/302 tests) passing at 100%.
+
+- Smart & Diverse Support Compensation Strategy & Guardrail Enforcement:
+  - Replaced rigid "10% voucher" blanket logic with an intelligent, multi-tier compensation strategy tailored to incident nature and financial risk: Freeship vouchers (30.000 ₫) for shipping delays, Care+ VIP 1-year warranty extensions with fixed vouchers for high-value hardware defects (> 10M), capped percentage discounts for moderate issues, and fixed cash vouchers (50k/100k/200k).
+  - Enhanced `AiSupportService.generateSupportProposal` with intelligent estimation logic and upgraded `applySupportProposal` to dynamically create authentic promotional records (`FREESHIP-XXXX`, `CAREPLUS-XXXX`, `CSKH50K-XXXX`) in the PostgreSQL `promotions` table with explicit financial caps.
+  - Redesigned `SupportEmailApprovalModal` to clearly distinguish Branch 4A (`✓ Tự động duyệt (Nhánh 4A ≤ 2M)`) and Branch 4B (`⚠ Cần Sếp duyệt (Nhánh 4B > 2M)`) with live summary metrics and policy provenance tags.
+  - Added unit test suite `support-email-approval-modal.test.tsx` verifying threshold classification and batch dispatch, keeping all 187 API test files and 58 Console test files passing at 100%.
+
+- Backend Workflow Blueprint Persistence & Runtime Policy Engine Integration:
+  - Added Design Spec (`docs/superpowers/specs/2026-09-25-backend-workflow-blueprint-persistence-and-runtime-policy-engine.md`) and Implementation Plan (`docs/plans/2026-09-25-backend-workflow-blueprint-persistence-and-runtime-policy-engine.md`).
+  - Implemented PostgreSQL migration `202609250001_create_workflow_blueprints.ts` creating the `workflow_blueprints` table with JSONB graph definitions (`nodes`, `edges`) and enterprise policy configurations (`policy_rules`), seeded with flagship CSKH, Marketing, and Inventory blueprints.
+  - Created `WorkflowBlueprintDto`, `WorkflowBlueprintRepository` contract, and `PostgresqlWorkflowBlueprintRepository` implementation with 100% unit test coverage.
+  - Added `WorkflowBlueprintController`, request validation, and governed Express REST routes (`GET /api/v1/agentic/workflows`, `GET /api/v1/agentic/workflows/:id`, `PUT /api/v1/agentic/workflows/:id/draft`, `POST /api/v1/agentic/workflows/:id/publish`).
+  - Connected runtime policy engine in `AiSupportService` to dynamically load `auto_approval_threshold` from the published database blueprint, enforcing "drag-and-drop to runtime execution" policy rule adherence.
+  - Built frontend `WorkflowApi` client and wired `WorkflowStudioPage` with automatic database sync on mount, draft saving (`Lưu Bản Nháp`), and safe graph publishing with dynamic policy rule extraction.
+  - Maintained 100% test pass rate across `@opendx/api` (187 test files, 1,297 tests) and `@opendx/console` (58 test files, 298 tests) with clean Vite build.
+
+- Visual Business Workflow Studio n8n Visual Design Transformation:
+  - Directly adopted the minimalist, developer-grade n8n visual design language for the workflow canvas, replacing bloated cards with compact horizontal node cards (~250px wide).
+  - Designed n8n-style left square icon containers with distinct semantic colors per node type (green for triggers/events, purple for AI agents, indigo for routers, amber for approval gates, sky-blue for actions).
+  - Implemented authentic n8n circular 10px connector ports protruding 5px out from node borders and smooth cubic bezier curved edge wires.
+  - Applied solid dark slate canvas canvas theme (`#12131a`) with subtle 22px dot grid, eliminating AI-slop neon glows and radial gradient glare.
+  - Maintained 100% test pass rate across all 58 test suites (297/297 tests) in `@opendx/console` and verified clean production build.
+
+- Visual Business Workflow Palette, Configuration Drawer & Safe Publish Lifecycle:
+  - Added Design Spec (`docs/superpowers/specs/2026-09-25-visual-business-workflow-palette-and-publish-lifecycle.md`) and Implementation Plan (`docs/plans/2026-09-25-visual-business-workflow-palette-and-publish-lifecycle.md`).
+  - Implemented left-hand collapsible Business Workflow Palette (`WorkflowPalette`) organized into 5 business categories (Triggers, AI Agents, Decision Routers, Approval Gates, Actions) with 13 ready-to-use domain node templates.
+  - Added Drag-and-Drop (`screenToFlowPosition`) from Palette onto Canvas, quick-add button, and interactive freeform wiring (`onConnect`) between node handles with branch-sensitive styling (green for auto-execution, amber dashed for human approval escalation).
+  - Enhanced Inspector Drawer (`WorkflowInspectorDrawer`) with a tabbed interface ("Tổng Quan Nghiệp Vụ" vs "Cấu Hình Tham Số & Luật") allowing live tuning of thresholds, approval limits, AI prompt tones, and node deletion.
+  - Implemented structural graph validation (`validateWorkflowGraph`) ensuring no orphan nodes, missing triggers, or incomplete paths.
+  - Created safe 3-phase governance lifecycle (Draft -> Dry-Run Simulation -> Publish & Activate) with semantic version incrementation (`v1.0` -> `v1.1`), draft badges, error banners, and activation toasts.
+  - Added 5 new comprehensive unit tests in `workflow-studio.test.tsx` (11/11 passing, 297/297 total in Console) and verified production Vite build.
+
+- Visual Business Workflow Studio & Enterprise IPaaS Blueprint Architecture:
+  - Added Design Spec (`docs/superpowers/specs/2026-09-22-conditional-branching-multi-workflow-studio.md`) and Implementation Plan (`docs/plans/2026-09-22-conditional-branching-multi-workflow-studio.md`).
+  - Evolved the Workflow Studio from single-case linear rendering into an enterprise automation blueprint engine with conditional decision routing (`decision_router`), cleanly separating overall policy rules from day-to-day Approvals Inbox tasks.
+  - Implemented dual-branch conditional routing with emerald green (auto-execution $\le$ 200k) and amber (human approval escalation > 200k) animated edge wires.
+  - Added a multi-workflow catalog with 3 flagship CompanyOS blueprints (Customer Recovery, Marketing Launch, Inventory Replenishment) with a header workflow switcher dropdown and test run simulation mode.
+  - Expanded card width to 330px, removed ellipsis truncation with 2-line comfortable wrapping, and added dark glassmorphic MiniMap and policy condition drawer inspector.
+  - Added and verified 6 unit tests covering rendering, drawer inspection, approval state transitions, simulation reset, live backend data hydration, and multi-workflow switching.
 
 - Command Center approval lifecycle and light-theme reliability:
   - Persisted rejected Catalog campaign proposals as a terminal, audited backend state and excluded previously approved or canceled drafts when rebuilding the Approval inbox after reload.

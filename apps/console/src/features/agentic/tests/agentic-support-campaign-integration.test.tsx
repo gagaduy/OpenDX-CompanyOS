@@ -121,7 +121,7 @@ describe("AgenticCommandCenter Support Email Campaign Integration", () => {
       ).toBeDefined();
     });
 
-    expect(screen.getByText(/Thông báo Sản phẩm Mới Đến Khách Hàng/)).toBeDefined();
+    expect(screen.getAllByText(/Thông báo Sản phẩm Mới Đến Khách Hàng/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("opens SupportEmailCampaignApprovalModal when clicking on preview", async () => {

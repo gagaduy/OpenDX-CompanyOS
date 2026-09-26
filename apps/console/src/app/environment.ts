@@ -4,11 +4,11 @@
 import { z } from "zod";
 
 const consoleEnvironmentSchema = z.object({
-  VITE_API_BASE_URL: z.url(),
-  VITE_OIDC_AUTHORITY: z.url(),
-  VITE_OIDC_CLIENT_ID: z.string().trim().min(1),
-  VITE_OIDC_REDIRECT_URI: z.url(),
-  VITE_OIDC_POST_LOGOUT_REDIRECT_URI: z.url(),
+  VITE_API_BASE_URL: z.url().default("http://localhost:4000"),
+  VITE_OIDC_AUTHORITY: z.url().default("http://localhost:8081/realms/opendx"),
+  VITE_OIDC_CLIENT_ID: z.string().trim().min(1).default("opendx-console"),
+  VITE_OIDC_REDIRECT_URI: z.url().default("http://localhost:3000/auth/callback"),
+  VITE_OIDC_POST_LOGOUT_REDIRECT_URI: z.url().default("http://localhost:3000/sign-in"),
 });
 
 export interface ConsoleEnvironment {

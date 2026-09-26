@@ -527,6 +527,18 @@
         { "type": "password", "value": "opendx_agentic_governance_reviewer_change_me", "temporary": false }
       ],
       "realmRoles": ["agentic_governance_admin"]
+    },
+    {
+      "username": "duongvanduy799@gmail.com",
+      "email": "duongvanduy799@gmail.com",
+      "firstName": "Dương Văn",
+      "lastName": "Duy (Marketing Lead)",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "opendx_marketing_change_me", "temporary": false }
+      ],
+      "realmRoles": ["catalog_manager", "executive_viewer", "agentic_operator", "agentic_approver"]
     }
   ]
 }

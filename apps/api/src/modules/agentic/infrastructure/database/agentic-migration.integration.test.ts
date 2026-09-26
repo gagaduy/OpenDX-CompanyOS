@@ -55,6 +55,7 @@ const tables = [
   "agentic_department_schedule_occurrences",
   "agentic_department_schedule_commands",
   "agentic_command_activity_events",
+  "workflow_blueprints",
 ] as const;
 
 suite("Agent governance migration", () => {

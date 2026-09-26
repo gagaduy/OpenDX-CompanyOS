@@ -344,11 +344,28 @@ export const parseAcceptedOrchestrationResult = (value: unknown) => parse(accept
 export const parseCollaborationRequest = (value: unknown) => parse(collaborationRequest, value);
 export const parseExecutiveReport = (value: unknown) => parse(executiveReport, value);
 export const parseSynthesisContext = (value: unknown) => parse(synthesisContext, value);
+export const parseOrchestrationSettlementKind = (value: unknown) =>
+  parse(z.enum(["plan", "result", "report"]), value);
 export const parseFileAction = (value: unknown) => parse(fileAction, value);
 export const parseFileApproval = (value: unknown) => parse(fileApproval, value);
 export const parseIdempotencyKey = (value: unknown) => parse(idempotencyKey, value);
-export const parseOrchestrationSettlementKind = (value: unknown) =>
-  parse(z.enum(["plan", "result", "report"]), value);
+const saveWorkflowDraft = z.object({
+  nodes: z.array(z.unknown()).optional(),
+  edges: z.array(z.unknown()).optional(),
+  policyRules: z.record(z.string(), z.unknown()).optional(),
+  description: z.string().trim().max(2000).optional(),
+  targetOutcome: z.string().trim().max(2000).optional(),
+}).strict();
+
+const publishWorkflow = z.object({
+  nodes: z.array(z.unknown()),
+  edges: z.array(z.unknown()),
+  policyRules: z.record(z.string(), z.unknown()).optional(),
+  version: z.string().trim().max(16).optional(),
+}).strict();
+
+export const parseSaveWorkflowDraft = (value: unknown) => parse(saveWorkflowDraft, value);
+export const parsePublishWorkflow = (value: unknown) => parse(publishWorkflow, value);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   try { return schema.parse(value); }

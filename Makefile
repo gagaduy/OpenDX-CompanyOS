@@ -3,7 +3,7 @@
 
 COMPOSE_ENV := $(if $(wildcard .env),--env-file .env,)
 COMPOSE := docker compose $(COMPOSE_ENV) -f infra/docker/docker-compose.yml
-REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+REPO_ROOT := $(CURDIR)
 export BACKUP
 
 .PHONY: help up down logs check check-fast check-crm-support-dashboard check-agentic-workflow check-agentic-workflow-recovery check-agentic-department-tools check-agentic-model-runtime check-openrouter-live temporal-cli db-migrate db-rollback db-seed db-backup db-restore

@@ -19,6 +19,7 @@ import {
   ScrollText,
   Sun,
   Users,
+  Workflow,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ function readInitialConsoleTheme(): ConsoleTheme {
 }
 
 const routeTitles = [
+  ["/agentic/workflows", "Workflow Studio"],
   ["/agentic/audit", "Agentic Audit"],
   ["/agentic/employees", "Digital Employees"],
   ["/agentic/approvals", "Approval Inbox"],
@@ -119,6 +121,7 @@ export function ConsoleShell() {
       label: "Digital Workforce",
       items: [
         { to: "/agentic/tasks", label: "Tasks", icon: Bot, visible: canReadAgenticTasks },
+        { to: "/agentic/workflows", label: "Workflows", icon: Workflow, visible: canReadAgenticTasks },
         { to: "/agentic/approvals", label: "Approvals", icon: ClipboardCheck, visible: canReadAgenticTasks },
         { to: "/agentic/employees", label: "Employees", icon: Users, visible: canReadAgenticEmployees },
         { to: "/agentic/audit", label: "Audit", icon: ScrollText, visible: canReadAgenticAudit },

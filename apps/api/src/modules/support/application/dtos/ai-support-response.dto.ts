@@ -13,6 +13,8 @@ export interface AiSupportTicketItemDto {
   readonly proposedResponse: string;
   readonly suggestedCompensation: string;
   readonly priority: "urgent" | "high" | "normal" | "low";
+  readonly estimatedCompensationAmount?: number;
+  readonly requiresApproval?: boolean;
 }
 
 export interface AiSupportVipCustomerDto {

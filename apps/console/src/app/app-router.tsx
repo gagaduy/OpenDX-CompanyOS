@@ -26,6 +26,7 @@ import { PaymentOperationsPage } from "../features/payments/pages/payment-operat
 import { createSupportOperationsApi, SupportPage, TicketDetailPage } from "../features/support";
 import { AgenticApprovalsPage, AgenticAuditPage, AgenticCommandCenterPage, AgenticEmployeeDetailPage, AgenticEmployeesPage, AgenticTaskDetailPage, AgenticTaskIntakePage, AgenticTasksPage, createAgenticApi, type AgentKind } from "../features/agentic";
 import { createMarketingApi, MarketingCampaignListPage, MarketingCampaignDetailPage, SocialOAuthCallbackPage } from "../features/marketing";
+import { WorkflowStudioPage, createWorkflowApi } from "../features/workflows";
 import { ConsoleShell } from "./console-shell";
 
 export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBaseUrl?: string }) {
@@ -57,6 +58,7 @@ export function AppRouter({ apiBaseUrl = "http://localhost" }: { readonly apiBas
           <Route path="/agentic/tasks-table" element={<AgenticRoute apiBaseUrl={apiBaseUrl} table />} />
           <Route path="/agentic/tasks/new" element={<AgenticRoute apiBaseUrl={apiBaseUrl} intake />} />
           <Route path="/agentic/tasks/:taskId" element={<AgenticRoute apiBaseUrl={apiBaseUrl} detail />} />
+          <Route path="/agentic/workflows" element={<WorkflowStudioRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/agentic/approvals" element={<AgenticApprovalRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/agentic/employees" element={<AgenticEmployeeRoute apiBaseUrl={apiBaseUrl} />} />
           <Route path="/agentic/employees/:agentKind" element={<AgenticEmployeeRoute apiBaseUrl={apiBaseUrl} detail />} />
@@ -198,4 +200,13 @@ function DashboardRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
   const { session } = useAuth();
   const api = useMemo(() => createDashboardApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
   return <StaffRoleRoute allowed={["administrator", "executive_viewer"]}><DashboardPage api={api} /></StaffRoleRoute>;
+}
+
+function WorkflowStudioRoute({ apiBaseUrl }: { readonly apiBaseUrl: string }) {
+  const { session } = useAuth();
+  const supportApi = useMemo(() => createSupportOperationsApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const workflowApi = useMemo(() => createWorkflowApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const marketingApi = useMemo(() => createMarketingApi(apiBaseUrl, session?.accessToken ?? ""), [apiBaseUrl, session?.accessToken]);
+  const readers = ["administrator", "agentic_operator", "agentic_approver", "agentic_governance_admin", "agentic_auditor"] as const;
+  return <StaffRoleRoute allowed={readers}><WorkflowStudioPage supportApi={supportApi} workflowApi={workflowApi} marketingApi={marketingApi} /></StaffRoleRoute>;
 }

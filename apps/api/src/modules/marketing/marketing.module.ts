@@ -202,6 +202,7 @@ export function createMarketingModule(options: MarketingModuleOptions): Marketin
     marketingRepository: repository,
     publisherRegistry,
     assetStorageReader: options.assetStorageReader,
+    database: options.database,
     now: options.now,
     generateId: options.generateId,
     defaultWorkerId: options.workerId,
