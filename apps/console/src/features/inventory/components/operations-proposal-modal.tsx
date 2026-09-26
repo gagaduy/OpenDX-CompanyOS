@@ -274,7 +274,29 @@ export function OperationsProposalModal({
                   <tr key={item.variantId}>
                     <td className="ccOperationsSkuCell">{item.sku}</td>
                     <td>
-                      <div className="ccOperationsProductName">{item.productName}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                        <div className="ccOperationsProductName">{item.productName}</div>
+                        {item.recentUnitsSold7d !== undefined && (
+                          <span
+                            className="ccOperationsVelocityBadge"
+                            title="Số lượng đã bán trong 7 ngày qua"
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: 600,
+                              padding: "0.15rem 0.4rem",
+                              borderRadius: "4px",
+                              background: "rgba(245, 158, 11, 0.15)",
+                              color: "#fbbf24",
+                              border: "1px solid rgba(245, 158, 11, 0.3)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            🔥 Đã bán 7 ngày: {item.recentUnitsSold7d}
+                          </span>
+                        )}
+                      </div>
                       <div className="ccOperationsActionRationale">{item.actionRationale}</div>
                     </td>
                     <td style={{ textAlign: "center" }} className="ccOperationsCountCell">

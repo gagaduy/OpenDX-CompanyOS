@@ -43,7 +43,7 @@ suite("Support migration", () => {
     await runCheckoutMigrations(databaseUrl!, "up"); await runOrderMigrations(databaseUrl!, "up"); await runPaymentMigrations(databaseUrl!, "up");
     await runCrmMigrations(databaseUrl!, "up"); await runSupportMigrations(databaseUrl!, "up");
 
-    const tables = ["support_tickets", "support_ticket_messages", "support_ticket_events", "support_attachments", "support_audit_events"];
+    const tables = ["support_tickets", "support_ticket_messages", "support_ticket_events", "support_attachments", "support_audit_events", "support_ai_proposal_decisions"];
     expect((await pool.query<{ table_name: string }>("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[]) ORDER BY table_name", [tables])).rows.map(({ table_name }) => table_name)).toEqual([...tables].sort());
     const constraints = (await pool.query<{ constraint_name: string }>("SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = 'public' AND table_name = ANY($1::text[])", [tables])).rows.map(({ constraint_name }) => constraint_name);
     expect(constraints).toEqual(expect.arrayContaining(["support_tickets_priority_check", "support_tickets_status_check", "support_tickets_version_check", "support_tickets_sla_check", "support_ticket_messages_body_check", "support_ticket_events_status_check", "support_attachments_status_check", "support_attachments_bytes_check"]));
@@ -62,6 +62,11 @@ suite("Support migration", () => {
     expect((await pool.query("SELECT to_regclass('public.support_tickets') AS name")).rows[0]).toEqual({ name: null });
     await runSupportMigrations(databaseUrl!, "up");
     expect((await pool.query("SELECT to_regclass('public.support_tickets') AS name")).rows[0]).toEqual({ name: "support_tickets" });
+    await pool.query("INSERT INTO support_ai_proposal_decisions (id, proposal_id, actor_id) VALUES (gen_random_uuid(), 'proposal-immutable', 'staff-1')");
+    await expect(pool.query("UPDATE support_ai_proposal_decisions SET actor_id = 'staff-2' WHERE proposal_id = 'proposal-immutable'"))
+      .rejects.toMatchObject({ code: "P0001" });
+    await expect(pool.query("DELETE FROM support_ai_proposal_decisions WHERE proposal_id = 'proposal-immutable'"))
+      .rejects.toMatchObject({ code: "P0001" });
   });
 
   it("enforces ticket lifecycle, append-only histories, and attachment tombstones", async () => {

@@ -89,6 +89,30 @@ describe("OperationsProposalModal", () => {
     expect(screen.getByText("CABLE-C-03")).toBeInTheDocument();
   });
 
+  it("renders 7-day sales velocity badge when recentUnitsSold7d is provided", () => {
+    const proposalWithVelocity: OperationsProposal = {
+      ...mockProposal,
+      items: [
+        {
+          ...mockProposal.items[0],
+          recentUnitsSold7d: 14,
+        },
+      ],
+    };
+
+    render(
+      <OperationsProposalModal
+        isOpen={true}
+        proposal={proposalWithVelocity}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+        onDownloadDocx={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Đã bán 7 ngày: 14/i)).toBeInTheDocument();
+  });
+
   it("filters items by risk classification tabs", async () => {
     const user = userEvent.setup();
     render(

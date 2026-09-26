@@ -183,5 +183,36 @@ describe("ProductMediaService", () => {
       message: "Product media content not found in storage",
     });
   });
+
+  it("falls back to product seed image if campaign media is missing from storage", async () => {
+    const campaignMedia: ProductMedia = {
+      ...media,
+      id: "media_campaign",
+      objectKey: "campaigns/camp_123/product_overlay.webp",
+      contentType: "image/webp",
+    };
+    const { service, storage, repository } = fixture({
+      repository: {
+        findById: vi.fn(async () => campaignMedia),
+      },
+    });
+    const seedPng = Buffer.from("fake-seed-png");
+    storage.get = vi.fn(async (key: string) => {
+      if (key === campaignMedia.objectKey) {
+        const error: any = new Error("NoSuchKey");
+        error.code = "NoSuchKey";
+        throw error;
+      }
+      if (key === `seed/catalog/${product.slug}.png`) {
+        return seedPng;
+      }
+      throw new Error("Unexpected key");
+    });
+
+    const result = await service.getContent(product.id, campaignMedia.id);
+    expect(result.contentType).toBe("image/png");
+    expect(result.bytes).toEqual(seedPng);
+    expect(storage.get).toHaveBeenCalledWith(`seed/catalog/${product.slug}.png`);
+  });
 });
 

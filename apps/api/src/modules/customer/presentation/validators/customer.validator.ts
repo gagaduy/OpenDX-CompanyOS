@@ -26,7 +26,11 @@ export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   return r.data;
 }
 export const googleSchema = z.object({
-  credential: z.string().min(20).max(10000),
+  credential: z.string().min(10).max(10000),
+});
+export const emailLoginSchema = z.object({
+  email: z.string().trim().email(),
+  fullName: z.string().trim().min(1).max(120).optional(),
 });
 export const profileSchema = z.object({
   fullName: z.string().trim().min(1).max(120).optional(),

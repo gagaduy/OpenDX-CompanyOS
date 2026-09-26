@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  AiTokenUsageDto,
   OperationsReportDto,
   ProductReportDto,
   ReportingQueryRange,
@@ -269,10 +270,60 @@ export class PostgresqlReportingRepository implements ReportingRepository {
       [range.start, range.end],
     );
 
+    let aiUsage: AiTokenUsageDto | undefined;
+    try {
+      const aiResult = await this.database.query<{
+        total_tokens: string;
+        total_input_tokens: string;
+        total_output_tokens: string;
+        total_settled_cost_micros: string;
+        model_runs: string;
+        range_tokens: string;
+        range_settled_cost_micros: string;
+      }>(
+        `SELECT
+           COALESCE(SUM(input_tokens + output_tokens), 0)::text AS total_tokens,
+           COALESCE(SUM(input_tokens), 0)::text AS total_input_tokens,
+           COALESCE(SUM(output_tokens), 0)::text AS total_output_tokens,
+           COALESCE(SUM(settled_cost_micros), 0)::text AS total_settled_cost_micros,
+           COUNT(*)::text AS model_runs,
+           COALESCE(SUM(input_tokens + output_tokens) FILTER (WHERE created_at >= $1 AND created_at < $2), 0)::text AS range_tokens,
+           COALESCE(SUM(settled_cost_micros) FILTER (WHERE created_at >= $1 AND created_at < $2), 0)::text AS range_settled_cost_micros
+         FROM agentic_model_runs`,
+        [range.start, range.end],
+      );
+      if (aiResult.rows.length > 0 && aiResult.rows[0]) {
+        const row = aiResult.rows[0];
+        const totalTokens = parseSafeInteger(row.total_tokens);
+        const inputTokens = parseSafeInteger(row.total_input_tokens);
+        const outputTokens = parseSafeInteger(row.total_output_tokens);
+        const settledCostMicros = parseSafeInteger(row.total_settled_cost_micros);
+        const modelRuns = parseSafeInteger(row.model_runs);
+        const rangeTokens = parseSafeInteger(row.range_tokens);
+        const rangeSettledCostMicros = parseSafeInteger(row.range_settled_cost_micros);
+        const estimatedCostVnd = Math.round((settledCostMicros / 1_000_000) * 25400);
+        const rangeCostVnd = Math.round((rangeSettledCostMicros / 1_000_000) * 25400);
+
+        aiUsage = {
+          totalTokens,
+          inputTokens,
+          outputTokens,
+          settledCostMicros,
+          estimatedCostVnd,
+          modelRuns,
+          rangeTokens,
+          rangeCostVnd,
+        };
+      }
+    } catch {
+      // Gracefully fall back if agentic_model_runs table is not available
+    }
+
     return {
       openTickets: parseSafeInteger(result.rows[0]?.open_tickets ?? "0"),
       overdueFollowups: parseSafeInteger(result.rows[0]?.overdue_followups ?? "0"),
       slaBreaches: parseSafeInteger(result.rows[0]?.sla_breaches ?? "0"),
+      ...(aiUsage !== undefined ? { aiUsage } : {}),
     };
   }
 }

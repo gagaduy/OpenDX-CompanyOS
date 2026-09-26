@@ -14,6 +14,7 @@ import type {
   SupportTicketView,
   TicketStatus,
   AiSupportProposalView,
+  SupportEmailCampaignProposalView,
 } from "../types/support.types";
 
 export type SupportErrorCode = "UNAUTHORIZED"|"FORBIDDEN"|"STALE_VERSION"|"ALREADY_CLAIMED"|"TICKET_NOT_FOUND"|"VALIDATION_ERROR"|"ATTACHMENT_TOO_LARGE"|"ATTACHMENT_TYPE_NOT_ALLOWED"|"INVALID_RESPONSE"|"UNAVAILABLE";
@@ -27,11 +28,26 @@ export interface SupportOperationsApi {
   message(ticketId:string, body:string):Promise<SupportMessageView>;
   uploadAttachment(ticketId:string, file:File):Promise<SupportAttachmentView>;
   downloadAttachment(ticketId:string, attachmentId:string):Promise<Blob>;
-  generateSupportProposal(prompt: string): Promise<AiSupportProposalView>;
+  generateSupportProposal(input: { readonly prompt: string; readonly ticketScope?: "all_actionable" | "customer_email_pending" }): Promise<AiSupportProposalView>;
+  getLatestSupportProposal?(signal?: AbortSignal): Promise<AiSupportProposalView | null>;
   downloadSupportDocx(proposalId: string, filename: string): Promise<void>;
   applySupportProposal(proposalId: string, items: readonly { ticketId: string; responseMessage?: string; resolutionStatus?: string }[]): Promise<any>;
+  cancelSupportProposal(proposalId: string): Promise<AiSupportProposalView>;
   draftAiReply?(id: string, signal?: AbortSignal): Promise<string>;
   subscribeEvents?(ticketId: string, onEvent: (event: any) => void, signal?: AbortSignal): void;
+  createEmailCampaignProposal?(input: {
+    type: string;
+    prompt?: string;
+    targetSegment?: string;
+    productIds?: string[];
+    promotionId?: string;
+    customSubject?: string;
+  }): Promise<SupportEmailCampaignProposalView>;
+  listEmailCampaignProposals?(filter?: { status?: string; limit?: number }, signal?: AbortSignal): Promise<readonly SupportEmailCampaignProposalView[]>;
+  getEmailCampaignProposal?(proposalId: string, signal?: AbortSignal): Promise<SupportEmailCampaignProposalView>;
+  applyEmailCampaignProposal?(proposalId: string, selectedRecipientIds?: readonly string[]): Promise<any>;
+  cancelEmailCampaignProposal?(proposalId: string): Promise<SupportEmailCampaignProposalView>;
+  downloadEmailCampaignDocx?(proposalId: string, filename?: string): Promise<void>;
 }
 export function createSupportOperationsApi(baseUrl:string, accessToken:string):SupportOperationsApi {
   const request=createRequest(baseUrl,accessToken);
@@ -44,12 +60,16 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
     async message(id,body){return mapMessage(parse(supportMessageEnvelopeSchema,await request(`/v1/admin/support/tickets/${id}/messages`,{method:"POST",body:JSON.stringify({body})})).data as SupportMessageView);},
     async uploadAttachment(id,file){const body=new FormData(); body.append("file",file); return mapAttachment(parse(supportAttachmentEnvelopeSchema,await request(`/v1/admin/support/tickets/${id}/attachments`,{method:"POST",body,skipJson:true})).data as SupportAttachmentView);},
     async downloadAttachment(id,attachmentId){return requestBlob(`/v1/admin/support/tickets/${id}/attachments/${attachmentId}/content`);},
-    async generateSupportProposal(prompt: string): Promise<AiSupportProposalView> {
+    async generateSupportProposal(input: { readonly prompt: string; readonly ticketScope?: "all_actionable" | "customer_email_pending" }): Promise<AiSupportProposalView> {
       const envelope: any = await request("/v1/admin/support/tickets/ai-proposal", {
         method: "POST",
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(input),
       });
       return envelope.data as AiSupportProposalView;
+    },
+    async getLatestSupportProposal(signal?: AbortSignal): Promise<AiSupportProposalView | null> {
+      const envelope: any = await request("/v1/admin/support/tickets/ai-proposal/latest", { signal });
+      return (envelope.data as AiSupportProposalView | null) ?? null;
     },
     async downloadSupportDocx(proposalId: string, filename: string): Promise<void> {
       const response = await fetch(`${baseUrl}/v1/admin/support/tickets/ai-proposal/${proposalId}/docx`, {
@@ -72,6 +92,12 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
         body: JSON.stringify({ items }),
       });
       return envelope.data;
+    },
+    async cancelSupportProposal(proposalId: string): Promise<AiSupportProposalView> {
+      const envelope: any = await request(`/v1/admin/support/tickets/ai-proposal/${proposalId}/cancel`, {
+        method: "POST",
+      });
+      return envelope.data as AiSupportProposalView;
     },
     async draftAiReply(id: string, signal?: AbortSignal): Promise<string> {
       const envelope: any = await request(`/v1/admin/support/tickets/${id}/ai-draft`, { signal });
@@ -106,6 +132,53 @@ export function createSupportOperationsApi(baseUrl:string, accessToken:string):S
           }
         } catch {}
       })();
+    },
+    async createEmailCampaignProposal(input) {
+      const envelope: any = await request("/v1/admin/support/tickets/email-campaigns/proposals", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async listEmailCampaignProposals(filter, signal) {
+      const p = new URLSearchParams();
+      if (filter?.status) p.set("status", filter.status);
+      if (filter?.limit) p.set("limit", String(filter.limit));
+      const qs = p.toString() ? `?${p.toString()}` : "";
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals${qs}`, { signal });
+      return (envelope.data as SupportEmailCampaignProposalView[]) || [];
+    },
+    async getEmailCampaignProposal(proposalId, signal) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}`, { signal });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async applyEmailCampaignProposal(proposalId, selectedRecipientIds) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/apply`, {
+        method: "POST",
+        body: JSON.stringify({ selectedRecipientIds }),
+      });
+      return envelope.data;
+    },
+    async cancelEmailCampaignProposal(proposalId) {
+      const envelope: any = await request(`/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/cancel`, {
+        method: "POST",
+      });
+      return envelope.data as SupportEmailCampaignProposalView;
+    },
+    async downloadEmailCampaignDocx(proposalId, filename) {
+      const response = await fetch(`${baseUrl}/v1/admin/support/tickets/email-campaigns/proposals/${proposalId}/docx`, {
+        headers: { authorization: `Bearer ${accessToken}`, "x-correlation-id": crypto.randomUUID() },
+      });
+      if (!response.ok) throw new SupportApiError("UNAVAILABLE", "Failed to download DOCX deliverable.");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || `ke_hoach_email_${proposalId.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     },
   };
   function requestBlob(path:string){return fetch(`${baseUrl}${path}`,{headers:{authorization:`Bearer ${accessToken}`,"x-correlation-id":crypto.randomUUID()}}).then(async r=>{if(!r.ok)throw new SupportApiError("UNAVAILABLE","Attachment could not be downloaded."); return r.blob();});}

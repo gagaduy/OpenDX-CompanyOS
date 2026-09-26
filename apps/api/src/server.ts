@@ -6,8 +6,8 @@ import { connect } from "node:net";
 import { Router } from "express";
 import { Client } from "minio";
 import { createApiApp } from "./app";
-import { createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
-import { createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
+import { createCatalogDecisionHistoryReader, createCatalogHealthReader, createCatalogModule, createCatalogVariantReader, createPublicWishlistProductReader } from "./modules/catalog";
+import { createInventoryDecisionHistoryReader, createInventoryHealthReader, createInventoryModule } from "./modules/inventory";
 import { FileTypeProductMediaInspector, MinioProductMediaStorage } from "./modules/catalog/infrastructure/storage/minio-product-media.storage";
 import { MinioStorefrontHeroMediaStorage } from "./modules/catalog/infrastructure/storage/minio-storefront-hero-media.storage";
 import { PostgresqlCompanyOperatingCoreRepository } from "./modules/company-operating-core/infrastructure/repositories/implementations/postgresql-company-operating-core.repository";
@@ -33,9 +33,9 @@ import { createPaymentHealthReader, createPaymentModule, SePayPaymentGateway, Un
 import { createCheckoutModule } from "./modules/checkout";
 import { createCrmHealthReader, createCrmModule } from "./modules/crm";
 import { createAgenticAnalyticsReader, createReportingModule } from "./modules/reporting";
-import { createSupportHealthReader, createSupportModule } from "./modules/support";
+import { createSupportDecisionHistoryReader, createSupportHealthReader, createSupportModule } from "./modules/support";
 import { createAgenticModule, createFixedDepartmentToolAdapterRegistry } from "./modules/agentic";
-import { createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
+import { createMarketingDecisionHistoryReader, createMarketingModule, MinioMarketingArtifactStorage } from "./modules/marketing";
 import { HttpWorkflowGateway } from "./modules/agentic/infrastructure/workflows/http-workflow.gateway";
 import { BoundedAgenticFileParser } from "./modules/agentic/infrastructure/parsing/bounded-agentic-file.parser";
 import { ClamdAgenticFileScanner } from "./modules/agentic/infrastructure/security/clamd-agentic-file.scanner";
@@ -173,6 +173,12 @@ const order = createOrderModule({
   cookies: storefrontCookies,
   generateId: randomUUID,
   now: () => new Date().toISOString(),
+  onOrderPaid: (lines) => {
+    void inventory.replenishmentMonitor?.triggerScan(
+      "post_order_event",
+      lines.map((l) => l.variantId),
+    );
+  },
 });
 const paymentGateway = environment.sepay.configured
   ? new SePayPaymentGateway({
@@ -219,6 +225,8 @@ const support = createSupportModule({
   escalationIntervalMs: environment.supportEscalationIntervalSeconds * 1_000,
   attachmentScanIntervalMs: environment.supportAttachmentScanIntervalSeconds * 1_000,
   attachmentRetentionIntervalMs: environment.supportAttachmentRetentionIntervalSeconds * 1_000,
+  apiBaseUrl: process.env.API_BASE_URL || `http://localhost:${environment.apiPort}`,
+  storefrontUrl: environment.storefrontOrigin,
 });
 const reporting = createReportingModule({
   database: pool,
@@ -232,6 +240,8 @@ const marketing = createMarketingModule({
   database: pool,
   staffTokenVerifier,
   publicationConfig: environment.marketing,
+  metaAppId: environment.marketing.meta.appId,
+  metaAppSecret: environment.marketing.meta.appSecret,
   assetStorageReader: (key) => marketingStorage.read(key),
   storageWriter: (key, buffer, mediaType) => marketingStorage.write(key, buffer, mediaType),
   storageReader: (key) => marketingStorage.read(key),
@@ -255,6 +265,13 @@ const toolAdapters = createFixedDepartmentToolAdapterRegistry({
   marketingRepository: marketing.repository,
 }, currentTime, environment.agentic.controlClientSecret);
 const agentic = createAgenticModule({
+  database: pool,
+  decisionHistoryReaders: [
+    createMarketingDecisionHistoryReader(),
+    createCatalogDecisionHistoryReader(),
+    createInventoryDecisionHistoryReader(),
+    createSupportDecisionHistoryReader(),
+  ],
   transactions,
   staffTokenVerifier,
   workloadTokenVerifier,
@@ -355,6 +372,8 @@ const server = app.listen(environment.apiPort, () => {
   if (agentic.readiness !== undefined) agentic.dispatcher.start();
   agentic.fileLifecycleWorker?.start();
   marketing.publisherWorker.start();
+  marketing.autonomousSocialTokenMonitor.start();
+  inventory.replenishmentMonitor?.startHeartbeat();
 });
 
 function shutdown(signal: NodeJS.Signals): void {
@@ -372,6 +391,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
     process.exit(1);
   }, 10_000).unref();
   inventory.expiryWorker.stop();
+  inventory.replenishmentMonitor?.stopHeartbeat();
   checkout.expiryWorker.stop();
   paymentOperations.reconciliationWorker.stop();
   support.escalationWorker.stop();
@@ -379,6 +399,7 @@ async function shutdownGracefully(signal: NodeJS.Signals): Promise<void> {
   support.attachmentRetentionWorker.stop();
   support.emailPollerWorker?.stop();
   marketing.publisherWorker.stop();
+  marketing.autonomousSocialTokenMonitor.stop();
   await agentic.dispatcher.stop();
   agentic.fileLifecycleWorker?.stop();
   const closeError = await new Promise<Error | undefined>((resolve) => {

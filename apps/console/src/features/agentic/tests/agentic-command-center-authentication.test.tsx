@@ -73,5 +73,7 @@ function fakeAgenticApi(): AgenticOperationsApi {
     listEmployees: vi.fn(),
     loadEmployee: vi.fn(),
     listAudit: vi.fn(),
+    listCommandActivity: vi.fn(async () => []),
+    recordCommandActivity: vi.fn(),
   };
 }

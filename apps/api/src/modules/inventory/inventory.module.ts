@@ -17,6 +17,8 @@ import { ReservationExpiryWorker } from "./infrastructure/workers/reservation-ex
 import { InventoryController } from "./presentation/controllers/inventory.controller";
 import { createInventoryRouter } from "./presentation/routes/inventory.routes";
 import { AiOperationsService } from "./application/services/implementations/ai-operations.service";
+import { PostgresqlInventoryReplenishmentRepository } from "./infrastructure/repositories/implementations/postgresql-inventory-replenishment.repository";
+import { AutonomousReplenishmentMonitorService } from "./application/services/implementations/autonomous-replenishment-monitor.service";
 
 export interface InventoryModuleDependencies {
   readonly transactions: TransactionRunner;
@@ -65,8 +67,14 @@ export function createInventoryModule(dependencies: InventoryModuleDependencies)
     dependencies.now,
     dependencies.reservationTtlMs,
   );
+  const replenishmentRepo = dependencies.database
+    ? new PostgresqlInventoryReplenishmentRepository(dependencies.database)
+    : undefined;
   const aiOperations = dependencies.database
-    ? new AiOperationsService(dependencies.database, dependencies.now, dependencies.generateId)
+    ? new AiOperationsService(dependencies.database, dependencies.now, dependencies.generateId, replenishmentRepo)
+    : undefined;
+  const replenishmentMonitor = (aiOperations && replenishmentRepo)
+    ? new AutonomousReplenishmentMonitorService(aiOperations, replenishmentRepo)
     : undefined;
   const appendDenied = async (denied: {
     actorId: string; action: string; resourceId: string; correlationId: string;
@@ -83,7 +91,7 @@ export function createInventoryModule(dependencies: InventoryModuleDependencies)
     occurredAt: dependencies.now(),
   }));
   const router: Router = createInventoryRouter(
-    new InventoryController(service, aiOperations),
+    new InventoryController(service, aiOperations, replenishmentRepo, replenishmentMonitor),
     authenticateStaff(dependencies.staffTokenVerifier),
     appendDenied,
   );
@@ -97,5 +105,5 @@ export function createInventoryModule(dependencies: InventoryModuleDependencies)
     dependencies.expiryIntervalMs,
     dependencies.onWorkerError,
   );
-  return { router, availability: service, reservations, expiryWorker };
+  return { router, availability: service, reservations, expiryWorker, replenishmentMonitor, aiOperations };
 }

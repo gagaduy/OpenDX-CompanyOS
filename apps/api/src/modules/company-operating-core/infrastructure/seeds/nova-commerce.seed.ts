@@ -69,6 +69,12 @@ export function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
         "Customer Service Manager",
         "manager",
       ),
+      position(
+        "position_marketing_manager",
+        "department_sales",
+        "Marketing Manager",
+        "manager",
+      ),
     ],
     humanEmployees: [
       employee(
@@ -108,6 +114,14 @@ export function createNovaCommerceSnapshot(): CompanyOperatingCoreSnapshot {
         "position_cs_manager",
         "Thao Do",
         "thao.cs@novacommerce.example",
+        "employee_ceo",
+      ),
+      employee(
+        "employee_marketing_manager",
+        "department_sales",
+        "position_marketing_manager",
+        "Duong Van Duy",
+        "duongvanduy799@gmail.com",
         "employee_ceo",
       ),
     ],

@@ -31,6 +31,39 @@ describe("Agentic task transition transport", () => {
   });
 });
 
+describe("Command activity transport", () => {
+  it("accepts a source-verified historical cancellation without inventing an actor", async () => {
+    const evidence = {
+      id: "source:marketing_campaigns:campaign-1", department: "marketing", decision: "canceled",
+      resourceType: "marketing_campaign", resourceId: "campaign-1", summary: "Canceled campaign",
+      occurredAt: "2026-09-14T10:00:00.000Z", source: "business_history",
+      sourceTable: "marketing_campaigns", sourceId: "campaign-1",
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => response({ success: true, data: [evidence] })));
+    await expect(createAgenticApi("http://api.test", "staff-token").listCommandActivity()).resolves.toEqual([evidence]);
+  });
+  it("loads persisted events and records a decision with an idempotency key", async () => {
+    const event = commandActivityEvent();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ success: true, data: [event] }))
+      .mockResolvedValueOnce(response({ success: true, data: event }));
+    vi.stubGlobal("fetch", fetchMock);
+    const api = createAgenticApi("http://api.test", "staff-token");
+
+    await expect(api.listCommandActivity()).resolves.toEqual([event]);
+    await expect(api.recordCommandActivity({
+      department: "support", decision: "approved", resourceType: "support_proposal",
+      resourceId: "support-8-tickets", summary: "Đã gửi phản hồi cho 8 khách hàng.",
+    }, "support:support-8-tickets:approved")).resolves.toEqual(event);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://api.test/v1/admin/agentic/activity-events?limit=30", expect.objectContaining({ signal: undefined }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://api.test/v1/admin/agentic/activity-events", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ "idempotency-key": "support:support-8-tickets:approved" }),
+    }));
+  });
+});
+
 function response(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
@@ -41,4 +74,13 @@ function readyEnvelope() {
 
 function startEnvelope() {
   return { success: true, data: { id: "00000000-0000-4000-8000-000000000010", taskId, workflowName: "StoreHealthReviewWorkflowV1", workflowVersion: 1, planRevision: 1, temporalWorkflowId: "store-health-v1:00000000-0000-4000-8000-000000000010", state: "received", projectionSequence: 0, version: 1, createdAt: "2026-08-25T00:00:01.000Z", updatedAt: "2026-08-25T00:00:01.000Z" } };
+}
+
+function commandActivityEvent() {
+  return {
+    id: "00000000-0000-4000-8000-000000000020", actorId: "admin", department: "support" as const,
+    decision: "approved" as const, resourceType: "support_proposal" as const,
+    resourceId: "support-8-tickets", summary: "Đã gửi phản hồi cho 8 khách hàng.",
+    idempotencyKey: "support:support-8-tickets:approved", occurredAt: "2026-09-15T01:00:00.000Z",
+  };
 }

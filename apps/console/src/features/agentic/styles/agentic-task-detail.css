@@ -1,0 +1,277 @@
+/*
+ * SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.agenticTaskDetail {
+  width: min(100%, 1260px);
+  margin-inline: auto;
+  gap: 16px;
+}
+
+.agenticTaskDetail .pageHeader {
+  align-items: flex-start;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.agenticTaskDetail .pageHeader h1 {
+  max-width: 900px;
+  font-size: clamp(1.55rem, 2.4vw, 2.1rem);
+  line-height: 1.18;
+}
+
+.agenticTaskDetail .pageDescription {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.agenticExecutionSummary {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.agenticSummaryHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.agenticSummaryHeading h2,
+.agenticPanelHeader h2 {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.agenticDetailEyebrow {
+  color: var(--ink-subtle);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.agenticStateBadge,
+.agenticPanelCount,
+.agenticDepartmentState,
+.agenticBranchItem > div > span,
+.agenticTimelineMeta > span {
+  width: fit-content;
+  padding: 3px 8px;
+  color: var(--ink-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.agenticStateBadge.state-completed,
+.agenticStateBadge.state-partially_completed,
+.agenticDepartmentCard.state-completed .agenticDepartmentState {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.agenticSummaryMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.agenticSummaryMetrics > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 17px 20px;
+  border-right: 1px solid var(--hairline);
+}
+
+.agenticSummaryMetrics > div:last-child { border-right: 0; }
+.agenticSummaryMetrics dt { color: var(--ink-subtle); font-size: 0.67rem; font-weight: 650; }
+.agenticSummaryMetrics dd { margin: 0; color: var(--ink); font-size: 1rem; font-weight: 750; overflow-wrap: anywhere; }
+.agenticSummaryMetrics small { color: var(--ink-subtle); font-size: 0.65rem; }
+
+.agenticTaskActions {
+  justify-content: flex-end;
+  padding: 10px 0;
+}
+
+.agenticOperationsGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1.08fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.agenticTaskPanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.agenticPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.agenticPanelCount { white-space: nowrap; }
+
+.agenticTimeline {
+  gap: 0;
+  margin: 0;
+  padding: 8px 18px 16px;
+}
+
+.agenticTimeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.agenticTimeline li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 32px;
+  bottom: -10px;
+  width: 1px;
+  background: var(--hairline);
+}
+
+.agenticTimelineMarker {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--hairline));
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.agenticTimeline button {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.agenticTimeline button:hover,
+.agenticTimeline button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--hairline));
+  background: var(--surface-3);
+}
+
+.agenticTimelineCopy,
+.agenticTimelineMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.agenticTimelineCopy strong { color: var(--ink); font-size: 0.76rem; }
+.agenticTimelineCopy small,
+.agenticTimelineMeta time { color: var(--ink-subtle); font-size: 0.64rem; }
+.agenticTimelineMeta { align-items: flex-end; text-align: right; }
+
+.agenticDependencies {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+.agenticDependencies .agenticDepartmentCard {
+  align-content: start;
+  gap: 12px;
+  padding: 13px;
+  background: var(--surface-2);
+}
+
+.agenticDepartmentCard.state-running {
+  border-color: color-mix(in srgb, var(--primary) 38%, var(--hairline));
+}
+
+.agenticDepartmentHeader {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.agenticDepartmentHeader > div { min-width: 0; display: grid; gap: 3px; }
+.agenticDepartmentHeader strong { color: var(--ink); font-size: 0.72rem; }
+.agenticDepartmentHeader small { color: var(--ink-subtle); font-size: 0.61rem; }
+
+.agenticDepartmentIcon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--hairline));
+  border-radius: 8px;
+}
+
+.agenticDepartmentEmpty {
+  margin: 0;
+  padding: 11px;
+  color: var(--ink-subtle);
+  border: 1px dashed var(--hairline);
+  border-radius: 7px;
+  font-size: 0.66rem;
+}
+
+.agenticBranchList { display: grid; gap: 7px; }
+.agenticBranchItem { display: grid; gap: 6px; padding: 10px; background: var(--surface-1); border: 1px solid var(--hairline); border-radius: 7px; }
+.agenticBranchItem > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.agenticBranchItem > div > strong { color: var(--ink); font-size: 0.7rem; }
+.agenticBranchItem p { margin: 0; color: var(--ink-muted); font-size: 0.66rem; }
+.agenticBranchItem small { color: var(--ink-subtle); font-size: 0.6rem; overflow-wrap: anywhere; }
+
+.agenticTaskDetail .executiveReportCard { margin-top: 0; }
+
+@media (max-width: 1050px) {
+  .agenticSummaryMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .agenticSummaryMetrics > div:nth-child(2) { border-right: 0; }
+  .agenticSummaryMetrics > div:nth-child(-n + 2) { border-bottom: 1px solid var(--hairline); }
+  .agenticOperationsGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .agenticTaskDetail { gap: 12px; }
+  .agenticTaskDetail .pageHeader { gap: 14px; }
+  .agenticSummaryHeading,
+  .agenticPanelHeader { align-items: flex-start; }
+  .agenticSummaryMetrics,
+  .agenticDependencies { grid-template-columns: 1fr; }
+  .agenticSummaryMetrics > div { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .agenticSummaryMetrics > div:last-child { border-bottom: 0; }
+  .agenticTimeline button { grid-template-columns: 1fr; }
+  .agenticTimelineMeta { align-items: flex-start; text-align: left; }
+  .agenticDepartmentHeader { grid-template-columns: 34px minmax(0, 1fr); }
+  .agenticDepartmentState { grid-column: 2; }
+}

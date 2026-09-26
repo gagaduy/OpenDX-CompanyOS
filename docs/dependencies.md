@@ -49,6 +49,7 @@ Current major dependencies:
 | `express-rate-limit` | `apps/api` | Bounded abuse protection for selected customer-authentication endpoints (MIT) |
 | `oidc-client-ts` | `apps/console` | Staff Authorization Code with PKCE client (Apache-2.0) |
 | `react-router-dom` | `apps/console`, `apps/storefront` | Console and Storefront routing (MIT) |
+| `@xyflow/react` | `apps/console` | Interactive node-based drag-and-drop workflow canvas for Visual Business Workflow Studio (MIT) |
 | `@testing-library/user-event` | `apps/console`, `apps/storefront` | User-level interaction tests (MIT) |
 
 The Commerce Foundation API runs as one process, so `express-rate-limit` initially uses its

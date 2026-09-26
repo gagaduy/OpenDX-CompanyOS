@@ -27,6 +27,19 @@ export class CustomerSessionApi {
       )
     ).data;
   }
+  async loginWithEmail(email: string, fullName?: string) {
+    return (
+      await this.client.request(
+        "/v1/storefront/auth/email",
+        sessionEnvelopeSchema,
+        {
+          method: "POST",
+          headers: mutationHeaders(),
+          body: JSON.stringify({ email, fullName }),
+        },
+      )
+    ).data;
+  }
   async logout() {
     await this.client.request("/v1/storefront/logout", logoutEnvelopeSchema, {
       method: "POST",

@@ -20,6 +20,7 @@ export class OrderService implements OrderServiceContract, OrderCheckoutPort {
     private readonly generateId: () => string,
     private readonly now: () => string,
     private readonly cancellation?: PendingOrderCancellationPort,
+    private readonly onOrderPaid?: (lines: readonly { variantId: string; quantity: number }[]) => void | Promise<void>,
   ) {}
 
   async listForCustomer(customerId: string, query: OrderListQuery): Promise<OrderListResult<OrderSummaryDto>> {
@@ -165,6 +166,15 @@ export class OrderService implements OrderServiceContract, OrderCheckoutPort {
     const history = this.history(updated, aggregate.order.status, targetStatus, actorType, actorId, reasonCode, idempotencyKey, correlationId, now);
     await this.repository.appendHistory(session, history);
     await this.audit(session, orderId, actorType, actorId, "order.status.changed", correlationId, now, { previousStatus: aggregate.order.status, newStatus: targetStatus, reasonCode });
+    if (targetStatus === "paid" && this.onOrderPaid) {
+      Promise.resolve(
+        this.onOrderPaid(
+          aggregate.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+        ),
+      ).catch((err) => {
+        console.error("onOrderPaid listener failed:", err);
+      });
+    }
     return { order: updated, lines: aggregate.lines, history: [...aggregate.history, history] };
   }
 

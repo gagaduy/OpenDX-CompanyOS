@@ -128,7 +128,7 @@ export class AiMerchandisingController {
       }
 
       const campaignId = String(req.params.campaignId);
-      const { endDate, excludedItemIds } = req.body ?? {};
+      const { endDate, excludedItemIds, conflictResolution } = req.body ?? {};
       const correlationId = String(req.headers["x-correlation-id"] || `campaign-activate-${Date.now()}`);
 
       const result = await this.service.activateCampaign(
@@ -140,8 +140,31 @@ export class AiMerchandisingController {
         {
           endDate: typeof endDate === "string" ? endDate : undefined,
           excludedItemIds: Array.isArray(excludedItemIds) ? excludedItemIds : undefined,
+          conflictResolution: conflictResolution === "schedule_after" ? "schedule_after" : "replace",
         },
       );
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
+  rejectCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const principal = res.locals.staffPrincipal as StaffPrincipal | undefined;
+      if (!principal) {
+        throw new ApplicationError(401, "UNAUTHORIZED", "Cần đăng nhập nhân sự để thực hiện tác vụ này.");
+      }
+
+      const campaignId = String(req.params.campaignId);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : undefined;
+      const correlationId = String(req.headers["x-correlation-id"] || `campaign-reject-${Date.now()}`);
+      const result = await this.service.rejectCampaign(campaignId, {
+        actorId: principal.subject,
+        correlationId,
+        reason,
+      });
 
       res.status(200).json(result);
     } catch (error) {
@@ -174,6 +197,28 @@ export class AiMerchandisingController {
     try {
       const active = await this.service.getActiveCampaign();
       res.status(200).json(active);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
+  getLatestDraftCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const draft = await this.service.getLatestDraftCampaign();
+      res.status(200).json(draft);
+    } catch (error) {
+      next(toHttpError(error));
+    }
+  };
+
+  getCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const campaignId = String(req.params.campaignId);
+      const campaign = await this.service.getCampaign(campaignId);
+      if (!campaign) {
+        throw new ApplicationError(404, "NOT_FOUND", `Không tìm thấy chiến dịch ID: ${campaignId}`);
+      }
+      res.status(200).json(campaign);
     } catch (error) {
       next(toHttpError(error));
     }

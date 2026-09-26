@@ -13,6 +13,8 @@ export interface AiSupportTicketItemDto {
   readonly proposedResponse: string;
   readonly suggestedCompensation: string;
   readonly priority: "urgent" | "high" | "normal" | "low";
+  readonly estimatedCompensationAmount?: number;
+  readonly requiresApproval?: boolean;
 }
 
 export interface AiSupportVipCustomerDto {
@@ -33,13 +35,15 @@ export interface AiSupportProposalDto {
   readonly tickets: readonly AiSupportTicketItemDto[];
   readonly vipCustomers: readonly AiSupportVipCustomerDto[];
   readonly totalTickets: number;
-  readonly status: "pending_approval" | "applied";
+  readonly status: "pending_approval" | "applied" | "canceled";
   readonly createdAt: string;
   readonly docxFilename: string;
 }
 
 export interface GenerateSupportProposalRequestDto {
   readonly prompt: string;
+  readonly ticketIds?: readonly string[];
+  readonly ticketScope?: "all_actionable" | "customer_email_pending";
 }
 
 export interface ApplySupportTicketActionDto {

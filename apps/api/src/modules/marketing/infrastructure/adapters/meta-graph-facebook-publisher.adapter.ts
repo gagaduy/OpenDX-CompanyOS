@@ -20,10 +20,12 @@ import {
   type SocialReconciliationRequest,
   type SocialReconciliationResult,
 } from "../../application/ports/social-publisher.port";
+import type { SocialAccountRepository } from "../../domain/repositories/social-account.repository";
 
 export interface MetaGraphFacebookPublisherAdapterOptions {
   readonly pageId?: string;
   readonly pageAccessToken?: string;
+  readonly socialAccountRepository?: SocialAccountRepository;
   readonly graphApiBaseUrl?: string;
   readonly requestTimeoutMs?: number;
   readonly now?: () => string;
@@ -46,6 +48,7 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
 
   private readonly pageId?: string;
   private readonly pageAccessToken?: string;
+  private readonly socialAccountRepository?: SocialAccountRepository;
   private readonly graphApiBaseUrl: string;
   private readonly requestTimeoutMs: number;
   private readonly now: () => string;
@@ -54,6 +57,7 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
   constructor(options?: MetaGraphFacebookPublisherAdapterOptions) {
     this.pageId = options?.pageId;
     this.pageAccessToken = options?.pageAccessToken;
+    this.socialAccountRepository = options?.socialAccountRepository;
     this.graphApiBaseUrl = (options?.graphApiBaseUrl ?? "https://graph.facebook.com/v20.0").replace(/\/+$/, "");
     this.requestTimeoutMs = options?.requestTimeoutMs ?? 30_000;
     this.now = options?.now ?? (() => new Date().toISOString());
@@ -61,8 +65,22 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
   }
 
   async publish(request: SocialPublishRequest): Promise<SocialPublicationReceipt> {
-    const pageId = this.pageId ?? request.target.accountConfigurationId;
-    const pageAccessToken = this.pageAccessToken;
+    let pageId = this.pageId ?? request.target.accountConfigurationId;
+    let pageAccessToken = this.pageAccessToken;
+
+    if (this.socialAccountRepository) {
+      try {
+        const account = pageId
+          ? await this.socialAccountRepository.findByPlatformAndId("facebook", pageId)
+          : (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "facebook");
+        if (account?.accessToken) {
+          pageAccessToken = account.accessToken;
+          pageId = account.accountId;
+        }
+      } catch {
+        // Fall back to configured credentials
+      }
+    }
 
     if (!pageId || !pageAccessToken) {
       throw new FacebookPublisherError(
@@ -101,7 +119,46 @@ export class MetaGraphFacebookPublisherAdapter implements FacebookPublisherPort,
         } else {
           throw err;
         }
+      } else if (
+        err instanceof FacebookPublisherError &&
+        err.code === "FACEBOOK_TOKEN_INVALID" &&
+        this.pageAccessToken &&
+        this.pageAccessToken !== pageAccessToken
+      ) {
+        try {
+          result = await this.publishImagePost({
+            pageId,
+            pageAccessToken: this.pageAccessToken,
+            message: request.caption,
+            imageBuffer: firstMedia.bytes,
+            imageFileName: firstMedia.fileName,
+            mimeType: firstMedia.mimeType,
+          });
+          if (this.socialAccountRepository) {
+            void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+              tokenStatus: "healthy",
+              lastCheckedAt: this.now(),
+              lastError: null,
+            }).catch(() => undefined);
+          }
+        } catch (fallbackErr) {
+          if (this.socialAccountRepository) {
+            void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+              tokenStatus: "invalid",
+              lastCheckedAt: this.now(),
+              lastError: err.message,
+            }).catch(() => undefined);
+          }
+          throw fallbackErr;
+        }
       } else {
+        if (err instanceof FacebookPublisherError && err.code === "FACEBOOK_TOKEN_INVALID" && this.socialAccountRepository) {
+          void this.socialAccountRepository.updateHealthStatus("facebook", pageId, {
+            tokenStatus: "invalid",
+            lastCheckedAt: this.now(),
+            lastError: err.message,
+          }).catch(() => undefined);
+        }
         throw err;
       }
     }

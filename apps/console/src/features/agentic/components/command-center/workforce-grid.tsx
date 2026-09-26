@@ -1,0 +1,55 @@
+// SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import React from "react";
+import { ArrowRight, Users2 } from "lucide-react";
+import { DepartmentCard } from "./department-card";
+import type { WorkforceGridProps } from "./types";
+
+export const WorkforceGrid: React.FC<WorkforceGridProps> = ({
+  departments,
+  onViewDagGraph,
+  children,
+  containerRef,
+}) => {
+  return (
+    <div ref={containerRef} className="ccWorkforceSection">
+      {/* Header */}
+      <div className="ccWorkforceHeader">
+        <div>
+          <h2 className="ccWorkforceTitle">
+            <Users2 size={16} />
+            <span>Phân công & Điều phối nhân sự AI theo phòng ban</span>
+          </h2>
+          <p className="ccWorkforceSubtitle">
+            AI CEO đã phân tích và phân bổ công việc. Các phòng ban đang phối hợp thực thi.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onViewDagGraph}
+          className="ccViewDiagramBtn"
+        >
+          <span>Xem sơ đồ quy trình</span>
+          <ArrowRight size={13} />
+        </button>
+      </div>
+
+      {children}
+
+      {/* 2x2 Grid Container */}
+      <div className="ccDeptGrid">
+        {departments.length === 0 ? (
+          <div style={{ gridColumn: "1 / -1", padding: "3rem 1rem", textAlign: "center", background: "rgba(15, 23, 42, 0.4)", borderRadius: 10, border: "1px dashed rgba(255, 255, 255, 0.1)", color: "#94a3b8", fontSize: "0.85rem" }}>
+            Không có phòng ban nào ở trạng thái đã chọn.
+          </div>
+        ) : (
+          departments.map((dept) => (
+            <DepartmentCard key={dept.department} {...dept} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+};

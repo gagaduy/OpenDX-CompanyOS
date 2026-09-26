@@ -14,6 +14,20 @@ const taskId = "00000000-0000-4000-8000-000000000001";
 afterEach(() => { vi.useRealTimers(); });
 
 describe("AgenticTaskDetailPage", () => {
+  it("renders a data-driven operations dashboard for all four departments", async () => {
+    const api = fakeApi(activeOperations());
+
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+
+    expect(await screen.findByRole("region", { name: "Tổng quan tác vụ AI" })).toBeVisible();
+    expect(screen.getByText("Phòng ban tham gia")).toBeVisible();
+    expect(screen.getByText("Tiếp thị & Sáng tạo")).toBeVisible();
+    expect(screen.getByText("Danh mục & Định giá")).toBeVisible();
+    expect(screen.getByText("Vận hành & Kho vận")).toBeVisible();
+    expect(screen.getByText("CSKH & Trải nghiệm")).toBeVisible();
+    expect(screen.getByText("1/4 hoàn tất")).toBeVisible();
+  });
+
   it("lets an operator mark a draft ready and then start its versioned workflow", async () => {
     const api = fakeApi(draftOperations());
     vi.mocked(api.loadOperations)
@@ -135,6 +149,20 @@ describe("AgenticTaskDetailPage", () => {
     await waitFor(() => expect(api.loadOperations).toHaveBeenCalledOnce());
     if (original !== undefined) Object.defineProperty(document, "hidden", original);
   });
+
+  it("renders structured error state and back navigation when operations fail to load", async () => {
+    const api = fakeApi(activeOperations());
+    vi.mocked(api.loadOperations).mockRejectedValueOnce(new Error("network failure"));
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be refreshed");
+    expect(screen.getByRole("link", { name: /Quay lại Bàn điều hành/ })).toHaveAttribute("href", "/agentic/tasks");
+  });
+
+  it("renders back to command center link when operations load successfully", async () => {
+    const api = fakeApi(draftOperations());
+    render(<MemoryRouter><AgenticTaskDetailPage api={api} taskId={taskId} roles={["agentic_operator"]} /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /Quay lại Bàn điều hành/ })).toHaveAttribute("href", "/agentic/tasks");
+  });
 });
 
 function fakeApi(operations: AgenticTaskOperations): AgenticOperationsApi {
@@ -143,7 +171,7 @@ function fakeApi(operations: AgenticTaskOperations): AgenticOperationsApi {
     readyTask: vi.fn(async () => readyDetail()),
     startTask: vi.fn(async () => startedRun()),
     loadOperations: vi.fn(async () => operations), cancelWorkflow: vi.fn(async () => undefined),
-    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(), listAudit: vi.fn(),
+    listApprovals: vi.fn(), loadApproval: vi.fn(), decideApproval: vi.fn(), listEmployees: vi.fn(), loadEmployee: vi.fn(), listAudit: vi.fn(), listCommandActivity: vi.fn(), recordCommandActivity: vi.fn(),
   };
 }
 

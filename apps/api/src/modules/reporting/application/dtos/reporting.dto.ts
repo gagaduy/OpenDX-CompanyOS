@@ -89,8 +89,20 @@ export interface LifetimeValueBucketDto {
   readonly count: number;
 }
 
+export interface AiTokenUsageDto {
+  readonly totalTokens: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly settledCostMicros: number;
+  readonly estimatedCostVnd: number;
+  readonly modelRuns: number;
+  readonly rangeTokens?: number;
+  readonly rangeCostVnd?: number;
+}
+
 export interface OperationsReportDto {
   readonly openTickets: number;
   readonly overdueFollowups: number;
   readonly slaBreaches: number;
+  readonly aiUsage?: AiTokenUsageDto;
 }

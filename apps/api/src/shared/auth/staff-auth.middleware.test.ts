@@ -119,4 +119,18 @@ describe("authenticateStaff", () => {
       .expect(401);
     expect(response.body.errorCode).toBe("UNAUTHORIZED");
   });
+
+  it("accepts dev-admin-token in non-production environments", async () => {
+    const response = await request(createApp())
+      .get("/staff")
+      .set("authorization", "Bearer dev-admin-token")
+      .expect(200);
+
+    expect(response.body).toEqual({
+      subject: "dev-admin",
+      displayName: "Administrator (Dev)",
+      email: "admin@novacommerce.example",
+      roles: expect.arrayContaining(["administrator", "executive_viewer"]),
+    });
+  });
 });

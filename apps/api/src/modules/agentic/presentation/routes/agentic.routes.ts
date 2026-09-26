@@ -19,6 +19,7 @@ export interface AgenticControllerHandlers {
   readonly activateRevision: RequestHandler; readonly getRevisionDiff: RequestHandler;
   readonly decideRevision: RequestHandler;
   readonly createRevocation: RequestHandler; readonly listAudit: RequestHandler;
+  readonly createCommandActivity: RequestHandler; readonly listCommandActivity: RequestHandler;
   readonly uploadFile: RequestHandler; readonly getFile: RequestHandler;
   readonly previewFile: RequestHandler; readonly approveFile: RequestHandler;
   readonly rejectFile: RequestHandler; readonly deleteFile: RequestHandler;
@@ -29,11 +30,19 @@ export interface AgenticWorkflowControllerHandlers {
   readonly cancelWorkflow: RequestHandler;
 }
 
+export interface WorkflowBlueprintControllerHandlers {
+  readonly listBlueprints: RequestHandler;
+  readonly getBlueprint: RequestHandler;
+  readonly saveDraft: RequestHandler;
+  readonly publishBlueprint: RequestHandler;
+}
+
 export function createAgenticRouter(
   controller: AgenticControllerHandlers,
   workflows: AgenticWorkflowControllerHandlers,
   authenticate: RequestHandler,
   appendDenied: (context: DeniedAuditContext) => Promise<void>,
+  blueprints?: WorkflowBlueprintControllerHandlers,
 ): Router {
   const router = Router();
   const guard = (action: string, roles: readonly StaffRole[]) => createAuditedRoleGuard({
@@ -88,17 +97,27 @@ export function createAgenticRouter(
 
   router.post("/revocations", authenticate, guard("agentic.revocation.create.denied", governance), controller.createRevocation);
   router.get("/audit", authenticate, guard("agentic.audit.read.denied", auditReader), controller.listAudit);
+  router.post("/activity-events", authenticate, guard("agentic.activity.create.denied", approver), controller.createCommandActivity);
+  router.get("/activity-events", authenticate, guard("agentic.activity.read.denied", workforceReader), controller.listCommandActivity);
   router.post("/files", authenticate, guard("agentic.file.upload.denied", governance), parseUpload, controller.uploadFile);
   router.get("/files/:fileId/preview", authenticate, guard("agentic.file.preview.denied", governance), controller.previewFile);
   router.post("/files/:fileId/approve", authenticate, guard("agentic.file.approve.denied", governance), controller.approveFile);
   router.post("/files/:fileId/reject", authenticate, guard("agentic.file.reject.denied", governance), controller.rejectFile);
   router.post("/files/:fileId/delete", authenticate, guard("agentic.file.delete.denied", governance), controller.deleteFile);
   router.get("/files/:fileId", authenticate, guard("agentic.file.read.denied", governance), controller.getFile);
+
+  if (blueprints) {
+    router.get("/workflows", authenticate, guard("agentic.workflow.blueprint.list.denied", taskReader), blueprints.listBlueprints);
+    router.get("/workflows/:id", authenticate, guard("agentic.workflow.blueprint.read.denied", taskReader), blueprints.getBlueprint);
+    router.put("/workflows/:id/draft", authenticate, guard("agentic.workflow.blueprint.update.denied", operator), blueprints.saveDraft);
+    router.post("/workflows/:id/publish", authenticate, guard("agentic.workflow.blueprint.publish.denied", operator), blueprints.publishBlueprint);
+  }
+
   return router;
 }
 
 function resourceId(request: Request): string {
-  for (const key of ["taskId", "runId", "approvalId", "agentKind", "revisionId", "fileId"] as const) {
+  for (const key of ["taskId", "runId", "approvalId", "agentKind", "revisionId", "fileId", "id"] as const) {
     const value = request.params[key];
     if (typeof value === "string") return value;
   }

@@ -3,21 +3,98 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthClient } from "../../authentication/api/oidc-manager";
 import { AuthProvider } from "../../authentication/hooks/auth-context";
 import type { AgenticOperationsApi } from "../api/agentic-api";
+import type { AgenticTaskPage } from "../types/agentic.types";
 import { AgenticCommandCenter } from "../components/agentic-command-center";
 import type { MarketingApi } from "../../marketing/api/marketing-api";
+import type { MarketingCampaign, MarketingCampaignDetail } from "../../marketing/types";
 import type { CatalogApi } from "../../catalog/api/catalog-api";
 import type { InventoryApi } from "../../inventory/api/inventory-api";
 import type { SupportOperationsApi } from "../../support/api/support-api";
+import type { AiSupportTicketItemView } from "../../support/types/support.types";
 
 describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("hydrates approved and canceled decisions from persistent command activity", async () => {
+    const api = fakeAgenticApi();
+    const supportEvent = {
+        id: "00000000-0000-4000-8000-000000000030", actorId: "admin", department: "support",
+        decision: "approved", resourceType: "support_proposal", resourceId: "support-proposal-1",
+        summary: "Đã gửi phản hồi sản phẩm lỗi cho khách hàng.", idempotencyKey: "support:approved",
+        occurredAt: "2026-09-15T01:10:00.000Z",
+      } as const;
+    vi.mocked(api.listCommandActivity).mockResolvedValue([
+      supportEvent,
+      supportEvent,
+      {
+        id: "00000000-0000-4000-8000-000000000031", actorId: "admin", department: "operations",
+        decision: "canceled", resourceType: "operations_proposal", resourceId: "operations-proposal-1",
+        summary: "Đề xuất nhập kho không còn phù hợp.", idempotencyKey: "operations:canceled",
+        occurredAt: "2026-09-15T01:09:00.000Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000032", actorId: "admin", department: "marketing",
+        decision: "approved", resourceType: "marketing_campaign", resourceId: "marketing-campaign-1",
+        summary: "Đã xuất bản chiến dịch.", idempotencyKey: "marketing:approved",
+        occurredAt: "2026-09-15T01:08:00.000Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000033", actorId: "admin", department: "merchandising",
+        decision: "canceled", resourceType: "merchandising_proposal", resourceId: "merchandising-proposal-1",
+        summary: "Đã hủy đề xuất giá.", idempotencyKey: "merchandising:canceled",
+        occurredAt: "2026-09-15T01:07:00.000Z",
+      },
+      {
+        id: "source:support_ai_proposal_decisions:00000000-0000-4000-8000-000000000034",
+        actorId: "staff-support", department: "support", decision: "canceled",
+        resourceType: "support_proposal", resourceId: "support-proposal-2",
+        summary: "Đã hủy kịch bản phản hồi CSKH.",
+        occurredAt: "2026-09-15T01:06:00.000Z", source: "business_history",
+        sourceTable: "support_ai_proposal_decisions", sourceId: "00000000-0000-4000-8000-000000000034",
+      },
+    ]);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={api} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("CSKH đã được phê duyệt")).toBeInTheDocument();
+    expect(screen.getAllByText("CSKH đã được phê duyệt")).toHaveLength(1);
+    expect(await screen.findByText("Vận hành đã hủy duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("Marketing đã được phê duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("Danh mục & Định giá đã hủy duyệt")).toBeInTheDocument();
+    expect(await screen.findByText("CSKH đã hủy duyệt")).toBeInTheDocument();
+    expect(api.listCommandActivity).toHaveBeenCalled();
+  });
+
+  it("retains an older CSKH approval when newer Marketing events fill the feed", async () => {
+    const api = fakeAgenticApi();
+    vi.mocked(api.listCommandActivity).mockResolvedValue([
+      ...Array.from({ length: 31 }, (_, index) => ({
+        id: `marketing-${index}`, actorId: "staff-marketing", department: "marketing" as const,
+        decision: "approved" as const, resourceType: "marketing_campaign" as const,
+        resourceId: `campaign-${index}`, summary: `Campaign ${index}`,
+        occurredAt: `2026-09-15T${String(index % 24).padStart(2, "0")}:00:00.000Z`,
+        source: "business_history" as const,
+      })),
+      { id: "support-historical", department: "support" as const,
+        decision: "approved" as const, resourceType: "support_proposal" as const,
+        resourceId: "support-proposal-older", summary: "Đã gửi phản hồi cho khách hàng.",
+        occurredAt: "2026-09-13T22:50:00.000Z", source: "business_history" as const },
+    ]);
+    render(<AuthProvider client={fakeAuthClient()}><MemoryRouter><AgenticCommandCenter api={api} /></MemoryRouter></AuthProvider>);
+    fireEvent.change(screen.getByDisplayValue("Tất cả phòng ban"), { target: { value: "support" } });
+    expect(await screen.findByText("CSKH đã được phê duyệt")).toBeInTheDocument();
   });
 
   it("keeps all 4 department inputs enabled at all times", () => {
@@ -44,6 +121,217 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
 
     fireEvent.change(opsInput, { target: { value: "Kiểm toán kho hàng tồn" } });
     expect((opsInput as HTMLInputElement).value).toBe("Kiểm toán kho hàng tồn");
+  });
+
+  it("restores the latest draft Merchandising proposal into approvals and the live feed after reload", async () => {
+    const catalogApi = fakeCatalogApi();
+    const latestDraft = await catalogApi.generateCampaignProposal({
+      prompt: "Flash Sale Đón Trăng Rằm - Laptop Nova Giảm Giá Sốc 15%",
+    });
+    vi.mocked(catalogApi.getActiveCampaign).mockResolvedValue({
+      id: "active-campaign-1",
+      name: "Chiến dịch đang chạy",
+      badgeText: "LIVE",
+      discountPercent: 10,
+      startTime: "2026-09-16T10:00:00.000Z",
+      endTime: "2026-09-20T10:00:00.000Z",
+      totalProducts: 2,
+      remainingMs: 100_000,
+    });
+    (catalogApi as CatalogApi & {
+      getLatestDraftCampaign: () => Promise<typeof latestDraft>;
+    }).getLatestDraftCampaign = vi.fn(async () => latestDraft);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} catalogApi={catalogApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText(latestDraft.name)).toBeInTheDocument();
+    expect(await screen.findByText("Kinh doanh đã lập đề xuất")).toBeInTheDocument();
+    expect(await screen.findByText(`Đề xuất: ${latestDraft.name}`)).toBeInTheDocument();
+  });
+
+  it("does not restore a draft Merchandising proposal with a persisted terminal decision", async () => {
+    const api = fakeAgenticApi();
+    const catalogApi = fakeCatalogApi();
+    const latestDraft = await catalogApi.generateCampaignProposal({ prompt: "FLASH SALE cũ" });
+    vi.mocked(catalogApi.getLatestDraftCampaign).mockResolvedValue(latestDraft);
+    vi.mocked(api.listCommandActivity).mockResolvedValue([{
+      id: "decision-1",
+      actorId: "staff-1",
+      department: "merchandising",
+      decision: "canceled",
+      resourceType: "merchandising_proposal",
+      resourceId: latestDraft.id,
+      summary: latestDraft.name,
+      idempotencyKey: `cancel:${latestDraft.id}`,
+      occurredAt: "2026-09-16T12:00:00.000Z",
+    }]);
+
+    const { container } = render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={api} catalogApi={catalogApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    await screen.findByText("Danh mục & Định giá đã hủy duyệt");
+    expect(within(container.querySelector(".ccApprovalsCard") as HTMLElement).queryByText(latestDraft.name)).not.toBeInTheDocument();
+    expect(screen.queryByText("Kinh doanh đã lập đề xuất")).not.toBeInTheDocument();
+  });
+
+  it("persists rejection before removing a Merchandising campaign approval", async () => {
+    const catalogApi = fakeCatalogApi();
+    const latestDraft = await catalogApi.generateCampaignProposal({ prompt: "FLASH SALE cần hủy" });
+    vi.mocked(catalogApi.getLatestDraftCampaign).mockResolvedValue(latestDraft);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={fakeAgenticApi()} catalogApi={catalogApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const approval = (await screen.findByText(latestDraft.name)).closest(".ccApprovalBox");
+    fireEvent.click(within(approval as HTMLElement).getByRole("button", { name: "Hủy duyệt" }));
+
+    await act(async () => undefined);
+    expect(catalogApi.rejectCampaign).toHaveBeenCalledWith(latestDraft.id, "Hủy duyệt từ AI Command Center");
+    expect(screen.queryByText(latestDraft.name)).not.toBeInTheDocument();
+  });
+
+  it("does not mislabel a pre-publication campaign failure as a Meta token error", async () => {
+    const api = fakeAgenticApi();
+    const marketingApi = fakeMarketingApi();
+    const failedCampaign: MarketingCampaign = {
+      id: "campaign-generation-failed",
+      state: "failed" as const,
+      assignmentMode: "direct_department",
+      createdBy: "operator-a",
+      idempotencyKey: "campaign-generation-failed-key",
+      campaignName: "Ra mắt sản phẩm mới",
+      objective: "Tạo nội dung và poster ra mắt sản phẩm",
+      mandatoryMessage: "Giới thiệu sản phẩm mới",
+      version: 4,
+      createdAt: "2026-09-16T14:28:49.000Z",
+      updatedAt: "2026-09-16T14:28:58.000Z",
+    };
+    vi.mocked(marketingApi.listCampaigns).mockResolvedValue({ items: [failedCampaign], total: 1 });
+    const failedDetail: MarketingCampaignDetail = {
+      campaign: failedCampaign,
+      brief: null,
+      contentVersions: [],
+      visualAssets: [],
+      publicationPackages: [],
+      currentPackage: null,
+      publicationAttempts: [],
+      publicationRecord: null,
+      publicationRecords: [],
+      artifacts: [],
+    };
+    vi.mocked(marketingApi.getCampaign).mockResolvedValue(failedDetail);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={api} marketingApi={marketingApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("Chiến dịch tiếp thị gặp sự cố khi tạo nội dung hoặc hình ảnh.")).toBeInTheDocument();
+    expect(screen.queryByText(/Token Meta Facebook chưa hợp lệ/)).not.toBeInTheDocument();
+  });
+
+  it("refreshes an open campaign preview with Facebook and Instagram links after approval", async () => {
+    const api = fakeAgenticApi();
+    const marketingApi = fakeMarketingApi();
+    let approved = false;
+    const pendingCampaign: MarketingCampaign = {
+      id: "campaign-publish-preview",
+      state: "awaiting_human_approval",
+      assignmentMode: "direct_department",
+      createdBy: "operator-a",
+      idempotencyKey: "campaign-publish-preview-key",
+      campaignName: "Chiến dịch đồng hồ Nova Watch",
+      objective: "Đăng bài Facebook và Instagram",
+      version: 1,
+      createdAt: "2026-09-17T00:00:00.000Z",
+      updatedAt: "2026-09-17T00:05:00.000Z",
+    };
+    const completedCampaign: MarketingCampaign = {
+      ...pendingCampaign,
+      state: "completed",
+      version: 2,
+      updatedAt: "2026-09-17T00:10:00.000Z",
+    };
+    const buildDetail = (campaign: MarketingCampaign): MarketingCampaignDetail => ({
+      campaign,
+      brief: null,
+      contentVersions: [],
+      visualAssets: [],
+      publicationPackages: [],
+      currentPackage: null,
+      publicationAttempts: [],
+      publicationRecord: null,
+      publicationRecords: campaign.state === "completed"
+        ? [
+            {
+              id: "record-facebook",
+              packageId: "package-preview",
+              platform: "facebook",
+              pageId: "facebook-page",
+              externalPostId: "facebook-post",
+              postUrl: "https://www.facebook.com/nova/posts/facebook-post",
+              packageDigest: "a".repeat(64),
+              contentDigest: "b".repeat(64),
+              verifiedAt: "2026-09-17T00:10:00.000Z",
+              providerReceiptDigest: "c".repeat(64),
+              createdAt: "2026-09-17T00:10:00.000Z",
+            },
+            {
+              id: "record-instagram",
+              packageId: "package-preview",
+              platform: "instagram",
+              pageId: "instagram-business",
+              externalPostId: "instagram-post",
+              postUrl: "https://www.instagram.com/p/instagram-post/",
+              packageDigest: "a".repeat(64),
+              contentDigest: "b".repeat(64),
+              verifiedAt: "2026-09-17T00:10:00.000Z",
+              providerReceiptDigest: "d".repeat(64),
+              createdAt: "2026-09-17T00:10:00.000Z",
+            },
+          ]
+        : [],
+      artifacts: [],
+    });
+    vi.mocked(marketingApi.listCampaigns).mockImplementation(async () => ({
+      items: [approved ? completedCampaign : pendingCampaign],
+      total: 1,
+    }));
+    vi.mocked(marketingApi.getCampaign).mockImplementation(async () =>
+      buildDetail(approved ? completedCampaign : pendingCampaign));
+    vi.mocked(marketingApi.approveCampaign).mockImplementation(async () => {
+      approved = true;
+      return completedCampaign;
+    });
+
+    const { container } = render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={api} marketingApi={marketingApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const campaignTitle = await screen.findByText("Chiến dịch đồng hồ Nova Watch");
+    const approval = campaignTitle.closest(".ccApprovalBox") as HTMLElement;
+    fireEvent.click(within(approval).getByRole("button", { name: "Xem trước" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Phê duyệt & Đăng Fanpage/i }));
+
+    expect(await within(dialog).findByRole("link", { name: /Xem bài đăng Facebook/i })).toBeInTheDocument();
+    expect(await within(dialog).findByRole("link", { name: /Xem bài đăng Instagram/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Phê duyệt & Đăng Fanpage/i })).not.toBeInTheDocument();
   });
 
   it("enqueues task with queue badge and waiting card when required resource is locked", async () => {
@@ -142,7 +430,585 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     });
 
     expect(inventoryApi.generateOperationsProposal).toHaveBeenCalled();
-    expect(supportApi.generateSupportProposal).toHaveBeenCalled();
+    expect(supportApi.generateSupportProposal).toHaveBeenCalledWith({
+      prompt: "Xử lý khiếu nại khách hàng VIP",
+      ticketScope: "customer_email_pending",
+    });
+  });
+
+  it("routes an explicit natural-language Operations instruction ahead of discount keywords", async () => {
+    vi.useFakeTimers();
+    const inventoryApi = fakeInventoryApi();
+    const catalogApi = fakeCatalogApi();
+    const prompt =
+      "Hiện cửa hàng đang chuẩn bị chạy chương trình giảm giá sản phẩm, bạn hãy giao cho phòng Vận hành kiểm tra lượng tồn kho, tình trạng đơn hàng và khả năng đáp ứng của các sản phẩm tham gia chương trình.";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            inventoryApi={inventoryApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng Vận hành & Kho vận")).toBeInTheDocument();
+    expect(screen.queryByText("Phòng Danh mục & Định giá (Phối hợp Tiếp thị)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(inventoryApi.generateOperationsProposal).toHaveBeenCalledWith(prompt);
+    expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
+  it("routes natural-language customer email campaign instructions to Support ahead of catalog keywords", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const catalogApi = fakeCatalogApi();
+    const prompt =
+      "Đợt này bên danh mục vừa cập nhật các sản phẩm mới ra mắt, hãy soạn mail và gửi cho tất cả  khách hàng nha";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeInTheDocument();
+    expect(screen.queryByText("Phòng Danh mục & Định giá (Phối hợp Tiếp thị)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "new_product_announcement",
+        targetSegment: "all_active_customers",
+        prompt,
+      }),
+    );
+    expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
+  it("routes 'hãy lên chiến  dịch email' with irregular whitespace to Support and all_active_customers segment", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const catalogApi = fakeCatalogApi();
+    const prompt =
+      "Đợt này bên danh mục vừa cập nhật các sản phẩm mới ra mắt, hãy lên chiến  dịch email và gửi cho tất cả khách hàng nha";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeInTheDocument();
+    expect(screen.queryByText("Phòng Danh mục & Định giá (Phối hợp Tiếp thị)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "new_product_announcement",
+        targetSegment: "all_active_customers",
+        prompt,
+      }),
+    );
+    expect(catalogApi.generateCampaignProposal).not.toHaveBeenCalled();
+  });
+
+  it("routes 'lên ý tưởng gửi mail cho toàn bộ khách hàng' to Support and selects all_active_customers segment", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const prompt = "lên ý tưởng gửi mail cho toàn bộ khách hàng";
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_250);
+    });
+
+    expect(screen.getByText("Phòng CSKH & Trải nghiệm Khách hàng")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_200);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSegment: "all_active_customers",
+        prompt,
+      }),
+    );
+  });
+
+  it("shows the Support to Merchandising handoff while verifying a live Flash Sale campaign", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    let resolveCampaign!: (value: any) => void;
+    vi.mocked(supportApi.createEmailCampaignProposal!).mockImplementation(
+      () => new Promise((resolve) => {
+        resolveCampaign = resolve;
+      }),
+    );
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, {
+      target: { value: "Cửa hàng đang có Flash Sale, hãy lên ý tưởng email gửi khách hàng" },
+    });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_650);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "promotion_announcement" }),
+    );
+    expect(screen.getByTestId("cross-dept-connector")).toBeInTheDocument();
+    expect(screen.getByText("⚡ Bàn giao: Xác minh chương trình & sản phẩm Flash Sale")).toBeInTheDocument();
+
+    // Keep the deferred request owned by this test and avoid an unhandled promise.
+    void resolveCampaign;
+  });
+
+  it("routes 'Xem kết quả' to Support Email Campaign modal instead of Merchandising when active campaign exists in store", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi();
+    const catalogApi = fakeCatalogApi();
+    (catalogApi.getActiveCampaign as any).mockResolvedValue({
+      id: "flash-sale-1",
+      name: "FLASH SALE CHỚP NHOÁNG - SĂN ĐIỆN THOẠI MỚI GIÁ SỐC!",
+      badgeText: "FLASH SALE",
+      discountPercent: 20,
+      startTime: "2026-09-10T00:00:00Z",
+      endTime: "2026-09-20T00:00:00Z",
+      totalProducts: 8,
+      remainingMs: 86400000,
+    });
+    const prompt = "Cửa hàng đang có Flash Sale, hãy lên ý tưởng gửi mail cho toàn bộ khách hàng";
+
+    const { container } = render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            supportApi={supportApi}
+            catalogApi={catalogApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    // Initial mount and active campaign hydration
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(/Hãy giao việc chiến lược cho AI CEO/),
+      { target: { value: prompt } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
+
+    // Advance through intake, inter-department verification, and employee stages.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+
+    expect(supportApi.createEmailCampaignProposal).toHaveBeenCalled();
+
+    // The AI CEO Stepper card should show "Xem kết quả"
+    const viewResultBtn = container.querySelector(".ccCeoActionBtn.primary") as HTMLButtonElement;
+    expect(viewResultBtn).not.toBeNull();
+
+    // Click "Xem kết quả" on the AI CEO card
+    fireEvent.click(viewResultBtn);
+
+    // It must open Support Email Campaign Modal and NOT Merchandising Campaign Proposal modal
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Chiến dịch sản phẩm mới" })).toBeInTheDocument();
+    expect(screen.queryByText(/Chiến dịch đang kích hoạt trực tiếp trên Storefront/i)).not.toBeInTheDocument();
+  });
+
+  it("notifies for ten seconds without auto-opening the completed Support report and keeps approval pending", async () => {
+    vi.useFakeTimers();
+    const authClient = fakeAuthClient();
+    const supportApi = fakeSupportApi();
+
+    render(
+      <AuthProvider client={authClient}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Rà soát ticket cần phản hồi" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    expect(screen.queryByRole("dialog", { name: "Duyệt nội dung email CSKH" })).not.toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_700);
+    });
+
+    expect(screen.queryByRole("dialog", { name: "Duyệt nội dung email CSKH" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Thông báo hoàn tất tác vụ")).toBeInTheDocument();
+    expect(screen.getByText("Kịch bản phản hồi CSKH (0 Ticket) & Voucher VIP")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_800);
+    });
+    expect(screen.getByLabelText("Thông báo hoàn tất tác vụ")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(screen.queryByLabelText("Thông báo hoàn tất tác vụ")).not.toBeInTheDocument();
+  });
+
+  it("hydrates the latest completed Support email event when the command center loads", async () => {
+    const generatedApi = fakeSupportApi(supportEmailDrafts);
+    const supportApi = {
+      ...generatedApi,
+      getLatestSupportProposal: vi.fn(async () => ({
+        id: "supp-prop-restored",
+        prompt: "Soạn email chăm sóc khách hàng",
+        overallSentimentSummary: "Hai khách hàng đã được phản hồi.",
+        churnRiskAssessment: "Rủi ro rời bỏ đã được xử lý.",
+        recommendedAction: "Theo dõi mức độ hài lòng.",
+        docxFilename: "bao_cao_cskh.docx",
+        status: "applied" as const,
+        tickets: supportEmailDrafts,
+        vipCustomers: [],
+        totalTickets: supportEmailDrafts.length,
+        createdAt: "2026-09-13T23:00:00.000Z",
+      })),
+    };
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("CSKH đã gửi email phản hồi")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Xem kết quả" })).toBeInTheDocument();
+  });
+
+  it("does not restore a canceled Support proposal to the approval inbox after refresh", async () => {
+    const generatedApi = fakeSupportApi(supportEmailDrafts);
+    const supportApi: SupportOperationsApi = {
+      ...generatedApi,
+      getLatestSupportProposal: vi.fn(async () => ({
+        id: "supp-prop-canceled",
+        prompt: "Soạn email chăm sóc khách hàng",
+        overallSentimentSummary: "Hai phản hồi đã bị hủy duyệt.",
+        churnRiskAssessment: "Rủi ro trung bình.",
+        recommendedAction: "Chờ chỉ đạo mới.",
+        docxFilename: "bao_cao_cskh.docx",
+        status: "canceled" as const,
+        tickets: supportEmailDrafts,
+        vipCustomers: [],
+        totalTickets: supportEmailDrafts.length,
+        createdAt: "2026-09-15T03:00:00.000Z",
+      })),
+    };
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter><AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} /></MemoryRouter>
+      </AuthProvider>,
+    );
+
+    await act(async () => Promise.resolve());
+    expect(screen.queryByText("Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP")).not.toBeInTheDocument();
+  });
+
+  it("shows a durable CSKH cancellation immediately when the secondary activity POST fails", async () => {
+    vi.useFakeTimers();
+    const api = fakeAgenticApi();
+    const supportApi = fakeSupportApi();
+    vi.mocked(api.recordCommandActivity).mockRejectedValue(new Error("activity POST unavailable"));
+    vi.mocked(api.listCommandActivity)
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: "source:support_ai_proposal_decisions:decision-1",
+        actorId: "staff-support", department: "support", decision: "canceled",
+        resourceType: "support_proposal", resourceId: "supp-prop-1",
+        summary: "Đã hủy kịch bản phản hồi CSKH.",
+        occurredAt: "2026-09-15T03:01:00.000Z", source: "business_history",
+        sourceTable: "support_ai_proposal_decisions", sourceId: "decision-1" }]);
+    render(<AuthProvider client={fakeAuthClient()}><MemoryRouter><AgenticCommandCenter api={api} supportApi={supportApi} /></MemoryRouter></AuthProvider>);
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    fireEvent.click(screen.getByRole("button", { name: "Hủy duyệt" }));
+    await act(async () => Promise.resolve());
+    expect(screen.queryByText("CSKH đã hủy duyệt")).toBeInTheDocument();
+    expect(api.listCommandActivity).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders generated customer emails in the completed Support approval modal", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi(supportEmailDrafts);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem nội dung email" }));
+    expect(screen.getByRole("dialog", { name: "Duyệt nội dung email CSKH" })).toBeInTheDocument();
+    expect(screen.getByText("an.nguyen@example.com")).toBeInTheDocument();
+    expect(screen.getByText("binh.tran@example.com")).toBeInTheDocument();
+    expect(screen.getByText(/NovaCommerce thành thật xin lỗi vì đơn hàng giao trễ/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Phê duyệt & gửi đã chọn (2)" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Phê duyệt & gửi tất cả còn lại" })).toBeEnabled();
+    expect(screen.getByText("Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP")).toBeInTheDocument();
+  });
+
+  it("keeps unselected Support emails pending after approving a selected subset", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi(supportEmailDrafts);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem nội dung email" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Chọn email gửi tới Trần Bình" }));
+    fireEvent.click(screen.getByRole("button", { name: "Phê duyệt & gửi đã chọn (1)" }));
+    await act(async () => undefined);
+
+    expect(screen.queryByText("an.nguyen@example.com")).not.toBeInTheDocument();
+    expect(screen.getByText("binh.tran@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Kịch bản phản hồi CSKH (1 Ticket) & Voucher VIP")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Duyệt nội dung email CSKH" })).toBeInTheDocument();
+  });
+
+  it("approves every remaining Support email from the full-batch action", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi(supportEmailDrafts);
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem nội dung email" }));
+    fireEvent.click(screen.getByRole("button", { name: "Phê duyệt & gửi tất cả còn lại" }));
+    await act(async () => undefined);
+
+    expect(screen.queryByRole("dialog", { name: "Duyệt nội dung email CSKH" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("CSKH đã gửi email phản hồi").closest(".ccTimelineItem")!);
+
+    expect(screen.getByRole("dialog", { name: "Duyệt nội dung email CSKH" })).toBeInTheDocument();
+    expect(screen.getByText("Đã gửi")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Phê duyệt & gửi đã chọn/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Phê duyệt & gửi tất cả còn lại" })).not.toBeInTheDocument();
+  });
+
+  it("removes the Support approval immediately while approved emails are still dispatching", async () => {
+    vi.useFakeTimers();
+    const supportApi = fakeSupportApi(supportEmailDrafts);
+    let resolveApply!: (value: unknown) => void;
+    vi.mocked(supportApi.applySupportProposal).mockImplementation(
+      () => new Promise((resolve) => {
+        resolveApply = resolve;
+      }),
+    );
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={fakeAgenticApi()} supportApi={supportApi} />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    const approvalTitle = "Kịch bản phản hồi CSKH (2 Ticket) & Voucher VIP";
+    const approvalCard = screen.getByText(approvalTitle).closest(".ccApprovalBox");
+    expect(approvalCard).not.toBeNull();
+    fireEvent.click(within(approvalCard as HTMLElement).getByRole("button", { name: "Phê duyệt" }));
+
+    expect(screen.queryByText(approvalTitle)).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveApply({
+        proposalId: "supp-prop-1",
+        appliedCount: 2,
+        updatedTicketIds: ["ticket-1", "ticket-2"],
+        appliedAt: "2026-09-13T18:24:00.000Z",
+      });
+    });
+  });
+
+  it("keeps the completed Support email event visible after the task feed refreshes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-13T23:00:00+07:00"));
+    const supportApi = fakeSupportApi(supportEmailDrafts, "2026-09-13T10:00:00+07:00");
+    const api = fakeAgenticApi();
+    const renderCommandCenter = (tasks?: AgenticTaskPage) => (
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter api={api} supportApi={supportApi} tasks={tasks} />
+        </MemoryRouter>
+      </AuthProvider>
+    );
+    const view = render(renderCommandCenter());
+
+    const supportInput = screen.getByPlaceholderText("Giao việc cho CSKH & CRM...");
+    fireEvent.change(supportInput, { target: { value: "Soạn email chăm sóc khách hàng" } });
+    fireEvent.submit(supportInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Xem nội dung email" }));
+    fireEvent.click(screen.getByRole("button", { name: "Phê duyệt & gửi tất cả còn lại" }));
+    await act(async () => undefined);
+
+    const refreshedTasks: AgenticTaskPage = {
+      items: Array.from({ length: 30 }, (_, index) => ({
+        id: `task-${index}`,
+        state: "completed" as const,
+        createdBy: "operator-a",
+        goal: `Chiến dịch marketing số ${index + 1}`,
+        version: 1,
+        createdAt: `2026-09-13T${String(19 + Math.floor(index / 6)).padStart(2, "0")}:${String((index % 6) * 10).padStart(2, "0")}:00+07:00`,
+        updatedAt: `2026-09-13T${String(19 + Math.floor(index / 6)).padStart(2, "0")}:${String((index % 6) * 10).padStart(2, "0")}:00+07:00`,
+      })),
+      totalItems: 30,
+      refreshedAt: "2026-09-13T23:00:03+07:00",
+    };
+
+    view.rerender(renderCommandCenter(refreshedTasks));
+    await act(async () => undefined);
+
+    expect(screen.getByText("CSKH đã gửi email phản hồi")).toBeInTheDocument();
   });
 
   it("automatically dequeues and executes queued task when the conflicting resource is freed", async () => {
@@ -252,6 +1118,18 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
     // Mid-step handoff card is displayed with waiting badge
     expect(screen.getByText("Chờ bàn giao liên phòng")).toBeInTheDocument();
     expect(screen.getByText(/Đã xong bước 1. Đang đợi Thiết kế Đồ họa/)).toBeInTheDocument();
+    expect(screen.getByTestId("cross-dept-connector")).toBeInTheDocument();
+    expect(screen.getByText("⏳ Chờ Thiết kế Đồ họa sẵn sàng phối hợp")).toBeInTheDocument();
+
+    // Marketing releases the shared designer; the waiting task must visibly
+    // transition from the waiting card to the cross-department handoff beam.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1550);
+    });
+
+    expect(screen.queryByText("Chờ bàn giao liên phòng")).not.toBeInTheDocument();
+    expect(screen.getByTestId("cross-dept-connector")).toBeInTheDocument();
+    expect(screen.getByText("⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D")).toBeInTheDocument();
   });
 
   it("executes employees sequentially within a department instead of flashing simultaneously", async () => {
@@ -330,6 +1208,7 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
 
     const connector = screen.getByTestId("cross-dept-connector");
     expect(connector).toBeInTheDocument();
+    expect(connector.parentElement).toHaveClass("ccWorkforceSection");
     expect(screen.getByText("⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D")).toBeInTheDocument();
 
     // Step 2b: Visual completes and hands back -> Chiều về Connecting Wire renders!
@@ -344,6 +1223,45 @@ describe("AgenticCommandCenter Department Task Queue & Direct Input Unblocking",
       await vi.advanceTimersByTimeAsync(1050);
     });
     expect(screen.queryByTestId("cross-dept-connector")).not.toBeInTheDocument();
+  });
+
+  it("keeps an active department handoff visible when an unrelated workflow finishes", async () => {
+    vi.useFakeTimers();
+    const catalogApi = fakeCatalogApi();
+    const inventoryApi = fakeInventoryApi();
+
+    render(
+      <AuthProvider client={fakeAuthClient()}>
+        <MemoryRouter>
+          <AgenticCommandCenter
+            api={fakeAgenticApi()}
+            catalogApi={catalogApi}
+            inventoryApi={inventoryApi}
+          />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const merchInput = screen.getByPlaceholderText("Giao việc cho Danh mục & Định giá...");
+    fireEvent.change(merchInput, { target: { value: "Chiến dịch Flash Sale cần poster" } });
+    fireEvent.submit(merchInput.closest("form")!);
+
+    const operationsInput = screen.getByPlaceholderText("Giao việc cho Vận hành & Kho...");
+    fireEvent.change(operationsInput, { target: { value: "Kiểm tra tồn kho an toàn" } });
+    fireEvent.submit(operationsInput.closest("form")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(850);
+    });
+    expect(screen.getByTestId("cross-dept-connector")).toBeInTheDocument();
+
+    // Operations completes at ~1.6s while the Merchandising → Marketing
+    // handoff is still active until ~1.8s.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(inventoryApi.generateOperationsProposal).toHaveBeenCalled();
+    expect(screen.getByTestId("cross-dept-connector")).toBeInTheDocument();
   });
 });
 
@@ -376,6 +1294,8 @@ function fakeAgenticApi(): AgenticOperationsApi {
     listEmployees: vi.fn(),
     loadEmployee: vi.fn(),
     listAudit: vi.fn(),
+    listCommandActivity: vi.fn(async () => []),
+    recordCommandActivity: vi.fn(),
   };
 }
 
@@ -436,6 +1356,7 @@ function fakeMarketingApi(): MarketingApi {
 function fakeCatalogApi(): CatalogApi {
   return {
     getActiveCampaign: vi.fn(async () => null),
+    getLatestDraftCampaign: vi.fn(async () => null),
     generateCampaignProposal: vi.fn(async (params: any) => ({
       id: "prop-1",
       name: params.prompt,
@@ -446,14 +1367,18 @@ function fakeCatalogApi(): CatalogApi {
       discountPercent: 20,
       startTime: "2026-09-10T00:00:00Z",
       endTime: "2026-09-17T00:00:00Z",
+      durationDays: 7,
+      status: "draft" as const,
       pricingRationale: "Rationale",
       salesProjection: "Projection",
       items: [],
+      totalProducts: 0,
     })),
     generateMerchandisingProposal: vi.fn(),
     activateCampaign: vi.fn(),
     applyMerchandisingProposal: vi.fn(),
     revertCampaign: vi.fn(),
+    rejectCampaign: vi.fn(async () => ({ success: true, campaignId: "prop-1", rejectedAt: "2026-09-17T00:00:00.000Z" })),
   } as unknown as CatalogApi;
 }
 
@@ -479,16 +1404,86 @@ function fakeInventoryApi(): InventoryApi {
   } as unknown as InventoryApi;
 }
 
-function fakeSupportApi(): SupportOperationsApi {
+const supportEmailDrafts: readonly AiSupportTicketItemView[] = [
+  {
+    ticketId: "ticket-email-1",
+    customerName: "Nguyễn An",
+    customerEmail: "an.nguyen@example.com",
+    subject: "Đơn hàng giao trễ",
+    sentiment: "frustrated",
+    churnRisk: "high",
+    issueCategory: "shipping_delay",
+    proposedResponse: "NovaCommerce thành thật xin lỗi vì đơn hàng giao trễ và sẽ ưu tiên xử lý ngay.",
+    suggestedCompensation: "Voucher giảm 15%",
+    priority: "high",
+  },
+  {
+    ticketId: "ticket-email-2",
+    customerName: "Trần Bình",
+    customerEmail: "binh.tran@example.com",
+    subject: "Hỗ trợ kích hoạt bảo hành",
+    sentiment: "neutral",
+    churnRisk: "low",
+    issueCategory: "warranty_inquiry",
+    proposedResponse: "NovaCommerce đã tiếp nhận và gửi hướng dẫn kích hoạt bảo hành cho Quý khách.",
+    suggestedCompensation: "Không áp dụng voucher",
+    priority: "normal",
+  },
+];
+
+function fakeSupportApi(
+  tickets: readonly AiSupportTicketItemView[] = [],
+  createdAt = "2026-09-13T18:23:00.000Z",
+): SupportOperationsApi {
   return {
     generateSupportProposal: vi.fn(async () => ({
       id: "supp-prop-1",
+      prompt: "Soạn email chăm sóc khách hàng",
+      overallSentimentSummary: "Hai khách hàng đang chờ phản hồi.",
+      churnRiskAssessment: "Một khách hàng có nguy cơ rời bỏ cao.",
+      recommendedAction: "Phản hồi trong ngày và cấp voucher phù hợp.",
       docxFilename: "bao_cao_cskh.docx",
       status: "pending_approval" as const,
-      tickets: [],
+      tickets,
       vipCustomers: [],
+      totalTickets: tickets.length,
+      createdAt,
     })),
     applySupportProposal: vi.fn(),
+    cancelSupportProposal: vi.fn(async () => ({
+      id: "supp-prop-1",
+      prompt: "Soạn email chăm sóc khách hàng",
+      overallSentimentSummary: "Hai khách hàng đang chờ phản hồi.",
+      churnRiskAssessment: "Một khách hàng có nguy cơ rời bỏ cao.",
+      recommendedAction: "Phản hồi trong ngày và cấp voucher phù hợp.",
+      docxFilename: "bao_cao_cskh.docx",
+      status: "canceled" as const,
+      tickets,
+      vipCustomers: [],
+      totalTickets: tickets.length,
+      createdAt,
+    })),
     downloadSupportDocx: vi.fn(),
+    createEmailCampaignProposal: vi.fn(async (input: { type: string; prompt: string; targetSegment?: string }) => ({
+      id: "camp-prop-1",
+      title: "Chiến dịch sản phẩm mới",
+      name: "Chiến dịch sản phẩm mới",
+      type: input.type,
+      prompt: input.prompt,
+      targetSegment: (input.targetSegment || "all_active_customers") as any,
+      recipientCount: 10,
+      totalRecipients: 10,
+      selectedCount: 10,
+      subject: "Khám phá sản phẩm mới",
+      emailSubject: "Khám phá sản phẩm mới",
+      htmlContent: "<p>Kính chào quý khách</p>",
+      emailBodyHtml: "<p>Kính chào quý khách</p>",
+      docxFilename: "chien_dich_san_pham_moi.docx",
+      status: "pending_approval",
+      createdAt,
+      updatedAt: createdAt,
+      recipients: [],
+      featuredProducts: [],
+    })),
   } as unknown as SupportOperationsApi;
 }

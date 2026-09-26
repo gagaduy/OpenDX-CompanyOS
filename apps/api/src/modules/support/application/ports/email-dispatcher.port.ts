@@ -11,6 +11,14 @@ export interface SendEmailInput {
   readonly voucherCode?: string;
 }
 
+export interface SendCampaignEmailInput {
+  readonly to: string;
+  readonly toName?: string;
+  readonly subject: string;
+  readonly htmlBody: string;
+  readonly campaignId: string;
+}
+
 export interface SendEmailResult {
   readonly messageId: string;
   readonly delivered: boolean;
@@ -20,4 +28,5 @@ export interface SendEmailResult {
 
 export interface EmailDispatcherPort {
   sendSupportResolutionEmail(input: SendEmailInput): Promise<SendEmailResult>;
+  sendCampaignEmail?(input: SendCampaignEmailInput): Promise<SendEmailResult>;
 }

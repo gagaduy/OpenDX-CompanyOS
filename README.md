@@ -75,6 +75,7 @@ See:
 - `docs/api/payment.md`
 - `docs/api/promotion.md`
 - `docs/integrations/sepay.md`
+- `docs/integrations/meta-marketing.md`
 
 ## Development
 
@@ -154,6 +155,38 @@ pnpm --filter @opendx/api dev
 pnpm --filter @opendx/console dev
 pnpm --filter @opendx/storefront dev
 ```
+
+## Social Media & Marketing Integration (Facebook & Instagram)
+
+OpenDX CompanyOS includes autonomous Digital Employees (Marketing Content, Visual Designer, Publisher) capable of drafting copy, rendering branded visuals, packaging deliverables, and publishing directly to **Facebook Fanpages** and **Instagram Business** accounts upon human approval.
+
+### Setup Guide
+
+1. **Meta for Developers Setup**:
+   - Create or select an App on [developers.facebook.com](https://developers.facebook.com) (App Type: **Business**).
+   - Under **Facebook Login** &rarr; **Settings** &rarr; **Valid OAuth Redirect URIs**, add:
+     ```text
+     http://localhost:3000/auth/oauth-callback
+     ```
+   - In **App settings** &rarr; **Basic**, copy your **App ID** and **App Secret** (click *Show* and enter password).
+2. **1-Click Connect in Console**:
+   - Navigate to `http://localhost:3000/agentic/tasks`.
+   - Open the **Social Token Manager** modal (click the token badge in the header).
+   - Click **⚙️ Cấu hình Meta App**, enter your **Meta App ID** and **Meta App Secret**, and save.
+   - Click **1-Click Kết nối lại** &rarr; Approve Facebook permissions in the popup. OpenDX exchanges the code for a **permanent Page Access Token** and automatically links it to both your Facebook Page and Instagram Business account.
+3. **Alternative `.env` Configuration**:
+   ```env
+   META_APP_ID=your_meta_app_id
+   META_APP_SECRET=your_meta_app_secret
+   FACEBOOK_PAGE_ID=your_facebook_page_id
+   FACEBOOK_PAGE_ACCESS_TOKEN=your_page_access_token
+   INSTAGRAM_PUBLICATION_MODE=live
+   INSTAGRAM_BUSINESS_ACCOUNT_ID=your_instagram_business_id
+   INSTAGRAM_ACCESS_TOKEN=your_access_token
+   INSTAGRAM_PUBLIC_MEDIA_BASE_URL=https://<your-cdn-or-tunnel>/v1/public/marketing/media
+   ```
+
+For advanced details, token lifecycle management, and troubleshooting, see [docs/integrations/meta-marketing.md](docs/integrations/meta-marketing.md).
 
 ## Contributing
 

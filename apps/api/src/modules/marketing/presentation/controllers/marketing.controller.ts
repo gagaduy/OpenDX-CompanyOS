@@ -5,6 +5,8 @@ import type { Request, Response, NextFunction } from "express";
 import type { MarketingCampaignService } from "../../application/services/interfaces/marketing-campaign.service";
 import type { MarketingPublisherService } from "../../application/services/interfaces/marketing-publisher.service";
 import type { MarketingArtifactService } from "../../application/services/interfaces/marketing-artifact-generator.service";
+import type { SocialTokenManagerService } from "../../application/services/interfaces/social-token-manager.service";
+import type { SocialAccountRepository } from "../../domain/repositories/social-account.repository";
 import {
   createMarketingCampaignSchema,
   listMarketingCampaignsSchema,
@@ -30,6 +32,8 @@ export class MarketingController {
     private readonly service: MarketingCampaignService,
     private readonly artifactService?: MarketingArtifactService,
     private readonly publisherService?: MarketingPublisherService,
+    private readonly socialTokenManager?: SocialTokenManagerService,
+    private readonly socialAccountRepository?: SocialAccountRepository,
   ) {}
 
   createCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -142,7 +146,15 @@ export class MarketingController {
             const configuredPageId = detail.brief.facebookPageConfigurationId ?? "";
             const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
             const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
-            const pageAccessToken = parsed.facebookPageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "default-token";
+            let pageAccessToken = parsed.facebookPageAccessToken?.trim();
+            if (!pageAccessToken && this.socialAccountRepository) {
+              const fbAcc = await this.socialAccountRepository.findByPlatformAndId("facebook", pageId)
+                ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "facebook");
+              if (fbAcc?.accessToken) {
+                pageAccessToken = fbAcc.accessToken;
+              }
+            }
+            pageAccessToken = pageAccessToken || process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim() || "default-token";
             await this.publisherService.publishApprovedPackage({
               campaignId,
               packageId: detail.currentPackage.id,
@@ -182,15 +194,26 @@ export class MarketingController {
         throw MarketingApplicationError.publicationRetryNotAllowed();
       }
 
-      const pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+      const configuredPageId = pkg.facebookPageConfigurationId ?? "";
+      const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
+      const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
+
+      let pageAccessToken: string | undefined;
+      if (this.socialAccountRepository) {
+        const fbAcc = await this.socialAccountRepository.findByPlatformAndId("facebook", pageId)
+          ?? (await this.socialAccountRepository.listAccounts()).find((a) => a.platform === "facebook");
+        if (fbAcc?.accessToken) {
+          pageAccessToken = fbAcc.accessToken;
+        }
+      }
+      if (!pageAccessToken) {
+        pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+      }
       if (!pageAccessToken) {
         throw MarketingApplicationError.facebookCredentialsUnavailable();
       }
 
       let result;
-      const configuredPageId = pkg.facebookPageConfigurationId ?? "";
-      const envPageId = process.env.FACEBOOK_PAGE_ID?.trim();
-      const pageId = (/^\d+$/.test(configuredPageId) ? configuredPageId : envPageId) || envPageId || configuredPageId || "1321445584378490";
       try {
         result = await this.publisherService.publishApprovedPackage({
           campaignId,
@@ -352,6 +375,130 @@ export class MarketingController {
       res.setHeader("Content-Disposition", `attachment; filename="${payload.artifact.filename}"`);
       res.setHeader("Content-Length", payload.buffer.length);
       res.status(200).send(payload.buffer);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getSocialTokensStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.getTokensSummary();
+      res.status(200).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  refreshSocialToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const accountId = req.body.accountId as string;
+      if (!platform || !accountId) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform and accountId are required");
+      }
+      const result = await this.socialTokenManager.autoRefreshAccount(platform, accountId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  exchangeSocialOAuthCode = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const code = req.body.code as string;
+      const redirectUri = req.body.redirectUri as string;
+      const targetPageId = req.body.targetPageId as string | undefined;
+      if (!platform || !code || !redirectUri) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform, code, and redirectUri are required");
+      }
+      const appId = req.body.appId as string | undefined;
+      const appSecret = req.body.appSecret as string | undefined;
+      const result = appId || appSecret
+        ? await this.socialTokenManager.handleOAuthCallback(
+            platform,
+            code,
+            redirectUri,
+            targetPageId,
+            appId,
+            appSecret,
+          )
+        : await this.socialTokenManager.handleOAuthCallback(
+            platform,
+            code,
+            redirectUri,
+            targetPageId,
+          );
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  configureMetaApp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const appId = req.body.appId as string;
+      const appSecret = req.body.appSecret as string;
+      if (!appId || !appSecret) {
+        throw new ApplicationError(400, "INVALID_INPUT", "appId and appSecret are required");
+      }
+      await this.socialTokenManager.configureMetaApp(appId, appSecret);
+      const summary = await this.socialTokenManager.getTokensSummary();
+      res.status(200).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  triggerSocialTokensCheck = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.performHealthCheck();
+      res.status(200).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateSocialToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const platform = req.body.platform as "facebook" | "instagram";
+      const accessToken = req.body.accessToken as string;
+      const accountId = req.body.accountId as string | undefined;
+      if (!platform || !accessToken) {
+        throw new ApplicationError(400, "INVALID_INPUT", "platform and accessToken are required");
+      }
+      const result = await this.socialTokenManager.updateAccountToken(platform, accessToken, accountId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  syncSocialTokensFromEnv = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.socialTokenManager) {
+        throw new ApplicationError(503, "SERVICE_UNAVAILABLE", "Social token manager is not configured");
+      }
+      const summary = await this.socialTokenManager.syncFromEnvironment();
+      res.status(200).json(summary);
     } catch (error) {
       next(error);
     }

@@ -34,6 +34,9 @@ interface CampaignRow {
   created_by: string;
   idempotency_key: string;
   source_task_id: string | null;
+  campaign_name?: string | null;
+  objective?: string | null;
+  mandatory_message?: string | null;
   version: number;
   created_at: Date;
   updated_at: Date;
@@ -257,7 +260,10 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
 
   async findCampaignById(id: string): Promise<MarketingCampaign | null> {
     const res = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns WHERE id = $1",
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON b.campaign_id = c.id
+       WHERE c.id = $1`,
       [id],
     );
     return res.rows[0] ? this.mapCampaignRow(res.rows[0]) : null;
@@ -265,7 +271,10 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
 
   async findCampaignByIdempotencyKey(createdBy: string, idempotencyKey: string): Promise<MarketingCampaign | null> {
     const res = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns WHERE created_by = $1 AND idempotency_key = $2",
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON b.campaign_id = c.id
+       WHERE c.created_by = $1 AND c.idempotency_key = $2`,
       [createdBy, idempotencyKey],
     );
     return res.rows[0] ? this.mapCampaignRow(res.rows[0]) : null;
@@ -275,7 +284,10 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     const limit = params?.limit ?? 50;
     const offset = params?.offset ?? 0;
     const res = await this.pool.query<CampaignRow>(
-      "SELECT * FROM marketing_campaigns ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+      `SELECT c.*, b.campaign_name, b.objective, b.mandatory_message
+       FROM marketing_campaigns c
+       LEFT JOIN marketing_campaign_briefs b ON b.campaign_id = c.id
+       ORDER BY c.created_at DESC LIMIT $1 OFFSET $2`,
       [limit, offset],
     );
     return res.rows.map((row) => this.mapCampaignRow(row));
@@ -296,7 +308,8 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
     if (res.rows.length === 0) {
       throw new Error(`Optimistic lock failure or campaign not found for id '${id}'.`);
     }
-    return this.mapCampaignRow(res.rows[0]);
+    const full = await this.findCampaignById(id);
+    return full ?? this.mapCampaignRow(res.rows[0]);
   }
 
   async findBriefByCampaignId(campaignId: string): Promise<CampaignBrief | null> {
@@ -842,6 +855,9 @@ export class PostgresqlMarketingRepository implements MarketingRepository {
       createdBy: row.created_by,
       idempotencyKey: row.idempotency_key,
       sourceTaskId: row.source_task_id,
+      campaignName: row.campaign_name ?? undefined,
+      objective: row.objective ?? undefined,
+      mandatoryMessage: row.mandatory_message ?? undefined,
       version: row.version,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),

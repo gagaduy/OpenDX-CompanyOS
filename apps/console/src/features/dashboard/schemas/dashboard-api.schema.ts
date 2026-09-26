@@ -12,5 +12,20 @@ const envelope=<T extends z.ZodTypeAny>(data:T)=>z.object({data,refreshedAt:time
 export const commerceEnvelopeSchema=envelope(z.object({grossPaidRevenueVnd:safe,paidOrderCount:safe,averageOrderValueVnd:safe,conversionRateBasisPoints:safe,comparison:z.object({previousGrossPaidRevenueVnd:safe,previousPaidOrderCount:safe,previousAverageOrderValueVnd:safe,grossPaidRevenueChangeBasisPoints:signed,paidOrderCountChangeBasisPoints:signed,averageOrderValueChangeBasisPoints:signed}),daily:z.array(z.object({date,grossPaidRevenueVnd:safe,paidOrderCount:safe})),paymentStatuses:z.array(z.object({status:z.string(),count:safe}))}));
 export const productsEnvelopeSchema=envelope(z.object({items:z.array(z.object({sku:z.string(),productTitle:z.string(),quantitySold:safe,paidRevenueVnd:safe})),inventory:z.object({onHand:safe,reserved:safe,available:safe,soldOutCount:safe})}));
 export const customersEnvelopeSchema=envelope(z.object({totalRegisteredCustomers:safe,repeatCustomers:safe,lifetimeValueVnd:safe,lifetimeValueBuckets:z.array(z.object({bucket:z.enum(["zero","low","mid","high"]),count:safe})),newCustomersInRange:safe,previousNewCustomersInRange:safe,newCustomersChangeBasisPoints:signed,dailyNewCustomers:z.array(z.object({date,newCustomerCount:safe}))}));
-export const operationsEnvelopeSchema=envelope(z.object({openTickets:safe,overdueFollowups:safe,slaBreaches:safe}));
+const aiUsageSchema = z.object({
+  totalTokens: safe,
+  inputTokens: safe,
+  outputTokens: safe,
+  settledCostMicros: safe,
+  estimatedCostVnd: safe,
+  modelRuns: safe,
+  rangeTokens: safe.optional(),
+  rangeCostVnd: safe.optional(),
+}).optional();
+export const operationsEnvelopeSchema = envelope(z.object({
+  openTickets: safe,
+  overdueFollowups: safe,
+  slaBreaches: safe,
+  aiUsage: aiUsageSchema,
+}));
 export const dashboardErrorSchema=z.object({success:z.literal(false).optional(),message:z.string().optional(),errorCode:z.string().optional()});

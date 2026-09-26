@@ -294,6 +294,15 @@ describe("MarketingArtifactService", () => {
     }
   });
 
+  it("reuses existing deliverables when generation is requested again", async () => {
+    const first = await service.generateAllDeliverables(campaignId);
+
+    const second = await service.generateAllDeliverables(campaignId);
+
+    expect(second.map((artifact) => artifact.id)).toEqual(first.map((artifact) => artifact.id));
+    expect(repository.artifacts.size).toBe(5);
+  });
+
   it("retrieves generated artifact payload and buffer", async () => {
     const deliverables = await service.generateAllDeliverables(campaignId);
     const firstArtifact = deliverables[0]!;

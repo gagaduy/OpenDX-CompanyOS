@@ -351,6 +351,50 @@ describe("MetaGraphInstagramPublisherAdapter", () => {
     ).rejects.toThrow("Invalid token [REDACTED] provided");
   });
 
+  it("marks the stored Instagram token invalid when container creation rejects it", async () => {
+    const updateHealthStatus = vi.fn().mockResolvedValue(undefined);
+    const socialAccountRepository = {
+      findByPlatformAndId: vi.fn().mockResolvedValue({
+        platform: "instagram",
+        accountId: "17841400000000000",
+        accessToken: ACCESS_TOKEN,
+        tokenStatus: "healthy",
+      }),
+      listAccounts: vi.fn().mockResolvedValue([]),
+      updateHealthStatus,
+    };
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({
+        error: {
+          message: `Invalid token ${ACCESS_TOKEN} provided`,
+          code: 190,
+        },
+      }),
+      { status: 400 },
+    ));
+    const adapter = new MetaGraphInstagramPublisherAdapter({
+      ...defaultOptions,
+      socialAccountRepository: socialAccountRepository as any,
+      fetcher: fetchMock as any,
+    });
+
+    await expect(adapter.publish({
+      target: buildTarget("feed_image"),
+      caption: "Fail before media_publish",
+      media: [media()],
+    })).rejects.toEqual(expect.objectContaining({ code: "INSTAGRAM_TOKEN_INVALID" }));
+
+    expect(updateHealthStatus).toHaveBeenCalledWith(
+      "instagram",
+      "17841400000000000",
+      expect.objectContaining({
+        tokenStatus: "invalid",
+        lastCheckedAt: "2026-09-02T10:05:00.000Z",
+        lastError: "Invalid token [REDACTED] provided",
+      }),
+    );
+  });
+
   it("marks media_publish timeout as an unknown provider outcome", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       const urlStr = String(url);

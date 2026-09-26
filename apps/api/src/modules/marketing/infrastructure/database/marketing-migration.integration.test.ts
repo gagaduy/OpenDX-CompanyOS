@@ -20,6 +20,7 @@ const tables = [
   "marketing_publication_attempts",
   "marketing_publication_records",
   "marketing_artifacts",
+  "marketing_social_accounts",
 ] as const;
 
 suite("Marketing publication migration", () => {

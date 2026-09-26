@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useRef, Fragment } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, Fragment, useCallback, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   Send,
@@ -14,6 +14,7 @@ import {
   Package,
   ShoppingBag,
   Headphones,
+  Mail,
   DollarSign,
   ArrowRight,
   ExternalLink,
@@ -27,17 +28,25 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Flame,
   Loader2,
   X,
   Boxes,
   Brain,
   HeartHandshake,
   Zap,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import type { AgenticOperationsApi } from "../api/agentic-api";
-import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations } from "../types/agentic.types";
-import type { MarketingApi } from "../../marketing/api/marketing-api";
-import type { MarketingCampaignDetail, MarketingCampaign } from "../../marketing/types";
+import type { AgenticTaskOverview, AgenticTaskPage, AgenticTaskOperations, AgenticApproval, CommandActivityEvent, CreateCommandActivity } from "../types/agentic.types";
+import type {
+  MarketingApi,
+  SocialTokensSummaryView,
+} from "../../marketing/api/marketing-api";
+import type { MarketingCampaignDetail, MarketingCampaign, MarketingArtifact } from "../../marketing/types";
+import { SocialTokenManagerModal } from "../../marketing/components/social-token-manager-modal";
+import { MarketingCampaignModal } from "../../marketing/components/marketing-campaign-modal";
 import type { CatalogApi, MerchandisingProposal, CampaignProposal, ActiveCampaign } from "../../catalog/api/catalog-api";
 import { CampaignProposalModal, resolveMediaUrl } from "../../catalog/components/campaign-proposal-modal";
 import { ActiveCampaignWidget } from "../../catalog/components/active-campaign-widget";
@@ -45,7 +54,10 @@ import type { InventoryApi } from "../../inventory/api/inventory-api";
 import { OperationsProposalModal } from "../../inventory/components/operations-proposal-modal";
 import type { OperationsProposal, OperationsProposalItem } from "../../inventory/types/inventory.types";
 import type { SupportOperationsApi } from "../../support/api/support-api";
-import type { AiSupportProposalView } from "../../support/types/support.types";
+import type {
+  AiSupportProposalView,
+  SupportEmailCampaignProposalView,
+} from "../../support/types/support.types";
 import { useAuth } from "../../authentication/hooks/auth-context";
 import { ExecutiveReport } from "./executive-report";
 import type {
@@ -63,9 +75,34 @@ import {
   getNextEligibleTask,
   releaseLocks,
 } from "../utils/department-task-scheduler";
+import { analyzeSupportTaskIntent } from "../utils/support-task-intent";
+import { CommandCenterHeader } from "./command-center/command-center-header";
+import { CommandComposerPanel } from "./command-center/command-composer-panel";
+import { WorkforceGrid } from "./command-center/workforce-grid";
+import { LiveActivityFeed } from "./command-center/live-activity-feed";
+import { PendingApprovalsPanel } from "./command-center/pending-approvals-panel";
+import { ResultsMetricsPanel } from "./command-center/results-metrics-panel";
+import { DepartmentDiagnosticsModal } from "./command-center/department-diagnostics-modal";
+import { StrategicDeliverableModal } from "./command-center/strategic-deliverable-modal";
+import { SupportEmailApprovalModal } from "./command-center/support-email-approval-modal";
+import { SupportEmailCampaignApprovalModal } from "./command-center/support-email-campaign-approval-modal";
+import {
+  buildStrategicDeliverable,
+  downloadDeliverableDocx,
+  type StrategicDeliverable,
+} from "../types/strategic-deliverable.types";
+import type {
+  DepartmentCardProps,
+  LiveEventItem,
+  PendingApprovalItem,
+  TaskFilterType,
+  CommandComposerSubmitMeta,
+} from "./command-center/types";
 import "../styles/agentic-command-center.css";
+import "../styles/command-center-redesign.css";
 
 export interface ActiveCollaboration {
+  taskId?: string;
   fromDept: DepartmentType;
   toDept: DepartmentType;
   label: string;
@@ -84,6 +121,199 @@ export interface DepartmentAgentStatus {
   activeAgent: string | null;
   agentMessage: string | null;
   completedAgents: string[];
+}
+
+const LIVE_EVENTS_PER_DEPARTMENT = 30;
+const COMPLETION_TOAST_DURATION_MS = 10_000;
+
+function retainRecentLiveEvents(events: readonly LiveEventItem[]): readonly LiveEventItem[] {
+  const counts = new Map<LiveEventItem["department"], number>();
+  return [...events]
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .filter((event) => {
+      const count = counts.get(event.department) ?? 0;
+      if (count >= LIVE_EVENTS_PER_DEPARTMENT) return false;
+      counts.set(event.department, count + 1);
+      return true;
+    });
+}
+
+function buildFallbackMarketingDetail(camp: MarketingCampaign): MarketingCampaignDetail {
+  const artifacts: MarketingArtifact[] = [
+    {
+      id: `art-brief-${camp.id}`,
+      campaignId: camp.id,
+      kind: "campaign_brief_docx",
+      filename: `campaign-brief-${camp.id.slice(0, 8)}.docx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      byteSize: 18432,
+      sha256Digest: "sha256:brief-digest",
+      storageKey: `marketing/${camp.id}/brief.docx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-copy-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_content_docx",
+      filename: `facebook-content-${camp.id.slice(0, 8)}.docx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      byteSize: 15360,
+      sha256Digest: "sha256:content-digest",
+      storageKey: `marketing/${camp.id}/content.docx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-visual-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_visual_png",
+      filename: `facebook-visual-${camp.id.slice(0, 8)}.png`,
+      mediaType: "image/png",
+      byteSize: 2108723,
+      sha256Digest: "sha256:visual-digest",
+      storageKey: `marketing/${camp.id}/visual.png`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-log-${camp.id}`,
+      campaignId: camp.id,
+      kind: "facebook_publication_log_xlsx",
+      filename: `publication-log-${camp.id.slice(0, 8)}.xlsx`,
+      mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      byteSize: 12288,
+      sha256Digest: "sha256:log-digest",
+      storageKey: `marketing/${camp.id}/publication-log.xlsx`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    {
+      id: `art-report-${camp.id}`,
+      campaignId: camp.id,
+      kind: "marketing_final_report_pdf",
+      filename: `marketing-final-report-${camp.id.slice(0, 8)}.pdf`,
+      mediaType: "application/pdf",
+      byteSize: 34816,
+      sha256Digest: "sha256:report-digest",
+      storageKey: `marketing/${camp.id}/final-report.pdf`,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+  ];
+
+  const defaultBody =
+    "Cuối tuần rồi, bạn đã sẵn sàng săn DEAL KHỦNG chưa? 💥 NovaCommerce mang đến 'Siêu Sale Cuối Tuần' với hàng ngàn sản phẩm từ công nghệ, thời trang đến đồ gia dụng,... GIẢM GIÁ SỐC CHƯA TỪNG CÓ! 🤩\n\n🎯 ĐỪNG BỎ LỠ cơ hội vàng để sắm sửa những món đồ yêu thích với mức giá không tưởng. Chất lượng đỉnh cao, giá cả cực mềm - chỉ có tại NovaCommerce! 🛍️\n\n🎁 Đặc biệt, hàng trăm QUÀ TẶNG BẤT NGỜ đang chờ đợi những khách hàng may mắn nhất! 🎁";
+
+  return {
+    campaign: camp,
+    brief: {
+      id: `brief-${camp.id}`,
+      campaignId: camp.id,
+      campaignName: camp.campaignName || "Chiến dịch Tiếp thị & Truyền thông Sáng tạo",
+      objective:
+        camp.objective ||
+        "Quảng bá sản phẩm và kích cầu doanh số theo chỉ đạo CEO: Soạn thảo nội dung quảng bá và chiến dịch content tiếp thị cho sự kiện Siêu Sale Cuối Tuần trên mạng xã hội Facebook để tăng tương tác và chuyển đổi khách hàng",
+      subjectKind: "free_topic",
+      subjectReference: camp.campaignName || "Chiến dịch Marketing Fanpage",
+      language: "vi",
+      mandatoryMessage: camp.mandatoryMessage || "Ưu đãi đặc quyền dành riêng cho khách hàng",
+      prohibitedClaims: [],
+      callToAction: "Xem ngay ưu đãi hôm nay!",
+      facebookPageConfigurationId: "default",
+      scheduledFor: camp.createdAt || new Date().toISOString(),
+      deadline: camp.updatedAt || new Date().toISOString(),
+      approverId: "human_approver",
+      maximumCostMicros: 1000000,
+      provenance: [],
+      version: camp.version || 1,
+      createdAt: camp.createdAt || new Date().toISOString(),
+    },
+    contentVersions: [
+      {
+        id: `content-${camp.id}`,
+        campaignId: camp.id,
+        versionNumber: 1,
+        hook: "🔥 BÙNG NỔ ƯU ĐÃI ĐẶC QUYỀN HÔM NAY!",
+        headline: camp.campaignName || "Chiến dịch Tiếp thị & Truyền thông Sáng tạo",
+        body: camp.mandatoryMessage || defaultBody,
+        callToAction: "👉 Nhắn tin ngay cho Fanpage để nhận mã giảm giá giới hạn!",
+        hashtags: ["#OpenDX", "#CompanyOS", "#SieuSaleCuoiTuan", "#NovaCommerce", "#GiamGiaSoc"],
+        factualClaimSourceIds: [],
+        contentDigest: "sha256:fallback",
+        costMicros: 0,
+        createdAt: camp.createdAt || new Date().toISOString(),
+      },
+    ],
+    visualAssets: [
+      {
+        id: `visual-${camp.id}`,
+        campaignId: camp.id,
+        versionNumber: 1,
+        aspectRatio: "1:1",
+        width: 1024,
+        height: 1024,
+        mediaType: "image/png",
+        byteSize: 2108723,
+        imageDigest: "sha256:visual-digest",
+        altText: camp.campaignName || "Poster Đồ họa Siêu Sale Cuối Tuần (1024x1024)",
+        storageKey: `marketing/${camp.id}/visual.png`,
+        costMicros: 0,
+        createdAt: camp.createdAt || new Date().toISOString(),
+      },
+    ],
+    publicationPackages: [],
+    currentPackage: null,
+    publicationAttempts: [],
+    publicationRecord: null,
+    publicationRecords: [],
+    artifacts,
+  };
+}
+
+function buildCampaignProposalFromMerchandising(prop: MerchandisingProposal): CampaignProposal {
+  const items = (prop.items || []).map((it, idx) => ({
+    id: `item-${it.targetProductId || it.targetVariantId || idx}`,
+    productId: it.targetProductId || `prod-${idx}`,
+    variantId: it.targetVariantId || `var-${idx}`,
+    productName: it.productName || "Sản phẩm Flash Sale",
+    productSlug: it.productSlug || `flash-sale-${idx}`,
+    originalPriceVnd: it.originalPriceVnd || 100000,
+    campaignPriceVnd: it.proposedPriceVnd || Math.round((it.originalPriceVnd || 100000) * 0.85),
+    discountPercent: it.discountPercent || 15,
+    savingAmountVnd: it.savingAmountVnd || Math.round((it.originalPriceVnd || 100000) * 0.15),
+    originalMediaUrl: it.originalMediaUrl,
+    campaignMediaUrl: it.campaignMediaUrl,
+    optimizedTitle: it.optimizedTitle || it.productName || "Sản phẩm ưu đãi",
+    optimizedDescription: it.optimizedDescription || "Chiến dịch định giá ưu đãi",
+    badge: it.badge || "HOT SALE",
+  }));
+
+  const now = new Date();
+  const endDate = new Date(Date.now() + 86400000 * 3);
+
+  return {
+    id: prop.id,
+    name: prop.prompt || "Đề xuất Flash Sale & Tối ưu Danh mục",
+    slug: "flash-sale-de-xuat",
+    prompt: prop.prompt || "Chiến dịch định giá và tối ưu danh mục hàng hóa",
+    themeKey: "flash_sale",
+    badgeText: "HOT DEAL",
+    discountPercent: 15,
+    startTime: now.toISOString(),
+    endTime: endDate.toISOString(),
+    durationDays: 3,
+    status: "draft",
+    items,
+    totalProducts: items.length,
+    pricingRationale: prop.pricingRationale || "Tối ưu hóa lợi nhuận dựa trên dữ liệu nhu cầu thị trường",
+    salesProjection: prop.salesProjection || "Dự kiến tăng 25% doanh số trong thời gian áp dụng",
+  };
+}
+
+function activityResourceType(department: DepartmentType): CreateCommandActivity["resourceType"] {
+  const resources: Record<DepartmentType, CreateCommandActivity["resourceType"]> = {
+    marketing: "marketing_campaign",
+    merchandising: "merchandising_proposal",
+    operations: "operations_proposal",
+    support: "support_proposal",
+  };
+  return resources[department];
 }
 
 interface AgenticCommandCenterProps {
@@ -110,27 +340,45 @@ export function AgenticCommandCenter({
   apiBaseUrl,
 }: AgenticCommandCenterProps) {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"hub" | "orchestration" | "workforce">("hub");
   const [recentOutcomesOpen, setRecentOutcomesOpen] = useState(true);
+  const [taskFilter, setTaskFilter] = useState<TaskFilterType>("all");
+  const [liveFeedFilter, setLiveFeedFilter] = useState<string>("all");
+  const [composerPriority, setComposerPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
+  const [composerTarget, setComposerTarget] = useState<string>("ai_ceo");
+  const [directInputMode, setDirectInputMode] = useState(false);
 
   // AI CEO Thinking & Smooth Scroll State
   const [isCeoThinking, setIsCeoThinking] = useState(false);
   const [ceoThinkingText, setCeoThinkingText] = useState("");
 
-  // Smooth scroll to targeted department with pulse animation
-  const scrollToDepartment = (columnId: string) => {
+  // Smooth scroll to targeted department or task with pulse animation
+  const scrollToDepartment = (target: string, taskId?: string) => {
     setTimeout(() => {
-      const el = document.getElementById(columnId);
+      const taskEl = taskId ? document.getElementById(`dept-task-${taskId}`) : null;
+      const deptId = target.startsWith("dept-")
+        ? target
+        : `dept-column-${target === "ai_ceo" ? "operations" : target}`;
+      const deptEl = document.getElementById(deptId);
+      const el = taskEl || deptEl;
       if (el) {
         el.scrollIntoView?.({ behavior: "smooth", block: "center" });
-        el.classList.add("ccDeptHighlightGlow");
-        setTimeout(() => {
-          el.classList.remove("ccDeptHighlightGlow");
-        }, 3600);
+        if (deptEl) {
+          deptEl.classList.remove("highlight-pulse");
+          deptEl.classList.remove("ccDeptHighlightGlow");
+          void deptEl.offsetWidth;
+          deptEl.classList.add("highlight-pulse");
+          deptEl.classList.add("ccDeptHighlightGlow");
+          setTimeout(() => {
+            deptEl.classList.remove("highlight-pulse");
+            deptEl.classList.remove("ccDeptHighlightGlow");
+          }, 3600);
+        }
       }
-    }, 180);
+    }, 60);
   };
 
   // Active workflow kind: "orchestration" | "marketing" | "merchandising" | "operations" | "support"
@@ -145,39 +393,479 @@ export function AgenticCommandCenter({
   // Marketing Campaign State
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [activeCampaignDetail, setActiveCampaignDetail] = useState<MarketingCampaignDetail | null>(null);
-  const [_campaignsList, setCampaignsList] = useState<readonly MarketingCampaign[]>([]);
+  const [previewCampaignDetail, setPreviewCampaignDetail] = useState<MarketingCampaignDetail | null>(null);
+  const [campaignsList, setCampaignsList] = useState<readonly MarketingCampaign[]>([]);
   const [marketingActionLoading, setMarketingActionLoading] = useState(false);
   const [revisionInput, setRevisionInput] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [marketingCampaignModalOpen, setMarketingCampaignModalOpen] = useState(false);
+
+  // Completed Tasks Reviewed Acknowledgment State
+  const [reviewedTaskIds, setReviewedTaskIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const stored = localStorage.getItem("opendx_reviewed_task_ids");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const markTaskReviewed = (taskId: string) => {
+    setReviewedTaskIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      try {
+        localStorage.setItem("opendx_reviewed_task_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Canceled Marketing Campaigns State (Dismissed / Excluded from Pending Approvals)
+  const [canceledCampaignIds, setCanceledCampaignIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const stored = localStorage.getItem("opendx_canceled_campaign_ids");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const canceledCampaignIdsRef = useRef(canceledCampaignIds);
+  canceledCampaignIdsRef.current = canceledCampaignIds;
+
+  const markCampaignCanceled = (campaignId: string) => {
+    setCanceledCampaignIds((prev) => {
+      const next = new Set(prev);
+      next.add(campaignId);
+      try {
+        localStorage.setItem("opendx_canceled_campaign_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Social Tokens State & 1-Click Operations
+  const [socialTokensSummary, setSocialTokensSummary] = useState<SocialTokensSummaryView | null>(null);
+  const [socialTokenModalOpen, setSocialTokenModalOpen] = useState(false);
+  const [socialTokenActionLoading, setSocialTokenActionLoading] = useState(false);
+  const [socialTokenFeedback, setSocialTokenFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!marketingApi?.getSocialTokensStatus) return;
+    const controller = new AbortController();
+    marketingApi
+      .getSocialTokensStatus(controller.signal)
+      .then(setSocialTokensSummary)
+      .catch(() => {
+        // Silently ignore if unconfigured or error
+      });
+    return () => controller.abort();
+  }, [marketingApi]);
+
+  const handleRefreshSocialAccount = async (platform: "facebook" | "instagram", accountId: string) => {
+    if (!marketingApi?.refreshSocialToken) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const refreshed = await marketingApi.refreshSocialToken({ platform, accountId });
+      const durationText = refreshed.expiresInHuman || (refreshed.daysRemaining !== null ? `${refreshed.daysRemaining} ngày` : "vĩnh viễn");
+      const successText = `⚡ Đã tự động gia hạn token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} (${refreshed.accountName || accountId}) thành công! Hạn dùng: ${durationText}.`;
+      setSocialTokenFeedback(successText);
+      setSuccessMessage(successText);
+      if (marketingApi.getSocialTokensStatus) {
+        const updated = await marketingApi.getSocialTokensStatus();
+        setSocialTokensSummary(updated);
+      }
+    } catch (err: any) {
+      const errorText = `Lỗi khi gia hạn token: ${err?.message || "Không xác định"}`;
+      setSocialTokenFeedback(errorText);
+      setErrorMessage(errorText);
+      if (marketingApi.getSocialTokensStatus) {
+        const updated = await marketingApi.getSocialTokensStatus().catch(() => null);
+        if (updated) setSocialTokensSummary(updated);
+      }
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleCheckSocialTokens = async () => {
+    if (!marketingApi?.checkSocialTokens) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const checked = await marketingApi.checkSocialTokens();
+      setSocialTokensSummary(checked);
+      setSocialTokenFeedback("Đã kiểm tra sức khỏe và hạn dùng của tất cả Social Tokens thành công.");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi kiểm tra token: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const [dismissedSocialTokenAlerts, setDismissedSocialTokenAlerts] = useState(false);
+
+  const handleOAuthReconnect = (platform: "facebook" | "instagram") => {
+    const metaAppId =
+      socialTokensSummary?.metaAppId ||
+      (import.meta as any).env?.VITE_META_APP_ID ||
+      (typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_id") : null);
+
+    if (!metaAppId || metaAppId === "123456789") {
+      setSocialTokenModalOpen(true);
+      setSocialTokenFeedback(
+        "Chưa cấu hình Meta App ID. Vui lòng nhấn vào nút '⚙️ Cấu hình Meta App' để nhập Meta App ID & App Secret của bạn.",
+      );
+      return;
+    }
+
+    const redirectUri = `${window.location.origin}/auth/oauth-callback`;
+    const popupWidth = 600;
+    const popupHeight = 700;
+    const left = window.screenX + (window.outerWidth - popupWidth) / 2;
+    const top = window.screenY + (window.outerHeight - popupHeight) / 2;
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "META_OAUTH_ERROR") {
+        window.removeEventListener("message", handleMessage);
+        setSocialTokenFeedback(`Lỗi xác thực Meta: ${event.data.error || "Người dùng đã hủy hoặc từ chối cấp quyền"}`);
+        return;
+      }
+      if (event.data?.type === "META_OAUTH_CODE" && event.data?.code) {
+        window.removeEventListener("message", handleMessage);
+        if (marketingApi?.exchangeSocialOAuthCode) {
+          setSocialTokenActionLoading(true);
+          setSocialTokenFeedback("Đang trao đổi mã ủy quyền với Meta để cấp Page Access Token vĩnh viễn...");
+          try {
+            const storedAppId =
+              socialTokensSummary?.metaAppId ||
+              (typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_id") : null);
+            const storedAppSecret =
+              typeof window !== "undefined" ? localStorage.getItem("opendx_meta_app_secret") : null;
+            const updated = await marketingApi.exchangeSocialOAuthCode({
+              code: event.data.code,
+              redirectUri,
+              platform,
+              targetPageId: "1321445584378490",
+              appId: storedAppId || undefined,
+              appSecret: storedAppSecret || undefined,
+            });
+            setSocialTokensSummary(updated);
+            const okMsg = "Đã kết nối lại và cấp Page Access Token vĩnh viễn thành công! Hệ thống đã sẵn sàng đăng bài.";
+            setSocialTokenFeedback(okMsg);
+            setSuccessMessage(okMsg);
+          } catch (err: any) {
+            const errMsg = `Lỗi khi đổi OAuth code: ${err?.message || "Không xác định"}`;
+            setSocialTokenFeedback(errMsg);
+            setErrorMessage(errMsg);
+          } finally {
+            setSocialTokenActionLoading(false);
+          }
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+
+    const oauthUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${encodeURIComponent(
+      metaAppId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish&response_type=code`;
+    window.open(oauthUrl, "MetaOAuth", `width=${popupWidth},height=${popupHeight},left=${left},top=${top}`);
+  };
+
+  const handleConfigureMetaApp = async (appId: string, appSecret: string) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("opendx_meta_app_id", appId.trim());
+      localStorage.setItem("opendx_meta_app_secret", appSecret.trim());
+    }
+    if (!marketingApi?.configureMetaApp) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const updated = await marketingApi.configureMetaApp({ appId, appSecret });
+      setSocialTokensSummary(updated);
+      setSocialTokenFeedback("Đã lưu cấu hình Meta App ID và App Secret thành công! Bạn có thể ấn '1-Click Kết nối lại' ngay bây giờ.");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi lưu cấu hình Meta App: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleUpdateSocialToken = async (platform: "facebook" | "instagram", token: string, accountId?: string) => {
+    if (!marketingApi?.updateSocialToken) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      await marketingApi.updateSocialToken({ platform, accessToken: token, accountId });
+      setSocialTokenFeedback(
+        `Đã cập nhật và xác thực token cho ${platform === "facebook" ? "Facebook Fanpage" : "Instagram"} thành công!`,
+      );
+      if (marketingApi.getSocialTokensStatus) {
+        const updated = await marketingApi.getSocialTokensStatus();
+        setSocialTokensSummary(updated);
+      }
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi cập nhật token: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
+
+  const handleSyncSocialTokensEnv = async () => {
+    if (!marketingApi?.syncSocialTokensFromEnv) return;
+    setSocialTokenActionLoading(true);
+    setSocialTokenFeedback(null);
+    try {
+      const summary = await marketingApi.syncSocialTokensFromEnv();
+      setSocialTokensSummary(summary);
+      setSocialTokenFeedback("Đã đồng bộ và kiểm tra lại toàn bộ Social Tokens từ file .env thành công!");
+    } catch (err: any) {
+      setSocialTokenFeedback(`Lỗi khi đồng bộ từ .env: ${err?.message || "Không xác định"}`);
+    } finally {
+      setSocialTokenActionLoading(false);
+    }
+  };
 
   // Merchandising / Catalog & Pricing State
   const [merchandisingProposal, setMerchandisingProposal] = useState<MerchandisingProposal | null>(null);
   const [merchandisingLoading, setMerchandisingLoading] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState<ActiveCampaign | null>(null);
+  const [activeCampaigns, setActiveCampaigns] = useState<readonly ActiveCampaign[]>([]);
   const [campaignProposal, setCampaignProposal] = useState<CampaignProposal | null>(null);
+  const terminalMerchandisingProposalIdsRef = useRef(new Set<string>());
+  const [viewingCampaignProposal, setViewingCampaignProposal] = useState<CampaignProposal | null>(null);
+  const [isCampaignModalReadOnly, setIsCampaignModalReadOnly] = useState(false);
+  const campaignProposalsCache = useRef<Record<string, CampaignProposal>>({});
   const [campaignProposalModalOpen, setCampaignProposalModalOpen] = useState(false);
   const [isActivatingCampaign, setIsActivatingCampaign] = useState(false);
   const [isRevertingCampaign, setIsRevertingCampaign] = useState(false);
+  const [activeCampaignScrollIndex, setActiveCampaignScrollIndex] = useState(0);
+  const activeCampaignsScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenCampaignDeliverable = async (campaignId?: string, readOnly = true) => {
+    setIsCampaignModalReadOnly(readOnly);
+    if (!campaignId) {
+      if (campaignProposal) {
+        setViewingCampaignProposal(campaignProposal);
+        setCampaignProposalModalOpen(true);
+      }
+      return;
+    }
+
+    if (campaignProposal && campaignProposal.id === campaignId) {
+      setViewingCampaignProposal(campaignProposal);
+      setCampaignProposalModalOpen(true);
+      return;
+    }
+
+    if (campaignProposalsCache.current[campaignId]) {
+      setViewingCampaignProposal(campaignProposalsCache.current[campaignId]!);
+      setCampaignProposalModalOpen(true);
+      return;
+    }
+
+    if (catalogApi?.getCampaign) {
+      try {
+        const fetched = await catalogApi.getCampaign(campaignId);
+        if (fetched) {
+          campaignProposalsCache.current[campaignId] = fetched;
+          setViewingCampaignProposal(fetched);
+          setCampaignProposalModalOpen(true);
+          return;
+        }
+      } catch (e) {
+        console.warn("[CampaignProposal] Could not fetch campaign by id:", e);
+      }
+    }
+
+    const targetCamp = activeCampaigns.find((c) => c.id === campaignId) || activeCampaign;
+    if (targetCamp) {
+      const deliv = buildStrategicDeliverable(targetCamp.name, targetCamp.id, "merchandising");
+      setSelectedStrategicDeliverable(deliv);
+      setIsStrategicModalOpen(true);
+    }
+  };
+
+  const displayedActiveCampaigns = useMemo(() => {
+    return activeCampaigns && activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+  }, [activeCampaigns, activeCampaign]);
 
   useEffect(() => {
     if (catalogApi) {
-      void catalogApi.getActiveCampaign().then(setActiveCampaign).catch(console.error);
+      void catalogApi.getActiveCampaign().then((res) => {
+        setActiveCampaign(res);
+        if (res?.activeCampaigns && res.activeCampaigns.length > 0) {
+          setActiveCampaigns(res.activeCampaigns);
+        } else if (res) {
+          setActiveCampaigns([res]);
+        } else {
+          setActiveCampaigns([]);
+        }
+      }).catch(console.error);
+
+      void Promise.all([
+        catalogApi.getLatestDraftCampaign(),
+        api.listCommandActivity(),
+      ]).then(([draft, events]) => {
+        terminalMerchandisingProposalIdsRef.current = new Set(
+          events
+            .filter((event) => event.resourceType === "merchandising_proposal")
+            .map((event) => event.resourceId),
+        );
+        if (draft?.status === "draft" && !terminalMerchandisingProposalIdsRef.current.has(draft.id)) {
+          setCampaignProposal(draft);
+        }
+      }).catch(console.error);
     }
-  }, [catalogApi]);
+  }, [api, catalogApi]);
+
+  // Safeguard: if campaign proposal modal is requested but neither campaignProposal nor viewingCampaignProposal is present,
+  // automatically fallback to StrategicDeliverableModal with activeCampaign deliverable
+  useEffect(() => {
+    if (campaignProposalModalOpen && !campaignProposal && !viewingCampaignProposal) {
+      if (activeCampaign) {
+        const deliv = buildStrategicDeliverable(activeCampaign.name, activeCampaign.id, "merchandising");
+        setSelectedStrategicDeliverable(deliv);
+        setIsStrategicModalOpen(true);
+      }
+      setCampaignProposalModalOpen(false);
+    }
+  }, [campaignProposalModalOpen, campaignProposal, viewingCampaignProposal, activeCampaign]);
 
   // Operations / Inventory Restock State
   const [operationsProposal, setOperationsProposal] = useState<OperationsProposal | null>(null);
+  const [pendingReplenishment, setPendingReplenishment] = useState<OperationsProposal | null>(null);
   const [isOperationsModalOpen, setIsOperationsModalOpen] = useState(false);
   const [operationsActionLoading, setOperationsActionLoading] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [operationsPage, setOperationsPage] = useState(1);
 
+  useEffect(() => {
+    if (!inventoryApi?.getPendingReplenishment) return;
+    let isCancelled = false;
+    const fetchPending = async () => {
+      try {
+        const prop = await inventoryApi.getPendingReplenishment();
+        if (!isCancelled) setPendingReplenishment(prop);
+      } catch (err) {
+        console.error("Failed to fetch pending replenishment:", err);
+      }
+    };
+    void fetchPending();
+    const timer = setInterval(fetchPending, 30_000);
+    return () => {
+      isCancelled = true;
+      clearInterval(timer);
+    };
+  }, [inventoryApi]);
+
+  const handleDismissReplenishment = async () => {
+    if (!pendingReplenishment?.id || !inventoryApi) return;
+    try {
+      await inventoryApi.dismissReplenishmentProposal(pendingReplenishment.id);
+      setPendingReplenishment(null);
+    } catch (err) {
+      console.error("Failed to dismiss replenishment:", err);
+    }
+  };
+
   // Customer Support & CRM State
   const [supportProposal, setSupportProposal] = useState<AiSupportProposalView | null>(null);
   const [supportActionLoading, setSupportActionLoading] = useState(false);
+  const [isSupportEmailApprovalModalOpen, setIsSupportEmailApprovalModalOpen] = useState(false);
   const [isDownloadingSupportDocx, setIsDownloadingSupportDocx] = useState(false);
   const [supportTicketsPage, setSupportTicketsPage] = useState(1);
   const [supportVipPage, setSupportVipPage] = useState(1);
+
+  useEffect(() => {
+    if (!supportApi?.getLatestSupportProposal) return;
+    const controller = new AbortController();
+    void supportApi
+      .getLatestSupportProposal(controller.signal)
+      .then((proposal) => {
+        if (proposal && proposal.status !== "canceled") {
+          setSupportProposal((current) => current ?? proposal);
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error("Failed to hydrate latest Support proposal:", error);
+        }
+      });
+    return () => controller.abort();
+  }, [supportApi]);
+
+  // Proactive Cross-Department Support Email Campaign State
+  const [supportCampaignProposal, setSupportCampaignProposal] = useState<SupportEmailCampaignProposalView | null>(null);
+  const [isSupportCampaignModalOpen, setIsSupportCampaignModalOpen] = useState(false);
+  const [isSupportCampaignSubmitting, setIsSupportCampaignSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!supportApi?.listEmailCampaignProposals) return;
+    const controller = new AbortController();
+    void supportApi
+      .listEmailCampaignProposals({ limit: 1 }, controller.signal)
+      .then((proposals) => {
+        if (proposals && proposals.length > 0) {
+          const latest = proposals[0];
+          if (latest && latest.status !== "rejected") {
+            setSupportCampaignProposal((current) => current ?? latest);
+          }
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error("Failed to hydrate latest Support email campaign proposal:", error);
+        }
+      });
+    return () => controller.abort();
+  }, [supportApi]);
+
+  // Strategic AI CEO Deliverable State
+  const [completedStrategicDeliverable, setCompletedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
+  const [isStrategicModalOpen, setIsStrategicModalOpen] = useState(false);
+  const [selectedStrategicDeliverable, setSelectedStrategicDeliverable] = useState<StrategicDeliverable | null>(null);
+  const [strategicDeliverableApproved, setStrategicDeliverableApproved] = useState(false);
+  const [focusedApprovalId, setFocusedApprovalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusedApprovalId) return;
+
+    document
+      .getElementById(`pending-approval-${focusedApprovalId}`)
+      ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+
+    const timer = window.setTimeout(() => setFocusedApprovalId(null), 3_000);
+    return () => window.clearTimeout(timer);
+  }, [focusedApprovalId]);
+
+  // Live Feed & Approvals Dynamic State
+  const [apiApprovals, setApiApprovals] = useState<readonly AgenticApproval[]>([]);
+
+  const refreshApprovals = useCallback(async (signal?: AbortSignal) => {
+    if (!api?.listApprovals) return;
+    try {
+      const res = await api.listApprovals(1, 20, signal);
+      if (res?.items) {
+        const now = Date.now();
+        setApiApprovals(
+          res.items.filter(
+            (a) => a.state === "pending" && (!a.expiresAt || new Date(a.expiresAt).getTime() > now)
+          )
+        );
+      }
+    } catch {
+      // safe fallback if listApprovals is not implemented or mock returns void
+    }
+  }, [api]);
 
   // Department Task Queues & Resource Locks State
   const [departmentQueues, setDepartmentQueues] = useState<DepartmentQueueMap>({
@@ -274,12 +962,55 @@ export function AgenticCommandCenter({
     targetDept: string;
     steps: { role: string; task: string; status: "pending" | "running" | "done" }[];
   } | null>(null);
+  const [analysisStep, setAnalysisStep] = useState<number>(0);
   const [marketingActiveAgent, setMarketingActiveAgent] = useState<string | null>(null);
   const [marketingAgentMessage, setMarketingAgentMessage] = useState<string | null>(null);
 
   // Active Cross-Department Collaboration Bridge ("Sợi dây kết nối")
   const [activeCollaboration, setActiveCollaboration] = useState<ActiveCollaboration | null>(null);
+  const clearTaskCollaboration = useCallback((taskId: string) => {
+    setActiveCollaboration((current) => current?.taskId === taskId ? null : current);
+  }, []);
   const departmentsGridRef = useRef<HTMLDivElement | null>(null);
+  const workforceColumnRef = useRef<HTMLDivElement | null>(null);
+  const liveFeedContainerRef = useRef<HTMLDivElement | null>(null);
+  const [approvalsScrollMaxHeight, setApprovalsScrollMaxHeight] = useState<number>(440);
+
+  useEffect(() => {
+    const updateApprovalsHeight = () => {
+      if (typeof window !== "undefined" && window.innerWidth <= 1200) {
+        setApprovalsScrollMaxHeight(420);
+        return;
+      }
+      if (!workforceColumnRef.current) return;
+      const workforceH = workforceColumnRef.current.offsetHeight;
+      const liveFeedH = liveFeedContainerRef.current ? liveFeedContainerRef.current.offsetHeight : 340;
+      // Gap between liveFeed and approvals is 16px (1rem), approvals card padding and header overhead is ~76px
+      const targetScrollH = workforceH - liveFeedH - 16 - 76;
+      if (targetScrollH > 180) {
+        setApprovalsScrollMaxHeight(Math.round(targetScrollH));
+      } else {
+        setApprovalsScrollMaxHeight(420);
+      }
+    };
+
+    updateApprovalsHeight();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        updateApprovalsHeight();
+      });
+      if (workforceColumnRef.current) ro.observe(workforceColumnRef.current);
+      if (liveFeedContainerRef.current) ro.observe(liveFeedContainerRef.current);
+    }
+    window.addEventListener("resize", updateApprovalsHeight);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", updateApprovalsHeight);
+    };
+  }, []);
 
   // Department-level Sequential Execution State Machine
   const [deptStatus, setDeptStatus] = useState<Record<DepartmentType, DepartmentAgentStatus>>({
@@ -311,30 +1042,284 @@ export function AgenticCommandCenter({
     });
   };
 
+  const runSupportCampaignCollaboration = async <T,>(
+    collaborationTaskId: string,
+    taskPrompt: string,
+    createProposal: () => Promise<T>,
+    delay: (ms: number) => Promise<void>,
+  ): Promise<T> => {
+    const sharedAgentId = "pricing_strategist";
+    const heldLock = activeLocksRef.current[sharedAgentId];
+
+    if (heldLock) {
+      setPendingHandoff({
+        dept: "support",
+        taskId: collaborationTaskId,
+        prompt: taskPrompt,
+        waitingForAgent: sharedAgentId,
+        waitingForDept: heldLock.lockedByDepartment,
+        stepName: "Xác minh chương trình & sản phẩm Flash Sale",
+      });
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "support",
+        toDept: "merchandising",
+        label: "⏳ Chờ Chuyên gia Định giá sẵn sàng phối hợp",
+      });
+      await waitForResource(sharedAgentId, collaborationTaskId);
+      setPendingHandoff(null);
+    }
+
+    setActiveLocks((active) =>
+      acquireLocks(collaborationTaskId, "support", [sharedAgentId], taskPrompt, active),
+    );
+
+    try {
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "support",
+        toDept: "merchandising",
+        label: "⚡ Bàn giao: Xác minh chương trình & sản phẩm Flash Sale",
+      });
+      setDeptActiveAgent(
+        "merchandising",
+        "pricing_strategist",
+        "Phối hợp cùng CSKH: Đang đối chiếu chiến dịch đang hoạt động và sản phẩm tham gia...",
+      );
+
+      const proposal = await createProposal();
+      setDeptActiveAgent(
+        "merchandising",
+        null,
+        "Đã xác minh dữ liệu chiến dịch, đang bàn giao lại cho CSKH...",
+        "pricing_strategist",
+      );
+      setActiveCollaboration({
+        taskId: collaborationTaskId,
+        fromDept: "merchandising",
+        toDept: "support",
+        label: "⚡ Bàn giao lại: Chiến dịch & sản phẩm đã xác minh ➔ CSKH",
+      });
+      await delay(700);
+      return proposal;
+    } finally {
+      clearTaskCollaboration(collaborationTaskId);
+      setPendingHandoff((current) => current?.taskId === collaborationTaskId ? null : current);
+      setDeptActiveAgent("merchandising", null, null);
+      setActiveLocks((active) => {
+        const remaining = releaseLocks([sharedAgentId], active);
+        notifyResourceWaiters([sharedAgentId]);
+        return remaining;
+      });
+    }
+  };
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Prominent Completion Toast Notification
+  const [completionToast, setCompletionToast] = useState<{
+    readonly id: string;
+    readonly title: string;
+    readonly department: "ai_ceo" | DepartmentType;
+    readonly departmentName: string;
+    readonly goal: string;
+    readonly deliverable: StrategicDeliverable;
+    readonly timestamp: string;
+  } | null>(null);
+  const completionToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const strategicAbortRef = useRef<AbortController | null>(null);
+
+  const interruptibleDelay = useCallback((ms: number) => {
+    return new Promise<void>((resolve, reject) => {
+      const signal = strategicAbortRef.current?.signal;
+      if (signal?.aborted) {
+        reject(new DOMException("Aborted", "AbortError"));
+        return;
+      }
+      const timer = setTimeout(() => {
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (completionToastTimerRef.current) {
+        clearTimeout(completionToastTimerRef.current);
+      }
+      if (strategicAbortRef.current) {
+        strategicAbortRef.current.abort();
+      }
+    };
+  }, []);
+
+  const notifyAndShowStrategicDeliverable = useCallback(
+    (
+      goalText: string,
+      taskId?: string,
+      department?: "ai_ceo" | DepartmentType,
+      customSuccessMsg?: string,
+    ) => {
+      const deliverable = buildStrategicDeliverable(goalText, taskId, department);
+      setCompletedStrategicDeliverable(deliverable);
+      setStrategicDeliverableApproved(false);
+      void refreshApprovals();
+
+      const deptNameMap: Record<DepartmentType | "ai_ceo", string> = {
+        ai_ceo: "AI CEO & Điều phối Chiến lược",
+        marketing: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+        merchandising: "Phòng Kinh doanh & Định giá Danh mục",
+        operations: "Phòng Chuỗi cung ứng & Kho vận",
+        support: "Phòng CSKH & Trải nghiệm Khách hàng",
+      };
+      const deptName = deptNameMap[department || "ai_ceo"] || "AI CEO & Điều phối Chiến lược";
+
+      if (completionToastTimerRef.current) {
+        clearTimeout(completionToastTimerRef.current);
+      }
+
+      setCompletionToast({
+        id: deliverable.id,
+        title: deliverable.title,
+        department: department || "ai_ceo",
+        departmentName: deptName,
+        goal: goalText,
+        deliverable,
+        timestamp: new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      });
+
+      completionToastTimerRef.current = setTimeout(() => {
+        setCompletionToast(null);
+      }, COMPLETION_TOAST_DURATION_MS);
+
+      setSuccessMessage(
+        customSuccessMsg ||
+          `✅ ${deptName} đã hoàn tất tác vụ và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.`,
+      );
+    },
+    [refreshApprovals],
+  );
+
+  const isFbTokenInvalid = Boolean(
+    socialTokensSummary?.urgentActionRequired ||
+    socialTokensSummary?.accounts.some((a) => a.status === "expired" || a.status === "invalid")
+  );
+  const isFbTokenWarning = Boolean(
+    socialTokensSummary?.hasExpiringOrInvalid ||
+    socialTokensSummary?.accounts.some((a) => a.status === "expiring_soon")
+  );
+
+  const [diagnosticsState, setDiagnosticsState] = useState<{
+    isOpen: boolean;
+    department: DepartmentType;
+    departmentName: string;
+    errorMessage: string;
+    timestamp?: number;
+    specialActionLabel?: string;
+    onSpecialAction?: () => void;
+  }>({
+    isOpen: false,
+    department: "operations",
+    departmentName: "Vận hành & Kho",
+    errorMessage: "",
+  });
+
+  const handleOpenDiagnostics = (dept: DepartmentType, customMsg?: string) => {
+    const names: Record<DepartmentType, string> = {
+      marketing: "Phòng Tiếp thị & Sáng tạo",
+      merchandising: "Phòng Danh mục & Định giá",
+      operations: "Phòng Vận hành & Kho vận",
+      support: "Phòng CSKH & Trải nghiệm",
+    };
+    const defaultMsgs: Record<DepartmentType, string> = {
+      marketing: ((activeWorkflowKind === "marketing" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : (isFbTokenInvalid ? "Token kết nối Facebook Page đã hết hạn hoặc không có quyền publish_pages." : "Ngoại lệ trong quá trình khởi tạo và xuất bản nội dung chiến dịch."),
+      merchandising: ((activeWorkflowKind === "merchandising" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : "Ngoại lệ khi tính toán ma trận biên lợi nhuận hoặc phân bổ mức giá Flash Sale.",
+      operations: errorMessage || "Cảnh báo dữ liệu tồn kho an toàn SKU hoặc lệch định mức điều phối.",
+      support: ((activeWorkflowKind === "support" || activeWorkflowKind === "orchestration") && errorMessage)
+        ? errorMessage
+        : "Không thể kết nối dịch vụ đối soát ngân sách tài chính hoặc luồng hỗ trợ khách hàng.",
+    };
+
+    const msg = customMsg || defaultMsgs[dept];
+    const isSocial = dept === "marketing" && (isFbTokenInvalid || isFbTokenWarning);
+
+    setDiagnosticsState({
+      isOpen: true,
+      department: dept,
+      departmentName: names[dept],
+      errorMessage: msg,
+      timestamp: Date.now(),
+      specialActionLabel: isSocial ? "Mở Quản lý Social Tokens" : dept === "operations" && pendingReplenishment ? "Mở Phiếu Đề Xuất Kho" : undefined,
+      onSpecialAction: isSocial
+        ? () => setSocialTokenModalOpen(true)
+        : dept === "operations" && pendingReplenishment
+        ? () => {
+            setOperationsProposal(pendingReplenishment);
+            setIsOperationsModalOpen(true);
+          }
+        : undefined,
+    });
+  };
+
   const [visualBlobUrl, setVisualBlobUrl] = useState<string | null>(null);
 
-  // Load initial marketing campaigns list for History without forcing auto-open on clean mount
+  // Load initial marketing campaigns list for History and keep pending campaigns fresh
   useEffect(() => {
-    if (!marketingApi) return;
+    if (!marketingApi?.listCampaigns) return;
     let isMounted = true;
 
-    marketingApi
-      .listCampaigns({ limit: 5 })
-      .then((res) => {
-        if (isMounted) {
-          setCampaignsList(res.items);
-        }
-      })
-      .catch((err) => console.error("Failed to load marketing campaigns:", err));
+    const loadCampaigns = () => {
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) => {
+          if (!isMounted) return;
+          const filtered = res.items.filter(
+            (c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled",
+          );
+          setCampaignsList(filtered);
+          if (activeCampaignId && canceledCampaignIdsRef.current.has(activeCampaignId)) {
+            setActiveCampaignId(null);
+            setActiveCampaignDetail(null);
+          }
+          const pendingCamp = filtered.find((c) =>
+            ["awaiting_human_approval", "campaign_review", "draft", "visual_creation", "failed", "partial_failure"].includes(c.state),
+          );
+          if (pendingCamp && !activeCampaignId) {
+            setActiveCampaignId(pendingCamp.id);
+            marketingApi
+              .getCampaign(pendingCamp.id)
+              .then((d) => {
+                if (isMounted) setActiveCampaignDetail(d);
+              })
+              .catch(() => {});
+          }
+        })
+        .catch((err) => console.error("Failed to load marketing campaigns:", err));
+    };
+
+    loadCampaigns();
+    const interval = setInterval(loadCampaigns, 8000);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
-  }, [marketingApi]);
+  }, [marketingApi, activeCampaignId]);
 
   // Authenticated visual blob loader for image preview
   useEffect(() => {
@@ -459,31 +1444,84 @@ export function AgenticCommandCenter({
     "reporting",
   ].includes(currentMarketingState);
 
+  const isCeoPlanRunning = Boolean(ceoPlan?.steps?.some((s) => s.status === "running"));
   const isRunning = activeWorkflowKind === "marketing" ? isMarketingRunning : isOrchestrationRunning;
+  const isCurrentlyAnalyzing = isSubmitting || isCeoThinking || isRunning || isCeoPlanRunning;
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isCurrentlyAnalyzing) return;
     const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isCurrentlyAnalyzing]);
 
   // Helper: Intent classifier for AI CEO
   const detectStrategicIntent = (text: string): "marketing" | "merchandising" | "operations" | "support" | "orchestration" => {
-    const lower = text.toLowerCase();
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    const lower = normalized;
 
-    // 0. Explicit Department Direct Prefix Check (from direct department inputs)
-    if (lower.includes("[phòng danh mục") || lower.includes("[phòng catalog") || lower.includes("[phòng thương mại")) {
+    // 0. Explicit department mentions always outrank overlapping business keywords.
+    // Direct inputs add brackets, while AI CEO prompts use natural language.
+    if (lower.includes("phòng danh mục") || lower.includes("phòng catalog") || lower.includes("phòng thương mại")) {
       return "merchandising";
     }
-    if (lower.includes("[phòng tiếp thị") || lower.includes("[phòng marketing")) {
+    if (lower.includes("phòng tiếp thị") || lower.includes("phòng marketing")) {
       return "marketing";
     }
-    if (lower.includes("[phòng vận hành") || lower.includes("[phòng kho")) {
+    if (
+      lower.includes("phòng vận hành") ||
+      lower.includes("phòng ban vận hành") ||
+      lower.includes("phòng kho")
+    ) {
       return "operations";
     }
-    if (lower.includes("[phòng cskh") || lower.includes("[phòng chăm sóc")) {
+    if (
+      lower.includes("phòng cskh") ||
+      lower.includes("phòng chăm sóc") ||
+      lower.includes("cskh") ||
+      lower.includes("chăm sóc khách hàng") ||
+      lower.includes("bên cskh") ||
+      lower.includes("bộ phận cskh") ||
+      lower.includes("đội cskh") ||
+      lower.includes("bên chăm sóc")
+    ) {
+      return "support";
+    }
+
+    const isExplicitSocialPublishing =
+      lower.includes("đăng bài") ||
+      lower.includes("lên facebook") ||
+      lower.includes("lên instagram") ||
+      lower.includes("lên fanpage") ||
+      lower.includes("fanpage") ||
+      lower.includes("mạng xã hội") ||
+      lower.includes("viết bài") ||
+      lower.includes("poster");
+
+    // 0.5. Customer email composition & dispatch actions belong exclusively to Support & CRM,
+    // even when referencing new products from catalog or promotions from marketing.
+    const isExplicitEmailDispatch =
+      /(?:soạn|gửi|bắn|lên|triển khai|chạy)\s+(?:chiến\s*dịch\s+)?(?:email|mail|thư)/i.test(normalized) ||
+      /chiến\s*dịch\s+(?:gửi\s+)?(?:email|mail)/i.test(normalized) ||
+      /(?:email|mail|thư)\s+(?:cho|tới|đến)\s+(?:toàn bộ|tất cả|mọi|các)?\s*khách/i.test(normalized) ||
+      /(?:gửi|soạn|bắn|thông báo).*(?:email|mail).*(?:khách hàng|toàn bộ|tất cả)/i.test(normalized) ||
+      /(?:email|mail).*(?:cho|tới|đến).*(?:khách hàng|toàn bộ|tất cả)/i.test(normalized) ||
+      lower.includes("soạn mail") ||
+      lower.includes("gửi mail") ||
+      lower.includes("soạn email") ||
+      lower.includes("gửi email") ||
+      lower.includes("chiến dịch email") ||
+      lower.includes("chiến dịch mail") ||
+      lower.includes("bắn mail") ||
+      lower.includes("bắn email") ||
+      lower.includes("soạn thư") ||
+      lower.includes("gửi thư cho khách") ||
+      lower.includes("gửi thư tri ân") ||
+      lower.includes("gửi thư thông báo") ||
+      lower.includes("gửi thư quảng bá");
+
+    if (isExplicitEmailDispatch && !isExplicitSocialPublishing) {
       return "support";
     }
 
@@ -508,16 +1546,6 @@ export function AgenticCommandCenter({
       "bảng giá",
       "hạ giá",
     ];
-
-    const isExplicitSocialPublishing =
-      lower.includes("đăng bài") ||
-      lower.includes("lên facebook") ||
-      lower.includes("lên instagram") ||
-      lower.includes("lên fanpage") ||
-      lower.includes("fanpage") ||
-      lower.includes("mạng xã hội") ||
-      lower.includes("viết bài") ||
-      lower.includes("poster");
 
     if (!isExplicitSocialPublishing && (
       merchandisingKeywords.some((kw) => lower.includes(kw)) ||
@@ -598,26 +1626,588 @@ export function AgenticCommandCenter({
     return "orchestration";
   };
 
+  // Live Activity Feed State
+  const [liveEvents, setLiveEvents] = useState<readonly LiveEventItem[]>([]);
+
+  const formatLiveEventTimestamp = useCallback((dateInput?: string | number | Date) => {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const validDate = isNaN(d.getTime()) ? new Date() : d;
+    const time = validDate.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const date = validDate.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return {
+      time,
+      date,
+      timestamp: `${time} ${date}`,
+      epoch: validDate.getTime(),
+    };
+  }, []);
+
+  const recordLiveEvent = useCallback((
+    dept: DepartmentType | "ai_ceo",
+    title: string,
+    description: string,
+    status: "info" | "success" | "warning" | "error" = "info",
+    actionLabel?: string,
+    onActionClick?: () => void,
+    dateInput?: string | number | Date,
+    customId?: string,
+  ) => {
+    const formatted = formatLiveEventTimestamp(dateInput);
+    const newEvent: LiveEventItem = {
+      id: customId || `live-ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: formatted.timestamp,
+      time: formatted.time,
+      date: formatted.date,
+      createdAt: formatted.epoch,
+      department: dept,
+      title,
+      description,
+      status,
+      actionLabel,
+      onActionClick,
+    };
+    setLiveEvents((prev) => {
+      const filtered = prev.filter((e) => e.id !== newEvent.id);
+      const combined = [newEvent, ...filtered];
+      return retainRecentLiveEvents(combined);
+    });
+  }, [formatLiveEventTimestamp]);
+
+  const displayCommandActivity = useCallback((event: CommandActivityEvent) => {
+    const departmentNames: Record<CommandActivityEvent["department"], string> = {
+      marketing: "Marketing",
+      merchandising: "Danh mục & Định giá",
+      operations: "Vận hành",
+      support: "CSKH",
+    };
+    const decisionText = event.decision === "approved" ? "đã được phê duyệt" : "đã hủy duyệt";
+    recordLiveEvent(
+      event.department,
+      `${departmentNames[event.department]} ${decisionText}`,
+      event.summary,
+      event.decision === "approved" ? "success" : "error",
+      undefined,
+      undefined,
+      event.occurredAt,
+      `command-activity-${event.id}`,
+    );
+  }, [recordLiveEvent]);
+
+  const persistCommandActivity = useCallback(async (input: CreateCommandActivity) => {
+    try {
+      const boundedInput = { ...input, summary: input.summary.trim().slice(0, 240) };
+      const event = await api.recordCommandActivity(
+        boundedInput,
+        `command-center:${input.resourceType}:${input.resourceId}:${input.decision}`,
+      );
+      if (event?.decision) {
+        displayCommandActivity(event);
+      }
+      return true;
+    } catch (error) {
+      console.error("Failed to persist command activity:", error);
+      try {
+        const recovered = (await api.listCommandActivity()).find((event) =>
+          event.department === input.department &&
+          event.decision === input.decision &&
+          event.resourceType === input.resourceType &&
+          event.resourceId === input.resourceId,
+        );
+        if (recovered?.source === "business_history") {
+          displayCommandActivity(recovered);
+          return true;
+        }
+      } catch (recoveryError) {
+        console.error("Failed to recover business activity:", recoveryError);
+      }
+      setErrorMessage("Tác vụ đã hoàn tất nhưng chưa thể đồng bộ vào luồng công việc. Vui lòng tải lại để thử lại.");
+      return false;
+    }
+  }, [api, displayCommandActivity]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const events = await api.listCommandActivity(controller.signal);
+        if (!controller.signal.aborted) {
+          const terminalMerchandisingIds = events
+            .filter((event) => event.resourceType === "merchandising_proposal")
+            .map((event) => event.resourceId);
+          terminalMerchandisingProposalIdsRef.current = new Set(terminalMerchandisingIds);
+          setCampaignProposal((current) =>
+            current && terminalMerchandisingProposalIdsRef.current.has(current.id) ? null : current,
+          );
+          events.forEach(displayCommandActivity);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Failed to hydrate command activity:", error);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [api, displayCommandActivity]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshApprovals(controller.signal);
+    return () => controller.abort();
+  }, [refreshApprovals, overview?.pendingApprovals, tasks]);
+
+  useEffect(() => {
+    const initialEvents: LiveEventItem[] = [];
+    if (tasks?.items && tasks.items.length > 0) {
+      const isTaskActive = (t: { state: string; updatedAt?: string; createdAt?: string }) => {
+        if (!["department_analysis", "planning", "dispatching", "received", "quality_review", "collaboration", "executive_synthesis", "retrying", "awaiting_human_approval", "awaiting_plan_approval"].includes(t.state)) {
+          return false;
+        }
+        if (t.state.startsWith("awaiting_")) return true;
+        const tTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+        return !(tTime > 0 && Date.now() - tTime > 4 * 3600 * 1000);
+      };
+
+      const sortedTasks = [...tasks.items].sort((a, b) => {
+        const aActive = isTaskActive(a) ? 1 : 0;
+        const bActive = isTaskActive(b) ? 1 : 0;
+        if (aActive !== bActive) return bActive - aActive;
+        const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+      for (const t of sortedTasks.slice(0, 30)) {
+        const intent = detectStrategicIntent(t.goal);
+        const dept: DepartmentType | "ai_ceo" = intent === "orchestration" ? "ai_ceo" : intent;
+        const deptDisplayMap: Record<DepartmentType | "ai_ceo", string> = {
+          marketing: "Tiếp thị & Sáng tạo",
+          merchandising: "Danh mục & Định giá",
+          operations: "Vận hành & Kho vận",
+          support: "CSKH & Trải nghiệm",
+          ai_ceo: "AI CEO",
+        };
+        const deptDisplayName = deptDisplayMap[dept];
+        const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
+        const capitalizedGoal = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
+        const shortGoal = capitalizedGoal.length > 42 ? `${capitalizedGoal.slice(0, 39)}...` : capitalizedGoal;
+
+        let title = `${deptDisplayName} tiếp nhận tác vụ`;
+        let description = shortGoal;
+        let status: "info" | "success" | "warning" | "error" = "info";
+        let actionLabel: string | undefined = undefined;
+        let onActionClick: (() => void) | undefined = undefined;
+
+        if (t.state === "completed" || t.state === "ready") {
+          title = `${deptDisplayName} đã hoàn tất tác vụ`;
+          description = shortGoal;
+          status = "success";
+          actionLabel = "Xem kết quả";
+          onActionClick = () => {
+            const deliv = buildStrategicDeliverable(t.goal, t.id, dept);
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          };
+        } else if (t.state === "partially_completed") {
+          title = `${deptDisplayName} hoàn thành 1 phần`;
+          description = `Đã có bản dự thảo sơ bộ: ${shortGoal}`;
+          status = "success";
+          actionLabel = "Xem kết quả";
+          onActionClick = () => {
+            const deliv = buildStrategicDeliverable(t.goal, t.id, dept);
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          };
+        } else if (t.state === "failed") {
+          title = `${deptDisplayName} báo lỗi`;
+          description = `Lỗi thực thi: ${shortGoal}`;
+          status = "error";
+          actionLabel = "Cần xử lý";
+          onActionClick = () => navigate(`/agentic/tasks/${t.id}`);
+        } else if (t.state === "canceled") {
+          title = `${deptDisplayName} đã hủy tác vụ`;
+          description = `Tác vụ đã bị hủy: ${shortGoal}`;
+          status = "error";
+        } else if (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") {
+          title = "Chờ phê duyệt";
+          description = `Đang chờ CEO phê duyệt đề xuất: ${shortGoal}`;
+          status = "warning";
+          actionLabel = "Xem đề xuất";
+          onActionClick = () => navigate("/agentic/approvals");
+        } else if (
+          t.state === "department_analysis" ||
+          t.state === "planning" ||
+          t.state === "dispatching" ||
+          t.state === "received" ||
+          t.state === "quality_review" ||
+          t.state === "collaboration" ||
+          t.state === "executive_synthesis" ||
+          t.state === "retrying"
+        ) {
+          const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          const isStale = taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000;
+          if (isStale) {
+            title = `${deptDisplayName} quá hạn / gián đoạn`;
+            description = `Tác vụ gián đoạn: ${shortGoal}`;
+            status = "error";
+          } else {
+            title = `${deptDisplayName} đang xử lý tác vụ`;
+            description = `Đang xử lý: ${shortGoal}`;
+            status = "info";
+          }
+        }
+
+        const formatted = formatLiveEventTimestamp(t.updatedAt || t.createdAt);
+
+        initialEvents.push({
+          id: `task-ev-${t.id}`,
+          timestamp: formatted.timestamp,
+          time: formatted.time,
+          date: formatted.date,
+          createdAt: formatted.epoch,
+          department: dept,
+          title,
+          description,
+          status,
+          actionLabel,
+          onActionClick,
+        });
+      }
+    }
+    if (activeOperations?.timeline && activeOperations.timeline.length > 0) {
+      for (const ev of activeOperations.timeline.slice(-10)) {
+        const formatted = formatLiveEventTimestamp(ev.occurredAt);
+        initialEvents.push({
+          id: `op-ev-${ev.id}`,
+          timestamp: formatted.timestamp,
+          time: formatted.time,
+          date: formatted.date,
+          createdAt: formatted.epoch,
+          department: "ai_ceo",
+          title: ev.kind === "plan_generated" ? "AI CEO đã phân tích yêu cầu" : `AI CEO: ${ev.kind}`,
+          description: ev.state === "completed" ? "Đã tạo kế hoạch và phân bổ cho các phòng ban" : `Trạng thái: ${ev.state}`,
+          status: ev.state === "completed" ? "success" : ev.state === "failed" ? "error" : "info",
+          actionLabel: ev.state === "completed" ? "Xem kết quả" : undefined,
+          onActionClick: ev.state === "completed" ? () => {
+            const deliv = buildStrategicDeliverable(activeOperations?.task?.goal || "Kế hoạch Điều hành Chiến lược", ev.id, "ai_ceo");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          } : undefined,
+        });
+      }
+    }
+    const effectiveActiveCampaigns = activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+    for (const camp of effectiveActiveCampaigns) {
+      const formatted = formatLiveEventTimestamp(camp.startTime);
+      initialEvents.push({
+        id: `camp-ev-${camp.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "merchandising",
+        title: "Kinh doanh đã hoàn tất tác vụ",
+        description: `Chiến dịch: ${camp.name}`,
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          void handleOpenCampaignDeliverable(camp.id, true);
+        },
+      });
+    }
+    if (campaignProposal) {
+      const formatted = formatLiveEventTimestamp(campaignProposal.startTime || Date.now());
+      initialEvents.push({
+        id: `proposal-ev-${campaignProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "merchandising",
+        title: "Kinh doanh đã lập đề xuất",
+        description: `Đề xuất: ${campaignProposal.name || campaignProposal.prompt}`,
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          void handleOpenCampaignDeliverable(campaignProposal.id, false);
+        },
+      });
+    }
+    if (operationsProposal) {
+      const formatted = formatLiveEventTimestamp(operationsProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `ops-prop-ev-${operationsProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "operations",
+        title: "Vận hành đã lập đề xuất kho",
+        description: operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+    if (supportCampaignProposal) {
+      const formatted = formatLiveEventTimestamp(supportCampaignProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `support-camp-ev-${supportCampaignProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "support",
+        title: (supportCampaignProposal.status === "sent" || supportCampaignProposal.status === "approved")
+          ? "CSKH đã gửi chiến dịch email"
+          : "CSKH đã lập kế hoạch chiến dịch email",
+        description: supportCampaignProposal.title || "Kế hoạch chiến dịch email khách hàng",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setIsSupportEmailApprovalModalOpen(false);
+          setIsSupportCampaignModalOpen(true);
+        },
+      });
+    }
+    if (supportProposal) {
+      const formatted = formatLiveEventTimestamp(supportProposal.createdAt || Date.now());
+      initialEvents.push({
+        id: `support-prop-ev-${supportProposal.id}`,
+        timestamp: formatted.timestamp,
+        time: formatted.time,
+        date: formatted.date,
+        createdAt: formatted.epoch,
+        department: "support",
+        title: supportProposal.status === "applied"
+          ? "CSKH đã gửi email phản hồi"
+          : "CSKH đã lập báo cáo CSKH",
+        description: supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo kiểm toán ticket CSKH & CRM",
+        status: "success",
+        actionLabel: "Xem kết quả",
+        onActionClick: () => {
+          setIsSupportCampaignModalOpen(false);
+          setIsSupportEmailApprovalModalOpen(true);
+        },
+      });
+    }
+    if (campaignsList && campaignsList.length > 0) {
+      for (const camp of campaignsList) {
+        const formatted = formatLiveEventTimestamp(camp.updatedAt || camp.createdAt);
+        const campTitle = camp.campaignName || camp.objective || "Chiến dịch Marketing Fanpage";
+        if (camp.state === "completed") {
+          initialEvents.push({
+            id: `marketing-camp-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing đã hoàn tất tác vụ",
+            description: campTitle,
+            status: "success",
+            actionLabel: "Xem kết quả",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              if (marketingApi?.getCampaign) {
+                void marketingApi.getCampaign(camp.id).then((d) => {
+                  if (d) {
+                    setActiveCampaignDetail(d);
+                    setPreviewCampaignDetail(d);
+                  }
+                }).catch(() => {});
+              }
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        } else if (camp.state === "awaiting_human_approval" || camp.state === "campaign_review") {
+          initialEvents.push({
+            id: `marketing-camp-wait-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing chờ phê duyệt",
+            description: campTitle,
+            status: "warning",
+            actionLabel: "Xem đề xuất",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              if (marketingApi?.getCampaign) {
+                void marketingApi.getCampaign(camp.id).then((d) => {
+                  if (d) {
+                    setActiveCampaignDetail(d);
+                    setPreviewCampaignDetail(d);
+                  }
+                }).catch(() => {});
+              }
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        } else if (camp.state === "draft" || camp.state === "content_drafting" || camp.state === "visual_creation") {
+          initialEvents.push({
+            id: `marketing-camp-run-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing đang xử lý tác vụ",
+            description: campTitle,
+            status: "info",
+          });
+        } else if (camp.state === "failed" || camp.state === "partial_failure") {
+          initialEvents.push({
+            id: `marketing-camp-fail-${camp.id}`,
+            timestamp: formatted.timestamp,
+            time: formatted.time,
+            date: formatted.date,
+            createdAt: formatted.epoch,
+            department: "marketing",
+            title: "Marketing báo lỗi",
+            description: `Lỗi xử lý chiến dịch: ${campTitle}`,
+            status: "error",
+            actionLabel: "Cần xử lý",
+            onActionClick: () => {
+              setActiveCampaignId(camp.id);
+              setMarketingCampaignModalOpen(true);
+            },
+          });
+        }
+      }
+    }
+    if (initialEvents.length > 0) {
+      setLiveEvents((prevEvents) => {
+        const map = new Map<string, LiveEventItem>();
+        for (const ev of initialEvents) {
+          map.set(ev.id, ev);
+        }
+        for (const prev of prevEvents) {
+          const existing = map.get(prev.id);
+          if (!existing) {
+            map.set(prev.id, prev);
+          } else if ((prev.createdAt || 0) > (existing.createdAt || 0)) {
+            map.set(prev.id, prev);
+          } else if (prev.status === "success" && existing.status !== "success") {
+            map.set(prev.id, {
+              ...existing,
+              status: "success",
+              title: prev.title,
+              actionLabel: prev.actionLabel || existing.actionLabel,
+              onActionClick: prev.onActionClick || existing.onActionClick,
+            });
+          }
+        }
+        return retainRecentLiveEvents(Array.from(map.values()));
+      });
+    }
+  }, [tasks, activeOperations, activeCampaign, activeCampaigns, campaignProposal, operationsProposal, supportProposal, supportCampaignProposal, campaignsList, marketingApi, formatLiveEventTimestamp, navigate]);
+
   // Strategic AI CEO Dispatch
-  const handleSendStrategicTask = async (customGoal?: string, customInstructions?: string) => {
-    const goalText = (customGoal || prompt).trim();
+  const handleSendStrategicTask = async (
+    customGoalOrMeta?: string | CommandComposerSubmitMeta,
+    customInstructions?: string,
+  ) => {
+    const isMeta = typeof customGoalOrMeta === "object" && customGoalOrMeta !== null;
+    const goalText = (isMeta ? customGoalOrMeta.prompt || prompt : customGoalOrMeta || prompt).trim();
     if (!goalText || isSubmitting) return;
+
+    const metaTarget = isMeta && customGoalOrMeta.target ? customGoalOrMeta.target : composerTarget;
+    const metaPriority = isMeta && customGoalOrMeta.priority ? customGoalOrMeta.priority : composerPriority;
+
+    let enrichedInstructions = customInstructions;
+    if (isMeta) {
+      const parts: string[] = [];
+      if (metaPriority) {
+        const priorityLabels: Record<string, string> = {
+          low: "Thấp",
+          normal: "Vừa",
+          high: "Cao",
+          urgent: "Khẩn cấp",
+        };
+        parts.push(`[Độ ưu tiên: ${priorityLabels[metaPriority] || metaPriority}]`);
+      }
+      if (customGoalOrMeta.context?.trim()) {
+        parts.push(`[Bối cảnh kinh doanh: ${customGoalOrMeta.context.trim()}]`);
+      }
+      if (customGoalOrMeta.goalTarget?.trim()) {
+        parts.push(`[Chỉ số KPI mục tiêu: ${customGoalOrMeta.goalTarget.trim()}]`);
+      }
+      if (customGoalOrMeta.attachments && customGoalOrMeta.attachments.length > 0) {
+        const fileNames = customGoalOrMeta.attachments
+          .map((f) => `${f.name} (${(f.size / 1024).toFixed(0)} KB)`)
+          .join(", ");
+        parts.push(`[Tài liệu đính kèm: ${fileNames}]`);
+      }
+      if (parts.length > 0) {
+        enrichedInstructions = `${parts.join("\n")}\n\nRà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`;
+      }
+    }
 
     let strategicAgents: string[] = [];
     try {
+      strategicAbortRef.current = new AbortController();
       setIsSubmitting(true);
       setErrorMessage(null);
       setSuccessMessage(null);
       setElapsedSeconds(0);
+      setStrategicDeliverableApproved(false);
+      setCeoPlan(null);
 
-      // 🧠 Phase 1: AI CEO Thinking & Department Routing Simulation (1.2s - 1.5s)
+      // 🧠 Phase 1: AI CEO Progressive 4-Stage Intake & Routing Simulation
       setIsCeoThinking(true);
-      setCeoThinkingText("👑 AI CEO đang phân tích yêu cầu, đánh giá mục tiêu & lựa chọn phòng ban phù hợp...");
-      await new Promise((r) => setTimeout(r, 1300));
-      setIsCeoThinking(false);
+      setAnalysisStep(1); // 1. Phân tích yêu cầu
+      setCeoThinkingText("👑 AI CEO đang phân tích yêu cầu chiến lược...");
+      await interruptibleDelay(300);
 
-      const intent = detectStrategicIntent(goalText);
+      setAnalysisStep(2); // 2. Xác định phạm vi & mục tiêu
+      setCeoThinkingText("👑 AI CEO đang xác định phạm vi thực hiện & chỉ số mục tiêu...");
+      await interruptibleDelay(300);
+
+      const intent = (metaTarget !== "ai_ceo" && ["support", "operations", "merchandising", "marketing"].includes(metaTarget))
+        ? (metaTarget as DepartmentType)
+        : detectStrategicIntent(goalText);
+
+      setAnalysisStep(3); // 3. Lựa chọn phòng ban phù hợp
+      setCeoThinkingText(`👑 AI CEO đã xác định phòng ban phụ trách: ${intent}...`);
+      await interruptibleDelay(300);
+
+      setAnalysisStep(4); // 4. Phân công nhân sự AI
+      setCeoThinkingText("👑 AI CEO đang phân công nhân sự AI chuyên trách...");
+      await interruptibleDelay(300);
+
+      setIsCeoThinking(false);
       const strategicTaskId = crypto.randomUUID();
+      const metaSuffix = isMeta && customGoalOrMeta.attachments && customGoalOrMeta.attachments.length > 0
+        ? ` (+${customGoalOrMeta.attachments.length} tệp đính kèm)`
+        : "";
+      recordLiveEvent("ai_ceo", "AI CEO tiếp nhận chỉ đạo", `${goalText}${metaSuffix}`, "info");
+      recordLiveEvent(
+        (intent === "orchestration" ? "ai_ceo" : intent) as DepartmentType | "ai_ceo",
+        "Phân công và điều phối nhiệm vụ",
+        `Đã phân công nhân sự AI cho: "${goalText.length > 45 ? `${goalText.slice(0, 42)}...` : goalText}"`,
+        "info"
+      );
       strategicAgents =
         intent === "support"
           ? ["support_steward", "crm_specialist"]
@@ -677,7 +2267,7 @@ export function AgenticCommandCenter({
         // Stage 1: Quản gia CSKH rà soát ticket & tâm lý
         setMarketingActiveAgent("support_steward");
         setMarketingAgentMessage("🔍 Quản gia CSKH đang rà soát dữ liệu ticket sự cố và đánh giá tâm lý khách hàng...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Step 1 done -> Step 2 running
         setCeoPlan((prev) =>
@@ -699,10 +2289,33 @@ export function AgenticCommandCenter({
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("🎯 Chuyên viên CRM đang phân tích hành vi khách hàng, phân khúc VIP, Churn Risk & soạn Báo cáo CSKH...");
 
-        const proposal = await supportApi.generateSupportProposal(goalText);
-        setSupportProposal(proposal);
-        setSupportTicketsPage(1);
-        setSupportVipPage(1);
+        const supportIntent = analyzeSupportTaskIntent(goalText);
+        const isCampaignGoal = supportIntent.kind === "email_campaign";
+        let supportProposalId = "";
+
+        if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
+          const campProposal = await runSupportCampaignCollaboration(
+            strategicTaskId,
+            goalText,
+            () => supportApi.createEmailCampaignProposal!({
+              type: supportIntent.campaignType,
+              prompt: goalText,
+              targetSegment: supportIntent.targetSegment,
+            }),
+            interruptibleDelay,
+          );
+          setSupportCampaignProposal(campProposal);
+          supportProposalId = campProposal.id;
+        } else {
+          const proposal = await supportApi.generateSupportProposal({
+            prompt: goalText,
+            ticketScope: "customer_email_pending",
+          });
+          setSupportProposal(proposal);
+          setSupportTicketsPage(1);
+          setSupportVipPage(1);
+          supportProposalId = proposal.id;
+        }
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
         setCeoPlan((prev) =>
@@ -720,9 +2333,42 @@ export function AgenticCommandCenter({
             : null,
         );
 
+        setDeptStatus((prev) => ({
+          ...prev,
+          support: {
+            activeAgent: null,
+            agentMessage: null,
+            completedAgents: ["support_steward", "crm_specialist"],
+          },
+        }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.");
+        recordLiveEvent(
+          "support",
+          isCampaignGoal ? "CSKH đã lập xong chiến dịch email" : "CSKH đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            if (isCampaignGoal) {
+              setIsSupportEmailApprovalModalOpen(false);
+              setIsSupportCampaignModalOpen(true);
+            } else {
+              setIsSupportCampaignModalOpen(false);
+              setIsSupportEmailApprovalModalOpen(true);
+            }
+          },
+        );
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          supportProposalId,
+          "support",
+          isCampaignGoal
+            ? "AI CEO & Đội ngũ CSKH đã hoàn tất lập kế hoạch chiến dịch email và file Word (.docx)! Sẵn sàng để bạn duyệt gửi."
+            : "AI CEO & Đội ngũ CSKH đã hoàn tất rà soát và lập Báo cáo Word (.docx)! Sẵn sàng để bạn duyệt gửi phản hồi.",
+        );
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -765,7 +2411,7 @@ export function AgenticCommandCenter({
         // Stage 1: Kỹ sư Tồn kho rà soát
         setMarketingActiveAgent("inventory_specialist");
         setMarketingAgentMessage("🔍 Kỹ sư Tồn kho đang rà soát dữ liệu tồn kho thực tế & đối soát lượng giữ chỗ trong database...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Step 1 done -> Step 2 running
         setCeoPlan((prev) =>
@@ -789,7 +2435,6 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(goalText);
         setOperationsProposal(proposal);
-        setIsOperationsModalOpen(true);
         setOperationsPage(1);
 
         // Transition: Step 1 & 2 done -> Step 3 waiting approval
@@ -810,7 +2455,27 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "operations",
+          "Vận hành đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            const deliv = buildStrategicDeliverable(goalText, proposal?.id, "operations");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
+        );
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          proposal?.id,
+          "operations",
+          "AI CEO & Kỹ sư Kho đã hoàn tất kiểm toán và lập Báo cáo Word (.docx)! Sẵn sàng để bạn tải về và phê duyệt.",
+        );
         setSuccessMessage("AI CEO & Kỹ sư Kho đã hoàn tất kiểm toán và lập Báo cáo Word (.docx)! Sẵn sàng để bạn tải về và phê duyệt.");
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -858,7 +2523,7 @@ export function AgenticCommandCenter({
         // Stage 1: Cây bút Sản phẩm (Catalog Copywriter) tối ưu SEO & mô tả
         setMarketingActiveAgent("catalog_copywriter");
         setMarketingAgentMessage("✍️ Cây bút Sản phẩm đang nghiên cứu danh mục, tối ưu tiêu đề chuẩn SEO & viết mô tả ưu đãi...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         // Transition: Cây bút Sản phẩm done -> Thiết kế Đồ họa (Phòng Tiếp thị) running
         setCeoPlan((prev) =>
@@ -878,6 +2543,7 @@ export function AgenticCommandCenter({
 
         // Stage 2: Chiều đi (Bàn giao: Danh mục -> Tiếp thị)
         setActiveCollaboration({
+          taskId: strategicTaskId,
           fromDept: "merchandising",
           toDept: "marketing",
           label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
@@ -898,12 +2564,13 @@ export function AgenticCommandCenter({
         // Stage 2 hoàn tất -> Chiều về (Bàn giao lại: Tiếp thị -> Danh mục)
         setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
         setActiveCollaboration({
+          taskId: strategicTaskId,
           fromDept: "marketing",
           toDept: "merchandising",
           label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
         });
-        await new Promise((r) => setTimeout(r, 1000));
-        setActiveCollaboration(null);
+        await interruptibleDelay(1000);
+        clearTaskCollaboration(strategicTaskId);
         setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
         // Transition: Thiết kế Đồ họa done -> Chuyên gia Định giá running
@@ -925,11 +2592,10 @@ export function AgenticCommandCenter({
         // Stage 3: Chuyên gia Định giá tính toán giá Flash Sale & biên lợi nhuận
         setMarketingActiveAgent("pricing_strategist");
         setMarketingAgentMessage("📊 Chuyên gia Định giá đang phân tích biên lợi nhuận, chiết khấu và thiết lập bảng giá Flash Sale...");
-        await new Promise((r) => setTimeout(r, 1200));
+        await interruptibleDelay(1200);
 
         if (cProposal) {
           setCampaignProposal(cProposal);
-          setCampaignProposalModalOpen(true);
           setMerchandisingProposal({
             id: cProposal.id,
             prompt: cProposal.prompt,
@@ -983,7 +2649,26 @@ export function AgenticCommandCenter({
 
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("AI CEO và các phòng ban đã hoàn tất phối hợp! Sẵn sàng để bạn xem trước và duyệt chiến dịch.");
+        recordLiveEvent(
+          "merchandising",
+          "Kinh doanh đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            const deliv = buildStrategicDeliverable(goalText, cProposal?.id, "merchandising");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
+        );
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          cProposal?.id,
+          "merchandising",
+          "AI CEO và các phòng ban đã hoàn tất phối hợp! Đã lập Báo cáo Chiến lược và bảng đề xuất danh mục.",
+        );
+        setPrompt("");
+        if (onTaskCreated) onTaskCreated();
         setIsSubmitting(false);
         return;
       }
@@ -1062,21 +2747,16 @@ export function AgenticCommandCenter({
             },
           ],
         });
-
-        // Stage 1: AI CEO Intake & Dispatch
-        setMarketingActiveAgent("ceo");
-        setMarketingAgentMessage("👑 AI CEO đang phân tích yêu cầu chiến lược, lập kế hoạch và phân bổ 3 nhân sự số...");
-
         const createdCampaign = await marketingApi.createCampaign(
           {
-            campaignName: `Chiến dịch: ${cleanName}`,
-            objective: `Quảng bá sản phẩm và đăng bài lên mạng xã hội theo mục tiêu: ${goalText}`,
-            subjectKind,
-            subjectReference: dynamicSubjectRef,
+            campaignName: `Chiến dịch: ${goalText.slice(0, 45)}`,
+            objective: `Quảng bá sản phẩm và kích cầu doanh số theo chỉ đạo CEO: ${goalText}`,
+            subjectKind: "free_topic",
+            subjectReference: "san-pham",
             language: "vi",
             mandatoryMessage: goalText,
             prohibitedClaims: ["sản phẩm duy nhất vũ trụ", "chữa bách bệnh", "làm giàu không khó"],
-            callToAction: dynamicCta,
+            callToAction: "Khám phá ngay tại NovaCommerce Store",
             facebookPageConfigurationId: "1321445584378490",
             scheduledFor: scheduledTime,
             deadline: deadlineTime,
@@ -1087,12 +2767,6 @@ export function AgenticCommandCenter({
         );
 
         setActiveCampaignId(createdCampaign.id);
-        await new Promise((r) => setTimeout(r, 1200));
-
-        // Stage 2: Copywriter drafting
-        setDeptActiveAgent("marketing", "marketing_copywriter", `✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
-        setMarketingActiveAgent("marketing_content");
-        setMarketingAgentMessage(`✍️ Cây bút Tiếp thị đang soạn thảo nội dung, kiểm duyệt chính sách và bộ hashtag cho "${cleanName}"...`);
         setCeoPlan((prev) =>
           prev
             ? {
@@ -1103,7 +2777,7 @@ export function AgenticCommandCenter({
         );
 
         await marketingApi.markReady(createdCampaign.id);
-        await new Promise((r) => setTimeout(r, 1400));
+        await interruptibleDelay(1400);
 
         // Stage 3: Visual Designer generating creative
         setDeptActiveAgent("marketing", "marketing_visual", `🎨 Thiết kế Đồ họa đang dựng đồ họa sản phẩm vuông 1:1 ánh sáng studio cho "${cleanName}"...`, "marketing_copywriter");
@@ -1123,7 +2797,7 @@ export function AgenticCommandCenter({
         await marketingApi.requestRevision(createdCampaign.id, {
           feedback: `Triển khai sáng tạo bài viết và hình ảnh theo đúng yêu cầu: ${goalText}`,
         });
-        await new Promise((r) => setTimeout(r, 1400));
+        await interruptibleDelay(1400);
 
         // Stage 4: Publisher packaging
         setDeptActiveAgent("marketing", "marketing_publisher", `📦 Điều phối Xuất bản đang kiểm tra checklist an toàn và đóng gói bản thảo...`, "marketing_visual");
@@ -1139,7 +2813,7 @@ export function AgenticCommandCenter({
               }
             : null,
         );
-        await new Promise((r) => setTimeout(r, 1000));
+        await interruptibleDelay(1000);
 
         // Stage 5: Ready for Human Approval
         setDeptStatus((prev) => ({
@@ -1171,13 +2845,87 @@ export function AgenticCommandCenter({
 
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
+        setActiveCampaignId(createdCampaign.id);
 
-        setSuccessMessage(`AI CEO đã điều phối hoàn tất bản thảo chiến dịch! Sẵn sàng để bạn duyệt xuất bản.`);
+        const marketingDeliv = buildStrategicDeliverable(goalText, createdCampaign.id, "marketing");
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem bài & poster",
+          () => {
+            setActiveCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
+          },
+        );
+        setCompletionToast({
+          id: createdCampaign.id,
+          title: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          department: "marketing",
+          departmentName: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          goal: goalText,
+          deliverable: marketingDeliv,
+          timestamp: new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        });
+        if (completionToastTimerRef.current) {
+          clearTimeout(completionToastTimerRef.current);
+        }
+        completionToastTimerRef.current = setTimeout(() => {
+          setCompletionToast(null);
+        }, COMPLETION_TOAST_DURATION_MS);
+        void refreshApprovals();
+        setSuccessMessage("AI CEO đã điều phối hoàn tất bản thảo bài viết và thiết kế poster chiến dịch!");
         setPrompt("");
+        if (onTaskCreated) onTaskCreated();
       } else {
         scrollToDepartment("dept-column-support");
         // Route to Orchestration (Store Health / Operations / Finance / Support)
         setActiveWorkflowKind("orchestration");
+
+        const cleanName =
+          goalText.length > 70
+            ? `${goalText.slice(0, 68)}...`
+            : goalText.replace(
+                /^(chỉ thị|chỉ đạo|nghị quyết|lệnh điều hành|hãy|yêu cầu|triển khai|phân tích)(?:\s+(?:từ\s+)?(?:tổng\s+giám\s+đốc|ceo|ban\s+giám\s+đốc|hội\s+đồng\s+quản\s+trị))?[:\s-]*/i,
+                "",
+              );
+
+        setCeoPlan({
+          goal: goalText,
+          targetDept: "AI CEO & Hội đồng Chiến lược Liên phòng ban",
+          steps: [
+            {
+              role: "AI CEO (Tổng Giám Đốc AI)",
+              task: `Phân tích yêu cầu chiến lược, đánh giá mục tiêu & lập kế hoạch phân rã cho: "${cleanName}"`,
+              status: "running",
+            },
+            {
+              role: "Chuyên viên Nghiên cứu & Định giá",
+              task: `Thu thập dữ liệu thị trường, phân tích đối thủ cạnh tranh & cơ cấu giá thâm nhập`,
+              status: "pending",
+            },
+            {
+              role: "Điều phối Tiếp thị & Chuỗi cung ứng",
+              task: `Lập kế hoạch ra mắt đa kênh, dự toán ngân sách, tồn kho an toàn & ma trận rủi ro`,
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: `Phê duyệt Báo cáo Chiến lược Điều hành & Kế hoạch thực thi Word (.docx)`,
+              status: "pending",
+            },
+          ],
+        });
+
+        // Stage 1: AI CEO Strategic Intake & Decomposition
+        setMarketingActiveAgent("ceo");
+        setMarketingAgentMessage("👑 AI CEO đang phân tích yêu cầu chiến lược và điều phối các phòng ban số...");
+
         const idempotencyKey = crypto.randomUUID();
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -1186,7 +2934,7 @@ export function AgenticCommandCenter({
           {
             mode: "advanced",
             goal: goalText,
-            instructions: customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
+            instructions: enrichedInstructions || customInstructions || `Rà soát toàn diện và phân tích rủi ro thực tế cho mục tiêu: ${goalText}`,
             reviewWindow: {
               start: thirtyDaysAgo.toISOString().slice(0, 10),
               end: now.toISOString().slice(0, 10),
@@ -1200,15 +2948,91 @@ export function AgenticCommandCenter({
 
         setActiveTaskId(created.task.id);
         setActiveRunId(run.id);
-        setSuccessMessage(`AI CEO đã điều phối nhiệm vụ tới các phòng ban vận hành!`);
+
+        // Transition: Step 1 done -> Step 2 running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
+        // Stage 2: Research & Pricing Strategist
+        setMarketingActiveAgent("pricing_strategist");
+        setMarketingAgentMessage("📊 Chuyên viên Nghiên cứu đang phân tích số liệu thị trường Đông Nam Á và phân khúc mục tiêu...");
+        await interruptibleDelay(1100);
+
+        // Transition: Step 2 done -> Step 3 running
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 1 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
+        // Stage 3: Operations & Multi-channel Coordinator
+        setMarketingActiveAgent("order_coordinator");
+        setMarketingAgentMessage("📦 Điều phối Vận hành đang tính toán kế hoạch ra mắt đa kênh, dự toán ngân sách & ma trận rủi ro...");
+        await interruptibleDelay(1000);
+
+        // Transition: Step 3 done -> Step 4 ready
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 2 ? { ...s, status: "done" } : { ...s, status: "running" },
+                ),
+              }
+            : null,
+        );
+
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+
+        // Record live success event with direct clickable action
+        recordLiveEvent(
+          "ai_ceo",
+          "AI CEO đã hoàn tất tác vụ",
+          goalText,
+          "success",
+          "Xem kết quả",
+          () => {
+            const deliv = buildStrategicDeliverable(goalText, created.task.id, "ai_ceo");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
+        );
+
+        notifyAndShowStrategicDeliverable(
+          goalText,
+          created.task.id,
+          "ai_ceo",
+          "AI CEO đã phân tích toàn diện và lập Báo cáo Chiến lược Word (.docx)! Bấm vào tài liệu để xem chi tiết.",
+        );
         setPrompt("");
         if (onTaskCreated) onTaskCreated();
       }
     } catch (error) {
+      if (
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && (error.name === "AbortError" || error.message === "Aborted"))
+      ) {
+        return;
+      }
       console.error("Failed to execute strategic task:", error);
       setErrorMessage(error instanceof Error ? error.message : "Không thể gửi tác vụ đến hệ thống.");
     } finally {
       setIsSubmitting(false);
+      strategicAbortRef.current = null;
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(strategicAgents, prevLocks);
         notifyResourceWaiters(strategicAgents);
@@ -1217,6 +3041,50 @@ export function AgenticCommandCenter({
       });
     }
   };
+
+  const handleStopStrategicTask = useCallback(() => {
+    if (strategicAbortRef.current) {
+      strategicAbortRef.current.abort();
+      strategicAbortRef.current = null;
+    }
+    setIsSubmitting(false);
+    setIsCeoThinking(false);
+    setCeoThinkingText("");
+    setAnalysisStep(0);
+    setElapsedSeconds(0);
+    setMarketingActiveAgent(null);
+    setMarketingAgentMessage(null);
+    setActiveCollaboration(null);
+    setActiveLocks({});
+    setDeptStatus({
+      marketing: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      merchandising: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      operations: { activeAgent: null, agentMessage: null, completedAgents: [] },
+      support: { activeAgent: null, agentMessage: null, completedAgents: [] },
+    });
+    setCeoPlan(null);
+    setActiveWorkflowKind("orchestration");
+    setCompletedStrategicDeliverable(null);
+    setSelectedStrategicDeliverable(null);
+
+    if (activeRunId) {
+      void api.cancelWorkflow(activeRunId, 1, "CANCELED_BY_STAFF").catch(() => {});
+    }
+    if (activeCampaignId && marketingApi?.cancelCampaign) {
+      void marketingApi.cancelCampaign(activeCampaignId, "Dừng bởi người vận hành").catch(() => {});
+    }
+    if (supportCampaignProposal?.id && supportApi?.cancelEmailCampaignProposal) {
+      void supportApi.cancelEmailCampaignProposal(supportCampaignProposal.id).catch(() => {});
+    }
+
+    recordLiveEvent(
+      "ai_ceo",
+      "Đã dừng tác vụ",
+      "Người điều hành đã dừng tiến trình thực thi tác vụ.",
+      "warning",
+    );
+    setSuccessMessage("Đã dừng thực thi tác vụ thành công.");
+  }, [api, activeRunId, activeCampaignId, marketingApi, supportCampaignProposal, supportApi, recordLiveEvent]);
 
   // Auto-process next queued task whose resources are completely free
   const processNextQueuedTask = (currentLocks: Record<string, ResourceLock>) => {
@@ -1244,9 +3112,37 @@ export function AgenticCommandCenter({
     taskId: string,
   ) => {
     try {
+      setStrategicDeliverableApproved(false);
+      setElapsedSeconds(0);
       if (dept === "marketing" && marketingApi) {
         scrollToDepartment("dept-column-marketing");
         setActiveWorkflowKind("marketing");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          steps: [
+            {
+              role: "Cây bút Sáng tạo (Copywriter)",
+              task: `Soạn thảo nội dung bài viết và hashtag cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Thiết kế Đồ họa (Visual Designer)",
+              task: "Dựng poster và banner sản phẩm 1:1 chuẩn Fanpage",
+              status: "pending",
+            },
+            {
+              role: "Điều phối Đăng bài (Publisher)",
+              task: "Chuẩn bị gói xuất bản Fanpage & đối soát băm SHA-256",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt & xuất bản Fanpage Facebook",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Copywriter
         setDeptActiveAgent("marketing", "marketing_copywriter", `Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
@@ -1254,17 +3150,50 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(`Cây bút Sáng tạo đang soạn nội dung: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
         // Step 2: Visual Designer
         setDeptActiveAgent("marketing", "marketing_visual", "Thiết kế Đồ họa đang dựng poster và banner...", "marketing_copywriter");
         setMarketingActiveAgent("marketing_visual");
         setMarketingAgentMessage("Thiết kế Đồ họa đang dựng poster và banner...");
         await new Promise((r) => setTimeout(r, 800));
 
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
         // Step 3: Publisher
         setDeptActiveAgent("marketing", "marketing_publisher", "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...", "marketing_visual");
         setMarketingActiveAgent("marketing_publisher");
         setMarketingAgentMessage("Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...");
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 3 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         const scheduledTime = new Date(Date.now() + 3600 * 1000).toISOString();
         const deadlineTime = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
@@ -1300,6 +3229,7 @@ export function AgenticCommandCenter({
         }
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
+        setActiveCampaignId(createdCampaign.id);
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -1311,16 +3241,86 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("Đã hoàn tất soạn thảo chiến dịch Marketing!");
+        const marketingDirectDeliv = buildStrategicDeliverable(taskPrompt, createdCampaign.id, "marketing");
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem bài & poster",
+          () => {
+            setActiveCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
+          },
+        );
+        setCompletionToast({
+          id: createdCampaign.id,
+          title: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          department: "marketing",
+          departmentName: "Phòng Tiếp thị & Truyền thông Sáng tạo",
+          goal: taskPrompt,
+          deliverable: marketingDirectDeliv,
+          timestamp: new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        });
+        if (completionToastTimerRef.current) {
+          clearTimeout(completionToastTimerRef.current);
+        }
+        completionToastTimerRef.current = setTimeout(() => {
+          setCompletionToast(null);
+        }, COMPLETION_TOAST_DURATION_MS);
+        void refreshApprovals();
+        setSuccessMessage("Đã hoàn tất soạn thảo bài viết & thiết kế poster chiến dịch Marketing!");
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "merchandising" && catalogApi) {
         scrollToDepartment("dept-column-merchandising");
         setActiveWorkflowKind("merchandising");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Danh mục & Định giá",
+          steps: [
+            {
+              role: "Cây bút Sản phẩm (Catalog Copywriter)",
+              task: `Tối ưu tiêu đề SEO & mô tả cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Thiết kế Đồ họa (Phối hợp Tiếp thị)",
+              task: "Thiết kế Poster & Banner 3D ưu đãi",
+              status: "pending",
+            },
+            {
+              role: "Chuyên viên Định giá (Pricing Strategist)",
+              task: "Tính toán chiết khấu & biên lợi nhuận Flash Sale",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt áp dụng bảng giá mới lên Storefront",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Catalog Copywriter
         setDeptActiveAgent("merchandising", "catalog_copywriter", `Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("catalog_copywriter");
         setMarketingAgentMessage(`Cây bút Sản phẩm đang tối ưu tiêu đề SEO cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         // Step 1 complete
         setDeptActiveAgent("merchandising", null, "Đã hoàn thành tối ưu SEO và mô tả danh mục", "catalog_copywriter");
@@ -1338,6 +3338,12 @@ export function AgenticCommandCenter({
               waitingForDept: heldLock.lockedByDepartment,
               stepName: "Thiết kế Poster & Banner 3D",
             });
+            setActiveCollaboration({
+              taskId,
+              fromDept: "merchandising",
+              toDept: "marketing",
+              label: "⏳ Chờ Thiết kế Đồ họa sẵn sàng phối hợp",
+            });
             try {
               await waitForResource("marketing_visual", taskId);
             } catch (e: any) {
@@ -1354,6 +3360,7 @@ export function AgenticCommandCenter({
 
           // Chiều đi: Merchandising -> Marketing
           setActiveCollaboration({
+            taskId,
             fromDept: "merchandising",
             toDept: "marketing",
             label: "⚡ Bàn giao: Yêu cầu Thiết kế Poster & Banner 3D",
@@ -1367,12 +3374,13 @@ export function AgenticCommandCenter({
           // Chiều về: Marketing -> Merchandising
           setDeptActiveAgent("marketing", null, "Đã hoàn thành thiết kế, đang bàn giao lại kết quả...", "marketing_visual");
           setActiveCollaboration({
+            taskId,
             fromDept: "marketing",
             toDept: "merchandising",
             label: "⚡ Bàn giao lại: Hoàn tất Poster & Banner ➔ Danh mục",
           });
           await new Promise((r) => setTimeout(r, 1000));
-          setActiveCollaboration(null);
+          clearTaskCollaboration(taskId);
           setDeptActiveAgent("marketing", null, null, "marketing_visual");
 
           // Release marketing_visual lock and notify waiters
@@ -1391,7 +3399,16 @@ export function AgenticCommandCenter({
 
         const cProposal = await catalogApi.generateCampaignProposal({ prompt: taskPrompt });
         setCampaignProposal(cProposal);
-        setCampaignProposalModalOpen(true);
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 3 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -1403,16 +3420,66 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("Đã lập xong Đề xuất Chiến dịch Danh mục & Định giá!");
+        recordLiveEvent(
+          "merchandising",
+          "Kinh doanh đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            const deliv = buildStrategicDeliverable(taskPrompt, cProposal?.id, "merchandising");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
+        );
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          cProposal?.id,
+          "merchandising",
+          "Đã lập xong Đề xuất Chiến dịch Danh mục & Báo cáo Chiến lược Word (.docx)!",
+        );
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "operations" && inventoryApi) {
         scrollToDepartment("dept-column-operations");
         setActiveWorkflowKind("operations");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Vận hành & Kho vận",
+          steps: [
+            {
+              role: "Kỹ sư Tồn kho (Inventory Specialist)",
+              task: `Kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Điều phối Đơn hàng (Order Coordinator)",
+              task: "Lập phiếu đề xuất nhập kho & Báo cáo Kiểm toán Word",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt kế hoạch nhập kho",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Inventory Specialist
         setDeptActiveAgent("operations", "inventory_specialist", `Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         setMarketingActiveAgent("inventory_specialist");
         setMarketingAgentMessage(`Kỹ sư Tồn kho đang kiểm toán dữ liệu SKU cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         // Step 2: Order Coordinator
         setDeptActiveAgent("operations", "order_coordinator", "Điều phối Đơn hàng đang lập phiếu đề xuất nhập kho...", "inventory_specialist");
@@ -1422,8 +3489,18 @@ export function AgenticCommandCenter({
 
         const proposal = await inventoryApi.generateOperationsProposal(taskPrompt);
         setOperationsProposal(proposal);
-        setIsOperationsModalOpen(true);
         setOperationsPage(1);
+
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
 
         setDeptStatus((prev) => ({
           ...prev,
@@ -1435,10 +3512,49 @@ export function AgenticCommandCenter({
         }));
         setMarketingActiveAgent(null);
         setMarketingAgentMessage(null);
-        setSuccessMessage("Đã lập xong Phiếu Đề Xuất Nhập Kho!");
+        recordLiveEvent(
+          "operations",
+          "Vận hành đã hoàn tất tác vụ",
+          taskPrompt,
+          "success",
+          "Xem kết quả",
+          () => {
+            const deliv = buildStrategicDeliverable(taskPrompt, proposal?.id, "operations");
+            setSelectedStrategicDeliverable(deliv);
+            setIsStrategicModalOpen(true);
+          },
+        );
+        notifyAndShowStrategicDeliverable(
+          taskPrompt,
+          proposal?.id,
+          "operations",
+          "Đã lập xong Phiếu Đề Xuất Nhập Kho & Báo cáo Kiểm toán Vận hành Word (.docx)!",
+        );
+        if (onTaskCreated) onTaskCreated();
       } else if (dept === "support" && supportApi) {
         scrollToDepartment("dept-column-support");
         setActiveWorkflowKind("support");
+        setCeoPlan({
+          goal: taskPrompt,
+          targetDept: "Phòng Chăm sóc Khách hàng & CRM",
+          steps: [
+            {
+              role: "Quản gia CSKH (Support Steward)",
+              task: `Rà soát ticket sự cố cho: "${taskPrompt.slice(0, 35)}..."`,
+              status: "running",
+            },
+            {
+              role: "Chuyên viên CRM (CRM Specialist)",
+              task: "Phân tích khách hàng VIP & lập báo cáo giữ chân",
+              status: "pending",
+            },
+            {
+              role: "Chủ tịch / Ban Giám đốc",
+              task: "Phê duyệt kịch bản chăm sóc & voucher",
+              status: "pending",
+            },
+          ],
+        });
 
         // Step 1: Support Steward
         setDeptActiveAgent("support", "support_steward", `Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
@@ -1446,38 +3562,136 @@ export function AgenticCommandCenter({
         setMarketingAgentMessage(`Quản gia CSKH đang rà soát ticket sự cố cho: "${taskPrompt.slice(0, 45)}"...`);
         await new Promise((r) => setTimeout(r, 800));
 
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx === 0 ? { ...s, status: "done" } : idx === 1 ? { ...s, status: "running" } : s,
+                ),
+              }
+            : null,
+        );
+
         // Step 2: CRM Specialist
         setDeptActiveAgent("support", "crm_specialist", "Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...", "support_steward");
         setMarketingActiveAgent("crm_specialist");
         setMarketingAgentMessage("Chuyên viên CRM đang phân tích khách hàng VIP & lập báo cáo...");
         await new Promise((r) => setTimeout(r, 800));
 
-        const proposal = await supportApi.generateSupportProposal(taskPrompt);
-        setSupportProposal(proposal);
-        setSupportTicketsPage(1);
-        setSupportVipPage(1);
+        const supportIntent = analyzeSupportTaskIntent(taskPrompt);
+        const isCampaignGoal = supportIntent.kind === "email_campaign";
 
-        setDeptStatus((prev) => ({
-          ...prev,
-          support: {
-            activeAgent: null,
-            agentMessage: null,
-            completedAgents: ["support_steward", "crm_specialist"],
-          },
-        }));
-        setMarketingActiveAgent(null);
-        setMarketingAgentMessage(null);
-        setSuccessMessage("Đã lập xong Đề xuất Xử lý CSKH & CRM!");
+        if (isCampaignGoal && supportApi.createEmailCampaignProposal) {
+          const campProposal = await runSupportCampaignCollaboration(
+            taskId,
+            taskPrompt,
+            () => supportApi.createEmailCampaignProposal!({
+              type: supportIntent.campaignType,
+              prompt: taskPrompt,
+              targetSegment: supportIntent.targetSegment,
+            }),
+            (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          );
+          setSupportCampaignProposal(campProposal);
+
+          setCeoPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  steps: prev.steps.map((s, idx) =>
+                    idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                  ),
+                }
+              : null,
+          );
+
+          setDeptStatus((prev) => ({
+            ...prev,
+            support: {
+              activeAgent: null,
+              agentMessage: null,
+              completedAgents: ["support_steward", "crm_specialist"],
+            },
+          }));
+          setMarketingActiveAgent(null);
+          setMarketingAgentMessage(null);
+          recordLiveEvent(
+            "support",
+            "CSKH đã lập xong chiến dịch email",
+            taskPrompt,
+            "success",
+            "Xem kết quả",
+            () => {
+              setIsSupportEmailApprovalModalOpen(false);
+              setIsSupportCampaignModalOpen(true);
+            },
+          );
+          notifyAndShowStrategicDeliverable(
+            taskPrompt,
+            campProposal?.id,
+            "support",
+            "Đã lập xong Kế Hoạch Chiến Dịch Email CSKH & Báo Cáo Chiến Lược Word (.docx)!",
+          );
+          if (onTaskCreated) onTaskCreated();
+        } else {
+          const proposal = await supportApi.generateSupportProposal({
+            prompt: taskPrompt,
+            ticketScope: "customer_email_pending",
+          });
+          setSupportProposal(proposal);
+          setSupportTicketsPage(1);
+          setSupportVipPage(1);
+
+          setCeoPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  steps: prev.steps.map((s, idx) =>
+                    idx < 2 ? { ...s, status: "done" } : idx === 2 ? { ...s, status: "running" } : s,
+                  ),
+                }
+              : null,
+          );
+
+          setDeptStatus((prev) => ({
+            ...prev,
+            support: {
+              activeAgent: null,
+              agentMessage: null,
+              completedAgents: ["support_steward", "crm_specialist"],
+            },
+          }));
+          setMarketingActiveAgent(null);
+          setMarketingAgentMessage(null);
+          recordLiveEvent(
+            "support",
+            "CSKH đã hoàn tất tác vụ",
+            taskPrompt,
+            "success",
+            "Xem kết quả",
+            () => {
+              setIsSupportEmailApprovalModalOpen(true);
+            },
+          );
+          notifyAndShowStrategicDeliverable(
+            taskPrompt,
+            proposal?.id,
+            "support",
+            "Đã lập xong Đề xuất Xử lý CSKH, Phân tích VIP & Báo cáo Giữ chân Khách hàng Word (.docx)!",
+          );
+          if (onTaskCreated) onTaskCreated();
+        }
       }
     } catch (err: any) {
       console.error(`Execution error in ${dept}:`, err);
       setErrorMessage(err?.message || `Thực thi nhiệm vụ cho phòng ban ${dept} thất bại.`);
-      setActiveCollaboration(null);
+      clearTaskCollaboration(taskId);
       setDeptActiveAgent(dept, null);
       setMarketingActiveAgent(null);
       setMarketingAgentMessage(null);
     } finally {
-      setActiveCollaboration(null);
+      clearTaskCollaboration(taskId);
       // Guaranteed lock release and auto-dequeue check
       setActiveLocks((prevLocks) => {
         const remaining = releaseLocks(reqAgents, prevLocks);
@@ -1520,6 +3734,15 @@ export function AgenticCommandCenter({
         [departmentType]: [...prev[departmentType], newTask],
       }));
 
+      recordLiveEvent(
+        departmentType,
+        "Nhiệm vụ thêm vào hàng chờ",
+        `Đang đợi nhân sự ${
+          DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId
+        } hoàn tất công việc...`,
+        "warning"
+      );
+
       setSuccessMessage(
         `Nhiệm vụ đã được thêm vào hàng chờ (đang đợi nhân sự ${
           DIGITAL_EMPLOYEES[initialConflict.agentId]?.name || initialConflict.agentId
@@ -1530,6 +3753,12 @@ export function AgenticCommandCenter({
 
     // Initial agent is free: execute immediately!
     const taskId = crypto.randomUUID();
+    recordLiveEvent(
+      departmentType,
+      "Khởi chạy nhiệm vụ trực tiếp",
+      directPrompt.length > 50 ? `${directPrompt.slice(0, 48)}...` : directPrompt,
+      "info"
+    );
     const localAgents = reqAgents.filter(
       (ag) => DIGITAL_EMPLOYEES[ag]?.department === departmentType,
     );
@@ -1556,46 +3785,108 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleApplySupport = async () => {
+  const handleApplySupport = async (selectedTicketIds?: readonly string[]) => {
     if (!supportProposal?.id || !supportApi) return;
+    const selectedIds = new Set(
+      selectedTicketIds ?? supportProposal.tickets.map((ticket) => ticket.ticketId),
+    );
+    const selectedTickets = supportProposal.tickets.filter((ticket) => selectedIds.has(ticket.ticketId));
+    if (selectedTickets.length === 0) return;
+    const previousProposal = supportProposal;
+    const remainingTickets = supportProposal.tickets.filter(
+      (ticket) => !selectedIds.has(ticket.ticketId),
+    );
+    const completedAll = remainingTickets.length === 0;
+
+    setSupportProposal({
+      ...supportProposal,
+      tickets: completedAll ? supportProposal.tickets : remainingTickets,
+      totalTickets: completedAll ? supportProposal.totalTickets : remainingTickets.length,
+      status: completedAll ? "applied" : "pending_approval",
+    });
+    if (completedAll) {
+      setIsSupportEmailApprovalModalOpen(false);
+    }
+
     try {
       setSupportActionLoading(true);
       setErrorMessage(null);
-      const items = supportProposal.tickets.map((t) => ({
+      const items = selectedTickets.map((t) => ({
         ticketId: t.ticketId,
         responseMessage: t.proposedResponse,
         resolutionStatus: "resolved" as const,
       }));
       await supportApi.applySupportProposal(supportProposal.id, items);
-      setSupportProposal((prev) => (prev ? { ...prev, status: "applied" } : null));
-      setCeoPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
-            }
-          : null,
+
+      if (completedAll) {
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setDeptStatus((prev) => ({
+          ...prev,
+          support: { activeAgent: null, agentMessage: null, completedAgents: [] },
+        }));
+        recordLiveEvent(
+          "support",
+          "CSKH đã gửi email phản hồi",
+          supportProposal.overallSentimentSummary || supportProposal.prompt || "Đã phản hồi toàn bộ ticket CSKH",
+          "success",
+          "Xem kết quả",
+          () => setIsSupportEmailApprovalModalOpen(true),
+          new Date().toISOString(),
+          `support-prop-ev-${supportProposal.id}`,
+        );
+        await persistCommandActivity({
+          department: "support",
+          decision: "approved",
+          resourceType: "support_proposal",
+          resourceId: supportProposal.id,
+          summary: supportProposal.overallSentimentSummary || `Đã gửi phản hồi cho ${selectedTickets.length} khách hàng.`,
+        });
+      }
+
+      setSuccessMessage(
+        completedAll
+          ? `✅ Đã phê duyệt và gửi toàn bộ ${selectedTickets.length} email CSKH thành công!`
+          : `✅ Đã gửi ${selectedTickets.length} email. Còn ${remainingTickets.length} email đang chờ phê duyệt.`,
       );
-      setSuccessMessage(`✅ Đã phê duyệt và gửi phản hồi CSKH thành công cho toàn bộ ${supportProposal.tickets.length} ticket!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply support proposal:", err);
+      setSupportProposal((current) => current?.id === previousProposal.id ? previousProposal : current);
       setErrorMessage(err instanceof Error ? err.message : "Không thể gửi phản hồi CSKH.");
     } finally {
       setSupportActionLoading(false);
     }
   };
 
-  // Marketing Actions
-  const handleApproveMarketing = async () => {
-    if (!activeCampaignId || !marketingApi) return;
-    try {
-      setMarketingActionLoading(true);
-      setErrorMessage(null);
-      await marketingApi.approveCampaign(activeCampaignId, { decision: "approve" });
-      const detail = await marketingApi.getCampaign(activeCampaignId);
-      setActiveCampaignDetail(detail);
+  const handleApplySupportCampaign = async (selectedRecipientIds?: readonly string[]) => {
+    if (!supportCampaignProposal || !supportApi?.applyEmailCampaignProposal) return;
+    const previousProposal = supportCampaignProposal;
+    const targetCount = selectedRecipientIds && selectedRecipientIds.length > 0
+      ? selectedRecipientIds.length
+      : previousProposal.totalRecipients;
 
-      // Complete all steps in CEO Plan
+    // Optimistic UI: immediately mark sent, clear deliverable, and close modal so approval leaves inbox instantly
+    setSupportCampaignProposal((prev) => (prev ? { ...prev, status: "sent" } : null));
+    setCompletedStrategicDeliverable(null);
+    setStrategicDeliverableApproved(true);
+    setIsSupportCampaignModalOpen(false);
+    setIsSupportCampaignSubmitting(true);
+
+    try {
+      const result = await supportApi.applyEmailCampaignProposal(
+        previousProposal.id,
+        selectedRecipientIds,
+      );
+      const dispatchedCount = result?.successfulDispatches ?? targetCount;
+      setSuccessMessage(`✅ Đã phê duyệt và gửi thành công chiến dịch email tới ${dispatchedCount} khách hàng!`);
+
       setCeoPlan((prev) =>
         prev
           ? {
@@ -1604,13 +3895,118 @@ export function AgenticCommandCenter({
             }
           : null,
       );
-      setMarketingActiveAgent(null);
-      setMarketingAgentMessage(null);
+
+      recordLiveEvent(
+        "support",
+        "CSKH gửi chiến dịch email",
+        `Đã gửi thành công chiến dịch "${previousProposal.title}" tới ${dispatchedCount} khách hàng`,
+        "success",
+        "Xem chiến dịch",
+        () => setIsSupportCampaignModalOpen(true),
+        new Date().toISOString(),
+        `campaign-ev-${previousProposal.id}`,
+      );
+
+      await persistCommandActivity({
+        department: "support",
+        decision: "approved",
+        resourceType: "support_proposal",
+        resourceId: previousProposal.id,
+        summary: `Đã gửi chiến dịch email "${previousProposal.title}" tới ${dispatchedCount} khách hàng.`,
+      });
+
+      if (onTaskCreated) onTaskCreated();
+    } catch (err) {
+      console.error("Failed to apply support email campaign:", err);
+      // Revert optimistic state on error
+      setSupportCampaignProposal(previousProposal);
+      setStrategicDeliverableApproved(false);
+      setErrorMessage(err instanceof Error ? err.message : "Không thể gửi chiến dịch email.");
+    } finally {
+      setIsSupportCampaignSubmitting(false);
+    }
+  };
+
+  const handleDownloadSupportCampaignDocx = async () => {
+    if (!supportCampaignProposal || !supportApi?.downloadEmailCampaignDocx) return;
+    try {
+      await supportApi.downloadEmailCampaignDocx(
+        supportCampaignProposal.id,
+        supportCampaignProposal.docxFilename,
+      );
+    } catch (err) {
+      console.error("Failed to download support campaign docx:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Không thể tải file Word kế hoạch email.");
+    }
+  };
+
+  // Marketing Actions
+  const handleApproveMarketing = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId || !marketingApi) return;
+    try {
+      setMarketingActionLoading(true);
+      setErrorMessage(null);
+      await marketingApi.approveCampaign(campId, { decision: "approve" });
+      const detail = await marketingApi.getCampaign(campId);
+      setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
+
+      const isPublished =
+        detail.campaign.state === "completed" ||
+        Boolean(detail.publicationRecord?.externalPostId) ||
+        Boolean(detail.publicationRecords && detail.publicationRecords.length > 0);
+
+      if (isPublished) {
+        // Complete all steps in CEO Plan
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        recordLiveEvent(
+          "marketing",
+          "Marketing đã hoàn tất tác vụ",
+          detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+          "success",
+          "Xem kết quả",
+          () => {
+            setActiveCampaignDetail(detail);
+            setPreviewCampaignDetail(detail);
+            setMarketingCampaignModalOpen(true);
+          },
+          detail.campaign.updatedAt,
+          `marketing-camp-${campId}`,
+        );
+        await persistCommandActivity({
+          department: "marketing",
+          decision: "approved",
+          resourceType: "marketing_campaign",
+          resourceId: campId,
+          summary: detail.campaign.campaignName || "Chiến dịch Marketing Fanpage",
+        });
+        setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+        if (onTaskCreated) onTaskCreated();
+      } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
+        setErrorMessage(
+          "⚠️ Phê duyệt hoàn tất nhưng xuất bản lên Fanpage gặp lỗi do Token Meta Facebook chưa hợp lệ. Bạn có thể nhấn 'Thử xuất bản lại' hoặc kiểm tra Token.",
+        );
+      }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 10 }).then((res) => setCampaignsList(res.items)).catch(() => {});
-
-      setSuccessMessage("Đã duyệt và xuất bản bài viết thành công lên Fanpage Facebook!");
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Phê duyệt thất bại.");
     } finally {
@@ -1618,17 +4014,28 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleRevisionMarketing = async () => {
-    if (!activeCampaignId || !marketingApi || !revisionInput.trim()) return;
+  const handleRevisionMarketing = async (feedbackText?: string, targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    const feedback = typeof feedbackText === "string" ? feedbackText : revisionInput;
+    if (!campId || !marketingApi || !feedback.trim()) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.requestRevision(activeCampaignId, { feedback: revisionInput });
-      const detail = await marketingApi.getCampaign(activeCampaignId);
+      await marketingApi.requestRevision(campId, { feedback: feedback.trim() });
+      const detail = await marketingApi.getCampaign(campId);
       setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
       setRevisionInput("");
       setShowRevisionForm(false);
       setSuccessMessage("Đã gửi yêu cầu chỉnh sửa! 3 nhân sự số Marketing đang tạo lại bản sửa đổi mới.");
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Yêu cầu chỉnh sửa thất bại.");
     } finally {
@@ -1636,33 +4043,102 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleRetryPublication = async () => {
-    if (!activeCampaignId || !marketingApi) return;
+  const handleRetryPublication = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId || !marketingApi) return;
     try {
       setMarketingActionLoading(true);
       setErrorMessage(null);
-      await marketingApi.retryPublication(activeCampaignId);
-      const detail = await marketingApi.getCampaign(activeCampaignId);
+      await marketingApi.retryPublication(campId);
+      const detail = await marketingApi.getCampaign(campId);
       setActiveCampaignDetail(detail);
+      setActiveCampaignId(campId);
 
-      // Complete all steps in CEO Plan
-      setCeoPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s) => ({ ...s, status: "done" })),
-            }
-          : null,
-      );
-      setMarketingActiveAgent(null);
-      setMarketingAgentMessage(null);
+      const isPublished =
+        detail.campaign.state === "completed" ||
+        Boolean(detail.publicationRecord?.externalPostId) ||
+        Boolean(detail.publicationRecords && detail.publicationRecords.length > 0);
+
+      if (isPublished) {
+        // Complete all steps in CEO Plan
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+              }
+            : null,
+        );
+        setMarketingActiveAgent(null);
+        setMarketingAgentMessage(null);
+        setSuccessMessage("Đã xuất bản lại thành công lên Fanpage Facebook!");
+      } else if (detail.campaign.state === "failed" || detail.campaign.state === "partial_failure") {
+        setErrorMessage("Xuất bản lại chưa thành công. Vui lòng kiểm tra lại Token Meta Facebook.");
+      }
 
       // Refresh recent campaigns list
-      marketingApi.listCampaigns({ limit: 10 }).then((res) => setCampaignsList(res.items)).catch(() => {});
-
-      setSuccessMessage("Đã xuất bản lại thành công lên Facebook!");
+      marketingApi
+        .listCampaigns({ limit: 20 })
+        .then((res) =>
+          setCampaignsList(
+            res.items.filter((c) => !canceledCampaignIdsRef.current.has(c.id) && c.state !== "canceled"),
+          ),
+        )
+        .catch(() => {});
     } catch (err: any) {
       setErrorMessage(err.message || "Đăng lại lên Facebook thất bại.");
+    } finally {
+      setMarketingActionLoading(false);
+    }
+  };
+
+  const handleCancelMarketingCampaign = async (targetId?: string) => {
+    const campId = targetId || activeCampaignId;
+    if (!campId) return;
+    const campaignSummary = activeCampaignDetail?.campaign.id === campId
+      ? activeCampaignDetail.campaign.campaignName
+      : campaignsList.find((campaign) => campaign.id === campId)?.campaignName;
+    try {
+      setMarketingActionLoading(true);
+      if (marketingApi?.cancelCampaign) {
+        await marketingApi.cancelCampaign(campId, "Hủy duyệt bởi Quản trị viên");
+      }
+      const persisted = await persistCommandActivity({
+        department: "marketing",
+        decision: "canceled",
+        resourceType: "marketing_campaign",
+        resourceId: campId,
+        summary: campaignSummary || "Đề xuất chiến dịch Marketing",
+      });
+      if (!persisted) return;
+      markCampaignCanceled(campId);
+      setCampaignsList((prev) => prev.filter((c) => c.id !== campId));
+      if (activeCampaignId === campId) {
+        setActiveCampaignId(null);
+        setActiveCampaignDetail(null);
+        setCeoPlan(null);
+        setActiveWorkflowKind("orchestration");
+        setCompletedStrategicDeliverable(null);
+      } else if (activeCampaignDetail?.campaign.id === campId) {
+        setActiveCampaignDetail(null);
+        setCeoPlan(null);
+        setActiveWorkflowKind("orchestration");
+        setCompletedStrategicDeliverable(null);
+      }
+      if (previewCampaignDetail?.campaign.id === campId) setPreviewCampaignDetail(null);
+      setMarketingCampaignModalOpen(false);
+      setShowRevisionModal(false);
+      setSuccessMessage("Đã hủy duyệt đề xuất chiến dịch Marketing.");
+      const res = await marketingApi?.listCampaigns({ limit: 20 });
+      if (res?.items) {
+        setCampaignsList(
+          res.items.filter(
+            (c) => !canceledCampaignIdsRef.current.has(c.id) && c.id !== campId && c.state !== "canceled",
+          ),
+        );
+      }
+    } catch (err: any) {
+      console.warn("Marketing campaign cancel notice:", err);
     } finally {
       setMarketingActionLoading(false);
     }
@@ -1691,6 +4167,7 @@ export function AgenticCommandCenter({
       setErrorMessage(null);
 
       if (campaignProposal) {
+        const approvedProposal = campaignProposal;
         await catalogApi.activateCampaign(campaignProposal.id);
         const active = await catalogApi.getActiveCampaign();
         setActiveCampaign(active);
@@ -1713,6 +4190,13 @@ export function AgenticCommandCenter({
             : null,
         );
         setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+        await persistCommandActivity({
+          department: "merchandising",
+          decision: "approved",
+          resourceType: "merchandising_proposal",
+          resourceId: approvedProposal.id,
+          summary: approvedProposal.name,
+        });
         return;
       }
 
@@ -1747,6 +4231,13 @@ export function AgenticCommandCenter({
           ? `Đã cập nhật giá bán mới và mô tả tối ưu cho ${result.items.length} sản phẩm trực tiếp lên Cửa hàng Storefront!`
           : `Đã cập nhật giá bán mới (${(result.newPriceVnd || result.items?.[0]?.newPriceVnd || 0).toLocaleString("vi-VN")} đ) và mô tả tối ưu trực tiếp lên Cửa hàng Storefront!`;
       setSuccessMessage(msg);
+      await persistCommandActivity({
+        department: "merchandising",
+        decision: "approved",
+        resourceType: "merchandising_proposal",
+        resourceId: merchandisingProposal.id,
+        summary: merchandisingProposal.pricingRationale || "Đã áp dụng đề xuất giá và danh mục lên Storefront.",
+      });
     } catch (err: any) {
       console.error("Apply merchandising proposal failed:", err);
       setErrorMessage(err.message || "Không thể áp dụng đề xuất lên Storefront.");
@@ -1755,7 +4246,11 @@ export function AgenticCommandCenter({
     }
   };
 
-  const handleApproveCampaign = async (options: { readonly endDate: string; readonly excludedItemIds: readonly string[] }) => {
+  const handleApproveCampaign = async (options: {
+    readonly endDate: string;
+    readonly excludedItemIds: readonly string[];
+    readonly conflictResolution?: "replace" | "schedule_after";
+  }) => {
     if (!catalogApi || !campaignProposal) return;
     try {
       setIsActivatingCampaign(true);
@@ -1763,7 +4258,10 @@ export function AgenticCommandCenter({
       await catalogApi.activateCampaign(campaignProposal.id, {
         endDate: options.endDate,
         excludedItemIds: options.excludedItemIds,
+        conflictResolution: options.conflictResolution,
       });
+      campaignProposalsCache.current[campaignProposal.id] = campaignProposal;
+      const approvedCampId = campaignProposal.id;
       setCampaignProposalModalOpen(false);
       setCampaignProposal(null);
       setMerchandisingProposal((prev) =>
@@ -1776,6 +4274,7 @@ export function AgenticCommandCenter({
       );
       const active = await catalogApi.getActiveCampaign();
       setActiveCampaign(active);
+      setActiveCampaigns(active?.activeCampaigns ?? (active ? [active] : []));
 
       // Complete steps in CEO Plan
       setCeoPlan((prev) =>
@@ -1787,7 +4286,28 @@ export function AgenticCommandCenter({
           : null,
       );
 
+      recordLiveEvent(
+        "merchandising",
+        "Kinh doanh đã hoàn tất tác vụ",
+        `Chiến dịch: ${campaignProposal.name}`,
+        "success",
+        "Xem kết quả",
+        () => {
+          void handleOpenCampaignDeliverable(approvedCampId, true);
+        },
+        new Date().toISOString(),
+        `camp-ev-${campaignProposal.id}`,
+      );
+      await persistCommandActivity({
+        department: "merchandising",
+        decision: "approved",
+        resourceType: "merchandising_proposal",
+        resourceId: approvedCampId,
+        summary: `Chiến dịch: ${campaignProposal.name}`,
+      });
+
       setSuccessMessage(`Chiến dịch "${campaignProposal.name}" đã được kích hoạt thành công trên Storefront với giá chiết khấu thời gian thực!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err: any) {
       console.error("Activate campaign failed:", err);
       setErrorMessage(err.message || "Kích hoạt chiến dịch thất bại.");
@@ -1802,7 +4322,9 @@ export function AgenticCommandCenter({
       setIsRevertingCampaign(true);
       setErrorMessage(null);
       await catalogApi.revertCampaign(campaignId);
-      setActiveCampaign(null);
+      const active = await catalogApi.getActiveCampaign();
+      setActiveCampaign(active);
+      setActiveCampaigns(active?.activeCampaigns ?? (active ? [active] : []));
       setSuccessMessage("Đã hoàn nguyên chiến dịch thành công! Toàn bộ giá sản phẩm đã tự động quay về mức ban đầu.");
     } catch (err: any) {
       console.error("Revert campaign failed:", err);
@@ -1825,7 +4347,10 @@ export function AgenticCommandCenter({
             variantId: i.variantId,
             restockQuantity: i.recommendedRestockQuantity,
           }));
-      const res: any = await inventoryApi.applyOperationsProposal(operationsProposal.id, payload);
+      const res: any = await (inventoryApi.applyReplenishmentProposal
+        ? inventoryApi.applyReplenishmentProposal(operationsProposal.id, payload)
+        : inventoryApi.applyOperationsProposal(operationsProposal.id, payload));
+      setPendingReplenishment(null);
       setOperationsProposal((prev) => {
         if (!prev) return null;
         const updatedItemsMap = new Map<string, number>(
@@ -1859,7 +4384,35 @@ export function AgenticCommandCenter({
       );
 
       const totalRestocked = payload.reduce((acc, it) => acc + it.restockQuantity, 0);
+
+      recordLiveEvent(
+        "operations",
+        "Vận hành đã hoàn tất tác vụ",
+        operationsProposal.summary || `Đã nhập kho bổ sung +${totalRestocked} đơn vị hàng`,
+        "success",
+        "Xem kết quả",
+        () => {
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Đề xuất nhập kho bổ sung hàng an toàn",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+        new Date().toISOString(),
+        `ops-prop-ev-${operationsProposal.id}`,
+      );
+      await persistCommandActivity({
+        department: "operations",
+        decision: "approved",
+        resourceType: "operations_proposal",
+        resourceId: operationsProposal.id,
+        summary: operationsProposal.summary || `Đã nhập kho bổ sung +${totalRestocked} đơn vị hàng`,
+      });
+
       setSuccessMessage(`✅ Đã phê duyệt và nhập kho thành công +${totalRestocked} đơn vị hàng vào cơ sở dữ liệu PostgreSQL!`);
+      if (onTaskCreated) onTaskCreated();
     } catch (err) {
       console.error("Failed to apply operations proposal:", err);
       setErrorMessage(err instanceof Error ? err.message : "Không thể nhập kho vào hệ thống.");
@@ -2041,7 +4594,6 @@ export function AgenticCommandCenter({
             : null,
         );
 
-        setCampaignProposalModalOpen(true);
         setSuccessMessage("Đội ngũ liên phòng (Kho vận ➔ Định giá ➔ Tiếp thị) đã hoàn tất thiết kế & định giá chiến dịch Xả kho theo Chỉ thị của CEO! Sẵn sàng để bạn phê duyệt.");
       } catch (err: any) {
         setActiveCollaboration(null);
@@ -2081,6 +4633,7 @@ export function AgenticCommandCenter({
       }
     } else if (activeWorkflowKind === "marketing" && activeCampaignId && marketingApi) {
       try {
+        markCampaignCanceled(activeCampaignId);
         await marketingApi.cancelCampaign(activeCampaignId, "Canceled by Staff Operator");
         const detail = await marketingApi.getCampaign(activeCampaignId);
         setActiveCampaignDetail(detail);
@@ -2141,1374 +4694,261 @@ export function AgenticCommandCenter({
   const latestContent = activeCampaignDetail?.contentVersions?.[activeCampaignDetail.contentVersions.length - 1];
   const latestVisual = activeCampaignDetail?.visualAssets?.[activeCampaignDetail.visualAssets.length - 1];
 
-  return (
-    <section className="commandCenterWorkspace">
-      {/* 1. Header Bar */}
-      <header className="ccHeaderBar">
-        <div className="ccBrandTitle">
-          <Sparkles size={20} color="#f59e0b" />
-          <span>OpenDX CompanyOS — Trung tâm điều hành AI</span>
-        </div>
+  // Redesigned Subcomponent Data Mappings
+  const activeAnalysisStep = analysisStep > 0 ? analysisStep : (isCurrentlyAnalyzing ? 1 : 0);
 
-        <nav className="ccNavTabs">
-          <button
-            type="button"
-            className={`ccNavTab ${activeTab === "hub" ? "active" : ""}`}
-            onClick={() => setActiveTab("hub")}
-          >
-            Command Hub
-          </button>
-          <Link
-            to={activeTaskId ? `/agentic/tasks/${activeTaskId}` : "/agentic/tasks-table"}
-            className="ccNavTab"
-          >
-            Orchestration
-          </Link>
-          <Link to="/agentic/employees" className="ccNavTab">
-            Workforce
-          </Link>
-        </nav>
+  const getDepartmentTasks = (dept: DepartmentType): DepartmentTask[] => {
+    const inMem = departmentQueues[dept] || [];
+    const dbTasks: DepartmentTask[] = (tasks?.items || [])
+      .filter((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        return intent === dept || (dept === "operations" && intent === "orchestration");
+      })
+      .map((t): DepartmentTask => {
+        let status: DepartmentTask["status"] = "queued";
+        if (t.state === "completed" || t.state === "partially_completed") {
+          status = "completed";
+        } else if (t.state === "failed" || t.state === "canceled") {
+          status = "failed";
+        } else if (t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval") {
+          status = "queued";
+        } else if (
+          ["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)
+        ) {
+          const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          if (taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000) {
+            status = "failed";
+          } else {
+            status = "running";
+          }
+        } else {
+          status = "queued";
+        }
+        return {
+          id: t.id,
+          prompt: t.goal,
+          department: dept,
+          requiredAgents: [],
+          status,
+          queuedAt: t.createdAt ? new Date(t.createdAt).getTime() : Date.now(),
+        };
+      });
 
-        <div className="ccHeaderRight">
-          <span className="ccStatBadge">4 Phòng ban</span>
-          <span className="ccStatBadge">9 Nhân sự AI</span>
-          <span className={`ccStatBadge ${activeCount > 0 ? "activeTasks" : ""}`}>
-            {activeCount > 0 && <span className="ccPillDot" />}
-            <span>{activeCount} Đang làm</span>
-          </span>
+    const seen = new Set<string>();
+    const allDeptTasks: DepartmentTask[] = [];
+    for (const item of [...inMem, ...dbTasks]) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        allDeptTasks.push(item);
+      }
+    }
 
-          <div className="ccProfilePill">
-            <div className="ccAvatar">
-              <Bot size={14} color="#94a3b8" />
-              <span className="ccAvatarOnline" />
-            </div>
-            <span>Chủ tịch (Owner)</span>
-          </div>
-        </div>
-      </header>
+    if (taskFilter === "running") {
+      return allDeptTasks.filter((t) => t.status === "running");
+    }
+    if (taskFilter === "waiting_approval") {
+      return allDeptTasks.filter((t) => {
+        if (t.status !== "queued") return false;
+        const dbTask = (tasks?.items || []).find((db) => db.id === t.id);
+        if (dbTask) {
+          return dbTask.state === "awaiting_plan_approval" || dbTask.state === "awaiting_human_approval";
+        }
+        return true;
+      });
+    }
+    if (taskFilter === "completed") {
+      return allDeptTasks.filter((t) => t.status === "completed");
+    }
+    if (taskFilter === "failed") {
+      return allDeptTasks.filter((t) => t.status === "failed");
+    }
+    return allDeptTasks;
+  };
 
-      {/* 2. Strategic Command Card */}
-      <div className="ccStrategicCard">
-        <h1 className="ccStrategicTitle">Giao việc chiến lược</h1>
+  const marketingTasks = getDepartmentTasks("marketing");
+  const merchandisingTasks = getDepartmentTasks("merchandising");
+  const operationsTasks = getDepartmentTasks("operations");
+  const supportTasks = getDepartmentTasks("support");
 
-        {errorMessage && (
-          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <AlertTriangle size={16} />
-              <span>{errorMessage === "Authentication required" ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." : errorMessage}</span>
-            </div>
-            {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
+  const activeMarketingFailureMessage =
+    activeCampaignDetail?.campaign.state === "failed" ||
+    activeCampaignDetail?.campaign.state === "partial_failure"
+      ? activeCampaignDetail.currentPackage || activeCampaignDetail.publicationAttempts.length > 0
+        ? "Chiến dịch tiếp thị gặp sự cố khi xuất bản lên Facebook Page."
+        : "Chiến dịch tiếp thị gặp sự cố khi tạo nội dung hoặc hình ảnh."
+      : undefined;
+
+  const redesignedDepartmentCards: DepartmentCardProps[] = [
+    {
+      department: "marketing",
+      displayName: "Tiếp thị & Sáng tạo",
+      employeeCount: 3,
+      activeTaskCount: marketingTasks.length,
+      status: taskFilter === "running"
+        ? (marketingTasks.length > 0 || deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (marketingTasks.length > 0 || (activeCampaignDetail && ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(activeCampaignDetail.campaign.state)) ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (marketingTasks.length > 0 || (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure") ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((activeCampaignDetail && ["campaign_review", "awaiting_human_approval", "revision_requested", "draft", "visual_creation"].includes(activeCampaignDetail.campaign.state))
+          ? "waiting_approval"
+          : (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
+          ? "error"
+          : (deptStatus.marketing.activeAgent !== null || marketingActiveAgent?.startsWith("marketing") || isRunning)
+          ? "running"
+          : "idle"),
+      errorMessage: (activeCampaignDetail?.campaign.state === "failed" || activeCampaignDetail?.campaign.state === "partial_failure")
+        ? (errorMessage || activeMarketingFailureMessage)
+        : (isFbTokenInvalid ? "Token kết nối Facebook Page đã hết hạn" : undefined),
+      employees: [
+        {
+          id: "marketing_copywriter",
+          name: "MKT-01",
+          role: "Cây bút Sáng tạo",
+          status: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter" || activeLocks["marketing_copywriter"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_copywriter" || marketingActiveAgent === "marketing_copywriter")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Cây bút Sáng tạo đang soạn nội dung bài viết và hashtag...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
+               marketingActiveAgent === "marketing_visual" ||
+               marketingActiveAgent === "marketing_publisher")
+            ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_copywriter"),
+        },
+        {
+          id: "marketing_visual",
+          name: "MKT-02",
+          role: "Thiết kế Đồ họa",
+          status: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab" || activeLocks["marketing_visual"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual" || marketingActiveAgent === "merchandising_visual_collab") ? Math.min(95, 20 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_visual" || marketingActiveAgent === "marketing_visual")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Thiết kế Đồ họa đang dựng poster và banner...")
+            : marketingActiveAgent === "merchandising_visual_collab"
+            ? (marketingAgentMessage ?? "Đang phối hợp vẽ poster ưu đãi & badge 3D...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_visual") ||
+               (activeCampaignDetail && (activeCampaignDetail.visualAssets.length > 0 || activeCampaignDetail.artifacts.length > 0)) ||
+               marketingActiveAgent === "marketing_publisher")
+            ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
+            : undefined,
+          isCollaborating:
+            (activeCollaboration?.fromDept === "merchandising" && activeCollaboration.toDept === "marketing") ||
+            (activeCollaboration?.fromDept === "marketing" && activeCollaboration.toDept === "merchandising") ||
+            marketingActiveAgent === "merchandising_visual_collab",
+          collabTag: "Phối hợp cùng Danh mục",
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_visual"),
+        },
+        {
+          id: "marketing_publisher",
+          name: "MKT-03",
+          role: "Điều phối Xuất bản",
+          status: (activeCampaignDetail?.campaign.state === "failed") ? "failed" : (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher" || activeLocks["marketing_publisher"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.marketing.activeAgent === "marketing_publisher" || marketingActiveAgent === "marketing_publisher")
+            ? (deptStatus.marketing.agentMessage ?? marketingAgentMessage ?? "Điều phối Đăng bài đang chuẩn bị gói xuất bản Fanpage...")
+            : (deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
+               activeCampaignDetail?.campaign.state === "completed")
+            ? "Đã hoàn tất đăng bài lên Fanpage thành công"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("marketing_publisher"),
+        },
+      ],
+      queue: marketingTasks,
+      directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
+      headerExtra: (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          {socialTokensSummary && (() => {
+            const hasExpiringOrInvalid = socialTokensSummary.hasExpiringOrInvalid;
+            const urgent = socialTokensSummary.urgentActionRequired;
+            const expiringAccount = socialTokensSummary.accounts.find(
+              (a) => a.status === "expiring_soon" || a.status === "expired" || a.status === "invalid"
+            );
+            const days = expiringAccount?.daysRemaining;
+
+            let badgeClass = "valid";
+            let badgeText = "Social Token: OK";
+            let icon = <ShieldCheck size={12} />;
+
+            if (urgent || expiringAccount?.status === "expired" || expiringAccount?.status === "invalid") {
+              badgeClass = "danger";
+              badgeText = "🚨 Token FB lỗi / hết hạn";
+              icon = <ShieldAlert size={12} />;
+            } else if (hasExpiringOrInvalid || expiringAccount?.status === "expiring_soon") {
+              badgeClass = "warning";
+              const remainingLabel = expiringAccount?.expiresInHuman || (expiringAccount?.hoursRemaining ? `sau ${expiringAccount.hoursRemaining}h` : `sau ${days ?? 7} ngày`);
+              badgeText = `⚡ Token FB hết hạn ${remainingLabel}`;
+              icon = <Zap size={12} />;
+            }
+
+            return (
               <button
                 type="button"
-                onClick={() => void signIn()}
-                style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
+                className={`ccSocialTokenHeaderBadge ${badgeClass}`}
+                onClick={() => setSocialTokenModalOpen(true)}
+                title="Bấm để mở Trung tâm Quản lý Social Tokens"
+                aria-label="Social Token Health Status"
               >
-                Đăng nhập lại
+                {icon}
+                <span>{badgeText}</span>
               </button>
-            )}
-          </div>
-        )}
-
-        {successMessage && (
-          <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#6ee7b7", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-            <CheckCircle2 size={16} />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        <form
-          className="ccInputWrapper"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendStrategicTask();
-          }}
-        >
-          <Sparkles className="ccSparkleIcon" size={20} />
-          <input
-            type="text"
-            className="ccMainPromptInput"
-            placeholder="Hãy giao việc chiến lược cho AI CEO (ví dụ: Quảng bá điện thoại NovaPhone 15 Pro Max trên Facebook)..."
-            value={prompt}
-            disabled={isSubmitting}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="ccSendButton"
-            disabled={isSubmitting || !prompt.trim()}
-          >
-            <Play size={14} fill="currentColor" />
-            <span>{isSubmitting ? "Đang gửi..." : "Gửi"}</span>
-          </button>
-        </form>
-
-        {/* Quick Action Pills */}
-        <div className="ccQuickActionRow">
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() => setRecentOutcomesOpen((prev) => !prev)}
-          >
-            <Clock size={13} />
-            <span>Lịch sử ({tasks?.items.length ?? 0})</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Quảng bá sản phẩm NovaPhone 15 Pro Max trên Facebook với ưu đãi tặng tai nghe NovaBuds Pro",
-              )
-            }
-          >
-            <span>📢 Chiến dịch Marketing FB</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Kiểm toán rủi ro kinh doanh & tồn kho khẩn cấp",
-                "Rà soát các SKU có nguy cơ đứt hàng và cảnh báo tồn kho bán chậm.",
-              )
-            }
-          >
-            <span>📦 Rà soát sức khỏe cửa hàng</span>
-          </button>
-          <button
-            type="button"
-            className="ccQuickPill"
-            onClick={() =>
-              handleSendStrategicTask(
-                "Rà soát đơn hàng quá hạn & khiếu nại khách hàng",
-                "Kiểm tra các đơn hàng bị kẹt giao và ticket khách hàng vi phạm thời gian hỗ trợ.",
-              )
-            }
-          >
-            <span>🎧 Kiểm toán đơn hàng & CSKH</span>
-          </button>
-        </div>
-
-        {/* Recent Outcomes Dropdown */}
-        <div className="ccRecentOutcomesContainer">
-          <div
-            className="ccRecentOutcomesHeader"
-            onClick={() => setRecentOutcomesOpen((prev) => !prev)}
-          >
-            <span>Tác vụ gần đây</span>
-            {recentOutcomesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-          {recentOutcomesOpen && (
-            <div className="ccRecentOutcomesList">
-              {tasks?.items && tasks.items.length > 0 &&
-                tasks.items.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="ccRecentOutcomeItem"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setActiveWorkflowKind("orchestration");
-                      setActiveTaskId(item.id);
-                    }}
-                  >
-                    <CheckCircle2 size={16} className="ccCheckIcon" />
-                    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                      <span>
-                        <strong>{item.goal}</strong> — Trạng thái: <em>{item.state}</em>
-                      </span>
-                      <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                        {new Date(item.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              {/* Marketing campaigns history */}
-              {_campaignsList && _campaignsList.length > 0 &&
-                _campaignsList.slice(0, 5).map((camp) => {
-                  const title =
-                    camp.campaignName?.replace(/^Chiến dịch:\s*/, "") ||
-                    camp.objective?.replace(/^Quảng bá sản phẩm và đăng bài lên mạng xã hội theo mục tiêu:\s*/, "") ||
-                    camp.mandatoryMessage ||
-                    `Chiến dịch Marketing (ID ${camp.id.slice(0, 8)})`;
-                  return (
-                    <div
-                      key={camp.id}
-                      className="ccRecentOutcomeItem"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        setActiveWorkflowKind("marketing");
-                        setActiveCampaignId(camp.id);
-                      }}
-                    >
-                      <Megaphone size={15} color="#38bdf8" />
-                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", gap: "1rem" }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          <strong>[Tiếp thị FB] {title}</strong> — Trạng thái: <em>{camp.state}</em>
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: "#64748b", flexShrink: 0 }}>
-                          {new Date(camp.createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              {(!tasks?.items || tasks.items.length === 0) && (!_campaignsList || _campaignsList.length === 0) && (
-                <div className="ccRecentOutcomeItem">
-                  <CheckCircle2 size={16} className="ccCheckIcon" />
-                  <span>Chưa có tác vụ nào gần đây. Hãy giao việc ở khung trên!</span>
-                </div>
-              )}
-            </div>
+            );
+          })()}
+          {departmentQueues.marketing.length > 0 && (
+            <span className="ccDeptQueueBadge">
+              <Clock size={11} className="ccSpinSlow" />
+              <span>Hàng chờ: {departmentQueues.marketing.length}</span>
+            </span>
           )}
         </div>
-      </div>
+      ),
+      alertBanner: socialTokensSummary && (socialTokensSummary.urgentActionRequired || socialTokensSummary.hasExpiringOrInvalid) && !dismissedSocialTokenAlerts ? (
+        <div className="space-y-2 mb-2">
+          {socialTokensSummary.accounts
+            ?.filter((acc) => acc.requiresAction || acc.status === "expiring_soon" || acc.status === "expired" || acc.status === "invalid")
+            .map((acc) => {
+              const isDanger = acc.status === "expired" || acc.status === "invalid";
+              const remainingText = acc.expiresInHuman || (acc.hoursRemaining ? `${acc.hoursRemaining} giờ` : `${acc.daysRemaining ?? 0} ngày`);
+              const title = isDanger
+                ? `🚨 Token Facebook đã hết hạn / lỗi`
+                : `⚡ Token Facebook sắp hết hạn (${remainingText})`;
 
-      {/* 2a. AI CEO Reasoning & Department Routing Transition Banner */}
-      {isCeoThinking && (
-        <div className="ccCeoThinkingBanner">
-          <div className="ccCeoThinkingIcon">
-            <Brain size={18} className="ccSpin" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: "0.92rem", marginBottom: "0.15rem" }}>
-              👑 AI CEO đang suy nghĩ & định tuyến nhiệm vụ...
-            </div>
-            <div style={{ color: "#cbd5e1", fontSize: "0.84rem" }}>
-              {ceoThinkingText || "Đang phân tích bối cảnh, thẩm quyền và lựa chọn phòng ban phụ trách..."}
-            </div>
-          </div>
-          <Loader2 size={18} color="#f59e0b" className="ccSpin" />
-        </div>
-      )}
-
-      {/* 2b. AI CEO Strategic Decomposition Plan */}
-      {ceoPlan && (
-        <div className="ccCeoPlanCard">
-          <div className="ccCeoPlanHeader">
-            <div className="ccCeoPlanTitle">
-              <Bot size={18} color="#fbbf24" />
-              <span>Kế hoạch Điều phối Chiến lược của AI CEO</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span className="ccDeptCountBadge amber">
-                <span className="ccPillDot" style={{ width: 6, height: 6 }} />
-                <span>{ceoPlan.targetDept}</span>
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
-                onClick={() => setCeoPlan(null)}
-                title="Đóng bảng kế hoạch"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          <div className="ccCeoPlanGoal">
-            <strong style={{ color: "#f59e0b" }}>Mục tiêu chiến lược: </strong>
-            <span>{ceoPlan.goal}</span>
-          </div>
-
-          <div className="ccCeoPlanStepsList">
-            {ceoPlan.steps.map((s, idx) => (
-              <div key={idx} className={`ccCeoPlanStepItem ${s.status}`}>
-                <div>
-                  <div className="ccCeoStepRole">
-                    {s.status === "running" ? (
-                      <Loader2 size={14} color="#38bdf8" className="ccSpin" />
-                    ) : s.status === "done" ? (
-                      <CheckCircle2 size={14} color="#10b981" />
-                    ) : (
-                      <Clock size={14} color="#94a3b8" />
-                    )}
-                    <span>{s.role}</span>
-                  </div>
-                  <div className="ccCeoStepTask">{s.task}</div>
-                </div>
-                <span className={`ccCeoStepStatus ${s.status}`}>
-                  {s.status === "running" && (
-                    <span
-                      className="ccPillDot"
-                      style={{ width: 6, height: 6, background: "#38bdf8", boxShadow: "0 0 6px #38bdf8" }}
-                    />
-                  )}
-                  <span>
-                    {s.status === "running"
-                      ? "Đang xử lý..."
-                      : s.status === "done"
-                      ? "Hoàn tất"
-                      : "Chờ đến lượt"}
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 3. Dynamic Pipeline Flow Bar */}
-      <div className="ccPipelineBar">
-        {ceoPlan?.steps ? (
-          /* Dynamic Multi-Agent / Multi-Department CEO Plan Pipeline */
-          <div className="ccPipelineSteps">
-            {ceoPlan.steps.map((step, idx) => {
-              const isRunning = step.status === "running";
-              const isDone = step.status === "done";
               return (
-                <Fragment key={idx}>
-                  {idx > 0 && <ArrowRight className="ccPipelineArrow" size={14} />}
-                  <div
-                    className={`ccPipelineNode ${
-                      isRunning ? "active" : isDone ? "completed" : ""
-                    }`}
-                  >
-                    {isDone ? (
-                      <CheckCircle2 size={14} color="#10b981" />
-                    ) : isRunning ? (
-                      <Loader2 size={14} className="ccSpin" color="#38bdf8" />
-                    ) : (
-                      <Bot size={14} />
-                    )}
-                    <span>{step.role.replace(/\s*\([^)]*\)/, "")}</span>
+                <div key={`alert-${acc.platform}-${acc.accountId}`} className={`p-2.5 rounded-lg border text-xs ${isDanger ? "bg-rose-500/10 border-rose-500/30 text-rose-300" : "bg-amber-500/10 border-amber-500/30 text-amber-300"}`} role={isDanger ? "alert" : undefined}>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-bold">{title}</span>
+                    <span className="text-[10px] opacity-80">{acc.accountName || acc.accountId}</span>
                   </div>
-                </Fragment>
+                  {acc.lastError && <p className="text-[11px] opacity-90 mb-2">{acc.lastError}</p>}
+                  <div className="flex items-center gap-2 mt-2">
+                    {acc.actionType === "auto_refresh" ? (
+                      <button
+                        type="button"
+                        className="px-2 py-1 bg-amber-500 text-black font-bold rounded text-xs hover:bg-amber-400 cursor-pointer"
+                        onClick={() => handleRefreshSocialAccount(acc.platform, acc.accountId)}
+                      >
+                        Tự động Gia hạn ngay
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="px-2 py-1 bg-rose-500 text-white font-bold rounded text-xs hover:bg-rose-400 cursor-pointer"
+                        onClick={() => handleOAuthReconnect(acc.platform)}
+                      >
+                        1-Click Kết nối lại
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })}
-          </div>
-        ) : activeWorkflowKind === "merchandising" ? (
-          /* Merchandising / Catalog & Pricing Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "ceo" || isSubmitting || ceoPlan !== null ? "active" : ""
-              }`}
-            >
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "catalog_copywriter" || (ceoPlan?.steps[0]?.status === "running" || ceoPlan?.steps[0]?.status === "done")
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <FileText size={14} />
-              <span>Cây bút Sản phẩm (SEO)</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "pricing_strategist" || (ceoPlan?.steps[1]?.status === "running" || ceoPlan?.steps[1]?.status === "done")
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <DollarSign size={14} />
-              <span>Chuyên gia Định giá</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                merchandisingProposal?.status === "pending_approval" || merchandisingProposal?.status === "applied"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <CheckCircle2 size={14} />
-              <span>Chủ tịch Duyệt & Áp dụng</span>
-            </div>
-          </div>
-        ) : activeWorkflowKind === "marketing" ? (
-          /* Marketing Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "ceo" || isMarketingRunning || ceoPlan !== null ? "active" : ""
-              }`}
-            >
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_content" || currentMarketingState === "content_drafting"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Megaphone size={14} />
-              <span>Cây bút Tiếp thị</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_visual" || currentMarketingState === "visual_creation"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Palette size={14} />
-              <span>Thiết kế Đồ họa</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div
-              className={`ccPipelineNode ${
-                marketingActiveAgent === "marketing_publisher" ||
-                currentMarketingState === "campaign_review" ||
-                currentMarketingState === "awaiting_human_approval"
-                  ? "active"
-                  : ""
-              }`}
-            >
-              <Share2 size={14} />
-              <span>Điều phối & Phê duyệt FB</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${currentMarketingState === "completed" ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Bàn giao</span>
-            </div>
-          </div>
-        ) : (
-          /* Orchestration Pipeline Flow */
-          <div className="ccPipelineSteps">
-            <div className={`ccPipelineNode ${isOrchestrationRunning ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Tiếp nhận</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("inventory") === "running" ? "active" : ""}`}>
-              <Package size={14} />
-              <span>Kỹ sư Tồn kho</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("order") === "running" ? "active" : ""}`}>
-              <ShoppingBag size={14} />
-              <span>Điều phối Đơn hàng</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${getBranchState("support") === "running" ? "active" : ""}`}>
-              <Headphones size={14} />
-              <span>Quản gia CSKH</span>
-            </div>
-            <ArrowRight className="ccPipelineArrow" size={14} />
-            <div className={`ccPipelineNode ${currentOrchestrationState === "executive_synthesis" ? "active" : ""}`}>
-              <Bot size={14} />
-              <span>AI CEO Tổng hợp</span>
-            </div>
-          </div>
-        )}
-
-        <div className="ccPipelineStatus">
-          {isRunning ? (
-            <>
-              <div className="ccReasoningIndicator">
-                <span className="ccPulseDot" />
-                <span>
-                  Đang thực thi: {activeWorkflowKind === "marketing" ? currentMarketingState : currentOrchestrationState}...{" "}
-                  {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, "0")}
-                </span>
-              </div>
-              <button type="button" className="ccStopButton" onClick={handleStopTask}>
-                <Square size={12} fill="currentColor" />
-                <span>Dừng</span>
-              </button>
-            </>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontSize: "0.85rem", fontWeight: 600 }}>
-              <CheckCircle2 size={15} color="#10b981" />
-              <span>
-                {activeWorkflowKind === "marketing"
-                  ? activeCampaignDetail?.campaign.state
-                    ? `Chiến dịch Marketing: ${activeCampaignDetail.campaign.state}`
-                    : "Sẵn sàng nhận chiến dịch Marketing"
-                  : activeOperations?.task.state
-                    ? `Tác vụ gần nhất: ${activeOperations.task.state}`
-                    : "Sẵn sàng nhận việc"}
-              </span>
-            </div>
-          )}
         </div>
-      </div>
-
-      {/* 4. In-Place Active Marketing Campaign Control & Deliverables (when active/selected) */}
-      {activeCampaignDetail && (
-        <div className="ccMarketingLiveCard">
-          <div className="ccMarketingLiveHeader">
-            <div className="ccMarketingLiveTitle">
-              <Megaphone size={18} color="#38bdf8" />
-              <span>{activeCampaignDetail.brief?.campaignName ?? "Chiến dịch Tiếp thị Facebook"}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <span
-                className={`ccMarketingStatusBadge ${
-                  activeCampaignDetail.campaign.state === "awaiting_human_approval"
-                    ? "awaiting"
-                    : activeCampaignDetail.campaign.state === "completed"
-                      ? "live"
-                      : "draft"
-                }`}
-              >
-                {activeCampaignDetail.campaign.state === "awaiting_human_approval"
-                  ? "⏳ Chờ Phê Duyệt"
-                  : activeCampaignDetail.campaign.state === "completed"
-                    ? "✅ Đã Đăng Live Facebook"
-                    : activeCampaignDetail.campaign.state}
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem", color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                onClick={() => {
-                  setActiveCampaignDetail(null);
-                  setActiveCampaignId(null);
-                  setCeoPlan(null);
-                }}
-                title="Đóng / Làm mới bảng làm việc"
-              >
-                <X size={13} />
-                <span>Đóng</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="ccMarketingSplitGrid">
-            {/* Left: Copy Preview */}
-            <div className="ccMarketingContentBox">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>
-                  Nội dung bài viết Facebook (Copy v{latestContent?.versionNumber ?? 1})
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#10b981", fontWeight: 600 }}>
-                  ✓ Kiểm duyệt chính sách: Đạt
-                </span>
-              </div>
-              <h4 className="ccMarketingHeadline">{latestContent?.headline ?? latestContent?.primaryText ?? "Tiêu đề chiến dịch..."}</h4>
-              <p className="ccMarketingBody">{latestContent?.body ?? activeCampaignDetail.brief?.mandatoryMessage}</p>
-              <p className="ccMarketingHashtags">{latestContent?.hashtags?.join(" ") ?? "#NovaCommerce #KhuyenMai"}</p>
-            </div>
-
-            {/* Right: 1:1 Visual Preview */}
-            <div className="ccMarketingVisualBox">
-              <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>
-                Ảnh quảng cáo vuông 1:1 (1080x1080)
-              </span>
-              {visualBlobUrl ? (
-                <div
-                  className="ccMarketingVisualPreview"
-                  style={{
-                    padding: 0,
-                    overflow: "hidden",
-                    border: "1px solid rgba(56, 189, 248, 0.4)",
-                    position: "relative",
-                    background: "#090d16",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <img
-                    src={visualBlobUrl}
-                    alt="Ảnh quảng cáo sản phẩm 1:1"
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-                </div>
-              ) : (
-                <div className="ccMarketingVisualPreview">
-                  <Palette size={32} color="#38bdf8" style={{ marginBottom: "0.5rem" }} />
-                  <span>Ảnh đồ họa chuẩn Facebook 1:1</span>
-                  <span style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.25rem" }}>
-                    {latestVisual?.imageDigest ? `SHA-256: ${latestVisual.imageDigest.slice(0, 12)}...` : "PNG 1080x1080"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Row */}
-          <div className="ccMarketingActionsRow">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-              {activeCampaignDetail.campaign.state === "awaiting_human_approval" && (
-                <>
-                  <button
-                    type="button"
-                    className="ccMarketingActionBtn approve"
-                    disabled={marketingActionLoading}
-                    onClick={handleApproveMarketing}
-                  >
-                    <Check size={16} />
-                    <span>
-                      {marketingActionLoading
-                        ? "Đang xử lý..."
-                        : (activeCampaignDetail.currentPackage?.targets?.length ?? 0) > 1
-                          ? "Phê duyệt & Đăng lên Facebook & Instagram"
-                          : activeCampaignDetail.currentPackage?.targets?.[0]?.platform === "instagram"
-                            ? "Phê duyệt & Đăng ngay lên Instagram"
-                            : "Phê duyệt & Đăng ngay lên Facebook"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ccMarketingActionBtn revision"
-                    disabled={marketingActionLoading}
-                    onClick={() => setShowRevisionForm((prev) => !prev)}
-                  >
-                    <RotateCcw size={14} />
-                    <span>Yêu cầu chỉnh sửa</span>
-                  </button>
-                </>
-              )}
-
-              {(activeCampaignDetail.campaign.state === "failed" || activeCampaignDetail.campaign.state === "partial_failure") && (
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn approve"
-                  disabled={marketingActionLoading}
-                  onClick={handleRetryPublication}
-                >
-                  <RotateCcw size={14} />
-                  <span>
-                    {marketingActionLoading
-                      ? "Đang thử lại..."
-                      : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified") &&
-                        activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "instagram" && t.status !== "verified")
-                        ? "Thử đăng lại Facebook & Instagram"
-                        : activeCampaignDetail.currentPackage?.targets?.some((t) => t.platform === "facebook" && t.status !== "verified")
-                          ? "Thử đăng lại lên Facebook"
-                          : "Thử đăng lại lên Instagram"}
-                  </span>
-                </button>
-              )}
-
-              {(() => {
-                const records = (activeCampaignDetail.publicationRecords && activeCampaignDetail.publicationRecords.length > 0)
-                  ? activeCampaignDetail.publicationRecords
-                  : (activeCampaignDetail.publicationRecord ? [activeCampaignDetail.publicationRecord] : []);
-
-                const fbRecord = records.find((r) => r.platform === "facebook" && r.postUrl);
-                const igRecord = records.find((r) => r.platform === "instagram" && r.postUrl);
-
-                return (
-                  <>
-                    {fbRecord?.postUrl && (
-                      <a
-                        href={fbRecord.postUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ccMarketingActionBtn livePost"
-                      >
-                        <ExternalLink size={14} />
-                        <span>Xem bài đăng Facebook live ↗</span>
-                      </a>
-                    )}
-                    {igRecord?.postUrl && (
-                      <a
-                        href={igRecord.postUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ccMarketingActionBtn livePost"
-                        style={{
-                          background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-                          color: "#ffffff",
-                          borderColor: "rgba(255, 255, 255, 0.2)",
-                        }}
-                      >
-                        <ExternalLink size={14} />
-                        <span>Xem bài đăng Instagram live ↗</span>
-                      </a>
-                    )}
-                  </>
-                );
-              })()}
-
-              {activeCampaignDetail.campaign.state === "completed" && activeCampaignDetail.artifacts.length === 0 && (
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn revision"
-                  disabled={marketingActionLoading}
-                  onClick={handleGenerateDeliverables}
-                >
-                  <FileText size={14} />
-                  <span>Tạo 5 tệp bàn giao (Deliverables)</span>
-                </button>
-              )}
-            </div>
-
-            {/* Deliverables Download Links */}
-            {activeCampaignDetail.artifacts.length > 0 && (
-              <div className="ccMarketingDeliverablesList">
-                <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600 }}>Tài liệu bàn giao:</span>
-                {activeCampaignDetail.artifacts.map((art) => (
-                  <a
-                    key={art.id}
-                    href={marketingApi?.getArtifactDownloadUrl(art.id)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ccMarketingDeliverablePill"
-                    download
-                  >
-                    <Download size={12} />
-                    <span>{art.filename}</span>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Revision Form Collapse */}
-          {showRevisionForm && (
-            <div className="ccMarketingRevisionBox">
-              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#fbbf24", marginBottom: "0.5rem" }}>
-                Ghi chú yêu cầu chỉnh sửa cho 3 nhân sự số Marketing:
-              </label>
-              <textarea
-                className="ccMarketingRevisionTextarea"
-                placeholder="Ví dụ: Đổi màu nền ảnh sang tông đỏ cam và nhấn mạnh thêm ưu đãi tặng tai nghe..."
-                value={revisionInput}
-                onChange={(e) => setRevisionInput(e.target.value)}
-              />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="ccQuickPill"
-                  onClick={() => setShowRevisionForm(false)}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  className="ccMarketingActionBtn revision"
-                  disabled={!revisionInput.trim() || marketingActionLoading}
-                  onClick={handleRevisionMarketing}
-                >
-                  <span>Gửi yêu cầu sửa đổi</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4b. In-Place Active Catalog & Pricing Merchandising Proposal Card */}
-      {merchandisingProposal && (
-        <div className="ccMarketingLiveCard ccMerchProposalCard">
-          <div className="ccMarketingLiveHeader">
-            <div className="ccMarketingLiveTitle">
-              <Package size={18} color="#38bdf8" />
-              <span>
-                {merchandisingProposal.items && merchandisingProposal.items.length > 1
-                  ? `Đề xuất Chiến lược Giá & Danh mục cho ${merchandisingProposal.items.length} Sản phẩm`
-                  : `Đề xuất Chiến lược Giá & Tối ưu Danh mục: ${merchandisingProposal.productName || merchandisingProposal.items?.[0]?.productName}`}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <span
-                className={`ccMarketingStatusBadge ${
-                  merchandisingProposal.status === "pending_approval"
-                    ? "awaiting"
-                    : merchandisingProposal.status === "applied"
-                      ? "live"
-                      : "draft"
-                }`}
-              >
-                {merchandisingProposal.status === "pending_approval"
-                  ? "⏳ Chờ Phê Duyệt Giá"
-                  : merchandisingProposal.status === "applied"
-                    ? "✅ Đã Áp Dụng Lên Storefront"
-                    : merchandisingProposal.status}
-              </span>
-              <a
-                href="http://localhost:3100"
-                target="_blank"
-                rel="noreferrer"
-                className="ccFbPostLink"
-                style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}
-              >
-                <span>Xem Cửa hàng Storefront</span>
-                <ExternalLink size={12} />
-              </a>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}
-                onClick={() => setMerchandisingProposal(null)}
-                title="Đóng bảng đề xuất"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Cross-Department Collaboration Banner */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            padding: "0.65rem 1rem",
-            marginBottom: "1rem",
-            borderRadius: "8px",
-            background: "linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15))",
-            border: "1px solid rgba(99, 102, 241, 0.35)",
-            fontSize: "0.82rem",
-            color: "#e2e8f0"
-          }}>
-            <Sparkles size={16} color="#818cf8" style={{ flexShrink: 0 }} />
-            <span>
-              <strong>Phối hợp liên phòng ban:</strong>{" "}
-              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>Phòng Tiếp thị & Sáng tạo</span> (Thiết kế Visual & Đồ họa AI) 🤝{" "}
-              <span style={{ color: "#38bdf8", fontWeight: 600 }}>Phòng Danh mục & Định giá</span> (Định giá chiết khấu SCD Type 2 & SEO)
-            </span>
-          </div>
-
-          {/* Strategy Rationale & Sales Projection Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
-            <div className="ccProposalRationaleBox amber">
-              <strong style={{ color: "#fbbf24", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-                💡 Lý do chiến lược định giá:
-              </strong>
-              <p>
-                {merchandisingProposal.pricingRationale}
-              </p>
-            </div>
-            <div className="ccProposalRationaleBox cyan">
-              <strong style={{ color: "#38bdf8", fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-                📈 Dự báo lượng bán:
-              </strong>
-              <p>
-                {merchandisingProposal.salesProjection}
-              </p>
-            </div>
-          </div>
-
-          {campaignProposal ? (
-            /* Multi-product Campaign Proposal Card */
-            <div className="ccCampaignOverviewCard">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                <span className="ccCampaignBadgePill">{campaignProposal.badgeText}</span>
-                <span className="ccCampaignDiscountPill">-{campaignProposal.discountPercent}%</span>
-                <span className="ccCampaignDurationText">
-                  Thời hạn: {campaignProposal.durationDays} ngày
-                </span>
-              </div>
-
-              {/* Thumbnails preview strip */}
-              <div>
-                <span className="ccCampaignPreviewHeading">
-                  Xem trước {campaignProposal.items.length} sản phẩm áp dụng:
-                </span>
-                <div style={{ display: "flex", gap: "0.6rem", overflowX: "auto", paddingBottom: "0.4rem" }}>
-                  {campaignProposal.items.map((it) => {
-                    const imgUrl = resolveMediaUrl(it.campaignMediaUrl || it.originalMediaUrl, apiBaseUrl);
-                    return (
-                      <div
-                        key={it.id}
-                        title={`${it.productName} (${it.campaignPriceVnd.toLocaleString("vi-VN")} ₫)`}
-                        className="ccCampaignPreviewMiniThumb"
-                      >
-                        {imgUrl ? (
-                          <img
-                            src={imgUrl}
-                            alt={it.productName}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            onError={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}
-                          />
-                        ) : (
-                          <Sparkles size={18} color="#818cf8" style={{ position: "absolute", inset: "50%", transform: "translate(-50%, -50%)" }} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Action Button to Open Fullscreen Modal */}
-              <button
-                type="button"
-                className="ccCampaignOpenModalBtn"
-                onClick={() => setCampaignProposalModalOpen(true)}
-              >
-                <Sparkles size={16} />
-                <span>Xem Thiết Kế Poster & Phê Duyệt ({campaignProposal.items.length} SP)</span>
-              </button>
-            </div>
-          ) : (
-            /* Single Product Proposal */
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {(merchandisingProposal.items || []).map((item, idx) => {
-                const imgUrl = resolveMediaUrl(item.campaignMediaUrl || item.originalMediaUrl, apiBaseUrl);
-                return (
-                  <div
-                    key={item.targetProductId || idx}
-                    className="ccMerchProductCard"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "90px 1fr",
-                      gap: "1rem",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{
-                      width: 90,
-                      height: 90,
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
-                      background: "#0b0f19",
-                    }}>
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt={item.optimizedTitle}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        <Sparkles size={20} color="#818cf8" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="ccMerchProductTitle" style={{ fontSize: "0.85rem", marginBottom: "0.2rem" }}>
-                        {item.optimizedTitle}
-                      </h4>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", fontSize: "0.8rem" }}>
-                        <del style={{ color: "#64748b" }}>{item.originalPriceVnd.toLocaleString("vi-VN")} đ</del>
-                        <span style={{ color: "#10b981", fontWeight: 700 }}>{item.proposedPriceVnd.toLocaleString("vi-VN")} đ</span>
-                        <span style={{ color: "#f43f5e", fontWeight: 600 }}>(-{item.discountPercent}%)</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Action Row */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
-            {merchandisingProposal.status === "pending_approval" && !campaignProposal && (
-              <button
-                type="button"
-                className="ccMarketingActionBtn approve"
-                disabled={merchandisingLoading}
-                onClick={handleApplyMerchandisingProposal}
-                style={{ padding: "0.65rem 1.25rem", fontSize: "0.85rem" }}
-              >
-                {merchandisingLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>Duyệt & Áp dụng ngay lên Storefront</span>
-              </button>
-            )}
-            {merchandisingProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.85rem" }}>
-                  <CheckCircle2 size={18} color="#10b981" />
-                  <span>Đã áp dụng thành công lên Storefront!</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setMerchandisingProposal(null); setCampaignProposal(null); }}
-                  className="ccCampaignCancelBtn"
-                  style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
-                >
-                  Thu gọn
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4c. Interactive Operations & Inventory Restock Proposal Modal */}
-      {operationsProposal && (
-        <OperationsProposalModal
-          isOpen={isOperationsModalOpen}
-          proposal={operationsProposal}
-          onClose={() => setIsOperationsModalOpen(false)}
-          onApply={handleApplyOperations}
-          onDownloadDocx={handleDownloadOperationsDocx}
-          onTriggerClearanceCampaign={handleTriggerClearanceCampaign}
-          isApplying={operationsActionLoading}
-          isDownloadingDocx={isDownloadingDocx}
-        />
-      )}
-
-      {/* 4d. Customer Support & CRM Live Proposal Card (Emerald Theme) */}
-      {supportProposal && (
-        <div className="ccMarketingLiveCard ccSupportProposalCard">
-          {/* Card Header */}
-          <div className="ccMarketingLiveHeader">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <div className="ccDeptIconBadge emerald">
-                <Headphones size={18} />
-              </div>
-              <div>
-                <div className="ccSupportHeaderTitle">
-                  Bảng Đề Xuất Xử Lý Khiếu Nại &amp; Chăm Sóc Khách Hàng (Support &amp; CRM)
-                </div>
-                <div className="ccSupportHeaderSubtitle">
-                  Được đồng lập bởi <strong>Quản gia CSKH</strong> (Phân tích CSAT) &amp; <strong>Chuyên viên CRM</strong> (Phân khúc VIP &amp; Churn Risk)
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span className="ccDeptCountBadge emerald">
-                <span className="ccPillDot emerald" />
-                <span>{supportProposal.status === "applied" ? "Đã duyệt xử lý" : "Chờ Giám đốc duyệt"}</span>
-              </span>
-              <button
-                type="button"
-                className="ccQuickPill"
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
-                onClick={() => setSupportProposal(null)}
-                title="Đóng bảng đề xuất"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Overall Sentiment & Churn Assessment */}
-          <div className="ccProposalSummaryGrid">
-            <div className="ccProposalSummaryBox emerald">
-              <div className="ccProposalSummaryHeader emerald">
-                <HeartHandshake size={15} />
-                <span>Tổng quan Tâm lý CSAT</span>
-              </div>
-              <p className="ccProposalSummaryText">
-                {supportProposal.overallSentimentSummary}
-              </p>
-            </div>
-
-            <div className="ccProposalSummaryBox danger">
-              <div className="ccProposalSummaryHeader danger">
-                <AlertTriangle size={15} />
-                <span>Đánh giá Nguy cơ Rời bỏ (Churn Risk)</span>
-              </div>
-              <p className="ccProposalSummaryText">
-                {supportProposal.churnRiskAssessment}
-              </p>
-            </div>
-          </div>
-
-          {/* Table of Support Tickets */}
-          <div className="ccProposalTableContainer" style={{ marginBottom: "1rem" }}>
-            <table className="ccProposalTable">
-              <thead>
-                <tr className="ccProposalTableThRow">
-                  <th>Khách hàng</th>
-                  <th>Sự cố &amp; Phân loại</th>
-                  <th style={{ textAlign: "center" }}>Tâm lý</th>
-                  <th style={{ textAlign: "center" }}>Rủi ro Churn</th>
-                  <th>Kịch bản phản hồi 5 sao &amp; Đề xuất đền bù</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supportProposal.tickets
-                  .slice((supportTicketsPage - 1) * 5, supportTicketsPage * 5)
-                  .map((t) => (
-                    <tr key={t.ticketId} className="ccProposalTableTr">
-                      <td>
-                        <div className="ccProposalCustomerName">{t.customerName}</div>
-                        <div className="ccProposalItemSubtext">{t.customerEmail}</div>
-                      </td>
-                      <td>
-                        <div className="ccProposalItemName">{t.subject}</div>
-                        <span className="ccIssueCategoryBadge">
-                          {t.issueCategory}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`ccSentimentBadge ${
-                            t.sentiment === "angry" || t.sentiment === "frustrated" ? "danger" : "safe"
-                          }`}
-                        >
-                          {t.sentiment.toUpperCase()}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`ccSentimentBadge ${
-                            t.churnRisk === "high" ? "danger" : t.churnRisk === "medium" ? "amber" : "safe"
-                          }`}
-                        >
-                          {t.churnRisk.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <CompactProposedResponse text={t.proposedResponse} />
-                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
-                          <span className="ccCompensationBadge">
-                            🎁 Đền bù: {t.suggestedCompensation}
-                          </span>
-                          {supportProposal.status === "applied" && (
-                            <span className="ccSentBadge">
-                              ✉️ Email đã gửi
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            <ProposalPagination
-              currentPage={supportTicketsPage}
-              totalPages={Math.max(1, Math.ceil(supportProposal.tickets.length / 5))}
-              totalItems={supportProposal.tickets.length}
-              pageSize={5}
-              itemName="khiếu nại"
-              onPageChange={setSupportTicketsPage}
-            />
-          </div>
-
-          {/* Table of VIP & Loyal Customers */}
-          {supportProposal.vipCustomers && supportProposal.vipCustomers.length > 0 && (
-            <div className="ccProposalTableContainer">
-              <div className="ccProposalTableSectionHeader">
-                💎 Phân Khúc Khách Hàng VIP &amp; Chiến Lược Giữ Chân
-              </div>
-              <table className="ccProposalTable">
-                <thead>
-                  <tr className="ccProposalTableThRow">
-                    <th>Khách hàng</th>
-                    <th style={{ textAlign: "center" }}>Phân khúc</th>
-                    <th style={{ textAlign: "right" }}>Tổng chi tiêu</th>
-                    <th>Chiến lược chăm sóc riêng biệt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {supportProposal.vipCustomers
-                    .slice((supportVipPage - 1) * 5, supportVipPage * 5)
-                    .map((vip) => (
-                      <tr key={vip.customerId} className="ccProposalTableTr">
-                        <td className="ccProposalCustomerName">{vip.customerName}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <span className="ccVipSegmentBadge">
-                            {vip.segment}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "right" }} className="ccRestockCost">
-                          {vip.totalSpentVnd.toLocaleString("vi-VN")} đ
-                        </td>
-                        <td className="ccProposalItemSubtext">{vip.engagementRecommendation}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              <ProposalPagination
-                currentPage={supportVipPage}
-                totalPages={Math.max(1, Math.ceil((supportProposal.vipCustomers?.length || 0) / 5))}
-                totalItems={supportProposal.vipCustomers?.length || 0}
-                pageSize={5}
-                itemName="khách hàng VIP"
-                onPageChange={setSupportVipPage}
-              />
-            </div>
-          )}
-
-          {/* Action Row */}
-          <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button
-                type="button"
-                className="ccMarketingActionBtn livePost"
-                style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.6rem 1.2rem" }}
-                disabled={isDownloadingSupportDocx}
-                onClick={handleDownloadSupportDocx}
-              >
-                <FileText size={15} />
-                <span>{isDownloadingSupportDocx ? "Đang tạo file..." : "📥 Tải Báo Cáo Word (.docx)"}</span>
-              </button>
-            </div>
-
-            {supportProposal.status === "pending_approval" && (
-              <button
-                type="button"
-                className="ccMarketingActionBtn approve"
-                style={{ padding: "0.75rem 1.75rem", fontSize: "0.95rem", background: "linear-gradient(135deg, #059669 0%, #10b981 100%)" }}
-                disabled={supportActionLoading}
-                onClick={handleApplySupport}
-              >
-                {supportActionLoading ? <Loader2 size={16} className="ccSpin" /> : <CheckCircle2 size={16} />}
-                <span>
-                  {supportActionLoading
-                    ? "Đang gửi email & cấp voucher..."
-                    : `✓ Phê duyệt & Gửi Email phản hồi (${supportProposal.tickets.length} ticket kèm Voucher)`}
-                </span>
-              </button>
-            )}
-            {supportProposal.status === "applied" && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981", fontWeight: 700, fontSize: "0.95rem" }}>
-                <CheckCircle2 size={20} color="#10b981" />
-                <span>✉️ Đã phê duyệt, gửi email phản hồi & kích hoạt voucher cho toàn bộ khách hàng!</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4e. Global Active Merchandising Campaign Live Monitor Banner */}
-      {activeCampaign && (
-        <div style={{ marginTop: "2rem", marginBottom: "0.5rem" }}>
-          <ActiveCampaignWidget
-            campaign={activeCampaign}
-            onRevert={handleEmergencyRevertCampaign}
-            isReverting={isRevertingCampaign}
-          />
-        </div>
-      )}
-
-      {/* 5. Unified Department Workforce Grid (4 Distinct Functional Departments) */}
-      <div
-        ref={departmentsGridRef}
-        className="ccDepartmentGrid"
-        style={{ marginTop: activeCampaign ? "1rem" : "2rem", position: "relative" }}
-      >
-        <CrossDepartmentConnector
-          activeCollaboration={activeCollaboration}
-          containerRef={departmentsGridRef}
-        />
-
-        {/* Column 1: Tiếp thị & Sáng tạo (Blue Theme) */}
-        <div id="dept-column-marketing" className="ccDepartmentColumn theme-blue">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Megaphone size={16} />
-              </div>
-              <span>Tiếp thị & Sáng tạo</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {departmentQueues.marketing.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.marketing.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#38bdf8" }} />
-                <span>3 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
-          <AgentCard
-            name="Cây bút Tiếp thị"
-            roleTag="SKILL"
-            theme="blue"
-            status={
-              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_content"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
-                  activeCampaignDetail ||
-                  ceoPlan?.steps[0]?.status === "done"
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_copywriter"
-                ? deptStatus.marketing.agentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
-                : marketingActiveAgent === "marketing_content"
-                ? marketingAgentMessage ?? "Đang soạn thảo bài viết và bộ hashtag..."
-                : deptStatus.marketing.completedAgents.includes("marketing_copywriter") ||
-                  activeCampaignDetail ||
-                  ceoPlan?.steps[0]?.status === "done"
-                ? "Đã hoàn thành soạn thảo bài viết và bộ hashtag"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_copywriter" ||
-              marketingActiveAgent === "marketing_content"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_copywriter")}
-          />
-          <AgentCard
-            name="Thiết kế Đồ họa"
-            roleTag="SKILL"
-            theme="blue"
-            isCollaborating={
-              activeCollaboration?.toDept === "marketing" ||
-              marketingActiveAgent === "merchandising_visual_collab"
-            }
-            collabTag={activeCollaboration?.toDept === "marketing" ? "Phối hợp liên phòng" : "Phối hợp cùng Danh mục"}
-            status={
-              deptStatus.marketing.activeAgent === "marketing_visual" ||
-              marketingActiveAgent === "marketing_visual" ||
-              marketingActiveAgent === "merchandising_visual_collab" ||
-              currentMarketingState === "visual_creation"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_visual") ||
-                  (marketingActiveAgent === "pricing_strategist" && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  (merchandisingProposal && ceoPlan?.targetDept?.includes("Phối hợp")) ||
-                  campaignProposal ||
-                  activeCampaignDetail ||
-                  ceoPlan?.steps[1]?.status === "done"
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_visual"
-                ? deptStatus.marketing.agentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
-                : marketingActiveAgent === "merchandising_visual_collab"
-                ? marketingAgentMessage ?? "Đang thiết kế poster & banner cho Danh mục..."
-                : marketingActiveAgent === "marketing_visual"
-                ? marketingAgentMessage ?? "Đang tạo ảnh poster 1:1 chuẩn Facebook..."
-                : deptStatus.marketing.completedAgents.includes("marketing_visual")
-                ? "Đã hoàn thành thiết kế poster & banner chiến dịch"
-                : (marketingActiveAgent === "pricing_strategist" || merchandisingProposal) && ceoPlan?.targetDept?.includes("Phối hợp")
-                ? "Đã hoàn thành thiết kế poster chiến dịch cho Danh mục"
-                : campaignProposal
-                ? "Đã hoàn tất thiết kế poster & banner xả hàng"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_visual" ||
-              marketingActiveAgent === "marketing_visual" ||
-              marketingActiveAgent === "merchandising_visual_collab"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_visual")}
-          />
-          <AgentCard
-            name="Điều phối Xuất bản"
-            roleTag="ĐỘI"
-            theme="blue"
-            status={
-              deptStatus.marketing.activeAgent === "marketing_publisher" ||
-              marketingActiveAgent === "marketing_publisher"
-                ? "running"
-                : deptStatus.marketing.completedAgents.includes("marketing_publisher") ||
-                  currentMarketingState === "campaign_review" ||
-                  currentMarketingState === "awaiting_human_approval" ||
-                  activeCampaignDetail?.campaign.state === "completed" ||
-                  activeCampaignDetail !== null
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.marketing.activeAgent === "marketing_publisher"
-                ? deptStatus.marketing.agentMessage ?? "Đang chuẩn bị gói xuất bản Fanpage..."
-                : marketingActiveAgent === "marketing_publisher"
-                ? marketingAgentMessage ?? "Đang đóng gói và điều phối đăng bài Fanpage..."
-                : currentMarketingState === "awaiting_human_approval"
-                ? "Đã đóng gói và sẵn sàng xuất bản (đang chờ phê duyệt)"
-                : activeCampaignDetail?.campaign.state === "completed"
-                ? "Đã xuất bản thành công lên Facebook & Instagram"
-                : deptStatus.marketing.completedAgents.includes("marketing_publisher")
-                ? "Đã hoàn tất điều phối xuất bản"
-                : undefined
-            }
-            showProgress={
-              deptStatus.marketing.activeAgent === "marketing_publisher" ||
-              marketingActiveAgent === "marketing_publisher"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("marketing_publisher")}
-          />
-
+      ) : null,
+      children: departmentQueues.marketing.length > 0 ? (
+        <>
           {departmentQueues.marketing.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -3526,7 +4966,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -3535,137 +4975,92 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {activeCampaignDetail && (
-            <button
-              type="button"
-              className="ccOperationsQuickBtn"
-              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
-              onClick={() => {
-                const el = document.getElementById("marketing-proposal-section");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              <Megaphone size={14} color="#3b82f6" />
-              <span>Xem Bài Viết Fanpage</span>
-            </button>
-          )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Tiếp thị & Sáng tạo..."
-            theme="blue"
-            onSend={(text) => handleDepartmentDirectTask("marketing", text)}
-          />
-        </div>
-
-        {/* Column 2: Danh mục & Định giá (Cyan Theme) */}
-        <div id="dept-column-merchandising" className="ccDepartmentColumn theme-cyan">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Package size={16} />
-              </div>
-              <span>Danh mục & Định giá</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {pendingHandoff?.dept === "merchandising" ? (
-                <span className="ccDeptQueueBadge" style={{ borderColor: "rgba(6, 182, 212, 0.5)", color: "#22d3ee" }}>
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Chờ bàn giao: 1</span>
-                </span>
-              ) : departmentQueues.merchandising.length > 0 ? (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
-                </span>
-              ) : null}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#06b6d4" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
-          <AgentCard
-            name="Cây bút Sản phẩm"
-            roleTag="SKILL"
-            theme="cyan"
-            status={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
-              marketingActiveAgent === "catalog_copywriter"
-                ? "running"
-                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  merchandisingProposal ||
-                  campaignProposal
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter"
-                ? deptStatus.merchandising.agentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
-                : marketingActiveAgent === "catalog_copywriter"
-                ? marketingAgentMessage ?? "Đang tối ưu tên sản phẩm và mô tả SEO..."
-                : deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  marketingActiveAgent === "pricing_strategist" ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  merchandisingProposal ||
-                  campaignProposal
-                ? "Đã hoàn tất tối ưu tên & mô tả SEO"
-                : undefined
-            }
-            showProgress={
-              deptStatus.merchandising.activeAgent === "catalog_copywriter" ||
-              marketingActiveAgent === "catalog_copywriter"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("catalog_copywriter")}
-          />
-          <AgentCard
-            name="Chuyên gia Định giá"
-            roleTag="ASSISTANT"
-            theme="cyan"
-            isCollaborating={
-              activeCollaboration?.toDept === "merchandising" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
-            }
-            collabTag="Tiếp nhận từ Kho vận"
-            status={
-              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
-                ? "running"
-                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  merchandisingProposal ||
-                  campaignProposal
-                ? "completed"
-                : "idle"
-            }
-            statusText={
-              deptStatus.merchandising.activeAgent === "pricing_strategist"
-                ? deptStatus.merchandising.agentMessage ?? "Đang tính toán chiết khấu và giá khuyến mãi..."
-                : marketingActiveAgent === "merchandising_clearance_calc"
-                ? marketingAgentMessage ?? "Đang tiếp nhận SKU tồn kho, tính toán giá xả hàng & biên lợi nhuận..."
-                : marketingActiveAgent === "merchandising_visual_collab"
-                ? "⏳ Đang chuyển giao sang Thiết kế Đồ họa vẽ poster..."
-                : marketingActiveAgent === "pricing_strategist"
-                ? marketingAgentMessage ?? "Đang tính toán giá Flash Sale & biên lợi nhuận..."
-                : deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
-                  merchandisingProposal ||
-                  campaignProposal
-                ? "Đã hoàn tất tính toán giá Flash Sale & biên lợi nhuận"
-                : undefined
-            }
-            showProgress={
-              deptStatus.merchandising.activeAgent === "pricing_strategist" ||
-              marketingActiveAgent === "pricing_strategist" ||
-              marketingActiveAgent === "merchandising_clearance_calc"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("pricing_strategist")}
-          />
-
+        </>
+      ) : null,
+      directInputPlaceholder: "Giao việc cho Tiếp thị & Sáng tạo...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("marketing", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {
+        if (activeCampaignDetail) {
+          setMarketingCampaignModalOpen(true);
+        } else if (isFbTokenInvalid || isFbTokenWarning) {
+          setSocialTokenModalOpen(true);
+        } else {
+          navigate("/marketing/campaigns");
+        }
+      },
+      onErrorResolve: () => {
+        if (isFbTokenInvalid || isFbTokenWarning) {
+          setSocialTokenModalOpen(true);
+        } else {
+          handleOpenDiagnostics("marketing");
+        }
+      },
+    },
+    {
+      department: "merchandising",
+      displayName: "Danh mục & Định giá",
+      employeeCount: 2,
+      activeTaskCount: merchandisingTasks.length,
+      status: taskFilter === "running"
+        ? (merchandisingTasks.length > 0 || deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist" ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (merchandisingTasks.length > 0 || (campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied")) ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (merchandisingTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied"))
+          ? "waiting_approval"
+          : (deptStatus.merchandising.activeAgent !== null || marketingActiveAgent === "catalog_copywriter" || marketingActiveAgent === "pricing_strategist")
+          ? "running"
+          : "idle"),
+      employees: [
+        {
+          id: "catalog_copywriter",
+          name: "CAT-01",
+          role: "Cây bút Sản phẩm",
+          status: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter" || activeLocks["catalog_copywriter"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.merchandising.activeAgent === "catalog_copywriter" || marketingActiveAgent === "catalog_copywriter")
+            ? (deptStatus.merchandising.agentMessage ?? marketingAgentMessage ?? "Cây bút Sản phẩm đang tối ưu tiêu đề SEO...")
+            : (deptStatus.merchandising.completedAgents.includes("catalog_copywriter") ||
+               marketingActiveAgent === "pricing_strategist" ||
+               marketingActiveAgent === "merchandising_visual_collab" ||
+               campaignProposal?.status === "draft" ||
+               (merchandisingProposal && merchandisingProposal.status !== "applied"))
+            ? "Đã hoàn tất tối ưu tên & mô tả SEO"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("catalog_copywriter"),
+        },
+        {
+          id: "pricing_strategist",
+          name: "CAT-02",
+          role: "Chuyên viên Định giá",
+          status: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist" || activeLocks["pricing_strategist"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.merchandising.activeAgent === "pricing_strategist" || marketingActiveAgent === "pricing_strategist")
+            ? (deptStatus.merchandising.agentMessage ?? marketingAgentMessage ?? "Chuyên gia Định giá đang phân tích biên lợi nhuận...")
+            : (deptStatus.merchandising.completedAgents.includes("pricing_strategist") ||
+               campaignProposal?.status === "draft" ||
+               (merchandisingProposal && merchandisingProposal.status !== "applied"))
+            ? "Đã hoàn thành phân tích biên lợi nhuận & lập đề xuất Flash Sale"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("pricing_strategist"),
+        },
+      ],
+      queue: merchandisingTasks,
+      directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
+      headerExtra: departmentQueues.merchandising.length > 0 ? (
+        <span className="ccDeptQueueBadge">
+          <Clock size={11} className="ccSpinSlow" />
+          <span>Hàng chờ: {departmentQueues.merchandising.length}</span>
+        </span>
+      ) : null,
+      children: (pendingHandoff?.dept === "merchandising" || departmentQueues.merchandising.length > 0) ? (
+        <>
           {pendingHandoff?.dept === "merchandising" && (
             <div className="ccDepartmentWaitingCard" style={{ borderColor: "rgba(6, 182, 212, 0.45)", background: "rgba(6, 182, 212, 0.08)" }}>
               <div className="ccWaitingCardHeader">
@@ -3683,7 +5078,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{pendingHandoff.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${pendingHandoff.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" style={{ background: "#22d3ee" }} />
                 <span>
@@ -3692,7 +5087,6 @@ export function AgenticCommandCenter({
               </div>
             </div>
           )}
-
           {departmentQueues.merchandising.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -3710,7 +5104,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -3719,124 +5113,145 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {campaignProposal && (
+        </>
+      ) : null,
+      directInputPlaceholder: "Giao việc cho Danh mục & Định giá...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("merchandising", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {
+        if (campaignProposal) {
+          setCampaignProposalModalOpen(true);
+        } else if (activeCampaign) {
+          const deliv = buildStrategicDeliverable(
+            activeCampaign.name,
+            activeCampaign.id,
+            "merchandising",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        } else {
+          navigate("/products");
+        }
+      },
+      onErrorResolve: () => handleOpenDiagnostics("merchandising"),
+    },
+    {
+      department: "operations",
+      displayName: "Vận hành & Kho vận",
+      employeeCount: 2,
+      activeTaskCount: operationsTasks.length,
+      status: taskFilter === "running"
+        ? (operationsTasks.length > 0 || deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator" ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (operationsTasks.length > 0 || (operationsProposal && operationsProposal.status !== "applied") || pendingReplenishment ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (operationsTasks.length > 0 || (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration")) ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
+          ? "error"
+          : ((operationsProposal && operationsProposal.status !== "applied") || pendingReplenishment)
+          ? "waiting_approval"
+          : (deptStatus.operations.activeAgent !== null || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "order_coordinator")
+          ? "running"
+          : "idle"),
+      errorMessage: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration")) ? errorMessage : undefined,
+      employees: [
+        {
+          id: "inventory_specialist",
+          name: "OPS-01",
+          role: "Kỹ sư Tồn kho",
+          status: (errorMessage && (activeWorkflowKind === "operations" || activeWorkflowKind === "orchestration"))
+            ? "failed"
+            : (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist" || marketingActiveAgent === "inventory_clearance_handoff" || activeLocks["inventory_specialist"] !== undefined)
+            ? "working"
+            : "idle",
+          progressPercent: (deptStatus.operations.activeAgent === "inventory_specialist" || marketingActiveAgent === "inventory_specialist") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: deptStatus.operations.activeAgent === "inventory_specialist"
+            ? deptStatus.operations.agentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
+            : marketingActiveAgent === "inventory_clearance_handoff"
+            ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
+            : marketingActiveAgent === "inventory_specialist"
+            ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
+            : (operationsProposal && operationsProposal.status !== "applied")
+            ? "Đã kiểm toán dữ liệu SKU và phân loại rủi ro tồn kho"
+            : undefined,
+          isCollaborating:
+            (activeCollaboration?.fromDept === "operations" && activeCollaboration.toDept === "merchandising") ||
+            marketingActiveAgent === "inventory_clearance_handoff",
+          collabTag: "Bàn giao liên phòng",
+          waitingTasksCount: getAgentWaitingTasksCount("inventory_specialist"),
+        },
+        {
+          id: "order_coordinator",
+          name: "OPS-02",
+          role: "Điều phối Đơn hàng",
+          status: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator" || activeLocks["order_coordinator"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.operations.activeAgent === "order_coordinator" || marketingActiveAgent === "order_coordinator") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: deptStatus.operations.activeAgent === "order_coordinator"
+            ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
+            : marketingActiveAgent === "order_coordinator"
+            ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển và lập báo cáo kiểm toán..."
+            : (operationsProposal && operationsProposal.status !== "applied")
+            ? "Đã hoàn thành lập dự toán ngân sách và xuất báo cáo kiểm toán Word"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("order_coordinator"),
+        },
+      ],
+      queue: operationsTasks,
+      directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
+      headerExtra: (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          {pendingReplenishment && pendingReplenishment.items.length > 0 && (
+            <span className="ccReplenishmentAlertBadge" title="Đề xuất nhập kho tự động từ AI">
+              {`⚡ Đề xuất nhập kho AI: ${pendingReplenishment.items.length} SKU`}
+            </span>
+          )}
+          {departmentQueues.operations.length > 0 && (
+            <span className="ccDeptQueueBadge">
+              <Clock size={11} className="ccSpinSlow" />
+              <span>{`Hàng chờ: ${departmentQueues.operations.length}`}</span>
+            </span>
+          )}
+        </div>
+      ),
+      alertBanner: pendingReplenishment ? (
+        <div className="ccOperationsAlertCard mb-2">
+          <div className="ccOperationsAlertHeader">
+            <AlertTriangle size={15} color="#f59e0b" className="ccGlowIcon" />
+            <span className="ccOperationsAlertTitle">
+              {`🚨 Phát hiện ${pendingReplenishment.items.length} mặt hàng sắp cạn kiệt`}
+            </span>
+          </div>
+          <p className="ccOperationsAlertSummary">
+            {pendingReplenishment.summary || "Tồn kho một số mặt hàng chủ lực đang cạn kiệt nhanh do sức mua tăng cao."}
+          </p>
+          <div className="ccOperationsAlertActions">
             <button
               type="button"
-              className="ccOperationsQuickBtn"
-              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(6, 182, 212, 0.4)", color: "#22d3ee" }}
-              onClick={() => setCampaignProposalModalOpen(true)}
+              className="ccOperationsAlertBtn primary"
+              onClick={() => {
+                setOperationsProposal(pendingReplenishment);
+                setIsOperationsModalOpen(true);
+              }}
             >
-              <Sparkles size={14} color="#06b6d4" />
-              <span>Xem Đề Xuất Chiến Dịch ({campaignProposal.items.length} SP)</span>
+              <Boxes size={13} />
+              <span>📋 Xem & Duyệt Nhập hàng</span>
             </button>
-          )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Danh mục & Định giá..."
-            theme="cyan"
-            onSend={(text) => handleDepartmentDirectTask("merchandising", text)}
-          />
-        </div>
-
-        {/* Column 3: Vận hành & Kho (Amber Theme) */}
-        <div id="dept-column-operations" className="ccDepartmentColumn theme-amber">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <ShoppingBag size={16} />
-              </div>
-              <span>Vận hành & Kho</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {departmentQueues.operations.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.operations.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#fbbf24" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
+            <button
+              type="button"
+              className="ccOperationsAlertBtn secondary"
+              onClick={handleDismissReplenishment}
+            >
+              Bỏ qua
+            </button>
           </div>
-
-          <AgentCard
-            name="Kỹ sư Tồn kho"
-            roleTag="SKILL"
-            theme="amber"
-            isCollaborating={
-              (activeCollaboration?.fromDept === "operations" && activeCollaboration.toDept === "merchandising") ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-            }
-            collabTag="Bàn giao liên phòng"
-            status={
-              deptStatus.operations.activeAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-                ? "running"
-                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
-                  marketingActiveAgent === "order_coordinator" ||
-                  operationsProposal ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "completed"
-                : getBranchState("inventory")
-            }
-            statusText={
-              deptStatus.operations.activeAgent === "inventory_specialist"
-                ? deptStatus.operations.agentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
-                : marketingActiveAgent === "inventory_clearance_handoff"
-                ? marketingAgentMessage ?? "Đang rà soát đối soát SKU tồn đọng để bàn giao sang Phòng Danh mục..."
-                : marketingActiveAgent === "inventory_specialist"
-                ? marketingAgentMessage ?? "Đang rà soát mức tồn kho thực tế và lượng giữ chỗ..."
-                : deptStatus.operations.completedAgents.includes("inventory_specialist") ||
-                  operationsProposal ||
-                  marketingActiveAgent === "merchandising_clearance_calc" ||
-                  marketingActiveAgent === "merchandising_visual_collab" ||
-                  campaignProposal
-                ? "Đã kiểm toán dữ liệu SKU và phân loại rủi ro tồn kho"
-                : undefined
-            }
-            showProgress={
-              deptStatus.operations.activeAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_specialist" ||
-              marketingActiveAgent === "inventory_clearance_handoff"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("inventory_specialist")}
-          />
-          <AgentCard
-            name="Điều phối Đơn hàng"
-            roleTag="ĐỘI"
-            theme="amber"
-            status={
-              deptStatus.operations.activeAgent === "order_coordinator" ||
-              marketingActiveAgent === "order_coordinator"
-                ? "running"
-                : deptStatus.operations.completedAgents.includes("order_coordinator") ||
-                  operationsProposal ||
-                  getBranchState("order") === "completed"
-                ? "completed"
-                : getBranchState("order")
-            }
-            statusText={
-              deptStatus.operations.activeAgent === "order_coordinator"
-                ? deptStatus.operations.agentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
-                : marketingActiveAgent === "order_coordinator"
-                ? marketingAgentMessage ?? "Đang tính toán tốc độ luân chuyển & dự toán ngân sách..."
-                : deptStatus.operations.completedAgents.includes("order_coordinator") || operationsProposal
-                ? "Đã lập phiếu đề xuất nhập kho và ngân sách dự toán"
-                : undefined
-            }
-            showProgress={
-              deptStatus.operations.activeAgent === "order_coordinator" ||
-              marketingActiveAgent === "order_coordinator"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("order_coordinator")}
-          />
-
+        </div>
+      ) : null,
+      children: (departmentQueues.operations.length > 0 || (operationsProposal && operationsProposal.status !== "applied")) ? (
+        <>
           {departmentQueues.operations.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -3854,7 +5269,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -3863,8 +5278,7 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {operationsProposal && (
+          {operationsProposal && operationsProposal.status !== "applied" && (
             <button
               type="button"
               className="ccOperationsQuickBtn"
@@ -3875,97 +5289,90 @@ export function AgenticCommandCenter({
               <span>Xem Phiếu Đề Xuất ({operationsProposal.totalRestockUnits} đơn vị)</span>
             </button>
           )}
-
-          <DepartmentInput
-            placeholder="Giao việc cho Vận hành & Kho..."
-            theme="amber"
-            onSend={(text) => handleDepartmentDirectTask("operations", text)}
-          />
-        </div>
-
-        {/* Column 4: CSKH & Cộng đồng (Emerald Theme) */}
-        <div id="dept-column-support" className="ccDepartmentColumn theme-emerald">
-          <div className="ccDepartmentHeader">
-            <div className="ccDepartmentName">
-              <div className="ccDeptIconBadge">
-                <Headphones size={16} />
-              </div>
-              <span>CSKH & Cộng đồng</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              {departmentQueues.support.length > 0 && (
-                <span className="ccDeptQueueBadge">
-                  <Clock size={11} className="ccSpinSlow" />
-                  <span>Hàng chờ: {departmentQueues.support.length}</span>
-                </span>
-              )}
-              <span className="ccDeptCountBadge">
-                <span className="ccPillDot" style={{ width: 6, height: 6, background: "#34d399" }} />
-                <span>2 Nhân sự</span>
-              </span>
-            </div>
-          </div>
-
-          <AgentCard
-            name="Quản gia CSKH"
-            roleTag="TRỢ LÝ"
-            theme="emerald"
-            status={
-              deptStatus.support.activeAgent === "support_steward" ||
-              marketingActiveAgent === "support_steward"
-                ? "running"
-                : deptStatus.support.completedAgents.includes("support_steward") ||
-                  marketingActiveAgent === "crm_specialist" ||
-                  supportProposal ||
-                  getBranchState("support") === "completed"
-                ? "completed"
-                : getBranchState("support")
-            }
-            statusText={
-              deptStatus.support.activeAgent === "support_steward"
-                ? deptStatus.support.agentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
-                : marketingActiveAgent === "support_steward"
-                ? marketingAgentMessage ?? "Đang rà soát ticket sự cố và đánh giá tâm lý..."
-                : deptStatus.support.completedAgents.includes("support_steward") || supportProposal
-                ? "Đã rà soát và đánh giá mức độ khẩn cấp ticket CSKH"
-                : undefined
-            }
-            showProgress={
-              deptStatus.support.activeAgent === "support_steward" ||
-              marketingActiveAgent === "support_steward"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("support_steward")}
-          />
-          <AgentCard
-            name="Chuyên viên CRM"
-            roleTag="SKILL"
-            theme="emerald"
-            status={
-              deptStatus.support.activeAgent === "crm_specialist" ||
-              marketingActiveAgent === "crm_specialist"
-                ? "running"
-                : deptStatus.support.completedAgents.includes("crm_specialist") ||
-                  supportProposal ||
-                  getBranchState("crm") === "completed"
-                ? "completed"
-                : getBranchState("crm")
-            }
-            statusText={
-              deptStatus.support.activeAgent === "crm_specialist"
-                ? deptStatus.support.agentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
-                : marketingActiveAgent === "crm_specialist"
-                ? marketingAgentMessage ?? "Đang phân khúc VIP & dự toán voucher..."
-                : deptStatus.support.completedAgents.includes("crm_specialist") || supportProposal
-                ? "Đã phân khúc VIP và đề xuất giải pháp xử lý"
-                : undefined
-            }
-            showProgress={
-              deptStatus.support.activeAgent === "crm_specialist" ||
-              marketingActiveAgent === "crm_specialist"
-            }
-            waitingTasksCount={getAgentWaitingTasksCount("crm_specialist")}
-          />
-
+        </>
+      ) : null,
+      directInputPlaceholder: "Giao việc cho Vận hành & Kho...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("operations", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => {
+        if (pendingReplenishment || operationsProposal) {
+          if (pendingReplenishment) setOperationsProposal(pendingReplenishment);
+          setIsOperationsModalOpen(true);
+        } else {
+          navigate("/inventory");
+        }
+      },
+      onErrorResolve: () => {
+        if (pendingReplenishment) {
+          setOperationsProposal(pendingReplenishment);
+          setIsOperationsModalOpen(true);
+        } else {
+          handleOpenDiagnostics("operations");
+        }
+      },
+    },
+    {
+      department: "support",
+      displayName: "CSKH & Trải nghiệm",
+      employeeCount: 2,
+      activeTaskCount: supportTasks.length,
+      status: taskFilter === "running"
+        ? (supportTasks.length > 0 || deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist" ? "running" : "idle")
+        : taskFilter === "waiting_approval"
+        ? (supportTasks.length > 0 || (supportProposal && supportProposal.status !== "applied") ? "waiting_approval" : "idle")
+        : taskFilter === "failed"
+        ? (supportTasks.length > 0 ? "error" : "idle")
+        : taskFilter === "completed"
+        ? "idle"
+        : ((supportProposal && supportProposal.status !== "applied")
+          ? "waiting_approval"
+          : (deptStatus.support.activeAgent !== null || marketingActiveAgent === "support_steward" || marketingActiveAgent === "crm_specialist")
+          ? "running"
+          : "idle"),
+      employees: [
+        {
+          id: "support_steward",
+          name: "SUP-01",
+          role: "Quản gia CSKH",
+          status: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward" || activeLocks["support_steward"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward") ? Math.min(95, 25 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.support.activeAgent === "support_steward" || marketingActiveAgent === "support_steward")
+            ? (deptStatus.support.agentMessage ?? marketingAgentMessage ?? "Đang rà soát khiếu nại khách hàng & phân loại CSAT...")
+            : (supportProposal && supportProposal.status === "pending_approval")
+            ? "Đã phân tích toàn bộ khiếu nại & tính toán CSAT"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("support_steward"),
+        },
+        {
+          id: "crm_specialist",
+          name: "SUP-02",
+          role: "Chuyên viên CRM",
+          status: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist" || activeLocks["crm_specialist"] !== undefined) ? "working" : "idle",
+          progressPercent: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist") ? Math.min(95, 30 + Math.floor((elapsedSeconds % 30) * 2.5)) : 0,
+          statusText: (deptStatus.support.activeAgent === "crm_specialist" || marketingActiveAgent === "crm_specialist")
+            ? (deptStatus.support.agentMessage ?? marketingAgentMessage ?? "Đang phân khúc nhóm khách hàng VIP & đề xuất voucher...")
+            : (supportProposal && supportProposal.status === "pending_approval")
+            ? "Đã lập kịch bản chăm sóc & đề xuất voucher cho khách VIP"
+            : undefined,
+          waitingTasksCount: getAgentWaitingTasksCount("crm_specialist"),
+        },
+      ],
+      queue: supportTasks,
+      directInputMode,
+      taskFilter,
+      onTaskClick: (taskId) => navigate(`/agentic/tasks/${taskId}`),
+      headerExtra: departmentQueues.support.length > 0 ? (
+        <span className="ccDeptQueueBadge">
+          <Clock size={11} className="ccSpinSlow" />
+          <span>Hàng chờ: {departmentQueues.support.length}</span>
+        </span>
+      ) : null,
+      children: (
+        departmentQueues.support.length > 0 ||
+        (supportCampaignProposal && supportCampaignProposal.status === "pending_approval") ||
+        (supportProposal && supportProposal.status === "pending_approval")
+      ) ? (
+        <>
           {departmentQueues.support.map((task) => (
             <div key={task.id} className="ccDepartmentWaitingCard">
               <div className="ccWaitingCardHeader">
@@ -3983,7 +5390,7 @@ export function AgenticCommandCenter({
                   <span>Hủy</span>
                 </button>
               </div>
-              <p className="ccWaitingCardPrompt">"{task.prompt}"</p>
+              <p className="ccWaitingCardPrompt">{`"${task.prompt}"`}</p>
               <div className="ccWaitingCardResource">
                 <span className="ccWaitingDot" />
                 <span>
@@ -3992,8 +5399,18 @@ export function AgenticCommandCenter({
               </div>
             </div>
           ))}
-
-          {supportProposal && (
+          {supportCampaignProposal && supportCampaignProposal.status === "pending_approval" && (
+            <button
+              type="button"
+              className="ccOperationsQuickBtn"
+              style={{ marginTop: "0.25rem", width: "100%", justifyContent: "center", padding: "0.45rem 0.6rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
+              onClick={handleDownloadSupportCampaignDocx}
+            >
+              <FileText size={14} color="#10b981" />
+              <span>Tải Kế Hoạch Chiến Dịch Email Word ({supportCampaignProposal.totalRecipients} KH)</span>
+            </button>
+          )}
+          {supportProposal && supportProposal.status === "pending_approval" && (
             <button
               type="button"
               className="ccOperationsQuickBtn"
@@ -4004,32 +5421,1713 @@ export function AgenticCommandCenter({
               <span>Tải Báo Cáo CSKH Word ({supportProposal.tickets.length} Ticket)</span>
             </button>
           )}
+        </>
+      ) : null,
+      directInputPlaceholder: "Giao việc cho CSKH & CRM...",
+      onSendDirectTask: (text) => handleDepartmentDirectTask("support", text),
+      onDirectDispatch: () => setDirectInputMode(true),
+      onOpenDetails: () => navigate("/support"),
+      onErrorResolve: () => handleOpenDiagnostics("support"),
+    },
+  ];
 
-          <DepartmentInput
-            placeholder="Giao việc cho CSKH & CRM..."
-            theme="emerald"
-            onSend={(text) => handleDepartmentDirectTask("support", text)}
+  const formatTime = (isoOrMs?: string | number) => {
+    if (!isoOrMs) return new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const d = new Date(isoOrMs);
+    return isNaN(d.getTime())
+      ? new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
+      : d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  };
+
+  const redesignedApprovals: PendingApprovalItem[] = [
+    // 1. Operations: Inventory Replenishment Proposal
+    ...((operationsProposal && operationsProposal.status !== "applied")
+      ? [
+          {
+            id: operationsProposal.id,
+            title: `Phiếu đề xuất nhập kho: ${operationsProposal.items.length} SKU (${operationsProposal.totalRestockUnits} đơn vị)`,
+            sourceDepartment: "operations" as const,
+            authorName: "Kỹ sư Tồn kho (OPS-01)",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(operationsProposal.createdAt),
+            onPreview: () => {
+              setOperationsProposal(operationsProposal);
+              setIsOperationsModalOpen(true);
+            },
+            onRequestRevision: () => {
+              void handleTriggerClearanceCampaign(operationsProposal.items);
+            },
+            onApprove: () => void handleApplyOperations(),
+            onReject: async () => {
+              const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: operationsProposal.id, summary: operationsProposal.summary || "Đề xuất nhập kho" });
+              if (!persisted) return;
+              setOperationsProposal(null);
+              setPendingReplenishment(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsOperationsModalOpen(false);
+              setSuccessMessage("Đã hủy đề xuất nhập kho.");
+            },
+          },
+        ]
+      : pendingReplenishment
+      ? [
+          {
+            id: pendingReplenishment.id,
+            title: `Kế hoạch nhập kho tự động: ${pendingReplenishment.items.length} SKU`,
+            sourceDepartment: "operations" as const,
+            authorName: "Kỹ sư Tồn kho (OPS-01)",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(pendingReplenishment.createdAt),
+            onPreview: () => {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            },
+            onRequestRevision: () => {
+              void handleTriggerClearanceCampaign(pendingReplenishment.items);
+            },
+            onApprove: () => {
+              setOperationsProposal(pendingReplenishment);
+              void handleApplyOperations();
+            },
+            onReject: async () => {
+              const persisted = await persistCommandActivity({ department: "operations", decision: "canceled", resourceType: "operations_proposal", resourceId: pendingReplenishment.id, summary: pendingReplenishment.summary || "Kế hoạch nhập kho tự động" });
+              if (!persisted) return;
+              setPendingReplenishment(null);
+              setOperationsProposal(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsOperationsModalOpen(false);
+              setSuccessMessage("Đã hủy đề xuất nhập kho tự động.");
+            },
+          },
+        ]
+      : []),
+
+    // 2. Marketing: Campaign Creative & Social Publication
+    ...(() => {
+      const items: PendingApprovalItem[] = [];
+      const seenIds = new Set<string>();
+
+      // Check activeCampaignDetail first
+      if (
+        activeCampaignDetail &&
+        !canceledCampaignIds.has(activeCampaignDetail.campaign.id) &&
+        activeCampaignDetail.campaign.state !== "canceled" &&
+        [
+          "awaiting_human_approval",
+          "campaign_review",
+          "revision_requested",
+          "draft",
+          "visual_creation",
+          "failed",
+          "partial_failure",
+        ].includes(activeCampaignDetail.campaign.state)
+      ) {
+        seenIds.add(activeCampaignDetail.campaign.id);
+        const isFailed =
+          activeCampaignDetail.campaign.state === "failed" ||
+          activeCampaignDetail.campaign.state === "partial_failure";
+        items.push({
+          id: activeCampaignDetail.campaign.id,
+          title: isFailed
+            ? `⚠️ [Cần xử lý] ${activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xử lý)`
+            : (activeCampaignDetail.campaign.campaignName || "Chiến dịch Marketing Fanpage"),
+          sourceDepartment: "marketing" as const,
+          authorName: isFailed ? "Hệ thống chiến dịch (Cần kiểm tra)" : "Cây bút Sáng tạo (MKT-01)",
+          riskLevel: isFailed ? ("high" as const) : ("medium" as const),
+          timestamp: formatTime(activeCampaignDetail.campaign.updatedAt),
+          onPreview: () => {
+            setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setPreviewCampaignDetail(activeCampaignDetail);
+            setMarketingCampaignModalOpen(true);
+          },
+          onRequestRevision: () => {
+            setActiveCampaignId(activeCampaignDetail.campaign.id);
+            setPreviewCampaignDetail(activeCampaignDetail);
+            setShowRevisionModal(true);
+            setMarketingCampaignModalOpen(true);
+          },
+          onApprove: () => void handleApproveMarketing(activeCampaignDetail.campaign.id),
+          onReject: () => void handleCancelMarketingCampaign(activeCampaignDetail.campaign.id),
+        });
+      }
+
+      // Check all campaigns in campaignsList
+      for (const camp of campaignsList) {
+        if (seenIds.has(camp.id) || canceledCampaignIds.has(camp.id) || camp.state === "canceled") continue;
+        if (
+          [
+            "awaiting_human_approval",
+            "campaign_review",
+            "revision_requested",
+            "draft",
+            "visual_creation",
+            "failed",
+            "partial_failure",
+          ].includes(camp.state)
+        ) {
+          seenIds.add(camp.id);
+          const isFailed = camp.state === "failed" || camp.state === "partial_failure";
+          items.push({
+            id: camp.id,
+            title: isFailed
+              ? `⚠️ [Cần xử lý] ${camp.campaignName || "Chiến dịch Marketing Fanpage"} (Lỗi xử lý)`
+              : (camp.campaignName || "Chiến dịch Marketing Fanpage"),
+            sourceDepartment: "marketing" as const,
+            authorName: isFailed ? "Hệ thống chiến dịch (Cần kiểm tra)" : "Cây bút Sáng tạo (MKT-01)",
+            riskLevel: isFailed ? ("high" as const) : ("medium" as const),
+            timestamp: formatTime(camp.updatedAt),
+            onPreview: () => {
+              setActiveCampaignId(camp.id);
+              const detailToUse =
+                activeCampaignDetail && activeCampaignDetail.campaign.id === camp.id
+                  ? activeCampaignDetail
+                  : buildFallbackMarketingDetail(camp);
+              setPreviewCampaignDetail(detailToUse);
+              setMarketingCampaignModalOpen(true);
+              if (marketingApi?.getCampaign) {
+                void marketingApi
+                  .getCampaign(camp.id)
+                  .then((d) => {
+                    if (d) {
+                      setPreviewCampaignDetail(d);
+                      setActiveCampaignDetail(d);
+                    }
+                  })
+                  .catch(() => {});
+              }
+            },
+            onRequestRevision: () => {
+              setActiveCampaignId(camp.id);
+              const detailToUse =
+                activeCampaignDetail && activeCampaignDetail.campaign.id === camp.id
+                  ? activeCampaignDetail
+                  : buildFallbackMarketingDetail(camp);
+              setPreviewCampaignDetail(detailToUse);
+              setShowRevisionModal(true);
+              setMarketingCampaignModalOpen(true);
+              if (marketingApi?.getCampaign) {
+                void marketingApi
+                  .getCampaign(camp.id)
+                  .then((d) => {
+                    if (d) {
+                      setPreviewCampaignDetail(d);
+                      setActiveCampaignDetail(d);
+                    }
+                  })
+                  .catch(() => {});
+              }
+            },
+            onApprove: () => void handleApproveMarketing(camp.id),
+            onReject: () => void handleCancelMarketingCampaign(camp.id),
+          });
+        }
+      }
+
+      return items;
+    })(),
+
+    // 3. Merchandising: Flash Sale & Pricing Optimization Proposal
+    ...(campaignProposal?.status === "draft" || (merchandisingProposal && merchandisingProposal.status !== "applied")
+      ? [
+          {
+            id: campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval",
+            title: campaignProposal?.name || "Đề xuất Flash Sale & Tối ưu Danh mục",
+            sourceDepartment: "merchandising" as const,
+            authorName: "Chuyên gia Định giá (MER-02)",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(campaignProposal?.startTime || merchandisingProposal?.createdAt),
+            onPreview: () => {
+              if (!campaignProposal && merchandisingProposal) {
+                setCampaignProposal(buildCampaignProposalFromMerchandising(merchandisingProposal));
+              }
+              setCampaignProposalModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh biên lợi nhuận cho Chuyên gia Định giá.");
+            },
+            onApprove: () => void handleApplyMerchandisingProposal(),
+            onReject: async () => {
+              const proposalId = campaignProposal?.id || merchandisingProposal?.id || "merchandising-approval";
+              const proposalSummary = campaignProposal?.name || merchandisingProposal?.pricingRationale || "Đề xuất Flash Sale & Tối ưu Danh mục";
+              try {
+                if (campaignProposal) {
+                  if (!catalogApi?.rejectCampaign) {
+                    throw new Error("Dịch vụ hủy duyệt chiến dịch chưa sẵn sàng.");
+                  }
+                  await catalogApi.rejectCampaign(campaignProposal.id, "Hủy duyệt từ AI Command Center");
+                }
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy duyệt đề xuất.");
+                return;
+              }
+              terminalMerchandisingProposalIdsRef.current.add(proposalId);
+              await persistCommandActivity({ department: "merchandising", decision: "canceled", resourceType: "merchandising_proposal", resourceId: proposalId, summary: proposalSummary });
+              setCampaignProposal(null);
+              setMerchandisingProposal(null);
+              setCompletedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setCampaignProposalModalOpen(false);
+              setSuccessMessage("Đã hủy đề xuất Flash Sale & Tối ưu Danh mục.");
+            },
+          },
+        ]
+      : []),
+
+    // 4a. Support: Proactive Email Campaign (New Products / Flash Sales / VIP)
+    ...(supportCampaignProposal?.status === "pending_approval"
+      ? [
+          {
+            id: supportCampaignProposal.id,
+            title: `${supportCampaignProposal.title} (${supportCampaignProposal.totalRecipients} Khách hàng)`,
+            sourceDepartment: "support" as const,
+            authorName: "Chuyên viên CRM & Quản gia CSKH (SUP-02 & SUP-01)",
+            riskLevel: "low" as const,
+            timestamp: formatTime(supportCampaignProposal.createdAt || Date.now()),
+            onPreview: () => {
+              setIsSupportEmailApprovalModalOpen(false);
+              setIsSupportCampaignModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh chiến dịch email cho Chuyên viên CRM.");
+            },
+            onApprove: () => void handleApplySupportCampaign(),
+            onReject: async () => {
+              const proposal = supportCampaignProposal;
+              if (!supportApi?.cancelEmailCampaignProposal) {
+                setErrorMessage("Dịch vụ chiến dịch email CSKH chưa sẵn sàng.");
+                return;
+              }
+              try {
+                await supportApi.cancelEmailCampaignProposal(proposal.id);
+                setSupportCampaignProposal(null);
+                setCompletedStrategicDeliverable(null);
+                setStrategicDeliverableApproved(false);
+                setCeoPlan(null);
+                setActiveWorkflowKind("orchestration");
+                setIsSupportCampaignModalOpen(false);
+                await persistCommandActivity({
+                  department: "support",
+                  decision: "canceled",
+                  resourceType: "support_proposal",
+                  resourceId: proposal.id,
+                  summary: `Đã từ chối chiến dịch email: ${proposal.title}`,
+                });
+                setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
+              }
+            },
+          },
+        ]
+      : []),
+
+    // 4b. Support: Customer Care Script & VIP Retention Vouchers
+    ...(supportProposal?.status === "pending_approval"
+      ? [
+          {
+            id: supportProposal.id,
+            title: `Kịch bản phản hồi CSKH (${supportProposal.tickets.length} Ticket) & Voucher VIP`,
+            sourceDepartment: "support" as const,
+            authorName: "Chuyên viên CRM (SUP-02)",
+            riskLevel: "low" as const,
+            timestamp: formatTime(Date.now()),
+            onPreview: () => {
+              setIsSupportCampaignModalOpen(false);
+              setIsSupportEmailApprovalModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã chuyển yêu cầu điều chỉnh kịch bản CSKH cho Chuyên viên CRM.");
+            },
+            onApprove: () => void handleApplySupport(),
+            onReject: async () => {
+              const proposal = supportProposal;
+              if (!supportApi) {
+                setErrorMessage("Dịch vụ CSKH chưa sẵn sàng để hủy đề xuất.");
+                return;
+              }
+              try {
+                await supportApi.cancelSupportProposal(proposal.id);
+                setSupportProposal(null);
+                setCompletedStrategicDeliverable(null);
+                setStrategicDeliverableApproved(false);
+                setCeoPlan(null);
+                setActiveWorkflowKind("orchestration");
+                setIsSupportEmailApprovalModalOpen(false);
+                const persisted = await persistCommandActivity({ department: "support", decision: "canceled", resourceType: "support_proposal", resourceId: proposal.id, summary: proposal.overallSentimentSummary || proposal.prompt || "Kịch bản phản hồi CSKH & Voucher VIP" });
+                if (persisted) setSuccessMessage("Đã hủy đề xuất kịch bản CSKH & Voucher VIP.");
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Không thể hủy đề xuất CSKH.");
+              }
+            },
+          },
+        ]
+      : []),
+
+    // 5. AI CEO / Executive Deliverable: Strategic Cross-Department Execution Plan
+    ...(completedStrategicDeliverable &&
+    !strategicDeliverableApproved &&
+    (completedStrategicDeliverable.department === "ai_ceo" ||
+      (!operationsProposal && !campaignProposal && !supportProposal && !supportCampaignProposal && !activeCampaignDetail))
+      ? [
+          {
+            id: completedStrategicDeliverable.id,
+            title: `Phê duyệt Kế hoạch Thực thi: ${completedStrategicDeliverable.title}`,
+            sourceDepartment: (completedStrategicDeliverable.department === "ai_ceo"
+              ? "operations"
+              : completedStrategicDeliverable.department) as DepartmentType,
+            authorName: "AI CEO & Hội đồng Điều hành",
+            riskLevel: "medium" as const,
+            timestamp: formatTime(completedStrategicDeliverable.completedAt),
+            onPreview: () => {
+              setSelectedStrategicDeliverable(completedStrategicDeliverable);
+              setIsStrategicModalOpen(true);
+            },
+            onRequestRevision: () => {
+              setSuccessMessage("Đã gửi yêu cầu AI CEO điều chỉnh kế hoạch thực thi.");
+            },
+            onApprove: async () => {
+              const deliverableDepartment = completedStrategicDeliverable.department === "ai_ceo" ? "operations" : completedStrategicDeliverable.department;
+              const persisted = await persistCommandActivity({ department: deliverableDepartment, decision: "approved", resourceType: activityResourceType(deliverableDepartment), resourceId: completedStrategicDeliverable.id, summary: completedStrategicDeliverable.title });
+              if (!persisted) return;
+              setStrategicDeliverableApproved(true);
+              setCeoPlan((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      steps: prev.steps.map((s) => ({ ...s, status: "done" })),
+                    }
+                  : null,
+              );
+              recordLiveEvent(
+                "ai_ceo",
+                "Chủ tịch đã phê duyệt kế hoạch thực thi",
+                completedStrategicDeliverable.title,
+                "success",
+              );
+              setSuccessMessage(`Đã phê duyệt kế hoạch thực thi "${completedStrategicDeliverable.title}" thành công!`);
+            },
+            onReject: async () => {
+              const deliverable = completedStrategicDeliverable;
+              const deliverableDepartment = deliverable.department === "ai_ceo" ? "operations" : deliverable.department;
+              const persisted = await persistCommandActivity({ department: deliverableDepartment, decision: "canceled", resourceType: activityResourceType(deliverableDepartment), resourceId: deliverable.id, summary: deliverable.title });
+              if (!persisted) return;
+              setCompletedStrategicDeliverable(null);
+              setSelectedStrategicDeliverable(null);
+              setStrategicDeliverableApproved(false);
+              setCeoPlan(null);
+              setActiveWorkflowKind("orchestration");
+              setIsStrategicModalOpen(false);
+              setSuccessMessage("Đã hủy đề xuất kế hoạch thực thi.");
+            },
+          },
+        ]
+      : []),
+
+    // 6. Backend Approvals (Agentic Approval Page Sync)
+    ...apiApprovals.map((app) => {
+      const foundTask = tasks?.items?.find((t) => t.id === app.taskId);
+      const friendlyTitle =
+        app.action === "agentic.workflow.complete"
+          ? (foundTask
+            ? `Nghiệm thu hoàn tất quy trình: ${foundTask.goal.length > 40 ? `${foundTask.goal.slice(0, 38)}...` : foundTask.goal}`
+            : "Nghiệm thu hoàn tất quy trình tự động")
+          : app.action === "configuration.activate"
+          ? "Phê duyệt kích hoạt cấu hình quản trị số"
+          : app.action.startsWith("tool.")
+          ? `Xác nhận thực thi công cụ đặc quyền (${app.resourceType})`
+          : `Yêu cầu phê duyệt: ${app.action} (${app.resourceType})`;
+
+      const friendlyAuthor =
+        app.requesterId === "system:workflow"
+          ? "Bộ điều phối Quy trình Tự động (Workflow Engine)"
+          : `Hệ thống (${app.requesterId || "AI Agent"})`;
+      const approvalIntent = detectStrategicIntent(foundTask?.goal || `${app.action} ${app.resourceType}`);
+      const approvalDepartment = (approvalIntent === "orchestration" ? "operations" : approvalIntent) as DepartmentType;
+
+      return {
+        id: app.id,
+        title: friendlyTitle,
+        sourceDepartment: approvalDepartment,
+        authorName: friendlyAuthor,
+        riskLevel: "medium" as const,
+        timestamp: formatTime(app.createdAt),
+        onPreview: () => {
+          if (foundTask) {
+            setSelectedStrategicDeliverable(buildStrategicDeliverable(foundTask.goal, foundTask.id, "ai_ceo"));
+            setIsStrategicModalOpen(true);
+          } else {
+            navigate("/agentic/approvals");
+          }
+        },
+        onRequestRevision: async () => {
+          try {
+            await api.decideApproval(app.id, { expectedVersion: app.version, decision: "revision_requested", reason: "Cần điều chỉnh thông số qua Command Center" });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã yêu cầu chỉnh sửa đề xuất.");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Không thể gửi yêu cầu chỉnh sửa.");
+            }
+          }
+        },
+        onApprove: async () => {
+          try {
+            await api.decideApproval(app.id, { expectedVersion: app.version, decision: "approved", reason: "Phê duyệt từ AI Command Center" });
+            await persistCommandActivity({ department: approvalDepartment, decision: "approved", resourceType: activityResourceType(approvalDepartment), resourceId: app.id, summary: friendlyTitle });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã phê duyệt đề xuất thành công!");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Phê duyệt thất bại.");
+            }
+          }
+        },
+        onReject: async () => {
+          try {
+            await api.decideApproval(app.id, {
+              expectedVersion: app.version,
+              decision: "rejected",
+              reason: "Hủy duyệt từ AI Command Center",
+            });
+            await persistCommandActivity({ department: approvalDepartment, decision: "canceled", resourceType: activityResourceType(approvalDepartment), resourceId: app.id, summary: friendlyTitle });
+            setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+            void refreshApprovals();
+            setSuccessMessage("Đã hủy duyệt đề xuất.");
+          } catch (err: any) {
+            if (err?.message?.includes("expired") || err?.code === "APPROVAL_EXPIRED" || err?.message?.includes("has expired")) {
+              setApiApprovals((prev) => prev.filter((a) => a.id !== app.id));
+              setSuccessMessage("Yêu cầu phê duyệt đã hết hạn hiệu lực và đã được đóng lại.");
+            } else {
+              setErrorMessage(err.message || "Không thể hủy duyệt đề xuất.");
+            }
+          }
+        },
+      };
+    }),
+
+    // 7. Tasks in items waiting for human approval
+    ...(tasks?.items ?? [])
+      .filter((t) => (t.state === "awaiting_human_approval" || t.state === "awaiting_plan_approval") && !apiApprovals.some((a) => a.taskId === t.id))
+      .map((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        const dept = (intent === "orchestration" ? "operations" : intent) as DepartmentType;
+        return {
+          id: t.id,
+          title: `Phê duyệt tác vụ: ${t.goal}`,
+          sourceDepartment: dept,
+          authorName: "Tổng Giám Đốc AI (AI CEO)",
+          riskLevel: "medium" as const,
+          timestamp: formatTime(t.createdAt),
+          onPreview: () => {
+            setSelectedStrategicDeliverable(buildStrategicDeliverable(t.goal, t.id, "ai_ceo"));
+            setIsStrategicModalOpen(true);
+          },
+          onRequestRevision: () => {
+            setSuccessMessage("Đã yêu cầu điều chỉnh tác vụ.");
+          },
+          onApprove: async () => {
+            try {
+              if (api?.startTask) {
+                await api.startTask(t.id, t.version, 1);
+              }
+              await persistCommandActivity({ department: dept, decision: "approved", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+              if (onTaskCreated) onTaskCreated();
+              setSuccessMessage(`Đã phê duyệt và tiếp tục thực thi tác vụ "${t.goal.slice(0, 40)}..."!`);
+            } catch (err: any) {
+              setErrorMessage(err?.message || "Lỗi phê duyệt tác vụ.");
+            }
+          },
+          onReject: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "canceled", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
+            markTaskReviewed(t.id);
+            setSuccessMessage(`Đã hủy duyệt tác vụ "${t.goal.slice(0, 40)}...".`);
+          },
+        };
+      }),
+
+    // 8. Completed tasks awaiting user review / inspection
+    ...(tasks?.items ?? [])
+      .filter(
+        (t) =>
+          (t.state === "completed" || t.state === "partially_completed") &&
+          !reviewedTaskIds.has(t.id) &&
+          !apiApprovals.some((a) => a.taskId === t.id)
+      )
+      .slice(0, 3)
+      .map((t) => {
+        const intent = detectStrategicIntent(t.goal);
+        const dept = (intent === "orchestration" ? "operations" : intent) as DepartmentType;
+        return {
+          id: `review-${t.id}`,
+          title: `Nghiệm thu kết quả: ${t.goal.length > 50 ? `${t.goal.slice(0, 47)}...` : t.goal}`,
+          sourceDepartment: dept,
+          authorName: "Báo cáo Hoàn tất Tác vụ",
+          riskLevel: "low" as const,
+          timestamp: formatTime(t.updatedAt || t.createdAt),
+          onPreview: () => {
+            markTaskReviewed(t.id);
+            setSelectedStrategicDeliverable(
+              buildStrategicDeliverable(t.goal, t.id, (intent === "orchestration" ? "ai_ceo" : intent) as any)
+            );
+            setIsStrategicModalOpen(true);
+          },
+          onRequestRevision: () => {
+            markTaskReviewed(t.id);
+            setSuccessMessage("Đã chuyển phản hồi nghiệm thu cho nhân sự số.");
+          },
+          onApprove: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "approved", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
+            markTaskReviewed(t.id);
+            setSuccessMessage(`Đã nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}..." thành công!`);
+          },
+          onReject: async () => {
+            const persisted = await persistCommandActivity({ department: dept, decision: "canceled", resourceType: activityResourceType(dept), resourceId: t.id, summary: t.goal });
+            if (!persisted) return;
+            markTaskReviewed(t.id);
+            setSuccessMessage(`Đã bỏ qua nghiệm thu kết quả tác vụ "${t.goal.slice(0, 35)}...".`);
+          },
+        };
+      }),
+  ];
+
+  const displayedStrategicDeliverable =
+    selectedStrategicDeliverable || completedStrategicDeliverable;
+  const displayedApprovalId = displayedStrategicDeliverable
+    ? redesignedApprovals.find((approval) => {
+        if (approval.id === displayedStrategicDeliverable.taskId) return true;
+        if (approval.id === `review-${displayedStrategicDeliverable.taskId}`) return true;
+        return apiApprovals.some(
+          (apiApproval) =>
+            apiApproval.id === approval.id &&
+            apiApproval.taskId === displayedStrategicDeliverable.taskId,
+        );
+      })?.id
+    : undefined;
+
+  const redesignedRecentDeliverables = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      departmentName: string;
+      completedAt: string;
+      format: string;
+      timestamp: number;
+      onDownloadOrView: () => void;
+    }> = [];
+
+    if (completedStrategicDeliverable) {
+      list.push({
+        id: completedStrategicDeliverable.id,
+        title: completedStrategicDeliverable.title,
+        departmentName: "AI CEO",
+        completedAt: formatTime(completedStrategicDeliverable.completedAt),
+        format: "docx",
+        timestamp: new Date(completedStrategicDeliverable.completedAt).getTime(),
+        onDownloadOrView: () => {
+          setSelectedStrategicDeliverable(completedStrategicDeliverable);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    const effectiveActiveCampaigns = activeCampaigns.length > 0
+      ? activeCampaigns
+      : activeCampaign ? [activeCampaign] : [];
+    for (const camp of effectiveActiveCampaigns) {
+      list.push({
+        id: camp.id,
+        title: `Báo cáo: Chiến dịch ${camp.name}`,
+        departmentName: "Danh mục & Định giá",
+        completedAt: formatTime(camp.startTime),
+        format: "docx",
+        timestamp: new Date(camp.startTime).getTime(),
+        onDownloadOrView: () => {
+          void handleOpenCampaignDeliverable(camp.id, true);
+        },
+      });
+    }
+
+    if (activeCampaignDetail && activeCampaignDetail.campaign.state === "completed") {
+      const camp = activeCampaignDetail.campaign;
+      const title = camp.campaignName || camp.objective || "Chiến dịch Truyền thông & Visual Fanpage";
+      list.push({
+        id: `active-camp-${camp.id}`,
+        title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
+        departmentName: "Tiếp thị & Sáng tạo",
+        completedAt: formatTime(camp.updatedAt || camp.createdAt),
+        format: "docx",
+        timestamp: new Date(camp.updatedAt || camp.createdAt).getTime(),
+        onDownloadOrView: () => {
+          setMarketingCampaignModalOpen(true);
+        },
+      });
+    }
+
+    for (const c of campaignsList) {
+      if (c.state === "completed") {
+        const title = c.campaignName || c.objective || "Chiến dịch Truyền thông & Visual Fanpage";
+        list.push({
+          id: `camp-${c.id}`,
+          title: title.startsWith("Chiến dịch") || title.startsWith("Báo cáo") ? title : `Báo cáo: ${title}`,
+          departmentName: "Tiếp thị & Sáng tạo",
+          completedAt: formatTime(c.updatedAt || c.createdAt),
+          format: "docx",
+          timestamp: new Date(c.updatedAt || c.createdAt).getTime(),
+          onDownloadOrView: () => {
+            setActiveCampaignId(c.id);
+            if (marketingApi?.getCampaign) {
+              void marketingApi.getCampaign(c.id).then((d) => {
+                if (d) {
+                  setActiveCampaignDetail(d);
+                  setPreviewCampaignDetail(d);
+                }
+              }).catch(() => {});
+            }
+            setMarketingCampaignModalOpen(true);
+          },
+        });
+      }
+    }
+
+    if (operationsProposal) {
+      list.push({
+        id: operationsProposal.id,
+        title: operationsProposal.docxFilename || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+        departmentName: "Vận hành & Kho vận",
+        completedAt: formatTime(operationsProposal.createdAt),
+        format: "docx",
+        timestamp: new Date(operationsProposal.createdAt).getTime(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(
+            operationsProposal.summary || "Báo cáo Kiểm toán Tồn kho & Đề xuất Nhập hàng",
+            operationsProposal.id,
+            "operations",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    if (supportProposal) {
+      list.push({
+        id: supportProposal.id,
+        title: supportProposal.docxFilename || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+        departmentName: "CSKH & Trải nghiệm",
+        completedAt: formatTime(Date.now()),
+        format: "docx",
+        timestamp: Date.now(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(
+            supportProposal.overallSentimentSummary || supportProposal.prompt || "Báo cáo Phân tích CSKH & Khách hàng VIP",
+            supportProposal.id,
+            "support",
+          );
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    if (supportCampaignProposal) {
+      list.push({
+        id: supportCampaignProposal.id,
+        title: supportCampaignProposal.docxFilename || `Kế hoạch Email: ${supportCampaignProposal.title}`,
+        departmentName: "CSKH & Trải nghiệm",
+        completedAt: formatTime(supportCampaignProposal.updatedAt || supportCampaignProposal.createdAt || Date.now()),
+        format: "docx",
+        timestamp: new Date(supportCampaignProposal.updatedAt || supportCampaignProposal.createdAt).getTime() || Date.now(),
+        onDownloadOrView: () => {
+          setIsSupportEmailApprovalModalOpen(false);
+          setIsSupportCampaignModalOpen(true);
+        },
+      });
+    }
+
+    const completed = (tasks?.items ?? []).filter(
+      (t) => t.state === "completed" || t.state === "partially_completed"
+    );
+    for (const t of completed) {
+      const intent = detectStrategicIntent(t.goal);
+      const deptName =
+        intent === "marketing"
+          ? "Tiếp thị & Sáng tạo"
+          : intent === "merchandising"
+          ? "Danh mục & Định giá"
+          : intent === "support"
+          ? "CSKH & Trải nghiệm"
+          : intent === "orchestration"
+          ? "AI CEO"
+          : "Vận hành & Kho vận";
+      const formattedGoal = t.goal.replace(/^([hH]ãy|[hH]ayx)\s*(lên\s*)?/i, "Lên ").trim();
+      const capitalized = formattedGoal.charAt(0).toUpperCase() + formattedGoal.slice(1);
+      const displayTitle = capitalized.startsWith("Báo cáo")
+        ? (capitalized.length > 42 ? `${capitalized.slice(0, 39)}...` : capitalized)
+        : `Báo cáo: ${capitalized.length > 36 ? `${capitalized.slice(0, 33)}...` : capitalized}`;
+      list.push({
+        id: t.id,
+        title: displayTitle,
+        departmentName: deptName,
+        completedAt: formatTime(t.updatedAt || t.createdAt),
+        format: "docx",
+        timestamp: new Date(t.updatedAt || t.createdAt).getTime(),
+        onDownloadOrView: () => {
+          const deliv = buildStrategicDeliverable(t.goal, t.id);
+          setSelectedStrategicDeliverable(deliv);
+          setIsStrategicModalOpen(true);
+        },
+      });
+    }
+
+    const map = new Map<string, typeof list[0]>();
+    for (const item of list) {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      }
+    }
+    return Array.from(map.values())
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 10);
+  }, [
+    completedStrategicDeliverable,
+    activeCampaign,
+    activeCampaigns,
+    activeCampaignDetail,
+    campaignsList,
+    operationsProposal,
+    supportProposal,
+    tasks?.items,
+    marketingApi,
+  ]);
+
+  const dbRunningCount = (tasks?.items ?? []).filter((t) => {
+    if (!["received", "planning", "dispatching", "department_analysis", "quality_review", "collaboration", "executive_synthesis", "retrying"].includes(t.state)) {
+      return false;
+    }
+    const taskTime = new Date(t.updatedAt || t.createdAt || 0).getTime();
+    if (taskTime > 0 && Date.now() - taskTime > 4 * 3600 * 1000) {
+      return false;
+    }
+    return true;
+  }).length;
+  const inMemRunningCount = Object.values(departmentQueues)
+    .flat()
+    .filter((t) => t.status === "running" && !tasks?.items?.some((db) => db.id === t.id)).length;
+  const hasActiveAgentRunning = (Object.values(deptStatus).some((d) => d.activeAgent !== null) || isRunning) ? 1 : 0;
+
+  const runningCount = (tasks?.items && tasks.items.length > 0)
+    ? (dbRunningCount + inMemRunningCount + hasActiveAgentRunning)
+    : Math.max(overview?.counts?.running ?? 0, dbRunningCount + inMemRunningCount + hasActiveAgentRunning);
+
+  const dbWaitingApprovalCount = (tasks?.items ?? []).filter(
+    (t) => t.state === "awaiting_plan_approval" || t.state === "awaiting_human_approval"
+  ).length;
+  const inMemWaitingApprovalCount = Object.values(departmentQueues)
+    .flat()
+    .filter((t) => t.status === "queued" && !tasks?.items?.some((db) => db.id === t.id)).length;
+
+  const waitingApprovalCount = Math.max(
+    overview?.pendingApprovals ?? 0,
+    redesignedApprovals.length,
+    dbWaitingApprovalCount + inMemWaitingApprovalCount
+  );
+
+  const completedTasksList = (tasks?.items ?? []).filter(
+    (t) => t.state === "completed" || t.state === "partially_completed"
+  );
+  const canceledTasksList = (tasks?.items ?? []).filter((t) => t.state === "canceled");
+
+  // Non-agentic completed deliverables across departments
+  const completedMarketingCount = campaignsList.filter(
+    (c) => c.state === "completed" && !tasks?.items?.some((t) => t.id === c.id)
+  ).length;
+  const completedStrategicCount =
+    completedStrategicDeliverable && !tasks?.items?.some((t) => t.id === completedStrategicDeliverable.id) ? 1 : 0;
+  const completedOpsCount =
+    operationsProposal?.status === "applied" && !tasks?.items?.some((t) => t.id === operationsProposal.id) ? 1 : 0;
+  const completedSupportCount =
+    ((supportProposal?.status === "applied" && !tasks?.items?.some((t) => t.id === supportProposal.id)) ? 1 : 0) +
+    (((supportCampaignProposal?.status === "sent" || supportCampaignProposal?.status === "approved") && !tasks?.items?.some((t) => t.id === supportCampaignProposal.id)) ? 1 : 0);
+
+  const extraCompletedCount =
+    completedMarketingCount +
+    completedStrategicCount +
+    completedOpsCount +
+    completedSupportCount;
+
+  const baseCompletedCount = overview?.counts?.completed !== undefined
+    ? Math.max(overview.counts.completed + ((tasks?.items ?? []).filter((t) => t.state === "partially_completed").length), completedTasksList.length)
+    : completedTasksList.length;
+
+  const completedCount = baseCompletedCount + extraCompletedCount;
+
+  const dbFailedCount = (tasks?.items ?? []).filter(
+    (t) => t.state === "failed" || t.state === "canceled"
+  ).length;
+
+  const failedCount = (tasks?.items && tasks.items.length > 0)
+    ? dbFailedCount + (errorMessage ? 1 : 0)
+    : (overview?.counts?.failed ?? 0) + (overview?.counts?.canceled ?? 0) + (errorMessage ? 1 : 0);
+
+  const allCount = runningCount + waitingApprovalCount + completedCount + failedCount;
+
+  // Determine SLA on-time vs delayed among completed tasks
+  const onTimeCompleted = completedTasksList.filter((t) => t.state === "completed").length + extraCompletedCount;
+  const delayedCompleted = completedTasksList.filter((t) => t.state === "partially_completed").length;
+
+  const totalEvaluated = completedTasksList.length + canceledTasksList.length + extraCompletedCount;
+  const onTimePercent = totalEvaluated > 0
+    ? Math.round((onTimeCompleted / totalEvaluated) * 100)
+    : (completedCount > 0 ? 82 : 0);
+  const delayedPercent = totalEvaluated > 0
+    ? Math.round((delayedCompleted / totalEvaluated) * 100)
+    : (completedCount > 0 ? 11 : 0);
+  const cancelledPercent = totalEvaluated > 0
+    ? Math.max(0, 100 - onTimePercent - delayedPercent)
+    : (completedCount > 0 ? 7 : 0);
+
+  const calculateDeptEfficiency = (dept: DepartmentType) => {
+    const deptBaselines: Record<DepartmentType, number> = {
+      marketing: 92,
+      merchandising: 78,
+      operations: 65,
+      support: 88,
+    };
+    const baseReadiness = deptBaselines[dept];
+    const deptTasks = (tasks?.items ?? []).filter((t) => {
+      const intent = detectStrategicIntent(t.goal);
+      return intent === dept;
+    });
+    const extraFinished = dept === "marketing" ? completedMarketingCount : 0;
+    const finishedTasks = deptTasks.filter(
+      (t) => t.state === "completed" || t.state === "partially_completed" || t.state === "failed" || t.state === "canceled"
+    );
+    const totalFinished = finishedTasks.length + extraFinished;
+    if (totalFinished === 0) {
+      return baseReadiness;
+    }
+    const successCount = finishedTasks.filter((t) => t.state === "completed" || t.state === "partially_completed").length + extraFinished;
+    const successRate = (successCount / totalFinished) * 100;
+    return Math.min(100, Math.max(30, Math.round(baseReadiness * 0.85 + successRate * 0.15)));
+  };
+
+  const departmentEfficiencies = [
+    { department: "marketing" as const, displayName: "Tiếp thị & Sáng tạo", efficiencyPercent: calculateDeptEfficiency("marketing") },
+    { department: "merchandising" as const, displayName: "Danh mục & Định giá", efficiencyPercent: calculateDeptEfficiency("merchandising") },
+    { department: "operations" as const, displayName: "Vận hành & Kho vận", efficiencyPercent: calculateDeptEfficiency("operations") },
+    { department: "support" as const, displayName: "CSKH & Trải nghiệm", efficiencyPercent: calculateDeptEfficiency("support") },
+  ];
+
+  const completedTasksWithTimes = (tasks?.items ?? []).filter(
+    (t) => (t.state === "completed" || t.state === "partially_completed") && t.createdAt && t.updatedAt
+  );
+  const avgDurationSeconds = completedTasksWithTimes.length > 0
+    ? Math.round(
+        completedTasksWithTimes.reduce((acc, t) => {
+          const diffMs = Math.max(0, new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime());
+          return acc + diffMs / 1000;
+        }, 0) / completedTasksWithTimes.length
+      )
+    : (elapsedSeconds > 0 ? elapsedSeconds : 28);
+
+  const avgDurationDisplay = avgDurationSeconds >= 3600
+    ? `${(avgDurationSeconds / 3600).toFixed(1)}h`
+    : avgDurationSeconds >= 60
+    ? `${(avgDurationSeconds / 60).toFixed(1)}m`
+    : `${Math.max(1, avgDurationSeconds)}s`;
+
+  const avgDurationHours = Number((avgDurationSeconds / 3600).toFixed(1));
+
+  const totalApprovalsCount = (overview?.pendingApprovals ?? 0) + (overview?.counts?.completed ?? 0);
+  const approvalRatePercent = totalApprovalsCount > 0
+    ? Math.round(((overview?.counts?.completed ?? 0) / totalApprovalsCount) * 100)
+    : 96;
+
+  const filteredDepartmentCards = redesignedDepartmentCards;
+
+  const filteredLiveEvents = useMemo(() => {
+    return liveEvents.filter((ev) => {
+      if (liveFeedFilter !== "all" && ev.department !== liveFeedFilter) {
+        return false;
+      }
+      const titleLower = ev.title.toLowerCase();
+      const descLower = ev.description.toLowerCase();
+
+      if (taskFilter === "running") {
+        const isCompleted = titleLower.includes("hoàn tất") || titleLower.includes("hoàn thành") || descLower.includes("completed");
+        const isError = titleLower.includes("lỗi") || titleLower.includes("hủy") || titleLower.includes("quá hạn") || titleLower.includes("gián đoạn") || descLower.includes("failed") || ev.status === "error";
+        const isWaiting = titleLower.includes("phê duyệt") || titleLower.includes("chờ") || descLower.includes("approval") || ev.status === "warning";
+        if (isCompleted || isError || isWaiting) return false;
+
+        return (
+          ev.status === "info" ||
+          titleLower.includes("đang") ||
+          titleLower.includes("thực thi") ||
+          titleLower.includes("tiếp nhận") ||
+          descLower.includes("đang") ||
+          descLower.includes("running") ||
+          descLower.includes("planning")
+        );
+      }
+      if (taskFilter === "waiting_approval") {
+        return ev.status === "warning" || descLower.includes("approval") || titleLower.includes("phê duyệt") || titleLower.includes("chờ");
+      }
+      if (taskFilter === "completed") {
+        return ev.status === "success" || descLower.includes("completed") || titleLower.includes("hoàn thành") || titleLower.includes("hoàn tất");
+      }
+      if (taskFilter === "failed") {
+        return ev.status === "error" || descLower.includes("failed") || titleLower.includes("lỗi") || titleLower.includes("hủy") || titleLower.includes("quá hạn") || titleLower.includes("gián đoạn");
+      }
+      return true;
+    });
+  }, [liveEvents, liveFeedFilter, taskFilter]);
+
+  return (
+    <section className="commandCenterWorkspace">
+      {/* Expired Session or Error Alert */}
+      {errorMessage && (
+        <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage === "Authentication required" ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." : errorMessage}</span>
+          </div>
+          {(errorMessage.includes("Authentication") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) && (
+            <button
+              type="button"
+              onClick={() => void signIn()}
+              style={{ background: "#f59e0b", color: "#000", border: "none", borderRadius: 6, padding: "0.3rem 0.8rem", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}
+            >
+              Đăng nhập lại
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {successMessage && (
+        <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.4)", borderRadius: 8, padding: "0.75rem 1rem", color: "#6ee7b7", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+          <CheckCircle2 size={16} />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
+      {/* TIER 1: Command Center Header Bar */}
+      <CommandCenterHeader
+        activeFilter={taskFilter}
+        onFilterChange={setTaskFilter}
+        counts={{
+          all: allCount,
+          running: runningCount,
+          waiting_approval: waitingApprovalCount,
+          completed: completedCount,
+          failed: failedCount,
+        }}
+        onNewTaskClick={() => {
+          const textarea = (document.querySelector(".ccStrategicTextarea") ||
+            document.querySelector(".ccComposerTextarea")) as HTMLTextAreaElement | null;
+          if (textarea) {
+            textarea.focus();
+            textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            handleSendStrategicTask();
+          }
+        }}
+        onDirectModeToggle={() => setDirectInputMode((prev) => !prev)}
+        directInputMode={directInputMode}
+      />
+
+      {/* TIER 1: Command Composer Panel & AI CEO Stepper */}
+      <CommandComposerPanel
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        onSubmit={(meta) => handleSendStrategicTask(meta)}
+        onStop={handleStopStrategicTask}
+        isSubmitting={isSubmitting}
+        isAnalyzing={isCurrentlyAnalyzing}
+        analysisStep={activeAnalysisStep}
+        analysisDurationSeconds={elapsedSeconds}
+        priority={composerPriority}
+        onPriorityChange={setComposerPriority}
+        targetDepartment={composerTarget}
+        onTargetDepartmentChange={setComposerTarget}
+        onSelectTemplate={(tmpl) => {
+          setPrompt(tmpl.prompt);
+          if (tmpl.target) setComposerTarget(tmpl.target);
+          if (tmpl.priority) setComposerPriority(tmpl.priority);
+          handleSendStrategicTask({
+            prompt: tmpl.prompt,
+            target: tmpl.target,
+            priority: tmpl.priority,
+          });
+        }}
+        ceoPlan={ceoPlan}
+        onResetCeoPlan={() => {
+          setCeoPlan(null);
+          setElapsedSeconds(0);
+          setAnalysisStep(0);
+          setCompletedStrategicDeliverable(null);
+          setSelectedStrategicDeliverable(null);
+          setActiveWorkflowKind("orchestration");
+        }}
+        onViewDeliverable={() => {
+          const dept = activeWorkflowKind || "";
+          const targetDept = ceoPlan?.targetDept || "";
+          const isSupport =
+            dept === "support" ||
+            targetDept.includes("CSKH") ||
+            targetDept.includes("Chăm sóc") ||
+            targetDept.includes("CRM");
+          const isOperations =
+            dept === "operations" ||
+            targetDept.includes("Vận hành") ||
+            targetDept.includes("Kho") ||
+            targetDept.includes("Cung ứng");
+          const isMarketing =
+            dept === "marketing" ||
+            targetDept.includes("Tiếp thị") ||
+            targetDept.includes("Truyền thông") ||
+            targetDept.includes("Sáng tạo");
+          const isMerchandising =
+            dept === "merchandising" ||
+            targetDept.includes("Kinh doanh") ||
+            targetDept.includes("Định giá") ||
+            targetDept.includes("Danh mục");
+
+          // 1. Support Department: CSKH Email Campaigns & Support Tickets
+          if (isSupport) {
+            if (supportCampaignProposal) {
+              setIsSupportEmailApprovalModalOpen(false);
+              setIsSupportCampaignModalOpen(true);
+            } else if (supportProposal) {
+              setIsSupportCampaignModalOpen(false);
+              setIsSupportEmailApprovalModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "support" ||
+              selectedStrategicDeliverable?.department === "support"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Chiến dịch CSKH & CRM",
+                undefined,
+                "support",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 2. Operations Department: Replenishment & Inventory Audits
+          if (isOperations) {
+            if (operationsProposal) {
+              setIsOperationsModalOpen(true);
+            } else if (pendingReplenishment) {
+              setOperationsProposal(pendingReplenishment);
+              setIsOperationsModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "operations" ||
+              selectedStrategicDeliverable?.department === "operations"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Kiểm toán vận hành & tồn kho",
+                undefined,
+                "operations",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 3. Marketing Department: Content, Visual, Publishing Campaigns
+          if (isMarketing) {
+            if (activeCampaignDetail) {
+              setMarketingCampaignModalOpen(true);
+            } else if (activeCampaignId) {
+              setMarketingCampaignModalOpen(true);
+            } else if (
+              completedStrategicDeliverable?.department === "marketing" ||
+              selectedStrategicDeliverable?.department === "marketing"
+            ) {
+              setIsStrategicModalOpen(true);
+            } else {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Kế hoạch Tiếp thị & Truyền thông",
+                activeCampaignId || undefined,
+                "marketing",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 4. Merchandising Department: Flash Sales, Pricing, Catalog
+          if (isMerchandising) {
+            if (campaignProposal) {
+              setCampaignProposalModalOpen(true);
+            } else if (merchandisingProposal) {
+              const deliv = buildStrategicDeliverable(
+                ceoPlan?.goal || "Đề xuất danh mục & Flash Sale",
+                merchandisingProposal.id,
+                "merchandising",
+              );
+              setSelectedStrategicDeliverable(deliv);
+              setIsStrategicModalOpen(true);
+            } else if (activeCampaign) {
+              void handleOpenCampaignDeliverable(activeCampaign.id, true);
+            } else if (
+              completedStrategicDeliverable?.department === "merchandising" ||
+              selectedStrategicDeliverable?.department === "merchandising"
+            ) {
+              setIsStrategicModalOpen(true);
+            }
+            return;
+          }
+
+          // 5. Fallback / AI CEO Orchestration
+          if (completedStrategicDeliverable || selectedStrategicDeliverable) {
+            setIsStrategicModalOpen(true);
+          } else if (supportCampaignProposal) {
+            setIsSupportEmailApprovalModalOpen(false);
+            setIsSupportCampaignModalOpen(true);
+          } else if (supportProposal) {
+            setIsSupportCampaignModalOpen(false);
+            setIsSupportEmailApprovalModalOpen(true);
+          } else if (operationsProposal || pendingReplenishment) {
+            if (pendingReplenishment && !operationsProposal) {
+              setOperationsProposal(pendingReplenishment);
+            }
+            setIsOperationsModalOpen(true);
+          } else if (activeCampaignDetail) {
+            setMarketingCampaignModalOpen(true);
+          } else if (campaignProposal) {
+            setCampaignProposalModalOpen(true);
+          }
+        }}
+      />
+
+      {/* Active Merchandising Campaign Live Horizontal Banner (Tier 1 -> Tier 2 Transition) */}
+      {displayedActiveCampaigns.length === 1 ? (
+        <div style={{ marginBottom: "1.25rem" }}>
+          <ActiveCampaignWidget
+            campaign={displayedActiveCampaigns[0]!}
+            onRevert={handleEmergencyRevertCampaign}
+            isReverting={isRevertingCampaign}
+            onViewDeliverable={() => {
+              void handleOpenCampaignDeliverable(displayedActiveCampaigns[0]!.id, true);
+            }}
+          />
+        </div>
+      ) : displayedActiveCampaigns.length > 1 ? (
+        <div className="ccActiveCampaignsSection">
+          <div className="ccActiveCampaignsNavRow">
+            <div className="ccActiveCampaignsNavLeft">
+              <Flame size={16} color="#f43f5e" />
+              <span>Chiến dịch đang kích hoạt</span>
+              <span className="ccActiveCampaignsCountBadge">
+                {displayedActiveCampaigns.length} chiến dịch song song
+              </span>
+            </div>
+            <div className="ccActiveCampaignsNavRight">
+              <div className="ccActiveCampaignsNavPills">
+                {displayedActiveCampaigns.map((camp, idx) => (
+                  <button
+                    key={camp.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveCampaignScrollIndex(idx);
+                      const container = activeCampaignsScrollRef.current;
+                      if (container) {
+                        const children = Array.from(container.children) as HTMLElement[];
+                        if (children[idx]) {
+                          children[idx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                      }
+                    }}
+                    className={`ccActiveCampaignsNavPill ${activeCampaignScrollIndex === idx ? "active" : ""}`}
+                    title={camp.name}
+                  >
+                    #{idx + 1}: {camp.name.length > 25 ? `${camp.name.slice(0, 25)}...` : camp.name}
+                  </button>
+                ))}
+              </div>
+              <div className="ccActiveCampaignsNavArrowGroup">
+                <button
+                  type="button"
+                  className="ccActiveCampaignsNavArrowBtn"
+                  disabled={activeCampaignScrollIndex <= 0}
+                  onClick={() => {
+                    const nextIdx = Math.max(0, activeCampaignScrollIndex - 1);
+                    setActiveCampaignScrollIndex(nextIdx);
+                    const container = activeCampaignsScrollRef.current;
+                    if (container) {
+                      const children = Array.from(container.children) as HTMLElement[];
+                      if (children[nextIdx]) {
+                        children[nextIdx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }
+                  }}
+                  title="Chiến dịch trước (Cuộn lên)"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="ccActiveCampaignsNavArrowBtn"
+                  disabled={activeCampaignScrollIndex >= displayedActiveCampaigns.length - 1}
+                  onClick={() => {
+                    const nextIdx = Math.min(displayedActiveCampaigns.length - 1, activeCampaignScrollIndex + 1);
+                    setActiveCampaignScrollIndex(nextIdx);
+                    const container = activeCampaignsScrollRef.current;
+                    if (container) {
+                      const children = Array.from(container.children) as HTMLElement[];
+                      if (children[nextIdx]) {
+                        children[nextIdx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }
+                  }}
+                  title="Chiến dịch tiếp theo (Cuộn xuống)"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={activeCampaignsScrollRef}
+            className="ccActiveCampaignsScrollBox"
+            onScroll={() => {
+              const container = activeCampaignsScrollRef.current;
+              if (!container) return;
+              const children = Array.from(container.children) as HTMLElement[];
+              const containerTop = container.scrollTop;
+              let closestIdx = 0;
+              let minDiff = Infinity;
+              children.forEach((child, idx) => {
+                const diff = Math.abs(child.offsetTop - container.offsetTop - containerTop);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  closestIdx = idx;
+                }
+              });
+              if (closestIdx !== activeCampaignScrollIndex && closestIdx >= 0 && closestIdx < displayedActiveCampaigns.length) {
+                setActiveCampaignScrollIndex(closestIdx);
+              }
+            }}
+          >
+            {displayedActiveCampaigns.map((camp) => (
+              <div key={camp.id} id={`active-camp-${camp.id}`} className="ccActiveCampaignItem">
+                <ActiveCampaignWidget
+                  campaign={camp}
+                  onRevert={handleEmergencyRevertCampaign}
+                  isReverting={isRevertingCampaign}
+                  onViewDeliverable={() => {
+                    void handleOpenCampaignDeliverable(camp.id, true);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* TIER 2: 2x2 Workforce Grid (Left 70%) & Live Activity + Approvals (Right 30%) */}
+      <div className="ccMainContentGrid">
+        <div ref={workforceColumnRef} style={{ minWidth: 0, overflow: "hidden" }}>
+          <WorkforceGrid
+            departments={filteredDepartmentCards}
+            onViewDagGraph={() => {
+              if (activeTaskId) {
+                navigate(`/agentic/tasks/${activeTaskId}`);
+              } else if (activeCampaignDetail?.campaign.id) {
+                navigate(`/marketing/campaigns/${activeCampaignDetail.campaign.id}`);
+              } else {
+                navigate("/agentic/tasks-table");
+              }
+            }}
+            containerRef={departmentsGridRef}
+          >
+            <CrossDepartmentConnector
+              activeCollaboration={activeCollaboration}
+              containerRef={departmentsGridRef}
+            />
+          </WorkforceGrid>
+        </div>
+
+        <div className="ccSidebarSection">
+          <div ref={liveFeedContainerRef}>
+            <LiveActivityFeed
+              events={filteredLiveEvents}
+              activeDepartmentFilter={liveFeedFilter}
+              onFilterChange={setLiveFeedFilter}
+            />
+          </div>
+          <PendingApprovalsPanel
+            approvals={redesignedApprovals}
+            onViewAll={() => navigate("/agentic/approvals")}
+            maxHeight={approvalsScrollMaxHeight}
+            focusedApprovalId={focusedApprovalId ?? undefined}
           />
         </div>
       </div>
 
-      {/* 6. Live Executive Report Output when Orchestration is available */}
-      {executiveReportData && (
-        <div style={{ marginTop: "2rem" }}>
-          <ExecutiveReport report={executiveReportData} workflowState={currentOrchestrationState} />
-        </div>
-      )}
+      {/* TIER 3: Results & Performance Dashboard */}
+      <ResultsMetricsPanel
+        totalCompleted={completedCount}
+        onTimePercent={onTimePercent}
+        delayedPercent={delayedPercent}
+        cancelledPercent={cancelledPercent}
+        departmentEfficiencies={departmentEfficiencies}
+        activeTasksCount={runningCount}
+        completedThisWeekCount={completedCount}
+        completedTrendPercent={completedCount > 0 ? 27 : 0}
+        avgDurationHours={avgDurationHours > 0 ? avgDurationHours : 3.2}
+        avgDurationDisplay={avgDurationDisplay || "3.2h"}
+        durationTrendPercent={-41}
+        approvalRatePercent={approvalRatePercent > 0 ? approvalRatePercent : 96}
+        approvalRateTrendPercent={12}
+        recentDeliverables={redesignedRecentDeliverables}
+        onViewAllDeliverables={() => navigate("/agentic/tasks-table")}
+      />
 
-      {/* 7. Multi-Modal Campaign Proposal Review Modal with Pagination */}
-      {campaignProposalModalOpen && campaignProposal && (
+      {/* Production Modals */}
+      {campaignProposalModalOpen && (viewingCampaignProposal || campaignProposal) && (
         <CampaignProposalModal
-          proposal={campaignProposal}
-          onClose={() => setCampaignProposalModalOpen(false)}
+          proposal={(viewingCampaignProposal || campaignProposal)!}
+          onClose={() => {
+            setCampaignProposalModalOpen(false);
+            setViewingCampaignProposal(null);
+          }}
           onApprove={handleApproveCampaign}
           isActivating={isActivatingCampaign}
           apiBaseUrl={apiBaseUrl}
+          readOnly={isCampaignModalReadOnly}
         />
       )}
+
+      {operationsProposal && (
+        <OperationsProposalModal
+          isOpen={isOperationsModalOpen}
+          proposal={operationsProposal}
+          onClose={() => setIsOperationsModalOpen(false)}
+          onApply={handleApplyOperations}
+          onDownloadDocx={handleDownloadOperationsDocx}
+          onTriggerClearanceCampaign={handleTriggerClearanceCampaign}
+          isApplying={operationsActionLoading}
+          isDownloadingDocx={isDownloadingDocx}
+        />
+      )}
+
+      <SocialTokenManagerModal
+        isOpen={socialTokenModalOpen}
+        onClose={() => setSocialTokenModalOpen(false)}
+        summary={socialTokensSummary}
+        onRefreshAccount={handleRefreshSocialAccount}
+        onCheckTokens={handleCheckSocialTokens}
+        onUpdateToken={handleUpdateSocialToken}
+        onSyncEnv={handleSyncSocialTokensEnv}
+        onOAuthReconnect={handleOAuthReconnect}
+        onConfigureMetaApp={handleConfigureMetaApp}
+        isActionLoading={socialTokenActionLoading}
+        actionFeedback={socialTokenFeedback}
+      />
+
+      <DepartmentDiagnosticsModal
+        isOpen={diagnosticsState.isOpen}
+        department={diagnosticsState.department}
+        departmentName={diagnosticsState.departmentName}
+        errorMessage={diagnosticsState.errorMessage}
+        timestamp={diagnosticsState.timestamp}
+        onClose={() => setDiagnosticsState((prev) => ({ ...prev, isOpen: false }))}
+        onRetry={() => {
+          if (diagnosticsState.department === "operations") {
+            void handleDepartmentDirectTask("operations", "Rà soát lại tồn kho an toàn và lập dự toán");
+          } else if (diagnosticsState.department === "marketing") {
+            void handleCheckSocialTokens();
+          } else {
+            onTaskCreated?.();
+          }
+        }}
+        onOpenAuditLogs={() => navigate("/agentic/audit")}
+        onSpecialAction={diagnosticsState.onSpecialAction}
+        specialActionLabel={diagnosticsState.specialActionLabel}
+      />
+
+      {/* High-visibility Floating Completion Toast */}
+      {completionToast && (
+        <aside className="ccCompletionToastContainer" aria-label="Thông báo hoàn tất tác vụ">
+          <div className="ccCompletionToastCard">
+            <div className="ccCompletionToastHeader">
+              <div className="ccCompletionToastMeta">
+                <div className="ccCompletionToastIconWrap">
+                  <CheckCircle2 size={16} />
+                </div>
+                <span className={`ccCompletionToastDeptTag ${completionToast.department}`}>
+                  {completionToast.departmentName}
+                </span>
+                <span className="ccCompletionToastStatusBadge">
+                  <Sparkles size={11} /> Hoàn tất 100%
+                </span>
+              </div>
+              <button
+                type="button"
+                className="ccCompletionToastCloseBtn"
+                onClick={() => setCompletionToast(null)}
+                aria-label="Đóng thông báo"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="ccCompletionToastBody">
+              <div className="ccCompletionToastTitle" title={completionToast.title}>
+                {completionToast.title}
+              </div>
+              <div className="ccCompletionToastGoal" title={completionToast.goal}>
+                Chỉ đạo: &ldquo;{completionToast.goal}&rdquo;
+              </div>
+            </div>
+
+            <div className="ccCompletionToastActions">
+              {completionToast.department === "marketing" ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setMarketingCampaignModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Sparkles size={14} /> Xem bài & poster ngay
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "operations" && operationsProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsOperationsModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <FileText size={14} /> Xem Đề xuất nhập kho
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadOperationsDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "merchandising" && campaignProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setCampaignProposalModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Sparkles size={14} /> Xem Đề xuất Flash Sale
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "support" && supportCampaignProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsSupportEmailApprovalModalOpen(false);
+                      setIsSupportCampaignModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Mail size={14} /> Xem chiến dịch email
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadSupportCampaignDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : completionToast.department === "support" && supportProposal ? (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setIsSupportCampaignModalOpen(false);
+                      setIsSupportEmailApprovalModalOpen(true);
+                      setCompletionToast(null);
+                    }}
+                  >
+                    <Mail size={14} /> Xem nội dung email
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => void handleDownloadSupportDocx()}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnPrimary"
+                    onClick={() => {
+                      setSelectedStrategicDeliverable(completionToast.deliverable);
+                      setIsStrategicModalOpen(true);
+                    }}
+                  >
+                    <FileText size={14} /> Xem Báo cáo ngay
+                  </button>
+                  <button
+                    type="button"
+                    className="ccCompletionToastBtnSecondary"
+                    onClick={() => downloadDeliverableDocx(completionToast.deliverable)}
+                  >
+                    <Download size={14} /> Tải Word (.docx)
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {marketingCampaignModalOpen && (previewCampaignDetail || activeCampaignDetail || (campaignsList.length > 0 && buildFallbackMarketingDetail(campaignsList[0]))) && (
+        <MarketingCampaignModal
+          isOpen={marketingCampaignModalOpen}
+          onClose={() => {
+            setMarketingCampaignModalOpen(false);
+            setShowRevisionModal(false);
+            setPreviewCampaignDetail(null);
+          }}
+          detail={
+            previewCampaignDetail &&
+            activeCampaignDetail &&
+            previewCampaignDetail.campaign.id === activeCampaignDetail.campaign.id
+              ? activeCampaignDetail
+              : previewCampaignDetail || activeCampaignDetail || buildFallbackMarketingDetail(campaignsList[0])
+          }
+          api={marketingApi}
+          onApprove={() => {
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            if (id) void handleApproveMarketing(id);
+          }}
+          onRequestRevision={(feedback) => {
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            if (id) void handleRevisionMarketing(feedback, id);
+          }}
+          onRetryPublication={() => {
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            if (id) void handleRetryPublication(id);
+          }}
+          onCancelCampaign={() => {
+            const id = previewCampaignDetail?.campaign.id || activeCampaignDetail?.campaign.id || campaignsList[0]?.id;
+            if (id) void handleCancelMarketingCampaign(id);
+          }}
+          isActionLoading={marketingActionLoading}
+          initialShowRevisionForm={showRevisionModal}
+        />
+      )}
+
+      <SupportEmailApprovalModal
+        isOpen={isSupportEmailApprovalModalOpen}
+        proposal={supportProposal}
+        isSubmitting={supportActionLoading}
+        onClose={() => setIsSupportEmailApprovalModalOpen(false)}
+        onApproveSelected={(ticketIds) => handleApplySupport(ticketIds)}
+        onApproveAll={() => handleApplySupport()}
+      />
+
+      <SupportEmailCampaignApprovalModal
+        isOpen={isSupportCampaignModalOpen}
+        proposal={supportCampaignProposal}
+        isSubmitting={isSupportCampaignSubmitting}
+        onClose={() => setIsSupportCampaignModalOpen(false)}
+        onApprove={(selectedIds) => void handleApplySupportCampaign(selectedIds)}
+        onReject={async () => {
+          if (!supportCampaignProposal || !supportApi?.cancelEmailCampaignProposal) return;
+          try {
+            await supportApi.cancelEmailCampaignProposal(supportCampaignProposal.id);
+            setSupportCampaignProposal(null);
+            setCompletedStrategicDeliverable(null);
+            setStrategicDeliverableApproved(false);
+            setCeoPlan(null);
+            setActiveWorkflowKind("orchestration");
+            setIsSupportCampaignModalOpen(false);
+            await persistCommandActivity({
+              department: "support",
+              decision: "canceled",
+              resourceType: "support_proposal",
+              resourceId: supportCampaignProposal.id,
+              summary: `Đã từ chối chiến dịch email: ${supportCampaignProposal.title}`,
+            });
+            setSuccessMessage("Đã từ chối chiến dịch email CSKH.");
+          } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Không thể từ chối chiến dịch email.");
+          }
+        }}
+        onDownloadDocx={() => void handleDownloadSupportCampaignDocx()}
+      />
+
+      <StrategicDeliverableModal
+        isOpen={isStrategicModalOpen}
+        deliverable={displayedStrategicDeliverable}
+        onClose={() => setIsStrategicModalOpen(false)}
+        onNavigateToApproval={
+          displayedApprovalId
+            ? () => setFocusedApprovalId(displayedApprovalId)
+            : undefined
+        }
+        onNavigateToTask={(taskId) => navigate(`/agentic/tasks/${taskId}`)}
+      />
     </section>
   );
 }
@@ -4074,86 +7172,6 @@ function DepartmentInput({ placeholder, theme, disabled, onSend }: DepartmentInp
   );
 }
 
-interface AgentCardProps {
-  readonly name: string;
-  readonly roleTag: string;
-  readonly status: "idle" | "running" | "completed" | "failed";
-  readonly statusText?: string;
-  readonly showProgress?: boolean;
-  readonly theme?: "blue" | "cyan" | "amber" | "emerald" | "purple";
-  readonly isCollaborating?: boolean;
-  readonly collabTag?: string;
-  readonly waitingTasksCount?: number;
-}
-
-function AgentCard({
-  name,
-  roleTag,
-  status,
-  statusText,
-  showProgress,
-  theme = "blue",
-  isCollaborating = false,
-  collabTag,
-  waitingTasksCount,
-}: AgentCardProps) {
-  const isRunning = status === "running";
-
-  return (
-    <div
-      className={`ccAgentCard ${isRunning ? "activeThinking" : ""} ${
-        isRunning ? `activeBorder-${theme}` : ""
-      } ${isCollaborating && isRunning ? "ccAgentCollaborating" : ""}`}
-    >
-      <div className="ccAgentCardHeader">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
-          <span className="ccAgentRoleBadge">{roleTag}</span>
-          {isCollaborating && (
-            <span className="ccCollabPill">
-              ⚡ {collabTag || "Phối hợp liên phòng"}
-            </span>
-          )}
-        </div>
-        {isRunning ? (
-          <span className="ccStatusIndicatorIcon" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            <span className={`ccStatusIndicatorDot running ${theme}`} />
-          </span>
-        ) : status === "completed" ? (
-          <span className="ccStatusIndicatorIcon">
-            <CheckCircle2 size={15} color="#10b981" />
-          </span>
-        ) : status === "failed" ? (
-          <span className="ccStatusIndicatorIcon">
-            <AlertTriangle size={15} color="#ef4444" />
-          </span>
-        ) : (
-          <span className="ccStatusIndicatorDot gray" />
-        )}
-      </div>
-
-      <h3 className="ccAgentName">{name}</h3>
-
-      {statusText && (
-        <p className={`ccAgentContentText ${isRunning ? "activeCalc" : ""}`}>
-          {statusText}
-        </p>
-      )}
-
-      {waitingTasksCount !== undefined && waitingTasksCount > 0 && (
-        <div className="ccAgentQueueNotice" title="Nhiệm vụ đang xếp hàng chờ tài nguyên này">
-          <Clock size={11} />
-          <span>{waitingTasksCount} nhiệm vụ đang chờ nhân sự này</span>
-        </div>
-      )}
-
-      {(showProgress || isRunning) && (
-        <div className={`ccProgressBarContainer theme-${theme}`}>
-          <div className="ccProgressBarFill" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface ProposalPaginationProps {
   currentPage: number;

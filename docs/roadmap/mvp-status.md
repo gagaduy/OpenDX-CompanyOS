@@ -66,6 +66,7 @@ Focused Agentic delivery status:
 | Phase F: AI CEO Coordination | Slice 1 complete on `feat/ai-ceo-coordination` | `docs/superpowers/specs/2026-08-22-ai-ceo-coordination-memory-design.md` | `docs/superpowers/plans/2026-08-22-ai-ceo-orchestration.md` | Slice 1 complete after six-Department descriptor DAG, private API settlement, isolated execution identities, cancellation/replay/restart evidence, and zero Commerce mutation; schedules and Company Memory remain deferred |
 | Phase G: Console Digital Workforce | Complete on `feat/console-digital-workforce` | `docs/superpowers/specs/2026-08-25-console-digital-workforce-design.md` | `docs/superpowers/plans/2026-08-25-console-digital-workforce.md` | Complete after actor-bound intake replay, task/approval/employee/audit surfaces, 358 focused API tests, 61 PostgreSQL integration tests, 135 Console tests, Phase F restart/replay acceptance, 390/768/1440 browser acceptance, role denial, repository audit, and zero Company Memory, chat, schedules, GraphRAG, or Commerce mutation |
 | Marketing: Facebook Publication | Complete on `feat/marketing-facebook-publication` | `docs/superpowers/specs/2026-08-29-marketing-facebook-department-design.md` | `docs/plans/2026-08-29-marketing-facebook-publication.md` | Complete after 3 Marketing Digital Employees, 6 tool adapters, fail-closed exactly-once publication engine, 5 deliverable generators (DOCX/PNG/XLSX/PDF), Staff Console control room, and e2e integration acceptance |
+| Support: Cross-Department Email Campaigns | Complete on `phuong` | `docs/superpowers/specs/2026-09-15-support-cross-department-email-campaigns-design.md` | `docs/superpowers/plans/2026-09-15-support-cross-department-email-campaigns.md` | Complete after cross-department catalog & promotion query ports, live DB adapters, customer segmentation service, responsive HTML email composition, Word .docx deliverable generator, persistent campaign proposals, REST API endpoints, Staff Console approval modal, Command Center integration, zero-hardcoding verification, and test suite passing |
 
 Phase F Slice 1 is complete: governed AI CEO planning, six descriptor-bound
 Department analyses, mediated collaboration, provenance-only synthesis,
@@ -76,6 +77,8 @@ branch; schedules, Company Memory, GraphRAG, and Phase H remain explicitly
 deferred.
 
 ## Latest Validation Evidence
+
+- Support Cross-Department Email Campaigns closure evidence on 2026-09-16: `pnpm check` passed (1095 API tests, 185 Console tests, 74 Storefront tests). `bash scripts/audit/repo.sh` passed with 0 lint and formatting errors. Verified zero hardcoding with live PostgreSQL queries and MinIO asset references, inward Clean Architecture ports for Catalog and Promotion modules, responsive HTML email rendering with promotion badges and product grids, Word deliverable report generation, Staff Console human-in-the-loop approval modal, and full AI Command Center orchestration integration.
 
 - Phase G closure evidence on 2026-08-25: `pnpm
   check:agentic-phase-g-exit` passed 358 focused Agentic API tests, 61 isolated

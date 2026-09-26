@@ -5,11 +5,11 @@ import { useState, useEffect } from "react";
 import {
   AlertTriangle,
   Clock,
+  FileText,
   Flame,
   Loader2,
   RotateCcw,
   Sparkles,
-  X,
 } from "lucide-react";
 import type { ActiveCampaign } from "../api/catalog-api";
 
@@ -17,12 +17,14 @@ export interface ActiveCampaignWidgetProps {
   readonly campaign: ActiveCampaign;
   readonly onRevert: (campaignId: string) => Promise<void> | void;
   readonly isReverting?: boolean;
+  readonly onViewDeliverable?: () => void;
 }
 
 export function ActiveCampaignWidget({
   campaign,
   onRevert,
   isReverting = false,
+  onViewDeliverable,
 }: ActiveCampaignWidgetProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [remainingMs, setRemainingMs] = useState<number>(() => {
@@ -69,10 +71,10 @@ export function ActiveCampaignWidget({
   };
 
   return (
-    <div className="ccActiveCampaignBanner">
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", width: "100%" }}>
-        {/* Top Header */}
-        <div className="ccActiveCampaignTopRow">
+    <div className="ccActiveCampaignBanner ccActiveCampaignHorizontal">
+      <div className="ccActiveCampaignMainRow">
+        {/* Left Section: Campaign Identity */}
+        <div className="ccActiveCampaignIdentityCol">
           <div className="ccActiveCampaignBadgeRow">
             <div className="ccActiveCampaignIconBox">
               <Flame size={18} color="#f43f5e" />
@@ -83,109 +85,121 @@ export function ActiveCampaignWidget({
             <span className="ccCampaignBadgePill">
               {campaign.badgeText}
             </span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span className="ccCampaignDiscountPill">
               -{campaign.discountPercent}%
             </span>
+          </div>
+
+          <h3 className="ccActiveCampaignTitle">
+            {campaign.name}
+          </h3>
+
+          <div className="ccActiveCampaignSubRow">
             <span className="ccActiveCampaignProductCount">
-              {campaign.totalProducts} sản phẩm
+              {campaign.totalProducts} sản phẩm đang áp dụng giá Flash Sale trên Storefront
             </span>
           </div>
         </div>
 
-        {/* Campaign Name */}
-        <h3 className="ccActiveCampaignTitle">
-          {campaign.name}
-        </h3>
-
-        {/* Countdown Timer Display */}
-        <div className="ccActiveCampaignCountdownBox">
-          <div className="ccActiveCampaignCountdownLeft">
-            <Clock size={16} className="ccActiveCampaignCountdownIcon" />
-            <span>Thời gian còn lại:</span>
-          </div>
-          <div className="ccActiveCampaignCountdownDigits">
-            {formatCountdown(remainingMs)}
-          </div>
-        </div>
-
-        {/* Elapsed Progress Bar */}
-        <div className="ccActiveCampaignProgressWrap">
-          <div className="ccActiveCampaignProgressBar">
-            <div
-              className="ccActiveCampaignProgressFill"
-              style={{ width: `${percentElapsed}%` }}
-            />
-          </div>
-          <div className="ccActiveCampaignProgressLabels">
-            <span>Bắt đầu</span>
-            <span>Tự động hoàn nguyên giá gốc khi kết thúc</span>
-          </div>
-        </div>
-
-        {/* Emergency Revert Action */}
-        {!showConfirm ? (
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={() => setShowConfirm(true)}
-              disabled={isReverting}
-              className="ccActiveCampaignRevertBtn"
-            >
-              {isReverting ? (
-                <>
-                  <Loader2 size={14} className="ccSpin" />
-                  Đang hoàn nguyên...
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={14} />
-                  Hoàn nguyên ngay
-                </>
-              )}
-            </button>
-          </div>
-        ) : (
-          /* Confirmation Popover */
-          <div className="ccActiveCampaignConfirmBox">
-            <div className="ccActiveCampaignConfirmText">
-              <AlertTriangle size={18} className="ccActiveCampaignConfirmIcon" />
-              <span>
-                Xác nhận hoàn nguyên sớm? Giá của toàn bộ <strong>{campaign.totalProducts}</strong> sản phẩm sẽ lập tức trở lại mức giá gốc ban đầu.
-              </span>
+        {/* Center Section: Countdown Timer & Progress */}
+        <div className="ccActiveCampaignCenterCol">
+          <div className="ccActiveCampaignCountdownBox">
+            <div className="ccActiveCampaignCountdownLeft">
+              <Clock size={16} className="ccActiveCampaignCountdownIcon" />
+              <span>Thời gian còn lại:</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.6rem" }}>
+            <div className="ccActiveCampaignCountdownDigits">
+              {formatCountdown(remainingMs)}
+            </div>
+          </div>
+
+          <div className="ccActiveCampaignProgressWrap">
+            <div className="ccActiveCampaignProgressBar">
+              <div
+                className="ccActiveCampaignProgressFill"
+                style={{ width: `${percentElapsed}%` }}
+              />
+            </div>
+            <div className="ccActiveCampaignProgressLabels">
+              <span>Bắt đầu</span>
+              <span>Tự động hoàn nguyên giá gốc khi kết thúc</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section: Actions */}
+        <div className="ccActiveCampaignActionsCol">
+          {!showConfirm ? (
+            <div className="ccActiveCampaignBtnGroup">
+              {onViewDeliverable && (
+                <button
+                  type="button"
+                  onClick={onViewDeliverable}
+                  className="ccActiveCampaignViewReportBtn"
+                  title="Xem báo cáo chiến lược bàn giao"
+                >
+                  <FileText size={14} />
+                  <span>Xem báo cáo</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setShowConfirm(false)}
-                className="ccCampaignCancelBtn"
-                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmRevert}
+                onClick={() => setShowConfirm(true)}
                 disabled={isReverting}
-                className="ccCampaignApproveBtn"
-                style={{
-                  background: "linear-gradient(135deg, #e11d48, #be123c)",
-                  padding: "0.35rem 0.85rem",
-                  fontSize: "0.78rem",
-                }}
+                className="ccActiveCampaignRevertBtn"
               >
                 {isReverting ? (
-                  <Loader2 size={14} className="ccSpin" />
+                  <>
+                    <Loader2 size={14} className="ccSpin" />
+                    Đang hoàn nguyên...
+                  </>
                 ) : (
-                  <RotateCcw size={14} />
+                  <>
+                    <RotateCcw size={14} />
+                    Hoàn nguyên ngay
+                  </>
                 )}
-                Xác nhận hoàn nguyên
               </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="ccActiveCampaignConfirmBox">
+              <div className="ccActiveCampaignConfirmText">
+                <AlertTriangle size={18} className="ccActiveCampaignConfirmIcon" />
+                <span>
+                  Xác nhận hoàn nguyên sớm? Giá của <strong>{campaign.totalProducts}</strong> sản phẩm sẽ lập tức trở lại giá gốc.
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.6rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(false)}
+                  className="ccCampaignCancelBtn"
+                  style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRevert}
+                  disabled={isReverting}
+                  className="ccCampaignApproveBtn"
+                  style={{
+                    background: "linear-gradient(135deg, #e11d48, #be123c)",
+                    padding: "0.35rem 0.85rem",
+                    fontSize: "0.78rem",
+                  }}
+                >
+                  {isReverting ? (
+                    <Loader2 size={14} className="ccSpin" />
+                  ) : (
+                    <RotateCcw size={14} />
+                  )}
+                  Xác nhận hoàn nguyên
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,39 @@ import { describe, expect, it, vi } from "vitest";
 import { AiMerchandisingService } from "./ai-merchandising.service";
 
 describe("AiMerchandisingService Campaign Engine", () => {
+  it("rejects a draft campaign so it cannot be restored as pending approval", async () => {
+    const session = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const mockTx = {
+      run: vi.fn().mockImplementation(async (cb) => cb(session)),
+      runReadOnly: vi.fn(),
+    };
+    const mockRepo = {
+      getById: vi.fn().mockResolvedValue({ id: "camp-1", name: "Flash Sale", status: "draft" }),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+    const mockAudit = { append: vi.fn().mockResolvedValue(undefined) };
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      mockAudit as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const result = await service.rejectCampaign("camp-1", {
+      actorId: "staff-1",
+      correlationId: "corr-1",
+      reason: "Không còn phù hợp",
+    });
+
+    expect(result).toMatchObject({ success: true, campaignId: "camp-1" });
+    expect(mockRepo.updateStatus).toHaveBeenCalledWith(session, "camp-1", "rejected");
+    expect(mockAudit.append).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ action: "catalog.campaign.rejected", actorId: "staff-1" }),
+    );
+  });
+
   it("calculates exact discount prices and extracts duration from prompt", async () => {
     const mockTx = {
       runReadOnly: vi.fn().mockImplementation(async (cb) => cb({
@@ -155,6 +188,16 @@ describe("AiMerchandisingService Campaign Engine", () => {
     const mockRepo = {
       createCampaign: vi.fn(),
       getById: vi.fn(),
+      findAllActive: vi.fn().mockResolvedValue([{
+        id: "camp-active",
+        name: "Active Sale",
+        badgeText: "SALE",
+        discountPercent: 20,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 500000).toISOString(),
+        totalProducts: 5,
+        remainingMs: 500000,
+      }]),
       findActive: vi.fn().mockResolvedValue({
         id: "camp-active",
         name: "Active Sale",
@@ -179,6 +222,35 @@ describe("AiMerchandisingService Campaign Engine", () => {
     const active = await service.getActiveCampaign();
     expect(active?.id).toBe("camp-active");
     expect(active?.discountPercent).toBe(20);
+  });
+
+  it("retrieves campaign details by id", async () => {
+    const mockTx = {
+      runReadOnly: vi.fn().mockImplementation(async (cb) => cb({ query: vi.fn().mockResolvedValue({ rows: [] }) })),
+    };
+
+    const mockRepo = {
+      getById: vi.fn().mockResolvedValue({
+        id: "camp-123",
+        name: "Test Campaign",
+        badgeText: "HOT",
+        discountPercent: 15,
+        items: [],
+      }),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn().mockResolvedValue(undefined) } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const result = await service.getCampaign("camp-123");
+    expect(result?.id).toBe("camp-123");
+    expect(result?.name).toBe("Test Campaign");
+    expect(mockRepo.getById).toHaveBeenCalledWith(expect.anything(), "camp-123");
   });
 
   it("filters specific products matching user prompt keywords or synonyms", async () => {
@@ -301,5 +373,222 @@ describe("AiMerchandisingService Campaign Engine", () => {
     expect(result.items[0]?.newPriceVnd).toBe(24600000);
     expect(result.items[0]?.discountPercent).toBe(18);
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(expect.anything(), "camp-legacy-1", "active");
+  });
+
+  it("synchronizes multiple active campaigns in chronological order so newest campaign takes precedence", async () => {
+    const executedQueries: Array<{ sql: string; values?: any[] }> = [];
+    const mockTx = {
+      runReadOnly: vi.fn(),
+      run: vi.fn().mockImplementation(async (cb) => cb({
+        query: vi.fn().mockImplementation(async (sql, values) => {
+          executedQueries.push({ sql, values });
+          if (sql.includes("status = 'active' AND end_time <= NOW()")) {
+            return { rows: [] };
+          }
+          return { rows: [] };
+        }),
+      })),
+    };
+
+    const mockRepo = {
+      createCampaign: vi.fn(),
+      getById: vi.fn(),
+      findActive: vi.fn(),
+      findAllActive: vi.fn().mockResolvedValue([
+        {
+          id: "camp-newest",
+          name: "Flash Sale",
+          badgeText: "FLASH SALE",
+          discountPercent: 20,
+          startTime: "2026-09-13T11:00:00.000Z",
+          endTime: "2026-09-20T11:00:00.000Z",
+          totalProducts: 10,
+          remainingMs: 600000,
+        },
+        {
+          id: "camp-oldest",
+          name: "Old Campaign",
+          badgeText: "OLD SALE",
+          discountPercent: 10,
+          startTime: "2026-09-10T10:00:00.000Z",
+          endTime: "2026-09-17T10:00:00.000Z",
+          totalProducts: 10,
+          remainingMs: 400000,
+        },
+      ]),
+      updateStatus: vi.fn(),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn() } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const active = await service.getActiveCampaign();
+    expect(active?.id).toBe("camp-newest");
+
+    // Verify camp-oldest was processed first and camp-newest was processed last in update queries
+    const updateMediaQueries = executedQueries.filter(
+      (q) => q.sql.includes("UPDATE product_media pm") && q.sql.includes("SET object_key = mci.campaign_media_storage_key"),
+    );
+    expect(updateMediaQueries).toHaveLength(2);
+    expect(updateMediaQueries[0]?.values?.[0]).toBe("camp-oldest");
+    expect(updateMediaQueries[1]?.values?.[0]).toBe("camp-newest");
+  });
+
+  it("activates campaign with conflictResolution 'replace' expiring prior active prices", async () => {
+    const executedQueries: Array<{ sql: string; values?: any[] }> = [];
+    const mockTx = {
+      runReadOnly: vi.fn(),
+      run: vi.fn().mockImplementation(async (cb) =>
+        cb({
+          query: vi.fn().mockImplementation(async (sql, values) => {
+            executedQueries.push({ sql, values });
+            return { rows: [] };
+          }),
+        }),
+      ),
+    };
+
+    const mockRepo = {
+      createCampaign: vi.fn(),
+      getById: vi.fn().mockResolvedValue({
+        id: "camp-replace",
+        status: "draft",
+        name: "Replace Campaign",
+        slug: "replace-camp",
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 86400000).toISOString(),
+        items: [
+          {
+            id: "item-1",
+            productId: "p-1",
+            variantId: "v-1",
+            campaignPriceVnd: 20000000,
+            badge: "SALE -20%",
+            conflictedCampaign: {
+              id: "camp-existing",
+              name: "Existing Campaign",
+              endTime: new Date(Date.now() + 172800000).toISOString(),
+              remainingDays: 2,
+            },
+          },
+        ],
+      }),
+      findActive: vi.fn(),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn() } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const res = await service.activateCampaign(
+      "camp-replace",
+      { actorId: "actor-1", correlationId: "corr-1" },
+      { conflictResolution: "replace" },
+    );
+
+    expect(res.success).toBe(true);
+
+    // Verify product_prices valid_to = NOW() was executed to expire prior active prices
+    const expirePriceQuery = executedQueries.find(
+      (q) => q.sql.includes("UPDATE product_prices") && q.sql.includes("SET valid_to = NOW()"),
+    );
+    expect(expirePriceQuery).toBeDefined();
+    expect(expirePriceQuery?.values?.[0]).toBe("v-1");
+
+    // Verify campaign status updated to active
+    const updateCampaignQuery = executedQueries.find(
+      (q) => q.sql.includes("UPDATE merchandising_campaigns") && q.sql.includes("SET status = $1"),
+    );
+    expect(updateCampaignQuery?.values?.[0]).toBe("active");
+  });
+
+  it("activates campaign with conflictResolution 'schedule_after' setting scheduled status and shifting dates", async () => {
+    const executedQueries: Array<{ sql: string; values?: any[] }> = [];
+    const mockTx = {
+      runReadOnly: vi.fn(),
+      run: vi.fn().mockImplementation(async (cb) =>
+        cb({
+          query: vi.fn().mockImplementation(async (sql, values) => {
+            executedQueries.push({ sql, values });
+            return { rows: [] };
+          }),
+        }),
+      ),
+    };
+
+    const conflictEndMs = Date.now() + 172800000;
+    const mockRepo = {
+      createCampaign: vi.fn(),
+      getById: vi.fn().mockResolvedValue({
+        id: "camp-sched",
+        status: "draft",
+        name: "Scheduled Campaign",
+        slug: "scheduled-camp",
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 86400000).toISOString(),
+        items: [
+          {
+            id: "item-1",
+            productId: "p-1",
+            variantId: "v-1",
+            campaignPriceVnd: 20000000,
+            badge: "SALE -20%",
+            conflictedCampaign: {
+              id: "camp-existing",
+              name: "Existing Campaign",
+              endTime: new Date(conflictEndMs).toISOString(),
+              remainingDays: 2,
+            },
+          },
+        ],
+      }),
+      findActive: vi.fn(),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new AiMerchandisingService(
+      mockTx as any,
+      { append: vi.fn() } as any,
+      undefined,
+      undefined,
+      mockRepo as any,
+    );
+
+    const res = await service.activateCampaign(
+      "camp-sched",
+      { actorId: "actor-1", correlationId: "corr-1" },
+      { conflictResolution: "schedule_after" },
+    );
+
+    expect(res.success).toBe(true);
+
+    // Verify product_prices valid_to = NOW() was NOT called
+    const expirePriceQuery = executedQueries.find(
+      (q) => q.sql.includes("UPDATE product_prices") && q.sql.includes("SET valid_to = NOW()"),
+    );
+    expect(expirePriceQuery).toBeUndefined();
+
+    // Verify campaign status was set to scheduled with shifted start_time
+    const updateCampaignQuery = executedQueries.find(
+      (q) => q.sql.includes("UPDATE merchandising_campaigns") && q.sql.includes("SET status = $1"),
+    );
+    expect(updateCampaignQuery?.values?.[0]).toBe("scheduled");
+    expect((updateCampaignQuery?.values?.[1] as Date).getTime()).toBe(conflictEndMs);
+
+    // Verify products attributes were NOT updated immediately because it is scheduled
+    const updateProductAttrQuery = executedQueries.find(
+      (q) => q.sql.includes("UPDATE products") && q.sql.includes("SET attributes = attributes || $1::jsonb"),
+    );
+    expect(updateProductAttrQuery).toBeUndefined();
   });
 });

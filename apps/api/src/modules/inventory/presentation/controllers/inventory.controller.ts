@@ -9,6 +9,8 @@ import { InventoryDomainError } from "../../domain/exceptions/inventory-domain.e
 import { InventoryApplicationError } from "../../application/services/inventory-application.error";
 import type { InventoryServiceContract } from "../../application/services/interfaces/inventory.service";
 import type { InventoryStaffRole } from "../../application/dtos/inventory.dto";
+import type { InventoryReplenishmentRepositoryContract } from "../../application/repositories/interfaces/inventory-replenishment.repository";
+import type { AutonomousReplenishmentMonitorServiceContract } from "../../application/services/interfaces/autonomous-replenishment-monitor.service";
 import {
   parseAdjustment,
   parseInventoryId,
@@ -28,7 +30,10 @@ export class InventoryController {
         | Promise<{ buffer: Buffer; filename: string; mediaType: string }>
         | { buffer: Buffer; filename: string; mediaType: string };
       applyOperationsProposal: (id: string, req: { items: any[] }) => Promise<any>;
+      generateReplenishmentAnalysis?: (options: any) => Promise<any>;
     },
+    private readonly replenishmentRepo?: InventoryReplenishmentRepositoryContract,
+    private readonly replenishmentMonitor?: AutonomousReplenishmentMonitorServiceContract,
   ) {}
 
   readonly list: RequestHandler = async (request, response, next) => {
@@ -108,6 +113,55 @@ export class InventoryController {
       const items = Array.isArray(request.body?.items) ? request.body.items : [];
       const result = await this.aiOperations.applyOperationsProposal(proposalId, { items });
       response.json(successResponse("AI Operations proposal applied", result));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly getPendingReplenishment: RequestHandler = async (_request, response, next) => {
+    try {
+      if (!this.replenishmentRepo) {
+        response.json(successResponse("Pending replenishment retrieved", null));
+        return;
+      }
+      const pending = await this.replenishmentRepo.findLatestPending();
+      response.json(successResponse("Pending replenishment retrieved", pending));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly triggerReplenishmentScan: RequestHandler = async (_request, response, next) => {
+    try {
+      if (!this.replenishmentMonitor) {
+        throw new ApplicationError(500, "REPLENISHMENT_UNAVAILABLE", "Replenishment monitor is not configured");
+      }
+      const result = await this.replenishmentMonitor.triggerScan("manual");
+      response.json(successResponse("Replenishment scan triggered", result));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly applyReplenishmentProposal: RequestHandler = async (request, response, next) => {
+    try {
+      if (!this.aiOperations) {
+        throw new ApplicationError(500, "AI_OPERATIONS_UNAVAILABLE", "AI Operations service is not configured");
+      }
+      const proposalId = request.params.proposalId as string;
+      const items = Array.isArray(request.body?.items) ? request.body.items : [];
+      const result = await this.aiOperations.applyOperationsProposal(proposalId, { items });
+      if (this.replenishmentRepo) {
+        const staff = (response.locals.staffPrincipal as StaffPrincipal | undefined)?.subject ?? "staff";
+        await this.replenishmentRepo.updateStatus(proposalId, "approved", staff);
+      }
+      response.json(successResponse("Replenishment proposal applied", result));
+    } catch (error) { next(toHttpError(error)); }
+  };
+
+  readonly dismissReplenishmentProposal: RequestHandler = async (request, response, next) => {
+    try {
+      if (!this.replenishmentRepo) {
+        throw new ApplicationError(500, "REPLENISHMENT_UNAVAILABLE", "Replenishment repository is not configured");
+      }
+      const proposalId = request.params.proposalId as string;
+      const staff = (response.locals.staffPrincipal as StaffPrincipal | undefined)?.subject ?? "staff";
+      await this.replenishmentRepo.updateStatus(proposalId, "dismissed", staff);
+      response.json(successResponse("Replenishment proposal dismissed", { proposalId, status: "dismissed" }));
     } catch (error) { next(toHttpError(error)); }
   };
 }

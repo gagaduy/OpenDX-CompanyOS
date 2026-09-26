@@ -6,9 +6,11 @@ import { authenticateStaff } from "../../shared/auth/staff-auth.middleware";
 import type { WorkloadTokenVerifier } from "../../shared/auth/workload-auth.middleware";
 import { authenticateWorkload } from "../../shared/auth/workload-auth.middleware";
 import type { TransactionRunner } from "../../shared/database/transaction";
+import type { VerifiedDecisionHistoryReader } from "../../shared/verified-decision-evidence";
 import { AgentTaskServiceImpl } from "./application/services/implementations/agent-task.service";
 import { AgenticFileServiceImpl } from "./application/services/implementations/agentic-file.service";
 import { AgenticConsoleServiceImpl } from "./application/services/implementations/agentic-console.service";
+import { CommandActivityServiceImpl } from "./application/services/implementations/command-activity.service";
 import { AgenticFileRetentionService } from "./application/services/implementations/agentic-file-retention.service";
 import { AgenticFileLifecycleWorker } from "./infrastructure/workers/agentic-file-lifecycle.worker";
 import type { AgenticFileParser } from "./application/parsing/agentic-file-parser";
@@ -40,8 +42,15 @@ import { ZodDepartmentToolSchemaRegistry } from "./infrastructure/tools/zod-depa
 import type { Logger } from "../../shared/observability/logger";
 import type { MetricsRegistry } from "../../shared/observability/metrics";
 
+import type { Pool } from "pg";
+import type { WorkflowBlueprintRepository } from "./application/repositories/interfaces/workflow-blueprint.repository";
+import { PostgresqlWorkflowBlueprintRepository } from "./infrastructure/repositories/implementations/postgresql-workflow-blueprint.repository";
+import { WorkflowBlueprintController } from "./presentation/controllers/workflow-blueprint.controller";
+
 export interface AgenticModuleDependencies {
   readonly transactions: TransactionRunner;
+  readonly database?: Pool;
+  readonly workflowBlueprintRepository?: WorkflowBlueprintRepository;
   readonly staffTokenVerifier: StaffTokenVerifier;
   readonly workloadTokenVerifier: WorkloadTokenVerifier;
   readonly workflowGateway: WorkflowGateway;
@@ -61,10 +70,14 @@ export interface AgenticModuleDependencies {
   readonly logger?: Logger;
   readonly metrics?: MetricsRegistry;
   readonly monotonicNow?: () => number;
+  readonly decisionHistoryReaders?: readonly VerifiedDecisionHistoryReader[];
 }
 
 export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   const repository = new PostgresqlAgenticRepository();
+  const blueprintRepository = dependencies.workflowBlueprintRepository
+    ?? (dependencies.database ? new PostgresqlWorkflowBlueprintRepository(dependencies.database) : undefined);
+  const blueprintController = blueprintRepository ? new WorkflowBlueprintController(blueprintRepository) : undefined;
   const onDispatcherError = dependencies.onDispatcherError ?? (() => undefined);
   const policy = new PolicyService(repository, dependencies.transactions, dependencies.now);
   const dispatcher = new WorkflowCommandDispatcher(
@@ -99,6 +112,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
   );
   const tasks = new AgentTaskServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
   const consoleService = new AgenticConsoleServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now);
+  const commandActivity = new CommandActivityServiceImpl(repository, dependencies.transactions, dependencies.generateId, dependencies.now, dependencies.decisionHistoryReaders);
   const files = dependencies.agenticFileStorage === undefined || dependencies.agenticFileScanner === undefined || dependencies.agenticFileParser === undefined
     ? undefined
     : new AgenticFileServiceImpl(repository, dependencies.agenticFileStorage, dependencies.agenticFileScanner, dependencies.agenticFileParser, dependencies.transactions, dependencies.generateId, dependencies.now);
@@ -124,7 +138,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
           monotonicNow: dependencies.monotonicNow ?? performance.now.bind(performance),
         },
   );
-  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files, consoleService);
+  const controller = new AgenticController(tasks, approvals, configurations, revocations, queries, files, consoleService, commandActivity);
   const workflowController = new AgenticWorkflowController(workflows);
   const workloadController = new AgenticWorkloadController(workflows, modelRuns, orchestration);
   const toolController = new AgenticToolController(tools);
@@ -142,7 +156,13 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
         : { agentKind: agent.kind, active: agent.active };
     }),
   });
-  const adminRouter = createAgenticRouter(controller, workflowController, authenticateStaff(dependencies.staffTokenVerifier), appendDenied);
+  const adminRouter = createAgenticRouter(
+    controller,
+    workflowController,
+    authenticateStaff(dependencies.staffTokenVerifier),
+    appendDenied,
+    blueprintController,
+  );
   adminRouter.use(agenticErrorMiddleware);
   const internalRouter = createAgenticWorkloadRouter(
     workloadController,
@@ -162,6 +182,7 @@ export function createAgenticModule(dependencies: AgenticModuleDependencies) {
     dispatcher,
     tasks,
     consoleService,
+    ...(blueprintRepository ? { blueprintRepository } : {}),
     ...(files === undefined ? {} : { files }),
     ...(fileLifecycleWorker === undefined ? {} : { fileLifecycleWorker }),
     approvals,

@@ -37,8 +37,18 @@ export function createSupportRouter(
 
   // AI Support & CRM Endpoints (Open to authenticated staff)
   r.post("/ai-proposal", c.generateAiProposal);
+  r.get("/ai-proposal/latest", c.getLatestAiProposal);
   r.get("/ai-proposal/:proposalId/docx", c.getAiProposalDocx);
   r.post("/ai-proposal/:proposalId/apply", c.applyAiProposal);
+  r.post("/ai-proposal/:proposalId/cancel", c.cancelAiProposal);
+
+  // Email Campaign Endpoints
+  r.post("/email-campaigns/proposals", c.createEmailCampaignProposal);
+  r.get("/email-campaigns/proposals", c.listEmailCampaignProposals);
+  r.get("/email-campaigns/proposals/:proposalId", c.getEmailCampaignProposal);
+  r.post("/email-campaigns/proposals/:proposalId/apply", c.applyEmailCampaignProposal);
+  r.post("/email-campaigns/proposals/:proposalId/cancel", c.cancelEmailCampaignProposal);
+  r.get("/email-campaigns/proposals/:proposalId/docx", c.getEmailCampaignProposalDocx);
 
   // Core Ticket CRUD with Role Guard
   r.get("/", guard, c.list);

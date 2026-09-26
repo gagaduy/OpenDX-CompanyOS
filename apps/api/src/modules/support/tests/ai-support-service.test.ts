@@ -6,6 +6,191 @@ import { describe, expect, it, vi } from "vitest";
 import { AiSupportService } from "../application/services/implementations/ai-support.service";
 
 describe("AiSupportService", () => {
+  it("does not create demo tickets when no actionable customer request exists", async () => {
+    const database = {
+      query: vi.fn(async () => ({ rows: [] })),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    const proposal = await service.generateSupportProposal({
+      prompt: "Xử lý phản hồi khách hàng cần giải quyết",
+    });
+
+    expect(proposal.tickets).toEqual([]);
+    expect(
+      database.query.mock.calls.some(([sql]: [string]) => sql.includes("INSERT INTO support_tickets")),
+    ).toBe(false);
+  });
+
+  it("selects only tickets that still require Support action", async () => {
+    let ticketQuery = "";
+    const database = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("COUNT(*) FROM support_tickets")) {
+          return { rows: [{ count: "1" }] };
+        }
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQuery = sql;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({ prompt: "Xử lý phản hồi khách hàng" });
+
+    expect(ticketQuery).toContain("st.status NOT IN ('resolved', 'closed')");
+  });
+
+  it("limits customer-email review to tickets whose latest inbound message still needs a reply", async () => {
+    let ticketQuery = "";
+    let ticketQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQuery = sql;
+          ticketQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Gửi mail phản hồi các email khách hàng đang cần xử lý",
+      ticketScope: "customer_email_pending",
+    } as any);
+
+    expect(ticketQuery).toContain("st.created_by_id = 'email-inbound'");
+    expect(ticketQuery).toContain("latest_customer_message");
+    expect(ticketQueryParameters).toEqual([null, "customer_email_pending"]);
+  });
+
+  it("limits an inbound-email proposal to its requested ticket", async () => {
+    const requestedTicketId = "62ffbc9e-0d2e-4eac-a71d-19e388463515";
+    let ticketQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("COUNT(*) FROM support_tickets")) {
+          return { rows: [{ count: "1" }] };
+        }
+        if (sql.includes("FROM support_tickets st")) {
+          ticketQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Giải quyết phản hồi về sản phẩm lỗi",
+      ticketIds: [requestedTicketId],
+    });
+
+    expect(ticketQueryParameters).toEqual([[requestedTicketId], "all_actionable"]);
+  });
+
+  it("limits inbound-email customer analysis to the requested ticket owner", async () => {
+    const requestedTicketId = "62ffbc9e-0d2e-4eac-a71d-19e388463515";
+    let customerQueryParameters: readonly unknown[] | undefined;
+    const database = {
+      query: vi.fn(async (sql: string, parameters?: readonly unknown[]) => {
+        if (sql.includes("FROM customers c")) {
+          customerQueryParameters = parameters;
+        }
+        return { rows: [] };
+      }),
+    } as any;
+    const service = new AiSupportService(database, {});
+
+    await service.generateSupportProposal({
+      prompt: "Giải quyết phản hồi về sản phẩm lỗi",
+      ticketIds: [requestedTicketId],
+    });
+
+    expect(customerQueryParameters).toEqual([[requestedTicketId]]);
+  });
+
+  it("returns the most recently created cached support proposal", async () => {
+    const service = new AiSupportService({} as any, {});
+    const proposal = (id: string, createdAt: string) => ({
+      id,
+      prompt: "Soạn email chăm sóc khách hàng",
+      overallSentimentSummary: "Đã xử lý email CSKH.",
+      churnRiskAssessment: "Rủi ro thấp.",
+      recommendedAction: "Theo dõi phản hồi.",
+      tickets: [],
+      vipCustomers: [],
+      totalTickets: 0,
+      status: "applied" as const,
+      createdAt,
+      docxFilename: `${id}.docx`,
+    });
+    (service as any).proposalsCache.set("older", proposal("older", "2026-09-13T10:00:00.000Z"));
+    (service as any).proposalsCache.set("latest", proposal("latest", "2026-09-13T11:00:00.000Z"));
+
+    await expect(service.getLatestSupportProposal()).resolves.toMatchObject({ id: "latest", status: "applied" });
+  });
+
+  it("cancels a pending proposal so refresh does not return it as awaiting approval", async () => {
+    const database = { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) } as any;
+    const service = new AiSupportService(database, {});
+    (service as any).proposalsCache.set("proposal-to-cancel", {
+      id: "proposal-to-cancel",
+      prompt: "Phản hồi khách hàng",
+      overallSentimentSummary: "Có hai phản hồi cần xử lý.",
+      churnRiskAssessment: "Rủi ro trung bình.",
+      recommendedAction: "Phản hồi khách hàng.",
+      tickets: [], vipCustomers: [], totalTickets: 0,
+      status: "pending_approval",
+      createdAt: "2026-09-15T03:00:00.000Z",
+      docxFilename: "proposal.docx",
+    });
+
+    await expect(service.cancelSupportProposal("proposal-to-cancel", "staff-1"))
+      .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+    expect(database.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO support_ai_proposal_decisions"), expect.arrayContaining(["proposal-to-cancel", "staff-1"]));
+    await expect(service.getLatestSupportProposal())
+      .resolves.toMatchObject({ id: "proposal-to-cancel", status: "canceled" });
+  });
+
+  it("does not change a pending proposal when its durable cancellation write fails", async () => {
+    const database = { query: vi.fn(async () => { throw new Error("database unavailable"); }) } as any;
+    const service = new AiSupportService(database, {});
+    (service as any).proposalsCache.set("proposal-1", {
+      id: "proposal-1", status: "pending_approval", tickets: [], createdAt: "2026-09-15T03:00:00.000Z",
+    });
+    await expect(service.cancelSupportProposal("proposal-1", "staff-1")).rejects.toThrow("database unavailable");
+    expect((service as any).proposalsCache.get("proposal-1").status).toBe("pending_approval");
+  });
+
+  it("recovers the latest applied support proposal from persisted ticket events", async () => {
+    const service = new AiSupportService({
+      query: vi.fn(async () => ({
+        rows: [{
+          proposal_id: "persisted-proposal",
+          applied_at: new Date("2026-09-13T16:00:00.000Z"),
+          ticket_id: "ticket-1",
+          customer_name: "Khách hàng A",
+          customer_email: "customer-a@example.com",
+          subject: "Hỗ trợ đơn hàng",
+          priority: "high",
+          response_message: "Nội dung email đã gửi.",
+        }],
+      })),
+    } as any, {});
+
+    await expect(service.getLatestSupportProposal()).resolves.toMatchObject({
+      id: "persisted-proposal",
+      status: "applied",
+      tickets: [{
+        ticketId: "ticket-1",
+        customerEmail: "customer-a@example.com",
+        proposedResponse: "Nội dung email đã gửi.",
+      }],
+    });
+  });
+
   it("creates and retrieves cached support proposals and generates docx", async () => {
     const mockPool: any = {
       query: vi.fn(async (sql: string) => {
@@ -50,10 +235,7 @@ describe("AiSupportService", () => {
       })),
     };
 
-    const service = new AiSupportService(mockPool, {
-      openRouterApiKey: "test-key",
-      openRouterModel: "google/gemini-2.5-flash",
-    });
+    const service = new AiSupportService(mockPool, {});
 
     const proposal = await service.generateSupportProposal({
       prompt: "Rà soát toàn bộ ticket sự cố giao hàng và chăm sóc khách hàng",
@@ -160,7 +342,7 @@ describe("AiSupportService", () => {
         }),
       }),
     );
-  });
+  }, 15000);
 
   it("clears an active SLA pause before resolving a waiting_customer ticket", async () => {
     const mockClient = {

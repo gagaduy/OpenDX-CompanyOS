@@ -13,18 +13,22 @@ import {
   parseAttachmentId,
   parseClaim,
   parseCreate,
+  parseCreateEmailCampaign,
+  parseGenerateAiProposal,
   parseMessage,
   parsePage,
   parseReassign,
   parseTicketId,
   parseTransition,
 } from "../validators/support.validator";
+import type { EmailCampaignService } from "../../application/services/implementations/email-campaign.service";
 
 export class SupportController {
   constructor(
     private readonly service: SupportServiceContract,
     private readonly attachments?: SupportAttachmentServiceContract,
     private readonly aiService?: AiSupportService,
+    private readonly emailCampaignService?: EmailCampaignService,
   ) {}
 
   readonly list: RequestHandler = async (q, r, n) => {
@@ -115,7 +119,7 @@ export class SupportController {
   readonly generateAiProposal: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
-      const proposal = await this.aiService.generateSupportProposal({ prompt: String(q.body?.prompt || "") });
+      const proposal = await this.aiService.generateSupportProposal(parseGenerateAiProposal(q.body));
       r.json(successResponse("Support proposal generated", proposal));
     } catch (e) {
       n(e);
@@ -134,6 +138,15 @@ export class SupportController {
     }
   };
 
+  readonly getLatestAiProposal: RequestHandler = async (_q, r, n) => {
+    try {
+      if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
+      r.json(successResponse("Latest Support proposal retrieved", await this.aiService.getLatestSupportProposal()));
+    } catch (e) {
+      n(e);
+    }
+  };
+
   readonly applyAiProposal: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
@@ -145,12 +158,116 @@ export class SupportController {
     }
   };
 
+  readonly cancelAiProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
+      const proposalId = String(q.params.proposalId || "").trim();
+      if (proposalId.length === 0 || proposalId.length > 255) {
+        throw new ApplicationError(400, "VALIDATION_ERROR", "Validation failed");
+      }
+      const actorId = (r.locals.staffPrincipal as StaffPrincipal | undefined)?.subject;
+      if (!actorId) throw new ApplicationError(401, "AUTH_REQUIRED", "Staff authentication is required");
+      r.json(successResponse("Support proposal canceled", await this.aiService.cancelSupportProposal(proposalId, actorId)));
+    } catch (e) {
+      n(e);
+    }
+  };
+
   readonly generateAiDraftReply: RequestHandler = async (q, r, n) => {
     try {
       if (!this.aiService) throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "AI Support service is unavailable");
       const ticketId = parseTicketId(q.params.ticketId);
       const draft = await this.aiService.generateDraftReply(ticketId);
       r.json(successResponse("AI draft reply generated", { draft }));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  // Email Campaign Endpoints
+  readonly createEmailCampaignProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const input = parseCreateEmailCampaign(q.body);
+      const proposal = await this.emailCampaignService.createProposal(input);
+      r.status(201).json(successResponse("Support email campaign proposal created", proposal));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  readonly listEmailCampaignProposals: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const status = typeof q.query.status === "string" ? (q.query.status as any) : undefined;
+      const limit = q.query.limit ? Number(q.query.limit) : undefined;
+      const proposals = await this.emailCampaignService.listProposals({ status, limit });
+      r.json(successResponse("Support email campaign proposals retrieved", proposals));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  readonly getEmailCampaignProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const proposalId = String(q.params.proposalId || "").trim();
+      const proposal = await this.emailCampaignService.getProposal(proposalId);
+      r.json(successResponse("Support email campaign proposal retrieved", proposal));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  readonly applyEmailCampaignProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const proposalId = String(q.params.proposalId || "").trim();
+      const actorId = (r.locals.staffPrincipal as StaffPrincipal | undefined)?.subject;
+      if (!actorId) throw new ApplicationError(401, "AUTH_REQUIRED", "Staff authentication is required");
+      const selectedRecipientIds = Array.isArray(q.body?.selectedRecipientIds)
+        ? q.body.selectedRecipientIds.map(String)
+        : undefined;
+      const result = await this.emailCampaignService.applyProposal(proposalId, actorId, selectedRecipientIds);
+      r.json(successResponse("Support email campaign proposal applied", result));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  readonly cancelEmailCampaignProposal: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const proposalId = String(q.params.proposalId || "").trim();
+      const actorId = (r.locals.staffPrincipal as StaffPrincipal | undefined)?.subject;
+      if (!actorId) throw new ApplicationError(401, "AUTH_REQUIRED", "Staff authentication is required");
+      const result = await this.emailCampaignService.cancelProposal(proposalId, actorId);
+      r.json(successResponse("Support email campaign proposal canceled", result));
+    } catch (e) {
+      n(e);
+    }
+  };
+
+  readonly getEmailCampaignProposalDocx: RequestHandler = async (q, r, n) => {
+    try {
+      if (!this.emailCampaignService) {
+        throw new ApplicationError(503, "DEPENDENCY_UNAVAILABLE", "Email campaign service is unavailable");
+      }
+      const proposalId = String(q.params.proposalId || "").trim();
+      const docx = await this.emailCampaignService.getDocxDeliverable(proposalId);
+      r.type(docx.mediaType);
+      r.setHeader("content-disposition", `attachment; filename="${docx.filename}"`);
+      r.send(docx.buffer);
     } catch (e) {
       n(e);
     }

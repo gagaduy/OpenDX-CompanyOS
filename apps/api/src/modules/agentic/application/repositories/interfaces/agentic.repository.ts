@@ -28,6 +28,7 @@ import type {
   DepartmentAgentKind,
   DepartmentToolName,
 } from "../../tools/department-tool-contracts";
+import type { CommandActivityEvent } from "../../../domain/entities/command-activity-event";
 
 export interface PolicyRecord {
   readonly id: string;
@@ -514,6 +515,8 @@ export interface WorkflowSignalReceiptCreateResult {
 }
 
 export interface AgenticRepository {
+  appendCommandActivity(session: DatabaseSession, event: CommandActivityEvent): Promise<CommandActivityEvent>;
+  listCommandActivity(session: DatabaseSession, limit: number): Promise<readonly CommandActivityEvent[]>;
   appendAiCeoExecutionAuthority(session: DatabaseSession, authority: AiCeoExecutionAuthority, payload: AiCeoExecutionPayload): Promise<"created" | "duplicate">;
   findAiCeoExecutionAuthority(session: DatabaseSession, authorityId: string): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined>;
   lockAndFindLatestAiCeoExecutionAuthority(session: DatabaseSession, taskId: string, purpose: AiCeoExecutionPurpose, planVersion?: number): Promise<{ readonly authority: AiCeoExecutionAuthority; readonly payload: AiCeoExecutionPayload } | undefined>;

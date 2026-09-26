@@ -33,4 +33,29 @@ describe("ActiveCampaignWidget", () => {
     fireEvent.click(confirmBtn);
     expect(onRevert).toHaveBeenCalledWith("camp-1");
   });
+
+  it("renders report button when onViewDeliverable is provided and triggers callback", () => {
+    const onViewDeliverable = vi.fn();
+    render(
+      <ActiveCampaignWidget
+        campaign={{
+          id: "camp-nova",
+          name: "Nova Tech - Khai Phá Tương Lai",
+          badgeText: "NOVA TECH",
+          discountPercent: 20,
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + 86400000).toISOString(),
+          totalProducts: 10,
+          remainingMs: 86400000,
+        }}
+        onRevert={vi.fn()}
+        onViewDeliverable={onViewDeliverable}
+      />
+    );
+
+    const reportBtn = screen.getByRole("button", { name: /Xem báo cáo/i });
+    expect(reportBtn).toBeDefined();
+    fireEvent.click(reportBtn);
+    expect(onViewDeliverable).toHaveBeenCalled();
+  });
 });

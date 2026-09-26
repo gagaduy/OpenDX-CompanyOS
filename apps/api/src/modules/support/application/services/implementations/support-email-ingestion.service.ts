@@ -162,6 +162,7 @@ export class SupportEmailIngestionService {
         try {
           const proposal = await this.aiSupportService.generateSupportProposal({
             prompt: `Khách hàng phản hồi lại yêu cầu #${existingTicket.id.slice(0, 8)} (${existingTicket.subject}): "${cleanBody}". Cần phương án giải quyết và đền bù mới thích đáng.`,
+            ticketIds: [existingTicket.id],
           });
           proposalId = proposal?.id;
         } catch (aiErr) {
@@ -228,6 +229,7 @@ export class SupportEmailIngestionService {
       try {
         const proposal = await this.aiSupportService.generateSupportProposal({
           prompt: `Phản hồi khẩn cấp email khiếu nại khách hàng: "${cleanSubject}"`,
+          ticketIds: [ticketId],
         });
         proposalId = proposal?.id;
       } catch (aiErr) {

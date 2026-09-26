@@ -79,6 +79,13 @@ export interface ApplyMerchandisingResult {
   readonly badge?: string;
 }
 
+export interface ConflictedCampaignInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly endTime: string;
+  readonly remainingDays: number;
+}
+
 export interface CampaignItem {
   readonly id: string;
   readonly productId: string;
@@ -94,6 +101,7 @@ export interface CampaignItem {
   readonly optimizedTitle: string;
   readonly optimizedDescription: string;
   readonly badge: string;
+  readonly conflictedCampaign?: ConflictedCampaignInfo;
 }
 
 export interface CampaignProposal {
@@ -107,7 +115,7 @@ export interface CampaignProposal {
   readonly startTime: string;
   readonly endTime: string;
   readonly durationDays: number;
-  readonly status: "draft" | "active" | "completed" | "reverted";
+  readonly status: "draft" | "active" | "scheduled" | "completed" | "reverted" | "rejected";
   readonly items: readonly CampaignItem[];
   readonly totalProducts: number;
   readonly pricingRationale: string;
@@ -123,6 +131,7 @@ export interface ActiveCampaign {
   readonly endTime: string;
   readonly totalProducts: number;
   readonly remainingMs: number;
+  readonly activeCampaigns?: readonly ActiveCampaign[];
 }
 
 export interface CatalogApi {
@@ -150,9 +159,12 @@ export interface CatalogApi {
   generateMerchandisingProposal(input: { readonly prompt: string; readonly targetProductId?: string }): Promise<MerchandisingProposal>;
   applyMerchandisingProposal(input: { readonly proposalId: string; readonly customTitle?: string; readonly customDescription?: string; readonly customPriceVnd?: number }): Promise<ApplyMerchandisingResult>;
   generateCampaignProposal(input: { readonly prompt: string; readonly durationDays?: number; readonly discountPercent?: number; readonly themeKey?: string }): Promise<CampaignProposal>;
-  activateCampaign(campaignId: string, input?: { readonly endDate?: string; readonly excludedItemIds?: readonly string[] }): Promise<{ readonly success: boolean; readonly campaignId: string; readonly activatedAt: string }>;
+  activateCampaign(campaignId: string, input?: { readonly endDate?: string; readonly excludedItemIds?: readonly string[]; readonly conflictResolution?: "replace" | "schedule_after" }): Promise<{ readonly success: boolean; readonly campaignId: string; readonly activatedAt: string }>;
+  rejectCampaign?(campaignId: string, reason?: string): Promise<{ readonly success: boolean; readonly campaignId: string; readonly rejectedAt: string }>;
   revertCampaign(campaignId: string): Promise<{ readonly success: boolean; readonly campaignId: string; readonly revertedAt: string }>;
   getActiveCampaign(): Promise<ActiveCampaign | null>;
+  getLatestDraftCampaign(): Promise<CampaignProposal | null>;
+  getCampaign?(campaignId: string): Promise<CampaignProposal>;
 }
 
 export function createCatalogApi(baseUrl: string, accessToken: string): CatalogApi {
@@ -218,11 +230,20 @@ export function createCatalogApi(baseUrl: string, accessToken: string): CatalogA
     async activateCampaign(campaignId, input) {
       return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/activate`, write("POST", input ?? {}))) as { readonly success: boolean; readonly campaignId: string; readonly activatedAt: string };
     },
+    async rejectCampaign(campaignId, reason) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/reject`, write("POST", { reason }))) as { readonly success: boolean; readonly campaignId: string; readonly rejectedAt: string };
+    },
     async revertCampaign(campaignId) {
       return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}/revert`, write("POST", {}))) as { readonly success: boolean; readonly campaignId: string; readonly revertedAt: string };
     },
     async getActiveCampaign() {
       return (await request("/v1/admin/catalog/ai-merchandising/campaigns/active")) as ActiveCampaign | null;
+    },
+    async getLatestDraftCampaign() {
+      return (await request("/v1/admin/catalog/ai-merchandising/campaigns/draft/latest")) as CampaignProposal | null;
+    },
+    async getCampaign(campaignId) {
+      return (await request(`/v1/admin/catalog/ai-merchandising/campaigns/${campaignId}`)) as CampaignProposal;
     },
   };
 }

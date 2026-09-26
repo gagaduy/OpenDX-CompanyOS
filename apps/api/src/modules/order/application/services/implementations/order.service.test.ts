@@ -100,4 +100,46 @@ describe("OrderService", () => {
       version: 1, idempotencyKey: "cancel-1",
     }, { actorId: "ops", roles: ["operations_manager"], correlationId: "corr-cancel" })).rejects.toMatchObject({ code });
   });
+
+  it("invokes onOrderPaid hook when order transitions to paid", async () => {
+    let current = { ...order, status: "pending_payment" as const };
+    const history: OrderStatusHistory[] = [];
+    const repository = {
+      findById: vi.fn(async () => ({ order: current, lines: [line], history })),
+      updateStatus: vi.fn(async (_session, updated) => {
+        current = updated;
+        return true;
+      }),
+      appendHistory: vi.fn(async (_session, entry) => { history.push(entry); }),
+      appendAudit: vi.fn(async () => undefined),
+      findHistoryByIdempotencyKey: vi.fn(async () => undefined),
+    } as unknown as OrderRepository;
+    const transactions: TransactionRunner = { run: (work) => work(session), runReadOnly: (work) => work(session) };
+    const onOrderPaid = vi.fn();
+    const service = new OrderService(
+      repository,
+      transactions,
+      () => "id-1",
+      () => now,
+      undefined,
+      onOrderPaid,
+    );
+
+    await service.transitionInSession(
+      session,
+      order.id,
+      "paid",
+      "provider",
+      "sepay",
+      "PAYMENT_CONFIRMED",
+      "paid-1",
+      "corr-paid",
+      now,
+    );
+
+    expect(onOrderPaid).toHaveBeenCalledWith([
+      { variantId: "variant-1", quantity: 1 },
+    ]);
+  });
 });
+

@@ -21,6 +21,23 @@ export class SimulatedEmailDispatcherAdapter implements EmailDispatcherPort {
     };
   }
 
+  async sendCampaignEmail(input: import("../../application/ports/email-dispatcher.port").SendCampaignEmailInput): Promise<SendEmailResult> {
+    this.sentEmails.push({
+      to: input.to,
+      toName: input.toName,
+      subject: input.subject,
+      textBody: input.subject,
+      htmlBody: input.htmlBody,
+      ticketId: input.campaignId,
+    });
+    return {
+      messageId: `simulated-${randomUUID()}`,
+      delivered: true,
+      provider: "simulated",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   getSentEmails(): readonly SendEmailInput[] {
     return [...this.sentEmails];
   }

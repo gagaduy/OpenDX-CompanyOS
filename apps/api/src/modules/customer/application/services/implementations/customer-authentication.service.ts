@@ -59,32 +59,46 @@ export class CustomerAuthenticationService
           );
         await this.repo.touchIdentity(s, existing.id, identity.email, at);
       } else {
-        if (await this.repo.findCustomerByEmail(s, identity.email))
-          throw new CustomerApplicationError(
-            "GOOGLE_IDENTITY_CONFLICT",
-            "Verified email belongs to another identity",
-          );
-        customer = {
-          id: this.id(),
-          email: identity.email,
-          emailVerifiedAt: identity.verifiedAt,
-          status: "active" as const,
-          version: 1,
-          createdAt: at,
-          updatedAt: at,
-        };
-        await this.repo.createCustomer(s, customer);
-        await this.repo.createIdentity(
+        const existingCustomer = await this.repo.findCustomerByEmail(
           s,
-          {
-            id: this.id(),
-            customerId: customer.id,
-            provider: "google",
-            providerSubject: identity.subject,
-            providerEmail: identity.email,
-          },
-          at,
+          identity.email,
         );
+        if (existingCustomer !== undefined) {
+          customer = existingCustomer;
+          await this.repo.createIdentity(
+            s,
+            {
+              id: this.id(),
+              customerId: customer.id,
+              provider: "google",
+              providerSubject: identity.subject,
+              providerEmail: identity.email,
+            },
+            at,
+          );
+        } else {
+          customer = {
+            id: this.id(),
+            email: identity.email,
+            emailVerifiedAt: identity.verifiedAt,
+            status: "active" as const,
+            version: 1,
+            createdAt: at,
+            updatedAt: at,
+          };
+          await this.repo.createCustomer(s, customer);
+          await this.repo.createIdentity(
+            s,
+            {
+              id: this.id(),
+              customerId: customer.id,
+              provider: "google",
+              providerSubject: identity.subject,
+              providerEmail: identity.email,
+            },
+            at,
+          );
+        }
       }
       if (customer.status !== "active")
         throw new CustomerApplicationError(
@@ -105,6 +119,61 @@ export class CustomerAuthenticationService
         id: this.id(),
         actorId: customer.id,
         action: "customer.auth.login",
+        resourceType: "customer_session",
+        resourceId: session.id,
+        outcome: "success",
+        correlationId: session.id,
+        occurredAt: at,
+      });
+      return {
+        rawToken: token.raw,
+        principal: {
+          customerId: customer.id,
+          sessionId: session.id,
+          email: customer.email,
+          expiresAt: session.expiresAt,
+        },
+      };
+    });
+  }
+  async loginWithEmail(email: string, _fullName?: string) {
+    const cleanEmail = email.trim().toLowerCase();
+    const at = this.now();
+    return this.tx.run(async (s) => {
+      let customer = await this.repo.findCustomerByEmail(s, cleanEmail);
+      if (customer !== undefined) {
+        if (customer.status !== "active") {
+          throw new CustomerApplicationError(
+            "CUSTOMER_DISABLED",
+            "Customer is disabled",
+          );
+        }
+      } else {
+        customer = {
+          id: this.id(),
+          email: cleanEmail,
+          emailVerifiedAt: at,
+          status: "active" as const,
+          version: 1,
+          createdAt: at,
+          updatedAt: at,
+        };
+        await this.repo.createCustomer(s, customer);
+      }
+      const token = this.tokens.generate();
+      const session = {
+        id: this.id(),
+        customerId: customer.id,
+        tokenHash: token.hash,
+        expiresAt: sessionExpiresAt(at, CUSTOMER_SESSION_TTL_MS),
+        lastSeenAt: at,
+        createdAt: at,
+      };
+      await this.repo.createCustomerSession(s, session);
+      await this.audit.append(s, {
+        id: this.id(),
+        actorId: customer.id,
+        action: "customer.auth.login_email",
         resourceType: "customer_session",
         resourceId: session.id,
         outcome: "success",

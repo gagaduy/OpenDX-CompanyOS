@@ -49,6 +49,9 @@ export class MarketingArtifactServiceImpl implements MarketingArtifactService {
       throw MarketingApplicationError.campaignNotFound(campaignId);
     }
 
+    const existingArtifacts = await this.marketingRepository.findArtifactsByCampaignId(campaignId);
+    const existingByKind = new Map(existingArtifacts.map((artifact) => [artifact.kind, artifact]));
+
     const brief = await this.marketingRepository.findBriefByCampaignId(campaignId);
     if (!brief) {
       throw MarketingApplicationError.campaignNotFound(campaignId);
@@ -109,6 +112,12 @@ export class MarketingArtifactServiceImpl implements MarketingArtifactService {
     const results: MarketingArtifact[] = [];
 
     for (const item of generators) {
+      const existing = existingByKind.get(item.kind);
+      if (existing) {
+        results.push(existing);
+        continue;
+      }
+
       const generated = item.gen();
       const artifactId = this.generateId();
       const digest = createHash("sha256").update(generated.buffer).digest("hex");

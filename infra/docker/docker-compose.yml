@@ -13,6 +13,8 @@ x-api-environment: &api-environment
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   FACEBOOK_PAGE_ACCESS_TOKEN: ${FACEBOOK_PAGE_ACCESS_TOKEN:-}
   FACEBOOK_PAGE_ID: ${FACEBOOK_PAGE_ID:-}
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
   INSTAGRAM_PUBLICATION_MODE: ${INSTAGRAM_PUBLICATION_MODE:-simulation}
   INSTAGRAM_ACCOUNT_CONFIGURATION_ID: ${INSTAGRAM_ACCOUNT_CONFIGURATION_ID:-instagram-local-simulation}
   INSTAGRAM_BUSINESS_ACCOUNT_ID: ${INSTAGRAM_BUSINESS_ACCOUNT_ID:-}
@@ -193,6 +195,7 @@ services:
 
   temporal:
     image: temporalio/server:1.31.2@sha256:b5ecdb8282bededae2a10c36e8d862e27d0bc2d247fc73c5416025997ab4a1da
+    command: ["/bin/sh", "/opt/opendx/start-temporal-server.sh"]
     environment:
       DB: postgres12
       DB_PORT: "5432"
@@ -203,11 +206,15 @@ services:
       VISIBILITY_DBNAME: temporal_visibility
       DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
       TEMPORAL_ALLOW_NO_AUTH: "true"
+      TEMPORAL_DATABASE_WAIT_MAX_ATTEMPTS: "60"
     expose:
       - "7233"
     volumes:
       - ../temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+      - ../temporal/scripts/start-server.sh:/opt/opendx/start-temporal-server.sh:ro
     depends_on:
+      postgres:
+        condition: service_healthy
       temporal-schema:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -461,6 +468,7 @@ services:
       VITE_OIDC_CLIENT_ID: opendx-console
       VITE_OIDC_REDIRECT_URI: http://localhost:3000/auth/callback
       VITE_OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/sign-in
+      VITE_META_APP_ID: ${META_APP_ID:-}
     ports:
       - "3000:3000"
     volumes:

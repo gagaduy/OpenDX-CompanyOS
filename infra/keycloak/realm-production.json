@@ -4,6 +4,18 @@
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 31536000,
+  "ssoSessionIdleTimeout": 31536000,
+  "ssoSessionMaxLifespan": 31536000,
+  "ssoSessionIdleTimeoutRememberMe": 31536000,
+  "ssoSessionMaxLifespanRememberMe": 31536000,
+  "clientSessionIdleTimeout": 31536000,
+  "clientSessionMaxLifespan": 31536000,
+  "offlineSessionIdleTimeout": 31536000,
+  "offlineSessionMaxLifespan": 31536000,
+  "accessCodeLifespan": 3600,
+  "accessCodeLifespanUserAction": 3600,
+  "accessCodeLifespanLogin": 3600,
   "roles": {
     "realm": [
       {

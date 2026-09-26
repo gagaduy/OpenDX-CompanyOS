@@ -11,27 +11,27 @@ export interface OverviewPanelData {
 export const overviewPanels: readonly OverviewPanelData[] = [
   {
     label: "Mission Control",
-    value: "Company overview",
-    detail: "Goals, risks, approvals",
-    state: "alpha",
+    value: "Tổng quan điều hành",
+    detail: "Mục tiêu, rủi ro, phân quyền RBAC",
+    state: "live",
   },
   {
     label: "Digital Workforce",
-    value: "7 planned agents",
-    detail: "Governed by role and skill",
-    state: "planned",
+    value: "10 Digital Employees",
+    detail: "AI CEO, Marketing, CSKH, Kho hàng, Kế toán, CRM...",
+    state: "live",
   },
   {
     label: "Workflow Operations",
-    value: "Temporal boundary",
-    detail: "Durable execution planned",
-    state: "planned",
+    value: "Visual Workflow Studio",
+    detail: "3 Published business workflows (Marketing, CSKH, Kho)",
+    state: "live",
   },
   {
     label: "Approval Inbox",
     value: "Human-governed",
-    detail: "Risk actions wait for approval",
-    state: "planned",
+    detail: "Cổng duyệt bồi thường, ngân sách & phát hành",
+    state: "live",
   },
 ];
 

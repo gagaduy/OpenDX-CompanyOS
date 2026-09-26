@@ -36,5 +36,9 @@ export function createInventoryRouter(
   router.post("/ai-proposal", authenticate, controller.generateAiProposal);
   router.get("/ai-proposal/:proposalId/docx", authenticate, controller.getAiProposalDocx);
   router.post("/ai-proposal/:proposalId/apply", authenticate, controller.applyAiProposal);
+  router.get("/replenishment/pending", ...read, controller.getPendingReplenishment);
+  router.post("/replenishment/trigger-scan", ...read, controller.triggerReplenishmentScan);
+  router.post("/replenishment/:proposalId/apply", authenticate, controller.applyReplenishmentProposal);
+  router.post("/replenishment/:proposalId/dismiss", authenticate, controller.dismissReplenishmentProposal);
   return router;
 }
