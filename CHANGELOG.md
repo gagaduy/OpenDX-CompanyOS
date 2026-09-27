@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Digital Employees & Console Navigation Polish:
+  - Removed "Alpha" badge from "Company Overview" in Console sidebar navigation, presenting the company operating core as fully operational.
+  - Automatically selected the first Digital Employee (`ai_ceo`) upon loading the `/agentic/employees` workforce directory, ensuring the governance panel immediately displays comprehensive configuration, tools, and execution evidence without requiring extra manual selection.
+
 - Authentic Vietnamese Customer Demographics & Realistic Order History Synchronization:
   - Replaced generic placeholder customer profiles (`customer-demo-XX@example.invalid` / `Dashboard Demo Customer XX`) with 40 authentic Vietnamese identities (`VIETNAM_CUSTOMERS`) containing real full names (e.g. Võ Thanh Hà, Vũ Đình Trọng, Cao Bích Ngọc, Ngô Quang Huy), realistic Vietnamese email addresses, authentic phone numbers, and street addresses across Hanoi, Ho Chi Minh City, Da Nang, Can Tho, and Hai Phong.
   - Linked all demo orders, customer LTV buckets, and CRM 360 histories to these authentic profiles, providing realistic customer directories (`/customers`), customer detail 360 views (`/crm/customers/:id`), and order fulfillment logs.

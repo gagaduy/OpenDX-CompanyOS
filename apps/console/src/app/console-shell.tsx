@@ -97,7 +97,7 @@ export function ConsoleShell() {
       label: "Overview",
       items: [
         { to: "/dashboard", label: "Dashboard", icon: BarChart3, visible: canReadDashboard },
-        { to: "/company-overview", label: "Company Overview", icon: Building2, visible: true, alpha: true },
+        { to: "/company-overview", label: "Company Overview", icon: Building2, visible: true },
       ],
     },
     {

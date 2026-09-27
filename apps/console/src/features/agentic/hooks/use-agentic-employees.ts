@@ -11,7 +11,21 @@ export function useAgenticEmployees(api: AgenticApi) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const select = useCallback(async (kind: AgentKind, signal?: AbortSignal) => { setError(undefined); try { setDetail(await api.loadEmployee(kind, signal)); } catch (cause) { if (!(cause instanceof DOMException && cause.name === "AbortError")) setError("Digital Employee detail could not be loaded."); } }, [api]);
-  useEffect(() => { const request = new AbortController(); void api.listEmployees(request.signal).then(setEmployees).catch((cause) => { if (!(cause instanceof DOMException && cause.name === "AbortError")) setError("Digital Employees could not be loaded."); }).finally(() => setLoading(false)); return () => request.abort(); }, [api]);
+  useEffect(() => {
+    const request = new AbortController();
+    void api.listEmployees(request.signal)
+      .then((data) => {
+        setEmployees(data);
+        if (data.length > 0) {
+          void select(data[0].kind, request.signal);
+        }
+      })
+      .catch((cause) => {
+        if (!(cause instanceof DOMException && cause.name === "AbortError")) setError("Digital Employees could not be loaded.");
+      })
+      .finally(() => setLoading(false));
+    return () => request.abort();
+  }, [api, select]);
   return { employees, detail, loading, error, select };
 }
 
