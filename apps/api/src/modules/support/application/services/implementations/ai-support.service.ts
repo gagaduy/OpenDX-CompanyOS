@@ -308,18 +308,18 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
       if (compLower.includes("miễn phí vận chuyển") || compLower.includes("freeship")) {
         estimatedAmount = 30_000;
       } else if (compLower.includes("care+") || compLower.includes("bảo hành vàng") || compLower.includes("bảo hành")) {
-        const cashMatch = compLower.match(/(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i);
+        const cashMatch = compLower.match(/(\d[\d.,]*)\s*(?:k|000|đ|₫|vnd)(?:\s|$|[^\p{L}])/iu);
         let cash = 500_000;
         if (cashMatch) {
-          cash = parseInt(cashMatch[1].replace(/\./g, ""), 10);
-          if (cashMatch[0].includes("k") && cash < 1000) cash *= 1000;
+          cash = parseInt(cashMatch[1].replace(/[.,]/g, ""), 10);
+          if (cashMatch[0].toLowerCase().includes("k") && cash < 1000) cash *= 1000;
         }
         estimatedAmount = cash;
       } else if (compLower.includes("tối đa")) {
-        const capMatch = compLower.match(/tối đa\s*(\d+(?:\.\d+)?)\s*(?:k|000|đ|vnd)/i);
+        const capMatch = compLower.match(/tối đa\s*(\d[\d.,]*)\s*(?:k|000|đ|₫|vnd)(?:\s|$|[^\p{L}])/iu);
         if (capMatch) {
-          let cap = parseInt(capMatch[1].replace(/\./g, ""), 10);
-          if (capMatch[0].includes("k") && cap < 1000) cap *= 1000;
+          let cap = parseInt(capMatch[1].replace(/[.,]/g, ""), 10);
+          if (capMatch[0].toLowerCase().includes("k") && cashMatch && cap < 1000) cap *= 1000;
           estimatedAmount = cap;
         } else {
           estimatedAmount = 300_000;
@@ -410,6 +410,21 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
       }
     }
     if (latest) return latest;
+
+    // Check if there are active open tickets waiting for resolution
+    try {
+      const openTicketsCheck = await this.database.query<{ count: string }>(
+        `SELECT count(*)::text as count FROM support_tickets WHERE status NOT IN ('resolved', 'closed')`,
+      );
+      const openCount = parseInt(openTicketsCheck.rows[0]?.count, 10);
+      if (openCount > 0 && !isNaN(openCount)) {
+        return await this.generateSupportProposal({
+          prompt: "Phân tích phiếu khiếu nại khách hàng và lập phương án bồi thường",
+        });
+      }
+    } catch (err) {
+      console.warn("Could not check open tickets in getLatestSupportProposal:", err);
+    }
 
     const persisted = await this.database.query<{
       proposal_id: string;
