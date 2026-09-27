@@ -53,6 +53,7 @@ function applyLiveDataToWorkflow(
   base: BusinessWorkflowDefinition,
   proposal: AiSupportProposalView | null,
   marketingCampaign: MarketingCampaignDetail | null,
+  ticketIndex: number = 0,
 ): BusinessWorkflowDefinition {
   if (base.status === "draft") {
     return base;
@@ -62,7 +63,7 @@ function applyLiveDataToWorkflow(
     base.code === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.code
   ) {
     if (proposal && proposal.tickets.length > 0) {
-      return createLiveWorkflowFromAiProposal(proposal, base);
+      return createLiveWorkflowFromAiProposal(proposal, base, ticketIndex);
     }
   } else if (
     base.id === MARKETING_LAUNCH_WORKFLOW_FIXTURE.id ||
@@ -133,6 +134,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
     return matched ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE;
   });
   const [currentProposal, setCurrentProposal] = useState<AiSupportProposalView | null>(null);
+  const [selectedTicketIndex, setSelectedTicketIndex] = useState<number>(0);
   const [currentMarketingCampaign, setCurrentMarketingCampaign] = useState<MarketingCampaignDetail | null>(null);
   const [dataSource, setDataSource] = useState<"live" | "fixture">("fixture");
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
@@ -173,7 +175,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
     }
 
     setIsDraft(hasLocalDraft);
-    const hydrated = hasLocalDraft ? target : applyLiveDataToWorkflow(target, currentProposal, currentMarketingCampaign);
+    const hydrated = hasLocalDraft ? target : applyLiveDataToWorkflow(target, currentProposal, currentMarketingCampaign, selectedTicketIndex);
     setDataSource(hydrated !== target ? "live" : "fixture");
     setActiveWorkflow(hydrated);
   };
@@ -258,7 +260,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
           setDataSource("live");
           setActiveWorkflow((prev) => {
             if (selectedWorkflowId === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id) {
-              return createLiveWorkflowFromAiProposal(latest, prev);
+              return createLiveWorkflowFromAiProposal(latest, prev, selectedTicketIndex);
             }
             return prev;
           });
@@ -277,7 +279,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
             setDataSource("live");
             setActiveWorkflow((prev) => {
               if (selectedWorkflowId === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id) {
-                return createLiveWorkflowFromAiProposal(generated, prev);
+                return createLiveWorkflowFromAiProposal(generated, prev, selectedTicketIndex);
               }
               return prev;
             });
@@ -335,11 +337,11 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
   const handleApprove = async () => {
     if (selectedWorkflowId === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id && supportApi && currentProposal && currentProposal.tickets.length > 0) {
       try {
-        const firstTicket = currentProposal.tickets[0];
+        const targetTicket = currentProposal.tickets[selectedTicketIndex] ?? currentProposal.tickets[0];
         await supportApi.applySupportProposal(currentProposal.id, [
           {
-            ticketId: firstTicket.ticketId,
-            responseMessage: firstTicket.proposedResponse,
+            ticketId: targetTicket.ticketId,
+            responseMessage: targetTicket.proposedResponse,
             resolutionStatus: "resolved",
           },
         ]);
@@ -348,7 +350,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
           status: "applied",
         };
         setCurrentProposal(updatedProposal);
-        setActiveWorkflow(createLiveWorkflowFromAiProposal(updatedProposal, activeWorkflow));
+        setActiveWorkflow(createLiveWorkflowFromAiProposal(updatedProposal, activeWorkflow, selectedTicketIndex));
       } catch (err) {
         console.error("Live approval error, falling back to local state:", err);
       }
@@ -697,6 +699,35 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
           </button>
         </div>
       </header>
+
+      {selectedWorkflowId === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id && currentProposal && currentProposal.tickets.length > 1 && (
+        <nav className="workflowCaseSelectorBar" aria-label="Lựa chọn tình huống khiếu nại CSKH demo">
+          <span className="caseSelectorLabel">Tình huống CSKH Demo:</span>
+          <div className="caseSelectorTabs">
+            {currentProposal.tickets.map((t, idx) => {
+              const isUrgent = t.priority === "urgent" || t.requiresApproval;
+              return (
+                <button
+                  key={t.ticketId}
+                  type="button"
+                  className={`caseTabButton ${selectedTicketIndex === idx ? "active" : ""}`}
+                  onClick={() => {
+                    setSelectedTicketIndex(idx);
+                    setActiveWorkflow(createLiveWorkflowFromAiProposal(currentProposal, activeWorkflow, idx));
+                  }}
+                  aria-pressed={selectedTicketIndex === idx}
+                >
+                  <span className={`caseBadge ${isUrgent ? "approval" : "auto"}`}>
+                    {isUrgent ? "Vượt trần • Cần Sếp duyệt" : "Trong hạn mức • Tự động 30s"}
+                  </span>
+                  <strong className="caseCustomerName">Ca {idx + 1}: {t.customerName}</strong>
+                  <span className="caseSubjectSnippet">&ndash; {t.subject}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       {draftSuccessMsg && (
         <div className="publishAlertBanner publishSuccessBanner" role="status">

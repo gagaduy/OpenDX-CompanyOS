@@ -11,6 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- CSKH Customer Service Demo Cases & Live Workflow Routing:
+  - Seeded 2 authentic, realistic customer complaint cases in PostgreSQL `support_tickets` and `support_ticket_messages` linked to actual customer profiles and high-value orders:
+    - **Ca 1 (Vượt trần > 200k • Cần Sếp duyệt)**: Khách hàng VIP Diamond Cao Bích Ngọc (`ngoc.cao.edu@gmail.com`) khiếu nại máy Nova Laptop Pro (đơn hàng NVC-20260919-00000016 trị giá 33.040.000 ₫) bị lỗi sọc màn hình và sập nguồn khi đang giảng dạy. AI Support Steward nhận diện mức độ bức xúc và đề xuất bồi thường gói Bảo hành Vàng Care+ 1 năm & Voucher 500.000 ₫ (> hạn mức tự duyệt 200.000 ₫), tự động phân luồng rẽ nhánh sang Bước 4B Chờ Sếp duyệt (`waiting_approval`).
+    - **Ca 2 (Trong hạn mức ≤ 200k • Tự động xử lý 100%)**: Khách hàng Ngô Quang Huy (`huy.ngo.design@gmail.com`) phản ánh đơn hàng NVC-20260916-00000031 bị giao trễ 2 ngày và không có thông báo hành trình. AI Support Steward đề xuất mã Freeship 30.000 ₫ (≤ 200.000 ₫), tự động phân luồng sang Bước 4A Tự Động Xử Lý và hoàn tất trong vòng 30 giây mà không cần làm phiền Sếp.
+  - Implemented interactive Case Selector Tab Bar in `WorkflowStudioPage` (`apps/console/src/features/workflows/pages/workflow-studio-page.tsx`) with sleek enterprise SaaS badge styling, enabling operators and presenters to switch between Case 1 and Case 2 in real time, with the live n8n-style graph instantly adapting its routing, highlights, and approval gates.
+  - Hardened currency and dong symbol (`₫`, `đ`, `vnd`) regex matching and auto-approval threshold enforcement in `AiSupportService.ts` and `types.ts`, ensuring compensation amounts like `500.000 ₫` are accurately calculated and routed to approval.
+  - Updated auto-approval threshold in `workflow_blueprints` in PostgreSQL to standard `200.000 đ`.
+  - Added self-healing auto-generation fallback in `AiSupportService.getLatestSupportProposal`: automatically creates active AI proposals for open customer tickets when cache is empty, ensuring seamless live presentation across server reloads.
+
 - Customer & CRM Modern Workspace Redesign:
   - Designed and built dedicated modern stylesheet (`apps/console/src/features/customers/styles/customers.css`) with sleek dark aesthetics, subtle gradients, and enterprise typography for customer and CRM workspaces.
   - Added executive KPI metric summary cards at the top of the Customer Directory (`CustomerListPage`): Total Identified Customers, High-Value VIPs (LTV ≥ 50Tr), Repeat Buyers (≥ 2 orders), and New Accounts.

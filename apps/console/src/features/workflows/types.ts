@@ -573,8 +573,9 @@ export const ALL_WORKFLOW_DEFINITIONS: readonly BusinessWorkflowDefinition[] = [
 export function createLiveWorkflowFromAiProposal(
   proposal: AiSupportProposalView,
   baseWorkflow: BusinessWorkflowDefinition = CUSTOMER_RECOVERY_WORKFLOW_FIXTURE,
+  selectedTicketIndex: number = 0,
 ): BusinessWorkflowDefinition {
-  const firstTicket = proposal.tickets[0];
+  const firstTicket = proposal.tickets[selectedTicketIndex] ?? proposal.tickets[0];
   if (!firstTicket) {
     return baseWorkflow;
   }
@@ -609,23 +610,33 @@ export function createLiveWorkflowFromAiProposal(
 
   // Determine if compensation is within auto-approval threshold
   let compensationVnd = 300000;
-  const matchDigits = firstTicket.suggestedCompensation?.match(/(\d+[\d.,]*)\s*([kKđĐ]|nghìn|triệu|VND)?/);
-  if (matchDigits) {
-    const rawNum = parseInt(matchDigits[1].replace(/[.,]/g, ""), 10);
-    if (!isNaN(rawNum)) {
-      if (matchDigits[2]?.toLowerCase() === "k" || matchDigits[2]?.toLowerCase() === "nghìn") {
-        compensationVnd = rawNum * 1000;
-      } else if (matchDigits[2]?.toLowerCase() === "triệu") {
-        compensationVnd = rawNum * 1000000;
-      } else if (firstTicket.suggestedCompensation?.includes("%") || (rawNum < 1000 && !matchDigits[2])) {
-        compensationVnd = 300000;
-      } else {
-        compensationVnd = rawNum;
+  if (
+    typeof firstTicket.estimatedCompensationAmount === "number" &&
+    firstTicket.estimatedCompensationAmount > 0
+  ) {
+    compensationVnd = firstTicket.estimatedCompensationAmount;
+  } else {
+    const matchDigits = firstTicket.suggestedCompensation?.match(/(\d+[\d.,]*)\s*([kKđĐ₫]|nghìn|triệu|VND)?/i);
+    if (matchDigits) {
+      const rawNum = parseInt(matchDigits[1].replace(/[.,]/g, ""), 10);
+      if (!isNaN(rawNum)) {
+        if (matchDigits[2]?.toLowerCase() === "k" || matchDigits[2]?.toLowerCase() === "nghìn") {
+          compensationVnd = rawNum * 1000;
+        } else if (matchDigits[2]?.toLowerCase() === "triệu") {
+          compensationVnd = rawNum * 1000000;
+        } else if (firstTicket.suggestedCompensation?.includes("%") || (rawNum < 1000 && !matchDigits[2])) {
+          compensationVnd = 300000;
+        } else {
+          compensationVnd = rawNum;
+        }
       }
     }
   }
 
-  const isAutoEligible = compensationVnd <= threshold;
+  const isAutoEligible =
+    typeof firstTicket.requiresApproval === "boolean"
+      ? !firstTicket.requiresApproval
+      : compensationVnd <= threshold;
   const isDecisionApproved = isApproved || node4bBase?.status === "completed";
 
   const node1: BusinessWorkflowNode = {
