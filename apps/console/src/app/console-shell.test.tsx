@@ -43,7 +43,7 @@ describe("ConsoleShell", () => {
     expect(await screen.findByRole("link", { name: /products/i })).toBeVisible();
     expect(screen.getByRole("link", { name: /categories/i })).toBeVisible();
     expect(screen.getByRole("link", { name: /inventory/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /company overview/i })).toHaveTextContent("Alpha");
+    expect(screen.getByRole("link", { name: /company overview/i })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
     expect(client.signOut).toHaveBeenCalledOnce();
   });

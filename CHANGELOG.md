@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Customer & CRM Modern Workspace Redesign:
+  - Designed and built dedicated modern stylesheet (`apps/console/src/features/customers/styles/customers.css`) with sleek dark aesthetics, subtle gradients, and enterprise typography for customer and CRM workspaces.
+  - Added executive KPI metric summary cards at the top of the Customer Directory (`CustomerListPage`): Total Identified Customers, High-Value VIPs (LTV ≥ 50Tr), Repeat Buyers (≥ 2 orders), and New Accounts.
+  - Implemented interactive quick segment filter pills alongside the search bar, enabling instant segment filtering ("Tất cả", "VIP / Giá trị cao", "Khách quen", "Khách mới", "Mua lần đầu") with live customer counts.
+  - Redesigned `CustomerTable` with deterministic colorful avatar initials, active/disabled status pills with live dot indicators, formatted Vietnamese phone numbers, calendar date chips, and modern action links.
+  - Redesigned `CustomerDetailPage` (Customer 360): integrated financial KPI cards (Lifetime Value in VND, Paid Orders count, Average Order Value, Latest Purchase date), modern Customer Profile card, formatted Shipping Addresses cards with location pins, enhanced Follow-up task cards with status and claim action, and an Order History list.
+
 - Persistent Workflow Blueprints & Non-Destructive Container Restarts:
   - Created standalone idempotent seed `seedWorkflowBlueprints` (`apps/api/src/modules/agentic/infrastructure/seeds/workflow-blueprint.seed.ts`) and registered `db:seed:workflows` in `apps/api/package.json` under `db:seed:all`, resolving blueprint reset issues caused by the docker compose `seed` service running on every `make up`.
   - Implemented smart `ON CONFLICT (code) DO UPDATE` query protecting `nodes`, `edges`, and `policy_rules` from being overwritten when non-empty, guaranteeing that user customizations, newly published versions (e.g. `v1.1`, `v2.0`), and custom parameters in PostgreSQL persist permanently across `make up`, database restarts, and container reloads.
