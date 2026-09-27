@@ -54,6 +54,9 @@ function applyLiveDataToWorkflow(
   proposal: AiSupportProposalView | null,
   marketingCampaign: MarketingCampaignDetail | null,
 ): BusinessWorkflowDefinition {
+  if (base.status === "draft") {
+    return base;
+  }
   if (
     base.id === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id ||
     base.code === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.code
@@ -73,41 +76,70 @@ function applyLiveDataToWorkflow(
 }
 
 const LAST_SELECTED_WORKFLOW_KEY = "opendx_workflow_studio_selected_id";
+const DRAFT_WORKFLOW_STORAGE_PREFIX = "opendx_workflow_draft_";
+
+const isBrowserStorageAvailable =
+  typeof window !== "undefined" &&
+  Boolean(window.localStorage) &&
+  import.meta.env.MODE !== "test";
+
+function safeGetItem(key: string): string | null {
+  if (!isBrowserStorageAvailable) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  if (!isBrowserStorageAvailable) return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  if (!isBrowserStorageAvailable) return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
 
 export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: WorkflowStudioPageProps = {}) {
   const [workflowsList, setWorkflowsList] = useState<readonly BusinessWorkflowDefinition[]>(ALL_WORKFLOW_DEFINITIONS);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>(() => {
-    try {
-      if (typeof window !== "undefined" && import.meta.env.MODE !== "test") {
-        return (
-          window.localStorage.getItem(LAST_SELECTED_WORKFLOW_KEY) ??
-          CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id
-        );
-      }
-    } catch {
-      // fallback
-    }
-    return CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id;
+    return safeGetItem(LAST_SELECTED_WORKFLOW_KEY) ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id;
   });
   const [activeWorkflow, setActiveWorkflow] = useState<BusinessWorkflowDefinition>(() => {
-    try {
-      if (typeof window !== "undefined" && import.meta.env.MODE !== "test") {
-        const savedId = window.localStorage.getItem(LAST_SELECTED_WORKFLOW_KEY);
-        if (savedId) {
-          const matched = ALL_WORKFLOW_DEFINITIONS.find((w) => w.id === savedId);
-          if (matched) return matched;
+    const savedId = safeGetItem(LAST_SELECTED_WORKFLOW_KEY) ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id;
+    const savedDraftJson = safeGetItem(DRAFT_WORKFLOW_STORAGE_PREFIX + savedId);
+    if (savedDraftJson) {
+      try {
+        const parsed = JSON.parse(savedDraftJson);
+        if (parsed && Array.isArray(parsed.nodes) && parsed.nodes.length > 0) {
+          const matched = ALL_WORKFLOW_DEFINITIONS.find((w) => w.id === savedId) ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE;
+          return { ...matched, ...parsed, status: "draft" };
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // fallback
     }
-    return CUSTOMER_RECOVERY_WORKFLOW_FIXTURE;
+    const matched = ALL_WORKFLOW_DEFINITIONS.find((w) => w.id === savedId);
+    return matched ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE;
   });
   const [currentProposal, setCurrentProposal] = useState<AiSupportProposalView | null>(null);
   const [currentMarketingCampaign, setCurrentMarketingCampaign] = useState<MarketingCampaignDetail | null>(null);
   const [dataSource, setDataSource] = useState<"live" | "fixture">("fixture");
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [isDraft, setIsDraft] = useState<boolean>(false);
+  const [isDraft, setIsDraft] = useState<boolean>(() => {
+    const savedId = safeGetItem(LAST_SELECTED_WORKFLOW_KEY) ?? CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id;
+    return Boolean(safeGetItem(DRAFT_WORKFLOW_STORAGE_PREFIX + savedId));
+  });
   const [activeEdges, setActiveEdges] = useState<Edge[]>([]);
   const [publishError, setPublishError] = useState<WorkflowValidationResult | null>(null);
   const [publishSuccessMsg, setPublishSuccessMsg] = useState<string | null>(null);
@@ -116,22 +148,32 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
   // Switch workflow when user selects a different blueprint
   const handleSelectWorkflow = (workflowId: string) => {
     setSelectedWorkflowId(workflowId);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(LAST_SELECTED_WORKFLOW_KEY, workflowId);
-      }
-    } catch {
-      // ignore
-    }
-    setIsDraft(false);
+    safeSetItem(LAST_SELECTED_WORKFLOW_KEY, workflowId);
     setPublishError(null);
     setPublishSuccessMsg(null);
     setDraftSuccessMsg(null);
-    const target =
+
+    let target =
       workflowsList.find((w) => w.id === workflowId) ??
       ALL_WORKFLOW_DEFINITIONS.find((w) => w.id === workflowId) ??
       CUSTOMER_RECOVERY_WORKFLOW_FIXTURE;
-    const hydrated = applyLiveDataToWorkflow(target, currentProposal, currentMarketingCampaign);
+
+    let hasLocalDraft = false;
+    const savedDraftJson = safeGetItem(DRAFT_WORKFLOW_STORAGE_PREFIX + workflowId);
+    if (savedDraftJson) {
+      try {
+        const parsed = JSON.parse(savedDraftJson);
+        if (parsed && Array.isArray(parsed.nodes) && parsed.nodes.length > 0) {
+          target = { ...target, ...parsed, status: "draft" };
+          hasLocalDraft = true;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    setIsDraft(hasLocalDraft);
+    const hydrated = hasLocalDraft ? target : applyLiveDataToWorkflow(target, currentProposal, currentMarketingCampaign);
     setDataSource(hydrated !== target ? "live" : "fixture");
     setActiveWorkflow(hydrated);
   };
@@ -166,25 +208,31 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
           });
         });
 
-        // Update activeWorkflow if remote has published/draft updates
+        // Update activeWorkflow if remote has published/draft updates and no local unsaved edits
         const activeRemote = blueprints.find(
           (b) => b.id === selectedWorkflowId || b.code === activeWorkflow.code
         );
         if (activeRemote) {
-          setActiveWorkflow((prev) => {
-            const merged: BusinessWorkflowDefinition = {
-              ...prev,
-              ...activeRemote,
-              nodes: (activeRemote.nodes && activeRemote.nodes.length > 0)
-                ? (activeRemote.nodes as BusinessWorkflowNode[])
-                : prev.nodes,
-              edges: (activeRemote.edges && activeRemote.edges.length > 0)
-                ? (activeRemote.edges as WorkflowEdgeDefinition[])
-                : prev.edges,
-              policyRules: activeRemote.policyRules ?? prev.policyRules,
-            };
-            return applyLiveDataToWorkflow(merged, currentProposal, currentMarketingCampaign);
-          });
+          const hasLocalDraft = Boolean(
+            safeGetItem(DRAFT_WORKFLOW_STORAGE_PREFIX + (activeRemote.id || selectedWorkflowId))
+          );
+
+          if (!hasLocalDraft) {
+            setActiveWorkflow((prev) => {
+              const merged: BusinessWorkflowDefinition = {
+                ...prev,
+                ...activeRemote,
+                nodes: (activeRemote.nodes && activeRemote.nodes.length > 0)
+                  ? (activeRemote.nodes as BusinessWorkflowNode[])
+                  : prev.nodes,
+                edges: (activeRemote.edges && activeRemote.edges.length > 0)
+                  ? (activeRemote.edges as WorkflowEdgeDefinition[])
+                  : prev.edges,
+                policyRules: activeRemote.policyRules ?? prev.policyRules,
+              };
+              return applyLiveDataToWorkflow(merged, currentProposal, currentMarketingCampaign);
+            });
+          }
         }
       } catch (err) {
         console.warn("Could not load workflow blueprints from backend:", err);
@@ -332,6 +380,8 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
     setIsDraft(false);
     setPublishError(null);
     setPublishSuccessMsg(null);
+    safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + selectedWorkflowId);
+    safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + activeWorkflow.id);
     if (dataSource === "live" && currentProposal && selectedWorkflowId === CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.id) {
       const resetProposal: AiSupportProposalView = {
         ...currentProposal,
@@ -355,11 +405,23 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
     }, 1500);
   };
 
+  const handleWorkflowStateChange = useCallback((updated: BusinessWorkflowDefinition) => {
+    setActiveWorkflow(updated);
+    safeSetItem(
+      DRAFT_WORKFLOW_STORAGE_PREFIX + updated.id,
+      JSON.stringify(updated),
+    );
+  }, []);
+
   const handleWorkflowEdited = useCallback(() => {
     setIsDraft(true);
     setPublishSuccessMsg(null);
     setDraftSuccessMsg(null);
-  }, []);
+    safeSetItem(
+      DRAFT_WORKFLOW_STORAGE_PREFIX + activeWorkflow.id,
+      JSON.stringify({ ...activeWorkflow, status: "draft" }),
+    );
+  }, [activeWorkflow]);
 
   const handleSaveDraft = async () => {
     const edgePairs: WorkflowEdgeDefinition[] = activeEdges.map((e) => ({
@@ -412,12 +474,14 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
           setActiveWorkflow(updated);
           setWorkflowsList((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
         }
+        safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + activeWorkflow.id);
         setDraftSuccessMsg(`Đã lưu bản nháp quy trình "${activeWorkflow.name}" vào cơ sở dữ liệu!`);
         setTimeout(() => setDraftSuccessMsg(null), 3000);
       } catch (err) {
         console.error("Failed to save draft to backend:", err);
       }
     } else {
+      safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + activeWorkflow.id);
       setDraftSuccessMsg("Đã lưu bản nháp cục bộ thành công!");
       setTimeout(() => setDraftSuccessMsg(null), 3000);
     }
@@ -496,8 +560,10 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
     setWorkflowsList((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
     setIsDraft(false);
     setPublishError(null);
+    safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + activeWorkflow.id);
+    safeRemoveItem(DRAFT_WORKFLOW_STORAGE_PREFIX + updated.id);
     setPublishSuccessMsg(
-      `Quy trình "${updated.name}" (${updated.code}) đã được xuất bản và kích hoạt thành công sang phiên bản ${nextVer}!`
+      `Quy trình "${updated.name}" (${updated.code}) đã được xuất bản và kích hoạt thành công sang phiên bản ${nextVer}!`,
     );
   };
 
@@ -701,7 +767,7 @@ export function WorkflowStudioPage({ supportApi, workflowApi, marketingApi }: Wo
       <WorkflowCanvas
         key={`${activeWorkflow.id}-${dataSource}-${waitingNode ? "waiting" : "ready"}`}
         workflow={activeWorkflow}
-        onWorkflowStateChange={setActiveWorkflow}
+        onWorkflowStateChange={handleWorkflowStateChange}
         onWorkflowEdited={handleWorkflowEdited}
         onEdgesUpdated={setActiveEdges}
         onApprove={handleApprove}

@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Persistent Workflow Blueprints & Non-Destructive Container Restarts:
+  - Created standalone idempotent seed `seedWorkflowBlueprints` (`apps/api/src/modules/agentic/infrastructure/seeds/workflow-blueprint.seed.ts`) and registered `db:seed:workflows` in `apps/api/package.json` under `db:seed:all`, resolving blueprint reset issues caused by the docker compose `seed` service running on every `make up`.
+  - Implemented smart `ON CONFLICT (code) DO UPDATE` query protecting `nodes`, `edges`, and `policy_rules` from being overwritten when non-empty, guaranteeing that user customizations, newly published versions (e.g. `v1.1`, `v2.0`), and custom parameters in PostgreSQL persist permanently across `make up`, database restarts, and container reloads.
+  - Populated complete default fixtures with explicit nodes, explicit directed edges, and policy rules for all 3 flagship blueprints (`WF-CSKH-RECOVERY`, `WF-MKT-LAUNCH`, `WF-INV-REPLENISH`) in PostgreSQL and Console `types.ts`.
+  - Hardened live proposal and marketing campaign dynamic hydration (`createLiveWorkflowFromAiProposal` & `createLiveWorkflowFromMarketingCampaign`): dynamic compensation evaluations respect configured `policyRules.auto_approval_threshold`, percentage vouchers properly route to approval gate, and previously approved or completed node states are preserved.
+  - Added safe local draft storage helpers with test environment isolation in `workflow-studio-page.tsx`, preventing canvas unsaved changes from vanishing on reload and preventing Vitest test runners from cross-contaminating draft state.
+
 - Digital Employees Metric Formatting & Business-Friendly Conversion:
   - Converted raw internal micro-dollar units (`µ`) into clean USD and Vietnamese Dong equivalents (e.g., `$0.100 USD (~2,540 ₫)`, `$1.00 USD (~25,400 ₫)`, `$10.00 USD (~254,000 ₫)`).
   - Formatted raw ISO timestamp strings into localized date-time values (`HH:mm:ss DD/MM/YYYY`) in governance summaries and recent execution logs.

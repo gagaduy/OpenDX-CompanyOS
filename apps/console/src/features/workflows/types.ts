@@ -264,6 +264,17 @@ export const CUSTOMER_RECOVERY_WORKFLOW_FIXTURE: BusinessWorkflowDefinition = {
       ],
     },
   ],
+  edges: [
+    { source: "node-1-event", target: "node-2-ai-analysis" },
+    { source: "node-2-ai-analysis", target: "node-3-decision" },
+    { source: "node-3-decision", target: "node-4a-auto", sourceHandle: "auto", label: "Tự động ≤ 200k" },
+    { source: "node-3-decision", target: "node-4b-approval", sourceHandle: "approval", label: "Cần Sếp duyệt > 200k" },
+  ],
+  policyRules: {
+    auto_approval_threshold: 200000,
+    currency: "VND",
+    approval_gate_role: "support_manager",
+  },
 };
 
 export const MARKETING_LAUNCH_WORKFLOW_FIXTURE: BusinessWorkflowDefinition = {
@@ -380,6 +391,17 @@ export const MARKETING_LAUNCH_WORKFLOW_FIXTURE: BusinessWorkflowDefinition = {
       },
     },
   ],
+  edges: [
+    { source: "mkt-1-event", target: "mkt-2-content" },
+    { source: "mkt-2-content", target: "mkt-3-approval" },
+    { source: "mkt-3-approval", target: "mkt-4-publish" },
+  ],
+  policyRules: {
+    mandatory_approval: true,
+    paid_budget_threshold: 0,
+    currency: "VND",
+    approval_gate_role: "content_lead",
+  },
 };
 
 export const INVENTORY_REPLENISH_WORKFLOW_FIXTURE: BusinessWorkflowDefinition = {
@@ -529,6 +551,17 @@ export const INVENTORY_REPLENISH_WORKFLOW_FIXTURE: BusinessWorkflowDefinition = 
       ],
     },
   ],
+  edges: [
+    { source: "inv-1-event", target: "inv-2-ai-analysis" },
+    { source: "inv-2-ai-analysis", target: "inv-3-decision" },
+    { source: "inv-3-decision", target: "inv-4a-auto", sourceHandle: "auto", label: "Đơn nhỏ ≤ 10Tr" },
+    { source: "inv-3-decision", target: "inv-4b-approval", sourceHandle: "approval", label: "Đơn lớn > 10Tr" },
+  ],
+  policyRules: {
+    auto_po_threshold: 10000000,
+    currency: "VND",
+    approval_gate_role: "finance_director",
+  },
 };
 
 export const ALL_WORKFLOW_DEFINITIONS: readonly BusinessWorkflowDefinition[] = [
@@ -548,8 +581,55 @@ export function createLiveWorkflowFromAiProposal(
 
   const isApproved = proposal.status === "applied";
 
+  const node1Base =
+    baseWorkflow.nodes.find((n) => n.id === "node-1-event" || n.type === "event") ??
+    baseWorkflow.nodes[0] ??
+    CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.nodes[0];
+  const node2Base =
+    baseWorkflow.nodes.find((n) => n.id === "node-2-ai-analysis" || n.type === "ai_analysis") ??
+    baseWorkflow.nodes[1] ??
+    CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.nodes[1];
+  const node3Base =
+    baseWorkflow.nodes.find((n) => n.id === "node-3-decision" || n.type === "decision_router") ??
+    baseWorkflow.nodes[2] ??
+    CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.nodes[2];
+  const node4aBase =
+    baseWorkflow.nodes.find((n) => n.id === "node-4a-auto" || n.id === "node-4a-action-auto") ??
+    baseWorkflow.nodes[3] ??
+    CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.nodes[3];
+  const node4bBase =
+    baseWorkflow.nodes.find((n) => n.id === "node-4b-approval" || n.id === "node-4b-approval-gate") ??
+    baseWorkflow.nodes[4] ??
+    CUSTOMER_RECOVERY_WORKFLOW_FIXTURE.nodes[4];
+
+  // Resolve threshold dynamically from workflow policyRules
+  const rawThreshold = baseWorkflow.policyRules?.auto_approval_threshold;
+  const threshold = typeof rawThreshold === "number" ? rawThreshold : 200000;
+  const thresholdFormatted = `${threshold.toLocaleString("vi-VN")} đ`;
+
+  // Determine if compensation is within auto-approval threshold
+  let compensationVnd = 300000;
+  const matchDigits = firstTicket.suggestedCompensation?.match(/(\d+[\d.,]*)\s*([kKđĐ]|nghìn|triệu|VND)?/);
+  if (matchDigits) {
+    const rawNum = parseInt(matchDigits[1].replace(/[.,]/g, ""), 10);
+    if (!isNaN(rawNum)) {
+      if (matchDigits[2]?.toLowerCase() === "k" || matchDigits[2]?.toLowerCase() === "nghìn") {
+        compensationVnd = rawNum * 1000;
+      } else if (matchDigits[2]?.toLowerCase() === "triệu") {
+        compensationVnd = rawNum * 1000000;
+      } else if (firstTicket.suggestedCompensation?.includes("%") || (rawNum < 1000 && !matchDigits[2])) {
+        compensationVnd = 300000;
+      } else {
+        compensationVnd = rawNum;
+      }
+    }
+  }
+
+  const isAutoEligible = compensationVnd <= threshold;
+  const isDecisionApproved = isApproved || node4bBase?.status === "completed";
+
   const node1: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[0],
+    ...node1Base,
     summary: `Khách hàng ${firstTicket.customerName} (${firstTicket.customerEmail}) gửi khiếu nại: "${firstTicket.subject}"`,
     keyHighlights: [
       `Phiếu: #${firstTicket.ticketId.slice(0, 8)} • ${firstTicket.customerName}`,
@@ -557,6 +637,7 @@ export function createLiveWorkflowFromAiProposal(
       `Phân loại: ${firstTicket.issueCategory}`,
     ],
     details: {
+      ...node1Base.details,
       description: `Phiếu khiếu nại tiếp nhận từ hệ thống hỗ trợ. Vấn đề: ${firstTicket.subject}`,
       parameters: [
         { label: "Mã phiếu hỗ trợ", value: firstTicket.ticketId },
@@ -570,7 +651,7 @@ export function createLiveWorkflowFromAiProposal(
   };
 
   const node2: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[1],
+    ...node2Base,
     summary: `AI Support Steward nhận diện mức độ bức xúc: ${firstTicket.sentiment}, rủi ro mất khách: ${firstTicket.churnRisk}. Đề xuất: ${firstTicket.suggestedCompensation}`,
     keyHighlights: [
       `Đề xuất: ${firstTicket.suggestedCompensation}`,
@@ -578,6 +659,7 @@ export function createLiveWorkflowFromAiProposal(
       `Rủi ro: ${firstTicket.churnRisk}`,
     ],
     details: {
+      ...node2Base.details,
       description: `Đề xuất bồi thường và thư xin lỗi được AI Support Steward soạn thảo tự động dựa trên phân loại ${firstTicket.issueCategory}.`,
       parameters: [
         { label: "Mã phương án AI", value: proposal.id },
@@ -592,37 +674,60 @@ export function createLiveWorkflowFromAiProposal(
   };
 
   const node3: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[2],
+    ...node3Base,
     status: "completed",
-    summary: `Phân luồng: Ca khiếu nại mức độ "${firstTicket.priority.toUpperCase()}" với đề xuất "${firstTicket.suggestedCompensation}" vượt trần tự động ➔ Định tuyến sang nhánh Cần Sếp Duyệt.`,
-    keyHighlights: [
-      `Định tuyến: Nhánh 4B (Cần Sếp Duyệt)`,
-      `Lý do: Đề xuất bồi thường cao & rủi ro mất khách`,
-      `Trạng thái: Đã chuyển vào Hộp thư Approvals`,
-    ],
+    summary: isAutoEligible
+      ? `Phân luồng: Mức bồi thường nằm trong hạn mức tự động (≤ ${thresholdFormatted}) ➔ Định tuyến sang nhánh Tự Động Xử Lý.`
+      : `Phân luồng: Ca khiếu nại mức độ "${firstTicket.priority.toUpperCase()}" với đề xuất "${firstTicket.suggestedCompensation}" vượt trần tự động (${thresholdFormatted}) ➔ Định tuyến sang nhánh Cần Sếp Duyệt.`,
+    keyHighlights: isAutoEligible
+      ? [
+          "Định tuyến: Nhánh 4A (Tự Động 100%)",
+          "Lý do: Đề xuất bồi thường trong hạn mức",
+          "Trạng thái: Đã tự động kích hoạt",
+        ]
+      : [
+          "Định tuyến: Nhánh 4B (Cần Sếp Duyệt)",
+          "Lý do: Đề xuất bồi thường vượt hạn mức",
+          "Trạng thái: Đã chuyển vào Hộp thư Approvals",
+        ],
   };
 
   const node4a: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[3],
-    status: "idle",
-    summary: "Nhánh xử lý tự động không được kích hoạt do trường hợp này vượt trần 200.000 đ.",
-    keyHighlights: [
-      "Trạng thái: Bỏ qua (Vượt hạn mức tự động)",
-      "Đã chuyển hướng: Nhánh 4B (Cần Sếp Duyệt)",
-    ],
+    ...node4aBase,
+    status: isAutoEligible ? "completed" : "idle",
+    summary: isAutoEligible
+      ? `Đã tự động kích hoạt mã giảm giá "${firstTicket.suggestedCompensation}" và gửi email xin lỗi khách hàng ${firstTicket.customerName} (< 30 giây).`
+      : `Nhánh xử lý tự động không được kích hoạt do trường hợp này vượt trần tự động ${thresholdFormatted}.`,
+    keyHighlights: isAutoEligible
+      ? [
+          "Trạng thái: Đã thực thi tự động thành công",
+          `Mã voucher: ${firstTicket.suggestedCompensation}`,
+          `Email: ${firstTicket.customerEmail}`,
+        ]
+      : [
+          "Trạng thái: Bỏ qua (Vượt hạn mức tự động)",
+          "Đã chuyển hướng: Nhánh 4B (Cần Sếp Duyệt)",
+        ],
   };
 
   const node4b: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[4],
-    status: isApproved ? "completed" : "waiting_approval",
-    summary: isApproved
+    ...node4bBase,
+    status: isAutoEligible ? "idle" : (isDecisionApproved ? "completed" : "waiting_approval"),
+    summary: isAutoEligible
+      ? `Nhánh cần Sếp duyệt không kích hoạt do trường hợp này nằm trong hạn mức tự động phân quyền (≤ ${thresholdFormatted}).`
+      : isDecisionApproved
       ? `Sếp đã phê duyệt phương án bồi thường. Hệ thống đã kích hoạt voucher "${firstTicket.suggestedCompensation}" và gửi email tới ${firstTicket.customerEmail}.`
       : `Đang chờ Sếp duyệt phương án bồi thường "${firstTicket.suggestedCompensation}" cho khách hàng ${firstTicket.customerName}.`,
-    keyHighlights: [
-      isApproved ? "Trạng thái: Đã phê duyệt thành công" : "Trạng thái: Đang chờ Sếp duyệt tại Approvals",
-      `Đề xuất: ${firstTicket.suggestedCompensation}`,
-      `Gửi tới: ${firstTicket.customerEmail}`,
-    ],
+    keyHighlights: isAutoEligible
+      ? [
+          "Trạng thái: Bỏ qua (Đã tự động duyệt)",
+          `Hạn mức: ≤ ${thresholdFormatted}`,
+        ]
+      : [
+          isDecisionApproved ? "Trạng thái: Đã phê duyệt thành công" : "Trạng thái: Đang chờ Sếp duyệt tại Approvals",
+          `Đề xuất: ${firstTicket.suggestedCompensation}`,
+          `Gửi tới: ${firstTicket.customerEmail}`,
+        ],
   };
 
   const defaultRecoveryIds = new Set([
@@ -638,16 +743,16 @@ export function createLiveWorkflowFromAiProposal(
     .filter((n) => !defaultRecoveryIds.has(n.id))
     .map((n) => {
       if (
-        isApproved &&
+        isDecisionApproved &&
         (n.title?.toLowerCase().includes("thông báo") ||
           n.actor?.toLowerCase().includes("email") ||
           n.details?.parameters?.some((p) => p.value?.includes("@")))
       ) {
         const emailParam = n.details?.parameters?.find(
-          (p) => p.label?.toLowerCase().includes("email") || p.value?.includes("@")
+          (p) => p.label?.toLowerCase().includes("email") || p.value?.includes("@"),
         );
         const roleParam = n.details?.parameters?.find(
-          (p) => p.label?.toLowerCase().includes("chức vụ")
+          (p) => p.label?.toLowerCase().includes("chức vụ"),
         );
         const recipient = emailParam?.value || "duongvanduy799@gmail.com";
         const role = roleParam?.value || "Trưởng phòng CSKH";
@@ -689,9 +794,26 @@ export function createLiveWorkflowFromMarketingCampaign(
   const campaignTitle = brief?.campaignName || campaign.campaignName || "Chiến dịch Marketing Đa Kênh";
   const productName = brief?.subjectReference || "Sản phẩm công nghệ";
 
+  const node1Base =
+    baseWorkflow.nodes.find((n) => n.id === "mkt-1-event" || n.type === "event") ??
+    baseWorkflow.nodes[0] ??
+    MARKETING_LAUNCH_WORKFLOW_FIXTURE.nodes[0];
+  const node2Base =
+    baseWorkflow.nodes.find((n) => n.id === "mkt-2-content" || n.id === "mkt-2-ai-analysis" || n.type === "ai_analysis") ??
+    baseWorkflow.nodes[1] ??
+    MARKETING_LAUNCH_WORKFLOW_FIXTURE.nodes[1];
+  const node3Base =
+    baseWorkflow.nodes.find((n) => n.id === "mkt-3-approval" || n.type === "approval_gate") ??
+    baseWorkflow.nodes[2] ??
+    MARKETING_LAUNCH_WORKFLOW_FIXTURE.nodes[2];
+  const node4Base =
+    baseWorkflow.nodes.find((n) => n.id === "mkt-4-publish" || n.type === "action") ??
+    baseWorkflow.nodes[3] ??
+    MARKETING_LAUNCH_WORKFLOW_FIXTURE.nodes[3];
+
   // Node 1: Event
   const node1: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[0],
+    ...node1Base,
     status: "completed",
     title: `Sản Phẩm Mới: ${productName.slice(0, 30)}`,
     summary: `Chiến dịch "${campaignTitle.slice(0, 75)}" đã được kích hoạt từ Catalog. Mục tiêu: ${brief?.objective?.slice(0, 90) || "Quảng bá sản phẩm đa kênh"}.`,
@@ -701,6 +823,7 @@ export function createLiveWorkflowFromMarketingCampaign(
       `Ngân sách Ads: ${hasPaidBudget ? `${((brief?.maximumCostMicros || 0) / 1000).toLocaleString("vi-VN")} đ` : "0 đ (Organic)"}`,
     ],
     details: {
+      ...node1Base.details,
       description: "Sự kiện kích hoạt tự động khi sản phẩm hoặc chủ đề tiếp thị được khởi tạo trong hệ thống.",
       parameters: [
         { label: "Mã chiến dịch", value: campaign.id },
@@ -718,7 +841,7 @@ export function createLiveWorkflowFromMarketingCampaign(
     ? "completed"
     : (campaign.state === "content_drafting" || campaign.state === "visual_creation" ? "running" : "idle");
   const node2: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[1],
+    ...node2Base,
     status: node2Status,
     summary: content
       ? `AI Copywriter đã sáng tạo nội dung: "${content.hook?.slice(0, 70)}..." và AI Designer đã tạo banner ${visual ? `${visual.width}x${visual.height}px` : "1:1"}.`
@@ -729,6 +852,7 @@ export function createLiveWorkflowFromMarketingCampaign(
       content?.hashtags?.length ? `Hashtags: ${content.hashtags.slice(0, 4).join(" ")}` : "#OpenDX #NovaCommerce",
     ],
     details: {
+      ...node2Base.details,
       description: "Đội ngũ Digital Employee (Copywriter & Visual Specialist) tự động phối hợp viết bài, chọn tông giọng và render hình ảnh quảng cáo.",
       parameters: [
         { label: "Tiêu đề (Hook)", value: content?.hook || "N/A" },
@@ -742,44 +866,44 @@ export function createLiveWorkflowFromMarketingCampaign(
   };
 
   // Node 3: Approval Gate (Content & Creative Approval)
-  const node3Status: BusinessNodeStatus = isCompleted
+  const node3Status: BusinessNodeStatus = isCompleted || node3Base?.status === "completed"
     ? "completed"
     : (isRejected ? "rejected" : (isAwaitingApproval ? "waiting_approval" : "idle"));
   const node3: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[2],
+    ...node3Base,
     status: node3Status,
-    summary: isCompleted
+    summary: isCompleted || node3Base?.status === "completed"
       ? "Nội dung bài viết và hình ảnh đã được duyệt. Lệnh tự động xuất bản đã chuyển sang Bước 4."
       : (isRejected
         ? "Chiến dịch tiếp thị này đã bị từ chối hoặc hủy."
         : "Đang chờ người phụ trách Marketing kiểm tra nội dung và hình ảnh trước khi xuất bản."),
     keyHighlights: [
-      isCompleted
+      isCompleted || node3Base?.status === "completed"
         ? "Trạng thái: Đã duyệt bài"
         : (isRejected ? "Trạng thái: Đã từ chối" : "Trạng thái: Đang chờ duyệt bài"),
       content?.hook ? `Hook: "${content.hook.slice(0, 45)}..."` : "Nội dung: Bài viết & Banner",
       "Người duyệt: Content Lead / Marketing Specialist",
     ],
     details: {
-      ...baseWorkflow.nodes[2].details,
+      ...node3Base.details,
       parameters: [
         { label: "Mã chiến dịch", value: campaign.id },
         { label: "Trạng thái kiểm duyệt", value: campaign.state.toUpperCase() },
         { label: "Người phụ trách", value: brief?.approverId || "Content Lead" },
         { label: "Kênh xuất bản", value: "Facebook Page & Instagram" },
       ],
-      evidence: isCompleted
+      evidence: isCompleted || node3Base?.status === "completed"
         ? "Đã xác nhận duyệt bài. Lưu vết audit log hợp lệ."
         : "Bài viết đang ở trạng thái chờ duyệt trước khi gọi API xuất bản.",
     },
   };
 
   // Node 4: Action (Publishing to Facebook & Instagram)
-  const node4Status: BusinessNodeStatus = isCompleted
+  const node4Status: BusinessNodeStatus = isCompleted || node3Base?.status === "completed"
     ? "completed"
     : (isPublishing ? "running" : "idle");
   const node4: BusinessWorkflowNode = {
-    ...baseWorkflow.nodes[3],
+    ...node4Base,
     status: node4Status,
     summary: isCompleted
       ? `Đã xuất bản thành công bài viết và hình ảnh lên Facebook Fanpage.${publicationRecord?.postUrl ? ` Xem bài viết tại: ${publicationRecord.postUrl}` : ""}`
