@@ -2326,7 +2326,7 @@ export function AgenticCommandCenter({
                   idx === 0 || idx === 1
                     ? { ...s, status: "done" }
                     : idx === 2
-                      ? { ...s, status: "running" }
+                      ? { ...s, status: "pending" }
                       : s,
                 ),
               }
@@ -2446,7 +2446,7 @@ export function AgenticCommandCenter({
                   idx === 0 || idx === 1
                     ? { ...s, status: "done" }
                     : idx === 2
-                      ? { ...s, status: "running" }
+                      ? { ...s, status: "pending" }
                       : s,
                 ),
               }
@@ -2640,7 +2640,7 @@ export function AgenticCommandCenter({
                   idx <= 2
                     ? { ...s, status: "done" }
                     : idx === 3
-                      ? { ...s, status: "running" }
+                      ? { ...s, status: "pending" }
                       : s,
                 ),
               }
@@ -2831,7 +2831,7 @@ export function AgenticCommandCenter({
             ? {
                 ...prev,
                 steps: prev.steps.map((s, idx) =>
-                  idx <= 2 ? { ...s, status: "done" } : { ...s, status: "running" },
+                  idx <= 2 ? { ...s, status: "done" } : idx === 3 ? { ...s, status: "running" } : { ...s, status: "pending" },
                 ),
               }
             : null,
@@ -2846,6 +2846,18 @@ export function AgenticCommandCenter({
         const detail = await marketingApi.getCampaign(createdCampaign.id);
         setActiveCampaignDetail(detail);
         setActiveCampaignId(createdCampaign.id);
+
+        // Transition: Packager done -> Approval pending
+        setCeoPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                steps: prev.steps.map((s, idx) =>
+                  idx <= 3 ? { ...s, status: "done" } : { ...s, status: "pending" },
+                ),
+              }
+            : null,
+        );
 
         const marketingDeliv = buildStrategicDeliverable(goalText, createdCampaign.id, "marketing");
         recordLiveEvent(

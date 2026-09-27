@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- AI CEO Command Center Plan Status & Timer Transition:
+  - Transitioned the human approval gate step in `ceoPlan` to `pending` instead of `running` upon deliverable generation across all departments (Merchandising, Operations, Support, Marketing), halting the execution timer and correctly switching the card badge from "Đang thực thi..." to "Chờ phê duyệt" with a clock icon.
+
 - Email Sender Isolation & Explicit Notification Guardrails:
   - Isolated Marketing publisher email sender (`MARKETING_EMAIL_FROM="NovaCommerce Marketing <nguyenphuongdmx2450@gmail.com>"`) from Support/CSKH (`SUPPORT_EMAIL_FROM`), ensuring marketing publication reports are never mislabeled as "NovaCommerce CSKH" in recipient inboxes.
   - Eliminated hardcoded fallback recipient emails (`duongvanduy799@gmail.com`) in both `MarketingPublisherService` and `AiSupportService`, strictly requiring explicit notification node configuration in workflow blueprints before dispatching completion alerts.
