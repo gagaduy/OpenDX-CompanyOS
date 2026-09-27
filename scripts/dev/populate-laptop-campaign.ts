@@ -20,7 +20,7 @@ const campaignId = "954ed9af-f48f-40a9-98f5-c2383f714fdd";
 const now = new Date().toISOString();
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://opendx_local:opendx_local@localhost:55432/opendx",
+  connectionString: process.env.DATABASE_URL || "postgresql://opendx_local:opendx_local_password@localhost:55432/opendx",
 });
 
 const minioClient = new MinioClient({
