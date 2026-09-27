@@ -228,13 +228,28 @@ export function deriveAggregatePublicationStatus(
 
   const allStatuses = targets.map((t) => t.status);
 
-  // If any target is still executing, the aggregate is publishing
-  if (allStatuses.includes("publishing") || allStatuses.includes("claimed")) {
-    return "publishing";
+  // If all targets are in a preliminary state before execution starts
+  if (allStatuses.every((s) => s === "pending_approval")) {
+    return "pending_approval";
+  }
+  if (allStatuses.every((s) => s === "approved")) {
+    return "approved";
+  }
+  if (allStatuses.every((s) => s === "scheduled")) {
+    return "scheduled";
   }
 
   if (allStatuses.includes("publication_unknown")) {
     return "publication_unknown";
+  }
+
+  // If any target is still executing or waiting to execute while other targets
+  // have already started/finished, the publication run is actively in progress.
+  const hasPending = allStatuses.some(
+    (s) => s === "publishing" || s === "claimed" || s === "scheduled" || s === "approved",
+  );
+  if (hasPending) {
+    return "publishing";
   }
 
   const verifiedCount = allStatuses.filter((s) => s === "verified").length;
@@ -261,19 +276,6 @@ export function deriveAggregatePublicationStatus(
 
   if (failedCount > 0) {
     return "partial_failure";
-  }
-
-  if (allStatuses.every((s) => s === "scheduled")) {
-    return "scheduled";
-  }
-
-  if (allStatuses.every((s) => s === "approved")) {
-    return "approved";
-  }
-
-  // If some targets are verified and others are still scheduled/approved
-  if (verifiedCount > 0 && allStatuses.some((s) => s === "scheduled" || s === "approved")) {
-    return "publishing";
   }
 
   return "pending_approval";

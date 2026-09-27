@@ -414,14 +414,18 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
     try {
       let recipientEmail = "";
       let recipientRole = "Trưởng phòng Marketing";
+      let blueprintVersion = "v1.6";
 
       // 1. Inspect WF-MKT-LAUNCH blueprint for notification node and recipient parameters
       if (this.database) {
         try {
           const res = await this.database.query(
-            `SELECT nodes, edges FROM workflow_blueprints WHERE code = 'WF-MKT-LAUNCH' AND status = 'published' LIMIT 1`,
+            `SELECT version, nodes, edges FROM workflow_blueprints WHERE code = 'WF-MKT-LAUNCH' AND status = 'published' LIMIT 1`,
           );
           if (res.rows.length > 0) {
+            if (res.rows[0].version) {
+              blueprintVersion = res.rows[0].version;
+            }
             const nodes = res.rows[0].nodes || [];
             const notifyNode = nodes.find((n: any) =>
               n.title?.toLowerCase().includes("thông báo") ||
@@ -461,9 +465,19 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       const campaign = await this.marketingRepository.findCampaignById(campaignId);
       const packages = await this.marketingRepository.findPublicationPackagesByCampaignId(campaignId);
       const latestPkg = packages[packages.length - 1];
-      const records = latestPkg
+
+      // Refresh targets directly from DB to ensure freshest terminal statuses
+      const targets = latestPkg
+        ? await this.marketingRepository.findPublicationTargetsByPackageId(latestPkg.id)
+        : _targets;
+
+      const pkgRecords = latestPkg && this.marketingRepository.findPublicationRecordsByPackageId
+        ? await this.marketingRepository.findPublicationRecordsByPackageId(latestPkg.id)
+        : [];
+      const singleRecord = latestPkg
         ? await this.marketingRepository.findPublicationRecordByPackageId(latestPkg.id)
         : null;
+      const records = pkgRecords.find((r) => r.postUrl) ?? singleRecord;
 
       const productName = brief?.subjectReference || campaign?.campaignName || "Sản phẩm công nghệ mới";
       const campaignName = brief?.campaignName || campaign?.campaignName || "Chiến dịch Marketing Đa Kênh";
@@ -487,8 +501,8 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
         },
       });
 
-      const fbTarget = _targets.find((t) => t.platform === "facebook");
-      const igTarget = _targets.find((t) => t.platform === "instagram");
+      const fbTarget = targets.find((t) => t.platform === "facebook");
+      const igTarget = targets.find((t) => t.platform === "instagram");
       const hasFb = fbTarget?.status === "verified";
       const hasIg = igTarget?.status === "verified";
       const channelText = [
@@ -505,7 +519,7 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 620px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
           <div style="background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 28px 24px; color: white;">
-            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-bottom: 6px;">Quy Trình Doanh Nghiệp • WF-MKT-LAUNCH v1.3</div>
+            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-bottom: 6px;">Quy Trình Doanh Nghiệp • WF-MKT-LAUNCH ${blueprintVersion}</div>
             <h2 style="margin: 0; font-size: 22px; font-weight: 700;">🎉 Báo Cáo Xuất Bản Chiến Dịch Thành Công</h2>
           </div>
           <div style="padding: 28px 24px; background: #ffffff;">

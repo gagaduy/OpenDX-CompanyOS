@@ -147,6 +147,18 @@ describe("Marketing Publication Policy & Target Digests", () => {
       expect(deriveAggregatePublicationStatus([fbTarget, igTarget])).toBe("publishing");
     });
 
+    it("derives publishing when one target fails while another target is still scheduled or approved", () => {
+      const fbTarget = buildTarget({ platform: "facebook", format: "feed_image", status: "scheduled", required: true });
+      const igTarget = buildTarget({ platform: "instagram", format: "story_image", status: "failed", required: true });
+      expect(deriveAggregatePublicationStatus([fbTarget, igTarget])).toBe("publishing");
+    });
+
+    it("derives approved when all targets are approved", () => {
+      const fbTarget = buildTarget({ platform: "facebook", format: "feed_image", status: "approved", required: true });
+      const igTarget = buildTarget({ platform: "instagram", format: "story_image", status: "approved", required: true });
+      expect(deriveAggregatePublicationStatus([fbTarget, igTarget])).toBe("approved");
+    });
+
     it("derives publication_unknown when a target is unknown", () => {
       const fbTarget = buildTarget({ platform: "facebook", format: "feed_image", status: "verified", required: true });
       const igTarget = buildTarget({ platform: "instagram", format: "story_image", status: "publication_unknown", required: true });

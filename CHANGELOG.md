@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Marketing Multi-Channel Publication Status Synchronization & Workflow Notification Dispatch:
+  - Fixed race condition in `deriveAggregatePublicationStatus` where an early platform failure (such as Instagram public media validation) prematurely marked the overall campaign as `partial_failure` while Facebook publishing was still pending or queued.
+  - Ensured aggregate publication status remains in `publishing` until all scheduled and approved targets have reached terminal state, preventing premature completion notifications without verified social post URLs.
+  - Updated notification email dispatch in `MarketingPublisherService` to dynamically query active blueprint version (e.g. `WF-MKT-LAUNCH v1.6`) and verified publication records, guaranteeing real Facebook post links are included in delivered reports.
+
 - AI CEO Command Center Plan Status & Timer Transition:
   - Transitioned the human approval gate step in `ceoPlan` to `pending` instead of `running` upon deliverable generation across all departments (Merchandising, Operations, Support, Marketing), halting the execution timer and correctly switching the card badge from "Đang thực thi..." to "Chờ phê duyệt" with a clock icon.
 
