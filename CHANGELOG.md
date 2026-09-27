@@ -11,9 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-- Digital Employees & Console Navigation Polish:
-  - Removed "Alpha" badge from "Company Overview" in Console sidebar navigation, presenting the company operating core as fully operational.
+- Digital Employees Workforce Directory & Schema Fix:
+  - Expanded `AgentKind` type union and Zod schemas in `agentic-workforce-api.schema.ts` to include all 10 digital employees (`marketing_content`, `marketing_visual`, `marketing_publisher`), removing the strict 7-item length constraint that caused frontend validation failure and prevented the workforce directory from displaying.
+  - Enhanced `EmployeeTable` and `AgenticEmployeesPage` to display all 10 digital employees with friendly names and department indicators, while highlighting the currently active selection.
   - Automatically selected the first Digital Employee (`ai_ceo`) upon loading the `/agentic/employees` workforce directory, ensuring the governance panel immediately displays comprehensive configuration, tools, and execution evidence without requiring extra manual selection.
+  - Removed "Alpha" badge from "Company Overview" in Console sidebar navigation, presenting the company operating core as fully operational.
 
 - Authentic Vietnamese Customer Demographics & Realistic Order History Synchronization:
   - Replaced generic placeholder customer profiles (`customer-demo-XX@example.invalid` / `Dashboard Demo Customer XX`) with 40 authentic Vietnamese identities (`VIETNAM_CUSTOMERS`) containing real full names (e.g. Võ Thanh Hà, Vũ Đình Trọng, Cao Bích Ngọc, Ngô Quang Huy), realistic Vietnamese email addresses, authentic phone numbers, and street addresses across Hanoi, Ho Chi Minh City, Da Nang, Can Tho, and Hai Phong.

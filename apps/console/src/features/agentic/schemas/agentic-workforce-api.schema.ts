@@ -3,10 +3,22 @@
 
 import { z } from "zod";
 
-const kind = z.enum(["ai_ceo", "catalog", "inventory", "order", "finance", "crm", "support"]);
+export const agentKindSchema = z.enum([
+  "ai_ceo",
+  "catalog",
+  "inventory",
+  "order",
+  "finance",
+  "crm",
+  "support",
+  "marketing_content",
+  "marketing_visual",
+  "marketing_publisher",
+]);
+const kind = agentKindSchema;
 const summary = z.object({ kind, department: z.string(), active: z.boolean() }).strict();
 const envelope = <T extends z.ZodType>(data: T) => z.object({ success: z.literal(true), data }).passthrough();
-export const agenticEmployeeListEnvelopeSchema = envelope(z.array(summary).length(7));
+export const agenticEmployeeListEnvelopeSchema = envelope(z.array(summary));
 export const agenticEmployeeDetailEnvelopeSchema = envelope(z.object({
   kind, department: z.string(),
   governance: z.object({ active: z.boolean(), revoked: z.boolean(), configurationVersion: z.number().int().nonnegative() }).strict(),

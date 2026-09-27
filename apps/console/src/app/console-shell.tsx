@@ -167,7 +167,6 @@ export function ConsoleShell() {
                     >
                       <Icon size={17} aria-hidden="true" />
                       <span className="navText">{item.label}</span>
-                      {item.alpha && <span className="alphaBadge">Alpha</span>}
                     </NavLink>
                   );
                 })}

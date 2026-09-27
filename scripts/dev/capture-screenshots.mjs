@@ -15,14 +15,21 @@ async function main() {
     "--remote-debugging-port=9222",
     "--disable-gpu",
     "--no-sandbox",
+    "--user-data-dir=/tmp/chrome-test-profile",
     "--window-size=1440,900",
   ]);
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
+  let versionData;
+  for (let i = 0; i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const res = await fetch("http://127.0.0.1:9222/json/version");
+      versionData = await res.json();
+      break;
+    } catch {}
+  }
+  if (!versionData) throw new Error("Could not connect to Chrome on port 9222");
   try {
-    const versionRes = await fetch("http://127.0.0.1:9222/json/version");
-    const versionData = await versionRes.json();
     console.log("Connected to browser:", versionData.Browser);
 
     const newTabRes = await fetch("http://127.0.0.1:9222/json/new", { method: "PUT" });
@@ -116,6 +123,12 @@ async function main() {
       console.log(`Capturing ${item.name} from ${item.url}...`);
       await send("Page.navigate", { url: item.url });
       await new Promise((r) => setTimeout(r, item.delay));
+      if (item.name === "05_approval_inbox.png") {
+        await send("Runtime.evaluate", {
+          expression: `document.querySelector(".agenticApprovalList button")?.click()`,
+        });
+        await new Promise((r) => setTimeout(r, 1200));
+      }
       const shot = await send("Page.captureScreenshot", { format: "png" });
       if (shot && shot.data) {
         const filePath = path.join(OUT_DIR, item.name);
