@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowRight, Calendar, Phone, ShieldCheck, User } from "lucide-react";
+import { ArrowRight, Calendar, Crown, Phone, ShieldCheck, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { CustomerSummaryView } from "../types/customer.types";
 import "../styles/customers.css";
@@ -87,6 +87,16 @@ export function CustomerTable({
                         <strong className="customerFullName">
                           {customer.fullName ?? "Unnamed customer"}
                         </strong>
+                        {customer.segments?.includes("high_value") ? (
+                          <span
+                            className="customer360SegmentChip vip"
+                            style={{ fontSize: "0.68rem", padding: "0.1rem 0.45rem", display: "inline-flex", alignItems: "center", gap: 3 }}
+                            title="Khách hàng VIP (LTV ≥ 50.000.000 đ)"
+                          >
+                            <Crown size={11} style={{ color: "#fbbf24" }} aria-hidden="true" />
+                            <span>VIP</span>
+                          </span>
+                        ) : null}
                       </div>
                       <span className="customerEmailText">{customer.email}</span>
                     </div>
