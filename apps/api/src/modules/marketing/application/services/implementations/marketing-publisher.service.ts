@@ -412,7 +412,7 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
     _targets: readonly PublicationTarget[],
   ): Promise<void> {
     try {
-      let recipientEmail = "duongvanduy799@gmail.com";
+      let recipientEmail = "";
       let recipientRole = "Trưởng phòng Marketing";
 
       // 1. Inspect WF-MKT-LAUNCH blueprint for notification node and recipient parameters
@@ -475,7 +475,7 @@ export class MarketingPublisherServiceImpl implements MarketingPublisherService 
       const smtpPass = (process.env.SUPPORT_SMTP_PASS || "jarqsjtoegstwkft").replace(/\s+/g, "");
       const smtpHost = process.env.SUPPORT_SMTP_HOST || "smtp.gmail.com";
       const smtpPort = Number(process.env.SUPPORT_SMTP_PORT) || 587;
-      const smtpFrom = process.env.SUPPORT_EMAIL_FROM || `NovaCommerce Operations <${smtpUser}>`;
+      const smtpFrom = process.env.MARKETING_EMAIL_FROM || `NovaCommerce Marketing <${smtpUser}>`;
 
       const transporter = nodemailer.createTransport({
         host: smtpHost,

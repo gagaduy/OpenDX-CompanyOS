@@ -319,7 +319,7 @@ Dữ liệu Khách hàng: ${JSON.stringify(rawVips)}`;
         const capMatch = compLower.match(/tối đa\s*(\d[\d.,]*)\s*(?:k|000|đ|₫|vnd)(?:\s|$|[^\p{L}])/iu);
         if (capMatch) {
           let cap = parseInt(capMatch[1].replace(/[.,]/g, ""), 10);
-          if (capMatch[0].toLowerCase().includes("k") && cashMatch && cap < 1000) cap *= 1000;
+          if (capMatch[0].toLowerCase().includes("k") && cap < 1000) cap *= 1000;
           estimatedAmount = cap;
         } else {
           estimatedAmount = 300_000;
@@ -946,7 +946,7 @@ Hãy soạn thảo thư phản hồi hoàn chỉnh, thuyết phục và đúng t
     }>,
   ): Promise<void> {
     try {
-      let recipientEmail = "duongvanduy799@gmail.com";
+      let recipientEmail = "";
       let recipientRole = "Trưởng phòng CSKH";
 
       // 1. Inspect WF-CSKH-RECOVERY blueprint for notification node and recipient parameters

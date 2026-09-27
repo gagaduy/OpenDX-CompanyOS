@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Email Sender Isolation & Explicit Notification Guardrails:
+  - Isolated Marketing publisher email sender (`MARKETING_EMAIL_FROM="NovaCommerce Marketing <nguyenphuongdmx2450@gmail.com>"`) from Support/CSKH (`SUPPORT_EMAIL_FROM`), ensuring marketing publication reports are never mislabeled as "NovaCommerce CSKH" in recipient inboxes.
+  - Eliminated hardcoded fallback recipient emails (`duongvanduy799@gmail.com`) in both `MarketingPublisherService` and `AiSupportService`, strictly requiring explicit notification node configuration in workflow blueprints before dispatching completion alerts.
+
 - CSKH Customer Service Demo Cases & Live Workflow Routing:
   - Seeded 2 authentic, realistic customer complaint cases in PostgreSQL `support_tickets` and `support_ticket_messages` linked to actual customer profiles and high-value orders:
     - **Ca 1 (Vượt trần > 200k • Cần Sếp duyệt)**: Khách hàng VIP Diamond Cao Bích Ngọc (`ngoc.cao.edu@gmail.com`) khiếu nại máy Nova Laptop Pro (đơn hàng NVC-20260919-00000016 trị giá 33.040.000 ₫) bị lỗi sọc màn hình và sập nguồn khi đang giảng dạy. AI Support Steward nhận diện mức độ bức xúc và đề xuất bồi thường gói Bảo hành Vàng Care+ 1 năm & Voucher 500.000 ₫ (> hạn mức tự duyệt 200.000 ₫), tự động phân luồng rẽ nhánh sang Bước 4B Chờ Sếp duyệt (`waiting_approval`).
