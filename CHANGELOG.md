@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Digital Employees Metric Formatting & Business-Friendly Conversion:
+  - Converted raw internal micro-dollar units (`µ`) into clean USD and Vietnamese Dong equivalents (e.g., `$0.100 USD (~2,540 ₫)`, `$1.00 USD (~25,400 ₫)`, `$10.00 USD (~254,000 ₫)`).
+  - Formatted raw ISO timestamp strings into localized date-time values (`HH:mm:ss DD/MM/YYYY`) in governance summaries and recent execution logs.
+  - Added visual status pills (`Sẵn sàng (Available)`, `Cảnh báo (Degraded)`, `Đã thu hồi (Revoked)`) and clear run state badges for recent runs.
+
 - Digital Employees Workforce Directory & Schema Fix:
   - Expanded `AgentKind` type union and Zod schemas in `agentic-workforce-api.schema.ts` to include all 10 digital employees (`marketing_content`, `marketing_visual`, `marketing_publisher`), removing the strict 7-item length constraint that caused frontend validation failure and prevented the workforce directory from displaying.
   - Enhanced `EmployeeTable` and `AgenticEmployeesPage` to display all 10 digital employees with friendly names and department indicators, while highlighting the currently active selection.
