@@ -1,0 +1,983 @@
+/*
+ * SPDX-FileCopyrightText: 2026 OpenDX CompanyOS contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* ==========================================================================
+   Customer & CRM Modern Workspace Styles
+   ========================================================================== */
+
+.customerWorkspace {
+  min-height: 100vh;
+  padding: 1.75rem 2rem 5rem;
+  background: var(--canvas, #08090c);
+  color: var(--ink, #f3f4f6);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Top Metrics Grid (KPI Cards)
+   -------------------------------------------------------------------------- */
+.customerMetricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.customerMetricCard {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 12px;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.customerMetricCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94, 106, 210, 0.4);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+}
+
+.customerMetricCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.customerMetricCard.accentPurple::before {
+  background: linear-gradient(90deg, #818cf8, #a855f7);
+}
+
+.customerMetricCard.accentGold::before {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.customerMetricCard.accentBlue::before {
+  background: linear-gradient(90deg, #38bdf8, #3b82f6);
+}
+
+.customerMetricCard.accentGreen::before {
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+
+.customerMetricContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.customerMetricLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-subtle, #94a3b8);
+}
+
+.customerMetricValue {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ink, #ffffff);
+  line-height: 1.2;
+}
+
+.customerMetricSub {
+  font-size: 0.78rem;
+  color: var(--ink-subtle, #94a3b8);
+  margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.customerMetricIconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.customerMetricCard.accentPurple .customerMetricIconWrap {
+  background: rgba(129, 140, 248, 0.12);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.25);
+}
+
+.customerMetricCard.accentGold .customerMetricIconWrap {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.customerMetricCard.accentBlue .customerMetricIconWrap {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.customerMetricCard.accentGreen .customerMetricIconWrap {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Filter & Segment Bar
+   -------------------------------------------------------------------------- */
+.customerFilterSection {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.customerFilterMainRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.customerSearchBox {
+  display: flex;
+  align-items: center;
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 260px;
+  max-width: 480px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.customerSearchBox:focus-within {
+  border-color: var(--primary, #5e6ad2);
+  box-shadow: 0 0 0 2px rgba(94, 106, 210, 0.2);
+}
+
+.customerSearchIcon {
+  color: var(--ink-subtle, #64748b);
+  flex-shrink: 0;
+}
+
+.customerSearchInput {
+  background: transparent;
+  border: none;
+  color: var(--ink, #ffffff);
+  font-size: 0.875rem;
+  width: 100%;
+  outline: none;
+}
+
+.customerSearchInput::placeholder {
+  color: var(--ink-subtle, #64748b);
+}
+
+.customerSearchClearBtn {
+  background: transparent;
+  border: none;
+  color: var(--ink-subtle, #64748b);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.customerSearchClearBtn:hover {
+  color: var(--ink, #ffffff);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.customerDropdownWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.customerDropdownSelect {
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  color: var(--ink, #e2e8f0);
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.customerDropdownSelect:focus {
+  border-color: var(--primary, #5e6ad2);
+}
+
+/* Quick Segment Pills */
+.customerSegmentPillsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 0.75rem;
+}
+
+.customerSegmentPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid var(--hairline, #2a2d35);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-subtle, #94a3b8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.customerSegmentPill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink, #ffffff);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.customerSegmentPill.active {
+  background: rgba(94, 106, 210, 0.16);
+  border-color: rgba(94, 106, 210, 0.5);
+  color: #c7d2fe;
+  font-weight: 600;
+}
+
+.customerSegmentPillCount {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.7rem;
+  color: var(--ink-subtle, #94a3b8);
+}
+
+.customerSegmentPill.active .customerSegmentPillCount {
+  background: rgba(94, 106, 210, 0.3);
+  color: #e0e7ff;
+}
+
+/* --------------------------------------------------------------------------
+   Modern Customer Table
+   -------------------------------------------------------------------------- */
+.customerTableWrapper {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.customerTableModern {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.customerTableModern thead {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--hairline, #23252a);
+}
+
+.customerTableModern th {
+  padding: 0.85rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+.customerTableModern tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 0.15s ease;
+}
+
+.customerTableModern tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.customerTableModern tbody tr:last-child {
+  border-bottom: none;
+}
+
+.customerTableModern td {
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+/* Customer Cell */
+.customerIdentityCell {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.customerAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #ffffff;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.customerInfoStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.customerNameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.customerFullName {
+  font-weight: 600;
+  color: var(--ink, #ffffff);
+  font-size: 0.92rem;
+}
+
+.customerEmailText {
+  font-size: 0.8rem;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+/* Status Pill */
+.customerStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.customerStatusBadge.active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.customerStatusBadge.disabled {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.customerStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.customerStatusBadge.active .customerStatusDot {
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.customerStatusBadge.disabled .customerStatusDot {
+  background: #94a3b8;
+}
+
+/* Phone Cell */
+.customerPhoneText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink, #e2e8f0);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+/* Date Cell */
+.customerDateText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink-subtle, #8a8f98);
+  font-size: 0.82rem;
+}
+
+/* Action Button */
+.customerActionLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hairline, #2a2d35);
+  color: var(--ink, #e2e8f0);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.customerActionLink:hover {
+  background: rgba(94, 106, 210, 0.15);
+  border-color: rgba(94, 106, 210, 0.5);
+  color: #c7d2fe;
+}
+
+/* --------------------------------------------------------------------------
+   Modern Pagination
+   -------------------------------------------------------------------------- */
+.customerPaginationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 12px;
+  margin-top: 1rem;
+}
+
+.customerPaginationInfo {
+  font-size: 0.82rem;
+  color: var(--ink-subtle, #94a3b8);
+}
+
+.customerPaginationButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.customerPaginationBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  color: var(--ink, #ffffff);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.customerPaginationBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.customerPaginationBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Customer 360 Detail Page Styles
+   -------------------------------------------------------------------------- */
+.customer360Workspace {
+  min-height: 100vh;
+  padding: 1.75rem 2rem 5rem;
+  background: var(--canvas, #08090c);
+  color: var(--ink, #f3f4f6);
+}
+
+.customer360HeroCard {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 16px;
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.customer360HeroCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+}
+
+.customer360HeroLeft {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.customer360AvatarLarge {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.customer360HeroInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.customer360HeroName {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ink, #ffffff);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.customer360HeroMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--ink-subtle, #94a3b8);
+  flex-wrap: wrap;
+}
+
+.customer360HeroMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.customer360SegmentsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.customer360SegmentChip {
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: #c7d2fe;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.customer360SegmentChip.vip {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* 360 Financial KPI Summary */
+.customer360FinancialGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.customer360StatCard {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 12px;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.customer360StatLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-subtle, #8a8f98);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.customer360StatValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ink, #ffffff);
+  line-height: 1.2;
+}
+
+.customer360StatSub {
+  font-size: 0.78rem;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+/* 360 Detail Main Grid */
+.customer360DetailGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .customer360DetailGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.customer360SectionCard {
+  background: var(--surface-1, #0f1013);
+  border: 1px solid var(--hairline, #23252a);
+  border-radius: 14px;
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.customer360SectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.customer360SectionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink, #ffffff);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+/* Addresses */
+.customerAddressList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.customerAddressCard {
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-style: normal;
+}
+
+.customerAddressCard.isDefault {
+  border-color: rgba(94, 106, 210, 0.4);
+  background: rgba(94, 106, 210, 0.04);
+}
+
+.customerAddressHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.customerAddressRecipient {
+  font-weight: 600;
+  color: var(--ink, #ffffff);
+  font-size: 0.9rem;
+}
+
+.customerAddressDefaultBadge {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(94, 106, 210, 0.2);
+  color: #c7d2fe;
+  font-weight: 600;
+}
+
+.customerAddressLine {
+  font-size: 0.85rem;
+  color: var(--ink-muted, #d0d6e0);
+}
+
+.customerAddressSub {
+  font-size: 0.78rem;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+/* Order History in 360 */
+.customerOrderList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.customerOrderItem {
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.customerOrderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.customerOrderNumber {
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--ink, #ffffff);
+}
+
+.customerOrderDate {
+  font-size: 0.75rem;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+.customerOrderRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.customerOrderAmount {
+  font-weight: 700;
+  color: #34d399;
+  font-size: 0.92rem;
+}
+
+.customerOrderStatusChip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.customerOrderStatusChip.paid,
+.customerOrderStatusChip.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.customerOrderStatusChip.pending_payment {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+/* Follow-ups Panel */
+.customerFollowupItem {
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.customerFollowupItem.open {
+  border-left: 3px solid #f59e0b;
+}
+
+.customerFollowupItem.completed {
+  border-left: 3px solid #10b981;
+}
+
+.customerFollowupHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.customerFollowupDesc {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink, #ffffff);
+  margin: 0;
+}
+
+.customerFollowupMeta {
+  font-size: 0.78rem;
+  color: var(--ink-subtle, #8a8f98);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.customerClaimBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  background: var(--primary, #5e6ad2);
+  color: #ffffff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.customerClaimBtn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.customerClaimBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Timeline */
+.customerTimelineList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.customerTimelineList::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 15px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.customerTimelineItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+}
+
+.customerTimelineDot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+}
+
+.customerTimelineDot.order {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.customerTimelineDot.note {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.customerTimelineDot.followup {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.customerTimelineContent {
+  flex: 1;
+  background: var(--surface-2, #141518);
+  border: 1px solid var(--hairline, #2a2d35);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.customerTimelineTime {
+  font-size: 0.72rem;
+  color: var(--ink-subtle, #8a8f98);
+}
+
+.customerTimelinePrimary {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink, #ffffff);
+}
+
+.customerTimelineMeta {
+  font-size: 0.75rem;
+  color: var(--ink-subtle, #8a8f98);
+}
