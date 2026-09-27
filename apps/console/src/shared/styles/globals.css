@@ -2185,8 +2185,23 @@ ul {
 .agenticEmployeeGrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .8fr); gap: 20px; align-items: start; }
 .agenticEmployeeDetail { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-1); }
 .agenticEmployeeDetail > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.agenticEmployeeDetail > header h2, .agenticEmployeeDetail h3, .agenticEmployeeDetail p { margin: 0; }
 .agenticEmployeeDetail > p, .agenticEmployeeDetail li { color: var(--ink-subtle); font-size: 11px; }
+.agenticEmployeeDetail .statusPill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+.agenticEmployeeDetail .statusPill.available { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+.agenticEmployeeDetail .statusPill.degraded { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+.agenticEmployeeDetail .statusPill.revoked { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.agenticEmployeeDetail .agenticRunList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.agenticEmployeeDetail .agenticRunItem { display: flex; flex-direction: column; gap: 5px; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--hairline); border-radius: 6px; }
+.agenticEmployeeDetail .runHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.agenticEmployeeDetail .runBadge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; }
+.agenticEmployeeDetail .runBadge.completed { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.agenticEmployeeDetail .runBadge.partial { background: rgba(234, 179, 8, 0.2); color: #facc15; }
+.agenticEmployeeDetail .runBadge.failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.agenticEmployeeDetail .runBadge.escalated { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.agenticEmployeeDetail .runCost { font-size: 11px; font-weight: 600; color: var(--ink); }
+.agenticEmployeeDetail .runMeta { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--ink-subtle); }
+.agenticEmployeeDetail .agenticToolList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.agenticEmployeeDetail .agenticToolList li { padding: 6px 10px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--hairline); border-radius: 6px; }
 .agenticAuditFilters { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)); gap: 10px; align-items: end; }
 .agenticAuditFilters label { display: grid; gap: 5px; color: var(--ink-subtle); font-size: 10px; }
 .agenticAuditGrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); gap: 20px; align-items: start; }
